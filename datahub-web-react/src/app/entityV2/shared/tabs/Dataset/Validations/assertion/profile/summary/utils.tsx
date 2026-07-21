@@ -20,13 +20,12 @@ import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Va
 import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import {
     getFieldDescription,
-    getFieldOperatorDescription,
-    getFieldParametersDescription,
-    getFieldTransformDescription,
+    getFieldDescriptionDescriptor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 import {
     getIsRowCountChange,
     getParameterDescription,
+    getParameterInterpolation,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -73,7 +72,8 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const isChange = getIsRowCountChange(volumeType);
-    const parameter = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
+    const interpolation = getParameterInterpolation(parameterDescription);
 
     const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
         switch (op) {
@@ -100,19 +100,37 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
         key = `volumeDescription.total${operatorKeyPart}`;
     }
 
-    return i18next.t(`entity.profile.validations:${key}`, { parameter });
+    return i18next.t(`entity.profile.validations:${key}`, interpolation);
 };
 
-/* untranslated-text -- no translation keys exist yet for field assertion sentence patterns */
-const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
+const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo): string => {
     const field = getFieldDescription(assertionInfo);
-    const transform = getFieldTransformDescription(assertionInfo);
-    // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
-    const operator = getFieldOperatorDescription({ assertionInfo, isPlural: !transform });
-    const parameters = getFieldParametersDescription(assertionInfo);
-    return `${transform} ${transform ? ' of ' : ''}${field} ${
-        (transform && 'column') || 'Values'
-    } ${operator} ${parameters}`;
+    try {
+        const descriptor = getFieldDescriptionDescriptor(assertionInfo);
+        return i18next
+            .t(`entity.profile.validations:fieldDescription.${descriptor.shape}.${descriptor.operatorKey}`, {
+                field: descriptor.field,
+                transform: descriptor.transformLabelKey
+                    ? i18next.t(`entity.profile.validations:${descriptor.transformLabelKey}`)
+                    : '',
+                metric: descriptor.metricLabelKey
+                    ? i18next.t(`entity.profile.validations:${descriptor.metricLabelKey}`)
+                    : '',
+                value: descriptor.tokens.value,
+                minValue: descriptor.tokens.minValue,
+                maxValue: descriptor.tokens.maxValue,
+            })
+            .replace(/<\/?bold>/g, '');
+    } catch (e) {
+        // Helpers throw on unsupported enum values (e.g. operator = _NATIVE_ from external
+        // integrations). Fall back to a generic description rather than breaking the search path.
+        console.warn('Failed to render field assertion plain text description', e);
+        return i18next
+            .t('entity.profile.validations:fieldDescription.customCheckOn', {
+                field: field ?? i18next.t('entity.profile.validations:fieldDescription.fieldFallback'),
+            })
+            .replace(/<\/?bold>/g, '');
+    }
 };
 
 const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {

@@ -123,7 +123,7 @@ public class MetricMapperTest {
   }
 
   @Test
-  public void testMapMetricRelationshipsParentMetric() throws URISyntaxException {
+  public void testTopLevelParentMetricPopulatedFromRelationshipsAspect() throws URISyntaxException {
     EntityResponse entityResponse = createBaseEntityResponse();
 
     MetricRelationships rels =
@@ -135,10 +135,9 @@ public class MetricMapperTest {
 
       Metric result = MetricMapper.map(mockQueryContext, entityResponse);
 
-      assertNotNull(result.getMetricRelationships());
-      assertNotNull(result.getMetricRelationships().getParentMetric());
-      assertEquals(result.getMetricRelationships().getParentMetric().getUrn(), PARENT_METRIC_URN);
-      assertEquals(result.getMetricRelationships().getParentMetric().getType(), EntityType.METRIC);
+      assertNotNull(result.getParentMetric());
+      assertEquals(result.getParentMetric().getUrn(), PARENT_METRIC_URN);
+      assertEquals(result.getParentMetric().getType(), EntityType.METRIC);
     }
   }
 

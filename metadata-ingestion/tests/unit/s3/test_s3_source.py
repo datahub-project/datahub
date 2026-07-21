@@ -26,6 +26,7 @@ from datahub.ingestion.source.s3.source import (
     TableData,
     partitioned_folder_comparator,
 )
+from datahub.metadata.schema_classes import ContainerPropertiesClass
 
 logging.getLogger("boto3").setLevel(logging.INFO)
 logging.getLogger("botocore").setLevel(logging.INFO)
@@ -59,6 +60,9 @@ def _get_s3_source(path_spec_: PathSpec) -> S3Source:
             "path_spec": {
                 "include": path_spec_.include,
                 "table_name": path_spec_.table_name,
+                "emit_folders_only": path_spec_.emit_folders_only,
+                "exclude": path_spec_.exclude,
+                "include_hidden_folders": path_spec_.include_hidden_folders,
             },
             "aws_config": {
                 "aws_access_key_id": "test",
@@ -463,6 +467,86 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
         size=150,
         sample_file="s3://my-bucket/my-folder/dir1/0002.csv",
     )
+
+
+def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_client):
+    bucket = "media-bucket"
+    s3_client.create_bucket(Bucket=bucket)
+    # Depth-2 glob (media/*/*/). The tree exercises all three depth edges:
+    #   - videos/2023, videos/2024 sit AT depth 2       -> emitted
+    #   - audio is a depth-1 leaf (no depth-2 child)     -> NOT emitted (too shallow)
+    #   - videos/2023/raw sits BELOW depth 2             -> NOT emitted (depth cap)
+    for key in [
+        "media/videos/2023/clip.mp4",
+        "media/videos/2023/raw/deep.mp4",
+        "media/videos/2024/clip.mp4",
+        "media/audio/podcast.mp3",
+    ]:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
+
+    source = _get_s3_source(
+        PathSpec(
+            include=f"s3://{bucket}/media/*/*/",
+            emit_folders_only=True,
+        )
+    )
+
+    wus = list(source.get_workunits_internal())
+    urns = {wu.get_urn() for wu in wus}
+
+    # Every workunit is a container; no dataset URNs.
+    assert all(urn.startswith("urn:li:container:") for urn in urns)
+    assert not any(urn.startswith("urn:li:dataset:") for urn in urns)
+
+    names: List[str] = []
+    for wu in wus:
+        if getattr(wu.metadata, "aspectName", None) != "containerProperties":
+            continue
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, ContainerPropertiesClass)
+        names.append(aspect.name)
+
+    # Exactly the bucket + the depth<=2 chain, each container emitted once.
+    # Excludes 'audio' (too shallow) and 'raw' (below the glob depth); the
+    # exact-multiset check also fails on any duplicate container emission.
+    assert sorted(names) == ["2023", "2024", "media", "media-bucket", "videos"]
+    assert source.report.folders_scanned == 2
+
+
+def test_s3_emit_folders_only_applies_exclude_and_hidden(s3_resource, s3_client):
+    bucket = "media-bucket"
+    s3_client.create_bucket(Bucket=bucket)
+    for key in [
+        "media/keep/2024/clip.mp4",
+        "media/skip/2024/clip.mp4",  # excluded via exclude glob
+        "media/_staging/2024/clip.mp4",  # skipped as hidden (default)
+    ]:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
+
+    source = _get_s3_source(
+        PathSpec(
+            include=f"s3://{bucket}/media/*/*/",
+            emit_folders_only=True,
+            exclude=[f"s3://{bucket}/media/skip/**"],
+        )
+    )
+
+    wus = list(source.get_workunits_internal())
+    names: List[str] = []
+    for wu in wus:
+        if getattr(wu.metadata, "aspectName", None) != "containerProperties":
+            continue
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        assert isinstance(aspect, ContainerPropertiesClass)
+        names.append(aspect.name)
+
+    # Only the 'keep' chain survives; 'skip' (exclude) and '_staging' (hidden) are gone.
+    assert set(names) == {"media-bucket", "media", "keep", "2024"}
+    assert "skip" not in names
+    assert "_staging" not in names
+    assert source.report.folders_scanned == 1
 
 
 def test_s3_region_in_external_url():

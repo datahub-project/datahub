@@ -497,6 +497,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:dataplex",
+        "name": "dataplex",
+        "displayName": "Google Cloud Knowledge Catalog (Dataplex)",
+        "description": "Google Cloud's intelligent data fabric for unified data management, governance, and analytics across data lakes and warehouses.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dataplex",
+        "recipe": "source:\n    type: dataplex\n    config:\n        project_ids:\n            - my-gcp-project\n        include_schema: true\n        include_lineage: true\n        include_glossaries: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:sac",
         "name": "sac",
         "displayName": "SAP Analytics Cloud",

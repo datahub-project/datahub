@@ -50,6 +50,7 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
 
     AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 30, clock, false);
     try {
+      store.recordRequest(session("urn:li:corpuser:pre-boundary", "metadata_read", null));
       clock.advance(Duration.ofMinutes(9).plusSeconds(30));
       coordinator.tick();
 
@@ -59,8 +60,9 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
               .filter(b -> b.trigger() == FlushTrigger.SCHEDULED)
               .findFirst()
               .orElseThrow();
+      Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:50:00Z"));
       Assert.assertTrue(batch.windowEnd().isBefore(Instant.parse("2026-07-10T11:00:00Z")));
-      Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:00:00Z"));
+      Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:59:30Z"));
 
       clock.advance(Duration.ofSeconds(30));
       coordinator.tick();
@@ -78,6 +80,7 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
 
     AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 30, clock, false);
     try {
+      store.recordRequest(session("urn:li:corpuser:fifteen", "metadata_read", null));
       clock.advance(Duration.ofMinutes(1));
       coordinator.tick();
     } finally {
@@ -89,6 +92,8 @@ public class AdaptiveFlushCoordinatorAlignmentTest {
             .filter(b -> b.trigger() == FlushTrigger.SCHEDULED)
             .findFirst()
             .orElseThrow();
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:14:00Z"));
+    Assert.assertEquals(batch.windowEnd(), Instant.parse("2026-07-10T10:15:00Z"));
     Assert.assertFalse(
         UsageFlushBoundaryUtils.crossesBoundary(
             batch.windowStart(), batch.windowEnd(), Duration.ofSeconds(900), ZoneOffset.UTC));

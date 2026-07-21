@@ -40,7 +40,7 @@ def get_long_description():
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
 }
 
@@ -79,9 +79,7 @@ plugins: Dict[str, Set[str]] = {
         "confluent-kafka[schemaregistry]<2.13.0",
     },
     # Action Plugins
-    "executor": {
-        "acryl-executor>=0.3.11,<1"
-    },
+    "executor": {"acryl-executor>=0.3.11,<1"},
     "slack": {
         "slack-bolt>=1.15.5",
     },

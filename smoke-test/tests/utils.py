@@ -40,7 +40,11 @@ def _is_transient_login_error(exception: BaseException) -> bool:
     if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
         return True
     if isinstance(exception, requests.HTTPError) and exception.response is not None:
-        return exception.response.status_code >= 500
+        # 400/429: parallel /logIn under xdist can briefly fail with Bad Request
+        # or rate limiting; treat as retryable like 5xx.
+        return exception.response.status_code in (400, 429) or (
+            exception.response.status_code >= 500
+        )
     return False
 
 

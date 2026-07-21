@@ -8,6 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.usage.loader.UsageMetricRegistryLoader;
 import com.linkedin.metadata.config.usage.loader.UsageOperationsLoader;
+import com.linkedin.metadata.usage.UsageDimensions;
 import com.linkedin.metadata.usage.UsageTestFixtures;
 import com.linkedin.metadata.usage.flush.AdditiveUsageRow;
 import com.linkedin.metadata.usage.flush.FlushTrigger;
@@ -32,6 +33,7 @@ import java.util.Comparator;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
@@ -186,6 +188,45 @@ public class InMemoryUsageAggregationStoreTest {
     Assert.assertTrue(
         batch.distinctSnapshots().stream()
             .anyMatch(snapshot -> snapshot.metricName().equals("active_writers")));
+  }
+
+  @Test
+  public void testAgentNameDimensionIncludedWhenEnabled() {
+    RecordingUsageFlushSink agentNameSink = new RecordingUsageFlushSink();
+    UsageOperationsRegistry usageRegistry =
+        UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
+    UsageMetricRegistry metricRegistry =
+        UsageMetricRegistry.loadBundled(
+            new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
+    InMemoryUsageAggregationStore agentNameStore =
+        new InMemoryUsageAggregationStore(
+            usageRegistry,
+            metricRegistry,
+            deterministicActorClassResolver(),
+            agentNameSink,
+            10_000,
+            300,
+            3,
+            100,
+            0,
+            true);
+
+    agentNameStore.recordRequest(
+        session(
+            UsageTestFixtures.REGULAR_CORP_USER_URN,
+            "metadata_read",
+            null,
+            AuthChannel.SESSION,
+            "DataHub-Client/1.0.0 (sdk; DataHub/Custom-Agent; 1.0.1)"));
+    agentNameStore.flush(FlushTrigger.SCHEDULED);
+
+    AdditiveUsageRow apiCalls =
+        agentNameSink.batches().get(0).additiveRows().stream()
+            .filter(row -> row.metricName().equals("api_calls"))
+            .findFirst()
+            .orElseThrow();
+    Assert.assertEquals(
+        apiCalls.dimensions().get(UsageDimensions.AGENT_NAME), "datahub/custom-agent");
   }
 
   @Test
@@ -598,15 +639,11 @@ public class InMemoryUsageAggregationStoreTest {
 
   @Test
   public void testTryDrainSkipsWhenDrainInProgress() throws Exception {
-    sink = new RecordingUsageFlushSink();
     UsageOperationsRegistry usageRegistry =
         UsageOperationsRegistry.loadOssOnly(new UsageOperationsLoader(yamlMapper()));
     UsageMetricRegistry metricRegistry =
         UsageMetricRegistry.loadBundled(
             new UsageMetricRegistryLoader(yamlMapper()), java.util.List.of());
-    InMemoryUsageAggregationStore lowCardinalityStore =
-        new InMemoryUsageAggregationStore(
-            usageRegistry, metricRegistry, deterministicActorClassResolver(), sink, 2, 300);
 
     CountDownLatch flushStarted = new CountDownLatch(1);
     CountDownLatch releaseFlush = new CountDownLatch(1);
@@ -623,23 +660,34 @@ public class InMemoryUsageAggregationStoreTest {
             super.publish(batch);
           }
         };
-    lowCardinalityStore =
+    // High cardinality limit: a single metadata_read already creates more than a few rollup
+    // keys. A tiny maxCardinality would auto-drain into this blocking sink on the first
+    // recordRequest and race with the scheduled flush below.
+    InMemoryUsageAggregationStore blockingStore =
         new InMemoryUsageAggregationStore(
-            usageRegistry, metricRegistry, deterministicActorClassResolver(), slowSink, 2, 300);
-    final InMemoryUsageAggregationStore blockingStore = lowCardinalityStore;
+            usageRegistry,
+            metricRegistry,
+            deterministicActorClassResolver(),
+            slowSink,
+            10_000,
+            300);
 
-    blockingStore.recordRequest(
-        session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    Assert.assertTrue(
+        blockingStore.recordRequest(
+            session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null)));
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
     try {
-      executor.submit(() -> blockingStore.flush(FlushTrigger.SCHEDULED));
+      Future<?> flushFuture = executor.submit(() -> blockingStore.flush(FlushTrigger.SCHEDULED));
       Assert.assertTrue(flushStarted.await(10, TimeUnit.SECONDS));
 
-      blockingStore.recordRequest(session("urn:li:corpuser:other", "metadata_read", null));
+      Assert.assertTrue(
+          blockingStore.recordRequest(session("urn:li:corpuser:other", "metadata_read", null)));
 
       releaseFlush.countDown();
+      flushFuture.get(30, TimeUnit.SECONDS);
     } finally {
+      releaseFlush.countDown();
       executor.shutdownNow();
     }
 
@@ -854,6 +902,15 @@ public class InMemoryUsageAggregationStoreTest {
 
   private static OperationContext session(
       String actorUrn, String usageOperation, Long inputBytes, AuthChannel authChannel) {
+    return session(actorUrn, usageOperation, inputBytes, authChannel, "test-agent");
+  }
+
+  private static OperationContext session(
+      String actorUrn,
+      String usageOperation,
+      Long inputBytes,
+      AuthChannel authChannel,
+      String userAgent) {
     // Drop any ThreadLocal actor-class / corp-user flag memoization left by prior tests on this
     // worker thread before building a fresh session context.
     UsageRequestState.clear();
@@ -863,7 +920,7 @@ public class InMemoryUsageAggregationStoreTest {
             .sourceIP("127.0.0.1")
             .requestAPI(RequestContext.RequestAPI.OPENAPI)
             .requestID("testAction")
-            .userAgent("test-agent")
+            .userAgent(userAgent)
             .usageOperation(usageOperation)
             .usageIdentity(actorUrn)
             .authChannel(authChannel)
