@@ -15,6 +15,7 @@ import requests
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     ValidationError,
     ValidationInfo,
     field_validator,
@@ -22,9 +23,11 @@ from pydantic import (
 
 from datahub.plugin.plugin_config import (
     PLUGINS_DIR,
+    PluginCapabilityEntry,
     PluginCapabilityType,
     PluginSystemConfig,
     RegistryConfig,
+    SupportStatusType,
     TrustTier,
 )
 
@@ -62,6 +65,15 @@ class PluginIndexEntry(BaseModel):
     display_name: str = ""
     icon_url: Optional[str] = None
     recipe_template: Optional[str] = None
+    # Maturity + capabilities, lifted from the plugin's manifest (generated from
+    # its @support_status / @capability decorators) so the UI can render them the
+    # same way it renders built-in connectors.
+    support_status: Optional[SupportStatusType] = None
+    capabilities: List[PluginCapabilityEntry] = Field(default_factory=list)
+    # Docs link and an optional PyPI package name (installs via pypi: instead of
+    # the github repo when set).
+    source_url: Optional[str] = None
+    package_name: Optional[str] = None
 
     @field_validator("id", "repo", "version")
     @classmethod

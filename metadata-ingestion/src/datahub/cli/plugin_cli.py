@@ -460,6 +460,60 @@ def _extract_manifest_fields_from_class(cls: type) -> dict:
     return fields
 
 
+@plugin.command(name="index-build")
+@click.option(
+    "--sources",
+    "-s",
+    "sources_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to the sources file (YAML list of plugins to index).",
+)
+@click.option(
+    "--out",
+    "-o",
+    "out_path",
+    required=True,
+    type=click.Path(dir_okay=False),
+    help="Path to write the generated index.json.",
+)
+def index_build(sources_path: str, out_path: str) -> None:
+    """Build a registry index.json from a curated sources list.
+
+    Each source (``repo`` + ``version``) is resolved to its release wheel; the
+    wheel's checksum and its bundled ``datahub-plugin.yaml`` populate the entry,
+    so capabilities and support status come straight from the plugin's decorators.
+    Only the curated list (which plugins, which versions, what trust tier) is
+    maintained by hand.
+    """
+    import json
+
+    from datahub.plugin.index_builder import build_index, load_sources
+
+    src = load_sources(sources_path)
+    if not src.plugins:
+        raise click.ClickException(f"No plugins listed in {sources_path}")
+
+    click.echo(f"Building index from {len(src.plugins)} source(s)...")
+    result = build_index(src)
+
+    payload = {
+        "plugins": [
+            entry.model_dump(mode="json", exclude_none=True, exclude={"registry_name"})
+            for entry in result.entries
+        ]
+    }
+    with open(out_path, "w") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+
+    click.secho(f"Wrote {len(result.entries)} entries to {out_path}", fg="green")
+    for err in result.errors:
+        click.secho(f"  skipped {err}", fg="yellow", err=True)
+    if result.errors and not result.entries:
+        raise click.ClickException("No index entries could be built.")
+
+
 @plugin.command()
 @click.argument(
     "path",

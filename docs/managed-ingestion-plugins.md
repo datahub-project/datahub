@@ -266,6 +266,37 @@ Because each entry names its own `repo`, one index in a single GitHub repo can
 point to any number of separate plugin repositories. You can also configure
 multiple registries; `search` and `list` aggregate across all enabled ones.
 
+### Building the Index
+
+You don't hand-write `index.json`. A registry maintainer keeps a small curated
+**sources file** — just which plugins are listed, at which version, and each
+plugin's trust tier — and generates the index from it:
+
+```yaml
+# sources.yaml
+plugins:
+  - repo: acme/datahub-salesforce-source
+    version: "1.2.0"
+    trust_tier: verified # governance — the maintainer's call, not the author's
+  - repo: treff7es/my-test-source
+    version: "0.1.0"
+```
+
+```shell
+datahub plugin index-build --sources sources.yaml --out index.json
+```
+
+For each source, `index-build` resolves the GitHub release, downloads the wheel
+**once**, and uses it for both the `sha256` and the bundled `datahub-plugin.yaml`.
+Everything else in the entry — `capabilities`, `support_status`, `icon_url`,
+`description`, `type` — is lifted from that manifest, which the plugin author
+generates from their `@capability` / `@support_status` decorators via
+`datahub plugin sync`. So capabilities always reflect the
+plugin's actual code; only curation (the plugin list and trust tier) is manual.
+
+A plugin gets listed by opening a pull request that adds its `repo` and `version`
+to the registry's `sources.yaml`; the registry's CI re-runs `index-build`.
+
 ## Creating a Plugin
 
 ### 1. Scaffold
