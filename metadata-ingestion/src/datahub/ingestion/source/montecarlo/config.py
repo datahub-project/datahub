@@ -4,12 +4,13 @@ from typing import Dict, List, Optional
 import pydantic
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
+    EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
 )
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -20,28 +21,21 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 logger = logging.getLogger(__name__)
 
 
-class MonteCarloPlatformDetail(ConfigModel):
+class MonteCarloPlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
     """Maps a Monte Carlo warehouse/connection to a DataHub platform.
 
     Monte Carlo identifies the warehouse a monitored asset lives in by a
     resource/warehouse UUID, but it does not expose the DataHub platform name
     (e.g. ``snowflake``) directly. This mapping lets users pin the platform,
     platform instance and environment used to build the dataset URN so it lines
-    up with the URNs emitted by the corresponding warehouse source.
+    up with the URNs emitted by the corresponding warehouse source. Reuses the
+    same ``platform_instance``/``env`` fields (and validation) as other sources'
+    connection-to-platform mappings (see e.g. qlik_sense, sigma, trino).
     """
 
     platform: str = Field(
         description="DataHub platform name for assets in this Monte Carlo warehouse, "
         "e.g. 'snowflake', 'bigquery', 'redshift', 'databricks'.",
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="DataHub platform instance for assets in this warehouse. Must match "
-        "the platform_instance used by the warehouse source so URNs align.",
-    )
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="The environment that assets in this warehouse belong to.",
     )
 
 
@@ -129,7 +123,10 @@ class MonteCarloSourceConfig(
         default=None,
         description="Maximum API calls allowed per UTC calendar day, matching Monte Carlo's "
         "own daily-limit reset behavior. Exceeding it fails the run rather than blocking "
-        "until the next day. Leave unset to disable.",
+        "until the next day. This is a per-run cap, not a true cross-run daily budget: it "
+        "is not shared or coordinated across separate/overlapping ingestion runs, so it "
+        "cannot prevent the combined total across runs from exceeding this value. Leave "
+        "unset to disable.",
     )
 
     @pydantic.model_validator(mode="after")

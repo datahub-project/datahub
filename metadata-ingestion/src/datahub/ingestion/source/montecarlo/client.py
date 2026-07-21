@@ -6,6 +6,14 @@ import tenacity
 from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
+from datahub.ingestion.source.montecarlo.queries import (
+    ALERTS_QUERY,
+    CUSTOM_RULES_QUERY,
+    GET_TABLE_BY_FULL_TABLE_ID_QUERY,
+    GET_TABLE_QUERY,
+    MONITORS_QUERY,
+    TABLE_MONITOR_QUERY,
+)
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
 from datahub.utilities.ratelimiter import (
     DailyCallBudget,
@@ -43,118 +51,6 @@ class MonteCarloAuthError(RuntimeError):
 
 # 1 initial attempt + 5 retries, matching this source's prior hand-rolled loop.
 _RATE_LIMIT_MAX_ATTEMPTS = 6
-
-
-# GraphQL documents issued against the Monte Carlo Data Collector (MCD) gateway.
-# Field selections follow the pycarlo / MCD schema. Connections are Relay-style
-# (edges/node/pageInfo) and are walked by ``_paginate``.
-_MONITORS_QUERY = """
-query getMonitors($domainIds: [UUID!], $limit: Int, $offset: Int) {
-  getMonitors(domainIds: $domainIds, limit: $limit, offset: $offset) {
-    uuid
-    name
-    description
-    monitorType
-    entityMcons
-    resourceId
-    severity
-    priority
-    isPaused
-    monitorFields
-    dataQualityDimension
-    prevExecutionTime
-    nextExecutionTime
-  }
-}
-"""
-
-_CUSTOM_RULES_QUERY = """
-query getCustomRules($first: Int, $after: String) {
-  getCustomRules(first: $first, after: $after) {
-    edges {
-      node {
-        uuid
-        ruleType
-        description
-        customSql
-        entityMcons
-        severity
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-"""
-
-_ALERTS_QUERY = """
-query getAlerts($first: Int, $after: String, $createdTime: DateTimeRangeInput) {
-  getAlerts(first: $first, after: $after, createdTime: $createdTime) {
-    edges {
-      node {
-        id
-        type
-        subTypes
-        severity
-        priority
-        status
-        createdTime
-        monitorUuids
-        assets {
-          mcon
-        }
-      }
-    }
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-  }
-}
-"""
-
-_GET_TABLE_QUERY = """
-query getTable($mcon: String) {
-  getTable(mcon: $mcon) {
-    mcon
-    fullTableId
-    warehouse {
-      connectionType
-    }
-  }
-}
-"""
-
-# TABLE-type monitors cover many tables via an asset_selection filter, so
-# getMonitors' entityMcons (scoped to single-entity METRIC monitors) is always
-# empty for them. getTableMonitor exposes the actual filter/exclusion
-# definition; only the FULL_TABLE_ID filter case is resolved here (a fixed,
-# explicit table list) — pattern-based filters (TABLE_NAME, TABLE_TAG,
-# activity filters) would need evaluateAssetSelection instead.
-_TABLE_MONITOR_QUERY = """
-query getTableMonitor($monitorUuid: UUID!) {
-  getTableMonitor(monitorUuid: $monitorUuid) {
-    assetSelection {
-      filters {
-        type
-        ... on AssetFilterFullTableId {
-          fullTableId
-        }
-      }
-    }
-  }
-}
-"""
-
-_GET_TABLE_BY_FULL_TABLE_ID_QUERY = """
-query getTable($dwId: UUID, $fullTableId: String) {
-  getTable(dwId: $dwId, fullTableId: $fullTableId) {
-    mcon
-  }
-}
-"""
 
 
 class MonteCarloAssertionDef(BaseModel):
@@ -209,7 +105,7 @@ class ResolvedTable(BaseModel):
     """Resolution of an MCON to a concrete warehouse table + connection type."""
 
     mcon: str
-    full_table_id: str
+    full_table_id: str = Field(min_length=1)
     connection_type: Optional[str] = None
 
 
@@ -254,20 +150,46 @@ class MonteCarloClient:
         if config.rate_limit_daily:
             self._daily_budget = DailyCallBudget(config.rate_limit_daily)
 
-    def _warn(self, title: str, message: str, context: str) -> None:
+    def _warn(
+        self,
+        title: str,
+        message: str,
+        context: str,
+        exc: Optional[BaseException] = None,
+    ) -> None:
         """Surface a dropped/malformed record in the ingestion report when a report
         is available, falling back to the logger (e.g. during test_connection)."""
         if self.report is not None:
-            self.report.warning(title=title, message=message, context=context)
+            self.report.warning(title=title, message=message, context=context, exc=exc)
         else:
-            logger.warning("%s (%s)", message, context)
+            logger.warning("%s (%s)", message, context, exc_info=exc)
 
     def _report_missing_id(self, kind: str, raw: Dict[str, Any]) -> None:
         self._warn(
-            title=f"Skipped {kind} with missing id",
-            message=f"Monte Carlo returned a {kind} without an id/uuid; skipping it.",
-            context=repr(raw),
+            title="Skipped item with missing id",
+            message="Monte Carlo returned an item without an id/uuid; skipping it.",
+            context=f"kind={kind}, raw={raw!r}",
         )
+
+    def _safe_call(
+        self,
+        query: str,
+        variables: Dict[str, Any],
+        *,
+        title: str,
+        message: str,
+        context: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Call the API, treating (DailyCallBudgetExceeded, MonteCarloAuthError) as
+        run-level failures (re-raised unwrapped) and any other failure as a
+        recoverable, per-caller-scoped one (warned, returns None)."""
+        try:
+            return self._call(query, variables)
+        except (DailyCallBudgetExceeded, MonteCarloAuthError):
+            raise
+        except Exception as e:
+            self._warn(title=title, message=message, context=context, exc=e)
+            return None
 
     def _attempt_call(self, query: str, variables: Dict[str, Any]) -> Any:
         # Re-acquired on every physical attempt (including 429 retries), since
@@ -360,7 +282,7 @@ class MonteCarloClient:
         variables: Dict[str, Any] = {}
         if self.config.domain_ids:
             variables["domainIds"] = self.config.domain_ids
-        for raw in self._paginate_offset(_MONITORS_QUERY, "get_monitors", variables):
+        for raw in self._paginate_offset(MONITORS_QUERY, "get_monitors", variables):
             uuid = raw.get("uuid")
             if not uuid:
                 self._report_missing_id("monitor", raw)
@@ -401,24 +323,22 @@ class MonteCarloClient:
         error type) and demotes any failure to a per-monitor warning, matching
         this source's continue-on-recoverable-error philosophy (see _emit in
         source.py) rather than aborting the whole run over one monitor's
-        resolution failing. DailyCallBudgetExceeded is the one exception this
-        does NOT apply to: a caller running out of daily API quota is a
-        run-level failure, not a per-monitor one, so it's re-raised as-is.
+        resolution failing. (DailyCallBudgetExceeded, MonteCarloAuthError) are
+        the exceptions this does NOT apply to: an exhausted daily quota or a
+        rejected credential is a run-level failure, not a per-monitor one, so
+        both are re-raised as-is (see MonteCarloClient._safe_call).
         """
-        try:
-            monitor = self._call(
-                _TABLE_MONITOR_QUERY, {"monitorUuid": monitor_uuid}
-            ).get("get_table_monitor")
-        except DailyCallBudgetExceeded:
-            raise
-        except Exception as e:
-            self._warn(
-                title="Could not resolve table monitor scope",
-                message="getTableMonitor call failed; this monitor's entities "
-                "cannot be resolved and it will be skipped.",
-                context=f"monitor_uuid={monitor_uuid}: {e}",
-            )
+        response = self._safe_call(
+            TABLE_MONITOR_QUERY,
+            {"monitorUuid": monitor_uuid},
+            title="Could not resolve table monitor scope",
+            message="getTableMonitor call failed; this monitor's entities "
+            "cannot be resolved and it will be skipped.",
+            context=f"monitor_uuid={monitor_uuid}",
+        )
+        if response is None:
             return []
+        monitor = response.get("get_table_monitor")
         full_table_ids = [
             f.get("full_table_id")
             for f in ((monitor or {}).get("asset_selection") or {}).get("filters") or []
@@ -426,29 +346,23 @@ class MonteCarloClient:
         ]
         mcons = []
         for full_table_id in full_table_ids:
-            try:
-                table = self._call(
-                    _GET_TABLE_BY_FULL_TABLE_ID_QUERY,
-                    {"dwId": resource_id, "fullTableId": full_table_id},
-                ).get("get_table")
-            except DailyCallBudgetExceeded:
-                raise
-            except Exception as e:
-                self._warn(
-                    title="Could not resolve table monitor's full_table_id",
-                    message="getTable call failed for a FULL_TABLE_ID filter; "
-                    "skipping this table.",
-                    context=f"monitor_uuid={monitor_uuid}, "
-                    f"full_table_id={full_table_id}: {e}",
-                )
+            table_response = self._safe_call(
+                GET_TABLE_BY_FULL_TABLE_ID_QUERY,
+                {"dwId": resource_id, "fullTableId": full_table_id},
+                title="Could not resolve table monitor's full_table_id",
+                message="getTable call failed for a FULL_TABLE_ID filter; "
+                "skipping this table.",
+                context=f"monitor_uuid={monitor_uuid}, full_table_id={full_table_id}",
+            )
+            if table_response is None:
                 continue
-            mcon = (table or {}).get("mcon")
+            mcon = (table_response.get("get_table") or {}).get("mcon")
             if mcon:
                 mcons.append(mcon)
         return mcons
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
-        for raw in self._paginate(_CUSTOM_RULES_QUERY, "get_custom_rules", {}):
+        for raw in self._paginate(CUSTOM_RULES_QUERY, "get_custom_rules", {}):
             uuid = raw.get("uuid")
             if not uuid:
                 self._report_missing_id("custom rule", raw)
@@ -468,7 +382,7 @@ class MonteCarloClient:
         variables = {
             "createdTime": {"after": start_time.isoformat(), "before": now.isoformat()}
         }
-        for raw in self._paginate(_ALERTS_QUERY, "get_alerts", variables):
+        for raw in self._paginate(ALERTS_QUERY, "get_alerts", variables):
             alert_id = raw.get("id")
             if not alert_id:
                 self._report_missing_id("alert", raw)
@@ -488,7 +402,7 @@ class MonteCarloClient:
             )
 
     def get_table(self, mcon: str) -> Optional[ResolvedTable]:
-        table = self._call(_GET_TABLE_QUERY, {"mcon": mcon}).get("get_table")
+        table = self._call(GET_TABLE_QUERY, {"mcon": mcon}).get("get_table")
         if not table:
             return None
         full_table_id = table.get("full_table_id")

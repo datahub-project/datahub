@@ -5,7 +5,7 @@
         "displayName": "Monte Carlo",
         "description": "Import monitors, custom rules, and alerts from Monte Carlo as DataHub assertions.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/montecarlo",
-        "recipe": "source:\n  type: montecarlo\n  config:\n    api_id: ${MCD_ID}\n    api_token: ${MCD_TOKEN}\n    connection_to_platform_map:\n      \"<mc-warehouse-uuid>\":\n        platform: snowflake\n        platform_instance: prod\n        env: PROD\n    include_assertions: true\n    include_alerts: true\n    alerts_lookback_days: 30\n    stateful_ingestion:\n      enabled: true",
+        "recipe": "source:\n  type: montecarlo\n  config:\n    api_id: ${MCD_ID}\n    api_token: ${MCD_TOKEN}\n\n    # Map each Monte Carlo warehouse/resource UUID to a DataHub platform so\n    # monitored-asset URNs match those emitted by your warehouse source.\n    connection_to_platform_map:\n      \"<mc-warehouse-uuid>\":\n        platform: snowflake\n        platform_instance: prod\n        env: PROD\n\n    include_assertions: true\n    include_alerts: true\n    alerts_lookback_days: 30\n\n    stateful_ingestion:\n      enabled: true",
         "category": "Observability"
     },
     {

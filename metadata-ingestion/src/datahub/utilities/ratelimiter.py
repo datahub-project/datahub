@@ -1,9 +1,12 @@
 import collections
+import logging
 import threading
 import time
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from typing import Any, Deque
+
+logger = logging.getLogger(__name__)
 
 
 # Modified version of https://github.com/RazerM/ratelimiter/blob/master/ratelimiter/_sync.py
@@ -100,7 +103,17 @@ class DailyCallBudget:
     Exceeding the budget raises ``DailyCallBudgetExceeded`` rather than sleeping
     until the next day — suited to APIs whose own daily quota resets at UTC
     midnight, where blocking for hours is worse than failing the run.
+
+    This is a **per-process** guardrail, not a true cross-run daily budget: the
+    count lives in memory, so it doesn't persist or coordinate across separate
+    ingestion runs (e.g. two overlapping scheduled runs of the same recipe each
+    get their own independent counter). Treat it as a per-run cap; the source
+    API's own server-side daily limit remains the actual cross-run backstop.
     """
+
+    # Warn once per day once usage crosses this fraction of the budget, so
+    # operators get a heads-up before the run hard-fails on exhaustion.
+    _WARNING_THRESHOLD = 0.25
 
     def __init__(self, daily_limit: int) -> None:
         if daily_limit <= 0:
@@ -108,6 +121,7 @@ class DailyCallBudget:
         self.daily_limit = daily_limit
         self._count = 0
         self._day = datetime.now(timezone.utc).date()
+        self._warned = False
         self._lock = threading.Lock()
 
     def acquire(self) -> None:
@@ -116,9 +130,22 @@ class DailyCallBudget:
             if today != self._day:
                 self._day = today
                 self._count = 0
+                self._warned = False
             if self._count >= self.daily_limit:
                 raise DailyCallBudgetExceeded(
                     f"Daily call budget ({self.daily_limit}) exhausted "
                     f"for {today.isoformat()} (UTC)."
                 )
             self._count += 1
+            if (
+                not self._warned
+                and self._count > self.daily_limit * self._WARNING_THRESHOLD
+            ):
+                self._warned = True
+                logger.warning(
+                    "Daily call budget usage exceeded %.0f%% (%d/%d) for %s (UTC).",
+                    self._WARNING_THRESHOLD * 100,
+                    self._count,
+                    self.daily_limit,
+                    today.isoformat(),
+                )

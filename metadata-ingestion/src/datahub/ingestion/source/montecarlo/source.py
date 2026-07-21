@@ -109,17 +109,18 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                     raise
                 except Exception as e:
                     self.report.warning(
-                        title=f"Failed to build workunits for {kind}",
-                        message=f"Skipping this {kind} due to an unexpected error.",
-                        context=f"uuid={item.uuid}",
+                        title="Failed to build workunits for item",
+                        message="Skipping this item due to an unexpected error.",
+                        context=f"kind={kind}, uuid={item.uuid}",
                         exc=e,
                     )
         except _FATAL_RUN_ERRORS:
             raise
         except Exception as e:
             self.report.failure(
-                title=f"Failed to fetch {kind}s from Monte Carlo",
-                message=f"Could not fetch {kind}s; this ingestion phase was skipped.",
+                title="Failed to fetch items from Monte Carlo",
+                message="Could not fetch items; this ingestion phase was skipped.",
+                context=f"kind={kind}",
                 exc=e,
             )
 
