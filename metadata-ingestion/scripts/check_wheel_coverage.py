@@ -43,7 +43,7 @@ def parse_uv_lock():
 
 def get_supported_minors(wheels, max_minor):
     """Return (is_pure_python, set of supported 3.X minor versions)."""
-    minors = set()
+    minors: set[int] = set()
     for whl in wheels:
         if "py3-none-any" in whl or "py2.py3-none-any" in whl:
             return True, set()
