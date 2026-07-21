@@ -105,6 +105,14 @@ class _SemanticField:
     upstream_physical_urns: Set[str] = field(default_factory=set)
 
 
+@dataclass
+class _TileCollectionResult:
+    """Result of collecting tile data from a dashboard document."""
+
+    model_id: Optional[str] = None
+    work_units: List[MetadataWorkUnit] = field(default_factory=list)
+
+
 @platform_name("Omni")
 @support_status(SupportStatus.INCUBATING)
 @config_class(OmniSourceConfig)
@@ -167,7 +175,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self._connection_dataset_urns: Set[str] = set()
         self._connections_by_id: Dict[str, Dict[str, object]] = {}
         self._model_context_by_id: Dict[str, _ModelContext] = {}
-        self._current_tile_model_id: Optional[str] = None
 
         # Lock for source-level collections (URN sets, context dicts, registries)
         # We use a single lock because:
@@ -1273,18 +1280,17 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         dashboard_topics: Set[str],
         dashboard_topic_urns: Set[str],
         view_to_topic_urns: Dict[str, Set[str]],
-    ) -> Iterator[MetadataWorkUnit]:
-        """Fetch dashboard payload and populate tile/topic state dicts.
+    ) -> _TileCollectionResult:
+        """Fetch dashboard payload, populate tile/topic state dicts, return model_id.
 
-        Yields topic ingestion workunits and stores the resolved modelId in
-        ``self._current_tile_model_id`` as a side-effect. Callers should read
-        that attribute after exhausting this generator.
+        Returns a _TileCollectionResult with the resolved modelId and work units,
+        avoiding shared mutable state between concurrent workers.
         """
-        self._current_tile_model_id = None
+        result = _TileCollectionResult()
         try:
             dashboard_payload = self.client.get_dashboard_document(doc_id)
-            model_id = dashboard_payload.get("modelId")
-            self._current_tile_model_id = model_id
+            result.model_id = dashboard_payload.get("modelId")
+            model_id = result.model_id
             for idx, qp in enumerate(dashboard_payload.get("queryPresentations", [])):
                 qp_id = qp.get("id") or f"{doc_id}:{idx}"
                 chart_ids.append(qp_id)
@@ -1305,21 +1311,23 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         topic_key, self._topic_dataset_urn(model_id, topic_name)
                     )
                     if topic_key not in self._topic_urn_by_key:
-                        yield from self._ingest_topic_from_dashboard(
-                            model_id, topic_name
+                        result.work_units.extend(
+                            self._ingest_topic_from_dashboard(model_id, topic_name)
                         )
                         topic_urn = self._topic_urn_by_key.get(topic_key, topic_urn)
                     if topic_urn not in self._topic_dataset_urns:
                         self._topic_dataset_urns.add(topic_urn)
-                        yield from self._emit_dataset(
-                            name=f"{model_id}.topic.{topic_name}",
-                            description="Omni topic inferred from dashboard metadata.",
-                            custom_properties={
-                                "modelId": model_id,
-                                "topicName": topic_name,
-                                "inferred": "true",
-                            },
-                            subtype=DatasetSubTypes.TOPIC,
+                        result.work_units.extend(
+                            self._emit_dataset(
+                                name=f"{model_id}.topic.{topic_name}",
+                                description="Omni topic inferred from dashboard metadata.",
+                                custom_properties={
+                                    "modelId": model_id,
+                                    "topicName": topic_name,
+                                    "inferred": "true",
+                                },
+                                subtype=DatasetSubTypes.TOPIC,
+                            )
                         )
                         self.report.increment_counter("topics_emitted")
                     chart_inputs[qp_id].add(topic_urn)
@@ -1337,6 +1345,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"doc_id={doc_id}",
                 exc=exc,
             )
+        return result
 
     def _emit_inferred_view_datasets(
         self,
@@ -1514,22 +1523,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             view_to_topic_urns: Dict[str, Set[str]] = {}
 
             if has_dashboard:
-                work_units.extend(
-                    self._collect_tile_data(
-                        doc_id,
-                        dashboard_url,
-                        dashboard_title,
-                        fields_by_dashboard,
-                        chart_ids,
-                        chart_inputs,
-                        chart_titles,
-                        chart_urls,
-                        dashboard_topics,
-                        dashboard_topic_urns,
-                        view_to_topic_urns,
-                    )
+                tile_result = self._collect_tile_data(
+                    doc_id,
+                    dashboard_url,
+                    dashboard_title,
+                    fields_by_dashboard,
+                    chart_ids,
+                    chart_inputs,
+                    chart_titles,
+                    chart_urls,
+                    dashboard_topics,
+                    dashboard_topic_urns,
+                    view_to_topic_urns,
                 )
-                model_id_from_dashboard = self._current_tile_model_id
+                work_units.extend(tile_result.work_units)
+                model_id_from_dashboard = tile_result.model_id
 
             try:
                 for query in self.client.get_document_queries(doc_id):
