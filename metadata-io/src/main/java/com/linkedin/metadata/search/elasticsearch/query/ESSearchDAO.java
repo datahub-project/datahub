@@ -49,8 +49,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -553,8 +555,12 @@ public class ESSearchDAO {
   private Map<String, SearchResult> mapSearchLatestPerGroupResponse(
       @Nonnull SearchResponse searchResponse, @Nonnull List<String> distinctValues) {
     final Map<String, SearchResult> results = new LinkedHashMap<>();
+    // Keyword fields with keyword_normalizer return lowercased terms-agg bucket keys.
+    // Map those back to the original caller-provided group values case-insensitively.
+    final Map<String, String> normalizedToOriginal = new HashMap<>();
     for (String groupValue : distinctValues) {
       results.put(groupValue, emptyLatestPerGroupResult());
+      normalizedToOriginal.putIfAbsent(groupValue.toLowerCase(Locale.ROOT), groupValue);
     }
     if (searchResponse.getAggregations() == null) {
       return results;
@@ -564,8 +570,12 @@ public class ESSearchDAO {
       return results;
     }
     for (Terms.Bucket bucket : terms.getBuckets()) {
-      final String groupValue = bucket.getKeyAsString();
-      if (!results.containsKey(groupValue)) {
+      final String bucketKey = bucket.getKeyAsString();
+      final String groupValue =
+          results.containsKey(bucketKey)
+              ? bucketKey
+              : normalizedToOriginal.get(bucketKey.toLowerCase(Locale.ROOT));
+      if (groupValue == null) {
         continue;
       }
       final ParsedTopHits topHits = bucket.getAggregations().get(LATEST_TOP_HITS_AGG);

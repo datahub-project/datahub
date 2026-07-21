@@ -140,6 +140,44 @@ public class ESSearchDAOSearchLatestPerGroupTest {
   }
 
   @Test
+  public void testMapsNormalizedBucketKeysCaseInsensitively() throws Exception {
+    // keyword_normalizer lowercases URN entity types in terms-agg bucket keys.
+    SearchHit hitA = mockHit(EXEC_A.toString());
+    SearchHit hitB = mockHit(EXEC_B.toString());
+
+    Terms.Bucket bucketA = mockBucket(SOURCE_A.toLowerCase(), 5, hitA);
+    Terms.Bucket bucketB = mockBucket(SOURCE_B.toLowerCase(), 2, hitB);
+
+    ParsedTerms parsedTerms = mock(ParsedTerms.class);
+    doReturn(List.of(bucketA, bucketB)).when(parsedTerms).getBuckets();
+
+    Aggregations topLevelAggs = mock(Aggregations.class);
+    when(topLevelAggs.get(ESSearchDAO.GROUP_BUCKETS_AGG)).thenReturn(parsedTerms);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockResponse.getAggregations()).thenReturn(topLevelAggs);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockResponse);
+
+    Map<String, SearchResult> results =
+        esSearchDAO.searchLatestPerGroup(
+            opContext,
+            Constants.EXECUTION_REQUEST_ENTITY_NAME,
+            "ingestionSource",
+            List.of(SOURCE_A, SOURCE_B, SOURCE_MISSING),
+            List.of(new SortCriterion().setField("requestTimeMs").setOrder(SortOrder.DESCENDING)));
+
+    assertEquals(results.size(), 3);
+    assertEquals(results.get(SOURCE_A).getNumEntities(), 5);
+    assertEquals(results.get(SOURCE_A).getEntities().get(0).getEntity(), EXEC_A);
+    assertEquals(results.get(SOURCE_B).getNumEntities(), 2);
+    assertEquals(results.get(SOURCE_B).getEntities().get(0).getEntity(), EXEC_B);
+    assertEquals(results.get(SOURCE_MISSING).getNumEntities(), 0);
+    assertTrue(results.get(SOURCE_MISSING).getEntities().isEmpty());
+  }
+
+  @Test
   public void testAggregationFailureFailsLoud() throws Exception {
     doThrow(new IOException("boom"))
         .when(mockClient)
