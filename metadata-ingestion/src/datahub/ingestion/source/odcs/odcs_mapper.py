@@ -1,13 +1,14 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeGuard
+from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
 
-from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     datahub_guid,
+    make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -17,17 +18,63 @@ from datahub.ingestion.source.odcs.odcs_config import (
     ODCS_PLATFORM,
     SERVER_TYPE_TO_PLATFORM,
     ODCSSourceConfig,
+    SchemaAssertionCompatibility,
     ServerMapping,
+)
+from datahub.ingestion.source.odcs.odcs_constants import (
+    ASSERTION_SCHEMA_COMPLIANCE,
+    LOGICAL_TYPE_MAP,
+    METRIC_DUPLICATE_COUNT,
+    METRIC_DUPLICATE_VALUES,
+    METRIC_INVALID_VALUES,
+    METRIC_MISSING_VALUES,
+    METRIC_NULL_VALUES,
+    METRIC_ROW_COUNT,
+    METRIC_VALID_VALUES,
+    OWNER_ROLE_MAP,
+    PLATFORM_NAME_PARTS,
+    PROP_API_VERSION,
+    PROP_ASSERTION,
+    PROP_DATA_PRODUCT,
+    PROP_DOMAIN,
+    PROP_ID,
+    PROP_PHYSICAL_NAME,
+    PROP_QUALITY_RULE_COUNT,
+    PROP_RULE,
+    PROP_RULE_ARGUMENTS,
+    PROP_RULE_BUSINESS_IMPACT,
+    PROP_RULE_DIMENSION,
+    PROP_RULE_ID,
+    PROP_RULE_METRIC,
+    PROP_RULE_NAME,
+    PROP_RULE_SEVERITY,
+    PROP_RULE_TYPE,
+    PROP_RULE_UNIT,
+    PROP_SCHEMA_NAME,
+    PROP_SCOPE,
+    PROP_SOURCE_FILE,
+    PROP_STATUS,
+    PROP_TENANT,
+    PROP_VERSION,
+    RULE_TYPE_CUSTOM,
+    RULE_TYPE_LIBRARY,
+    RULE_TYPE_SQL,
+    RULE_TYPE_TEXT,
+    SCOPE_PROPERTY,
+    SCOPE_SCHEMA,
+    UNIT_PERCENT,
+    UNIT_ROWS,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
+    ODCSDescription,
     ODCSProperty,
+    ODCSQualityArguments,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
 )
 from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -35,15 +82,10 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
-    BooleanTypeClass,
-    BytesTypeClass,
     CustomAssertionInfoClass,
-    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    DateTypeClass,
     EdgeClass,
-    EnumTypeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
@@ -55,17 +97,12 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
-    MapTypeClass,
     NullTypeClass,
-    NumberTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    PlatformTypeClass,
-    RecordTypeClass,
     RowCountTotalClass,
-    SchemaAssertionCompatibilityClass,
     SchemaAssertionInfoClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -73,90 +110,10 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
-    StringTypeClass,
     TagAssociationClass,
-    TimeTypeClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-
-# ODCS team `role` value -> DataHub OwnershipType. Anything not listed here
-# falls back to TECHNICAL_OWNER.
-_OWNER_ROLE_MAP: Dict[str, str] = {
-    "owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "dataOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "data_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technical_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technicalOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "business_owner": OwnershipTypeClass.BUSINESS_OWNER,
-    "businessOwner": OwnershipTypeClass.BUSINESS_OWNER,
-    "steward": OwnershipTypeClass.DATA_STEWARD,
-    "data_steward": OwnershipTypeClass.DATA_STEWARD,
-    "dataSteward": OwnershipTypeClass.DATA_STEWARD,
-}
-
-# ODCS library metric vocabulary, spec-exact. v3.1 names the library key
-# `metric` (with `rule` as a deprecated alias); v3.0.x used `rule`. The names
-# below are the only library rules either spec version defines — anything else
-# falls through to a CustomAssertion so intent is preserved, never guessed.
-_METRIC_NULL_VALUES = "nullValues"  # v3.1, property-level
-_METRIC_MISSING_VALUES = "missingValues"  # v3.1, property-level
-_METRIC_INVALID_VALUES = "invalidValues"  # v3.1, property-level
-_METRIC_DUPLICATE_VALUES = "duplicateValues"  # v3.1, property- or schema-level
-_METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
-_METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
-_METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
-
-_UNIT_ROWS = "rows"
-_UNIT_PERCENT = "percent"
-
-# ODCS rule types.
-_RULE_TYPE_LIBRARY = "library"
-_RULE_TYPE_TEXT = "text"
-_RULE_TYPE_SQL = "sql"
-_RULE_TYPE_CUSTOM = "custom"
-
-# ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
-# SchemaFieldDataType union member. ODCS logical/physical types are free-form
-# strings, so this is a best-effort mapping; unmapped types fall back to
-# NullType and are surfaced via SchemaBuildResult.unmapped_types rather than
-# silently swallowed (a silent NullType hides real type information).
-_LOGICAL_TYPE_MAP: Dict[str, Type] = {
-    "string": StringTypeClass,
-    "text": StringTypeClass,
-    "varchar": StringTypeClass,
-    "char": StringTypeClass,
-    "uuid": StringTypeClass,
-    "integer": NumberTypeClass,
-    "int": NumberTypeClass,
-    "bigint": NumberTypeClass,
-    "smallint": NumberTypeClass,
-    "long": NumberTypeClass,
-    "number": NumberTypeClass,
-    "numeric": NumberTypeClass,
-    "decimal": NumberTypeClass,
-    "double": NumberTypeClass,
-    "float": NumberTypeClass,
-    "boolean": BooleanTypeClass,
-    "bool": BooleanTypeClass,
-    "date": DateTypeClass,
-    "timestamp": TimeTypeClass,
-    "timestamp_tz": TimeTypeClass,
-    "timestamp_ntz": TimeTypeClass,
-    "datetime": TimeTypeClass,
-    "time": TimeTypeClass,
-    "object": RecordTypeClass,
-    "record": RecordTypeClass,
-    "struct": RecordTypeClass,
-    "json": RecordTypeClass,
-    "variant": RecordTypeClass,
-    "array": ArrayTypeClass,
-    "list": ArrayTypeClass,
-    "map": MapTypeClass,
-    "bytes": BytesTypeClass,
-    "binary": BytesTypeClass,
-    "enum": EnumTypeClass,
-}
 
 
 @dataclass
@@ -185,58 +142,28 @@ class SchemaBuildResult:
     unmapped_types: List[str] = field(default_factory=list)
 
 
-def _description_to_str(description: object) -> Optional[str]:
-    """ODCS allows description to be a string or an object (e.g. {purpose, usage, limitations})."""
+def _description_to_str(
+    description: Optional[Union[str, ODCSDescription]],
+) -> Optional[str]:
     if description is None:
         return None
     if isinstance(description, str):
         return description.strip() or None
-    if isinstance(description, dict):
-        parts: List[str] = []
-        for key in ("purpose", "usage", "limitations", "summary", "description"):
-            v = description.get(key)
-            if isinstance(v, str) and v.strip():
-                parts.append(f"**{key}**: {v.strip()}")
-        if parts:
-            return "\n\n".join(parts)
-    return None
-
-
-# ----------------------------------------------------------------------------
-# Platform registration
-# ----------------------------------------------------------------------------
-
-
-def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
-    """Emit the `odcs` DataPlatformInfo aspect at ingestion time.
-
-    The platform is also registered at GMS boot via the bootstrap MCP added in
-    PR #17332. This runtime emission is kept deliberately: ingestion is
-    version-decoupled from the server, so a run may target a GMS that predates
-    that entry, and emitting the aspect guarantees the platform's display name
-    and logo exist regardless of server version (canonical pattern:
-    confluence_source.py).
-
-    The fields below must stay identical to the boot-time entry. DataPlatformInfo
-    is a whole-aspect upsert, not a field-level merge, so a divergent run would
-    clobber the registry-provided aspect rather than reinforce it -- e.g.
-    omitting logoUrl here would wipe the logo on servers that already have #17332.
-    """
-    return MetadataChangeProposalWrapper(
-        entityUrn=make_data_platform_urn(ODCS_PLATFORM),
-        aspect=DataPlatformInfoClass(
-            name=ODCS_PLATFORM,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Open Data Contract Standard",
-            logoUrl="assets/platforms/odcslogo.png",
-        ),
-    )
-
-
-# ----------------------------------------------------------------------------
-# URN + binding resolution
-# ----------------------------------------------------------------------------
+    fields: List[Tuple[str, Optional[str]]] = [
+        ("purpose", description.purpose),
+        ("usage", description.usage),
+        ("limitations", description.limitations),
+    ]
+    # Render non-spec string extras (e.g. summary) so producer prose isn't dropped.
+    for key, value in (description.model_extra or {}).items():
+        if isinstance(value, str):
+            fields.append((key, value))
+    parts = [
+        f"**{key}**: {value.strip()}"
+        for key, value in fields
+        if value and value.strip()
+    ]
+    return "\n\n".join(parts) or None
 
 
 def odcs_to_logical_dataset_urn(
@@ -269,23 +196,6 @@ class ResolvedServer:
     server: ODCSServer
     platform: str
     mapping: Optional[ServerMapping]
-
-
-# DataHub platform id -> the ODCSServer fields (in order) that qualify a table
-# name, matching each platform connector's URN naming convention. `schema_` is
-# the pydantic-safe name of the ODCS `schema` server field. Platforms absent
-# here (e.g. oracle, whose ODCS server entry carries only host/port/serviceName)
-# cannot be composed — a dotted physicalName or an explicit override is needed.
-_PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
-    "postgres": ("database", "schema_"),
-    "redshift": ("database", "schema_"),
-    "mssql": ("database", "schema_"),
-    "snowflake": ("database", "schema_"),
-    "trino": ("catalog", "schema_"),
-    "databricks": ("catalog", "schema_"),
-    "bigquery": ("project", "dataset"),
-    "mysql": ("database",),
-}
 
 
 def _override_for_server(
@@ -347,7 +257,7 @@ def _compose_physical_name(
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
-    parts_spec = _PLATFORM_NAME_PARTS.get(platform)
+    parts_spec = PLATFORM_NAME_PARTS.get(platform)
     if parts_spec is None:
         return (
             None,
@@ -480,11 +390,6 @@ def odcs_to_physical_bindings(
     return bindings
 
 
-# ----------------------------------------------------------------------------
-# Shared owner / tag / property helpers
-# ----------------------------------------------------------------------------
-
-
 def _make_tag_associations(
     tags: Optional[List[str]], tag_prefix: Optional[str]
 ) -> List[TagAssociationClass]:
@@ -523,7 +428,7 @@ def _make_owners(
         if not username:
             continue
         role_key = (member.role or "").strip()
-        ownership_type = _OWNER_ROLE_MAP.get(
+        ownership_type = OWNER_ROLE_MAP.get(
             role_key, OwnershipTypeClass.TECHNICAL_OWNER
         )
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
@@ -543,6 +448,26 @@ def _make_owners(
     return owners
 
 
+def unmapped_owner_roles(contract: ODCSContract) -> List[str]:
+    """Distinct non-empty `team[].role` values that fall back to TECHNICAL_OWNER.
+
+    An empty/absent role legitimately defaults; a *named* role the map does not
+    know (e.g. `producer`, `consumer`, or a typo) is silently coerced, so the
+    source can surface it for telemetry. Mirrors the eligibility rules in
+    `_make_owners` (skip departed members and members with no identifier).
+    """
+    roles: Set[str] = set()
+    for member in contract.team_members:
+        if member.dateOut:
+            continue
+        if not (member.username or member.name):
+            continue
+        role_key = (member.role or "").strip()
+        if role_key and role_key not in OWNER_ROLE_MAP:
+            roles.add(role_key)
+    return sorted(roles)
+
+
 def _walk_properties(
     properties: Optional[List[ODCSProperty]], parent_path: str = ""
 ) -> Iterable[Tuple[str, ODCSProperty]]:
@@ -556,11 +481,6 @@ def _walk_properties(
             yield from _walk_properties(prop.properties, path)
 
 
-# ----------------------------------------------------------------------------
-# Canonical schema metadata (the new piece)
-# ----------------------------------------------------------------------------
-
-
 def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]:
     """Map an ODCS property's logical/physical type to a SchemaFieldDataType.
 
@@ -571,7 +491,7 @@ def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]
     for candidate in (prop.logicalType, prop.physicalType):
         if not candidate:
             continue
-        type_cls = _LOGICAL_TYPE_MAP.get(candidate.strip().lower())
+        type_cls = LOGICAL_TYPE_MAP.get(candidate.strip().lower())
         if type_cls is not None:
             return SchemaFieldDataTypeClass(type=type_cls()), False
     return SchemaFieldDataTypeClass(type=NullTypeClass()), True
@@ -632,11 +552,6 @@ def build_schema_metadata(
         ),
         unmapped_types=unmapped_types,
     )
-
-
-# ----------------------------------------------------------------------------
-# Logical dataset aspects
-# ----------------------------------------------------------------------------
 
 
 def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
@@ -709,26 +624,23 @@ def odcs_to_logical_dataset_mcps(
         contract.description
     )
     custom_props: Dict[str, str] = {
-        "odcs.id": contract.id,
-        "odcs.schemaName": schema_entry.name,
-        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry)),
+        PROP_ID: contract.id,
+        PROP_SCHEMA_NAME: schema_entry.name,
+        PROP_QUALITY_RULE_COUNT: str(_count_quality_rules(schema_entry)),
     }
-    if contract.version:
-        custom_props["odcs.version"] = contract.version
-    if contract.apiVersion:
-        custom_props["odcs.apiVersion"] = contract.apiVersion
-    if contract.status:
-        custom_props["odcs.status"] = contract.status
-    if schema_entry.physicalName:
-        custom_props["odcs.physicalName"] = schema_entry.physicalName
-    if source_file:
-        custom_props["odcs.sourceFile"] = source_file
-    if contract.domain:
-        custom_props["odcs.domain"] = contract.domain
-    if contract.dataProduct:
-        custom_props["odcs.dataProduct"] = contract.dataProduct
-    if contract.tenant:
-        custom_props["odcs.tenant"] = contract.tenant
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (PROP_VERSION, contract.version),
+        (PROP_API_VERSION, contract.apiVersion),
+        (PROP_STATUS, contract.status),
+        (PROP_PHYSICAL_NAME, schema_entry.physicalName),
+        (PROP_SOURCE_FILE, source_file),
+        (PROP_DOMAIN, contract.domain),
+        (PROP_DATA_PRODUCT, contract.dataProduct),
+        (PROP_TENANT, contract.tenant),
+    ):
+        if value:
+            custom_props[key] = value
 
     if contract.name and schema_entry.name:
         display_name: Optional[str] = f"{contract.name} — {schema_entry.name}"
@@ -804,16 +716,13 @@ def odcs_to_logical_parent_mcp(
     )
 
 
-# ----------------------------------------------------------------------------
-# Assertions — emitted against the LOGICAL dataset
-#
-# ODCS quality rules are the producer's published expectations for the dataset
-# the contract describes, so the Assertion entities target the logical `odcs`
-# dataset (the assertion's `entity` is the logical URN). Propagation of those
-# expectations onto bound physical datasets is handled by a separate DataHub
-# mechanism via the PhysicalInstanceOf relationship — this source never writes
-# assertions against physical URNs.
-# ----------------------------------------------------------------------------
+# Assertions are emitted against the LOGICAL dataset: ODCS quality rules are the
+# producer's published expectations for the dataset the contract describes, so
+# the Assertion entities target the logical `odcs` dataset (the assertion's
+# `entity` is the logical URN). Propagation of those expectations onto bound
+# physical datasets is handled by a separate DataHub mechanism via the
+# PhysicalInstanceOf relationship — this source never writes assertions against
+# physical URNs.
 
 
 @dataclass
@@ -832,19 +741,21 @@ class _RuleContext:
         return self.rule.name or self.rule.id or f"<unnamed:{self.scope}:{self.index}>"
 
 
-def _num(v: object) -> AssertionStdParameterClass:
+def _num(v: Union[float, int]) -> AssertionStdParameterClass:
     """Normalize a numeric threshold to a stable string form.
 
     Both `5` (int) and `5.0` (float) render as `"5"`; `5.5` renders as `"5.5"`.
     """
     return AssertionStdParameterClass(
-        value=f"{float(v):g}",  # type: ignore[arg-type]
+        value=f"{float(v):g}",
         type=AssertionStdParameterTypeClass.NUMBER,
     )
 
 
-def _is_plain_number(value: object) -> TypeGuard[float]:
-    """True for int/float but NOT bool (bool is an int subclass in Python)."""
+def _is_plain_number(
+    value: Optional[Union[float, int, str, bool]],
+) -> TypeGuard[float]:
+    # bool is an int subclass in Python, so exclude it explicitly.
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -942,7 +853,7 @@ def _fail_threshold_from_rule(
     ):
         threshold_type = (
             FieldValuesFailThresholdTypeClass.PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldValuesFailThresholdTypeClass.COUNT
         )
         return FieldValuesFailThresholdClass(type=threshold_type, value=int(tolerance))
@@ -983,6 +894,20 @@ def _render_thresholds(rule: ODCSQualityRule) -> List[str]:
     return parts
 
 
+def _arguments_json(arguments: Optional[ODCSQualityArguments]) -> Optional[str]:
+    if arguments is None:
+        return None
+    # by_alias + exclude_none so provenance matches the source document, and
+    # extra="allow" keeps engine-specific keys.
+    payload = arguments.model_dump(by_alias=True, exclude_none=True)
+    if not payload:
+        return None
+    try:
+        return json.dumps(payload, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+
+
 def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     """Stable, human-readable rendition of a library rule for custom `logic`.
 
@@ -994,11 +919,9 @@ def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     if not metric:
         return None
     parts = [metric]
-    if rule.arguments:
-        try:
-            parts.append(f"arguments={json.dumps(rule.arguments, sort_keys=True)}")
-        except (TypeError, ValueError):
-            pass
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        parts.append(f"arguments={args_json}")
     if rule.validValues is not None:
         try:
             parts.append(f"validValues={json.dumps(rule.validValues)}")
@@ -1048,32 +971,28 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
     """
     rule = ctx.rule
     props: Dict[str, str] = {
-        "odcs.rule": "true",
-        "odcs.scope": ctx.scope,
-        "odcs.id": ctx.contract_id,
+        PROP_RULE: "true",
+        PROP_SCOPE: ctx.scope,
+        PROP_ID: ctx.contract_id,
     }
-    if rule.id:
-        props["odcs.rule.id"] = rule.id
-    if rule.name:
-        props["odcs.rule.name"] = rule.name
-    metric = rule.effective_metric
-    if metric:
-        props["odcs.rule.metric"] = metric
-    if rule.unit:
-        props["odcs.rule.unit"] = rule.unit
-    if rule.arguments:
-        try:
-            props["odcs.rule.arguments"] = json.dumps(rule.arguments, sort_keys=True)
-        except (TypeError, ValueError):
-            pass
-    if rule.dimension:
-        props["odcs.rule.dimension"] = rule.dimension
-    if rule.severity:
-        props["odcs.rule.severity"] = rule.severity
-    if rule.businessImpact:
-        props["odcs.rule.businessImpact"] = rule.businessImpact
-    if rule.type:
-        props["odcs.rule.type"] = rule.type
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (PROP_RULE_ID, rule.id),
+        (PROP_RULE_NAME, rule.name),
+        (PROP_RULE_METRIC, rule.effective_metric),
+        (PROP_RULE_UNIT, rule.unit),
+        (PROP_RULE_DIMENSION, rule.dimension),
+        (PROP_RULE_SEVERITY, rule.severity),
+        (PROP_RULE_BUSINESS_IMPACT, rule.businessImpact),
+        (PROP_RULE_TYPE, rule.type),
+    ):
+        if value:
+            props[key] = value
+    # arguments stays special-cased: the typed model is serialized via
+    # _arguments_json, which returns None when there is nothing to emit.
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        props[PROP_RULE_ARGUMENTS] = args_json
     return props
 
 
@@ -1090,7 +1009,7 @@ def _assertion_info_template(
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=_description_to_str(ctx.rule.description),
         customProperties=_custom_props_for_rule(ctx),
         externalUrl=_rule_external_url(ctx.rule),
@@ -1222,9 +1141,7 @@ def _build_custom_assertion(
     assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
     resolved_type = custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     field_urn = (
-        mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
-        if ctx.column
-        else None
+        make_schema_field_urn(ctx.entity_urn, ctx.column) if ctx.column else None
     )
     info = _assertion_info_template(ctx, AssertionTypeClass.CUSTOM)
     info.customAssertion = CustomAssertionInfoClass(
@@ -1248,10 +1165,10 @@ def _iter_schema_rules(
     field path).
     """
     for rule in schema_entry.quality or []:
-        yield rule, None, "schema"
+        yield rule, None, SCOPE_SCHEMA
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
-            yield rule, field_path, "property"
+            yield rule, field_path, SCOPE_PROPERTY
 
 
 @dataclass
@@ -1282,10 +1199,10 @@ def _route_library_rule(
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     rule = ctx.rule
     metric = rule.effective_metric
-    unit = (rule.unit or _UNIT_ROWS).strip().lower()
-    args = rule.arguments or {}
+    unit = (rule.unit or UNIT_ROWS).strip().lower()
+    args = rule.arguments
 
-    if metric == _METRIC_NULL_VALUES:
+    if metric == METRIC_NULL_VALUES:
         if ctx.column is None:
             return _custom_or_skip(ctx, trace)
         if _must_be_zero(rule):
@@ -1305,15 +1222,15 @@ def _route_library_rule(
             return _custom_or_skip(ctx, trace)
         metric_type = (
             FieldMetricTypeClass.NULL_PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldMetricTypeClass.NULL_COUNT
         )
         return _build_field_metric_assertion(
             ctx, metric=metric_type, operator=op_opt, params=params_opt
         )
 
-    if metric in (_METRIC_DUPLICATE_VALUES, _METRIC_DUPLICATE_COUNT):
-        if args.get("properties"):
+    if metric in (METRIC_DUPLICATE_VALUES, METRIC_DUPLICATE_COUNT):
+        if args is not None and args.properties:
             # Multi-column uniqueness (schema-level duplicateValues) has no
             # native DataHub metric; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1329,9 +1246,11 @@ def _route_library_rule(
         # inverting it into a unique-percentage bound would change semantics.
         return _custom_or_skip(ctx, trace)
 
-    if metric in (_METRIC_INVALID_VALUES, _METRIC_VALID_VALUES):
-        valid_values = args.get("validValues") or rule.validValues
-        pattern = args.get("pattern")
+    if metric in (METRIC_INVALID_VALUES, METRIC_VALID_VALUES):
+        valid_values = (
+            args.validValues if args is not None else None
+        ) or rule.validValues
+        pattern = args.pattern if args is not None else None
         if ctx.column is None or (valid_values and pattern):
             return _custom_or_skip(ctx, trace)
         fail_threshold = _fail_threshold_from_rule(rule, unit)
@@ -1367,14 +1286,14 @@ def _route_library_rule(
             )
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_MISSING_VALUES:
+    if metric == METRIC_MISSING_VALUES:
         # "value is in an author-defined missing list (possibly including
         # null)" has no native metric; NOT_IN plus null handling would change
         # semantics, so the rule is preserved as custom.
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_ROW_COUNT:
-        if unit == _UNIT_PERCENT:
+    if metric == METRIC_ROW_COUNT:
+        if unit == UNIT_PERCENT:
             # A relative row count only makes sense against some baseline the
             # contract does not define; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1398,20 +1317,20 @@ def _route_and_build(
     in-place so the source can report aggregate counters.
     """
     rule = ctx.rule
-    rule_type = (rule.type or _RULE_TYPE_LIBRARY).strip().lower()
+    rule_type = (rule.type or RULE_TYPE_LIBRARY).strip().lower()
 
-    if rule_type == _RULE_TYPE_SQL:
+    if rule_type == RULE_TYPE_SQL:
         if rule.query:
             op_opt, params_opt = _operator_and_params_from_threshold(rule)
             if op_opt is not None and params_opt is not None:
                 return _build_sql_assertion(ctx, operator=op_opt, params=params_opt)
         return _custom_or_skip(ctx, trace)
 
-    if rule_type == _RULE_TYPE_CUSTOM:
+    if rule_type == RULE_TYPE_CUSTOM:
         return _custom_or_skip(ctx, trace, custom_type=rule.engine)
 
-    if rule_type == _RULE_TYPE_TEXT:
-        return _custom_or_skip(ctx, trace, custom_type=_RULE_TYPE_TEXT)
+    if rule_type == RULE_TYPE_TEXT:
+        return _custom_or_skip(ctx, trace, custom_type=RULE_TYPE_TEXT)
 
     # library (the default)
     if rule.used_deprecated_rule_key and api_version.startswith("3.1"):
@@ -1456,18 +1375,11 @@ def odcs_to_assertion_mcps(
     return assertion_urns, mcps, trace
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY = {
-    "EXACT_MATCH": SchemaAssertionCompatibilityClass.EXACT_MATCH,
-    "SUPERSET": SchemaAssertionCompatibilityClass.SUPERSET,
-    "SUBSET": SchemaAssertionCompatibilityClass.SUBSET,
-}
-
-
 def odcs_to_schema_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
-    compatibility: str,
+    compatibility: SchemaAssertionCompatibility,
 ) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
     """Emit one DATA_SCHEMA assertion pinning the contract's schema.
 
@@ -1492,20 +1404,20 @@ def odcs_to_schema_assertion_mcps(
     )
     info = AssertionInfoClass(
         type=AssertionTypeClass.DATA_SCHEMA,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=(
             f"Schema compliance with ODCS contract '{contract.id}' "
             f"schema '{schema_entry.name}'"
         ),
         customProperties={
-            "odcs.id": contract.id,
-            "odcs.scope": "schema",
-            "odcs.assertion": "schema-compliance",
+            PROP_ID: contract.id,
+            PROP_SCOPE: SCOPE_SCHEMA,
+            PROP_ASSERTION: ASSERTION_SCHEMA_COMPLIANCE,
         },
         schemaAssertion=SchemaAssertionInfoClass(
             entity=logical_urn,
             schema=schema_result.schema_metadata,
-            compatibility=_SCHEMA_ASSERTION_COMPATIBILITY[compatibility],
+            compatibility=compatibility.value,
         ),
     )
     return assertion_urn, [

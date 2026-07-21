@@ -8,6 +8,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
@@ -118,6 +119,9 @@ export const Preview = ({
             platform={platformName}
             platforms={platformNames}
             logoUrls={platformLogos}
+            entityIcon={
+                !platformLogo && data?.platform?.properties?.logical ? <LogicalPlatformDefaultIcon /> : undefined
+            }
             platformInstanceId={platformInstanceId}
             qualifier={origin}
             tags={globalTags || undefined}

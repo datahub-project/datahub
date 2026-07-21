@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from lib.expectations import benchmark_metric_labels
@@ -11,9 +10,9 @@ from lib.graphql import (
     RequestHealthTracker,
     check_assertions,
     execute_graphql,
-    resolve_operation_document,
     log,
     meets_expectation,
+    resolve_operation_document,
 )
 from lib.graphql_adapt import GraphqlQueryRegistry
 from lib.init import smoke_persona_login

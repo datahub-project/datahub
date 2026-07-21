@@ -1,11 +1,14 @@
+import contextlib
 import glob
 import json
 import logging
 import os
 import pathlib
+import tempfile
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
+from urllib.parse import urlparse
 
 import jsonschema
 import yaml
@@ -25,14 +28,24 @@ from datahub.ingestion.api.source import (
     SourceCapability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.object_store_files import (
+    FileSizeExceededError,
+    expand_object_store_glob,
+    has_glob_characters,
+    is_http_uri,
+    read_file_as_bytes,
+)
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import (
-    odcs_platform_info_mcp,
+    PhysicalBinding,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -64,7 +77,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.schema_classes import OwnershipClass
+from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +91,15 @@ _VERSION_TO_SCHEMA = {
 _DEFAULT_VERSION = "3.1.0"
 
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
+
+
+def _is_remote_uri(raw: str) -> bool:
+    return is_s3_uri(raw) or is_gcs_uri(raw) or is_http_uri(raw)
+
+
+def _uri_basename(uri: str) -> str:
+    return os.path.basename(urlparse(uri).path) or uri
+
 
 # Spec-valid-but-unmapped field sets per model, for the unknown-field walker.
 _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
@@ -137,12 +159,18 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     unmappable_servers: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
+    physical_urns_link_conflicts: int = 0
+    physical_urns_verify_failed: int = 0
     physical_names_passthrough: int = 0
     owners_unresolved: int = 0
+    contracts_validation_skipped: int = 0
+    remote_files_scanned: int = 0
+    git_checkout: Optional[str] = None
     files_skipped: List[str] = field(default_factory=list)
     rules_skipped_no_threshold: List[str] = field(default_factory=list)
     rules_routed_to_custom: List[str] = field(default_factory=list)
     schema_type_fallbacks: List[str] = field(default_factory=list)
+    owners_role_defaulted: List[str] = field(default_factory=list)
     spec_fields_ignored: List[str] = field(default_factory=list)
 
 
@@ -205,6 +233,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._seen_physical_urns: Dict[str, str] = {}
         # Per-run cache for graph existence checks (one lookup per unique URN).
         self._urn_exists_cache: Dict[str, bool] = {}
+        # Per-run cache of the persisted `logicalParent` target already on each
+        # physical URN (one get_aspect per unique URN), for cross-run conflict
+        # detection. `None` means "no existing link" (or lookup unavailable).
+        self._physical_parent_cache: Dict[str, Optional[str]] = {}
+        # URNs whose graph lookup raised and were assumed-present (fail-open),
+        # so they are never miscounted as genuinely verified.
+        self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
 
@@ -224,19 +259,40 @@ class ODCSSource(StatefulIngestionSourceBase):
             partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
         ]
 
-    # ------------------------------------------------------------------
-    # Schema validation + file IO
-    # ------------------------------------------------------------------
-
-    def _load_validators(self) -> dict:
-        validators: dict = {}
+    def _load_validators(self) -> Dict[str, "jsonschema.Draft202012Validator"]:
+        validators: Dict[str, jsonschema.Draft202012Validator] = {}
         for version, filename in _VERSION_TO_SCHEMA.items():
             path = _SCHEMA_DIR / filename
             if not path.exists():
                 continue
-            with open(path) as fp:
-                schema = json.load(fp)
+            # Guard per-file: a corrupt/missing vendored schema must degrade to
+            # "this version is unvalidated" (surfaced below), never abort the
+            # whole source in __init__.
+            try:
+                with open(path) as fp:
+                    schema = json.load(fp)
+            except (OSError, ValueError) as e:
+                self.report.warning(
+                    title="Could not load ODCS JSON Schema",
+                    message="Contracts of this version will not be schema-validated.",
+                    context=f"{path} (version {version})",
+                    exc=e,
+                )
+                continue
             validators[version] = jsonschema.Draft202012Validator(schema)
+        if not validators:
+            # No validators at all: strict_validation becomes a silent no-op and
+            # every contract passes with zero checking. Surface it once.
+            self.report.warning(
+                title="ODCS JSON Schema validators unavailable",
+                message=(
+                    "No vendored ODCS schemas could be loaded, so contracts will "
+                    "not be schema-validated this run (strict_validation has no "
+                    "effect). This usually indicates a packaging or checkout "
+                    "regression in the odcs_schema/ directory."
+                ),
+                context=str(_SCHEMA_DIR),
+            )
         return validators
 
     def _glob_root(self, pattern: str) -> pathlib.Path:
@@ -300,7 +356,9 @@ class ODCSSource(StatefulIngestionSourceBase):
             return False
         return True
 
-    def _resolve_paths(self) -> Iterable[pathlib.Path]:
+    def _resolve_paths(
+        self, root_dir: Optional[pathlib.Path] = None
+    ) -> Iterable[pathlib.Path]:
         raw_paths = (
             self.config.path
             if isinstance(self.config.path, list)
@@ -308,7 +366,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         seen: Set[str] = set()
         for raw in raw_paths:
+            if _is_remote_uri(raw):
+                continue
             expanded = os.path.expanduser(raw)
+            # When cloning a git repo, non-absolute path entries scope the scan
+            # to a subtree of the checkout.
+            if root_dir is not None and not os.path.isabs(expanded):
+                expanded = os.path.join(str(root_dir), expanded)
             if any(ch in expanded for ch in ("*", "?", "[")):
                 glob_root = self._glob_root(expanded)
                 matches = sorted(glob.glob(expanded, recursive=True))
@@ -353,25 +417,94 @@ class ODCSSource(StatefulIngestionSourceBase):
                     context=str(p),
                 )
 
-    def _matches_extension(self, path: pathlib.Path) -> bool:
-        name = path.name.lower()
-        return any(name.endswith(ext.lower()) for ext in self.config.file_extensions)
+    def _resolve_remote_uris(self) -> List[str]:
+        raw_paths = (
+            self.config.path
+            if isinstance(self.config.path, list)
+            else [self.config.path]
+        )
+        uris: List[str] = []
+        seen: Set[str] = set()
+        for raw in raw_paths:
+            if not _is_remote_uri(raw):
+                continue
+            for uri in self._expand_remote_entry(raw):
+                if uri not in seen:
+                    seen.add(uri)
+                    uris.append(uri)
+        return uris
 
-    def _validate(self, raw_dict: dict, file_path: pathlib.Path) -> bool:
+    def _expand_remote_entry(self, raw: str) -> List[str]:
+        if not has_glob_characters(raw):
+            return [raw]
+        if is_http_uri(raw):
+            self.report.warning(
+                title="Glob patterns not supported for HTTP(S) URIs",
+                message="Provide an explicit http(s) URL to a single ODCS file.",
+                context=raw,
+            )
+            return []
+        if is_s3_uri(raw):
+            connection = self.config.aws_connection
+            scheme = "s3"
+        else:
+            gcs = self.config.gcs_connection
+            connection = gcs.s3_compatible_connection if gcs else None
+            scheme = "gs"
+        if connection is None:
+            # The config validator normally blocks this; guard defensively.
+            self.report.warning(
+                title="Missing object-store connection for glob",
+                message="No credentials configured to list the object-store glob pattern.",
+                context=raw,
+            )
+            return []
+        try:
+            matched = expand_object_store_glob(raw, connection, scheme)
+        except Exception as e:
+            self.report.warning(
+                title="Object-store glob expansion failed",
+                message="Could not list objects for the glob pattern; skipping.",
+                context=raw,
+                exc=e,
+            )
+            return []
+        return [m for m in matched if self._matches_extension_name(m)]
+
+    def _matches_extension(self, path: pathlib.Path) -> bool:
+        return self._matches_extension_name(path.name)
+
+    def _matches_extension_name(self, name: str) -> bool:
+        lowered = name.lower()
+        return any(lowered.endswith(ext.lower()) for ext in self.config.file_extensions)
+
+    def _validate(self, raw_dict: dict, source_uri: str) -> bool:
         api_version = (raw_dict.get("apiVersion") or "").lstrip("v")
         if api_version and api_version not in self.config.odcs_versions:
             self.report.warning(
                 title="Unsupported ODCS apiVersion",
                 message="Contract apiVersion is not in the configured supported versions",
-                context=f"{file_path}: apiVersion={api_version}, supported={self.config.odcs_versions}",
+                context=f"{source_uri}: apiVersion={api_version}, supported={self.config.odcs_versions}",
             )
             return False
         validator = self._validators.get(api_version)
         if validator is None:
             validator = self._validators.get(_DEFAULT_VERSION)
         if validator is None:
+            # No validator resolved: the contract is passed through unchecked.
+            # Counted so a zero-validation run is visible in the report even
+            # when the one-time load warning scrolled past.
+            self.report.contracts_validation_skipped += 1
             return True
-        errors = sorted(validator.iter_errors(raw_dict), key=lambda e: e.path)
+        # `err.path` mixes str property names and int array indices in one
+        # deque; sorting deques compares elements pairwise, so a str-vs-int
+        # comparison raises TypeError on already-invalid contracts. Sort by the
+        # stringified path instead so validation feedback is never lost to an
+        # opaque "unhandled error" skip.
+        errors = sorted(
+            validator.iter_errors(raw_dict),
+            key=lambda e: [str(p) for p in e.absolute_path],
+        )
         if not errors:
             return True
         self.report.validation_errors += len(errors)
@@ -383,13 +516,13 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS contract failed JSON Schema validation",
                 message="Skipping contract due to schema validation errors",
-                context=f"{file_path}: {message}",
+                context=f"{source_uri}: {message}",
             )
             return False
         self.report.warning(
             title="ODCS contract has JSON Schema validation issues",
             message="Proceeding with parse despite validation errors (strict_validation=False)",
-            context=f"{file_path}: {message}",
+            context=f"{source_uri}: {message}",
         )
         return True
 
@@ -439,11 +572,62 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         return raw_text, raw_dict
 
-    # ------------------------------------------------------------------
-    # Unknown-field detection
-    # ------------------------------------------------------------------
+    def _load_remote_yaml(self, uri: str) -> Optional[tuple]:
+        try:
+            # max_bytes lets the reader bound the download (Content-Length /
+            # bounded read / mid-stream abort) so an oversized remote object is
+            # never fully buffered into memory before we check its size.
+            raw_bytes = read_file_as_bytes(
+                uri,
+                self.config.aws_connection,
+                self.config.gcs_connection,
+                max_bytes=self.config.max_input_file_bytes,
+            )
+        except FileSizeExceededError as e:
+            self.report.warning(
+                title="ODCS file exceeds max_input_file_bytes",
+                message=(
+                    "Remote file exceeds the configured "
+                    f"max_input_file_bytes ({self.config.max_input_file_bytes}); "
+                    "skipping. Raise max_input_file_bytes to ingest larger files."
+                ),
+                context=uri,
+                exc=e,
+            )
+            self.report.files_skipped.append(uri)
+            return None
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read remote ODCS file",
+                message="Could not fetch file from the object store / URL; skipping",
+                context=uri,
+                exc=e,
+            )
+            self.report.files_skipped.append(uri)
+            return None
+        try:
+            raw_text = raw_bytes.decode("utf-8")
+            raw_dict = yaml.safe_load(raw_text)
+        except (UnicodeDecodeError, yaml.YAMLError) as e:
+            self.report.warning(
+                title="Failed to read ODCS file",
+                message="Could not parse YAML; skipping",
+                context=uri,
+                exc=e,
+            )
+            self.report.files_skipped.append(uri)
+            return None
+        if not isinstance(raw_dict, dict):
+            self.report.warning(
+                title="ODCS file is not a YAML object",
+                message="Top-level YAML must be a mapping; skipping",
+                context=uri,
+            )
+            self.report.files_skipped.append(uri)
+            return None
+        return raw_text, raw_dict
 
-    def _warn_unknown_fields(self, raw_dict: dict, file_path: pathlib.Path) -> None:
+    def _warn_unknown_fields(self, raw_dict: dict, source_uri: str) -> None:
         """Walk the raw YAML dict and classify keys not declared on the model.
 
         Three-way classification per key:
@@ -457,7 +641,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         """
         spec_ignored: List[str] = []
 
-        def walk(node: Any, model_cls: type[BaseModel], path_hint: str) -> None:
+        def walk(node: object, model_cls: type[BaseModel], path_hint: str) -> None:
             if not isinstance(node, dict):
                 return
             allowed = _model_field_keys(model_cls)
@@ -475,7 +659,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                             f"Field '{key}' on {model_cls.__name__} is not "
                             "recognized; check spelling or version compatibility."
                         ),
-                        context=f"{file_path}: {path_hint}.{key}",
+                        context=f"{source_uri}: {path_hint}.{key}",
                     )
                     continue
                 if (
@@ -506,12 +690,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                     "aspects by this source (e.g. SLA, support, pricing, "
                     "relationships). They are ignored."
                 ),
-                context=f"{file_path}: {', '.join(spec_ignored)}",
+                context=f"{source_uri}: {', '.join(spec_ignored)}",
             )
-
-    # ------------------------------------------------------------------
-    # Per-file processing
-    # ------------------------------------------------------------------
 
     def _urn_exists_in_graph(self, urn: str) -> Optional[bool]:
         """Best-effort, cached existence check for any URN.
@@ -535,6 +715,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=urn,
                 exc=e,
             )
+            # Record the fail-open so callers never tally it as verified.
+            self._urn_verify_failed.add(urn)
             exists = True
         self._urn_exists_cache[urn] = exists
         return exists
@@ -544,12 +726,40 @@ class ODCSSource(StatefulIngestionSourceBase):
         if exists is None:
             # No graph: emit without verification.
             return True
-        if exists:
+        if urn in self._urn_verify_failed:
+            # Assumed-present due to a lookup error, not actually confirmed.
+            self.report.physical_urns_verify_failed += 1
+        elif exists:
             self.report.physical_urns_verified += 1
         return exists
 
+    def _existing_logical_parent(self, physical_urn: str) -> Optional[str]:
+        """The logical URN a physical dataset is *already* linked to, if any.
+
+        Best-effort, cached graph read of the persisted `logicalParent` aspect.
+        Returns None when no graph is attached, when there is no existing link,
+        or when the lookup fails — conflict detection is advisory and must
+        never abort or alter emission.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if physical_urn in self._physical_parent_cache:
+            return self._physical_parent_cache[physical_urn]
+        target: Optional[str] = None
+        try:
+            existing = graph.get_aspect(physical_urn, LogicalParentClass)
+        except Exception:
+            # Advisory-only: a flaky read must not change behavior or spam the
+            # report (the existence check already surfaces graph errors).
+            existing = None
+        if isinstance(existing, LogicalParentClass) and existing.parent is not None:
+            target = existing.parent.destinationUrn
+        self._physical_parent_cache[physical_urn] = target
+        return target
+
     def _check_owner_resolution(
-        self, mcps: List[MetadataChangeProposalWrapper], file_path: pathlib.Path
+        self, mcps: List[MetadataChangeProposalWrapper], source_uri: str
     ) -> None:
         """Report-only: warn once per owner URN that does not resolve to an
         existing DataHub user/group. Owners are never dropped — contracts are
@@ -574,7 +784,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                             "identity source keys users differently, see "
                             "strip_owner_email_domain / owner_email_domain."
                         ),
-                        context=f"file={file_path} owner={owner.owner}",
+                        context=f"file={source_uri} owner={owner.owner}",
                     )
 
     def _process_file(self, file_path: pathlib.Path) -> Iterable[MetadataWorkUnit]:
@@ -584,11 +794,30 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.contracts_skipped += 1
             return
         _raw_text, raw_dict = loaded
-        if not self._validate(raw_dict, file_path):
+        yield from self._process_document(
+            raw_dict, source_uri=str(file_path), source_file=file_path.name
+        )
+
+    def _process_uri(self, uri: str) -> Iterable[MetadataWorkUnit]:
+        self.report.contracts_scanned += 1
+        self.report.remote_files_scanned += 1
+        loaded = self._load_remote_yaml(uri)
+        if loaded is None:
+            self.report.contracts_skipped += 1
+            return
+        _raw_text, raw_dict = loaded
+        yield from self._process_document(
+            raw_dict, source_uri=uri, source_file=_uri_basename(uri)
+        )
+
+    def _process_document(
+        self, raw_dict: dict, *, source_uri: str, source_file: str
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self._validate(raw_dict, source_uri):
             self.report.contracts_skipped += 1
             return
 
-        self._warn_unknown_fields(raw_dict, file_path)
+        self._warn_unknown_fields(raw_dict, source_uri)
 
         try:
             contract = ODCSContract.model_validate(raw_dict)
@@ -596,10 +825,13 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS contract failed Pydantic validation",
                 message="Could not coerce ODCS document into the expected model; skipping",
-                context=f"{file_path}: {e}",
+                context=f"{source_uri}: {e}",
             )
             self.report.contracts_skipped += 1
             return
+
+        for role_key in unmapped_owner_roles(contract):
+            self.report.owners_role_defaulted.append(f"{contract.id}: {role_key}")
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
         if overrides:
@@ -612,7 +844,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                         "These override keys do not name any schema[] entry in "
                         "the contract — check for typos or renamed entries."
                     ),
-                    context=f"file={file_path} contract={contract.id} keys={unmatched}",
+                    context=f"file={source_uri} contract={contract.id} keys={unmatched}",
                 )
 
         bindings = odcs_to_physical_bindings(contract, self.config)
@@ -622,196 +854,266 @@ class ODCSSource(StatefulIngestionSourceBase):
             return
 
         self.report.contracts_parsed += 1
-        source_file = file_path.name
-        yield from self._emit_bindings(contract, bindings, file_path, source_file)
+        yield from self._emit_bindings(contract, bindings, source_uri, source_file)
 
     def _emit_bindings(
         self,
         contract: ODCSContract,
-        bindings: list,
-        file_path: pathlib.Path,
+        bindings: List[PhysicalBinding],
+        source_uri: str,
         source_file: str,
     ) -> Iterable[MetadataWorkUnit]:
+        # One binding == one ODCS schema entry. Each concern is a focused
+        # helper; the physical-binding helper is last because it depends on the
+        # logical dataset the first helper emits.
         for binding in bindings:
-            schema_entry = binding.schema_entry
-            logical_urn = binding.logical_urn
-            self.report.logical_datasets_emitted += 1
-
-            if logical_urn in self._seen_logical_urns:
-                self.report.warning(
-                    title="Duplicate logical ODCS dataset URN",
-                    message=(
-                        "Two ODCS schema entries resolved to the same logical "
-                        "dataset URN; their aspects collide (last-writer-wins). "
-                        "Use distinct contract `id`/schema names or set "
-                        "logical_dataset_name_template to include {contract_version}."
-                    ),
-                    context=f"file={file_path} urn={logical_urn}",
-                )
-            self._seen_logical_urns.add(logical_urn)
-
-            logical_mcps, unmapped_types = odcs_to_logical_dataset_mcps(
-                contract=contract,
-                schema_entry=schema_entry,
-                logical_urn=logical_urn,
-                source_file=source_file,
-                tag_prefix=self.config.tag_prefix,
-                replicate_contract_metadata=self.config.replicate_contract_metadata,
-                strip_owner_email_domain=self.config.strip_owner_email_domain,
-                owner_email_domain=self.config.owner_email_domain,
+            yield from self._emit_logical_dataset(
+                contract, binding, source_uri, source_file
             )
-            self._check_owner_resolution(logical_mcps, file_path)
-            for mcp in logical_mcps:
-                yield mcp.as_workunit()
-            for unmapped in unmapped_types:
-                self.report.schema_type_fallbacks.append(
-                    f"{contract.id}/{schema_entry.name}: {unmapped}"
-                )
-
-            # Assertions target the LOGICAL dataset and are emitted whether or
-            # not a physical binding resolved. Propagation of these
-            # expectations onto bound physical datasets is handled by a
-            # separate DataHub mechanism via the PhysicalInstanceOf link.
             if self.config.emit_assertions:
-                assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
-                    contract=contract,
-                    schema_entry=schema_entry,
-                    logical_urn=logical_urn,
-                )
-                self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
-                if trace.deprecated_rule_key:
-                    self.report.info(
-                        title="ODCS quality rules use the deprecated `rule` key",
-                        message=(
-                            "This v3.1 contract names library rules via the "
-                            "deprecated `rule` key; use `metric` instead."
-                        ),
-                        context=(
-                            f"file={file_path} schema={schema_entry.name} "
-                            f"rules={', '.join(trace.deprecated_rule_key)}"
-                        ),
-                    )
-                for skipped in trace.skipped_no_body:
-                    self.report.rules_skipped_no_threshold.append(skipped)
-                    self.report.warning(
-                        title="ODCS quality rule skipped — no modelable body",
-                        message=(
-                            "Rule has no operator/threshold and no query / "
-                            "implementation / description / name to use as "
-                            "custom assertion logic; skipping."
-                        ),
-                        context=(
-                            f"file={file_path} schema={schema_entry.name} "
-                            f"rule={skipped}"
-                        ),
-                    )
-                self.report.assertions_emitted += len(assertion_urns)
-                for mcp in assertion_mcps:
-                    yield mcp.as_workunit()
-
+                yield from self._emit_assertions(contract, binding, source_uri)
             if self.config.emit_schema_assertion:
-                schema_assertion_urn, schema_assertion_mcps = (
-                    odcs_to_schema_assertion_mcps(
-                        contract=contract,
-                        schema_entry=schema_entry,
-                        logical_urn=logical_urn,
-                        compatibility=self.config.schema_assertion_compatibility,
-                    )
-                )
-                if schema_assertion_urn is not None:
-                    self.report.schema_assertions_emitted += 1
-                    for mcp in schema_assertion_mcps:
-                        yield mcp.as_workunit()
+                yield from self._emit_schema_assertion(contract, binding)
+            yield from self._emit_logical_parent(contract, binding, source_uri)
 
-            if binding.physical_urn is None:
-                # No binding costs only the logicalParent link — never the
-                # assertions. The unmapped reason is informational.
-                if binding.unmapped_reason:
-                    self.report.unmappable_servers += 1
-                    self.report.info(
-                        title="ODCS schema entry has no physical binding",
-                        message=(
-                            f"{binding.unmapped_reason}. Emitted the logical "
-                            "dataset and its assertions; no logicalParent link."
-                        ),
-                        context=(
-                            f"file={file_path} schema_index={binding.index} "
-                            f"schema_name={schema_entry.name}"
-                        ),
-                    )
-                continue
+    def _emit_logical_dataset(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        source_uri: str,
+        source_file: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_entry = binding.schema_entry
+        logical_urn = binding.logical_urn
+        self.report.logical_datasets_emitted += 1
 
-            physical_urn = binding.physical_urn
-            if binding.name_passthrough:
-                self.report.physical_names_passthrough += 1
+        if logical_urn in self._seen_logical_urns:
+            self.report.warning(
+                title="Duplicate logical ODCS dataset URN",
+                message=(
+                    "Two ODCS schema entries resolved to the same logical "
+                    "dataset URN; their aspects collide (last-writer-wins). "
+                    "Use distinct contract `id`/schema names or set "
+                    "logical_dataset_name_template to include {contract_version}."
+                ),
+                context=f"file={source_uri} urn={logical_urn}",
+            )
+        self._seen_logical_urns.add(logical_urn)
 
-            if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
-                physical_urn
-            ):
-                self.report.physical_urns_unverified += 1
-                self.report.warning(
-                    title="Derived physical dataset not found in DataHub",
+        logical_mcps, unmapped_types = odcs_to_logical_dataset_mcps(
+            contract=contract,
+            schema_entry=schema_entry,
+            logical_urn=logical_urn,
+            source_file=source_file,
+            tag_prefix=self.config.tag_prefix,
+            replicate_contract_metadata=self.config.replicate_contract_metadata,
+            strip_owner_email_domain=self.config.strip_owner_email_domain,
+            owner_email_domain=self.config.owner_email_domain,
+        )
+        self._check_owner_resolution(logical_mcps, source_uri)
+        for mcp in logical_mcps:
+            yield mcp.as_workunit()
+        for unmapped in unmapped_types:
+            self.report.schema_type_fallbacks.append(
+                f"{contract.id}/{schema_entry.name}: {unmapped}"
+            )
+
+    def _emit_assertions(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        source_uri: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Assertions target the LOGICAL dataset and are emitted whether or not a
+        # physical binding resolved. Propagation onto bound physical datasets is
+        # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
+        schema_entry = binding.schema_entry
+        assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
+            contract=contract,
+            schema_entry=schema_entry,
+            logical_urn=binding.logical_urn,
+        )
+        self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
+        if trace.deprecated_rule_key:
+            self.report.info(
+                title="ODCS quality rules use the deprecated `rule` key",
+                message=(
+                    "This v3.1 contract names library rules via the "
+                    "deprecated `rule` key; use `metric` instead."
+                ),
+                context=(
+                    f"file={source_uri} schema={schema_entry.name} "
+                    f"rules={', '.join(trace.deprecated_rule_key)}"
+                ),
+            )
+        for skipped in trace.skipped_no_body:
+            self.report.rules_skipped_no_threshold.append(skipped)
+            self.report.warning(
+                title="ODCS quality rule skipped — no modelable body",
+                message=(
+                    "Rule has no operator/threshold and no query / "
+                    "implementation / description / name to use as "
+                    "custom assertion logic; skipping."
+                ),
+                context=(
+                    f"file={source_uri} schema={schema_entry.name} rule={skipped}"
+                ),
+            )
+        self.report.assertions_emitted += len(assertion_urns)
+        for mcp in assertion_mcps:
+            yield mcp.as_workunit()
+
+    def _emit_schema_assertion(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_assertion_urn, schema_assertion_mcps = odcs_to_schema_assertion_mcps(
+            contract=contract,
+            schema_entry=binding.schema_entry,
+            logical_urn=binding.logical_urn,
+            compatibility=self.config.schema_assertion_compatibility,
+        )
+        if schema_assertion_urn is not None:
+            self.report.schema_assertions_emitted += 1
+            for mcp in schema_assertion_mcps:
+                yield mcp.as_workunit()
+
+    def _emit_logical_parent(
+        self,
+        contract: ODCSContract,
+        binding: PhysicalBinding,
+        source_uri: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_entry = binding.schema_entry
+        if binding.physical_urn is None:
+            # No binding costs only the logicalParent link — never the
+            # assertions. The unmapped reason is informational.
+            if binding.unmapped_reason:
+                self.report.unmappable_servers += 1
+                self.report.info(
+                    title="ODCS schema entry has no physical binding",
                     message=(
-                        "The physical URN derived from the contract's servers[] "
-                        "does not exist in DataHub, so no logicalParent link was "
-                        "emitted (this avoids creating a stub dataset). Ingest "
-                        "the physical platform first, fix the derived name via "
-                        "physical_urn_overrides, or set "
-                        "verify_physical_urns_exist=false to emit optimistically."
+                        f"{binding.unmapped_reason}. Emitted the logical "
+                        "dataset and its assertions; no logicalParent link."
                     ),
                     context=(
-                        f"file={file_path} schema_name={schema_entry.name} "
-                        f"urn={physical_urn}"
+                        f"file={source_uri} schema_index={binding.index} "
+                        f"schema_name={schema_entry.name}"
                     ),
                 )
-                continue
+            return
 
-            self.report.physical_bindings_resolved += 1
+        physical_urn = binding.physical_urn
+        if binding.name_passthrough:
+            self.report.physical_names_passthrough += 1
 
-            prior_claim = self._seen_physical_urns.get(physical_urn)
-            if prior_claim is not None:
-                self.report.warning(
-                    title="Physical dataset bound by multiple ODCS schema entries",
-                    message=(
-                        "logicalParent is single-valued; the last writer wins "
-                        f"(already bound by {prior_claim})."
-                    ),
-                    context=f"file={file_path} urn={physical_urn}",
-                )
-            self._seen_physical_urns[physical_urn] = (
-                f"{contract.id}/{schema_entry.name}"
+        if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
+            physical_urn
+        ):
+            self.report.physical_urns_unverified += 1
+            self.report.warning(
+                title="Derived physical dataset not found in DataHub",
+                message=(
+                    "The physical URN derived from the contract's servers[] "
+                    "does not exist in DataHub, so no logicalParent link was "
+                    "emitted (this avoids creating a stub dataset). Ingest "
+                    "the physical platform first, fix the derived name via "
+                    "physical_urn_overrides, or set "
+                    "verify_physical_urns_exist=false to emit optimistically."
+                ),
+                context=(
+                    f"file={source_uri} schema_name={schema_entry.name} "
+                    f"urn={physical_urn}"
+                ),
             )
+            return
 
-            if self.config.emit_logical_parent:
-                # is_primary_source=False: the physical dataset belongs to its
-                # platform-of-record source. This keeps the URN out of ODCS's
-                # stateful-ingestion checkpoint so stale-entity removal can
-                # never soft-delete a physical dataset.
-                yield odcs_to_logical_parent_mcp(physical_urn, logical_urn).as_workunit(
-                    is_primary_source=False
+        self.report.physical_bindings_resolved += 1
+
+        prior_claim = self._seen_physical_urns.get(physical_urn)
+        if prior_claim is not None:
+            self.report.warning(
+                title="Physical dataset bound by multiple ODCS schema entries",
+                message=(
+                    "logicalParent is single-valued; the last writer wins "
+                    f"(already bound by {prior_claim})."
+                ),
+                context=f"file={source_uri} urn={physical_urn}",
+            )
+        self._seen_physical_urns[physical_urn] = f"{contract.id}/{schema_entry.name}"
+
+        if self.config.emit_logical_parent:
+            # `logicalParent` is single-valued and physical URNs are kept out of
+            # the stateful checkpoint, so an in-run collision (last-writer-wins)
+            # is caught above via _seen_physical_urns, but a link written by a
+            # *prior* run to a different contract would otherwise be overwritten
+            # with no signal. Read the persisted link and warn on a genuine
+            # cross-run conflict.
+            existing_parent = self._existing_logical_parent(physical_urn)
+            if existing_parent is not None and existing_parent != binding.logical_urn:
+                self.report.physical_urns_link_conflicts += 1
+                self.report.warning(
+                    title="Physical dataset already linked to a different ODCS contract",
+                    message=(
+                        "logicalParent is single-valued, so this run's link "
+                        "overwrites one written by a previous run for a "
+                        "different logical ODCS dataset. In DataHub a physical "
+                        "table carries exactly one ODCS contract link; if "
+                        "multiple contracts legitimately describe this table, "
+                        "keep only one bound (e.g. via physical_urn_overrides) "
+                        "until multi-contract support lands."
+                    ),
+                    context=(
+                        f"file={source_uri} urn={physical_urn} "
+                        f"existing={existing_parent} new={binding.logical_urn}"
+                    ),
                 )
-                self.report.logical_parents_emitted += 1
+            # is_primary_source=False: the physical dataset belongs to its
+            # platform-of-record source. This keeps the URN out of ODCS's
+            # stateful-ingestion checkpoint so stale-entity removal can
+            # never soft-delete a physical dataset.
+            yield odcs_to_logical_parent_mcp(
+                physical_urn, binding.logical_urn
+            ).as_workunit(is_primary_source=False)
+            self.report.logical_parents_emitted += 1
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # Emit the odcs platform aspect once per run. Also registered at GMS
-        # boot (PR #17332); this is the version-independent fallback, and its
-        # fields must stay in sync with that entry -- see odcs_platform_info_mcp().
-        # is_primary_source=False keeps the platform entity out of the
-        # stateful-ingestion checkpoint.
-        yield odcs_platform_info_mcp().as_workunit(is_primary_source=False)
+        with contextlib.ExitStack() as stack:
+            checkout_dir: Optional[pathlib.Path] = None
+            if self.config.git_info is not None:
+                # Shallow-clone into a temp dir that lives for the whole scan;
+                # the local walker then handles the checkout like any directory.
+                tmp_dir = stack.enter_context(tempfile.TemporaryDirectory("odcs_git"))
+                checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
+                self.report.git_checkout = str(checkout_dir)
 
-        for file_path in self._resolve_paths():
+            for file_path in self._resolve_paths(checkout_dir):
+                try:
+                    yield from self._process_file(file_path)
+                except Exception as e:
+                    # Per spec, one bad file should not crash the whole ingestion.
+                    self.report.warning(
+                        title="Unhandled error processing ODCS file",
+                        message="Skipping file due to unexpected error",
+                        context=str(file_path),
+                        exc=e,
+                    )
+                    self.report.files_skipped.append(str(file_path))
+                    self.report.contracts_skipped += 1
+
+        for uri in self._resolve_remote_uris():
             try:
-                yield from self._process_file(file_path)
+                yield from self._process_uri(uri)
             except Exception as e:
                 # Per spec, one bad file should not crash the whole ingestion.
                 self.report.warning(
                     title="Unhandled error processing ODCS file",
                     message="Skipping file due to unexpected error",
-                    context=str(file_path),
+                    context=uri,
                     exc=e,
                 )
-                self.report.files_skipped.append(str(file_path))
+                self.report.files_skipped.append(uri)
                 self.report.contracts_skipped += 1
 
         # Surface the silent-by-default case: logical datasets were emitted but

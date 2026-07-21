@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Einige Tags stammen von {{platform}} und werden während der geplanten Ingestion regelmäßig neu synchronisiert.",
     "tagTermRenderer.tagsNotEditable": "Einige Tags sind nicht bearbeitbar.",
     "usageStatsRenderer.hasColumnStats": "Hat Spaltenstatistiken",
-    "usageStatsRenderer.noColumnStats": "Keine Spaltenstatistiken"
+    "usageStatsRenderer.noColumnStats": "Keine Spaltenstatistiken",
+    "fieldLogical.andMore": "und {{count}} weitere",
+    "fieldLogical.logicalParentInfo": "Spalte im Logischen Modell, die die Metadaten dieser Spalte definiert. Änderungen an den Spaltenmetadaten des logischen übergeordneten Elements werden automatisch auf diese Spalte übertragen.",
+    "fieldLogical.logicalParentTitle": "Logisches übergeordnetes Element",
+    "fieldLogical.physicalChildrenInfo": "Physische Implementierungen dieser Logischen-Modell-Spalte. Änderungen an den Metadaten dieser Spalte werden automatisch auf diese untergeordneten Spalten übertragen.",
+    "fieldLogical.physicalChildrenTitle": "Physische untergeordnete Elemente",
+    "fieldLogical.viewAllPhysicalChildren": "Alle physischen untergeordneten Elemente anzeigen"
 }

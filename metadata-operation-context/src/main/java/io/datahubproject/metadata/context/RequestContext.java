@@ -607,17 +607,19 @@ public class RequestContext implements ContextInterface {
       String requestAPI = requestContext.getRequestAPI().toMetricLabel();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
-      // Per-request Micrometer counter. When USAGE_AGGREGATION_ENABLED is on, the flush path also
-      // exports datahub_request_count; keep this until aggregation is the default in smoke/dev.
-      metricUtils.incrementMicrometer(
-          MetricUtils.DATAHUB_REQUEST_COUNT,
-          1,
-          "user_category",
-          userCategory,
-          "agent_class",
-          agentClass,
-          "request_api",
-          requestAPI);
+      // Per-request Micrometer counter. Skip when aggregation Micrometer export owns
+      // datahub_request_count (flush uses billing tag keys; Micrometer forbids mixed tag sets).
+      if (!metricUtils.isSuppressLegacyRequestCountMicrometer()) {
+        metricUtils.incrementMicrometer(
+            MetricUtils.DATAHUB_REQUEST_COUNT,
+            1,
+            "user_category",
+            userCategory,
+            "agent_class",
+            agentClass,
+            "request_api",
+            requestAPI);
+      }
     }
   }
 
