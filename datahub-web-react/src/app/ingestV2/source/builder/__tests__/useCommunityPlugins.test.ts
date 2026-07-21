@@ -82,4 +82,30 @@ describe('useCommunityPlugins', () => {
 
         expect(result.current.communityPlugins).toHaveLength(0);
     });
+
+    it('carries capabilities, support status, and trust tier from the unified schema', async () => {
+        mockRegistry({
+            plugins: [
+                {
+                    id: 'cap-source',
+                    repo: 'owner/cap-source',
+                    version: '1.0.0',
+                    type: 'source',
+                    support_status: 'CERTIFIED',
+                    trust_tier: 'verified',
+                    capabilities: [{ capability: 'LINEAGE_COARSE', description: 'Table lineage', supported: true }],
+                },
+            ],
+        });
+
+        const { result, waitFor } = renderHook(() => useCommunityPlugins());
+        await waitFor(() => expect(result.current.communityPlugins).toHaveLength(1));
+
+        expect(result.current.communityPlugins[0].supportStatus).toBe('CERTIFIED');
+        const meta = result.current.communityPluginMeta['cap-source'];
+        expect(meta.trustTier).toBe('verified');
+        expect(meta.supportStatus).toBe('CERTIFIED');
+        expect(meta.capabilities).toHaveLength(1);
+        expect(meta.capabilities?.[0].capability).toBe('LINEAGE_COARSE');
+    });
 });

@@ -4,6 +4,8 @@ import type { Capability } from '@app/ingestV2/shared/connectorRegistry';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
+// Mirrors the backend PluginIndexEntry (metadata-ingestion registry_client.py):
+// one unified schema shared by the CLI and the UI.
 interface RegistryPluginEntry {
     id: string;
     repo: string;
@@ -18,6 +20,8 @@ interface RegistryPluginEntry {
     capabilities?: Capability[];
     source_url?: string;
     package_name?: string;
+    sha256?: string; // integrity hash (verified CLI-side at install; not used in the browser)
+    trust_tier?: string; // community | verified | official
 }
 
 interface CommunityPluginMeta {
@@ -26,7 +30,9 @@ interface CommunityPluginMeta {
     iconUrl?: string;
     recipeTemplate?: string;
     capabilities?: Capability[];
+    supportStatus?: string;
     sourceUrl?: string;
+    trustTier?: string;
 }
 
 /**
@@ -94,7 +100,9 @@ export function useCommunityPlugins() {
                         iconUrl: entry.icon_url,
                         recipeTemplate: entry.recipe_template,
                         capabilities: entry.capabilities,
+                        supportStatus: entry.support_status,
                         sourceUrl,
+                        trustTier: entry.trust_tier,
                     };
                 });
 
