@@ -12,10 +12,7 @@ import {
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
-import {
-    DocumentSourceGroup,
-    partitionRootNodesByLayer,
-} from '@app/document/utils/documentTreeGrouping';
+import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import { TreeSectionHeader } from '@app/homeV2/layout/sidebar/documents/TreeSectionHeader';
