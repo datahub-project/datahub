@@ -710,9 +710,13 @@ class SnowflakeV2Source(
 
         if self.semantic_view_usage_extractor and discovered_semantic_views:
             discovered_semantic_views_set = set(discovered_semantic_views)
-            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
-                discovered_semantic_views_set
-            )
+            # Usage statistics are legacy-dataset-mode only - semanticModel entities
+            # do not carry usage statistics per model-owner decision. Query entities
+            # (Queries tab) are still emitted in both modes.
+            if not self.config.semantic_views.emit_semantic_model_entities:
+                yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                    discovered_semantic_views_set
+                )
             yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
                 discovered_semantic_views_set
             )

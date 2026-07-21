@@ -696,7 +696,6 @@ entities:
     aspects:
       - semanticModelInfo
       - upstreamLineage
-      - datasetUsageStatistics
       - ownership
       - domains
       - globalTags

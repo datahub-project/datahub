@@ -3,12 +3,12 @@
 This module extracts usage statistics and query entities for Snowflake Semantic Views.
 It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
 
-Emits, in both legacy dataset mode and the new semanticModel entity mode:
-- DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN
-  in legacy mode or the semanticModel URN when
-  semantic_views.emit_semantic_model_entities is enabled
-- Query entities: individual queries for the Queries tab, whose subject follows the
-  same dataset-vs-semanticModel URN choice
+- DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN.
+  Only emitted in legacy dataset mode (semantic_views.emit_semantic_model_entities is
+  disabled) - per model-owner decision, semanticModel entities do not carry usage
+  statistics, so nothing is emitted here in the new mode.
+- Query entities: individual queries for the Queries tab, emitted in both legacy and
+  semanticModel modes; the subject follows the dataset-vs-semanticModel URN choice.
 
 QUERY_HISTORY-derived semantic view names are matched against discovered semantic
 views case-insensitively, since result casing is not guaranteed. However, the
@@ -79,7 +79,11 @@ class SemanticViewUsageExtractor:
         discovered_semantic_views: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Extract usage statistics for semantic views.
+        Extract usage statistics for semantic views (legacy dataset mode only).
+
+        Per model-owner decision, semanticModel entities do not carry usage
+        statistics, so this is a no-op when
+        semantic_views.emit_semantic_model_entities is enabled.
 
         Args:
             discovered_semantic_views: Set of discovered semantic view identifiers
@@ -88,6 +92,9 @@ class SemanticViewUsageExtractor:
         Yields:
             MetadataWorkUnit for DatasetUsageStatistics
         """
+        if self.config.semantic_views.emit_semantic_model_entities:
+            return
+
         if not self.config.semantic_views.include_usage:
             return
 
@@ -234,7 +241,10 @@ class SemanticViewUsageExtractor:
     def _build_usage_statistics_workunit(
         self, record: SemanticViewUsageRecord, dataset_identifier: str
     ) -> Optional[MetadataWorkUnit]:
-        """Build a DatasetUsageStatistics workunit for a semantic view."""
+        """Build a DatasetUsageStatistics workunit for a semantic view.
+
+        Legacy dataset mode only - see get_semantic_view_usage_workunits.
+        """
         try:
             user_counts = self._map_user_counts(record.user_counts)
 
@@ -251,13 +261,8 @@ class SemanticViewUsageExtractor:
                 else None,
             )
 
-            target_entity_urn = (
-                self._semantic_model_urn_from_identifier(dataset_identifier)
-                if self.config.semantic_views.emit_semantic_model_entities
-                else self.identifiers.gen_dataset_urn(dataset_identifier)
-            )
             return MetadataChangeProposalWrapper(
-                entityUrn=target_entity_urn,
+                entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                 aspect=stats,
             ).as_workunit()
 

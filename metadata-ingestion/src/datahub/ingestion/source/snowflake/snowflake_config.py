@@ -118,7 +118,9 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
+        "Ignored (no usage statistics are emitted) when emit_semantic_model_entities is "
+        "enabled - semanticModel entities do not carry usage statistics.",
     )
 
     include_queries: bool = Field(
@@ -154,6 +156,19 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
                 "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_ignored_in_semantic_model_mode(self) -> "SemanticViewsConfig":
+        if self.include_usage and self.emit_semantic_model_entities:
+            logger.warning(
+                "semantic_views.include_usage is set to True but "
+                "semantic_views.emit_semantic_model_entities is also True. "
+                "semanticModel entities do not carry usage statistics (per "
+                "model-owner decision), so include_usage is ignored in this "
+                "mode - no usage statistics will be emitted. Query entities are "
+                "unaffected; see semantic_views.include_queries."
             )
         return self
 
@@ -886,32 +901,6 @@ class SnowflakeV2Config(
                 "will be emitted in this combination, since semantic view processing "
                 "requires include_technical_schema. Set include_technical_schema to True "
                 "to emit semanticModel/metric entities."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def validate_semantic_model_entities_usage_casing(
-        self,
-    ) -> "SnowflakeV2Config":
-        # Usage/query matching against QUERY_HISTORY is case-insensitive by design
-        # (see SemanticViewUsageExtractor._build_identifier_lookup), and the emitted
-        # semanticModel URN is built from the canonical schema-gen identifier rather
-        # than a lowercased match key, so this combination is expected to work
-        # correctly. This is a belt-and-suspenders heads-up for a casing mode that is
-        # already discouraged elsewhere (see validate_convert_urns_to_lowercase) and
-        # is more prone to subtle URN mismatches across the codebase in general.
-        if (
-            self.semantic_views.emit_semantic_model_entities
-            and self.semantic_views.include_usage
-            and not self.convert_urns_to_lowercase
-        ):
-            logger.warning(
-                "semantic_views.emit_semantic_model_entities and "
-                "semantic_views.include_usage are both enabled with "
-                "convert_urns_to_lowercase set to False. This combination is "
-                "supported, but convert_urns_to_lowercase=False is generally "
-                "discouraged as it is more prone to URN casing mismatches. "
-                "See the note on convert_urns_to_lowercase for details."
             )
         return self
 

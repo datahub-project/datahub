@@ -44,9 +44,10 @@ class TestSemanticViewsConfig:
             )
             mock_logger.warning.assert_called()
 
-    def test_include_usage_with_emit_semantic_model_entities_no_warning(self):
-        """include_usage is fully supported in semanticModel mode; enabling both
-        flags together must not log a warning."""
+    def test_include_usage_with_emit_semantic_model_entities_warns(self):
+        """semanticModel entities do not carry usage statistics (per model-owner
+        decision); enabling both flags together must log a warning that
+        include_usage is ignored in this mode."""
         with patch(
             "datahub.ingestion.source.snowflake.snowflake_config.logger"
         ) as mock_logger:
@@ -54,6 +55,22 @@ class TestSemanticViewsConfig:
                 enabled=True,
                 include_usage=True,
                 emit_semantic_model_entities=True,
+            )
+            assert any(
+                "include_usage" in str(call.args) and "ignored" in str(call.args)
+                for call in mock_logger.warning.call_args_list
+            )
+
+    def test_include_usage_without_emit_semantic_model_entities_no_warning(self):
+        """In legacy dataset mode, include_usage works as before and must not
+        log the semanticModel-mode warning."""
+        with patch(
+            "datahub.ingestion.source.snowflake.snowflake_config.logger"
+        ) as mock_logger:
+            SemanticViewsConfig(
+                enabled=True,
+                include_usage=True,
+                emit_semantic_model_entities=False,
             )
             mock_logger.warning.assert_not_called()
 
@@ -103,56 +120,6 @@ class TestSemanticModelEntitiesRequiresTechnicalSchema:
                 }
             )
             mock_logger.warning.assert_not_called()
-
-
-class TestSemanticModelEntitiesUsageCasingWarning:
-    """Belt-and-suspenders warning for a casing mode that is more prone to URN
-    mismatches: emit_semantic_model_entities + include_usage with
-    convert_urns_to_lowercase=False."""
-
-    def test_warns_when_lowercasing_disabled(self):
-        with patch(
-            "datahub.ingestion.source.snowflake.snowflake_config.logger"
-        ) as mock_logger:
-            SnowflakeV2Config.model_validate(
-                {
-                    "account_id": "test_account",
-                    "username": "user",
-                    "password": "pass",
-                    "convert_urns_to_lowercase": False,
-                    "semantic_views": {
-                        "enabled": True,
-                        "emit_semantic_model_entities": True,
-                        "include_usage": True,
-                    },
-                }
-            )
-            assert any(
-                "convert_urns_to_lowercase" in str(call.args)
-                for call in mock_logger.warning.call_args_list
-            )
-
-    def test_no_warning_when_lowercasing_enabled(self):
-        with patch(
-            "datahub.ingestion.source.snowflake.snowflake_config.logger"
-        ) as mock_logger:
-            SnowflakeV2Config.model_validate(
-                {
-                    "account_id": "test_account",
-                    "username": "user",
-                    "password": "pass",
-                    "convert_urns_to_lowercase": True,
-                    "semantic_views": {
-                        "enabled": True,
-                        "emit_semantic_model_entities": True,
-                        "include_usage": True,
-                    },
-                }
-            )
-            assert not any(
-                "casing mismatches" in str(call.args)
-                for call in mock_logger.warning.call_args_list
-            )
 
 
 class TestSnowflakeQuerySemanticViewUsage:
@@ -548,37 +515,21 @@ class TestSemanticViewUsageExtractor:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         assert wu.metadata.entityUrn == mock_identifiers.gen_dataset_urn.return_value
 
-    def test_build_usage_statistics_workunit_emits_semantic_model_urn(
+    def test_get_semantic_view_usage_workunits_no_op_in_semantic_model_mode(
         self,
         extractor: SemanticViewUsageExtractor,
-        mock_identifiers: MagicMock,
     ) -> None:
-        """With emit_semantic_model_entities=True, the DatasetUsageStatistics MCP's
-        entityUrn must be the semanticModel URN, not a dataset URN."""
+        """semanticModel entities do not carry usage statistics (per model-owner
+        decision): with emit_semantic_model_entities=True, no
+        DatasetUsageStatistics workunits are emitted, even with include_usage
+        enabled and matching discovered views."""
         extractor.config.semantic_views.emit_semantic_model_entities = True
 
-        record = SemanticViewUsageRecord(
-            semantic_view_name="db.schema.view",
-            bucket_start_time=datetime.datetime(
-                2024, 1, 1, tzinfo=datetime.timezone.utc
-            ),
-            total_queries=10,
-            unique_users=2,
-            direct_sql_queries=8,
-            cortex_analyst_queries=2,
-            avg_execution_time_ms=100.0,
-            total_rows_produced=200,
-            user_counts=[],
+        workunits = list(
+            extractor.get_semantic_view_usage_workunits({"db.schema.view"})
         )
 
-        wu = extractor._build_usage_statistics_workunit(record, "db.schema.view")
-
-        assert wu is not None
-        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        assert isinstance(wu.metadata.aspect, DatasetUsageStatistics)
-        assert wu.metadata.entityUrn == (
-            mock_identifiers.gen_semantic_model_urn.return_value
-        )
+        assert workunits == []
 
     def test_query_extraction_respects_max_queries_per_view_efficiently(
         self,
@@ -705,11 +656,11 @@ class TestSemanticViewUsageIntegration:
     @patch(
         "datahub.ingestion.source.snowflake.snowflake_semantic_view_usage.SnowflakeConnection"
     )
-    def test_usage_extraction_end_to_end_semantic_model_mode(
-        self, mock_connection_class
-    ):
-        """With emit_semantic_model_entities=True, the emitted DatasetUsageStatistics
-        MCP's entityUrn must be the semanticModel URN, not a dataset URN."""
+    def test_usage_extraction_no_op_in_semantic_model_mode(self, mock_connection_class):
+        """semanticModel entities do not carry usage statistics (per model-owner
+        decision): with emit_semantic_model_entities=True, no
+        DatasetUsageStatistics workunits are emitted, even with matching
+        QUERY_HISTORY results."""
         config = MagicMock(spec=SnowflakeV2Config)
         config.semantic_views = SemanticViewsConfig(
             enabled=True,
@@ -747,8 +698,6 @@ class TestSemanticViewUsageIntegration:
         )
         mock_connection.query.return_value = mock_usage_results
 
-        # Use a real identifier builder so the emitted URN reflects the actual
-        # gen_semantic_model_urn implementation, not a mock stand-in.
         identifier_config = SnowflakeV2Config.model_validate(
             {
                 "account_id": "test_account",
@@ -769,24 +718,19 @@ class TestSemanticViewUsageIntegration:
         discovered = {"test_db.public.sales_view"}
         workunits = list(extractor.get_semantic_view_usage_workunits(discovered))
 
-        assert len(workunits) == 1
-        metadata = workunits[0].metadata
-        assert isinstance(metadata, MetadataChangeProposalWrapper)
-        assert isinstance(metadata.aspect, DatasetUsageStatistics)
-        assert metadata.entityUrn == (
-            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_view)"
-        )
+        assert workunits == []
+        mock_connection.query.assert_not_called()
 
 
 class TestSemanticModelUrnCasingConsistency:
-    """Regression coverage for the usage/query semanticModel URN case mismatch:
-    with convert_urns_to_lowercase=False, discovered_semantic_views retains the
+    """Regression coverage for the query semanticModel URN case mismatch: with
+    convert_urns_to_lowercase=False, discovered_semantic_views retains the
     original (mixed-case) Snowflake identifiers, matching what schema generation
     used to mint the semanticModel URN. QUERY_HISTORY-derived names must still
     match case-insensitively, but the emitted URN must be built from the
     canonical discovered identifier, not a freshly-lowercased match key -
     otherwise it silently diverges from the schema-gen URN (a ghost URN that
-    usage stats/queries attach to instead of the real semanticModel entity)."""
+    queries attach to instead of the real semanticModel entity)."""
 
     def _make_identifiers(
         self, convert_urns_to_lowercase: bool
@@ -815,57 +759,6 @@ class TestSemanticModelUrnCasingConsistency:
         config.bucket_duration = BucketDuration.DAY
         config.email_domain = "test.com"
         return config
-
-    def test_usage_stats_urn_matches_schema_gen_when_lowercasing_disabled(self):
-        # Mirrors a real Snowflake semantic view: schema generation discovers it
-        # with its original (unquoted-uppercase) casing when
-        # convert_urns_to_lowercase=False, while QUERY_HISTORY may report a
-        # different case for the same identifier.
-        identifiers = self._make_identifiers(convert_urns_to_lowercase=False)
-        schema_gen_identifier = "TEST_DB.PUBLIC.SALES_VIEW"
-        expected_urn = identifiers.gen_semantic_model_urn(
-            "SALES_VIEW", "PUBLIC", "TEST_DB"
-        )
-
-        config = self._make_config()
-        mock_connection = MagicMock()
-        mock_usage_results = MagicMock()
-        mock_usage_results.__iter__ = lambda self: iter(
-            [
-                {
-                    "SEMANTIC_VIEW_NAME": "test_db.public.sales_view",
-                    "BUCKET_START_TIME": datetime.datetime(
-                        2024, 1, 1, tzinfo=datetime.timezone.utc
-                    ),
-                    "TOTAL_QUERIES": 25,
-                    "UNIQUE_USERS": 3,
-                    "DIRECT_SQL_QUERIES": 20,
-                    "CORTEX_ANALYST_QUERIES": 5,
-                    "AVG_EXECUTION_TIME_MS": 150.0,
-                    "TOTAL_ROWS_PRODUCED": 500,
-                    "USER_COUNTS": "[]",
-                    "TOP_SQL_QUERIES": [],
-                }
-            ]
-        )
-        mock_connection.query.return_value = mock_usage_results
-
-        extractor = SemanticViewUsageExtractor(
-            config=config,
-            report=SnowflakeV2Report(),
-            connection=mock_connection,
-            identifiers=identifiers,
-        )
-
-        workunits = list(
-            extractor.get_semantic_view_usage_workunits({schema_gen_identifier})
-        )
-
-        assert len(workunits) == 1
-        metadata = workunits[0].metadata
-        assert isinstance(metadata, MetadataChangeProposalWrapper)
-        assert isinstance(metadata.aspect, DatasetUsageStatistics)
-        assert metadata.entityUrn == expected_urn
 
     def test_query_subjects_urn_matches_schema_gen_when_lowercasing_disabled(self):
         identifiers = self._make_identifiers(convert_urns_to_lowercase=False)
@@ -920,52 +813,3 @@ class TestSemanticModelUrnCasingConsistency:
         subjects = query_subjects_metadata.aspect
         assert isinstance(subjects, QuerySubjects)
         assert subjects.subjects[0].entity == expected_urn
-
-    def test_usage_stats_urn_matches_schema_gen_default_lowercase_mode(self):
-        """Matching test for the default (convert_urns_to_lowercase=True) mode:
-        discovered_semantic_views is already lowercased by schema generation, and
-        the fix must not regress this existing behavior."""
-        identifiers = self._make_identifiers(convert_urns_to_lowercase=True)
-        schema_gen_identifier = "test_db.public.sales_view"
-        expected_urn = identifiers.gen_semantic_model_urn(
-            "sales_view", "public", "test_db"
-        )
-
-        config = self._make_config()
-        mock_connection = MagicMock()
-        mock_usage_results = MagicMock()
-        mock_usage_results.__iter__ = lambda self: iter(
-            [
-                {
-                    "SEMANTIC_VIEW_NAME": "TEST_DB.PUBLIC.SALES_VIEW",
-                    "BUCKET_START_TIME": datetime.datetime(
-                        2024, 1, 1, tzinfo=datetime.timezone.utc
-                    ),
-                    "TOTAL_QUERIES": 25,
-                    "UNIQUE_USERS": 3,
-                    "DIRECT_SQL_QUERIES": 20,
-                    "CORTEX_ANALYST_QUERIES": 5,
-                    "AVG_EXECUTION_TIME_MS": 150.0,
-                    "TOTAL_ROWS_PRODUCED": 500,
-                    "USER_COUNTS": "[]",
-                    "TOP_SQL_QUERIES": [],
-                }
-            ]
-        )
-        mock_connection.query.return_value = mock_usage_results
-
-        extractor = SemanticViewUsageExtractor(
-            config=config,
-            report=SnowflakeV2Report(),
-            connection=mock_connection,
-            identifiers=identifiers,
-        )
-
-        workunits = list(
-            extractor.get_semantic_view_usage_workunits({schema_gen_identifier})
-        )
-
-        assert len(workunits) == 1
-        metadata = workunits[0].metadata
-        assert isinstance(metadata, MetadataChangeProposalWrapper)
-        assert metadata.entityUrn == expected_urn
