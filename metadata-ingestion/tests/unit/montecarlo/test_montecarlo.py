@@ -646,6 +646,51 @@ def test_client_get_monitors_table_monitor_without_full_table_id_filter() -> Non
     assert calls == ["getMonitors", "getTableMonitor"]
 
 
+@pytest.mark.parametrize("failing_query", ["getTableMonitor", "getTable"])
+def test_client_get_monitors_table_monitor_auth_error_is_fatal(
+    failing_query: str,
+) -> None:
+    """A MonteCarloAuthError raised while resolving a TABLE monitor's scope
+    (either the getTableMonitor or the getTable call) must propagate unwrapped,
+    not be demoted to a per-monitor warning like a recoverable failure would be."""
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = None
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            if failing_query == "getTableMonitor":
+                raise MonteCarloAuthError("bad credentials")
+            return {
+                "get_table_monitor": {
+                    "asset_selection": {
+                        "filters": [
+                            {"type": "FULL_TABLE_ID", "full_table_id": "db.sch.tbl"}
+                        ]
+                    }
+                }
+            }
+        if "getTable" in query:
+            raise MonteCarloAuthError("bad credentials")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client._call = fake_call  # type: ignore[method-assign]
+    with pytest.raises(MonteCarloAuthError):
+        list(client.get_monitors())
+
+
 def test_client_get_custom_rules_paginates() -> None:
     page1 = {
         "get_custom_rules": {

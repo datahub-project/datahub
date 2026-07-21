@@ -1,7 +1,6 @@
 import functools
-import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Type
+from typing import Dict, Iterable, Optional, Type
 
 from datahub.emitter.mce_builder import (
     make_assertion_source,
@@ -33,13 +32,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
-if TYPE_CHECKING:
-    from acryl_datahub_cloud.sdk.entities.assertion import (  # type: ignore[import-not-found]
-        Assertion,
-    )
-
-logger = logging.getLogger(__name__)
-
 PLATFORM = "montecarlo"
 
 
@@ -53,13 +45,16 @@ class _IngestedAssertion:
 
 
 @functools.lru_cache(maxsize=1)
-def _load_cloud_assertion_class() -> "Optional[Type[Assertion]]":
+def _load_cloud_assertion_class() -> Optional[Type]:
     """Return the DataHub Cloud ``Assertion`` entity class if available, cached.
 
     The connector prefers the Cloud SDK's assertion entity (it manages the
     assertionInfo + dataPlatformInstance aspects). When ``acryl-datahub-cloud`` is
     not installed we fall back to emitting equivalent OSS aspects directly, mirroring
-    the optional-import pattern in ``datahub.sdk.main_client``.
+    the optional-import pattern in ``datahub.sdk.main_client``. Only ImportError (the
+    "not installed" case) is caught here -- any other exception (e.g. a broken or
+    incompatible install) propagates up to the caller, where source.py's per-item
+    error handling reports it instead of silently downgrading to the OSS path.
     """
     try:
         from acryl_datahub_cloud.sdk.entities.assertion import (  # type: ignore[import-not-found]
@@ -68,11 +63,6 @@ def _load_cloud_assertion_class() -> "Optional[Type[Assertion]]":
 
         return Assertion
     except ImportError:
-        return None
-    except Exception:
-        logger.warning(
-            "Failed to load cloud Assertion class; using OSS fallback.", exc_info=True
-        )
         return None
 
 

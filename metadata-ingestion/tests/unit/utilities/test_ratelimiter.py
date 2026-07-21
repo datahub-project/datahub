@@ -1,7 +1,8 @@
+import logging
 import time
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
 import pytest
 import time_machine
@@ -42,6 +43,22 @@ def test_token_bucket_allows_burst_then_paces_to_rate() -> None:
     assert paced_elapsed >= 0.001
 
 
+def test_token_bucket_wait_duration_matches_deficit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Once the bucket is empty, the wait must be exactly the time needed to
+    accumulate the missing token at the configured rate — not a fixed or
+    arbitrary backoff."""
+    sleep_calls: List[float] = []
+    monkeypatch.setattr(time, "sleep", sleep_calls.append)
+
+    bucket = TokenBucket(rate=2.0, capacity=1)
+    bucket.acquire()  # consumes the single burst token, no wait
+    bucket.acquire()  # empty -> waits (1 - 0) / 2.0 = 0.5s
+
+    assert sleep_calls == [pytest.approx(0.5, abs=0.01)]
+
+
 def test_token_bucket_rejects_non_positive_params() -> None:
     with pytest.raises(ValueError):
         TokenBucket(rate=0, capacity=1)
@@ -65,3 +82,24 @@ def test_daily_call_budget_resets_at_utc_midnight() -> None:
             budget.acquire()
     with time_machine.travel("2026-06-02 00:01:00 +0000", tick=False):
         budget.acquire()  # new UTC day -> budget replenished
+
+
+def test_daily_call_budget_warns_once_past_threshold(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    daily_limit = 100
+    threshold = DailyCallBudget._WARNING_THRESHOLD
+    calls_to_cross_threshold = int(daily_limit * threshold) + 1
+
+    budget = DailyCallBudget(daily_limit=daily_limit)
+    with caplog.at_level(logging.WARNING):
+        for _ in range(calls_to_cross_threshold - 1):
+            budget.acquire()
+        assert not caplog.records
+
+        budget.acquire()  # this call crosses the threshold
+        assert len(caplog.records) == 1
+        assert f"{threshold * 100:.0f}%" in caplog.records[0].message
+
+        budget.acquire()
+        assert len(caplog.records) == 1  # only warns once per day
