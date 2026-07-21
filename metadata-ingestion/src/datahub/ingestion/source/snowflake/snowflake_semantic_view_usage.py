@@ -9,6 +9,14 @@ Emits, in both legacy dataset mode and the new semanticModel entity mode:
   semantic_views.emit_semantic_model_entities is enabled
 - Query entities: individual queries for the Queries tab, whose subject follows the
   same dataset-vs-semanticModel URN choice
+
+QUERY_HISTORY-derived semantic view names are matched against discovered semantic
+views case-insensitively, since result casing is not guaranteed. However, the
+emitted dataset/semanticModel URN is always built from the canonical identifier
+discovered during schema generation (see _build_identifier_lookup in
+SemanticViewUsageExtractor), never from the lowercased match key - otherwise, with
+convert_urns_to_lowercase=False, the URN would silently diverge from the one
+schema generation already wrote to the graph.
 """
 
 import json
@@ -103,18 +111,23 @@ class SemanticViewUsageExtractor:
                 )
             )
 
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
+
             for record in self._parse_usage_results(results):
-                # Normalize the semantic view name to match discovered datasets
+                # Match case-insensitively, but resolve back to the canonical
+                # (correctly-cased) identifier discovered during schema generation -
+                # see _build_identifier_lookup for why.
                 normalized_name = self._normalize_semantic_view_name(
                     record.semantic_view_name
                 )
-                if normalized_name not in discovered_semantic_views:
+                canonical_identifier = identifier_lookup.get(normalized_name)
+                if canonical_identifier is None:
                     logger.debug(
                         f"Skipping usage for {record.semantic_view_name} - not in discovered semantic views"
                     )
                     continue
 
-                wu = self._build_usage_statistics_workunit(record, normalized_name)
+                wu = self._build_usage_statistics_workunit(record, canonical_identifier)
                 if wu:
                     yield wu
 
@@ -184,19 +197,37 @@ class SemanticViewUsageExtractor:
         """Normalize semantic view name to lowercase for matching."""
         return name.lower()
 
+    def _build_identifier_lookup(
+        self, discovered_semantic_views: Set[str]
+    ) -> Dict[str, str]:
+        """Map a lowercase-normalized identifier to its canonical form.
+
+        QUERY_HISTORY-derived names are matched case-insensitively against
+        discovered_semantic_views (Snowflake session/query-result casing isn't
+        guaranteed), but the semanticModel/dataset URN must be built from the
+        identifier exactly as schema generation produced it (i.e. already passed
+        through SnowflakeIdentifierBuilder.snowflake_identifier for the configured
+        casing mode - see get_dataset_identifier in snowflake_v2.py). Building the
+        URN from a freshly-lowercased match key instead would silently diverge from
+        the schema-gen URN whenever convert_urns_to_lowercase=False, since Snowflake
+        identifiers are commonly uppercase.
+        """
+        return {
+            identifier.lower(): identifier for identifier in discovered_semantic_views
+        }
+
     def _semantic_model_urn_from_identifier(self, identifier: str) -> str:
-        """Build the semanticModel URN from a db.schema.view identifier."""
+        """Build the semanticModel URN from a db.schema.view identifier.
+
+        `identifier` must be the canonical, already-config-cased identifier (as
+        produced by _build_identifier_lookup), not a freshly-lowercased match key -
+        see that method's docstring for why.
+        """
         # maxsplit=2 protects the view name (matching existing codebase patterns);
         # this assumes db/schema names contain no dots themselves - a quoted
-        # identifier with an embedded dot (e.g. "MY.DB") would misparse here.
-        # Also, `identifier` has already been lowercased by the caller's matching
-        # loop (see _normalize_semantic_view_name), so with
-        # convert_urns_to_lowercase=False this may fail to match the case-preserving
-        # semanticModel URN minted on the schema-generation side (which derives its
-        # db/schema/view segments from the original, non-lowercased Snowflake
-        # identifiers). The proper follow-up is a structural pass-through of the
-        # original db/schema/view components here instead of re-parsing a
-        # lowercased string.
+        # identifier with an embedded dot (e.g. "MY.DB") would misparse here, the
+        # same residual caveat that applies to dataset URN construction elsewhere
+        # in this connector.
         db_name, schema_name, view_name = identifier.split(".", 2)
         return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
 
@@ -303,6 +334,7 @@ class SemanticViewUsageExtractor:
             # Group queries by semantic view, limiting during collection to avoid memory issues
             queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
             max_per_view = self.config.semantic_views.max_queries_per_view
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
 
             for row in results:
                 # Skip rows where REGEXP_SUBSTR failed to extract a name
@@ -311,7 +343,7 @@ class SemanticViewUsageExtractor:
                     continue
 
                 normalized_name = self._normalize_semantic_view_name(semantic_view_name)
-                if normalized_name not in discovered_semantic_views:
+                if normalized_name not in identifier_lookup:
                     continue
 
                 # Skip if we've already collected enough queries for this view
@@ -338,12 +370,17 @@ class SemanticViewUsageExtractor:
                     queries_by_view[normalized_name] = []
                 queries_by_view[normalized_name].append(query)
 
-            # Emit query entities
-            for view_name, queries in queries_by_view.items():
-                logger.debug(f"Emitting {len(queries)} query entities for {view_name}")
+            # Emit query entities, using the canonical (schema-gen) identifier for
+            # URN construction rather than the lowercased grouping key - see
+            # _build_identifier_lookup.
+            for normalized_name, queries in queries_by_view.items():
+                canonical_identifier = identifier_lookup[normalized_name]
+                logger.debug(
+                    f"Emitting {len(queries)} query entities for {canonical_identifier}"
+                )
 
                 for query in queries:
-                    yield from self._build_query_workunits(query, view_name)
+                    yield from self._build_query_workunits(query, canonical_identifier)
 
         except Exception as e:
             logger.warning(

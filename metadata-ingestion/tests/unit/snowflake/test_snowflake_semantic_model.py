@@ -536,6 +536,37 @@ def test_fine_grained_lineage_split_between_model_and_metric():
     ]
 
 
+def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
+    """_split_lineages_by_metric (via _downstream_field_name) assumes each
+    FineGrainedLineageClass has exactly one downstream - true for every current
+    producer of semantic view FGLs. If that assumption is ever violated, routing
+    must fall back to the first downstream rather than crash."""
+    mapper = _make_mapper()
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        "Sales_Analytics", _SCHEMA, _DB
+    )
+
+    multi_downstream_fgl = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=["urn:li:schemaField:(some,upstream)"],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[
+            make_schema_field_urn(model_urn, "total_revenue"),
+            make_schema_field_urn(model_urn, "order_date"),
+        ],
+    )
+
+    model_lineages, metric_lineages = mapper._split_lineages_by_metric(
+        [multi_downstream_fgl],
+        metric_names_upper={"TOTAL_REVENUE"},
+        shadowed_metric_names=set(),
+    )
+
+    # Routed using only the first downstream (TOTAL_REVENUE), matching a metric.
+    assert model_lineages == []
+    assert metric_lineages == {"TOTAL_REVENUE": [multi_downstream_fgl]}
+
+
 def test_no_upstream_lineage_emitted_when_no_resolved_upstreams():
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
@@ -767,6 +798,8 @@ def test_derived_from_unparseable_expression_yields_no_edges():
     )
 
     assert not _aspects_for(workunits, broken_metric_urn, MetricRelationshipsClass)
+    # The parse failure must be diagnosable via the report counter, not silent.
+    assert mapper.report.num_semantic_view_metric_expr_parse_failures == 1
 
 
 def test_metric_column_tags_emitted_as_global_tags():

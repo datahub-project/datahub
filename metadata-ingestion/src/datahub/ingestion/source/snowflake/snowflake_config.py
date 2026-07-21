@@ -889,6 +889,32 @@ class SnowflakeV2Config(
             )
         return self
 
+    @model_validator(mode="after")
+    def validate_semantic_model_entities_usage_casing(
+        self,
+    ) -> "SnowflakeV2Config":
+        # Usage/query matching against QUERY_HISTORY is case-insensitive by design
+        # (see SemanticViewUsageExtractor._build_identifier_lookup), and the emitted
+        # semanticModel URN is built from the canonical schema-gen identifier rather
+        # than a lowercased match key, so this combination is expected to work
+        # correctly. This is a belt-and-suspenders heads-up for a casing mode that is
+        # already discouraged elsewhere (see validate_convert_urns_to_lowercase) and
+        # is more prone to subtle URN mismatches across the codebase in general.
+        if (
+            self.semantic_views.emit_semantic_model_entities
+            and self.semantic_views.include_usage
+            and not self.convert_urns_to_lowercase
+        ):
+            logger.warning(
+                "semantic_views.emit_semantic_model_entities and "
+                "semantic_views.include_usage are both enabled with "
+                "convert_urns_to_lowercase set to False. This combination is "
+                "supported, but convert_urns_to_lowercase=False is generally "
+                "discouraged as it is more prone to URN casing mismatches. "
+                "See the note on convert_urns_to_lowercase for details."
+            )
+        return self
+
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:
         """
         Returns mapping of

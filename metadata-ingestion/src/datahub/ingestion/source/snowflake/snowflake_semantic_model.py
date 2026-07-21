@@ -481,7 +481,12 @@ class SnowflakeSemanticModelMapper:
             return []
         try:
             parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
-        except Exception:
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse metric expression for {semantic_view.name}."
+                f"{occurrence.name} ({occurrence.expression!r}): {e}"
+            )
+            self.report.num_semantic_view_metric_expr_parse_failures += 1
             return []
         referenced = {
             column.name.upper()
@@ -728,6 +733,15 @@ class SnowflakeSemanticModelMapper:
     ) -> (
         "tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]"
     ):
+        # Routing relies on _downstream_field_name looking at only the first
+        # downstream of each FineGrainedLineageClass. This is safe today because
+        # every FGL produced for semantic view column lineage
+        # (snowflake_schema_gen.py's _column_lineage_workunits/*) is built with
+        # exactly one downstream per (column, logical-table) pair - there is no
+        # producer in this codebase that emits a semantic-view FGL with multiple
+        # downstreams. If that ever changes, this method would silently key off
+        # only the first downstream; see _downstream_field_name for the runtime
+        # guard.
         model_lineages: List[FineGrainedLineageClass] = []
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
@@ -765,6 +779,15 @@ class SnowflakeSemanticModelMapper:
     ) -> Optional[str]:
         if not lineage.downstreams:
             return None
+        if len(lineage.downstreams) > 1:
+            # See the comment in _split_lineages_by_metric: this assumes exactly
+            # one downstream, which holds for every current producer of semantic
+            # view FGLs. Log rather than crash if that assumption is ever violated.
+            logger.debug(
+                f"Semantic view fine-grained lineage has {len(lineage.downstreams)} "
+                f"downstreams; only the first ({lineage.downstreams[0]}) is used "
+                f"for metric-vs-model routing."
+            )
         return SchemaFieldUrn.from_string(lineage.downstreams[0]).field_path
 
     @staticmethod

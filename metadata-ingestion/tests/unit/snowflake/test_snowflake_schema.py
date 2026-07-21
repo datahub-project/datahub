@@ -4,10 +4,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SemanticViewColumnMetadata,
     SnowflakeDataDictionary,
+    SnowflakeSemanticView,
     SnowflakeView,
 )
 
@@ -349,3 +352,64 @@ class TestSnowflakeDataDictionary:
         mock_get_views_schema_query.assert_called_once_with(
             db_name="TEST_DB", schema_name="PUBLIC", view_filter=""
         )
+
+
+class TestProcessColumnOccurrences:
+    """column_occurrences is only consumed by the semanticModel mapper (not the
+    legacy dataset-mode path), so it should only be populated when
+    emit_semantic_model_entities is enabled - avoiding needless per-column memory
+    overhead in legacy mode."""
+
+    def _make_semantic_view(self) -> SnowflakeSemanticView:
+        return SnowflakeSemanticView(
+            name="TEST_VIEW",
+            created=datetime(2024, 1, 1),
+            comment=None,
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime(2024, 1, 1),
+        )
+
+    def _occurrences(self):
+        return [
+            SemanticViewColumnMetadata(
+                name="col1",
+                data_type="VARCHAR",
+                comment=None,
+                subtype=SemanticViewColumnSubtype.DIMENSION,
+                table_name="ORDERS",
+                synonyms=[],
+                expression=None,
+            )
+        ]
+
+    def test_column_occurrences_not_populated_in_legacy_mode(self):
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        data_dict = SnowflakeDataDictionary(
+            connection, report, emit_semantic_model_entities=False
+        )
+        semantic_view = self._make_semantic_view()
+
+        data_dict._process_column_occurrences(
+            semantic_view, "COL1", self._occurrences(), "TEST_VIEW", 1
+        )
+
+        assert semantic_view.column_occurrences == {}
+        # The merged column itself must still be populated - only the raw
+        # per-occurrence map is gated.
+        assert len(semantic_view.columns) == 1
+
+    def test_column_occurrences_populated_when_emit_semantic_model_entities(self):
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        data_dict = SnowflakeDataDictionary(
+            connection, report, emit_semantic_model_entities=True
+        )
+        semantic_view = self._make_semantic_view()
+        occurrences = self._occurrences()
+
+        data_dict._process_column_occurrences(
+            semantic_view, "COL1", occurrences, "TEST_VIEW", 1
+        )
+
+        assert semantic_view.column_occurrences == {"COL1": occurrences}

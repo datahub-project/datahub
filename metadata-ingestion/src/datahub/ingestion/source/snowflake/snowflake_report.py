@@ -128,6 +128,11 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_dynamic_tables_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
+    # Incremented when sqlglot fails to parse a semantic view metric's expression
+    # while resolving metric-to-metric derivedFrom references (best-effort: the
+    # metric entity is still emitted, just without derivedFrom edges for that
+    # expression). See SnowflakeSemanticModelMapper._derived_from_metrics.
+    num_semantic_view_metric_expr_parse_failures: int = 0
 
     marketplace_listings_scanned: int = 0
     marketplace_listings_filtered: int = 0

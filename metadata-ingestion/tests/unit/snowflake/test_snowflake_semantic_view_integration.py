@@ -541,6 +541,15 @@ class TestSemanticViewOrchestrationFlow:
 
         return gen
 
+    def test_data_dictionary_receives_emit_semantic_model_entities_flag(
+        self, mock_schema_gen
+    ):
+        """emit_semantic_model_entities=True must propagate to the
+        SnowflakeDataDictionary constructed inside SnowflakeSchemaGenerator, so it
+        populates relationships and column_occurrences (both consumed only by the
+        semanticModel mapper)."""
+        assert mock_schema_gen.data_dictionary._emit_semantic_model_entities is True
+
     def test_process_semantic_views_no_base_tables(self, mock_schema_gen):
         """Test _process_semantic_views when semantic view has no base tables."""
         gen = mock_schema_gen
@@ -878,6 +887,7 @@ class TestSemanticViewOrchestrationFlowLegacyDatasetMode:
         only dataset URN aspects, no semanticModel/metric MCPs."""
         gen = mock_schema_gen
         assert gen.config.semantic_views.emit_semantic_model_entities is False
+        assert gen.data_dictionary._emit_semantic_model_entities is False
 
         semantic_view = self._make_semantic_view([])
 

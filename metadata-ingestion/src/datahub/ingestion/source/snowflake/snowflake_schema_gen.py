@@ -175,12 +175,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             connection=self.connection,
             report=self.report,
             fetch_views_from_information_schema=fetch_views_from_information_schema,
-            # getattr guards against SnowflakeSummaryConfig (see the FIXME on the
+            # isinstance guards against SnowflakeSummaryConfig (see the FIXME on the
             # `config` parameter above), which has no `semantic_views` field.
-            emit_semantic_model_entities=getattr(
-                getattr(config, "semantic_views", None),
-                "emit_semantic_model_entities",
-                False,
+            emit_semantic_model_entities=(
+                isinstance(config, SnowflakeV2Config)
+                and config.semantic_views.emit_semantic_model_entities
             ),
         )
         self.report.data_dictionary_cache = self.data_dictionary

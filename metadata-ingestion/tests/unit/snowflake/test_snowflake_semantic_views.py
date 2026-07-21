@@ -181,9 +181,13 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     mock_connection_instance.query.side_effect = query_side_effect
 
     report = SnowflakeV2Report()
+    # column_occurrences (asserted below) is only populated when
+    # emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._process_column_occurrences.
     data_dict = SnowflakeDataDictionary(
         connection=mock_connection_instance,
         report=report,
+        emit_semantic_model_entities=True,
     )
 
     semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
@@ -285,9 +289,13 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
     mock_connection_instance.query.side_effect = query_side_effect
 
     report = SnowflakeV2Report()
+    # column_occurrences (asserted below) is only populated when
+    # emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._process_column_occurrences.
     data_dict = SnowflakeDataDictionary(
         connection=mock_connection_instance,
         report=report,
+        emit_semantic_model_entities=True,
     )
 
     semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")

@@ -280,7 +280,11 @@ class SnowflakeSemanticView(BaseView):
     # Raw per-logical-table column occurrences (uppercase column name -> occurrences).
     # Unlike the merged fields above, this preserves each occurrence's own
     # expression/comment/synonyms/subtype, which the semanticModel mapper needs to
-    # group fields per logical dataset.
+    # group fields per logical dataset. Only populated when
+    # semantic_views.emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._process_column_occurrences - since the legacy
+    # dataset-mode mapper never reads it and it would otherwise add per-column
+    # memory overhead for no benefit.
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
     )
@@ -1433,7 +1437,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
         """Process and deduplicate column occurrences for a semantic view."""
         col_name = occurrences[0].name
 
-        semantic_view.column_occurrences[col_name_upper] = occurrences
+        # Only the semanticModel mapper reads column_occurrences (to group fields
+        # per logical dataset); gate it behind the same flag as
+        # _populate_semantic_view_relationships so legacy dataset-mode ingestion
+        # doesn't carry the extra per-column memory for data it never uses.
+        if self._emit_semantic_model_entities:
+            semantic_view.column_occurrences[col_name_upper] = occurrences
 
         # Merge metadata from all occurrences
         data_type, merged_comment, merged_subtype = self._merge_column_metadata(
