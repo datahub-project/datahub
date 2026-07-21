@@ -61,9 +61,12 @@ class OmniClient:
     @retry(
         retry=retry_if_exception(
             lambda e: (
-                isinstance(e, requests.HTTPError)
-                and e.response is not None
-                and e.response.status_code in (429, 500, 502, 503, 504)
+                isinstance(e, (requests.ConnectionError, requests.ReadTimeout))
+                or (
+                    isinstance(e, requests.HTTPError)
+                    and e.response is not None
+                    and e.response.status_code in (429, 500, 502, 503, 504)
+                )
             )
         ),
         stop=stop_after_attempt(8),
@@ -76,7 +79,8 @@ class OmniClient:
     ) -> Dict[str, Any]:
         """Make an HTTP request with automatic retry on transient failures.
 
-        Retries on 429 (rate limit) and 5xx (server errors) with exponential backoff (1-30s).
+        Retries on ConnectionError, ReadTimeout, 429 (rate limit), and 5xx (server errors)
+        with exponential backoff (1-30s).
         """
         url = f"{self._base_url}{path}"
         response = self._session.request(
