@@ -1407,7 +1407,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 dashboard_dataset_urn, f"{field_ref.view}.{field_ref.field}"
             )
             if not semantic_field:
-                self.report.fine_grained_lineage_edges_unresolved += 1
+                self.report.increment_counter("fine_grained_lineage_edges_unresolved")
                 continue
             semantic_urn = self._semantic_dataset_urn(
                 semantic_field.model_id, semantic_field.view_name
@@ -1428,11 +1428,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 )
             if semantic_field.confidence == "exact":
-                self.report.fine_grained_lineage_edges_exact += 1
+                self.report.increment_counter("fine_grained_lineage_edges_exact")
             elif semantic_field.confidence == "derived":
-                self.report.fine_grained_lineage_edges_derived += 1
+                self.report.increment_counter("fine_grained_lineage_edges_derived")
             else:
-                self.report.fine_grained_lineage_edges_unresolved += 1
+                self.report.increment_counter("fine_grained_lineage_edges_unresolved")
 
         # Emit topic upstream lineage for inferred views
         for topic_urn, view_urns in topic_to_inferred_views.items():
