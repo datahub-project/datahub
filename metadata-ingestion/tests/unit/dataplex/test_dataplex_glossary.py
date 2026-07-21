@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from datahub.metadata.urns import GlossaryNodeUrn
+from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
@@ -444,6 +444,86 @@ class TestProcessTermAssociations:
         assert processor._report.term_associations_emitted == 1
         assert len(workunits) > 0
 
+    def test_reconciled_term_substitutes_datahub_urn(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+    ) -> None:
+        """A DataHub-authored term (datahub_term_urn set) must appear on the asset
+        under its original DataHub URN, and must not be recorded as an external link."""
+        self._setup_processor_with_terms(processor, ctx)
+        processor._emitted_terms[0].datahub_term_urn = "urn:li:glossaryTerm:pii"
+        repo = MagicMock()
+        processor._platform_resource_repository = repo
+        asset_entry_name = ctx.entry_data[0].dataplex_entry_name
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "entryLinks": [
+                {
+                    "entryLinkType": "projects/655216118709/locations/global/entryLinkTypes/definition",
+                    "entryReferences": [
+                        {"type": "SOURCE", "name": asset_entry_name},
+                    ],
+                }
+            ]
+        }
+
+        with patch.object(ctx, "authed_session") as mock_session:
+            mock_session.get.return_value = mock_response
+            workunits = list(
+                processor.process_term_associations(["my-project"], max_workers=1)
+            )
+
+        glossary_terms_wu = next(
+            wu for wu in workunits if wu.metadata.aspectName == "glossaryTerms"
+        )
+        term_urns = [t.urn for t in glossary_terms_wu.metadata.aspect.terms]
+        assert term_urns == ["urn:li:glossaryTerm:pii"]
+        repo.create.assert_not_called()
+
+    def test_external_term_uses_native_urn_and_records_link(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+    ) -> None:
+        """An externally-authored term (datahub_term_urn unset) must appear under its
+        native Dataplex URN, and the link must be recorded as unmanaged."""
+        self._setup_processor_with_terms(processor, ctx)
+        repo = MagicMock()
+        processor._platform_resource_repository = repo
+        asset_entry_name = ctx.entry_data[0].dataplex_entry_name
+        native_term_urn = str(
+            GlossaryTermUrn(_term_urn_id("my-project", "global", "g1", "t1"))
+        )
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "entryLinks": [
+                {
+                    "entryLinkType": "projects/655216118709/locations/global/entryLinkTypes/definition",
+                    "entryReferences": [
+                        {"type": "SOURCE", "name": asset_entry_name},
+                    ],
+                }
+            ]
+        }
+
+        with patch.object(ctx, "authed_session") as mock_session:
+            mock_session.get.return_value = mock_response
+            workunits = list(
+                processor.process_term_associations(["my-project"], max_workers=1)
+            )
+
+        glossary_terms_wu = next(
+            wu for wu in workunits if wu.metadata.aspectName == "glossaryTerms"
+        )
+        term_urns = [t.urn for t in glossary_terms_wu.metadata.aspect.terms]
+        assert term_urns == [native_term_urn]
+        assert repo.create.call_count == 1
+
 
 # ---------------------------------------------------------------------------
 # Processor: term reconciliation
@@ -485,3 +565,21 @@ class TestReconcileTerm:
         assert _make_processor(repo)._reconcile_term("urn:li:glossaryTerm:x") is None
         # No repository at all -> no reconciliation.
         assert _make_processor(None)._reconcile_term("urn:li:glossaryTerm:x") is None
+
+
+class TestRecordExternalLink:
+    def test_records_external_link_when_not_managed(self) -> None:
+        repo = MagicMock()
+        proc = _make_processor(repo)
+        proc._record_external_link(
+            entry_name="projects/p/locations/l/entryGroups/@bigquery/entries/e",
+            native_term_urn="urn:li:glossaryTerm:dataplex.p.global.g.pii",
+        )
+        assert repo.create.call_count == 1
+
+    def test_no_external_write_without_repo(self) -> None:
+        proc = _make_processor(None)
+        # Must not raise when there is no repository.
+        proc._record_external_link(
+            entry_name="e", native_term_urn="urn:li:glossaryTerm:x"
+        )
