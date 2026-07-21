@@ -1144,6 +1144,9 @@ class TestBigQueryAdapter:
             assert "my_table" in sql
             assert "SELECT" in sql.upper()
 
+            # The pooled raw connection must be returned to the pool.
+            mock_raw_conn.close.assert_called_once()
+
     def test_create_temp_table_includes_limit_and_offset(
         self, adapter, mock_bigquery_engine, config
     ):
@@ -1233,6 +1236,123 @@ class TestBigQueryAdapter:
                 # Verify the captured SQL contains TABLESAMPLE
                 assert len(captured_sql) > 0
                 assert "TABLESAMPLE" in captured_sql[0].upper()
+
+    def test_create_temp_table_closes_connection_on_error(
+        self, adapter, mock_bigquery_engine
+    ):
+        """The pooled raw connection is closed even when the query fails."""
+        from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
+
+        mock_cursor = Mock()
+        mock_cursor.execute.side_effect = bq_exceptions.DatabaseError("boom")
+        mock_raw_conn = Mock()
+        mock_raw_conn.cursor.return_value = mock_cursor
+
+        with patch.object(
+            adapter.base_engine, "raw_connection", return_value=mock_raw_conn
+        ):
+            context = ProfilingContext(
+                schema="my_dataset", table="my_table", pretty_name="test"
+            )
+            # catch_exceptions defaults to True, so a temp-table failure surfaces
+            # as a RuntimeError (temp table is required — see the adapter).
+            with pytest.raises(RuntimeError):
+                adapter._create_temp_table_for_query(context)
+
+        mock_raw_conn.close.assert_called_once()
+
+    def test_setup_sampling_samples_partition_temp_table(self, adapter, config):
+        """A partition temp table (from step 1) is itself sampled, matching GE."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        captured_sql = []
+
+        def mock_create_temp(ctx):
+            captured_sql.append(ctx.custom_sql)
+            ctx.temp_table = "sampled_anon"
+            ctx.temp_schema = "proj.anon_ds"
+            return ctx
+
+        # context already carries a partition temp table + the full-table row
+        # count from the source; the partition itself is what must be measured.
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            custom_sql="SELECT * FROM my_dataset.my_table WHERE dt = '2026-07-21'",
+            pretty_name="test",
+            row_count=10_000_000,
+            temp_table="partition_anon",
+            temp_schema="proj.anon_ds",
+        )
+
+        with (
+            patch.object(
+                adapter, "_get_quick_row_count", return_value=50000
+            ) as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=mock_create_temp
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        # Partition size is measured directly (not taken from the full-table
+        # context.row_count), and the sample targets the partition temp table.
+        mock_count.assert_called_once()
+        assert result.is_sampled
+        assert "TABLESAMPLE" in captured_sql[0].upper()
+        assert "partition_anon" in captured_sql[0]
+        assert "my_table" not in captured_sql[0]
+
+    def test_setup_sampling_prefers_context_row_count(self, adapter, config):
+        """Whole-table sampling uses the source row count, skipping COUNT(*)."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            pretty_name="test",
+            row_count=50000,
+        )
+
+        with (
+            patch.object(adapter, "_get_quick_row_count") as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=lambda ctx: ctx
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        mock_count.assert_not_called()
+        assert result.is_sampled
+        # sample_pc = 100 * 1000 / 50000 = 2.0
+        assert result.sample_percentage == pytest.approx(2.0)
+
+    def test_setup_sampling_counts_when_row_count_missing(self, adapter, config):
+        """Falls back to COUNT(*) when the source didn't provide a row count."""
+        config.use_sampling = True
+        config.sample_size = 1000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(
+                adapter, "_get_quick_row_count", return_value=50000
+            ) as mock_count,
+            patch.object(
+                adapter, "_create_temp_table_for_query", side_effect=lambda ctx: ctx
+            ),
+        ):
+            result = adapter._setup_sampling(context, Mock())
+
+        mock_count.assert_called_once()
+        assert result.is_sampled
 
 
 class TestDatabricksAdapter:
