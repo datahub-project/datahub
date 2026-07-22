@@ -507,27 +507,29 @@ class DataHubRestEmitter(Closeable, Emitter):
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
+        caller_supplied_creds = token is not None or auth is not None
         if gms_server == "__from_env__":
-            # HACK: similar to what we do with system auth, we transparently
-            # inject the config in here. TODO(oauth): relocate this into the
-            # planned shared credential-resolution helper so the emitter stops
-            # reading env vars itself (tracked follow-up; see PR #18144).
-            #
-            # The server always resolves from env — a caller passing explicit
-            # credentials (e.g. a sink that already resolved env OAuth) must not
-            # leave the literal sentinel to hit fixup_gms_url. Env credentials
-            # apply only when the caller supplied none.
+            # HACK: the server always resolves from env — a caller passing
+            # explicit credentials (e.g. a sink that already resolved env OAuth)
+            # must not leave the literal sentinel to hit fixup_gms_url.
+            # TODO(oauth): relocate this into the planned shared
+            # credential-resolution helper so the emitter stops reading env vars
+            # itself (tracked follow-up; see PR #18144).
             gms_server, env_token = config_utils.require_config_from_env()
-            if token is None and auth is None:
-                token = env_token
-                # Env-based OAuth (DATAHUB_AUTH_TYPE) must work on this path too —
-                # it is the same "resolve everything from env vars" contract as
-                # load_client_config, and takes the same precedence over a static
-                # DATAHUB_GMS_TOKEN.
-                env_auth_config = build_auth_config_from_env()
-                if env_auth_config is not None:
-                    auth = TokenProviderAuth(build_token_provider(env_auth_config))
-                    token = None
+            if not caller_supplied_creds:
+                token = env_token  # may be overridden by env OAuth below
+        # Env-based OAuth (DATAHUB_AUTH_TYPE) applies whenever the caller supplied
+        # no explicit credentials — covering __from_env__ AND any explicit-host
+        # caller (Airflow hook/listener, GX, Prefect, doc-connector graph
+        # fallbacks). It takes precedence over an env static DATAHUB_GMS_TOKEN,
+        # mirroring the sink and load_client_config. No-op when DATAHUB_AUTH_TYPE
+        # is unset, so existing deployments are unaffected. The datahub-rest sink
+        # passes explicit auth (its own origin-guarded merge) and so is untouched.
+        if not caller_supplied_creds:
+            env_auth_config = build_auth_config_from_env()
+            if env_auth_config is not None:
+                auth = TokenProviderAuth(build_token_provider(env_auth_config))
+                token = None
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
