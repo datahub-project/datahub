@@ -14,7 +14,6 @@ DataHub metadata work-units covering:
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Literal, Optional, Set
@@ -73,6 +72,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import Chart, Dashboard, Dataset
 from datahub.utilities.guarded_collections import GuardedDict, GuardedSet
 from datahub.utilities.sentinels import unset
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         # Internal caches – populated during _ingest_semantic_model and reused
         # later when processing documents/dashboards. Collections use
         # GuardedSet / GuardedDict so document workers in the
-        # ThreadPoolExecutor can access them without external locking.
+        # ThreadedIteratorExecutor can access them without external locking.
         self._semantic_fields: GuardedDict[str, _SemanticField] = GuardedDict()
         self._semantic_dataset_urns: GuardedSet[str] = GuardedSet()
         self._topic_dataset_urns: GuardedSet[str] = GuardedSet()
@@ -1422,18 +1422,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_document_worker(
         self, document: Dict[str, Any]
-    ) -> List[MetadataWorkUnit]:
-        """Process a single document and return work units (thread-safe).
+    ) -> Iterator[MetadataWorkUnit]:
+        """Process a single document and yield work units (thread-safe).
 
-        Extracts all document processing logic into a dedicated worker function
-        that can be called in parallel by ThreadPoolExecutor.
+        Called in parallel via ThreadedIteratorExecutor from
+        _process_document_batch.
         """
-        work_units: List[MetadataWorkUnit] = []
-
         try:
             doc_id = document.get("identifier")
             if not doc_id:
-                return []
+                return
 
             logger.info("Processing document: doc_id=%s", doc_id)
             logger.debug("Full document object: %s", document)
@@ -1441,23 +1439,21 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.document_pattern.allowed(doc_id):
                 with self.report._report_lock:
                     self.report.report_document_filtered(doc_id)
-                return []
+                return
 
             self.report.increment_counter("documents_scanned")
 
             has_dashboard = bool(document.get("hasDashboard"))
             if not has_dashboard and not self.config.include_workbook_only:
-                return []
+                return
 
             dashboard_dataset_urn = make_dataset_urn(
                 self.PLATFORM, doc_id, self.config.env
             )
-            work_units.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_dataset_urn,
-                    aspect=SubTypesClass(typeNames=["Dashboard"]),
-                ).as_workunit()
-            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dashboard_dataset_urn,
+                aspect=SubTypesClass(typeNames=["Dashboard"]),
+            ).as_workunit()
 
             dashboard_url = (
                 document.get("url")
@@ -1479,17 +1475,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self.report.increment_counter("dashboards_emitted")
 
             if folder_id:
-                work_units.extend(
-                    self._ensure_inline_folder(str(folder_id), folder_name, folder_path)
+                yield from self._ensure_inline_folder(
+                    str(folder_id), folder_name, folder_path
                 )
 
             document_connection_id = str(document.get("connectionId") or "")
             if document_connection_id:
-                work_units.extend(
-                    self._ensure_connection_dataset(
-                        document_connection_id,
-                        self._connections_by_id.get(document_connection_id),
-                    )
+                yield from self._ensure_connection_dataset(
+                    document_connection_id,
+                    self._connections_by_id.get(document_connection_id),
                 )
 
             fields_by_dashboard: Set[FieldRef] = set()
@@ -1518,7 +1512,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     dashboard_topic_urns,
                     view_to_topic_urns,
                 )
-                work_units.extend(tile_result.work_units)
+                yield from tile_result.work_units
                 model_id_from_dashboard = tile_result.model_id
 
             try:
@@ -1550,15 +1544,13 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         chart_inputs.setdefault(qp_id, set()).add(topic_urn)
 
             if model_id_from_dashboard and fields_by_dashboard:
-                work_units.extend(
-                    self._emit_inferred_view_datasets(
-                        model_id=model_id_from_dashboard,
-                        fields_by_dashboard=fields_by_dashboard,
-                        view_to_topic_urns=view_to_topic_urns,
-                        dashboard_dataset_urn=dashboard_dataset_urn,
-                        fine_grained_lineages=fine_grained_lineages,
-                        fine_grained_dedupe=fine_grained_dedupe,
-                    )
+                yield from self._emit_inferred_view_datasets(
+                    model_id=model_id_from_dashboard,
+                    fields_by_dashboard=fields_by_dashboard,
+                    view_to_topic_urns=view_to_topic_urns,
+                    dashboard_dataset_urn=dashboard_dataset_urn,
+                    fine_grained_lineages=fine_grained_lineages,
+                    fine_grained_dedupe=fine_grained_dedupe,
                 )
 
             folder_urn: Optional[str] = (
@@ -1568,61 +1560,53 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if folder_id:
                 structural_upstreams.add(self._folder_dataset_urn(folder_id))
             if structural_upstreams or fine_grained_lineages:
-                work_units.extend(
-                    self._emit_upstream_lineage(
-                        dashboard_dataset_urn,
-                        structural_upstreams,
-                        fine_grained_lineages=fine_grained_lineages,
-                    )
+                yield from self._emit_upstream_lineage(
+                    dashboard_dataset_urn,
+                    structural_upstreams,
+                    fine_grained_lineages=fine_grained_lineages,
                 )
 
             chart_urns: List[str] = []
             for qp_id in chart_ids:
                 chart_urn = make_chart_urn(self.PLATFORM, qp_id)
                 chart_urns.append(chart_urn)
-                work_units.extend(
-                    self._emit_chart(
-                        qp_id=qp_id,
-                        title=chart_titles.get(qp_id, "Omni tile"),
-                        description="Omni workbook tab or dashboard tile.",
-                        external_url=chart_urls.get(qp_id, dashboard_url),
-                        input_urns=sorted(chart_inputs.get(qp_id, set())),
-                        custom_properties={"documentId": doc_id},
-                        owner_id=owner_id,
-                        owner_name=owner_name,
-                        updated_at=document.get("updatedAt"),
-                    )
+                yield from self._emit_chart(
+                    qp_id=qp_id,
+                    title=chart_titles.get(qp_id, "Omni tile"),
+                    description="Omni workbook tab or dashboard tile.",
+                    external_url=chart_urls.get(qp_id, dashboard_url),
+                    input_urns=sorted(chart_inputs.get(qp_id, set())),
+                    custom_properties={"documentId": doc_id},
+                    owner_id=owner_id,
+                    owner_name=owner_name,
+                    updated_at=document.get("updatedAt"),
                 )
                 self.report.increment_counter("charts_emitted")
 
-            work_units.extend(
-                self._emit_dashboard(
-                    doc_id=doc_id,
-                    title=dashboard_title,
-                    description="Omni dashboard.",
-                    external_url=dashboard_url,
-                    chart_urns=chart_urns,
-                    custom_properties={
-                        "documentId": doc_id,
-                        "connectionId": str(document.get("connectionId") or ""),
-                        "scope": str(document.get("scope") or ""),
-                        "folderId": str(folder_id or ""),
-                        "folderName": folder_name,
-                        "folderPath": folder_path,
-                        "labels": ",".join(lb for lb in normalized_labels if lb),
-                        "omniEmbedUrl": str(dashboard_url),
-                        "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
-                        "topicNames": ",".join(sorted(dashboard_topics)),
-                        "updatedAt": str(document.get("updatedAt") or ""),
-                    },
-                    owner_id=owner_id,
-                    owner_name=owner_name,
-                    folder_urn=folder_urn,
-                    updated_at=document.get("updatedAt"),
-                )
+            yield from self._emit_dashboard(
+                doc_id=doc_id,
+                title=dashboard_title,
+                description="Omni dashboard.",
+                external_url=dashboard_url,
+                chart_urns=chart_urns,
+                custom_properties={
+                    "documentId": doc_id,
+                    "connectionId": str(document.get("connectionId") or ""),
+                    "scope": str(document.get("scope") or ""),
+                    "folderId": str(folder_id or ""),
+                    "folderName": folder_name,
+                    "folderPath": folder_path,
+                    "labels": ",".join(lb for lb in normalized_labels if lb),
+                    "omniEmbedUrl": str(dashboard_url),
+                    "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
+                    "topicNames": ",".join(sorted(dashboard_topics)),
+                    "updatedAt": str(document.get("updatedAt") or ""),
+                },
+                owner_id=owner_id,
+                owner_name=owner_name,
+                folder_urn=folder_urn,
+                updated_at=document.get("updatedAt"),
             )
-
-            return work_units
 
         except Exception as exc:
             self.report.warning(
@@ -1631,30 +1615,18 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"doc_id={document.get('identifier')}",
                 exc=exc,
             )
-            return []
 
     def _process_document_batch(
         self, documents: List[Dict[str, Any]]
     ) -> Iterator[MetadataWorkUnit]:
-        """Process a batch of documents in parallel."""
+        """Process a batch of documents in parallel via ThreadedIteratorExecutor."""
         if not documents:
             return
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            future_to_doc = {
-                executor.submit(self._process_document_worker, doc): doc
-                for doc in documents
-            }
-            for future in as_completed(future_to_doc):
-                try:
-                    yield from future.result()
-                except Exception as exc:
-                    doc = future_to_doc[future]
-                    self.report.warning(
-                        title="Document processing error",
-                        message="Failed to process document",
-                        context=f"doc_id={doc.get('identifier')}",
-                        exc=exc,
-                    )
+        yield from ThreadedIteratorExecutor.process(
+            worker_func=self._process_document_worker,
+            args_list=[(doc,) for doc in documents],
+            max_workers=self.config.max_workers,
+        )
 
     def _ingest_documents(self) -> Iterator[MetadataWorkUnit]:
         """Ingest Omni documents (dashboards/workbooks).
