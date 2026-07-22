@@ -209,34 +209,34 @@ class TestGeneratedConnectorsLoad:
 
         first = create_project(
             namespace="loadns",
-            connector="mysrc",
+            connector="alpha",
             plugin_type="source",
             output_dir=str(tmp_path),
         )
         add_connector(
             project_dir=str(first.project_dir),
             manifest_path=str(first.manifest_path),
-            connector="mysink",
+            connector="beta",
             plugin_type="sink",
         )
         add_connector(
             project_dir=str(first.project_dir),
             manifest_path=str(first.manifest_path),
-            connector="myxform",
+            connector="gamma",
             plugin_type="transformer",
         )
 
         monkeypatch.syspath_prepend(str(first.project_dir / "src"))
         ctx = PipelineContext(run_id="scaffold-load-test")
 
-        src_cls = importlib.import_module("loadns.mysrc.source").Mysrc
-        sink_cls = importlib.import_module("loadns.mysink.sink").Mysink
-        xform_cls = importlib.import_module("loadns.myxform.transformer").Myxform
+        source_cls = importlib.import_module("loadns.alpha.source").Alpha
+        sink_cls = importlib.import_module("loadns.beta.sink").Beta
+        transformer_cls = importlib.import_module("loadns.gamma.transformer").Gamma
 
         # create() is what the pipeline calls — exercise the real construction path.
-        assert src_cls.create({}, ctx) is not None
+        assert source_cls.create({}, ctx) is not None
         assert sink_cls.create({}, ctx) is not None
-        assert xform_cls.create({}, ctx) is not None
+        assert transformer_cls.create({}, ctx) is not None
 
 
 class TestScaffoldPluginBackCompat:
