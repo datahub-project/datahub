@@ -15,6 +15,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -41,14 +42,36 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
+  }
+
+  /**
+   * Validate at pre-commit against the merged aspect. A PATCH write is applied into a merged item
+   * whose changeType defaults to UPSERT before reaching this hook, so validating here covers both
+   * UPSERT and PATCH without adding PATCH to supportedOperations. Validating in the proposed hook
+   * instead would skip PATCH items entirely, letting an out-of-constraint lifecycle stage through.
+   */
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    return validateStageUpserts(
+        operationContext,
+        changeMCPs.stream()
+            .filter(i -> Constants.STATUS_ASPECT_NAME.equals(i.getAspectName()))
+            .collect(Collectors.toList()),
+        retrieverContext);
+  }
+
+  public static Stream<AspectValidationException> validateStageUpserts(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
-    for (BatchItem item : mcpItems) {
-      if (!Constants.STATUS_ASPECT_NAME.equals(item.getAspectName())) {
-        continue;
-      }
-
+    for (ChangeMCP item : changeMCPs) {
       Status status = item.getAspect(Status.class);
       if (status == null || !status.hasLifecycleStage()) {
         continue;
@@ -86,15 +109,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
-  }
-
-  private LifecycleStageTypeInfo fetchStageInfo(
+  private static LifecycleStageTypeInfo fetchStageInfo(
       OperationFingerprint operationContext, Urn stageUrn, RetrieverContext retrieverContext) {
     try {
       RecordTemplate aspect =
