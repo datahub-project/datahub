@@ -510,25 +510,21 @@ class DataHubRestEmitter(Closeable, Emitter):
             raise ConfigurationError("gms server is required")
         caller_supplied_creds = token is not None or auth is not None
         if gms_server == "__from_env__":
-            # HACK: the server always resolves from env — a caller passing
-            # explicit credentials (e.g. a sink that already resolved env OAuth)
-            # must not leave the literal sentinel to hit fixup_gms_url.
-            # TODO(oauth): relocate this into the planned shared
-            # credential-resolution helper so the emitter stops reading env vars
-            # itself (tracked follow-up; see PR #18144).
+            # The sentinel resolves the server (and, when the caller gave no
+            # credentials, the token) from the environment. The server always
+            # resolves here so an explicit-credential caller does not leave the
+            # sentinel string to reach fixup_gms_url.
             gms_server, env_token = config_utils.require_config_from_env()
             if not caller_supplied_creds:
                 token = env_token  # may be overridden by env OAuth below
-        # Env-based OAuth (DATAHUB_AUTH_TYPE) applies whenever the caller supplied
-        # no explicit credentials — covering __from_env__ AND any explicit-host
-        # caller (Airflow hook/listener, GX, Prefect, doc-connector graph
-        # fallbacks, DataHubGraph(config=...)). It takes precedence over an env
-        # static DATAHUB_GMS_TOKEN, mirroring load_client_config. No-op when
-        # DATAHUB_AUTH_TYPE is unset, so existing deployments are unaffected.
-        # Callers that do their OWN env-auth resolution pass resolve_env_auth=False
-        # so we do not re-resolve and bypass their logic — notably the datahub-rest
-        # sink, which applies an origin guard before attaching env OAuth (attaching
-        # it here to a mismatched host would leak the bearer token).
+        # Env-based OAuth (DATAHUB_AUTH_TYPE) applies when the caller supplied no
+        # explicit credentials, for any server (not only the __from_env__
+        # sentinel). It takes precedence over a static token from the environment
+        # and is a no-op when DATAHUB_AUTH_TYPE is unset. A caller that resolves
+        # env auth itself passes resolve_env_auth=False to prevent a second
+        # resolution here — e.g. the datahub-rest sink, which applies an origin
+        # guard before attaching env OAuth (re-resolving here could attach a token
+        # to a different server).
         if not caller_supplied_creds and resolve_env_auth:
             env_auth_config = build_auth_config_from_env()
             if env_auth_config is not None:
