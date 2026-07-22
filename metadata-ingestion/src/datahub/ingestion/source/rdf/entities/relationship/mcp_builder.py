@@ -1,32 +1,26 @@
 """
 Relationship MCP Builder
 
-Creates DataHub MCPs for glossary term relationships.
-Creates only inheritance relationships (isRelatedTerms).
+Creates DataHub MCPs for ontology-routed glossary term relationships.
 """
 
 import logging
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
 from datahub.ingestion.source.rdf.entities.relationship.ast import (
+    DataHubNativeRelationship,
     DataHubRelationship,
-    RelationshipType,
 )
 from datahub.metadata.schema_classes import GlossaryRelatedTermsClass
 
 logger = logging.getLogger(__name__)
 
 
-class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
-    """
-    Creates MCPs for glossary term relationships.
-
-    Handles both skos:broader and skos:narrower relationships.
-    Creates only inheritance relationships (isRelatedTerms):
-    - Both broader and narrower normalize to child → parent inheritance
-    """
+class RelationshipMCPBuilder(EntityMCPBuilder[DataHubNativeRelationship]):
+    """Creates MCPs for aligned native glossary relationships."""
 
     @property
     def entity_type(self) -> str:
@@ -34,78 +28,85 @@ class RelationshipMCPBuilder(EntityMCPBuilder[DataHubRelationship]):
 
     def build_mcps(
         self,
-        relationship: DataHubRelationship,
+        relationship: DataHubNativeRelationship,
         context: Optional[Dict[str, Any]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
-        """
-        Build MCPs for a single relationship.
-        Relationships are typically built in bulk via build_all_mcps.
-        """
-        return []  # Individual relationships are aggregated
+        return []
 
     def build_all_mcps(
         self,
-        relationships: List[DataHubRelationship],
+        relationships: List[DataHubNativeRelationship],
         context: Optional[Dict[str, Any]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
-        """
-        Build MCPs for all relationships.
+        if not relationships:
+            return self._build_legacy_mcps(context)
 
-        Handles both broader and narrower relationships, creating only inheritance
-        relationships (isRelatedTerms) in DataHub.
-
-        Both broader and narrower are normalized to child → parent inheritance:
-        - broader: child → parent → child inherits from parent
-        - narrower: parent → child → normalize to child → parent (child inherits from parent)
-        """
-        mcps = []
-
-        # Normalize relationships: both broader and narrower create child → parent inheritance
-        # broader: child → parent means child inherits from parent
-        # narrower: parent → child means normalize to child → parent (child inherits from parent)
-        # Map: child_urn -> [parent_urns] (for isRelatedTerms only)
-        is_related_map: Dict[str, List[str]] = {}
+        grouped: Dict[tuple[str, str], List[str]] = defaultdict(list)
+        provenance: Dict[tuple[str, str, str], Dict[str, str]] = {}
 
         for rel in relationships:
-            if rel.relationship_type == RelationshipType.BROADER:
-                # broader: child → parent
-                child_urn = str(rel.source_urn)
-                parent_urn = str(rel.target_urn)
+            key = (rel.source_urn, rel.field)
+            grouped[key].append(rel.target_urn)
+            prov_key = (rel.source_urn, rel.target_urn, rel.field)
+            provenance[prov_key] = {
+                "originalPredicateIri": rel.original_predicate_iri,
+                "mappingClass": rel.mapping_class.value,
+                "mapsTo": rel.maps_to,
+            }
 
-                # Child inherits from parent
-                if child_urn not in is_related_map:
-                    is_related_map[child_urn] = []
-                is_related_map[child_urn].append(parent_urn)
-
-            elif rel.relationship_type == RelationshipType.NARROWER:
-                # narrower: parent → child (normalize to child → parent)
-                parent_urn = str(rel.source_urn)
-                child_urn = str(rel.target_urn)
-
-                # Child inherits from parent (normalized direction)
-                if child_urn not in is_related_map:
-                    is_related_map[child_urn] = []
-                is_related_map[child_urn].append(parent_urn)
-
-        # Create isRelatedTerms MCPs (child → parent, inheritance only)
-        for child_urn, parent_urns in is_related_map.items():
+        mcps: List[MetadataChangeProposalWrapper] = []
+        for (source_urn, field), targets in grouped.items():
+            unique_targets = sorted(set(targets))
+            aspect_kwargs: Dict[str, List[str]] = {field: unique_targets}
             try:
-                unique_parents = list(set(parent_urns))  # Deduplicate
-
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=child_urn,
-                    aspect=GlossaryRelatedTermsClass(isRelatedTerms=unique_parents),
+                mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=source_urn,
+                        aspect=GlossaryRelatedTermsClass(**aspect_kwargs),
+                    )
                 )
-                mcps.append(mcp)
-
-                logger.debug(
-                    f"Created isRelatedTerms MCP for {child_urn} with {len(unique_parents)} parent terms"
-                )
-
-            except (ValueError, RuntimeError, AttributeError) as e:
+            except (ValueError, RuntimeError, AttributeError) as exc:
                 logger.error(
-                    f"Failed to create isRelatedTerms MCP for {child_urn}: {e}"
+                    "Failed to create glossaryRelatedTerms MCP for %s: %s",
+                    source_urn,
+                    exc,
                 )
 
-        logger.info(f"Built {len(mcps)} relationship MCPs (isRelatedTerms only)")
+        if context is not None:
+            context["relationship_provenance"] = provenance
+
+        logger.info("Built %d native relationship MCPs", len(mcps))
+        return mcps
+
+    def _build_legacy_mcps(
+        self, context: Optional[Dict[str, Any]]
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Support legacy DataHubRelationship objects during transition."""
+        if context is None:
+            return []
+        datahub_graph = context.get("datahub_graph")
+        if datahub_graph is None:
+            return []
+        legacy = [
+            DataHubRelationship.from_native(rel)
+            for rel in getattr(datahub_graph, "native_relationships", [])
+        ]
+        legacy = [rel for rel in legacy if rel is not None]
+        if not legacy:
+            return []
+
+        is_related_map: Dict[str, List[str]] = defaultdict(list)
+        for rel in legacy:
+            is_related_map[str(rel.source_urn)].append(str(rel.target_urn))
+
+        mcps = []
+        for source_urn, targets in is_related_map.items():
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=source_urn,
+                    aspect=GlossaryRelatedTermsClass(
+                        isRelatedTerms=sorted(set(targets))
+                    ),
+                )
+            )
         return mcps

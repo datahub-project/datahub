@@ -40,6 +40,7 @@ class EntityRegistry:
         # Explicitly register the 2-3 entity types we support
         self._register_glossary_term()
         self._register_relationship()
+        self._register_rdf_structured_property()
         self._register_domain()
 
     def register_extractor(self, entity_type: str, extractor: EntityExtractor) -> None:
@@ -184,27 +185,36 @@ class EntityRegistry:
         """Register relationship entity."""
         from datahub.ingestion.source.rdf.entities.relationship import (
             ENTITY_METADATA,
-            RelationshipConverter,
             RelationshipExtractor,
             RelationshipMCPBuilder,
         )
 
         entity_type = "relationship"
         extractor = RelationshipExtractor()
-        converter = RelationshipConverter()
         mcp_builder = RelationshipMCPBuilder()
 
         self._extractors[entity_type] = extractor
-        self._converters[entity_type] = converter
         self._mcp_builders[entity_type] = mcp_builder
-        self._processors[entity_type] = EntityProcessor(
-            extractor=extractor,
-            converter=converter,
-            mcp_builder=mcp_builder,
-        )
         self._metadata[entity_type] = ENTITY_METADATA
 
         # Register CLI names
+        for cli_name in ENTITY_METADATA.cli_names:
+            self._cli_name_to_entity_type[cli_name] = entity_type
+
+        logger.debug(f"Registered {entity_type}")
+
+    def _register_rdf_structured_property(self):
+        """Register RDF structured property routing artifacts."""
+        from datahub.ingestion.source.rdf.entities.rdf_structured_property import (
+            ENTITY_METADATA,
+            RdfStructuredPropertyMCPBuilder,
+        )
+
+        entity_type = "rdf_structured_property"
+        mcp_builder = RdfStructuredPropertyMCPBuilder()
+        self._mcp_builders[entity_type] = mcp_builder
+        self._metadata[entity_type] = ENTITY_METADATA
+
         for cli_name in ENTITY_METADATA.cli_names:
             self._cli_name_to_entity_type[cli_name] = entity_type
 
