@@ -8,9 +8,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import click
 import progressbar
-from avrogen.dict_wrapper import DictWrapper
 
-from datahub.cli import cli_utils, delete_cli, migration_utils
+from datahub.cli import delete_cli, migration_utils
 from datahub.cli.migration_utils import (
     ALL_ENTITY_TYPES,
     ENV_ENTITY_TYPES,
@@ -37,7 +36,6 @@ from datahub.ingestion.graph.client import (
     get_default_graph,
 )
 from datahub.metadata.schema_classes import (
-    ContainerKeyClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     SystemMetadataClass,
@@ -45,6 +43,7 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn, guess_entity_type
+from datahub.utilities.urns.urn_iter import transform_urns
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +184,7 @@ def _migrate_single_entity(
     """Migrate a single entity URN to a new URN."""
     new_urn = make_new_urn(src_entity_urn)
     log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
+    rewrite_urn = migration_utils.make_self_urn_rewriter(src_entity_urn, new_urn)
 
     # Check if target already exists (for merge mode)
     target_exists = False
@@ -202,12 +202,22 @@ def _migrate_single_entity(
         migration_report.aspects_merged += merged
         migration_report.conflicts_skipped += skipped
     else:
+        # Aspect list comes from the entity registry, not a hand-maintained
+        # constant, so newly-modeled aspects are migrated automatically.
+        aspect_names = migration_utils.get_migratable_aspect_names(
+            guess_entity_type(src_entity_urn)
+        )
         for mcp in migration_utils.clone_aspect(
             src_entity_urn,
-            aspect_names=migration_utils.all_aspects,
+            aspect_names=aspect_names,
             dst_urn=new_urn,
             run_id=run_id,
         ):
+            # Rewrite the entity's own self-references inside the aspect body
+            # (e.g. fineGrainedLineages schemaField URNs), driven by the
+            # aspect's relationship/Urn field markers.
+            if mcp.aspect is not None:
+                transform_urns(mcp.aspect, rewrite_urn)
             if not dry_run:
                 graph.emit_mcp(mcp)
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
@@ -226,33 +236,21 @@ def _migrate_single_entity(
         )
     migration_report.on_entity_create(new_urn, "dataPlatformInstance")
 
-    # Update incoming relationships
+    # Update incoming relationships. The relationship index tells us which
+    # entities reference the migrated URN; we then rewrite that reference
+    # wherever it appears, across all of the referencing entity's aspects.
+    seen_targets = set()
     for relationship in migration_utils.get_incoming_relationships(src_entity_urn):
         target_urn = relationship.urn
-        entity_type = guess_entity_type(target_urn)
-        relationship_type = relationship.relationship_type
-        aspect_name = migration_utils.get_aspect_name_from_relationship(
-            relationship_type, entity_type
-        )
-        aspect_map = cli_utils.get_aspects_for_entity(
-            graph._session,
-            graph.config.server,
-            target_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        if aspect_name in aspect_map:
-            aspect = aspect_map[aspect_name]
-            assert isinstance(aspect, DictWrapper)
-            aspect = migration_utils.modify_urn_list_for_aspect(
-                aspect_name, aspect, relationship_type, src_entity_urn, new_urn
-            )
-            mcp = MetadataChangeProposalWrapper(entityUrn=target_urn, aspect=aspect)
+        if target_urn in seen_targets:
+            continue
+        seen_targets.add(target_urn)
+        for mcp in migration_utils.rewrite_incoming_references(
+            graph, target_urn, rewrite_urn
+        ):
             if not dry_run:
                 graph.emit_mcp(mcp)
             migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
-        else:
-            log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")
 
     if not dry_run and not keep:
         log.info(f"will {'hard' if hard else 'soft'} delete {src_entity_urn}")
@@ -373,20 +371,20 @@ def _migrate_containers(
 
         for mcp in migration_utils.clone_aspect(
             src_urn,
-            aspect_names=migration_utils.all_aspects,
+            aspect_names=migration_utils.get_migratable_aspect_names("container"),
             dst_urn=dst_urn,
             run_id=run_id,
         ):
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
             assert mcp.aspect
+            # The key aspect (containerKey) is not cloned — GMS derives it from
+            # the new URN's guid. We only need to reseat customProperties on the
+            # cloned containerProperties.
             if mcp.aspectName == "containerProperties":
                 assert isinstance(mcp.aspect, ContainerPropertiesClass)
                 mcp.aspect.customProperties = newKey.model_dump(
                     by_alias=True, exclude_none=True
                 )
-            elif mcp.aspectName == "containerKey":
-                assert isinstance(mcp.aspect, ContainerKeyClass)
-                mcp.aspect.guid = newKey.guid()
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
@@ -455,35 +453,21 @@ def _process_container_relationships(
     rest_emitter: DatahubRestEmitter,
 ) -> None:
     client = get_default_graph(ClientMode.CLI)
+    rewrite_urn = migration_utils.make_self_urn_rewriter(src_urn, dst_urn)
+    seen_targets = set()
     for relationship in migration_utils.get_incoming_relationships(urn=src_urn):
         target_urn: str = relationship.urn
         if target_urn in container_id_map:
             target_urn = container_id_map[target_urn]
-
-        entity_type = guess_entity_type(target_urn)
-        relationship_type = relationship.relationship_type
-        aspect_name = migration_utils.get_aspect_name_from_relationship(
-            relationship_type, entity_type
-        )
-        aspect_map = cli_utils.get_aspects_for_entity(
-            client._session,
-            client.config.server,
-            target_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        if aspect_name in aspect_map:
-            aspect = aspect_map[aspect_name]
-            assert isinstance(aspect, DictWrapper)
-            aspect = migration_utils.modify_urn_list_for_aspect(
-                aspect_name, aspect, relationship_type, src_urn, dst_urn
-            )
-            mcp = MetadataChangeProposalWrapper(entityUrn=target_urn, aspect=aspect)
+        if target_urn in seen_targets:
+            continue
+        seen_targets.add(target_urn)
+        for mcp in migration_utils.rewrite_incoming_references(
+            client, target_urn, rewrite_urn
+        ):
             if not dry_run:
                 rest_emitter.emit_mcp(mcp)
             migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
-        else:
-            log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")
 
 
 # --- CLI Commands ---

@@ -2,14 +2,14 @@
 
 import logging
 import uuid
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import click
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli import cli_utils
+from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import (
-    Aspect,
     chart_urn_to_key,
     dashboard_urn_to_key,
     dataset_urn_to_key,
@@ -24,24 +24,20 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
 from datahub.metadata.schema_classes import (
-    ChartInfoClass,
-    ContainerClass,
-    DashboardInfoClass,
-    DataJobInputOutputClass,
-    DataProcessInfoClass,
+    ENTITY_TYPE_TO_ASPECT_NAMES,
     GlobalTagsClass,
     GlossaryTermsClass,
-    MLFeaturePropertiesClass,
-    MLPrimaryKeyPropertiesClass,
     OwnershipClass,
     SchemaMetadataClass,
     SystemMetadataClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn_iter import list_urns, transform_urns
 
 log = logging.getLogger(__name__)
 
@@ -54,37 +50,6 @@ ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 # Entity types that support env/origin filtering in ElasticSearch.
 # Charts, dashboards, dataflows, and datajobs don't have env/origin fields.
 ENV_ENTITY_TYPES = {"dataset"}
-
-# TODO: Make this dynamic based on the real aspect class map.
-all_aspects = [
-    "schemaMetadata",
-    "datasetProperties",
-    "viewProperties",
-    "subTypes",
-    "editableDatasetProperties",
-    "ownership",
-    "datasetDeprecation",
-    "institutionalMemory",
-    "editableSchemaMetadata",
-    "globalTags",
-    "glossaryTerms",
-    "upstreamLineage",
-    "datasetUpstreamLineage",
-    "status",
-    "containerProperties",
-    "dataPlatformInstance",
-    "containerKey",
-    "container",
-    "domains",
-    "editableContainerProperties",
-    # Non-dataset entity aspects
-    "chartInfo",
-    "dashboardInfo",
-    "dataFlowInfo",
-    "dataJobInfo",
-    "dataJobInputOutput",
-    "dataProcessInfo",
-]
 
 
 class ConflictStrategy(StrEnum):
@@ -131,194 +96,95 @@ ALWAYS_OVERWRITE_ASPECTS = {
     "containerKey",
 }
 
+# Aspects the migration must NOT clone verbatim from source to the new URN:
+#  - dataPlatformInstance: re-emitted explicitly with the *new* instance
+#  - incidentsSummary: a platform-computed rollup; a verbatim copy would carry a
+#    stale summary and is re-derived by the platform anyway
+#  - browsePaths/browsePathsV2: encode the *old* instance path; recomputed on read
+# Key aspects (datasetKey, containerKey, ...) are intentionally absent from
+# ENTITY_TYPE_TO_ASPECT_NAMES: their content is bound to the URN and GMS derives
+# them on any write, so they are neither cloned nor listed here.
+SYSTEM_MANAGED_ASPECTS = {
+    "dataPlatformInstance",
+    "incidentsSummary",
+    "browsePaths",
+    "browsePathsV2",
+}
 
-# --- Relationship-to-aspect mapping ---
+_SCHEMA_FIELD_PREFIX = "urn:li:schemaField:"
 
 
-def get_aspect_name_from_relationship(relationship_type: str, entity_type: str) -> str:
-    aspect_map = {
-        "Produces": {"datajob": "dataJobInputOutput"},
-        "Consumes": {
-            "chart": "chartInfo",
-            "dashboard": "dashboardInfo",
-            "datajob": "dataJobInputOutput",
-            "dataProcess": "dataProcessInfo",
-        },
-        "DownstreamOf": {"dataset": "upstreamLineage"},
-        "ForeignKeyToDataset": {"dataset": "schemaMetadata"},
-        "DerivedFrom": {
-            "mlfeature": "mlFeatureProperties",
-            "mlprimarykey": "mlPrimaryKeyProperties",
-        },
-        "IsPartOf": {
-            "container": "container",
-            "dataset": "container",
-            "dashboard": "container",
-            "chart": "container",
-        },
-    }
+def get_migratable_aspect_names(entity_type: str) -> List[str]:
+    """Non-timeseries, user-migratable aspects for an entity type.
 
-    if (
-        relationship_type in aspect_map
-        and entity_type.lower() in aspect_map[relationship_type]
-    ):
-        return aspect_map[relationship_type][entity_type.lower()]
+    Sourced from the generated entity registry (``ENTITY_TYPE_TO_ASPECT_NAMES``)
+    instead of a hand-maintained list, so newly-modeled aspects
+    (``structuredProperties``, ``forms``, ``documentation``, ...) are picked up
+    automatically. Timeseries aspects are excluded (append-only; migrated, if at
+    all, via a separate path), as are system-managed aspects the migration
+    re-derives.
+    """
+    return [
+        a
+        for a in ENTITY_TYPE_TO_ASPECT_NAMES.get(entity_type, [])
+        if a not in TIMESERIES_ASPECT_MAP and a not in SYSTEM_MANAGED_ASPECTS
+    ]
 
-    raise Exception(
-        f"Unable to map aspect name from relationship_type {relationship_type} "
-        f"and entity_type {entity_type}"
+
+def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
+    """Rewrite references to a single migrated entity URN.
+
+    Intended for use with ``urn_iter.transform_urns``, which walks an aspect
+    using its ``@Relationship``/Urn field markers and applies this function to
+    every URN it finds. Rewrites both the entity URN itself and ``schemaField``
+    URNs that embed it (column-level lineage), so FineGrainedLineage is covered
+    without any per-aspect special-casing. References to *other* entities are
+    left untouched.
+    """
+
+    def rewrite(urn: str) -> str:
+        if urn == old_urn:
+            return new_urn
+        # schemaField URNs are 'urn:li:schemaField:(<datasetUrn>,<field>)'.
+        # Rewrite only when the embedded dataset is the one being migrated.
+        if urn.startswith(f"{_SCHEMA_FIELD_PREFIX}({old_urn},"):
+            return urn.replace(old_urn, new_urn, 1)
+        return urn
+
+    return rewrite
+
+
+def rewrite_incoming_references(
+    graph: DataHubGraph,
+    target_urn: str,
+    rewrite_urn: Callable[[str], str],
+) -> List[MetadataChangeProposalWrapper]:
+    """Rewrite references to a migrated URN across all aspects of one entity.
+
+    Given an entity that references the migrated URN, fetch every (non-timeseries)
+    aspect it has and rewrite each via ``transform_urns`` — driven by the aspect's
+    relationship/Urn field markers. Unlike a hand-maintained relationship-to-aspect
+    map, this rewrites the reference wherever it appears, in any aspect. Returns an
+    MCP for each aspect that actually changed (the caller decides how to emit).
+    """
+    aspect_map = cli_utils.get_aspects_for_entity(
+        graph._session,
+        graph.config.server,
+        target_urn,
+        aspects=[],
+        typed=True,
     )
-
-
-# --- URN list modifiers (rewrite URN references inside aspects) ---
-
-
-class UrnListModifier:
-    @staticmethod
-    def dataJobInputOutput_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, DataJobInputOutputClass)
-        if relationship_type == "Produces":
-            aspect.outputDatasets = [
-                new_urn if d == old_urn else d for d in aspect.outputDatasets
-            ]
-            return aspect
-        if relationship_type == "Consumes":
-            aspect.inputDatasets = [
-                new_urn if d == old_urn else d for d in aspect.inputDatasets
-            ]
-            return aspect
-        raise Exception(
-            f"Unable to map aspect_name: dataJobInputOutput, "
-            f"relationship_type {relationship_type}"
+    changed: List[MetadataChangeProposalWrapper] = []
+    for aspect in aspect_map.values():
+        if not isinstance(aspect, DictWrapper):
+            continue
+        if not any(rewrite_urn(u) != u for u in list_urns(aspect)):
+            continue
+        transform_urns(aspect, rewrite_urn)
+        changed.append(
+            MetadataChangeProposalWrapper(entityUrn=target_urn, aspect=aspect)
         )
-
-    @staticmethod
-    def chartInfo_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, ChartInfoClass)
-        aspect.inputs = [new_urn if x == old_urn else x for x in aspect.inputs or []]
-        return aspect
-
-    @staticmethod
-    def dashboardInfo_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, DashboardInfoClass)
-        aspect.datasets = [
-            new_urn if x == old_urn else x for x in aspect.datasets or []
-        ]
-        if aspect.datasetEdges is not None:
-            for edge in aspect.datasetEdges:
-                if edge.destinationUrn == old_urn:
-                    edge.destinationUrn = new_urn
-        return aspect
-
-    @staticmethod
-    def dataProcessInfo_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, DataProcessInfoClass)
-        if aspect.inputs is not None:
-            aspect.inputs = [new_urn if x == old_urn else x for x in aspect.inputs]
-        return aspect
-
-    @staticmethod
-    def upstreamLineage_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, UpstreamLineageClass)
-        for upstream in aspect.upstreams:
-            if upstream.dataset == old_urn:
-                upstream.dataset = new_urn
-        return aspect
-
-    @staticmethod
-    def schemaMetadata_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, SchemaMetadataClass)
-        for foreignKey in aspect.foreignKeys or []:
-            foreignKey.foreignFields = [
-                f.replace(old_urn, new_urn) for f in foreignKey.foreignFields
-            ]
-            if foreignKey.foreignDataset == old_urn:
-                foreignKey.foreignDataset = new_urn
-        return aspect
-
-    @staticmethod
-    def mlFeatureProperties_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, MLFeaturePropertiesClass)
-        aspect.sources = [new_urn if s == old_urn else s for s in aspect.sources or []]
-        return aspect
-
-    @staticmethod
-    def mlPrimaryKeyProperties_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, MLPrimaryKeyPropertiesClass)
-        aspect.sources = [new_urn if s == old_urn else s for s in aspect.sources]
-        return aspect
-
-    @staticmethod
-    def container_modifier(
-        aspect: DictWrapper,
-        relationship_type: str,
-        old_urn: str,
-        new_urn: str,
-    ) -> DictWrapper:
-        assert isinstance(aspect, ContainerClass)
-        aspect.container = new_urn if aspect.container == old_urn else aspect.container
-        return aspect
-
-
-def modify_urn_list_for_aspect(
-    aspect_name: str,
-    aspect: Aspect,
-    relationship_type: str,
-    old_urn: str,
-    new_urn: str,
-) -> Aspect:
-    if hasattr(UrnListModifier, f"{aspect_name}_modifier"):
-        modifier = getattr(UrnListModifier, f"{aspect_name}_modifier")
-        return modifier(
-            aspect=aspect,
-            relationship_type=relationship_type,
-            old_urn=old_urn,
-            new_urn=new_urn,
-        )
-    raise Exception(
-        f"Unable to map aspect_name: {aspect_name}, "
-        f"relationship_type {relationship_type}"
-    )
+    return changed
 
 
 # --- Aspect cloning and relationship fetching ---
@@ -410,6 +276,8 @@ def merge_additive_aspects(
         assert isinstance(aspect, UpstreamLineageClass)
         for upstream in aspect.upstreams or []:
             patch_builder.add_upstream_lineage(upstream)
+        for fine_grained in aspect.fineGrainedLineages or []:
+            patch_builder.add_fine_grained_lineage(fine_grained)
 
     mcps = patch_builder.build()
     for mcp in mcps:
@@ -608,7 +476,7 @@ def _overwrite_entity(
     aspects_written = 0
     for mcp in clone_aspect(
         src_urn,
-        aspect_names=all_aspects,
+        aspect_names=get_migratable_aspect_names(guess_entity_type(dst_urn)),
         dst_urn=dst_urn,
         graph=graph,
     ):
@@ -646,9 +514,17 @@ def merge_entity(
         graph._session,
         graph.config.server,
         src_urn,
-        aspects=all_aspects,
+        aspects=get_migratable_aspect_names(entity_type),
         typed=True,
     )
+
+    # Rewrite the source's self-references (e.g. fineGrainedLineages schemaField
+    # URNs) to the target URN before merging, so merged aspects don't carry the
+    # old URN — mirroring the clone path.
+    rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
+    for aspect in src_aspect_map.values():
+        if isinstance(aspect, DictWrapper):
+            transform_urns(aspect, rewrite_urn)
 
     total_merged = 0
     total_skipped = 0
@@ -720,7 +596,60 @@ def merge_entity(
                 graph.emit_mcp(mcp)
             total_merged += 1
 
+    # Default bucket: any registry aspect not explicitly classified above.
+    merged, skipped = _merge_default_aspects(
+        src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
+    )
+    total_merged += merged
+    total_skipped += skipped
+
     return total_merged, total_skipped
+
+
+def _merge_default_aspects(
+    src_aspect_map: Dict[str, Union[dict, _Aspect]],
+    dst_urn: str,
+    src_urn: str,
+    graph: DataHubGraph,
+    on_conflict: ConflictStrategy,
+    dry_run: bool,
+) -> Tuple[int, int]:
+    """Merge source aspects not handled by any explicit classification bucket.
+
+    Because the aspect list is now sourced dynamically from the entity registry,
+    newly-modeled aspects would otherwise be silently dropped in merge mode.
+    They are treated conflict-aware, like the non-additive bucket, so nothing is
+    lost. Returns (aspects_merged, conflicts_skipped).
+    """
+    classified = (
+        ADDITIVE_ASPECTS
+        | MIXED_ASPECTS
+        | NON_ADDITIVE_ASPECTS
+        | ALWAYS_OVERWRITE_ASPECTS
+    )
+    merged = 0
+    skipped = 0
+    for aspect_name, src_aspect in src_aspect_map.items():
+        if aspect_name in classified or not isinstance(src_aspect, DictWrapper):
+            continue
+        dst_aspect_map = cli_utils.get_aspects_for_entity(
+            graph._session,
+            graph.config.server,
+            dst_urn,
+            aspects=[aspect_name],
+            typed=True,
+        )
+        dst_aspect = dst_aspect_map.get(aspect_name)
+        if isinstance(dst_aspect, DictWrapper) and not should_overwrite_non_additive(
+            aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
+        ):
+            skipped += 1
+            continue
+        mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
+        if not dry_run:
+            graph.emit_mcp(mcp)
+        merged += 1
+    return merged, skipped
 
 
 # --- URN rewriting ---
@@ -752,10 +681,13 @@ _ENTITY_URN_SPECS: Dict[str, _UrnSpec] = {
     "dataset": (
         dataset_urn_to_key,
         lambda key: key.name,
-        lambda key, name, inst: make_dataset_urn_with_platform_instance(
+        # `name` already carries the new instance prefix (added by
+        # _rewrite_name), so platform_instance must be None here — otherwise the
+        # instance segment is prepended twice (e.g. new_inst.new_inst.db.table).
+        lambda key, name, _inst: make_dataset_urn_with_platform_instance(
             platform=key.platform[len("urn:li:dataPlatform:") :],
             name=name,
-            platform_instance=inst,
+            platform_instance=None,
             env=str(key.origin),
         ),
     ),
