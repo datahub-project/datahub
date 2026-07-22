@@ -29,6 +29,15 @@ def _clear_default_graph_cache():
     get_default_graph.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _cleanup_shared_dataset(graph_client):
+    # This module reuses delete_test.py's dataset urn; remove it after each test so
+    # residue never breaks delete_test's pre-check when it runs later on the same instance.
+    yield
+    graph_client.hard_delete_entity(DATASET_URN)
+    wait_for_writes_to_sync()
+
+
 def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
     """Build a no-sink pipeline (the shape UI ingestion uses) whose default sink
     is chosen by env. `default_sink` is "rest" or "kafka"."""
