@@ -231,21 +231,34 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
-def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
-    nodeid = item.nodeid
-    test_id = nodeid.replace("/", ".").replace(".py::", "::")
-    weight = test_weights.get(test_id)
-    if weight is not None:
-        return weight
+def normalize_test_id(nodeid: str) -> str:
+    """Map a pytest nodeid onto the testId format used in pytest_test_weights.json.
 
-    nodeid_parts = nodeid.split("::")
-    if len(nodeid_parts) > 2:
-        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
-        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
-        if weight is not None:
-            return weight
+    The weights file keys class tests as ``module.Class::test`` (dotted module + class),
+    module-level tests as ``module::test``, and keeps the ``[params]`` suffix on
+    parametrized cases. A pytest nodeid separates the class with ``::``
+    (``path/to/mod.py::Class::test``), so the previous naive replace produced
+    ``module::Class::test`` — a form that never appears in the file. Class-based tests
+    (~44% of the suite, including the ~440s fattest module) therefore missed every lookup
+    and fell back to a constant weight, defeating the bin-packer's balancing.
+    """
+    path, _, rest = nodeid.partition("::")
+    module = path.replace("/", ".").removesuffix(".py")
+    if not rest:
+        return module
+    head, _, leaf = rest.rpartition("::")  # head = class(es), leaf = test[+params]
+    if head:
+        return f"{module}.{head.replace('::', '.')}::{leaf}"
+    return f"{module}::{leaf}"
 
-    return 1.0
+
+def get_pytest_test_weight(
+    item: Item, test_weights: Dict[str, float], default_weight: float = 1.0
+) -> float:
+    # Unknown tests fall back to the average known duration (as pytest-split does), not a
+    # flat 1.0 — a too-small default would under-weight new/unmeasured tests and let the
+    # packer pile them into one bucket.
+    return test_weights.get(normalize_test_id(item.nodeid), default_weight)
 
 
 def aggregate_module_weights(
@@ -262,6 +275,11 @@ def aggregate_module_weights(
         List of (module_path, items_in_module, total_weight) tuples
     """
 
+    # Average known duration, used as the weight for tests missing from the file.
+    default_weight = (
+        sum(test_weights.values()) / len(test_weights) if test_weights else 1.0
+    )
+
     # Group items by module (file path)
     modules: Dict[str, List[Item]] = defaultdict(list)
     for item in items:
@@ -274,7 +292,7 @@ def aggregate_module_weights(
     for module_path, module_items in modules.items():
         total_weight = 0.0
         for item in module_items:
-            total_weight += get_pytest_test_weight(item, test_weights)
+            total_weight += get_pytest_test_weight(item, test_weights, default_weight)
 
         module_data.append((module_path, module_items, total_weight))
 

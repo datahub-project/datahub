@@ -37,7 +37,7 @@ def _resolve_kafka_oauth_callback(config: dict) -> dict:
         The config dictionary with oauth_cb resolved to a callable if present
 
     Raises:
-        ConfigurationError: If oauth_cb validation or resolution fails
+        ConfigurtionError: If oauth_cb validation or resolution fails
     """
     if KafkaOAuthCallbackResolver.is_callable_config(config):
         try:
