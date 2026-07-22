@@ -43,13 +43,12 @@ public class UsageMetricIncrementResolverTest {
   }
 
   @Test
-  public void testReportedMcpQueriesExportsDedicatedMicrometerName() {
-    UsageMetricRegistry.MetricDefinition metric =
-        ossRegistry().apiUsageMetrics().get("mcp_queries");
+  public void testReportedMcpQueryExportsDedicatedMicrometerName() {
+    UsageMetricRegistry.MetricDefinition metric = ossRegistry().apiUsageMetrics().get("mcp_query");
     Assert.assertTrue(UsageMetricIncrementResolver.isReportDrivenMetric(metric));
     Assert.assertEquals(
         UsageMetricIncrementResolver.micrometerCounterName(metric),
-        Optional.of("datahub.usage.mcp_queries"));
+        Optional.of("datahub.usage.mcp_query"));
     Assert.assertNotEquals(
         UsageMetricIncrementResolver.micrometerCounterName(metric),
         Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT));

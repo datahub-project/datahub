@@ -484,14 +484,24 @@ public class RequestContext implements ContextInterface {
     }
 
     private static String extractSourceIP(@Nonnull HttpServletRequest request) {
+      // Both X-Forwarded-For and getRemoteAddr() can be null (async-dispatched requests,
+      // non-IP transports, or unstubbed test mocks). Coalesce to "" so the @Nonnull sourceIP
+      // field setter never sees null.
       return Optional.ofNullable(request.getHeader(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(request.getRemoteAddr());
+          .or(() -> Optional.ofNullable(request.getRemoteAddr()))
+          .orElse("");
     }
 
     private static String extractSourceIP(@Nonnull ResourceContext resourceContext) {
+      // Defensive null-handling: header lookup and REMOTE_ADDR attribute can both be absent.
       return Optional.ofNullable(
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
+          .or(
+              () ->
+                  Optional.ofNullable(
+                          resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR"))
+                      .map(Object::toString))
+          .orElse("");
     }
 
     public RequestAPI peekRequestAPI() {

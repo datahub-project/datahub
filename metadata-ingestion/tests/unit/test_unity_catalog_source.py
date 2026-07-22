@@ -902,13 +902,15 @@ class TestUnityCatalogMetricViews:
         )
         assert config.include_metric_views is False
 
-    def test_subtype_flag_off_emits_table(self):
+    def test_subtype_flag_off_still_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass
 
+        # Classification is accurate regardless of the enrichment flag: a metric
+        # view is never a plain Table, even when include_metric_views is off.
         source = self._build_source(include_metric_views=False)
         table, _ = self._build_metric_view_table()
         aspect: SubTypesClass = source._create_table_sub_type_aspect(table)
-        assert aspect.typeNames == ["Table"]
+        assert aspect.typeNames == ["Metric View"]
 
     def test_subtype_flag_on_emits_metric_view(self):
         from datahub.metadata.schema_classes import SubTypesClass

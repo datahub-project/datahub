@@ -1699,10 +1699,7 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1715,10 +1712,7 @@ public class ESIndexBuilderTest {
     indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1737,10 +1731,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
@@ -1749,10 +1740,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1775,10 +1763,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
@@ -1786,10 +1771,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1803,10 +1785,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw IOException
@@ -1826,10 +1805,7 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1844,10 +1820,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
@@ -1867,10 +1840,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
