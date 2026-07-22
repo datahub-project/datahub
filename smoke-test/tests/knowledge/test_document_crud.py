@@ -4,14 +4,14 @@ import time
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.knowledge.document_helpers import _unique_id, execute_graphql
+from tests.knowledge.document_helpers import unique_id, execute_graphql
 
 logger = logging.getLogger(__name__)
 
 
 class TestDocumentCrudAndMutations:
     def test_create_document(self, auth_session):
-        document_id = _unique_id("smoke-doc-create")
+        document_id = unique_id("smoke-doc-create")
 
         create_mutation = """
             mutation CreateKA($input: CreateDocumentInput!) {
@@ -41,7 +41,7 @@ class TestDocumentCrudAndMutations:
         assert del_res["data"]["deleteDocument"] is True
 
     def test_get_document(self, auth_session):
-        document_id = _unique_id("smoke-doc-get")
+        document_id = unique_id("smoke-doc-get")
 
         # Create
         create_mutation = """
@@ -105,7 +105,7 @@ class TestDocumentCrudAndMutations:
         assert del_res["data"]["deleteDocument"] is True
 
     def test_update_document_contents(self, auth_session):
-        document_id = _unique_id("smoke-doc-update")
+        document_id = unique_id("smoke-doc-update")
 
         # Create
         create_mutation = """
@@ -178,7 +178,7 @@ class TestDocumentCrudAndMutations:
         3. Verify the status changed and lastModified was updated.
         4. Clean up.
         """
-        document_id = _unique_id("smoke-doc-status")
+        document_id = unique_id("smoke-doc-status")
 
         # Create document
         create_mutation = """
@@ -252,7 +252,7 @@ class TestDocumentCrudAndMutations:
         3. Retrieve the document and verify ownership.
         4. Clean up.
         """
-        document_id = _unique_id("smoke-doc-owners")
+        document_id = unique_id("smoke-doc-owners")
 
         # Create document with custom owners
         create_mutation = """
@@ -314,7 +314,7 @@ class TestDocumentCrudAndMutations:
         assert del_res["data"]["deleteDocument"] is True
 
     def test_search_documents(self, auth_session):
-        document_id = _unique_id("smoke-doc-search")
+        document_id = unique_id("smoke-doc-search")
         title = f"Smoke Search {document_id}"
 
         # Create
@@ -389,8 +389,8 @@ class TestDocumentCrudAndMutations:
         5. Verify parent relationship is removed.
         6. Clean up.
         """
-        parent_id = _unique_id("smoke-doc-parent")
-        child_id = _unique_id("smoke-doc-child")
+        parent_id = unique_id("smoke-doc-parent")
+        child_id = unique_id("smoke-doc-child")
 
         # Create parent document
         create_mutation = """
@@ -477,7 +477,7 @@ class TestDocumentCrudAndMutations:
         3. Verify the change.
         4. Clean up.
         """
-        document_id = _unique_id("smoke-doc-subtype")
+        document_id = unique_id("smoke-doc-subtype")
 
         # Create document
         create_mutation = """
@@ -533,9 +533,9 @@ class TestDocumentCrudAndMutations:
         3. Verify the relationships via GraphQL walk.
         4. Clean up.
         """
-        main_id = _unique_id("smoke-doc-main")
-        related1_id = _unique_id("smoke-doc-related1")
-        related2_id = _unique_id("smoke-doc-related2")
+        main_id = unique_id("smoke-doc-main")
+        related1_id = unique_id("smoke-doc-related1")
+        related2_id = unique_id("smoke-doc-related2")
 
         # Create documents
         create_mutation = """

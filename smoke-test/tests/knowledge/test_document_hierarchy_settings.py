@@ -4,7 +4,7 @@ import time
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.knowledge.document_helpers import _unique_id, execute_graphql
+from tests.knowledge.document_helpers import unique_id, execute_graphql
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,9 @@ class TestDocumentHierarchyAndSettings:
         3. Verify full hierarchy is returned.
         4. Clean up.
         """
-        grandparent_id = _unique_id("smoke-grandparent")
-        parent_id = _unique_id("smoke-parent")
-        child_id = _unique_id("smoke-child")
+        grandparent_id = unique_id("smoke-grandparent")
+        parent_id = unique_id("smoke-parent")
+        child_id = unique_id("smoke-child")
 
         # Create documents
         create_mutation = """
@@ -129,8 +129,8 @@ class TestDocumentHierarchyAndSettings:
         6. Verify the update.
         7. Clean up.
         """
-        public_doc_id = _unique_id("smoke-doc-public")
-        private_doc_id = _unique_id("smoke-doc-private")
+        public_doc_id = unique_id("smoke-doc-public")
+        private_doc_id = unique_id("smoke-doc-private")
 
         # Create document with default settings (should be showInGlobalContext=true)
         create_mutation = """
@@ -245,8 +245,8 @@ class TestDocumentHierarchyAndSettings:
         4. Unpublish it and verify it still appears (because user owns it).
         5. Clean up.
         """
-        published_doc_id = _unique_id("smoke-search-published")
-        unpublished_doc_id = _unique_id("smoke-search-unpublished")
+        published_doc_id = unique_id("smoke-search-published")
+        unpublished_doc_id = unique_id("smoke-search-unpublished")
 
         create_mutation = """
             mutation CreateDoc($input: CreateDocumentInput!) {
@@ -389,7 +389,7 @@ class TestDocumentHierarchyAndSettings:
         4. Query the dataset's relatedDocuments field to verify it returns the document.
         5. Clean up.
         """
-        document_id = _unique_id("smoke-doc-context")
+        document_id = unique_id("smoke-doc-context")
 
         # Create a document
         create_mutation = """

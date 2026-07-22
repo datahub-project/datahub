@@ -4,7 +4,7 @@ import time
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.knowledge.document_helpers import _unique_id, execute_graphql
+from tests.knowledge.document_helpers import unique_id, execute_graphql
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class TestDocumentSearchAndHistory:
         5. Query change history and verify entries exist for each change.
         6. Clean up.
         """
-        document_id = _unique_id("smoke-doc-history")
-        parent_id = _unique_id("smoke-doc-history-parent")
+        document_id = unique_id("smoke-doc-history")
+        parent_id = unique_id("smoke-doc-history-parent")
 
         # Create document
         create_mutation = """
@@ -136,9 +136,9 @@ class TestDocumentSearchAndHistory:
         4. Search by subType filter.
         5. Clean up.
         """
-        parent_id = _unique_id("smoke-search-parent")
-        child_id = _unique_id("smoke-search-child")
-        root_id = _unique_id("smoke-search-root")
+        parent_id = unique_id("smoke-search-parent")
+        child_id = unique_id("smoke-search-child")
+        root_id = unique_id("smoke-search-root")
 
         # Create documents
         create_mutation = """

@@ -8,9 +8,8 @@ def execute_graphql(auth_session, query: str, variables: dict | None = None) -> 
         f"{auth_session.frontend_url()}/api/graphql", json=payload
     )
     response.raise_for_status()
-    result = response.json()
-    return result
+    return response.json()
 
 
-def _unique_id(prefix: str) -> str:
+def unique_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
