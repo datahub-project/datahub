@@ -2,7 +2,7 @@ from typing import Any, Dict
 
 import pytest
 
-from conftest import _ingest_cleanup_data_impl
+from conftest import _ingest_cleanup_unique_dataset_impl
 from tests.utilities.metadata_operations import (
     add_tag,
     add_term,
@@ -14,18 +14,18 @@ from tests.utils import execute_graphql
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client):
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/tags_and_terms/data.json", "tags_and_terms"
+def dataset_urn(auth_session, graph_client, tmp_path_factory):
+    yield from _ingest_cleanup_unique_dataset_impl(
+        auth_session,
+        graph_client,
+        "tests/tags_and_terms/data.json",
+        "tags_and_terms",
+        "test-tags-terms-sample-kafka",
+        tmp_path_factory.mktemp("tags_and_terms"),
     )
 
 
-def test_add_tag(auth_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-tags-terms-sample-kafka"
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
+def test_add_tag(auth_session, dataset_urn):
     dataset_query = """query getDataset($urn: String!) {
             dataset(urn: $urn) {
                 globalTags {
@@ -113,12 +113,7 @@ def test_add_tag_to_chart(auth_session):
     assert res_data["data"]["chart"]["globalTags"] == {"tags": []}
 
 
-def test_add_term(auth_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-tags-terms-sample-kafka"
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
+def test_add_term(auth_session, dataset_urn):
     dataset_query = """query getDataset($urn: String!) {
         dataset(urn: $urn) {
             glossaryTerms {
@@ -159,12 +154,7 @@ def test_add_term(auth_session):
     assert res_data["data"]["dataset"]["glossaryTerms"] == {"terms": []}
 
 
-def test_update_schemafield(auth_session):
-    platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-tags-terms-sample-kafka"
-    env = "PROD"
-    dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-
+def test_update_schemafield(auth_session, dataset_urn):
     dataset_schema_json_terms = {
         "query": """query getDataset($urn: String!) {\n
             dataset(urn: $urn) {\n

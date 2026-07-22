@@ -1,7 +1,9 @@
 import importlib.metadata
 import json
 import logging
+import os
 import socket
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,6 +18,7 @@ from packaging import version
 from requests.structures import CaseInsensitiveDict
 
 from datahub.cli import cli_utils, env_utils
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
@@ -476,6 +479,54 @@ def ingest_file_via_rest(
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
     return pipeline
+
+
+def unique_suffix() -> str:
+    """Return a short, collision-resistant suffix for test-scoped entity names.
+
+    Under pytest-xdist ``--dist=loadscope`` (see smoke-test/smoke.sh) different
+    test modules run concurrently against the SAME GMS, so any entity URN
+    hardcoded in two modules races and flakes. Append this suffix to
+    the name of an entity a test creates/mutates/deletes so no other test —
+    now or later — can collide with it. Mirrors the uuid4-hex slice already used
+    in tests/metrics/test_queue_ingest_usage.py.
+    """
+    return uuid.uuid4().hex[:8]
+
+
+def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") -> str:
+    """Build a dataset URN whose name is unique per test run.
+
+    Prefer this over a hardcoded dataset URN whenever a test creates and then
+    mutates or deletes the dataset. ``name`` is a human-readable prefix; a unique
+    suffix (see :func:`unique_suffix`) is appended so parallel modules never
+    share the URN.
+    """
+    return make_dataset_urn(platform=platform, name=f"{name}-{unique_suffix()}", env=env)
+
+
+def materialize_unique_dataset(
+    src_file: str,
+    dataset_name: str,
+    dest_dir: str,
+    platform: str = "kafka",
+    env: str = "PROD",
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with ``dataset_name`` rewritten to a run-unique name.
+
+    Returns ``(dest_file, dataset_urn)``. Use from a module-scoped fixture so a
+    file-driven test owns a dataset no other test module can collide with under
+    xdist ``--dist=loadscope``. Every occurrence of ``dataset_name``
+    in the file is replaced, so field-level and reference URNs stay consistent
+    with the returned dataset URN.
+    """
+    unique_name = f"{dataset_name}-{unique_suffix()}"
+    with open(src_file) as f:
+        content = f.read().replace(dataset_name, unique_name)
+    dest_file = os.path.join(str(dest_dir), os.path.basename(src_file))
+    with open(dest_file, "w") as f:
+        f.write(content)
+    return dest_file, make_dataset_urn(platform=platform, name=unique_name, env=env)
 
 
 def delete_urn(graph_client, urn: str) -> None:

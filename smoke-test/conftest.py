@@ -26,6 +26,7 @@ from tests.utils import (
     fetch_admin_corpuser_info,
     get_frontend_session,
     ingest_file_via_rest,
+    materialize_unique_dataset,
     wait_for_admin_corpuser_system_bootstrap,
     wait_for_healthcheck_util,
     wait_for_writes_to_sync,
@@ -159,6 +160,42 @@ def _ingest_cleanup_data_impl(
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
         wait_for_writes_to_sync()
+
+
+def _ingest_cleanup_unique_dataset_impl(
+    auth_session,
+    graph_client,
+    data_file: str,
+    test_name: str,
+    dataset_name: str,
+    tmp_dir,
+    platform: str = "kafka",
+    env: str = "PROD",
+):
+    """Like :func:`_ingest_cleanup_data_impl`, but rewrites ``dataset_name`` in
+    ``data_file`` to a run-unique name before ingesting and yields the unique
+    dataset URN. Isolates a file-driven test's dataset so concurrent modules
+    never collide on a shared URN under xdist ``--dist=loadscope``.
+
+    Usage in test files:
+        @pytest.fixture(scope="module", autouse=True)
+        def dataset_urn(auth_session, graph_client, tmp_path_factory):
+            yield from _ingest_cleanup_unique_dataset_impl(
+                auth_session, graph_client,
+                "tests/tags_and_terms/data.json", "tags_and_terms",
+                "test-tags-terms-sample-kafka", tmp_path_factory.mktemp("data"),
+            )
+    """
+    unique_file, dataset_urn = materialize_unique_dataset(
+        data_file, dataset_name, tmp_dir, platform=platform, env=env
+    )
+    logger.info(f"deleting {test_name} test data for idempotency")
+    delete_urns_from_file(graph_client, unique_file)
+    logger.info(f"ingesting {test_name} test data (dataset={dataset_urn})")
+    ingest_file_via_rest(auth_session, unique_file)
+    yield dataset_urn
+    logger.info(f"removing {test_name} test data")
+    delete_urns_from_file(graph_client, unique_file)
 
 
 def pytest_sessionfinish(session, exitstatus):
