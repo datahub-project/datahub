@@ -1,17 +1,16 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
-import static org.mockito.Mockito.mock;
-import static org.testng.Assert.assertEquals;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.policy.DataHubActorFilter;
@@ -23,32 +22,44 @@ import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
+import java.util.Set;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PolicyFieldTypeValidatorTest {
   private static final Urn TEST_POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:test-policy");
 
-  // Mirrors the real bean in SpringStandardPluginConfiguration: PATCH is intentionally NOT a
-  // supported operation. An applied patch reaches pre-commit as an UPSERT, so UPSERT coverage is
-  // what closes the patch-bypass hole.
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
           .className(PolicyFieldTypeValidator.class.getName())
           .enabled(true)
-          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE"))
+          .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH"))
           .supportedEntityAspectNames(
               List.of(
                   new AspectPluginConfig.EntityAspectName(
                       POLICY_ENTITY_NAME, DATAHUB_POLICY_INFO_ASPECT_NAME)))
           .build();
 
+  @Mock private RetrieverContext mockRetrieverContext;
+
+  @Mock private AspectRetriever mockAspectRetriever;
+
   private EntityRegistry entityRegistry;
+
+  private PolicyFieldTypeValidator validator;
 
   @BeforeMethod
   public void setup() {
+    MockitoAnnotations.openMocks(this);
     entityRegistry = new TestEntityRegistry();
+    validator = new PolicyFieldTypeValidator();
+    validator.setConfig(TEST_PLUGIN_CONFIG);
+    when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
   }
 
   @Test
@@ -56,8 +67,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("TYPE", "dataset");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected validation to pass for valid field type TYPE");
@@ -68,8 +93,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("DOMAIN");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected validation to pass for valid field type DOMAIN");
@@ -80,8 +119,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("INVALID_FIELD_TYPE", "somevalue");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         1,
         "Expected validation to fail for invalid field type INVALID_FIELD_TYPE");
@@ -92,8 +145,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithPrivilegeConstraints("INVALID_CONSTRAINT");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         1,
         "Expected validation to fail for invalid field type INVALID_CONSTRAINT");
@@ -104,8 +171,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithMultipleFilters("TYPE", "DOMAIN");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected validation to pass for multiple valid field types");
@@ -116,8 +197,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createPolicyInfoWithMultipleFilters("TYPE", "INVALID_FIELD");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         1,
         "Expected validation to fail when at least one field type is invalid");
@@ -129,8 +224,22 @@ public class PolicyFieldTypeValidatorTest {
         createPolicyInfoWithFilter("RESOURCE_URN", "urn:li:dataset:test");
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected validation to pass for deprecated but still valid field type RESOURCE_URN");
@@ -141,8 +250,22 @@ public class PolicyFieldTypeValidatorTest {
     DataHubPolicyInfo policyInfo = createBasicPolicyInfo();
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
             .count(),
         0,
         "Expected validation to pass for policy without resources");
@@ -156,27 +279,10 @@ public class PolicyFieldTypeValidatorTest {
     policyInfo.setResources(resourceFilter);
 
     assertEquals(
-        PolicyFieldTypeValidator.validatePolicyFieldTypes(
-                TestMCP.ofOneMCP(TEST_POLICY_URN, policyInfo, entityRegistry))
-            .count(),
-        0,
-        "Expected validation to pass for policy without filter");
-  }
-
-  @Test
-  public void testInvalidFieldTypeRejectedThroughPreCommitHook() {
-    // A value written via PATCH is applied into a merged aspect that arrives at pre-commit as an
-    // UPSERT. This drives the public pre-commit hook (not the static helper) so it fails if the
-    // hook is ever reverted to returning an empty stream — the original bypass bug.
-    DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("INVALID_FIELD_TYPE", "somevalue");
-    PolicyFieldTypeValidator validator =
-        new PolicyFieldTypeValidator().setConfig(TEST_PLUGIN_CONFIG);
-
-    assertEquals(
         validator
-            .validatePreCommit(
+            .validateProposed(
                 OperationFingerprint.EMPTY,
-                List.<ChangeMCP>of(
+                Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(TEST_POLICY_URN)
@@ -187,10 +293,11 @@ public class PolicyFieldTypeValidatorTest {
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
                         .recordTemplate(policyInfo)
                         .build()),
-                mock(RetrieverContext.class))
+                mockRetrieverContext,
+                null)
             .count(),
-        1,
-        "Expected merged UPSERT carrying an invalid field type to be rejected at pre-commit");
+        0,
+        "Expected validation to pass for policy without filter");
   }
 
   private DataHubPolicyInfo createBasicPolicyInfo() {
@@ -203,6 +310,41 @@ public class PolicyFieldTypeValidatorTest {
         .setPrivileges(new StringArray("EDIT_ENTITY"))
         .setState("ACTIVE")
         .setType("METADATA");
+  }
+
+  /** A filter set via patch is validated from the patch's own value at the request stage. */
+  @Test
+  public void testPatchFilterFieldTypeValidated() {
+    String invalidOps =
+        "[{\"op\":\"add\",\"path\":\"/resources/filter\",\"value\":"
+            + "{\"criteria\":[{\"field\":\"INVALID_FIELD_TYPE\",\"values\":[\"dataset\"],"
+            + "\"condition\":\"EQUALS\"}]}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, invalidOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Patch setting an invalid filter field type should fail");
+
+    String validOps =
+        "[{\"op\":\"add\",\"path\":\"/resources/filter\",\"value\":"
+            + "{\"criteria\":[{\"field\":\"TYPE\",\"values\":[\"dataset\"],"
+            + "\"condition\":\"EQUALS\"}]}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, validOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch setting a valid filter field type should pass");
   }
 
   private DataHubPolicyInfo createPolicyInfoWithFilter(String fieldType, String value) {
