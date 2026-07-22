@@ -111,6 +111,14 @@ class _TileCollectionResult:
 
     model_id: Optional[str] = None
     work_units: List[MetadataWorkUnit] = field(default_factory=list)
+    fields_by_dashboard: Set[FieldRef] = field(default_factory=set)
+    chart_ids: List[str] = field(default_factory=list)
+    chart_inputs: Dict[str, Set[str]] = field(default_factory=dict)
+    chart_titles: Dict[str, str] = field(default_factory=dict)
+    chart_urls: Dict[str, str] = field(default_factory=dict)
+    dashboard_topics: Set[str] = field(default_factory=set)
+    dashboard_topic_urns: Set[str] = field(default_factory=set)
+    view_to_topic_urns: Dict[str, Set[str]] = field(default_factory=dict)
 
 
 @platform_name("Omni")
@@ -1265,19 +1273,11 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         doc_id: str,
         dashboard_url: str,
         dashboard_title: str,
-        fields_by_dashboard: Set[FieldRef],
-        chart_ids: List[str],
-        chart_inputs: Dict[str, Set[str]],
-        chart_titles: Dict[str, str],
-        chart_urls: Dict[str, str],
-        dashboard_topics: Set[str],
-        dashboard_topic_urns: Set[str],
-        view_to_topic_urns: Dict[str, Set[str]],
     ) -> _TileCollectionResult:
-        """Fetch dashboard payload, populate tile/topic state dicts, return model_id.
+        """Fetch dashboard payload and return tile/topic collections.
 
-        Returns a _TileCollectionResult with the resolved modelId and work units,
-        avoiding shared mutable state between concurrent workers.
+        Returns a _TileCollectionResult with chart IDs, topic URNs, field refs,
+        and any work units emitted during tile processing.
         """
         result = _TileCollectionResult()
         try:
@@ -1286,19 +1286,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             model_id = result.model_id
             for idx, qp in enumerate(dashboard_payload.get("queryPresentations", [])):
                 qp_id = qp.get("id") or f"{doc_id}:{idx}"
-                chart_ids.append(qp_id)
-                chart_inputs[qp_id] = set()
-                chart_titles[qp_id] = (
+                result.chart_ids.append(qp_id)
+                result.chart_inputs[qp_id] = set()
+                result.chart_titles[qp_id] = (
                     qp.get("name") or f"{dashboard_title} - tile {idx + 1}"
                 )
                 query = qp.get("query") or {}
                 tile_fields = parse_field_list(query.get("fields", []))
-                fields_by_dashboard.update(tile_fields)
+                result.fields_by_dashboard.update(tile_fields)
                 topic_name = qp.get("topicName") or query.get(
                     "join_paths_from_topic_name"
                 )
                 if topic_name and model_id:
-                    dashboard_topics.add(topic_name)
+                    result.dashboard_topics.add(topic_name)
                     topic_key = f"{model_id}:{topic_name}"
                     topic_urn = self._topic_urn_by_key.get(
                         topic_key, self._topic_dataset_urn(model_id, topic_name)
@@ -1322,14 +1322,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                             )
                         )
                         self.report.increment_counter("topics_emitted")
-                    chart_inputs[qp_id].add(topic_urn)
-                    dashboard_topic_urns.add(topic_urn)
+                    result.chart_inputs[qp_id].add(topic_urn)
+                    result.dashboard_topic_urns.add(topic_urn)
                     # Track which topic each view belongs to
                     for field_ref in tile_fields:
-                        view_to_topic_urns.setdefault(field_ref.view, set()).add(
+                        result.view_to_topic_urns.setdefault(field_ref.view, set()).add(
                             topic_urn
                         )
-                chart_urls[qp_id] = f"{dashboard_url}?queryPresentationId={qp_id}"
+                result.chart_urls[qp_id] = (
+                    f"{dashboard_url}?queryPresentationId={qp_id}"
+                )
         except Exception as exc:
             self.report.warning(
                 title="Dashboard document fetch error",
@@ -1495,34 +1497,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     self._connections_by_id.get(document_connection_id),
                 )
 
-            fields_by_dashboard: Set[FieldRef] = set()
             fine_grained_lineages: List[FineGrainedLineageClass] = []
             fine_grained_dedupe: Set[tuple] = set()
-            chart_ids: List[str] = []
-            dashboard_topics: Set[str] = set()
-            model_id_from_dashboard: Optional[str] = None
-            chart_inputs: Dict[str, Set[str]] = {}
-            chart_titles: Dict[str, str] = {}
-            chart_urls: Dict[str, str] = {}
-            dashboard_topic_urns: Set[str] = set()
-            view_to_topic_urns: Dict[str, Set[str]] = {}
+            tile_result = _TileCollectionResult()
 
             if has_dashboard:
                 tile_result = self._collect_tile_data(
                     doc_id,
                     dashboard_url,
                     dashboard_title,
-                    fields_by_dashboard,
-                    chart_ids,
-                    chart_inputs,
-                    chart_titles,
-                    chart_urls,
-                    dashboard_topics,
-                    dashboard_topic_urns,
-                    view_to_topic_urns,
                 )
                 yield from tile_result.work_units
-                model_id_from_dashboard = tile_result.model_id
+
+            model_id_from_dashboard = tile_result.model_id
 
             try:
                 for query in self.client.get_document_queries(doc_id):
@@ -1530,7 +1517,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         model_id_from_dashboard = (query.get("query") or {}).get(
                             "modelId"
                         )
-                    fields_by_dashboard.update(
+                    tile_result.fields_by_dashboard.update(
                         parse_field_list((query.get("query") or {}).get("fields", []))
                     )
             except Exception as exc:
@@ -1541,22 +1528,22 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     exc=exc,
                 )
 
-            if model_id_from_dashboard and dashboard_topics:
-                for topic_name in sorted(dashboard_topics):
+            if model_id_from_dashboard and tile_result.dashboard_topics:
+                for topic_name in sorted(tile_result.dashboard_topics):
                     topic_key = f"{model_id_from_dashboard}:{topic_name}"
                     topic_urn = self._topic_urn_by_key.get(
                         topic_key,
                         self._topic_dataset_urn(model_id_from_dashboard, topic_name),
                     )
-                    dashboard_topic_urns.add(topic_urn)
-                    for qp_id in chart_ids:
-                        chart_inputs.setdefault(qp_id, set()).add(topic_urn)
+                    tile_result.dashboard_topic_urns.add(topic_urn)
+                    for qp_id in tile_result.chart_ids:
+                        tile_result.chart_inputs.setdefault(qp_id, set()).add(topic_urn)
 
-            if model_id_from_dashboard and fields_by_dashboard:
+            if model_id_from_dashboard and tile_result.fields_by_dashboard:
                 yield from self._emit_inferred_view_datasets(
                     model_id=model_id_from_dashboard,
-                    fields_by_dashboard=fields_by_dashboard,
-                    view_to_topic_urns=view_to_topic_urns,
+                    fields_by_dashboard=tile_result.fields_by_dashboard,
+                    view_to_topic_urns=tile_result.view_to_topic_urns,
                     dashboard_dataset_urn=dashboard_dataset_urn,
                     fine_grained_lineages=fine_grained_lineages,
                     fine_grained_dedupe=fine_grained_dedupe,
@@ -1576,15 +1563,15 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
             chart_urns: List[str] = []
-            for qp_id in chart_ids:
+            for qp_id in tile_result.chart_ids:
                 chart_urn = make_chart_urn(self.PLATFORM, qp_id)
                 chart_urns.append(chart_urn)
                 yield from self._emit_chart(
                     qp_id=qp_id,
-                    title=chart_titles.get(qp_id, "Omni tile"),
+                    title=tile_result.chart_titles.get(qp_id, "Omni tile"),
                     description="Omni workbook tab or dashboard tile.",
-                    external_url=chart_urls.get(qp_id, dashboard_url),
-                    input_urns=sorted(chart_inputs.get(qp_id, set())),
+                    external_url=tile_result.chart_urls.get(qp_id, dashboard_url),
+                    input_urns=sorted(tile_result.chart_inputs.get(qp_id, set())),
                     custom_properties={"documentId": doc_id},
                     owner_id=owner_id,
                     owner_name=owner_name,
@@ -1608,7 +1595,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     "labels": ",".join(lb for lb in normalized_labels if lb),
                     "omniEmbedUrl": str(dashboard_url),
                     "omniEmbedIframe": f'<iframe src="{dashboard_url}"></iframe>',
-                    "topicNames": ",".join(sorted(dashboard_topics)),
+                    "topicNames": ",".join(sorted(tile_result.dashboard_topics)),
                     "updatedAt": str(document.get("updatedAt") or ""),
                 },
                 owner_id=owner_id,
