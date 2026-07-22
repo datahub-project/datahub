@@ -107,7 +107,10 @@ def _reflow_ragged_rows(file_obj: IO[bytes], delimiter: str) -> Tuple[IO[bytes],
 
 
 def read_csv(file_obj: IO[bytes], delimiter: str = ",") -> ColumnarSource:
-    parse_options = pa_csv.ParseOptions(delimiter=delimiter)
+    # newlines_in_values=True lets quoted fields span physical lines (Spark's
+    # reader tolerates this); without it a legitimate embedded newline would be
+    # misread as a row break.
+    parse_options = pa_csv.ParseOptions(delimiter=delimiter, newlines_in_values=True)
     convert_options = pa_csv.ConvertOptions(strings_can_be_null=True)
     try:
         reader = pa_csv.open_csv(

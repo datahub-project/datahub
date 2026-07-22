@@ -1471,6 +1471,2405 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 20,
+            "columnCount": 29,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "Sampling Date",
+                    "uniqueCount": 9,
+                    "uniqueProportion": 0.45,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "6/21/2013",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "6/22/2013",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "6/23/2013",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6/26/2014",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "6/27/2013",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8/6/2014",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8/7/2014",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "8/8/2014",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "9/16/2013",
+                            "frequency": 4
+                        }
+                    ],
+                    "sampleValues": [
+                        "6/21/2013",
+                        "6/21/2013",
+                        "6/21/2013",
+                        "6/22/2013",
+                        "6/22/2013",
+                        "6/23/2013",
+                        "6/26/2014",
+                        "6/26/2014",
+                        "6/26/2014",
+                        "6/26/2014",
+                        "6/27/2013",
+                        "8/6/2014",
+                        "8/7/2014",
+                        "8/7/2014",
+                        "8/7/2014",
+                        "8/8/2014",
+                        "9/16/2013",
+                        "9/16/2013",
+                        "9/16/2013",
+                        "9/16/2013"
+                    ]
+                },
+                {
+                    "fieldPath": "Site ID",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "Desperation Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Devil Mountain Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Feniak Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Imuruk Lake ",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Iniakuk Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Kurupa Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Kuzitrin Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Lake Kangilipak",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Lake Matcharak",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Lake Narvakrak",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Lake Selby",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Lava Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "North Killeak Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Nutavukti Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Okoklik Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Summit Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Takahula Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Walker Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "White Fish Lake",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "Wild Lake",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "Desperation Lake",
+                        "Devil Mountain Lake",
+                        "Feniak Lake",
+                        "Imuruk Lake ",
+                        "Iniakuk Lake",
+                        "Kurupa Lake",
+                        "Kuzitrin Lake",
+                        "Lake Kangilipak",
+                        "Lake Matcharak",
+                        "Lake Narvakrak",
+                        "Lake Selby",
+                        "Lava Lake",
+                        "North Killeak Lake",
+                        "Nutavukti Lake",
+                        "Okoklik Lake",
+                        "Summit Lake",
+                        "Takahula Lake",
+                        "Walker Lake",
+                        "White Fish Lake",
+                        "Wild Lake"
+                    ]
+                },
+                {
+                    "fieldPath": "Park ID",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.15,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "BELA",
+                            "frequency": 6
+                        },
+                        {
+                            "value": "GAAR",
+                            "frequency": 9
+                        },
+                        {
+                            "value": "NOAT",
+                            "frequency": 5
+                        }
+                    ],
+                    "sampleValues": [
+                        "BELA",
+                        "BELA",
+                        "BELA",
+                        "BELA",
+                        "BELA",
+                        "BELA",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "GAAR",
+                        "NOAT",
+                        "NOAT",
+                        "NOAT",
+                        "NOAT",
+                        "NOAT"
+                    ]
+                },
+                {
+                    "fieldPath": "Lat (\u00b0N)",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "65.3845",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "65.58905",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "65.58996",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "66.32813",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "66.37863",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "66.40362",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "66.89298",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.01337",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.06375",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.1257",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.35014",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.50282",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.74715",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "67.9999",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.00064",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.01392",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.07008",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.24775",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.33031",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "68.35879",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "65.3845",
+                        "65.58905",
+                        "65.58996",
+                        "66.32813",
+                        "66.37863",
+                        "66.40362",
+                        "66.89298",
+                        "67.01337",
+                        "67.06375",
+                        "67.1257",
+                        "67.35014",
+                        "67.50282",
+                        "67.74715",
+                        "67.9999",
+                        "68.00064",
+                        "68.01392",
+                        "68.07008",
+                        "68.24775",
+                        "68.33031",
+                        "68.35879"
+                    ]
+                },
+                {
+                    "fieldPath": "Long (\u00b0W)",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-158.31337",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-158.74584",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-159.15975",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-159.27007",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-161.72104",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-163.18683",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-163.21787",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-163.90928",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-164.10563",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-164.48818",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-164.7452",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "150.47092",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "151.57256",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "153.20834",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "153.66048",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "154.34215",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "154.60695",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "154.73245",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "155.65584",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "156.21262",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-158.31337",
+                        "-158.74584",
+                        "-159.15975",
+                        "-159.27007",
+                        "-161.72104",
+                        "-163.18683",
+                        "-163.21787",
+                        "-163.90928",
+                        "-164.10563",
+                        "-164.48818",
+                        "-164.7452",
+                        "150.47092",
+                        "151.57256",
+                        "153.20834",
+                        "153.66048",
+                        "154.34215",
+                        "154.60695",
+                        "154.73245",
+                        "155.65584",
+                        "156.21262"
+                    ]
+                },
+                {
+                    "fieldPath": "Water Temp (\u00b0C)",
+                    "uniqueCount": 16,
+                    "uniqueProportion": 0.8,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "11.34",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "11.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "12.05",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "15.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "15.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "17.38",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "17.6",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "18.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.95",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "20.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.51",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.36",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6.46",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "8.06",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "9.3",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "11.34",
+                        "11.9",
+                        "12.05",
+                        "15.1",
+                        "15.3",
+                        "17.38",
+                        "17.6",
+                        "18.3",
+                        "2.95",
+                        "20.18",
+                        "4.51",
+                        "5.36",
+                        "6.46",
+                        "6.46",
+                        "8.06",
+                        "9.3"
+                    ]
+                },
+                {
+                    "fieldPath": "Cond (\u00b5S/cm)",
+                    "uniqueCount": 16,
+                    "uniqueProportion": 0.8,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "107",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "108",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "129.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "132.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1351",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "15",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "163.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "227.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "26",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "452",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "61",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "75",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "75.7",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "83",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "92",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "107",
+                        "108",
+                        "129.2",
+                        "132.4",
+                        "1351",
+                        "15",
+                        "163.1",
+                        "227.3",
+                        "26",
+                        "452",
+                        "61",
+                        "61",
+                        "75",
+                        "75.7",
+                        "83",
+                        "92"
+                    ]
+                },
+                {
+                    "fieldPath": "pH",
+                    "uniqueCount": 8,
+                    "uniqueProportion": 0.4,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 13
+                        },
+                        {
+                            "value": "6.44",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.31",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.42",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.45",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.69",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.82",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.04",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "6.44",
+                        "7.31",
+                        "7.42",
+                        "7.45",
+                        "7.69",
+                        "7.82",
+                        "8.04"
+                    ]
+                },
+                {
+                    "fieldPath": "DO (mg/L)",
+                    "uniqueCount": 6,
+                    "uniqueProportion": 0.3157894736842105,
+                    "nullCount": 1,
+                    "nullProportion": 0.05,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 14
+                        },
+                        {
+                            "value": "7.6",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "9.3",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "7.6",
+                        "7.9",
+                        "8.5",
+                        "8.9",
+                        "9.3"
+                    ]
+                },
+                {
+                    "fieldPath": "Secchi Depth (m)",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 0.2,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 16
+                        },
+                        {
+                            "value": "10",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "4.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "10",
+                        "10",
+                        "4.1",
+                        "7"
+                    ]
+                },
+                {
+                    "fieldPath": "UV Absorbance, 254nm",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.02",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.044",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.048",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.059",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.06",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.062",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.063",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.076",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.091",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.095",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.104",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.107",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.117",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.151",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.154",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.186",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.191",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.212",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.223",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.436",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.02",
+                        "0.044",
+                        "0.048",
+                        "0.059",
+                        "0.06",
+                        "0.062",
+                        "0.063",
+                        "0.076",
+                        "0.091",
+                        "0.095",
+                        "0.104",
+                        "0.107",
+                        "0.117",
+                        "0.151",
+                        "0.154",
+                        "0.186",
+                        "0.191",
+                        "0.212",
+                        "0.223",
+                        "0.436"
+                    ]
+                },
+                {
+                    "fieldPath": "DOC [mg/L C]",
+                    "uniqueCount": 19,
+                    "uniqueProportion": 0.95,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "1.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "12.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.0",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.1",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.7",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.7",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.5",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "1.3",
+                        "1.8",
+                        "12.3",
+                        "2.0",
+                        "2.1",
+                        "2.1",
+                        "2.4",
+                        "2.7",
+                        "3.3",
+                        "3.4",
+                        "4.2",
+                        "4.3",
+                        "4.5",
+                        "4.7",
+                        "5.1",
+                        "5.8",
+                        "6.5",
+                        "7.8",
+                        "8.3",
+                        "8.5"
+                    ]
+                },
+                {
+                    "fieldPath": "SUVA, 254nm",
+                    "uniqueCount": 12,
+                    "uniqueProportion": 0.6,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "1.5",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.2",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.4",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.5",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.6",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "2.7",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "2.9",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "3.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.5",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "1.5",
+                        "1.5",
+                        "2.1",
+                        "2.2",
+                        "2.2",
+                        "2.4",
+                        "2.4",
+                        "2.5",
+                        "2.5",
+                        "2.6",
+                        "2.6",
+                        "2.6",
+                        "2.7",
+                        "2.7",
+                        "2.9",
+                        "2.9",
+                        "3.1",
+                        "3.2",
+                        "3.4",
+                        "3.5"
+                    ]
+                },
+                {
+                    "fieldPath": "NH3-N \n(mg N/L)",
+                    "uniqueCount": 8,
+                    "uniqueProportion": 0.4,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "*0.001",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "*0.002",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "*0.003",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "*0.004",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "*0.007",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "*0.009",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.019",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.135",
+                            "frequency": 2
+                        }
+                    ],
+                    "sampleValues": [
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.002",
+                        "*0.002",
+                        "*0.002",
+                        "*0.002",
+                        "*0.003",
+                        "*0.004",
+                        "*0.004",
+                        "*0.007",
+                        "*0.007",
+                        "*0.009",
+                        "0.019",
+                        "0.135",
+                        "0.135"
+                    ]
+                },
+                {
+                    "fieldPath": "NO3-N+NO2-N \n(mg N/L)",
+                    "uniqueCount": 13,
+                    "uniqueProportion": 0.65,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.0",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "0.005",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.013",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.014",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.017",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.028",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.034",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.037",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.043",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.107",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.13",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.141",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.19",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.0",
+                        "0.0",
+                        "0.0",
+                        "0.0",
+                        "0.0",
+                        "0.0",
+                        "0.0",
+                        "0.005",
+                        "0.005",
+                        "0.013",
+                        "0.014",
+                        "0.017",
+                        "0.028",
+                        "0.034",
+                        "0.037",
+                        "0.043",
+                        "0.107",
+                        "0.13",
+                        "0.141",
+                        "0.19"
+                    ]
+                },
+                {
+                    "fieldPath": "PO4-P \n(mg P/L)",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.15,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "*0.000",
+                            "frequency": 13
+                        },
+                        {
+                            "value": "*0.001",
+                            "frequency": 6
+                        },
+                        {
+                            "value": "0.006",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "0.006"
+                    ]
+                },
+                {
+                    "fieldPath": "TDN \n(mg N/L)",
+                    "uniqueCount": 16,
+                    "uniqueProportion": 0.8,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.07",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.08",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.11",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "0.13",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.26",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.27",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.28",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.34",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.38",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.41",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.43",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.63",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "0.07",
+                        "0.08",
+                        "0.11",
+                        "0.11",
+                        "0.11",
+                        "0.13",
+                        "0.18",
+                        "0.2",
+                        "0.26",
+                        "0.27",
+                        "0.28",
+                        "0.3",
+                        "0.34",
+                        "0.34",
+                        "0.38",
+                        "0.41",
+                        "0.43",
+                        "0.63"
+                    ]
+                },
+                {
+                    "fieldPath": "TDP \n(mg P/L)",
+                    "uniqueCount": 8,
+                    "uniqueProportion": 0.4,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "*0.000",
+                            "frequency": 5
+                        },
+                        {
+                            "value": "*0.001",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "*0.002",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "-",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.003",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.004",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.006",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.026",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.000",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.001",
+                        "*0.002",
+                        "*0.002",
+                        "*0.002",
+                        "-",
+                        "-",
+                        "0.003",
+                        "0.003",
+                        "0.004",
+                        "0.006",
+                        "0.006",
+                        "0.026"
+                    ]
+                },
+                {
+                    "fieldPath": "Cl \n(mg/L)",
+                    "uniqueCount": 19,
+                    "uniqueProportion": 0.95,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.08",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.11",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.13",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.19",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.21",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.22",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.23",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.31",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.55",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.67",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.76",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "1.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.25",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "10.35",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "105.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.53",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "337.23",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.08",
+                        "0.11",
+                        "0.13",
+                        "0.18",
+                        "0.19",
+                        "0.2",
+                        "0.21",
+                        "0.22",
+                        "0.23",
+                        "0.31",
+                        "0.55",
+                        "0.67",
+                        "0.76",
+                        "0.76",
+                        "1.18",
+                        "1.25",
+                        "10.35",
+                        "105.3",
+                        "2.53",
+                        "337.23"
+                    ]
+                },
+                {
+                    "fieldPath": "SO4-S \n(mg/L)",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.04",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.29",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.55",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.59",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.62",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.01",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.38",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "12.09",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "12.43",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "13.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.72",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.73",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "28.68",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.21",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.93",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.53",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.77",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.92",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.04",
+                        "0.18",
+                        "0.2",
+                        "0.29",
+                        "0.55",
+                        "0.59",
+                        "0.62",
+                        "1.01",
+                        "1.38",
+                        "12.09",
+                        "12.43",
+                        "13.3",
+                        "2.72",
+                        "2.73",
+                        "28.68",
+                        "3.21",
+                        "4.93",
+                        "5.53",
+                        "5.77",
+                        "7.92"
+                    ]
+                },
+                {
+                    "fieldPath": "F \n(mg/L)",
+                    "uniqueCount": 6,
+                    "uniqueProportion": 0.3,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "*0.01",
+                            "frequency": 3
+                        },
+                        {
+                            "value": "-",
+                            "frequency": 9
+                        },
+                        {
+                            "value": "0.02",
+                            "frequency": 4
+                        },
+                        {
+                            "value": "0.04",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.05",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.11",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "*0.01",
+                        "*0.01",
+                        "*0.01",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "0.02",
+                        "0.02",
+                        "0.02",
+                        "0.02",
+                        "0.04",
+                        "0.04",
+                        "0.05",
+                        "0.11"
+                    ]
+                },
+                {
+                    "fieldPath": "Br \n(mg/L)",
+                    "uniqueCount": 6,
+                    "uniqueProportion": 0.3,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "*0.00",
+                            "frequency": 6
+                        },
+                        {
+                            "value": "*0.01",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "-",
+                            "frequency": 9
+                        },
+                        {
+                            "value": "0.02",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.33",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.08",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "*0.00",
+                        "*0.00",
+                        "*0.00",
+                        "*0.00",
+                        "*0.00",
+                        "*0.00",
+                        "*0.01",
+                        "*0.01",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "0.02",
+                        "0.33",
+                        "1.08"
+                    ]
+                },
+                {
+                    "fieldPath": "Na \n(mg/L)",
+                    "uniqueCount": 19,
+                    "uniqueProportion": 0.95,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.46",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.57",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.62",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.72",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.82",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.84",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.94",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.07",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.11",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.36",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.97",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "161.89",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.93",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.51",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.13",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "54.16",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.92",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.46",
+                        "0.57",
+                        "0.57",
+                        "0.62",
+                        "0.72",
+                        "0.82",
+                        "0.84",
+                        "0.94",
+                        "1.07",
+                        "1.11",
+                        "1.36",
+                        "1.4",
+                        "1.97",
+                        "161.89",
+                        "2.2",
+                        "2.93",
+                        "4.51",
+                        "5.13",
+                        "54.16",
+                        "8.92"
+                    ]
+                },
+                {
+                    "fieldPath": "K \n(mg/L)",
+                    "uniqueCount": 19,
+                    "uniqueProportion": 0.95,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.1",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.16",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.17",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "0.19",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.21",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.31",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.32",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.35",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.44",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.48",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.56",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.57",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.74",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.93",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.18",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.2",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.48",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.32",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.1",
+                        "0.16",
+                        "0.17",
+                        "0.17",
+                        "0.19",
+                        "0.21",
+                        "0.31",
+                        "0.32",
+                        "0.35",
+                        "0.4",
+                        "0.44",
+                        "0.48",
+                        "0.56",
+                        "0.57",
+                        "0.74",
+                        "0.93",
+                        "1.18",
+                        "1.2",
+                        "3.48",
+                        "8.32"
+                    ]
+                },
+                {
+                    "fieldPath": "Ca \n(mg/L)",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.96",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.7",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "11.52",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "11.77",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "11.78",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "12.91",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "14.68",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "18.62",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "27.68",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "29.75",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "36.82",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.69",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "40.78",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "48.17",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.73",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "5.87",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "57.64",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6.51",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "6.81",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.74",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.96",
+                        "1.7",
+                        "11.52",
+                        "11.77",
+                        "11.78",
+                        "12.91",
+                        "14.68",
+                        "18.62",
+                        "27.68",
+                        "29.75",
+                        "36.82",
+                        "4.69",
+                        "40.78",
+                        "48.17",
+                        "5.73",
+                        "5.87",
+                        "57.64",
+                        "6.51",
+                        "6.81",
+                        "8.74"
+                    ]
+                },
+                {
+                    "fieldPath": "Mg \n(mg/L)",
+                    "uniqueCount": 20,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "0.26",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "0.86",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.84",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "1.86",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "11.44",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "16.16",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "16.42",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.08",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.57",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.63",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.77",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "2.81",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.03",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "3.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "37.68",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.04",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.49",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "7.66",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.56",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "8.74",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "0.26",
+                        "0.86",
+                        "1.84",
+                        "1.86",
+                        "11.44",
+                        "16.16",
+                        "16.42",
+                        "2.08",
+                        "2.57",
+                        "2.63",
+                        "2.77",
+                        "2.81",
+                        "3.03",
+                        "3.5",
+                        "37.68",
+                        "4.04",
+                        "7.49",
+                        "7.66",
+                        "8.56",
+                        "8.74"
+                    ]
+                },
+                {
+                    "fieldPath": "d18O",
+                    "uniqueCount": 11,
+                    "uniqueProportion": 0.55,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 9
+                        },
+                        {
+                            "value": "-12.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-12.6",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-13.4",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "-15.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-16.0",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-16.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-16.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-17.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-18.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-18.9",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-12.5",
+                        "-12.6",
+                        "-13.4",
+                        "-13.4",
+                        "-15.8",
+                        "-16.0",
+                        "-16.5",
+                        "-16.9",
+                        "-17.8",
+                        "-18.4",
+                        "-18.9"
+                    ]
+                },
+                {
+                    "fieldPath": "dD",
+                    "uniqueCount": 12,
+                    "uniqueProportion": 0.6,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "-",
+                            "frequency": 9
+                        },
+                        {
+                            "value": "-100.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-105.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-107.4",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-114.0",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-118.9",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-121.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-136.0",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-139.6",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-142.3",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-142.5",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "-143.9",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "-100.5",
+                        "-105.9",
+                        "-107.4",
+                        "-114.0",
+                        "-118.9",
+                        "-121.8",
+                        "-136.0",
+                        "-139.6",
+                        "-142.3",
+                        "-142.5",
+                        "-143.9"
+                    ]
+                },
+                {
+                    "fieldPath": "",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1.0,
+                    "nullCount": 59,
+                    "nullProportion": 0.9833333333333333,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "\u2030",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "\u2030"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {

@@ -387,10 +387,14 @@ class TableAccumulator:
 
     def add_batch(self, batch: pa.RecordBatch) -> None:
         self.row_count += batch.num_rows
-        for column in batch.schema.names:
+        # Access columns positionally: a name lookup (batch.column(name)) raises
+        # if the file has duplicate column names (e.g. several empty-named
+        # trailing columns from stray delimiters), which would otherwise abort
+        # the whole table's profile.
+        for index, column in enumerate(batch.schema.names):
             accumulator = self._accumulators.get(column)
             if accumulator is not None:
-                accumulator.add_batch(batch.column(column))
+                accumulator.add_batch(batch.column(index))
 
     def add_row(self, row: Dict[str, Any]) -> None:
         self.row_count += 1

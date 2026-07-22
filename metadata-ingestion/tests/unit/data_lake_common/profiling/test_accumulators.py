@@ -1,9 +1,12 @@
 import math
+import statistics
+from decimal import Decimal
 
 import pyarrow as pa
 import pytest
 
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
+    MAX_TRACKED_FREQUENCIES,
     ColumnKind,
     TableAccumulator,
     ValueFrequency,
@@ -264,3 +267,78 @@ def test_temporal_low_cardinality_gets_distinct_value_frequencies() -> None:
         "2023-01-01 00:00:00",
         "2023-01-02 00:00:00",
     }
+
+
+def test_multi_batch_variance_merge_with_differing_means() -> None:
+    # Two batches whose means are far apart, fed separately. The parallel
+    # variance merge must include the between-batch mean-difference correction;
+    # without it (naive pooled variance) stdev is badly underestimated. High
+    # cardinality so stdev is actually surfaced.
+    batch_a = list(range(0, 100))  # mean 49.5
+    batch_b = list(range(1000, 1100))  # mean 1049.5
+    combined = batch_a + batch_b
+
+    acc = TableAccumulator(columns=["x"], column_kinds={"x": ColumnKind.NUMERIC})
+    acc.add_batch(pa.record_batch({"x": pa.array(batch_a, type=pa.float64())}))
+    acc.add_batch(pa.record_batch({"x": pa.array(batch_b, type=pa.float64())}))
+    stats = acc.finalize().columns[0]
+
+    assert stats.mean == pytest.approx(statistics.fmean(combined))
+    assert stats.stdev is not None
+    # pstdev (population, ddof=0) matches the accumulator's math.sqrt(m2/n).
+    assert stats.stdev == pytest.approx(statistics.pstdev(combined), rel=1e-9)
+    # Guard against the naive merge, which would land near the ~28.9 within-batch
+    # stdev instead of the true ~500.
+    assert stats.stdev > 400
+
+
+def test_decimal_high_cardinality_gets_histogram_and_stats() -> None:
+    values = [Decimal(f"{i}.5") for i in range(100)]  # high cardinality -> MANY
+    acc = TableAccumulator(columns=["amt"], column_kinds={"amt": ColumnKind.NUMERIC})
+    acc.add_batch(pa.record_batch({"amt": pa.array(values, type=pa.decimal128(10, 2))}))
+    stats = acc.finalize().columns[0]
+
+    assert stats.histogram is not None
+    assert len(stats.histogram.boundaries) == len(stats.histogram.counts)
+    assert stats.mean == pytest.approx(statistics.fmean(float(v) for v in values))
+    assert stats.quantiles is not None
+
+
+def test_unique_count_estimate_is_within_tolerance_at_scale() -> None:
+    n = 5000
+    acc = TableAccumulator(columns=["id"], column_kinds={"id": ColumnKind.NUMERIC})
+    acc.add_batch(pa.record_batch({"id": pa.array(range(n), type=pa.int64())}))
+    stats = acc.finalize().columns[0]
+
+    assert stats.unique_count is not None
+    # CPC sketch targets ~2% error; allow generous headroom for a single run.
+    assert abs(stats.unique_count - n) / n < 0.05
+
+
+def test_reservoir_sampling_is_deterministic_across_runs() -> None:
+    values = list(range(200))  # far more than the sample size -> reservoir kicks in
+
+    def sample(size: int) -> list:
+        acc = TableAccumulator(
+            columns=["v"], column_kinds={"v": ColumnKind.NUMERIC}, sample_size=size
+        )
+        acc.add_batch(pa.record_batch({"v": pa.array(values, type=pa.int64())}))
+        return acc.finalize().columns[0].sample_values
+
+    # Seeded RNG -> identical sample every run (matches the old takeSample seed=0).
+    assert sample(20) == sample(20)
+    assert len(sample(20)) == 20
+
+
+def test_frequency_table_abandoned_past_boundary() -> None:
+    acc = TableAccumulator(columns=["s"], column_kinds={"s": ColumnKind.STRING})
+    # Exactly MAX_TRACKED_FREQUENCIES distinct values: still tracked.
+    at_limit = [str(i) for i in range(MAX_TRACKED_FREQUENCIES)]
+    acc.add_batch(pa.record_batch({"s": pa.array(at_limit)}))
+    assert acc._accumulators["s"]._frequencies is not None
+    assert len(acc._accumulators["s"]._frequencies) == MAX_TRACKED_FREQUENCIES
+
+    # One more distinct value tips it over the boundary and the table is dropped
+    # so it can't grow unbounded.
+    acc.add_batch(pa.record_batch({"s": pa.array([str(MAX_TRACKED_FREQUENCIES)])}))
+    assert acc._accumulators["s"]._frequencies is None
