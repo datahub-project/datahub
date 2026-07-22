@@ -326,6 +326,7 @@ def run_transform(
     converter: "migration_utils.UrnConverter",
     platform: str,
     *,
+    platform_instance: Optional[str] = None,
     env: str = DEFAULT_ENV,
     dry_run: bool = False,
     force: bool = True,
@@ -337,16 +338,18 @@ def run_transform(
 ) -> MigrationReport:
     """Migrate a platform's datasets under a URN converter (e.g. LowercaseConverter).
 
-    Discovers non-soft-deleted datasets for ``platform``, filters by
-    ``converter.should_convert``, and migrates each under ``converter.convert_urn``
-    using the same aspect/URN-rewriting core as instance2instance (no
-    dataPlatformInstance emit). Reusable from the ``migrate transform`` command
-    and from connector migrations (see get_migrations). ``force`` defaults to
-    True for non-interactive/programmatic use.
+    Discovers non-soft-deleted datasets for ``platform`` (optionally narrowed to
+    ``platform_instance``) from the graph — all such datasets, not just those in
+    a pipeline's checkpoint state — filters by ``converter.should_convert``, and
+    migrates each under ``converter.convert_urn`` using the same aspect/URN-
+    rewriting core as instance2instance (no dataPlatformInstance emit). Reusable
+    from the ``migrate transform`` command and from connector migrations (see
+    get_migrations). ``force`` defaults to True for non-interactive use.
     """
     run_id = run_id or f"migrate-transform-{converter.name}-{uuid.uuid4()}"
     all_urns = graph.get_urns_by_filter(
         platform=platform,
+        platform_instance=platform_instance,
         env=env,
         entity_types=["dataset"],
         status=RemovedStatusFilter.NOT_SOFT_DELETED,
@@ -785,6 +788,12 @@ def instance2instance(
 @migrate.command()
 @click.option("--platform", type=str, required=True)
 @click.option(
+    "--platform-instance",
+    type=str,
+    default=None,
+    help="Only migrate datasets on this platform instance (default: all instances).",
+)
+@click.option(
     "--converter",
     type=click.Choice(list(migration_utils.CONVERTERS.keys())),
     required=True,
@@ -824,6 +833,7 @@ def instance2instance(
 @upgrade.check_upgrade
 def transform(
     platform: str,
+    platform_instance: Optional[str],
     converter: str,
     env: str,
     dry_run: bool,
@@ -845,6 +855,7 @@ def transform(
         graph,
         conv,
         platform,
+        platform_instance=platform_instance,
         env=env,
         dry_run=dry_run,
         force=force,

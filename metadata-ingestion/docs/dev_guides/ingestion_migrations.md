@@ -53,8 +53,16 @@ from datahub.cli.migrate import run_transform
 from datahub.cli.migration_utils import LowercaseConverter
 
 def _lowercase_urns(self, graph, report, dry_run):
-    run_transform(graph, LowercaseConverter(), platform="mysource", dry_run=dry_run)
+    run_transform(
+        graph,
+        LowercaseConverter(),
+        platform="mysource",
+        platform_instance=self.config.platform_instance,  # optional; scope to this instance
+        dry_run=dry_run,
+    )
 ```
+
+`run_transform` discovers **all** matching datasets from the graph for the given `platform` (optionally narrowed to a `platform_instance`) — not just the URNs in the current pipeline's checkpoint state — so a migration reshapes every affected entity regardless of which pipeline produced it. Omit `platform_instance` to cover all instances of the platform.
 
 For aspect-shape changes, fetch the affected aspects and re-emit them in the new shape from within `run`.
 

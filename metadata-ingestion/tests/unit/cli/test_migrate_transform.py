@@ -90,3 +90,20 @@ class TestRunTransform:
         graph.get_urns_by_filter.return_value = [LOWER]
         run_transform(graph, LowercaseConverter(), "snowflake")
         mock_migrate.assert_not_called()
+
+    @patch("datahub.cli.migrate._migrate_entities")
+    def test_scopes_discovery_by_platform_instance(
+        self, mock_migrate: MagicMock
+    ) -> None:
+        from datahub.cli.migrate import run_transform
+        from datahub.cli.migration_utils import LowercaseConverter
+
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = [MIXED]
+        run_transform(
+            graph, LowercaseConverter(), "snowflake", platform_instance="prod"
+        )
+
+        _, kwargs = graph.get_urns_by_filter.call_args
+        assert kwargs["platform"] == "snowflake"
+        assert kwargs["platform_instance"] == "prod"
