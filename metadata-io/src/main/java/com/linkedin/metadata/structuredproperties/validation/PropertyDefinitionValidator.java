@@ -21,11 +21,15 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,28 +43,34 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 @Getter
 @Setter
 @Accessors(chain = true)
+@Slf4j
 public class PropertyDefinitionValidator extends AspectPayloadValidator {
   private AspectPluginConfig config;
+  private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
 
-  private static String ALLOWED_TYPES = "allowedTypes";
+  private static final String ALLOWED_TYPES = "allowedTypes";
 
   /**
-   * Prevent deletion of the definition or key aspect (only soft delete)
-   *
-   * @param mcpItems
-   * @param retrieverContext
-   * @return
+   * Request-level validation. All Elasticsearch-backed checks run here (outside the write
+   * transaction) so mapping requests are never issued from within the primary-store commit.
    */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    return validateDefinitionUpsertsProposed(
+        operationContext,
+        mcpItems.stream()
+            .filter(i -> STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(i.getAspectName()))
+            .collect(Collectors.toList()),
+        retrieverContext,
+        structuredPropertyMappingLookup);
   }
 
   @Override
@@ -74,6 +84,41 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
             .filter(i -> STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(i.getAspectName()))
             .collect(Collectors.toList()),
         retrieverContext);
+  }
+
+  /**
+   * Request-level (pre-transaction) checks for intra-batch and existing index-mapping field-name
+   * collisions. Kept separate from {@link #validateDefinitionUpserts} (pre-commit) so that search
+   * backend I/O does not execute inside the write transaction.
+   */
+  public static Stream<AspectValidationException> validateDefinitionUpsertsProposed(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable StructuredPropertyMappingLookup structuredPropertyMappingLookup) {
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+
+    // Intra-batch ES field name collision check (in-memory)
+    checkInBatchElasticsearchFieldCollisions(mcpItems, exceptions);
+
+    for (BatchItem item : mcpItems) {
+      StructuredPropertyDefinition newDefinition =
+          item.getAspect(StructuredPropertyDefinition.class);
+      if (newDefinition == null) {
+        continue;
+      }
+      // Existing ES field-name collision check (mapping-backed)
+      checkCrossEntityElasticsearchFieldCollision(
+              operationContext,
+              item,
+              newDefinition,
+              retrieverContext,
+              structuredPropertyMappingLookup)
+          .ifPresent(exceptions::addException);
+    }
+
+    return exceptions.streamAllExceptions();
   }
 
   public static Stream<AspectValidationException> validateDefinitionUpserts(
@@ -156,6 +201,121 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
     }
 
     return exceptions.streamAllExceptions();
+  }
+
+  private static void checkInBatchElasticsearchFieldCollisions(
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull ValidationExceptionCollection exceptions) {
+    Map<String, List<BatchItem>> byEsField = new HashMap<>();
+    for (BatchItem item : mcpItems) {
+      StructuredPropertyDefinition definition = item.getAspect(StructuredPropertyDefinition.class);
+      if (definition == null || definition.getQualifiedName().contains(" ")) {
+        // Space validation is handled separately; toElasticsearchFieldName would throw
+        continue;
+      }
+      String esField = StructuredPropertyUtils.toElasticsearchFieldName(item.getUrn(), definition);
+      byEsField.computeIfAbsent(esField, k -> new ArrayList<>()).add(item);
+    }
+    for (Map.Entry<String, List<BatchItem>> entry : byEsField.entrySet()) {
+      List<BatchItem> colliding = entry.getValue();
+      if (colliding.size() > 1) {
+        Set<Urn> urns = colliding.stream().map(BatchItem::getUrn).collect(Collectors.toSet());
+        for (BatchItem item : colliding) {
+          exceptions.addException(
+              item,
+              String.format(
+                  "Structured property Elasticsearch field '%s' collides within the same batch"
+                      + " across URNs %s. Qualified names that differ only by '.' vs '_'"
+                      + " normalize to the same field name.",
+                  entry.getKey(), urns));
+        }
+      }
+    }
+  }
+
+  /**
+   * Reject a create whose Elasticsearch field name already exists in an active entity-index
+   * mapping.
+   *
+   * <p>Known limitations (TOCTOU / visibility lag): this check inspects live index mappings, not
+   * the primary-store definition catalog. Creates can both pass when:
+   *
+   * <ul>
+   *   <li>two concurrent creates race before either mapping update is visible; or
+   *   <li>a definition already exists in the primary store but its field is not yet on the index
+   *       (MAE / UpdateIndices lag), or structured-property mapping updates are disabled ({@code
+   *       ENABLE_STRUCTURED_PROPERTIES_HOOK=false}).
+   * </ul>
+   *
+   * There is no storage-layer uniqueness constraint to close this window. If colliding definitions
+   * both land, the mapping builders' deterministic collision resolution ({@link
+   * StructuredPropertyUtils#resolveStructuredPropertyMappingCollisions}) keeps index mapping
+   * generation working, so the consequence is a degraded property rather than an outage. A future
+   * hybrid (mapping ∪ definition) check could narrow the lag window if needed.
+   */
+  private static Optional<AspectValidationException> checkCrossEntityElasticsearchFieldCollision(
+      OperationFingerprint operationContext,
+      @Nonnull BatchItem item,
+      @Nonnull StructuredPropertyDefinition newDefinition,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable StructuredPropertyMappingLookup structuredPropertyMappingLookup) {
+    if (newDefinition.getQualifiedName().contains(" ")) {
+      return Optional.empty();
+    }
+
+    // Qualified name is immutable, so only a create can introduce a new ES field name. If a
+    // definition already exists for this URN the write is an update; skip the mapping lookup. This
+    // is a direct by-URN aspect read, not a search query.
+    Aspect existingDefinition =
+        retrieverContext
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                operationContext,
+                Collections.singleton(item.getUrn()),
+                ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+            .getOrDefault(item.getUrn(), Collections.emptyMap())
+            .get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    if (existingDefinition != null) {
+      return Optional.empty();
+    }
+
+    String esField = StructuredPropertyUtils.toElasticsearchFieldName(item.getUrn(), newDefinition);
+    if (structuredPropertyMappingLookup == null) {
+      log.warn(
+          "Skipping structured property ES field collision check for {}: no mapping lookup"
+              + " implementation is configured. If this is a production context, collision"
+              + " validation is not running.",
+          item.getUrn());
+      return Optional.empty();
+    }
+
+    final boolean fieldExists;
+    try {
+      fieldExists = structuredPropertyMappingLookup.fieldExists(operationContext, esField);
+    } catch (IOException e) {
+      log.error(
+          "Failed to inspect entity-index mappings for structured property field {}", esField, e);
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Unable to verify Elasticsearch field '%s' uniqueness for qualifiedName='%s':"
+                      + " the entity-index mapping lookup failed. Retry the request.",
+                  esField, newDefinition.getQualifiedName())));
+    }
+
+    if (!fieldExists) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        AspectValidationException.forItem(
+            item,
+            String.format(
+                "Structured property Elasticsearch field '%s' collides with existing property"
+                    + " mapping. Qualified names that differ only by '.' vs '_' normalize to the"
+                    + " same field name (proposed qualifiedName='%s').",
+                esField, newDefinition.getQualifiedName())));
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyStatusAspects(
