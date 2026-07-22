@@ -247,6 +247,18 @@ class TestGmsSupportsStatusPatch:
         ):
             assert _gms_supports_status_patch() is True
 
+    def test_null_version_string_returns_false(self) -> None:
+        """Misconfigured GMS /config version should fall back to UPSERT, not crash."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "null"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
+
 
 def test_auto_lowercase_aspects():
     mcws = auto_workunit(

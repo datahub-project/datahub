@@ -460,6 +460,8 @@ def build_workflow_metadata(args: argparse.Namespace) -> Dict[str, Any]:
     # docker-unified matrix context
     if args.batch is not None:
         metadata["batch"] = args.batch
+    if args.batch_label:
+        metadata["batch_label"] = args.batch_label
     if args.batch_count is not None:
         metadata["batch_count"] = args.batch_count
     if args.test_strategy:
@@ -556,6 +558,10 @@ Examples:
         help='Batch number (for docker-unified matrix)'
     )
     parser.add_argument(
+        '--batch-label',
+        help='Human-readable batch identifier (e.g. profile-architecture)'
+    )
+    parser.add_argument(
         '--batch-count',
         type=int,
         help='Total batch count (for docker-unified matrix)'
@@ -599,7 +605,12 @@ Examples:
         print(f"Branch: {args.branch}")
         print(f"Run ID: {args.run_id}")
         if args.batch is not None:
-            print(f"Batch: {args.batch}/{args.batch_count} ({args.test_strategy})")
+            batch_desc = (
+                f"{args.batch_label} ({args.batch}/{args.batch_count})"
+                if args.batch_label
+                else f"{args.batch}/{args.batch_count}"
+            )
+            print(f"Batch: {batch_desc} ({args.test_strategy})")
         print()
 
         # Process and send failures

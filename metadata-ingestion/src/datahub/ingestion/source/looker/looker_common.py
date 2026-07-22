@@ -1659,7 +1659,10 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     filtered_looks: LossyList[str] = dataclasses_field(default_factory=LossyList)
     dashboards_scanned_for_usage: int = 0
     charts_scanned_for_usage: int = 0
+    explores_scanned_for_usage: int = 0
     charts_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
+    # Explores that had usage activity, keyed by "<model>::<explore>"
+    explores_with_activity: LossySet[str] = dataclasses_field(default_factory=LossySet)
     accessed_dashboards: int = 0
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
@@ -1670,6 +1673,9 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
         default_factory=LossySet
     )
     charts_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    explores_skipped_for_usage: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
 
@@ -1710,6 +1716,9 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     def report_charts_scanned_for_usage(self, num_charts: int) -> None:
         self.charts_scanned_for_usage += num_charts
+
+    def report_explores_scanned_for_usage(self, num_explores: int) -> None:
+        self.explores_scanned_for_usage += num_explores
 
     def report_upstream_latency(
         self, start_time: datetime.datetime, end_time: datetime.datetime

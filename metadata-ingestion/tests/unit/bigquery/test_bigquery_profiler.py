@@ -708,6 +708,9 @@ def test_profiler_get_batch_kwargs(mock_get_filters):
     assert "test-project" in result["custom_sql"]
     assert "test_dataset" in result["custom_sql"]
     assert "test_table" in result["custom_sql"]
+    # The crawl-collected row count is forwarded so the SQLAlchemy profiler's
+    # sampling decision can skip a COUNT(*); the GE profiler ignores it.
+    assert result["row_count"] == 10000
 
 
 @patch.object(PartitionDiscovery, "get_required_partition_filters")

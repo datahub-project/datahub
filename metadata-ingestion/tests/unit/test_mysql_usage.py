@@ -1,6 +1,10 @@
 import datetime
-from typing import Optional
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import create_engine as real_create_engine
+from sqlalchemy.pool import NullPool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import (
@@ -8,7 +12,10 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLSource,
     _parse_general_log_user,
 )
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    UpstreamLineageClass,
+)
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 
@@ -96,6 +103,36 @@ def test_usage_connection_pins_utc_and_disposes_engine(mock_create_engine):
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")
+def test_usage_connection_builds_valid_nullpool_engine(mock_create_engine):
+    url = "mysql+pymysql://u:p@h/db"
+    # create_engine validates pool kwargs eagerly (no connection), so this is the
+    # failure this PR fixes: NullPool rejects QueuePool sizing options.
+    with pytest.raises(TypeError):
+        real_create_engine(url, poolclass=NullPool, max_overflow=10)
+
+    # Delegate to the real create_engine so its validation runs on what the
+    # source builds, then return a mock so no DB is contacted.
+    def _validate_then_mock(engine_url: str, **kwargs: Any) -> MagicMock:
+        real_create_engine(engine_url, **kwargs).dispose()
+        return _patch_rows([])
+
+    mock_create_engine.side_effect = _validate_then_mock
+
+    # Set options directly instead of enabling profiling (which needs the full
+    # get_workunits path) to mimic _add_default_options' injection.
+    source = _source(
+        options={
+            "max_overflow": 10,
+            "pool_size": 5,
+            "pool_timeout": 30,
+            "pool_use_lifo": True,
+        }
+    )
+    # Must not raise: the usage engine strips every QueuePool-only option.
+    list(source._fetch_performance_schema_queries())
+
+
+@patch("datahub.ingestion.source.sql.mysql.create_engine")
 def test_fetch_performance_schema_filters_system_and_empty_rows(mock_create_engine):
     last_seen = datetime.datetime(2023, 6, 1, 10, 30, 0)
     mock_create_engine.return_value = _patch_rows(
@@ -131,6 +168,8 @@ def test_fetch_performance_schema_respects_database_pattern(mock_create_engine):
 
 def test_usage_workunits_generated_for_two_tier_table():
     source = _source()
+    # Usage/lineage is only attributed to tables we ingested (is_temp_table).
+    source.discovered_datasets.add("appdb.orders")
     now = datetime.datetime.now(tz=datetime.timezone.utc)
 
     with patch.object(
@@ -339,6 +378,215 @@ def test_general_log_drops_query_from_unknown_session(mock_create_engine):
     observed = list(_source(usage_source="general_log")._fetch_general_log_queries())
 
     assert observed == []
+
+
+def test_is_allowed_table_respects_pattern_and_system_schemas():
+    source = _source(database_pattern={"allow": ["keep_db"]})
+    assert source._is_allowed_table("keep_db.orders")
+    assert not source._is_allowed_table("drop_db.orders")
+    # System schemas are never allowed, regardless of the pattern.
+    assert not source._is_allowed_table("mysql.user")
+
+
+def test_is_temp_table_flags_undiscovered_tables():
+    source = _source()
+    source.discovered_datasets.add("appdb.orders")
+    assert not source._is_temp_table("appdb.orders")
+    assert source._is_temp_table("appdb.tmp_scratch")
+    assert source._is_temp_table("appdb.appdb.orders")
+    # Each suppression is counted so a missing table is observable, not silent.
+    assert source.report.num_usage_references_suppressed_as_temp == 2
+
+
+def test_is_temp_table_matches_case_insensitively():
+    # A catalog holding mixed-case identifiers (e.g. lower_case_table_names=2)
+    # must still match a reference the parser lowercased, or real lineage would
+    # silently vanish.
+    source = _source()
+    source.discovered_datasets.add("AppDB.Orders")
+    assert not source._is_temp_table("appdb.orders")
+
+
+def test_save_schema_to_resolver_tracks_usage_flag():
+    assert _source(include_view_lineage=False)._save_schema_to_resolver()
+    off = MySQLConfig(include_usage_statistics=False, include_view_lineage=False)
+    assert not MySQLSource(
+        off, PipelineContext(run_id="mysql-usage-test")
+    )._save_schema_to_resolver()
+
+
+def test_usage_emits_lineage_between_discovered_tables():
+    # Positive counterpart to the phantom tests: when both tables are ingested,
+    # the query lineage edge must survive.
+    source = _source()
+    source.discovered_datasets.update({"appdb.orders", "appdb.summary"})
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO summary SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            )
+        ],
+    ):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstreams = [
+        upstream.dataset
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass)) is not None
+        for upstream in aspect.upstreams
+    ]
+    assert any("appdb.orders" in urn for urn in upstreams), (
+        f"expected lineage from appdb.orders; got {upstreams}"
+    )
+
+
+def test_process_view_without_columns_still_marks_discovered():
+    # A view with unreflectable columns is still emitted, so it must land in
+    # discovered_datasets; otherwise usage treats it as temp and drops lineage.
+    source = _source()
+    inspector = MagicMock()
+    inspector.get_columns.side_effect = KeyError("no columns")
+
+    with (
+        patch.object(source, "get_table_properties", return_value=("", {}, None)),
+        patch.object(source, "_get_view_definition", return_value=""),
+        patch.object(source, "get_db_name", return_value="appdb"),
+        patch.object(source, "add_table_to_schema_container", return_value=[]),
+    ):
+        list(
+            source._process_view(
+                dataset_name="appdb.myview",
+                inspector=inspector,
+                schema="appdb",
+                view="myview",
+                sql_config=source.config,
+            )
+        )
+
+    assert "appdb.myview" in source.discovered_datasets
+
+
+def test_usage_lineage_flows_through_table_pattern_excluded_table():
+    # A real table excluded by table_pattern is absent from discovered_datasets,
+    # so it is treated as temp: lineage is stitched THROUGH it (orders -> final)
+    # rather than cut off, and the excluded table is not emitted.
+    source = _source()
+    source.discovered_datasets.update({"appdb.orders", "appdb.final"})
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO staging SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            ),
+            ObservedQuery(
+                query="INSERT INTO final SELECT id FROM staging",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=1,
+            ),
+        ],
+    ):
+        workunits = list(source._generate_aggregator_workunits())
+
+    upstreams_by_downstream = {
+        wu.get_urn(): [u.dataset for u in aspect.upstreams]
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(UpstreamLineageClass)) is not None
+    }
+    final_upstreams = [
+        up
+        for urn, ups in upstreams_by_downstream.items()
+        if urn.endswith("appdb.final,PROD)")
+        for up in ups
+    ]
+    assert any("appdb.orders" in urn for urn in final_upstreams), (
+        f"lineage should flow orders -> final through staging; got {final_upstreams}"
+    )
+    assert not any("staging" in urn for urn in final_upstreams), (
+        "the table_pattern-excluded staging table must not be a lineage node"
+    )
+
+
+def test_usage_skips_phantom_entity_from_mis_quoted_identifier():
+    # `appdb.tmp_upsert` as one backticked identifier parses as a single table
+    # name, so default_schema is prepended into appdb.appdb.tmp_upsert. That
+    # undiscovered phantom must not be emitted.
+    source = _source()
+    source.discovered_datasets.add("appdb.orders")
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO `appdb.tmp_upsert` SELECT id FROM orders",
+                timestamp=now,
+                default_schema="appdb",
+                usage_multiplier=3,
+            )
+        ],
+    ):
+        urns = {wu.get_urn() for wu in source._generate_aggregator_workunits()}
+
+    assert not any("appdb.appdb" in urn for urn in urns), (
+        f"phantom doubled-database URN must not be emitted; got {urns}"
+    )
+    # Co-assert the real upstream is emitted, guarding against a vacuous pass.
+    assert any(urn.endswith("appdb.orders,PROD)") for urn in urns), (
+        f"expected the discovered table appdb.orders to be emitted; got {urns}"
+    )
+    assert source.report.num_usage_references_suppressed_as_temp >= 1
+    assert "appdb.appdb.tmp_upsert" in list(
+        source.report.usage_references_suppressed_as_temp_sample
+    )
+
+
+def test_usage_does_not_attribute_to_filtered_out_database():
+    # A query running in an allowed database that references a table in a
+    # filtered-out database must not resurrect that table as an entity.
+    source = _source(database_pattern={"allow": ["keep_db"]})
+    source.discovered_datasets.add("keep_db.orders")
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+    with patch.object(
+        source,
+        "_fetch_performance_schema_queries",
+        return_value=[
+            ObservedQuery(
+                query="INSERT INTO orders SELECT id FROM drop_db.secrets",
+                timestamp=now,
+                default_schema="keep_db",
+                usage_multiplier=5,
+            )
+        ],
+    ):
+        urns = {wu.get_urn() for wu in source._generate_aggregator_workunits()}
+
+    assert not any("drop_db" in urn for urn in urns), (
+        f"filtered-out database must not appear in emitted URNs; got {urns}"
+    )
+    # Co-assert the allowed table is emitted, guarding against a vacuous pass.
+    assert any(urn.endswith("keep_db.orders,PROD)") for urn in urns), (
+        f"expected the allowed table keep_db.orders to be emitted; got {urns}"
+    )
+    assert source.report.num_usage_references_suppressed_as_temp >= 1
+    assert "drop_db.secrets" in list(
+        source.report.usage_references_suppressed_as_temp_sample
+    )
 
 
 @patch("datahub.ingestion.source.sql.mysql.create_engine")

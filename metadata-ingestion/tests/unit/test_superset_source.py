@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import pytest
 import requests
@@ -15,7 +15,7 @@ from datahub.ingestion.source.superset import (
     get_filter_name,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass
+from datahub.metadata.schema_classes import DashboardInfoClass, OwnershipClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
@@ -121,6 +121,242 @@ def test_superset_build_owners_info(requests_mock):
         1: "test_user1@example.com",
         2: "test_user2@example.com",
     }
+
+
+def test_superset_build_owner_urn_skips_unresolved_owners(requests_mock):
+    login_url = "http://localhost:8088/api/v1/security/login"
+    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
+
+    dashboard_url = "http://localhost:8088/api/v1/dashboard/"
+    requests_mock.get(dashboard_url, json={}, status_code=200)
+
+    # Simulate Superset 6.x/converged builds where related/owners 404s,
+    # leaving owner_info empty.
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={"message": "Not found"},
+            status_code=404,
+        )
+
+    source = SupersetSource(
+        ctx=PipelineContext(run_id="superset-source-build-owner-urn-test"),
+        config=SupersetConfig(),
+    )
+    assert source.owner_info == {}
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}, "dashboard") == []
+
+
+def test_superset_build_owner_urn_resolved_owners(requests_mock):
+    login_url = "http://localhost:8088/api/v1/security/login"
+    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
+
+    dashboard_url = "http://localhost:8088/api/v1/dashboard/"
+    requests_mock.get(dashboard_url, json={}, status_code=200)
+
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={
+                "count": 1,
+                "result": [
+                    {
+                        "extra": {"active": "false", "email": "test_user1@example.com"},
+                        "text": "Test User1",
+                        "value": 1,
+                    }
+                ],
+            },
+            status_code=200,
+        )
+
+    source = SupersetSource(
+        ctx=PipelineContext(run_id="superset-source-build-owner-urn-resolved-test"),
+        config=SupersetConfig(),
+    )
+    # id 2 is unresolvable and must be skipped rather than producing an
+    # empty-username urn.
+    assert source.build_owner_urn({"owners": [{"id": 1}, {"id": 2}]}, "dashboard") == [
+        "urn:li:corpuser:test_user1@example.com"
+    ]
+    warning_titles = [w.title for w in source.report.warnings]
+    assert "Unresolvable Superset owner" in warning_titles
+
+
+def test_superset_dashboard_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    dashboard_data = {
+        "id": 7,
+        "dashboard_title": "Sales",
+        "owners": [{"id": 99}],
+    }
+    dashboard_snapshot = source.construct_dashboard_from_api_data(
+        dashboard_data, position_data={}
+    )
+
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in dashboard_snapshot.aspects
+    )
+
+
+def test_superset_chart_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    chart_data = {
+        "id": 42,
+        "slice_name": "Markdown",
+        "url": "/chart/42",
+        "viz_type": "markdown",
+        "datasource_id": None,
+        "params": "{}",
+        "owners": [{"id": 99}],
+        "tags": [],
+    }
+    workunits = list(source.construct_chart_from_chart_data(chart_data))
+
+    chart_snapshot = next(
+        wu.metadata.proposedSnapshot
+        for wu in workunits
+        if hasattr(wu.metadata, "proposedSnapshot")
+    )
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in chart_snapshot.aspects
+    )
+
+
+def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
+    source = _build_source(requests_mock)
+
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dataset/77",
+        json={
+            "result": {
+                "id": 77,
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {
+                    "id": 1,
+                    "database_name": "my_database",
+                    "backend": "postgresql",
+                },
+                "columns": [],
+                "metrics": [],
+            }
+        },
+        status_code=200,
+    )
+
+    dataset_snapshot = source.construct_dataset_from_dataset_data(
+        {"id": 77, "owners": [{"id": 99}]}
+    )
+
+    assert not any(
+        isinstance(aspect, OwnershipClass) for aspect in dataset_snapshot.aspects
+    )
+
+
+_RESOLVABLE_OWNER = [
+    {
+        "extra": {"email": "resolved_owner@example.com"},
+        "text": "Resolved Owner",
+        "value": 1,
+    }
+]
+
+
+def test_superset_dashboard_includes_ownership_when_owner_resolves(requests_mock):
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
+
+    dashboard_data = {
+        "id": 7,
+        "dashboard_title": "Sales",
+        "owners": [{"id": 1}],
+    }
+    dashboard_snapshot = source.construct_dashboard_from_api_data(
+        dashboard_data, position_data={}
+    )
+
+    ownership_aspects = [
+        aspect
+        for aspect in dashboard_snapshot.aspects
+        if isinstance(aspect, OwnershipClass)
+    ]
+    assert len(ownership_aspects) == 1
+    assert (
+        ownership_aspects[0].owners[0].owner
+        == "urn:li:corpuser:resolved_owner@example.com"
+    )
+
+
+def test_superset_chart_includes_ownership_when_owner_resolves(requests_mock):
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
+
+    chart_data = {
+        "id": 42,
+        "slice_name": "Markdown",
+        "url": "/chart/42",
+        "viz_type": "markdown",
+        "datasource_id": None,
+        "params": "{}",
+        "owners": [{"id": 1}],
+        "tags": [],
+    }
+    workunits = list(source.construct_chart_from_chart_data(chart_data))
+
+    chart_snapshot = next(
+        wu.metadata.proposedSnapshot
+        for wu in workunits
+        if hasattr(wu.metadata, "proposedSnapshot")
+    )
+    ownership_aspects = [
+        aspect
+        for aspect in chart_snapshot.aspects
+        if isinstance(aspect, OwnershipClass)
+    ]
+    assert len(ownership_aspects) == 1
+    assert (
+        ownership_aspects[0].owners[0].owner
+        == "urn:li:corpuser:resolved_owner@example.com"
+    )
+
+
+def test_superset_dataset_includes_ownership_when_owner_resolves(requests_mock):
+    source = _build_source(requests_mock, owners_result=_RESOLVABLE_OWNER)
+
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dataset/77",
+        json={
+            "result": {
+                "id": 77,
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {
+                    "id": 1,
+                    "database_name": "my_database",
+                    "backend": "postgresql",
+                },
+                "columns": [],
+                "metrics": [],
+            }
+        },
+        status_code=200,
+    )
+
+    dataset_snapshot = source.construct_dataset_from_dataset_data(
+        {"id": 77, "owners": [{"id": 1}]}
+    )
+
+    ownership_aspects = [
+        aspect
+        for aspect in dataset_snapshot.aspects
+        if isinstance(aspect, OwnershipClass)
+    ]
+    assert len(ownership_aspects) == 1
+    assert (
+        ownership_aspects[0].owners[0].owner
+        == "urn:li:corpuser:resolved_owner@example.com"
+    )
 
 
 def test_column_level_lineage(requests_mock):
@@ -487,8 +723,14 @@ def _build_source(
     requests_mock: rm.Mocker,
     *,
     config: Optional[SupersetConfig] = None,
+    owners_result: Optional[List[Dict[str, Any]]] = None,
 ) -> SupersetSource:
-    """Helper that wires up just enough mock endpoints to instantiate the source."""
+    """Helper that wires up just enough mock endpoints to instantiate the source.
+
+    Pass ``owners_result`` (the ``related/owners`` API's ``result`` list) to
+    make specific owner ids resolve via ``owner_info``; omitted, all owners
+    are unresolvable.
+    """
     if config is None:
         config = SupersetConfig()
     login_url = "http://localhost:8088/api/v1/security/login"
@@ -496,10 +738,13 @@ def _build_source(
     requests_mock.get(
         "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
     )
+    owners_json = (
+        {"count": len(owners_result), "result": owners_result} if owners_result else {}
+    )
     for entity in ["dataset", "dashboard", "chart"]:
         requests_mock.get(
             f"http://localhost:8088/api/v1/{entity}/related/owners",
-            json={},
+            json=owners_json,
             status_code=200,
         )
     return SupersetSource(

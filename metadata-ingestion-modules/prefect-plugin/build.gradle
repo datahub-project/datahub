@@ -56,15 +56,15 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check src/ tests/ && " +
-    "ruff format --check src/ tests/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check --fix src/ tests/ && " +
-    "ruff format src/ tests/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {

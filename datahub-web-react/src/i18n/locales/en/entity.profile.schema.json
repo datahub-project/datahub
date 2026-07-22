@@ -14,6 +14,9 @@
     "changeEventString.defaultRelationship": "related",
     "changeEventString.fieldDocEmpty": "Field documentation for {{fieldPath}} is empty.",
     "changeEventString.modifiedColumn": "Modified column {{column}}.",
+    "changeEventString.relationshipLabel.contained": "contained",
+    "changeEventString.relationshipLabel.inherited": "inherited",
+    "changeEventString.relationshipLabel.value": "value",
     "changeEventString.removedAsset": "Removed asset \"{{assetName}}\".",
     "changeEventString.removedColumn": "Removed column {{column}}.",
     "changeEventString.removedFromApplication": "Removed from application \"{{appName}}\".",
@@ -158,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Some tags were sourced from {{platform}}. They will be resynced periodically during scheduled ingestion.",
     "tagTermRenderer.tagsNotEditable": "Some tags are not editable.",
     "usageStatsRenderer.hasColumnStats": "Has column statistics",
-    "usageStatsRenderer.noColumnStats": "No column statistics"
+    "usageStatsRenderer.noColumnStats": "No column statistics",
+    "fieldLogical.andMore": "and {{count}} more",
+    "fieldLogical.logicalParentInfo": "Column in the Logical Model that defines this column's metadata. Changes to the Logical Parent's column metadata propagate automatically to this column.",
+    "fieldLogical.logicalParentTitle": "Logical Parent",
+    "fieldLogical.physicalChildrenInfo": "Physical implementations of this Logical Model column. Changes to this column's metadata propagate automatically to these child columns.",
+    "fieldLogical.physicalChildrenTitle": "Physical Children",
+    "fieldLogical.viewAllPhysicalChildren": "View All Physical Children"
 }

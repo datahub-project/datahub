@@ -380,6 +380,10 @@ class BigqueryProfiler(GenericProfiler):
             "project": db_name,
             "dataset": schema_name,
             "table_name": bq_table.name,
+            # Pass the row count the crawl already collected so the SQLAlchemy
+            # profiler's sampling decision avoids a COUNT(*). The GE profiler
+            # ignores it (it has **kwargs and recomputes rowCount itself).
+            "row_count": bq_table.rows_count,
         }
 
         if bq_table.external:

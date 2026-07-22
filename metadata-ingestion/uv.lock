@@ -177,7 +177,6 @@ all = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "protobuf" },
     { name = "psycopg2-binary" },
@@ -241,7 +240,6 @@ all = [
 athena = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
@@ -275,7 +273,6 @@ bigquery = [
     { name = "greenlet" },
     { name = "more-itertools" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "protobuf" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
@@ -292,7 +289,6 @@ bigquery-queries = [
     { name = "greenlet" },
     { name = "more-itertools" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
     { name = "sqlglot", extra = ["c"] },
@@ -321,7 +317,6 @@ clickhouse = [
     { name = "cachetools" },
     { name = "clickhouse-sqlalchemy" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -331,7 +326,6 @@ clickhouse-usage = [
     { name = "cachetools" },
     { name = "clickhouse-sqlalchemy" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -346,7 +340,6 @@ cockroachdb = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-cockroachdb" },
@@ -367,7 +360,6 @@ confluence = [
     { name = "urllib3" },
 ]
 cube = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -377,7 +369,6 @@ databricks = [
     { name = "databricks-sql-connector" },
     { name = "greenlet" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "pyspark" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -389,7 +380,6 @@ datahub = [
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "fastavro" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -440,7 +430,6 @@ db2 = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "ibm-db-sa", marker = "platform_machine == 'x86_64' or sys_platform == 'darwin'" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -450,14 +439,12 @@ dbt = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "more-itertools" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
 dbt-cloud = [
     { name = "more-itertools" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -552,6 +539,7 @@ dev = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "humanfriendly" },
+    { name = "hypothesis" },
     { name = "ijson" },
     { name = "jdk4py" },
     { name = "jpype1" },
@@ -581,7 +569,6 @@ dev = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
@@ -744,6 +731,7 @@ docs = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "humanfriendly" },
+    { name = "hypothesis" },
     { name = "ijson" },
     { name = "jdk4py" },
     { name = "jpype1" },
@@ -773,7 +761,6 @@ docs = [
     { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "pinecone-client" },
     { name = "pip" },
     { name = "progressbar2" },
@@ -875,7 +862,6 @@ doris = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -885,7 +871,6 @@ doris = [
 dremio = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -894,7 +879,6 @@ dremio = [
 druid = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pydruid" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -937,7 +921,6 @@ fabric-data-factory = [
 ]
 fabric-onelake = [
     { name = "azure-identity" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -964,7 +947,6 @@ fivetran = [
     { name = "msal" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1013,13 +995,11 @@ glue = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "cachetools" },
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
 grafana = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1028,14 +1008,12 @@ hana = [
     { name = "defusedxml" },
     { name = "greenlet" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-hana", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 hex = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1044,7 +1022,6 @@ hive = [
     { name = "cachetools" },
     { name = "databricks-dbapi" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1054,7 +1031,6 @@ hive-metastore = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "kerberos" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pymetastore" },
     { name = "pymysql" },
@@ -1108,7 +1084,6 @@ integration-tests = [
     { name = "openpyxl" },
     { name = "pandas" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
@@ -1163,7 +1138,6 @@ kafka-connect = [
     { name = "greenlet" },
     { name = "jdk4py" },
     { name = "jpype1" },
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1190,7 +1164,6 @@ looker = [
     { name = "gitpython" },
     { name = "lkml" },
     { name = "looker-sdk" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1199,7 +1172,6 @@ lookml = [
     { name = "gitpython" },
     { name = "lkml" },
     { name = "looker-sdk" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1208,7 +1180,6 @@ mariadb = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1216,18 +1187,15 @@ mariadb = [
     { name = "urllib3" },
 ]
 matillion-dpc = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 metabase = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
 microstrategy = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1237,7 +1205,6 @@ mlflow = [
 ]
 mode = [
     { name = "cachetools" },
-    { name = "patchy" },
     { name = "python-liquid" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
@@ -1250,7 +1217,6 @@ mongodb = [
 mssql = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyopenssl" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-pytds" },
@@ -1260,7 +1226,6 @@ mssql = [
 mssql-odbc = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
     { name = "sqlalchemy" },
@@ -1273,7 +1238,6 @@ mysql = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1298,6 +1262,12 @@ notion = [
     { name = "unstructured-ingest", extra = ["notion"] },
     { name = "urllib3" },
 ]
+odcs = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "gitpython" },
+    { name = "urllib3" },
+]
 okta = [
     { name = "flatdict" },
     { name = "nest-asyncio" },
@@ -1311,7 +1281,6 @@ oracle = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "oracledb" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1325,7 +1294,6 @@ postgres = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1336,7 +1304,6 @@ powerbi = [
     { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
-    { name = "patchy" },
     { name = "setuptools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1347,7 +1314,6 @@ powerbi-report-server = [
     { name = "requests-ntlm" },
 ]
 preset = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1355,7 +1321,6 @@ presto = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1366,7 +1331,6 @@ presto-on-hive = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "kerberos" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "pymetastore" },
     { name = "pymysql" },
@@ -1387,7 +1351,6 @@ pulsar = [
     { name = "requests" },
 ]
 qlik-sense = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
@@ -1395,7 +1358,6 @@ qlik-sense = [
 quicksight = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
@@ -1405,7 +1367,6 @@ rdf = [
     { name = "requests-file" },
 ]
 redash = [
-    { name = "patchy" },
     { name = "redash-toolbelt" },
     { name = "sql-metadata" },
     { name = "sqlglot", extra = ["c"] },
@@ -1416,7 +1377,6 @@ redshift = [
     { name = "geoalchemy2" },
     { name = "greenlet" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "redshift-connector" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-redshift" },
@@ -1429,7 +1389,6 @@ redshift-slim = [
     { name = "db-dtypes" },
     { name = "geoalchemy2" },
     { name = "parse" },
-    { name = "patchy" },
     { name = "redshift-connector" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlglot", extra = ["c"] },
@@ -1478,7 +1437,6 @@ salesforce = [
     { name = "simple-salesforce" },
 ]
 sigma = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1493,7 +1451,6 @@ snowflake = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1507,7 +1464,6 @@ snowflake-queries = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1530,7 +1486,6 @@ snowflake-summary = [
     { name = "greenlet" },
     { name = "msal" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
@@ -1542,13 +1497,11 @@ snowplow = [
     { name = "cachetools" },
 ]
 sql-parser = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
 ]
 sql-queries = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "patchy" },
     { name = "smart-open", extra = ["s3"] },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1557,7 +1510,6 @@ sql-queries = [
 sqlalchemy = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1565,7 +1517,6 @@ sqlalchemy = [
 starburst-trino-usage = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1575,14 +1526,12 @@ starrocks = [
     { name = "cachetools" },
     { name = "greenlet" },
     { name = "lark" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
 ]
 superset = [
-    { name = "patchy" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
 ]
@@ -1590,14 +1539,12 @@ sync-file-emitter = [
     { name = "filelock" },
 ]
 tableau = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "tableauserverclient" },
 ]
 teradata = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1612,7 +1559,6 @@ testing-utils = [
     { name = "pyyaml" },
 ]
 thoughtspot = [
-    { name = "patchy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "thoughtspot-rest-api" },
 ]
@@ -1621,7 +1567,6 @@ tidb = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "pymysql" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1634,7 +1579,6 @@ timescaledb = [
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "psycopg2-binary" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
@@ -1644,7 +1588,6 @@ timescaledb = [
 trino = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1656,7 +1599,6 @@ unity-catalog = [
     { name = "databricks-sql-connector" },
     { name = "greenlet" },
     { name = "pandas" },
-    { name = "patchy" },
     { name = "pyspark" },
     { name = "requests" },
     { name = "sqlalchemy" },
@@ -1678,7 +1620,6 @@ vertexai = [
 vertica = [
     { name = "cachetools" },
     { name = "greenlet" },
-    { name = "patchy" },
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
@@ -1781,6 +1722,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'mariadb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'mysql'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'notion'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'odcs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'postgres'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'quicksight'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.35.0,<2.0.0" },
@@ -1814,6 +1756,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'mariadb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'mysql'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'notion'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'odcs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'postgres'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'quicksight'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 's3'", specifier = "!=1.23.0,<2.0.0" },
@@ -2036,6 +1979,7 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'docs'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'looker'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'lookml'", specifier = ">2,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'odcs'", specifier = ">2,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
@@ -2156,6 +2100,8 @@ requires-dist = [
     { name = "humanfriendly", specifier = "<11.0.0" },
     { name = "humanfriendly", marker = "extra == 'dev'", specifier = "<11.0.0" },
     { name = "humanfriendly", marker = "extra == 'docs'", specifier = "<11.0.0" },
+    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.0.0,<7.0.0" },
+    { name = "hypothesis", marker = "extra == 'docs'", specifier = ">=6.0.0,<7.0.0" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'all') or (sys_platform == 'darwin' and extra == 'all')", specifier = "==0.4.3" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'db2') or (sys_platform == 'darwin' and extra == 'db2')", specifier = "==0.4.3" },
     { name = "ibm-db-sa", marker = "(platform_machine == 'x86_64' and extra == 'integration-tests') or (sys_platform == 'darwin' and extra == 'integration-tests')", specifier = "==0.4.3" },
@@ -2329,73 +2275,6 @@ requires-dist = [
     { name = "parse", marker = "extra == 'redshift-slim'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3-slim'", specifier = ">=1.19.0,<2.0.0" },
-    { name = "patchy", marker = "extra == 'all'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'athena'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'bigquery'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'bigquery-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'clickhouse'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'clickhouse-usage'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'cockroachdb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'cube'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'databricks'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'datahub'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'db2'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dbt'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dbt-cloud'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dev'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'docs'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'doris'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'dremio'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'druid'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'fabric-onelake'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'fivetran'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'glue'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'grafana'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hana'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hex'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hive'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'hive-metastore'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'integration-tests'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'kafka-connect'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'looker'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'lookml'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mariadb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'matillion-dpc'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'metabase'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'microstrategy'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mode'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mssql'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mssql-odbc'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'mysql'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'oracle'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'postgres'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'powerbi'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'preset'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'presto'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'presto-on-hive'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'qlik-sense'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'quicksight'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redash'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redshift'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'redshift-slim'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sigma'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'snowflake-summary'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sql-parser'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sql-queries'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'sqlalchemy'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'starburst-trino-usage'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'starrocks'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'superset'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'tableau'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'teradata'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'thoughtspot'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'tidb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'timescaledb'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
-    { name = "patchy", marker = "extra == 'vertica'", specifier = "==2.8.0" },
     { name = "pinecone-client", marker = "extra == 'all'", specifier = ">=3.0.0,<6.0.0" },
     { name = "pinecone-client", marker = "extra == 'dev'", specifier = ">=3.0.0,<6.0.0" },
     { name = "pinecone-client", marker = "extra == 'docs'", specifier = ">=3.0.0,<6.0.0" },
@@ -2622,9 +2501,9 @@ requires-dist = [
     { name = "ruamel-yaml", specifier = "<0.20.0" },
     { name = "ruamel-yaml", marker = "extra == 'dev'", specifier = "<0.20.0" },
     { name = "ruamel-yaml", marker = "extra == 'docs'", specifier = "<0.20.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.18" },
-    { name = "ruff", marker = "extra == 'docs'", specifier = "==0.15.18" },
-    { name = "ruff", marker = "extra == 'lint'", specifier = "==0.15.18" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.22" },
+    { name = "ruff", marker = "extra == 'docs'", specifier = "==0.15.22" },
+    { name = "ruff", marker = "extra == 'lint'", specifier = "==0.15.22" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.7.2,<2.0.0" },
     { name = "scipy", marker = "extra == 'profiling-ge'", specifier = ">=1.7.2,<2.0.0" },
     { name = "sentry-sdk", specifier = ">=1.33.1,<3.0.0" },
@@ -2756,73 +2635,73 @@ requires-dist = [
     { name = "sqlalchemy-redshift", marker = "extra == 'redshift-slim'", specifier = ">=0.8.3,<=0.8.14" },
     { name = "sqlalchemy2-stubs", marker = "extra == 'dev'", specifier = "<0.1.0" },
     { name = "sqlalchemy2-stubs", marker = "extra == 'docs'", specifier = "<0.1.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse-usage'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'cockroachdb'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'cube'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'databricks'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'datahub'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'db2'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt-cloud'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'dev'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'docs'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'doris'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'dremio'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'druid'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'fabric-onelake'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'fivetran'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'glue'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'grafana'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'hana'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'hex'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'lookml'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'mariadb'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'matillion-dpc'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'metabase'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'microstrategy'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'mode'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql-odbc'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'mysql'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'oracle'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'postgres'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'powerbi'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'preset'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto-on-hive'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'qlik-sense'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'quicksight'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'redash'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift-slim'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'sigma'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-queries'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-summary'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-parser'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-queries'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'sqlalchemy'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'starburst-trino-usage'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'starrocks'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'superset'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'tableau'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'teradata'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'thoughtspot'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'tidb'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'timescaledb'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.8.0" },
-    { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse-usage'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'cockroachdb'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'cube'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'databricks'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'datahub'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'db2'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt-cloud'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dev'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'docs'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'doris'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dremio'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'druid'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'fabric-onelake'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'fivetran'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'glue'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'grafana'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hana'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hex'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'lookml'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mariadb'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'matillion-dpc'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'metabase'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'microstrategy'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mode'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql-odbc'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mysql'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'oracle'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'postgres'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'powerbi'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'preset'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto-on-hive'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'qlik-sense'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'quicksight'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redash'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift-slim'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sigma'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-queries'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-summary'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-parser'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-queries'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sqlalchemy'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'starburst-trino-usage'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'starrocks'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'superset'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'tableau'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'teradata'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'thoughtspot'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'tidb'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'timescaledb'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.12.0" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = "<0.6.0" },
@@ -3022,6 +2901,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'odcs'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'quicksight'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
@@ -3070,7 +2950,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"
@@ -6484,6 +6364,19 @@ wheels = [
 ]
 
 [[package]]
+name = "hypothesis"
+version = "6.152.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/91/dd/19d273652eb20dac15f32bbc484f2f6d51ccd8fe51fdb27da3f85f9017e8/hypothesis-6.152.7.tar.gz", hash = "sha256:741dedcede2ae0f32c32929a5992804b61f2b0400403b6a51a881a2b58482782", size = 468147, upload-time = "2026-05-13T04:19:34.124Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/1e/8222edaee03c37350eaa726213614e343a62f1e56396dd000ad9277bfa3d/hypothesis-6.152.7-py3-none-any.whl", hash = "sha256:c0b17dd428fcb6e962f60315f6f4a77816c72fbb281ce9ba73699dabead5ec82", size = 533802, upload-time = "2026-05-13T04:19:30.635Z" },
+]
+
+[[package]]
 name = "ibm-db"
 version = "3.2.8"
 source = { registry = "https://pypi.org/simple" }
@@ -8880,15 +8773,6 @@ wheels = [
 ]
 
 [[package]]
-name = "patchy"
-version = "2.8.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/a7/f3b5da86aaf27deb76b7b6af73ad82bb8827371492b855b28da8127c44ca/patchy-2.8.0.tar.gz", hash = "sha256:0b7837f90f9729361a2a8ae7daef3a42bb81a8346d27945c125e312c3fe0fd05", size = 50159, upload-time = "2023-07-10T14:05:15.166Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/2e/0a93a1597c43d5f077184151a8bc60a5a6e1c019e0173e8494f435fea084/patchy-2.8.0-py3-none-any.whl", hash = "sha256:ae7fbcdde436272fb32485e4392c2b3cd2d0c1ac91b0af76b41242e92ff084ec", size = 9660, upload-time = "2023-07-10T14:05:13.866Z" },
-]
-
-[[package]]
 name = "pathspec"
 version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -11171,27 +11055,27 @@ wheels = [
 
 [[package]]
 name = "ruff"
-version = "0.15.18"
+version = "0.15.22"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/74/98/1295ad5a5aa9bc85bdcdfa5d82fe7b49c61af5657df4f227637ff9de0da6/ruff-0.15.18.tar.gz", hash = "sha256:2698a964c70e8bf402dcb99c8810472d270d141e7aa8c4e13599fd52033a2f33", size = 4761437, upload-time = "2026-06-18T18:25:39.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/06/ae069393fc66e8ff33036d4b368003833bf6e88ccf182e17e7a2f1c754fd/ruff-0.15.22.tar.gz", hash = "sha256:3f15175b1fb580126f58285a5dae6b2ea89000136d980c64499211f116b54809", size = 4785063, upload-time = "2026-07-16T15:14:13.244Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/d0/686e984941269621e2be72612d5c1e461f8f7b38415a2a7d7a81c8ae6715/ruff-0.15.18-py3-none-linux_armv6l.whl", hash = "sha256:8b6850172348c8381b8b3084c5915a4393c2373b9b54cd5b5e1ea15812bc10df", size = 10887308, upload-time = "2026-06-18T18:25:03.062Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/21/bc4123e3f5515ee99f8ce1eb93a14a0628fe4d1678663cd08f933ac16931/ruff-0.15.18-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:3fccc153a85417dcd976883160cacce486997b0a0058dd18f54b8aaaac7d1ce2", size = 11281305, upload-time = "2026-06-18T18:25:30.026Z" },
-    { url = "https://files.pythonhosted.org/packages/51/93/4769464c25cf7ab2acb3c7dda9cad3d867eb41c59565b3e2a9d17249c90c/ruff-0.15.18-py3-none-macosx_11_0_arm64.whl", hash = "sha256:08d4c86a68f2c3ec2c9d56380a71fb4a4f65373055cbb8caabd645e9102f38d4", size = 10641215, upload-time = "2026-06-18T18:25:15.802Z" },
-    { url = "https://files.pythonhosted.org/packages/6c/42/56926d17120db2c208d76bf60a1a019644dd9e91dc27f0f95c9caddb1366/ruff-0.15.18-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:37e5108745c2c0705da916d7d4de533ddf547051ef45f62888c31bae73f66318", size = 10957224, upload-time = "2026-06-18T18:25:36.955Z" },
-    { url = "https://files.pythonhosted.org/packages/22/4f/d43fab8d8189afde803103022d000a8ef9f230616d436d52a8b2b8d63b50/ruff-0.15.18-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:56949a6ce8b3abde54c0bcb22cebfe57e8771cadc84b407ae8b8eaf67ebdcd43", size = 10699024, upload-time = "2026-06-18T18:25:05.707Z" },
-    { url = "https://files.pythonhosted.org/packages/63/42/1e3e4c68bd408b9768cf3e439acbe2c78245225faef253f7028a0cdb63e0/ruff-0.15.18-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:01a754cd6a1b630d3f97e33eb452cf7a98040482318e870f8bc52a5a30e62657", size = 11491458, upload-time = "2026-06-18T18:25:20.275Z" },
-    { url = "https://files.pythonhosted.org/packages/20/77/47a3484bea8521e14a203d98c389c5c97846675e4f02734672da4a69b52a/ruff-0.15.18-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6ba7a07e03a44dbf10bb086ee06705b173625014ec99f73a7e6836a5e5590a0c", size = 12383752, upload-time = "2026-06-18T18:25:22.535Z" },
-    { url = "https://files.pythonhosted.org/packages/0a/ca/054159590787023d83b658a1a1819c4c8910114e7015069340b71c0961cb/ruff-0.15.18-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:5a2c40a41a4cadbcf5897b548ab29dfe248b20c540961c0247d98a3973c70403", size = 11577923, upload-time = "2026-06-18T18:25:10.702Z" },
-    { url = "https://files.pythonhosted.org/packages/6d/ff/d353d6b7bbd73cc0ec37f4463d7540e45e894338abdd9964eee0de332708/ruff-0.15.18-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5f0480ce690cbb6c4db6e5d08f19fce98e10ba131a8b60c1bcdac42771e3ae2d", size = 11583925, upload-time = "2026-06-18T18:25:32.391Z" },
-    { url = "https://files.pythonhosted.org/packages/c1/4a/891f89b9c296ed3e5f3ece1a5629badc989d9a8fdaa30431aaf4774bc1c2/ruff-0.15.18-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:2330215f1f393fa8733f55edce04fcf94c36a2c460fcde31f78cc84e4951e9b1", size = 11582834, upload-time = "2026-06-18T18:25:27.309Z" },
-    { url = "https://files.pythonhosted.org/packages/32/a3/ed9e370154bf85de360b93c03026157f02d4943b2d01ff4945f4429f8e8a/ruff-0.15.18-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:a6aa6a3d979e48ae617578183674bf264fbe7d0114a796a26bd678d67963c7ff", size = 10927328, upload-time = "2026-06-18T18:25:34.676Z" },
-    { url = "https://files.pythonhosted.org/packages/f5/d1/5cf5909329fedb5d39d555ee818ba5cf4638e1a301b89785d34f2905bfcb/ruff-0.15.18-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:a81beadbbff2c9c245561ae3f77b16709d87f35eec650d0501679239d3449b22", size = 10693187, upload-time = "2026-06-18T18:25:08.245Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/44/ff6c635cf2c4f4e7b618b6640da057376baa36014695487d88aed4794268/ruff-0.15.18-py3-none-musllinux_1_2_i686.whl", hash = "sha256:2186d9e940ae332ab293623a75b5f4fe49565f449954d50a72a046683aa6b809", size = 11208721, upload-time = "2026-06-18T18:25:41.327Z" },
-    { url = "https://files.pythonhosted.org/packages/88/d9/5baa2a30861adfb7022cf33c1e35b2fc18085b08c16f83eff4c7b99a5f48/ruff-0.15.18-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:5c2abf140438032bc77b2284a6c9944ecd8a19e5f1c7b52b1b8e4a0a80d19a7a", size = 11678599, upload-time = "2026-06-18T18:25:13.607Z" },
-    { url = "https://files.pythonhosted.org/packages/c3/1a/0725a7cfdc32ff769efb96ee782bec882e16448c5d9e3be947ec4c04ce27/ruff-0.15.18-py3-none-win32.whl", hash = "sha256:02299e6e9fa5b297a3f6d5d10d7bcd655c925b028bb8b9d4588214549c6b9ec4", size = 10901903, upload-time = "2026-06-18T18:25:24.755Z" },
-    { url = "https://files.pythonhosted.org/packages/f3/51/805d9f6fb7970505c3504794a5ec350f605361b807fef4dcf214ebd35e72/ruff-0.15.18-py3-none-win_amd64.whl", hash = "sha256:dac80dc8d26b2257dbefabed62f5d255c3937b4ccb122da1fc634794fa3578b3", size = 12041189, upload-time = "2026-06-18T18:25:17.915Z" },
-    { url = "https://files.pythonhosted.org/packages/29/4c/67bb45e41609eb4726f1bfeb59e083cf91d14c696d4bd14c234a980be93d/ruff-0.15.18-py3-none-win_arm64.whl", hash = "sha256:b2c9257fcbd4a3e5b977a1904e6facca016bafe2edc17df24db67cfaee03b4e4", size = 11329958, upload-time = "2026-06-18T18:25:43.686Z" },
+    { url = "https://files.pythonhosted.org/packages/23/18/ee54b7ae1e121be7a28ea6da4b67564ebb0530e183a54415ab7e3bcd2c4e/ruff-0.15.22-py3-none-linux_armv6l.whl", hash = "sha256:44423e73493737f5e7c5b41d475483898ff37afcdae38bc3da5085e29af1c2d8", size = 10781258, upload-time = "2026-07-16T15:13:19.452Z" },
+    { url = "https://files.pythonhosted.org/packages/2f/d2/2520cb14761ddbeaf57642a76942fc36adcbdbe53b4532241995f6fc485c/ruff-0.15.22-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:b82c6482946e9eda7ff2e091d25b8bad3f718684e1916d41bd56873cee05b697", size = 10999477, upload-time = "2026-07-16T15:13:23.318Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/10/74e53572aa758dfaa678c2a2646b5c5515d884b7ca56be4d2ce03ca4b560/ruff-0.15.22-py3-none-macosx_11_0_arm64.whl", hash = "sha256:11c1c715af53a09f714e011106bffc419751ec8232fcb5da42173284ea3fec6f", size = 10466716, upload-time = "2026-07-16T15:13:26.162Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/cc/44eaaf0844e028182f2d0a8f2190d0f359159aed0a9e5ab861d892f1ae2a/ruff-0.15.22-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:742a29cf29bddb7c8327895d6a10e0e6c5b38a96dd407af9b5d0857f809c0576", size = 10892644, upload-time = "2026-07-16T15:13:29.229Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/21/8edf559014d2b0f82beea19cfb713993ad802ccda16868769979c6090a84/ruff-0.15.22-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:72af58b951b0ae395935ae79763dc349bc0eb706319d28f7a33ad2cfb3cfc178", size = 10576719, upload-time = "2026-07-16T15:13:32.35Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/1e/3a13abd392a3b50b62e5938a831f9ab6e588358cacad5c18545b716d2182/ruff-0.15.22-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:62d425005c1835eb24e2ee4161cb90e8db263415f4a71c8c72c33abaa6c0c224", size = 11376494, upload-time = "2026-07-16T15:13:35.958Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/3e/422d3d95bcf04dd78e1aeac22184d4f9a8fb2c01865d39d44618484a0317/ruff-0.15.22-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e8b9b3f8779a4f08c969defc3c8c35abffaa757e601ed5ae66d6d1db6519969a", size = 12208370, upload-time = "2026-07-16T15:13:39.185Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/91/5d065a0e0a02bf4813f5119ad278462eed081d2b832eb7c021ade0ec9e65/ruff-0.15.22-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:1e0dd1b2e4d3d585f897a0d137cbf4eaf6223bef4e8ce34d6bb12556c5f9249e", size = 11581098, upload-time = "2026-07-16T15:13:42.132Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/f9/a0d4871d12fae702eb1f41b686caf05f1f8b124dc6db6f784f53d74918fa/ruff-0.15.22-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:365523eb91d9224e1bcb03b022fbf0facb8f9e23792a2c53d9d4b3924bdbdebb", size = 11399422, upload-time = "2026-07-16T15:13:45.2Z" },
+    { url = "https://files.pythonhosted.org/packages/18/80/c843a5176cddbceb0b7e8dd41cf9993490796c1c469348d384f5a5c13c56/ruff-0.15.22-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:fabfd168afdf29fee5be98b831efa9683c94d7c5a3b58b9ce5a2e38444589a74", size = 11381683, upload-time = "2026-07-16T15:13:48.46Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/00/8485de0ae92239438a36cfc51350db9b9e85c9ebdfaea91b18e422706662/ruff-0.15.22-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:225dbf095a87f1d9f90f5fd7924d2613ee452a75a4308c63a8f50f761787aa7c", size = 10850295, upload-time = "2026-07-16T15:13:51.655Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/91/24977ec2ec72eaf15e4394ace2959fdff2dd1e14f03e005e838023407169/ruff-0.15.22-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:1877d63b9d24ed278744f1523fd11b85540566d54641f97c566d7d9dc5ca5296", size = 10579640, upload-time = "2026-07-16T15:13:54.79Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/47/9b51216951974df1f263ac19da550d34252e0ed7218c25f10c5ef9ed7517/ruff-0.15.22-py3-none-musllinux_1_2_i686.whl", hash = "sha256:a1606c510bd7215680d32efab38965f7cdec3ef69f5170a3f4791404ffdd5262", size = 11105077, upload-time = "2026-07-16T15:13:57.915Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/47/20e9d4a3b8016778acea5fc32bb50d35d207500a17ddb529ffa6996feef8/ruff-0.15.22-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:630479b18625f5ffc373f77603a22a9f8ac0acd7ff0501178b5db28ec71e9c64", size = 11490980, upload-time = "2026-07-16T15:14:01.032Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/76/3f72d8fc38c1cb77b38c56a70da9d0c17700cc1cc50f9649c9d3c8f5ba71/ruff-0.15.22-py3-none-win32.whl", hash = "sha256:e5ba0e4a13fd14abbed2a77b517a3911290c6c6c59ef67784328d1668fab76cf", size = 10789165, upload-time = "2026-07-16T15:14:04.16Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/46/4965251734c2b6fcdca1b1b187d20bcac3af0ee5b083b89c910bb961ce3a/ruff-0.15.22-py3-none-win_amd64.whl", hash = "sha256:9be63ba1eb936acd2d1342fb8337c356353706fce233b2a15a09a97037e6acde", size = 11938297, upload-time = "2026-07-16T15:14:07.316Z" },
+    { url = "https://files.pythonhosted.org/packages/57/c9/e69b1ff4c8b69093ef08b8919ab767af0569666865b39c30a8795d88d3c6/ruff-0.15.22-py3-none-win_arm64.whl", hash = "sha256:e1168075b72158510839f250027659cdd78476f40507dd517892304c41318661", size = 11298172, upload-time = "2026-07-16T15:14:10.51Z" },
 ]
 
 [[package]]
@@ -11782,11 +11666,11 @@ wheels = [
 
 [[package]]
 name = "sqlglot"
-version = "30.8.0"
+version = "30.12.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0f/64/89299aefc6ebdf4fc899f5dc14c7fcb7eb9da9290a2b4d615ae7ab884b17/sqlglot-30.8.0.tar.gz", hash = "sha256:1c5f93fb742dd9aaa75eee6bb33a637794a858b9a86375fac23a2dc0f7bc127e", size = 5869750, upload-time = "2026-05-13T09:04:38.923Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/ed/a6c45aec29353b6392ea34548c40af3ac6ffd6bc5572cf23b2ce250876fc/sqlglot-30.12.0.tar.gz", hash = "sha256:6b8369704662d4f654bc934cea4dd31c916c2a571b389210cb9e951a275e5fd9", size = 5905110, upload-time = "2026-06-26T14:09:40.408Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/4e/80705091aaf9c95e125d243f0aa871bc9f3670b4c9d963e6bad3b3dce8ff/sqlglot-30.8.0-py3-none-any.whl", hash = "sha256:af903378c331d5b72277a1b41118f07bc3e50cf4478e2d47eed12c96ee6a22a4", size = 687831, upload-time = "2026-05-13T09:04:36.336Z" },
+    { url = "https://files.pythonhosted.org/packages/db/9e/82a390ecc85f066ff80affa01d195f744e3de60ad4d695b8de31c9a66da3/sqlglot-30.12.0-py3-none-any.whl", hash = "sha256:86cccc610073c645c03e72b55b60ae0518aa3253a7fc3bd56551370d003c6554", size = 707583, upload-time = "2026-06-26T14:09:38.525Z" },
 ]
 
 [package.optional-dependencies]
@@ -11796,30 +11680,33 @@ c = [
 
 [[package]]
 name = "sqlglotc"
-version = "30.8.0"
+version = "30.12.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b5/30/d6ed9c184eb2d9db727950abe9a1e2ff028584e4e728749dd45ebbd6e33c/sqlglotc-30.8.0.tar.gz", hash = "sha256:7068fcfd64ebcedc10bd174b69e0d8d312a89a18772f6312e51a8d3bb1757f1d", size = 476352, upload-time = "2026-05-13T09:03:41.38Z" }
+dependencies = [
+    { name = "sqlglot" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/05/bdb3c3433f19324ed3499bc51adb6db934f77d947ed1c624554523b22966/sqlglotc-30.12.0.tar.gz", hash = "sha256:7c4c9c7d76026b75f64a6682faf84cf5145e3304190c07807b86962d8d535f74", size = 491114, upload-time = "2026-06-26T14:08:47.042Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/8e/60f95746d0e525ab2195758c1c35194f96c1ef367996a82b00b99d5ffd98/sqlglotc-30.8.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:c445f11b470475848b75a03bc3d8ef765cf86e098c4f5003701838da435d492a", size = 31676414, upload-time = "2026-05-13T09:02:48.675Z" },
-    { url = "https://files.pythonhosted.org/packages/44/50/3c8573ca84c1c4bea33716db60bff23374075f4e0e7b9209810d342a3713/sqlglotc-30.8.0-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:62dfdd3ad97d80034ebf8d8117d15fff936aa9aa8394139f0f5f05aac25dc36b", size = 24071487, upload-time = "2026-05-13T09:02:51.177Z" },
-    { url = "https://files.pythonhosted.org/packages/6a/f0/f4936262a723173c690ea418b0482fc305538b8f04c18ea3036856bf288e/sqlglotc-30.8.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f640eb821b7bf82e21557f3683f4db89302a9bac4680e8ff53dd951ad7e995d8", size = 25166091, upload-time = "2026-05-13T09:02:53.889Z" },
-    { url = "https://files.pythonhosted.org/packages/76/7b/bef61aa9fc51f1f94376ffd32485bf149f2f86bf97bf6b156c664db29fc4/sqlglotc-30.8.0-cp310-cp310-win_amd64.whl", hash = "sha256:6576f7979a506ff5cab4af781c058c0a9caa654d2cd4a864c96c2d785f44711c", size = 10577950, upload-time = "2026-05-13T09:02:56.301Z" },
-    { url = "https://files.pythonhosted.org/packages/00/9f/cb1148e20f77d8136476fa1bcfa8b250cee593ea1b106f3b7809f5a560da/sqlglotc-30.8.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:be6257bdbdf2fd2a4daea46c0781542b69e94d968ba745374721dc96d0e55d02", size = 31515721, upload-time = "2026-05-13T09:02:58.752Z" },
-    { url = "https://files.pythonhosted.org/packages/65/72/7f42e7a0aa25a35fcfde091211017b3983d5d6c1802922ff4d6a437a7cce/sqlglotc-30.8.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1863950ef7f41467fe32f7cc55d10d4d747f2b532023c82ccbb44693e6911bc9", size = 24283758, upload-time = "2026-05-13T09:03:01.957Z" },
-    { url = "https://files.pythonhosted.org/packages/5b/f2/d7a5d1f48d19079e57f75bc5cc1415365005e038a12f428b09b5e7ab4bf4/sqlglotc-30.8.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9f2dc50e2ca234c40dce5d5a3dfb212c6ed73278043225ac1b0ab577a2db1815", size = 25410336, upload-time = "2026-05-13T09:03:04.3Z" },
-    { url = "https://files.pythonhosted.org/packages/6a/ed/75c9d96c110670670669e367f8cbf2beb98e6904095dd8fa3a1f87a90307/sqlglotc-30.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:3176d7a5dc4c97d462ef3a73eb32e513033cf61fc5a794d5e2a310621d078d9b", size = 10567009, upload-time = "2026-05-13T09:03:07.416Z" },
-    { url = "https://files.pythonhosted.org/packages/95/d7/3be4a163a35aeecffc75d8f93f59c4378c6ae85185f21086ac640edf6f12/sqlglotc-30.8.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:2dcdf0a8e9f07f9cd95eb0b6e653352f85862feee0fb6e7a48251e888ae42a5c", size = 31682640, upload-time = "2026-05-13T09:03:10.146Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/cb/07a1814dc3e5c3fd4af4130dec2aea60cb784160d7ed0c4ee6cb0bfc4734/sqlglotc-30.8.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b7dca8aedfdd8f50694e04ea55b040e2cb685dcaf600ca4ea5dd0a141a6a6835", size = 25070477, upload-time = "2026-05-13T09:03:12.626Z" },
-    { url = "https://files.pythonhosted.org/packages/25/19/69aebbd92b8db4a1a19d39397167e2df5f6ed44b1dad0005ca604e78901f/sqlglotc-30.8.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:960ddda931beb89ae01f8d7c10fa72c486d4d04b077672f94978adb976adc60f", size = 26267286, upload-time = "2026-05-13T09:03:16.486Z" },
-    { url = "https://files.pythonhosted.org/packages/37/71/70a52b0a6d27d28881453804484618ee5bac567a4b26242bc473276014dd/sqlglotc-30.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:ac64dd30ecc20421e0133883db4e10c3699354c592513aeb50b1ee243a8a5c60", size = 10781201, upload-time = "2026-05-13T09:03:18.93Z" },
-    { url = "https://files.pythonhosted.org/packages/2d/93/01e1d771320303bbc3cab9235e5e80f23574f999f249cdc39aecf5145268/sqlglotc-30.8.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:4fad7bceb63f831ec0ec07b5199a7e3f7448323354b9dd7b6f262b501cd76185", size = 31487252, upload-time = "2026-05-13T09:03:21.293Z" },
-    { url = "https://files.pythonhosted.org/packages/c1/5d/027309bd032dfc6d20a9d653ae1a89ee338e5cdf4ae0279f8c0e0a219de4/sqlglotc-30.8.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:86c974ec80867180f5bb9a67b9d801095a59b3b046da6df5d989c1572629b2ec", size = 24681704, upload-time = "2026-05-13T09:03:23.774Z" },
-    { url = "https://files.pythonhosted.org/packages/a1/52/48332d5f35db985524f51d7e53dfa2c981c2d49dcef334b90892ec5753f7/sqlglotc-30.8.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e6fa017c3fbcf28b1b259e254995949733bafa2d94f3c9398e4cc4230394f8e7", size = 25931754, upload-time = "2026-05-13T09:03:26.03Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/2f/46470d76bdc47dc568252583cbcb746ed829b11b007ac64a06dfd7753c41/sqlglotc-30.8.0-cp313-cp313-win_amd64.whl", hash = "sha256:ed86cbfc5b2b292e0474ca9fcf71b82b39aef150d968d8ac97d35a8ab85c43cd", size = 10783611, upload-time = "2026-05-13T09:03:28.51Z" },
-    { url = "https://files.pythonhosted.org/packages/e9/a9/3a1cb5fc8ce5d5f24615f0aab16f504d318d2338d3d41170e44c66f4f591/sqlglotc-30.8.0-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:f79acd23fcf6ef2e5ef42df26010f699134b3653ff40cb3e403fed083e3e38dc", size = 31385571, upload-time = "2026-05-13T09:03:30.515Z" },
-    { url = "https://files.pythonhosted.org/packages/23/0b/17c364ce3c768060abdc43468a2571833e73b803a6d597debb8b629bff20/sqlglotc-30.8.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:02ead13bbaf56a7eb0fdf1eb6ea23b1d70857901a60ea5118e09151ca4051712", size = 24672963, upload-time = "2026-05-13T09:03:33.182Z" },
-    { url = "https://files.pythonhosted.org/packages/ed/fa/9689e3247f71334339c80b63059ca5dc658c5625c6b6e744f5a00f588b0b/sqlglotc-30.8.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f5f17e336a073d7087271468155cb401687e931b5b61d6438233278c2a636baf", size = 25843368, upload-time = "2026-05-13T09:03:36.588Z" },
-    { url = "https://files.pythonhosted.org/packages/07/4b/643906fbaaf8c687d4a7fb55a5da6d3e014778fe6db7fe8d22ea2b39b54f/sqlglotc-30.8.0-cp314-cp314-win_amd64.whl", hash = "sha256:172ea79fcdcf3795134dcdff03995681c60bdc0c0874d43dc06ab06fecc0ae25", size = 10874450, upload-time = "2026-05-13T09:03:38.845Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/79/69af8ad60cfbef116a2f63bf5d455bdcaafb369fa27772b4936051e76063/sqlglotc-30.12.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:1e5ad6689bf76f226e4a3182f3819e9e4056ea0d2b7c1fd610dad22e065b7a10", size = 32008565, upload-time = "2026-06-26T14:08:02.422Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/93/bc5cf48a0fcbc5967687a4f2dfaedf7d2dfd03ae0bca0a57d95e7cbf6495/sqlglotc-30.12.0-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8412ddb9bb2e3832e36a9d2c279a2c64ffa0d695295f2daae72cef4f68114cb0", size = 24435127, upload-time = "2026-06-26T14:08:05.123Z" },
+    { url = "https://files.pythonhosted.org/packages/07/51/6db6cf0fc07ee398995582dd367fba286be419c06d27c51bf941bc9d09a0/sqlglotc-30.12.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:30fe29c8287dc681b8e6c1514c4138861230314ebe86a47081cf4d1141dd2f89", size = 25549128, upload-time = "2026-06-26T14:08:07.303Z" },
+    { url = "https://files.pythonhosted.org/packages/92/a4/74764a4cb764d8acfd4e85127724ce3ca22a663c34cebe3cfd8f4a864224/sqlglotc-30.12.0-cp310-cp310-win_amd64.whl", hash = "sha256:671d7fcb7261b297c014f7cdc54703e28d3de6e58e94a5652beb5a661a3d0786", size = 10735833, upload-time = "2026-06-26T14:08:09.436Z" },
+    { url = "https://files.pythonhosted.org/packages/98/00/82c2bc0c49aacdfe53006ebd75d00e9cca536b3d0fe5c661d4c1d36ca27c/sqlglotc-30.12.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:05f0cf61aba3207aa8d9fe10646168eac01595f521f3d81390ba215a15e8f6b7", size = 31721081, upload-time = "2026-06-26T14:08:11.587Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/fb/dac3d917d445301af839bd6ab165edac2378f9d6f0ef583d6e53cd1acd46/sqlglotc-30.12.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:71784e43ef4af200a3e8e04f42b9977f405cfeee025c7dbeb703b862029b2b3f", size = 24638763, upload-time = "2026-06-26T14:08:14.062Z" },
+    { url = "https://files.pythonhosted.org/packages/40/67/c4c8258fc706dd8b349e39fb76b7f26ed3478f6fbbdfe688f341d68c981e/sqlglotc-30.12.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a84dd9d7565b782bef07e577b3400cdcddc81ffaae963d5e8460e431c4e70e27", size = 25798453, upload-time = "2026-06-26T14:08:16.347Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/36/dc0265b1c7abab70d1011b2390dcace13a157b2fa3b1fc753be0144a9566/sqlglotc-30.12.0-cp311-cp311-win_amd64.whl", hash = "sha256:4588ea73e99ec2f106cd688e6c12199b99c509497ec16fa858b645f748f461d0", size = 10729513, upload-time = "2026-06-26T14:08:18.477Z" },
+    { url = "https://files.pythonhosted.org/packages/70/b2/246dba0b5ca294ba6c8d087e7b6bbd56c94e17298ff14a0232af70ba086a/sqlglotc-30.12.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:4c4016010ecf0b3473f0b2004f9bf352b9c694644a18867e290cf1ddfcd994a1", size = 32052780, upload-time = "2026-06-26T14:08:20.419Z" },
+    { url = "https://files.pythonhosted.org/packages/62/b9/7ead345c4a6395a1eef166db6589e32082a8184da6ba8042b115015449c6/sqlglotc-30.12.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ddad6b33e98f040aa2493e6187e83235c57a4d52ba573a2f94c32d9209b3e7e0", size = 25534639, upload-time = "2026-06-26T14:08:22.499Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/91/7e596f8be4116adc0b9911fc87c214a0ebea55fffac1ca7068483ef0fb07/sqlglotc-30.12.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d998e3b5eddf5db65573009f86cb6a0378efb7e1780d19a6357bce67afb05f0d", size = 26748971, upload-time = "2026-06-26T14:08:25.177Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/57/6e9a29b08a51f2fe8d3774bc1d051e8232375557fa57cbc9b7b6f000d53b/sqlglotc-30.12.0-cp312-cp312-win_amd64.whl", hash = "sha256:1075dbee8fde16aa372ac42a63941cde50d533e57bbe0a34ddc6ab8c328dbf45", size = 10945978, upload-time = "2026-06-26T14:08:27.377Z" },
+    { url = "https://files.pythonhosted.org/packages/90/a3/1e89af7986c5ffd58809ddb756c0a3d85129658e10cb023b1cf7aa61ac3e/sqlglotc-30.12.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:cad61b20aa2e8ed01efca83d6fa475d14214bcb1caba5eb11ab3b5b6fdd50ba5", size = 31880909, upload-time = "2026-06-26T14:08:29.476Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/d6/a99f862c66e5662bf20fb77d62012cba2f2dfbd0f9d63c97fe30468fd3ff/sqlglotc-30.12.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:bb8836127f5233606bc63c2f56dc529e5ee9c96b1e317f434c65d90984fcdad1", size = 25120994, upload-time = "2026-06-26T14:08:31.753Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/66/7e359fa2e6197d1c6566175428cf1af029602858b477fd07ea0986dae236/sqlglotc-30.12.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1153b757420fc712163bb8da12a14f2603bcd6cdd40b0aedd526e16c68f56b9c", size = 26371919, upload-time = "2026-06-26T14:08:34.368Z" },
+    { url = "https://files.pythonhosted.org/packages/37/b4/5774537e439018c42618b2084fb0a127d62687153b0b2b6893d0d39e17f0/sqlglotc-30.12.0-cp313-cp313-win_amd64.whl", hash = "sha256:2b7454ebbd97d3a197d946fa352ce64f58d6bdacac27883929fd9d45900618f8", size = 10933673, upload-time = "2026-06-26T14:08:36.374Z" },
+    { url = "https://files.pythonhosted.org/packages/79/21/762087c42e56c126ab20c98cb029ef895a666ab7f77af1ca144e0333225c/sqlglotc-30.12.0-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:1ede716d4bc7bda5558354deb545dda7400ae475c543af08bbb46fc2bab99aae", size = 31785229, upload-time = "2026-06-26T14:08:38.703Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/e5/70f14f11fd5e5f3be654529909dcb2036baddd95fbaa3b221276d13a53a7/sqlglotc-30.12.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4cdb2e5f7416daaa5f3046cc790e2ab31ddbde930443ecfe548cfd1e5f9552e7", size = 25117316, upload-time = "2026-06-26T14:08:41.004Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/ad/6cf38b0203f9c81588aca6be4e40679acf8f2087ca4fee7cc67f4af15a71/sqlglotc-30.12.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0756aff3d6617d8587027981b15a57b27a698f3082ed7d333d313fed0e59de5d", size = 26272124, upload-time = "2026-06-26T14:08:43.104Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/bd/efe78e48b97593e01ceb91090aeb9dfb69e470c6f2dcd7fc5f0f0b637e46/sqlglotc-30.12.0-cp314-cp314-win_amd64.whl", hash = "sha256:efcf65f06d5de8b594cb7bda5dbc2e2b29e06eaef1d90044778751fed455b1dd", size = 11065847, upload-time = "2026-06-26T14:08:45.229Z" },
 ]
 
 [[package]]

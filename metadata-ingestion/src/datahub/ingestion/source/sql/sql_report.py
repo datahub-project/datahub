@@ -60,6 +60,17 @@ class SQLSourceReport(
     num_queries_parsed: int = 0
     num_queries_parse_failures: int = 0
 
+    # Query-history references the aggregator resolved lineage through but did
+    # not emit, because the table is absent from discovered_datasets. This is
+    # broader than genuine temp tables: it also covers references filtered by
+    # database_pattern/table_pattern and real tables whose schema fetch failed
+    # (separately reported). Read it as "not among ingested tables", not "temp
+    # tables only", when triaging missing lineage.
+    num_usage_references_suppressed_as_temp: int = 0
+    usage_references_suppressed_as_temp_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table

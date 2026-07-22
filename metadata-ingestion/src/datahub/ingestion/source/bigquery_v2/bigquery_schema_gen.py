@@ -703,12 +703,16 @@ class BigQuerySchemaGenerator:
                     ),
                 )
 
+        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
+        # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
+        fetch_legacy_table_stats = self.config.use_legacy_table_stats
+
         if self.config.include_views:
             db_views[dataset_name] = list(
                 self.schema_api.get_views_for_dataset(
                     project_id,
                     dataset_name,
-                    self.config.is_profiling_enabled(),
+                    fetch_legacy_table_stats,
                     self.report,
                 )
             )
@@ -727,7 +731,7 @@ class BigQuerySchemaGenerator:
                 self.schema_api.get_snapshots_for_dataset(
                     project_id,
                     dataset_name,
-                    self.config.is_profiling_enabled(),
+                    fetch_legacy_table_stats,
                     self.report,
                 )
             )
@@ -1386,6 +1390,7 @@ class BigQuerySchemaGenerator:
                         dataset.name,
                         items_to_get,
                         with_partitions=with_partitions,
+                        use_legacy_table_stats=self.config.use_legacy_table_stats,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1396,6 +1401,7 @@ class BigQuerySchemaGenerator:
                     dataset.name,
                     items_to_get,
                     with_partitions=with_partitions,
+                    use_legacy_table_stats=self.config.use_legacy_table_stats,
                     report=self.report,
                 )
 

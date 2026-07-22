@@ -225,10 +225,7 @@ class QuickSightLineageExtractor:
 
         fine_grained: List[FineGrainedLineageClass] = []
         for cll in result.column_lineage:
-            upstreams = [
-                builder.make_schema_field_urn(ref.table, ref.column)
-                for ref in cll.upstreams
-            ]
+            upstreams = cll.upstream_schema_field_urns()
             if not upstreams:
                 continue
             fine_grained.append(

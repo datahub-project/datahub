@@ -440,6 +440,17 @@ class BigQueryV2Config(
         default=True, description="Whether table snapshots should be ingested."
     )
 
+    use_legacy_table_stats: bool = Field(
+        default=False,
+        description="Source table row count, size, and last-altered time from the undocumented "
+        "`__TABLES__` Legacy SQL construct instead of the supported `INFORMATION_SCHEMA.PARTITIONS` "
+        "view. `__TABLES__` additionally covers views and snapshots: views keep their `lastModified` "
+        "timestamp, and snapshots keep their `lastModified` timestamp along with the `rows_count` and "
+        "`size_in_bytes` custom properties. `__TABLES__` is undocumented and unsupported by Google, so "
+        "it may change or stop working without notice. Leave `False` to use `PARTITIONS`, which is "
+        "dataset-scoped but covers base tables only.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",

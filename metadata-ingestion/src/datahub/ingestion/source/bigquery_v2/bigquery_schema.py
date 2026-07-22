@@ -475,14 +475,17 @@ class BigQuerySchemaApi:
         tables: Dict[str, TableListItem],
         report: BigQueryV2Report,
         with_partitions: bool = False,
+        use_legacy_table_stats: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
-            if with_partitions:
-                query_template = BigqueryQuery.tables_for_dataset
+            if not with_partitions:
+                query_template = BigqueryQuery.tables_for_dataset_without_stats
+            elif use_legacy_table_stats:
+                query_template = BigqueryQuery.tables_for_dataset_with_legacy_stats
             else:
-                query_template = BigqueryQuery.tables_for_dataset_without_partition_data
+                query_template = BigqueryQuery.tables_for_dataset_with_partition_stats
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
@@ -565,20 +568,19 @@ class BigQuerySchemaApi:
         self,
         project_id: str,
         dataset_name: str,
-        has_data_read: bool,
+        use_legacy_table_stats: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryView]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if use_legacy_table_stats:
                 cur = self.get_query_result(
-                    BigqueryQuery.views_for_dataset.format(
+                    BigqueryQuery.views_for_dataset_with_legacy_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
                 cur = self.get_query_result(
-                    BigqueryQuery.views_for_dataset_without_data_read.format(
+                    BigqueryQuery.views_for_dataset_without_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
@@ -886,20 +888,19 @@ class BigQuerySchemaApi:
         self,
         project_id: str,
         dataset_name: str,
-        has_data_read: bool,
+        use_legacy_table_stats: bool,
         report: BigQueryV2Report,
     ) -> Iterator[BigqueryTableSnapshot]:
         with PerfTimer() as current_timer:
-            if has_data_read:
-                # If profiling is enabled
+            if use_legacy_table_stats:
                 cur = self.get_query_result(
-                    BigqueryQuery.snapshots_for_dataset.format(
+                    BigqueryQuery.snapshots_for_dataset_with_legacy_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
                 cur = self.get_query_result(
-                    BigqueryQuery.snapshots_for_dataset_without_data_read.format(
+                    BigqueryQuery.snapshots_for_dataset_without_stats.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
@@ -910,7 +911,7 @@ class BigQuerySchemaApi:
                         yield BigQuerySchemaApi._make_bigquery_table_snapshot(table)
                 except Exception as e:
                     snapshot_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                    report.report_warning(
+                    report.warning(
                         title="Failed to process snapshot",
                         message="Error encountered while processing snapshot",
                         context=snapshot_name,
