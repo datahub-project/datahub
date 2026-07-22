@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Algunos tags se obtuvieron de {{platform}}. Se resincronizarán periódicamente durante la Ingestion programada.",
     "tagTermRenderer.tagsNotEditable": "Algunos tags no son editables.",
     "usageStatsRenderer.hasColumnStats": "Tiene estadísticas de columna",
-    "usageStatsRenderer.noColumnStats": "No tiene estadísticas de columna"
+    "usageStatsRenderer.noColumnStats": "No tiene estadísticas de columna",
+    "fieldLogical.andMore": "y {{count}} más",
+    "fieldLogical.logicalParentInfo": "Columna del modelo lógico que define los metadatos de esta columna. Los cambios en los metadatos de la columna del elemento principal lógico se propagan automáticamente a esta columna.",
+    "fieldLogical.logicalParentTitle": "Elemento principal lógico",
+    "fieldLogical.physicalChildrenInfo": "Implementaciones físicas de esta columna del modelo lógico. Los cambios en los metadatos de esta columna se propagan automáticamente a estas columnas secundarias.",
+    "fieldLogical.physicalChildrenTitle": "Elementos secundarios físicos",
+    "fieldLogical.viewAllPhysicalChildren": "Ver todos los elementos secundarios físicos"
 }

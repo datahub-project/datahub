@@ -349,11 +349,10 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       ClusterUpdateSettingsRequest clusterUpdateSettingsRequest, RequestOptions options)
       throws IOException;
 
+  @OperationContextExempt(
+      reason = "Cluster-wide health probe — no tenant routing, no actor relevance")
   @Nonnull
-  ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
+  ClusterHealthResponse clusterHealth(ClusterHealthRequest healthRequest, RequestOptions options)
       throws IOException;
 
   // Async Task operations

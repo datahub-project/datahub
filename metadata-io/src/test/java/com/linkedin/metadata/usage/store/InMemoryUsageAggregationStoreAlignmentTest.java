@@ -67,17 +67,37 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
   }
 
   @Test
-  public void testAlignedWindowStartsOnGrid() {
+  public void testAlignedWindowStartsProcessRelativeHour() {
     MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:37:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store =
         alignedStore(sink, clock, Duration.ofHours(1), 10_000, 300);
 
-    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:00:00Z"));
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:37:00Z"));
   }
 
   @Test
-  public void testAlignedBatchDoesNotCrossHourBoundary() {
+  public void testAlignedWindowStartsProcessRelativeFiveMinutes() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:37:00Z"));
+    RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
+    InMemoryUsageAggregationStore store =
+        alignedStore(sink, clock, Duration.ofSeconds(300), 10_000, 300);
+
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:37:00Z"));
+  }
+
+  @Test
+  public void testAlignedWindowStartsProcessRelativeDay() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:37:00Z"));
+    RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
+    InMemoryUsageAggregationStore store =
+        alignedStore(sink, clock, Duration.ofSeconds(86400), 10_000, 300);
+
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:37:00Z"));
+  }
+
+  @Test
+  public void testMidPeriodFlushOpensNextWindowAtBatchEnd() {
     MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:50:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store =
@@ -89,11 +109,12 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     Assert.assertEquals(sink.batches().size(), 1);
     UsageFlushBatch batch = sink.batches().get(0);
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:50:00Z"));
+    Assert.assertEquals(batch.windowEnd(), Instant.parse("2026-07-10T10:59:30Z"));
     Assert.assertFalse(
         UsageFlushBoundaryUtils.crossesBoundary(
             batch.windowStart(), batch.windowEnd(), Duration.ofHours(1), UTC));
-    Assert.assertTrue(batch.windowEnd().isBefore(Instant.parse("2026-07-10T11:00:00Z")));
-    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:00:00Z"));
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:59:30Z"));
 
     clock.advance(Duration.ofSeconds(30));
     store.flush(FlushTrigger.SCHEDULED);
@@ -101,7 +122,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
   }
 
   @Test
-  public void testFifteenMinuteAlignment() {
+  public void testFifteenMinuteAlignmentKeepsProcessRelativeStart() {
     MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:17:00Z"));
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store =
@@ -112,7 +133,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
     store.flush(FlushTrigger.SCHEDULED);
 
     UsageFlushBatch batch = sink.batches().get(0);
-    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:15:00Z"));
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:17:00Z"));
     Assert.assertFalse(
         UsageFlushBoundaryUtils.crossesBoundary(
             batch.windowStart(), batch.windowEnd(), Duration.ofSeconds(900), UTC));
@@ -153,9 +174,67 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     Assert.assertEquals(sink.batches().size(), 1);
     UsageFlushBatch batch = sink.batches().get(0);
-    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:00:00Z"));
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:50:00Z"));
     Assert.assertEquals(batch.windowEnd(), Instant.parse("2026-07-10T11:00:00Z"));
     Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T11:00:00Z"));
+  }
+
+  @Test
+  public void testFiveMinuteBoundarySplit() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:03:00Z"));
+    RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
+    InMemoryUsageAggregationStore store =
+        alignedStore(sink, clock, Duration.ofSeconds(300), 10_000, 300);
+
+    store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    clock.advance(Duration.ofMinutes(3));
+    store.flush(FlushTrigger.SCHEDULED);
+
+    UsageFlushBatch batch = sink.batches().get(0);
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:03:00Z"));
+    Assert.assertEquals(batch.windowEnd(), Instant.parse("2026-07-10T10:05:00Z"));
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:05:00Z"));
+  }
+
+  @Test
+  public void testDayBoundarySplit() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T23:50:00Z"));
+    RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
+    InMemoryUsageAggregationStore store =
+        alignedStore(sink, clock, Duration.ofSeconds(86400), 10_000, 300);
+
+    store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    clock.advance(Duration.ofMinutes(20));
+    store.flush(FlushTrigger.SCHEDULED);
+
+    UsageFlushBatch batch = sink.batches().get(0);
+    Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T23:50:00Z"));
+    Assert.assertEquals(batch.windowEnd(), Instant.parse("2026-07-11T00:00:00Z"));
+    Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-11T00:00:00Z"));
+  }
+
+  @Test
+  public void testTwoMidPeriodFlushesHaveDistinctWindowStarts() {
+    MutableClock clock = new MutableClock(Instant.parse("2026-07-10T10:10:00Z"));
+    RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
+    InMemoryUsageAggregationStore store =
+        alignedStore(sink, clock, Duration.ofHours(1), 10_000, 300);
+
+    store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    clock.advance(Duration.ofMinutes(5));
+    store.flush(FlushTrigger.SCHEDULED);
+
+    store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
+    clock.advance(Duration.ofMinutes(5));
+    store.flush(FlushTrigger.SCHEDULED);
+
+    Assert.assertEquals(sink.batches().size(), 2);
+    Assert.assertEquals(sink.batches().get(0).windowStart(), Instant.parse("2026-07-10T10:10:00Z"));
+    Assert.assertEquals(sink.batches().get(0).windowEnd(), Instant.parse("2026-07-10T10:15:00Z"));
+    Assert.assertEquals(sink.batches().get(1).windowStart(), Instant.parse("2026-07-10T10:15:00Z"));
+    Assert.assertEquals(sink.batches().get(1).windowEnd(), Instant.parse("2026-07-10T10:20:00Z"));
+    Assert.assertNotEquals(
+        sink.batches().get(0).windowStart(), sink.batches().get(1).windowStart());
   }
 
   @Test

@@ -1,13 +1,8 @@
 import dataclasses
-import fnmatch
-import glob as glob_module
 import json
 import logging
-import re
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
-from urllib.parse import urlparse
 
-import requests
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,6 +25,13 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.object_store_files import (
+    expand_local_glob,
+    expand_object_store_glob,
+    has_glob_characters,
+    is_http_uri,
+    read_file_as_bytes,
+)
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
@@ -52,12 +54,6 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger = logging.getLogger(__name__)
-
-_GLOB_CHARACTERS = frozenset("*?[]")
-
-
-def _has_glob_characters(path: str) -> bool:
-    return any(c in path for c in _GLOB_CHARACTERS)
 
 
 @dataclasses.dataclass
@@ -765,78 +761,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         aws_connection: Optional[AwsConnectionConfig],
         gcs_connection: Optional[GCSConnectionConfig] = None,
     ) -> Dict:
-        if re.match("^https?://", uri):
-            resp = requests.get(uri, timeout=30)
-            resp.raise_for_status()
-            return resp.json()
-        elif is_s3_uri(uri):
-            u = urlparse(uri)
-            if not aws_connection:
-                raise ValueError(f"AWS connection required for S3 URI: {uri}")
-            try:
-                response = aws_connection.get_s3_client().get_object(
-                    Bucket=u.netloc, Key=u.path.lstrip("/")
-                )
-            except Exception as e:
-                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-            return json.loads(response["Body"].read().decode("utf-8"))
-        elif is_gcs_uri(uri):
-            u = urlparse(uri)
-            if not gcs_connection:
-                raise ValueError(f"GCS connection required for GCS URI: {uri}")
-            try:
-                response = (
-                    gcs_connection.s3_compatible_connection.get_s3_client().get_object(
-                        Bucket=u.netloc, Key=u.path.lstrip("/")
-                    )
-                )
-            except Exception as e:
-                raise ValueError(f"Failed to read {uri} from object store: {e}") from e
-            return json.loads(response["Body"].read().decode("utf-8"))
-        else:
-            with open(uri) as f:
-                return json.load(f)
-
-    @staticmethod
-    def _expand_object_store_glob(
-        uri: str, connection: AwsConnectionConfig, scheme: str
-    ) -> List[str]:
-        u = urlparse(uri)
-        bucket = u.netloc
-        key_pattern = u.path.lstrip("/")
-
-        # Use the longest static prefix to limit object store listing scope
-        prefix_parts: List[str] = []
-        for part in key_pattern.split("/"):
-            if _has_glob_characters(part):
-                break
-            prefix_parts.append(part)
-        prefix = "/".join(prefix_parts)
-        if prefix:
-            prefix += "/"
-
-        s3_client = connection.get_s3_client()
-        paginator = s3_client.get_paginator("list_objects_v2")
-
-        pattern_parts = key_pattern.split("/")
-        matched_keys: List[str] = []
-        total_scanned = 0
-        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-            for obj in page.get("Contents", []):
-                total_scanned += 1
-                key = obj["Key"]
-                key_parts = key.split("/")
-                if len(key_parts) == len(pattern_parts) and all(
-                    fnmatch.fnmatchcase(k, p)
-                    for k, p in zip(key_parts, pattern_parts, strict=True)
-                ):
-                    matched_keys.append(key)
-
-        logger.info(
-            f"{scheme} glob '{uri}': scanned {total_scanned} object(s) under "
-            f"prefix '{prefix}', matched {len(matched_keys)}"
-        )
-        return [f"{scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+        raw = read_file_as_bytes(uri, aws_connection, gcs_connection)
+        # Hand json.loads the raw bytes: it sniffs the BOM and picks UTF-8/16/32
+        # accordingly (RFC 4627), matching the old requests.json() behaviour a
+        # forced decode("utf-8") had regressed on BOM-prefixed manifests.
+        return json.loads(raw)
 
     def _expand_cloud_glob(
         self,
@@ -857,7 +786,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return []
         try:
-            matched_paths = self._expand_object_store_glob(path, connection, scheme)
+            matched_paths = expand_object_store_glob(path, connection, scheme)
         except Exception as e:
             self.report.failure(
                 title=f"{store_label} glob expansion failed",
@@ -880,7 +809,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         expanded_paths: List[str] = []
 
         for path in self.config.run_results_paths:
-            if not _has_glob_characters(path):
+            if not has_glob_characters(path):
                 expanded_paths.append(path)
                 continue
 
@@ -907,14 +836,14 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                         connection_field="gcs_connection",
                     )
                 )
-            elif re.match("^https?://", path):
+            elif is_http_uri(path):
                 self.report.warning(
                     title="Glob patterns not supported for HTTP(S) URIs",
                     message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
                     "Please provide explicit file paths.",
                 )
             else:
-                local_paths = sorted(glob_module.glob(path))
+                local_paths = expand_local_glob(path)
                 if not local_paths:
                     self.report.warning(
                         title="Local glob pattern matched no files",

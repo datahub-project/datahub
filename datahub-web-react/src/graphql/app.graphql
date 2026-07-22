@@ -109,6 +109,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showLineageFilterNodes
             showStatsTabRedesign
             showHomePageRedesign
             showDefaultExternalLinks
@@ -123,6 +124,7 @@ query appConfig {
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
+            dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon

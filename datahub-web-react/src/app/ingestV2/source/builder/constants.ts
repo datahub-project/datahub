@@ -12,6 +12,7 @@ import csvLogo from '@images/csv-logo.png';
 import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
+import dataplexLogo from '@images/dataplexlogo.svg';
 import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
@@ -186,6 +187,8 @@ const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
 const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+const DATAPLEX = 'dataplex';
+const DATAPLEX_URN = `urn:li:dataPlatform:${DATAPLEX}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DATAPROC_METASTORE = 'dataproc-metastore';
@@ -295,6 +298,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
+    [DATAPLEX_URN]: dataplexLogo,
     [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,

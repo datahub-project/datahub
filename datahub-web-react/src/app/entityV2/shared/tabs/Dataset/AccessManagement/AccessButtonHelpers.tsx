@@ -8,8 +8,8 @@ import styled from 'styled-components';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.bgSurfaceInfo};
-    color: ${(props) => props.theme.colors.textOnFillDefault};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     width: 80px;
     height: 30px;
     border-radius: 3.5px;
@@ -17,8 +17,8 @@ export const AccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.buttonFillBrand};
-        color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
         border: none;
     }
 

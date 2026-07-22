@@ -36,5 +36,6 @@
     "properties.glossaryTerms": "Fogalomtári kifejezések",
     "properties.lastModified": "Utolsó módosítás",
     "properties.lastSynced": "Utolsó szinkronizálás",
+    "properties.semanticModel": "Szemantikus modell",
     "properties.terms": "Kifejezések"
 }

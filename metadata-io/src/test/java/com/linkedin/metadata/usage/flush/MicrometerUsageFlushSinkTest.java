@@ -38,6 +38,8 @@ public class MicrometerUsageFlushSinkTest {
             "metadata_read",
             UsageDimensions.AGENT_CLASS,
             "browser",
+            UsageDimensions.AGENT_NAME,
+            "datahub/custom-agent",
             UsageDimensions.REQUEST_API,
             "openapi",
             UsageDimensions.AUTH_CHANNEL,
@@ -61,6 +63,7 @@ public class MicrometerUsageFlushSinkTest {
             .get("datahub_request_count")
             .tag(UsageDimensions.AUTH_CHANNEL, "session")
             .tag(UsageDimensions.ACTOR_CLASS, "regular")
+            .tag(UsageDimensions.AGENT_NAME, "datahub/custom-agent")
             .counter()
             .count(),
         3.0);
