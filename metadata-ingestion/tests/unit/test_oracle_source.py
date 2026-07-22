@@ -761,15 +761,13 @@ class TestOracleSource:
             mock_connection, "TEST_SCHEMA", "DBA"
         )
 
-        # Exactly one newline separates END; and the body — no doubled boundary.
         assert result[("PKG1", "PACKAGE")] == (
             "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\n"
         )
 
     def test_get_procedure_source_codes_for_schema_body_only_package(self):
-        """A package with only a body row (spec missing, e.g. wrapped or
-        inaccessible) must still surface under the PACKAGE key with the body
-        text alone rather than being dropped."""
+        """A package with only a body row (no spec) must still surface under
+        the PACKAGE key with the body text alone."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
@@ -966,8 +964,7 @@ class TestOracleSource:
 
     def test_get_procedures_for_schema_dependency_string_is_deterministic(self):
         """The emitted upstream/downstream dependency strings must be sorted so
-        they're stable regardless of the order rows come back from Oracle —
-        otherwise golden files and downstream diffs churn spuriously."""
+        they're stable regardless of the order rows come back from Oracle."""
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
@@ -985,7 +982,6 @@ class TestOracleSource:
         proc.status = "VALID"
         mock_connection.execute.return_value = [proc]
 
-        # Deliberately out of alphabetical order to prove the sort happens.
         out_of_order = ProcedureDependencies(
             upstream=[
                 "TEST_SCHEMA.Z_TABLE (TABLE)",
@@ -1279,12 +1275,9 @@ class TestOracleSource:
             conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
         )
 
-        # One failure per failed query (3), not per affected procedure.
         assert source.report.procedure_enrichment_query_failures == 3
         assert len(source.report.warnings) == 3
         for warning in source.report.warnings:
-            # Substring rather than exact equality so a reword of the title
-            # doesn't break this test (see AGENTS.md testing guidance).
             assert warning.title is not None and "Enrichment" in warning.title
             assert any("TEST_SCHEMA" in c for c in warning.context)
 
@@ -1638,7 +1631,6 @@ def test_sql_type_list_renders_quoted_in_list():
         _sql_type_list(OracleObjectType.TABLE, OracleObjectType.VIEW)
         == "'TABLE', 'VIEW'"
     )
-    # PACKAGE BODY has a space in its value and must stay a single quoted token.
     assert _sql_type_list(OracleObjectType.PACKAGE_BODY) == "'PACKAGE BODY'"
 
 
@@ -1646,7 +1638,6 @@ def test_generated_procedure_sql_fragments():
     """Pin the rendered IN-list fragments so the SQL is documented here and a
     reordering or rename of OracleObjectType members is caught immediately."""
     assert _PROCEDURE_LIKE_TYPES_SQL == "'PROCEDURE', 'FUNCTION', 'PACKAGE'"
-    # Source query also needs PACKAGE BODY so a package's body source is fetched.
     assert (
         _PROCEDURE_SOURCE_TYPES_SQL
         == "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'PACKAGE BODY'"
@@ -1655,7 +1646,6 @@ def test_generated_procedure_sql_fragments():
         _DEPENDENT_OBJECT_TYPES_SQL
         == "'TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE'"
     )
-    # Upstream references can also be reached through a synonym.
     assert _UPSTREAM_REFERENCED_TYPES_SQL == (
         "'TABLE', 'VIEW', 'MATERIALIZED VIEW', "
         "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM'"
