@@ -1122,7 +1122,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
             for row in rows:
-                schema_lineage = result_dict.for_mutation(row["target_table_schema"], default={})
+                schema_lineage = result_dict.for_mutation(
+                    row["target_table_schema"], default={}
+                )
                 table_lineage = schema_lineage.setdefault(row["target_table_name"], {})
                 column_lineage = table_lineage.setdefault(row["target_column_name"], [])
                 column_lineage.append(
