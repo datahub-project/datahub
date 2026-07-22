@@ -25,6 +25,7 @@ from datahub.ingestion.source.omni.omni import OmniSource
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.testing import mce_helpers
 from tests.integration.omni.fixtures import (
+    DASHBOARD_DOC_DASHBOARD_1,
     FakeOmniClientFull,
 )
 
@@ -653,6 +654,54 @@ def test_snowflake_names_normalised_to_uppercase() -> None:
         assert name_part == name_part.upper(), (
             f"Snowflake db/schema/table identifiers should be uppercased; got: {urn}"
         )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_inferred_view_schema_contains_all_fields() -> None:
+    """Inferred views must include ALL fields, not just those seen before first emit.
+
+    Regression test: _emit_inferred_view_datasets previously emitted views on
+    first encounter while iterating an unordered set, producing incomplete schemas.
+    """
+
+    class ClientWithInferredView(FakeOmniClientFull):
+        def get_dashboard_document(self, document_id: str) -> Dict[str, Any]:
+            if document_id == "doc-dashboard-1":
+                payload = dict(DASHBOARD_DOC_DASHBOARD_1)
+                payload["queryPresentations"] = list(payload["queryPresentations"]) + [
+                    {
+                        "id": "tile-analytics",
+                        "name": "Page Analytics",
+                        "query": {
+                            "fields": [
+                                "analytics.page_views",
+                                "analytics.sessions",
+                                "analytics.bounce_rate",
+                            ],
+                            "modelId": "shared-model-1",
+                        },
+                    },
+                ]
+                return payload
+            return super().get_dashboard_document(document_id)
+
+    source = _build_source()
+    source.client = ClientWithInferredView()  # type: ignore[assignment]
+    events = _collect_workunits(source)
+
+    analytics_view_urn = source._semantic_dataset_urn("shared-model-1", "analytics")
+    schema_events = [
+        e
+        for e in events
+        if e["entityUrn"] == analytics_view_urn and e["aspectName"] == "schemaMetadata"
+    ]
+    assert schema_events, (
+        f"No schemaMetadata emitted for inferred view {analytics_view_urn}"
+    )
+
+    fields = {f["fieldPath"] for f in schema_events[0]["aspect"].get("fields", [])}
+    expected = {"bounce_rate", "page_views", "sessions"}
+    assert fields == expected, f"Inferred view should have all 3 fields; got: {fields}"
 
 
 # ---------------------------------------------------------------------------

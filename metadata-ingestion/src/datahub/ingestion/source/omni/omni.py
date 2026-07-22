@@ -1351,14 +1351,17 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained_dedupe: Set[tuple],
     ) -> Iterator[MetadataWorkUnit]:
         """Emit inferred semantic view datasets and compute fine-grained lineage."""
+        # Pass 1: accumulate all fields per view before emitting anything,
+        # so that emitted schemas are complete regardless of set iteration order.
         inferred_fields_by_view: Dict[str, Set[str]] = {}
-        # Track inferred views per topic so we can add them as topic upstreams
-        topic_to_inferred_views: Dict[str, Set[str]] = {}
-
         for field_ref in fields_by_dashboard:
             inferred_fields_by_view.setdefault(field_ref.view, set()).add(
                 field_ref.field
             )
+
+        # Pass 2: emit view datasets (with complete field lists) and lineage
+        topic_to_inferred_views: Dict[str, Set[str]] = {}
+        for field_ref in fields_by_dashboard:
             semantic_view_urn = self._semantic_dataset_urn(model_id, field_ref.view)
             view_topic_urns = view_to_topic_urns.get(field_ref.view, set())
             if self._semantic_dataset_urns.check_and_add(semantic_view_urn):
@@ -1369,7 +1372,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         nativeDataType="STRING",
                         nullable=True,
                     )
-                    for fn in sorted(inferred_fields_by_view.get(field_ref.view, set()))
+                    for fn in sorted(inferred_fields_by_view[field_ref.view])
                 ]
                 yield from self._emit_dataset(
                     name=f"{model_id}.{field_ref.view}",
@@ -1383,7 +1386,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     schema_fields=inferred_schema_fields or None,
                 )
                 self.report.increment_counter("views_emitted")
-                # Register this inferred view as upstream of its topic(s)
                 for topic_urn in view_topic_urns:
                     topic_to_inferred_views.setdefault(topic_urn, set()).add(
                         semantic_view_urn
