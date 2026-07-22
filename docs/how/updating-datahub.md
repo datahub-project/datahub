@@ -157,7 +157,7 @@ Requirements:
 
 ### Other Notable Changes
 
-- #<PR> **(Ingestion / Redshift)** Multi-line queries are no longer silently dropped from lineage, usage, and query history. Redshift's system tables store query newlines as literal `\n` characters; the unified query-history feed passed this text to the SQL parser unchanged, so any formatted, multi-line query (most BI-tool, hand-written, and dbt/ELT SQL) failed to parse and was discarded without error. These queries are now parsed correctly. **No action required;** after upgrade, affected Redshift sources will capture substantially more lineage, usage, and query entities than before.
+- #18542 **(Ingestion / Redshift)** Multi-line queries are no longer silently dropped from lineage, usage, and query history. Redshift's system tables store query newlines as literal `\n` characters; the unified query-history feed passed this text to the SQL parser unchanged, so any formatted, multi-line query (most BI-tool, hand-written, and dbt/ELT SQL) failed to parse and was discarded without error. These queries are now parsed correctly. **No action required;** after upgrade, affected Redshift sources will capture substantially more lineage, usage, and query entities than before.
 
 - #14911 **(Spark lineage)** **Apache Spark 4.x is now supported.** The agent is verified to attach and emit lineage on Apache Spark 4.0.0 via a dedicated compatibility smoke test (`sparkSmoke4Test`). Spark 4 requires Scala 2.13 + Java 17, so use the Scala 2.13 build of the agent (`io.acryl:acryl-spark-lineage_2.13`); the Scala 2.12 build continues to target Spark 3.x. No recipe changes are required.
 
