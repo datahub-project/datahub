@@ -48,6 +48,8 @@ def sample_dataset(tmp_path, graph_client):
     dataset_urn = unique_dataset_urn("test-default-sink")
     with open(TEMPLATE_FILE) as f:
         data = json.load(f)
+    # The template holds exactly one entity (the dataset snapshot), so entry 0
+    # is that snapshot; rewrite its URN to the run-unique one.
     data[0]["proposedSnapshot"][_DATASET_SNAPSHOT_KEY]["urn"] = dataset_urn
     data_file = tmp_path / "default_sink_data.json"
     data_file.write_text(json.dumps(data))
@@ -55,6 +57,9 @@ def sample_dataset(tmp_path, graph_client):
     yield str(data_file), dataset_urn
 
     graph_client.hard_delete_entity(dataset_urn)
+    # Wait so the delete is visible before the next test in this module runs,
+    # matching _ingest_cleanup_unique_dataset_impl's cleanup semantics.
+    wait_for_writes_to_sync()
 
 
 def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink, data_file):

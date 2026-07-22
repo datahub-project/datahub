@@ -507,6 +507,27 @@ def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") ->
     )
 
 
+def materialize_with_unique_name(
+    src_file: str, name: str, dest_dir: str
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with every occurrence of ``name`` rewritten to a
+    run-unique ``name-<suffix>``. Returns ``(dest_file, unique_name)``.
+
+    Building the entity URN (dataset, tag, …) from ``unique_name`` is the
+    caller's job. Substitution is a plain string replace over the whole file,
+    so ``name`` must be a token that appears ONLY where a rename is intended —
+    e.g. an entity key embedded in URNs. Do not pass a value that could also
+    occur in a description or other free-text field, or it will be corrupted.
+    """
+    unique_name = f"{name}-{unique_suffix()}"
+    with open(src_file) as f:
+        content = f.read().replace(name, unique_name)
+    dest_file = os.path.join(str(dest_dir), os.path.basename(src_file))
+    with open(dest_file, "w") as f:
+        f.write(content)
+    return dest_file, unique_name
+
+
 def materialize_unique_dataset(
     src_file: str,
     dataset_name: str,
@@ -518,16 +539,13 @@ def materialize_unique_dataset(
 
     Returns ``(dest_file, dataset_urn)``. Use from a module-scoped fixture so a
     file-driven test owns a dataset no other test module can collide with under
-    xdist ``--dist=loadscope``. Every occurrence of ``dataset_name``
-    in the file is replaced, so field-level and reference URNs stay consistent
-    with the returned dataset URN.
+    xdist ``--dist=loadscope``. Every occurrence of ``dataset_name`` in the file
+    is replaced, so field-level and reference URNs stay consistent with the
+    returned dataset URN.
     """
-    unique_name = f"{dataset_name}-{unique_suffix()}"
-    with open(src_file) as f:
-        content = f.read().replace(dataset_name, unique_name)
-    dest_file = os.path.join(str(dest_dir), os.path.basename(src_file))
-    with open(dest_file, "w") as f:
-        f.write(content)
+    dest_file, unique_name = materialize_with_unique_name(
+        src_file, dataset_name, dest_dir
+    )
     return dest_file, make_dataset_urn(platform=platform, name=unique_name, env=env)
 
 

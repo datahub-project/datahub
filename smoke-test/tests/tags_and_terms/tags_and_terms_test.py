@@ -69,6 +69,9 @@ def test_add_tag(auth_session, dataset_urn):
 
 
 def test_add_tag_to_chart(auth_session):
+    # The chart URN is static (not uniquified): only this module ingests and
+    # mutates it, so there is no cross-module collision. If this suite is ever
+    # split so another module touches this chart, uniquify it too.
     chart_urn = "urn:li:chart:(looker,test-tags-terms-sample-chart)"
 
     chart_query = """query getChart($urn: String!) {
