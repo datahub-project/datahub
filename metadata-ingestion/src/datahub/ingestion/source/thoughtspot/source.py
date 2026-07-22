@@ -113,6 +113,7 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.chart import Chart
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset, UpstreamInputType
+from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_and_cache_schema_resolver,
@@ -351,7 +352,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # first access by ``_get_connection_lookup``. One
         # ``/connections/search`` round-trip per ingestion run.
         self._connection_lookup: Optional[Dict[str, ConnectionResponse]] = None
-        self._unresolvable_external_lineage_count: int = 0
 
         # Per-run memo for ``_make_self_dataset_urn``. At 10K-table scale
         # the URN-builder is hit ~25× per distinct ``table_id`` (column
@@ -513,7 +513,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                         ),
                         context=f"unmatched_keys={sorted(unmatched_keys)}",
                     )
-            if self._unresolvable_external_lineage_count > 0:
+            if self.report.num_external_lineage_unresolvable_connection > 0:
                 self.report.warning(
                     title="External Lineage Resolution Failed",
                     message=(
@@ -525,7 +525,41 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                         "ingestion principal read access on the TS "
                         "Connections page to fix."
                     ),
-                    context=f"unresolvable_count={self._unresolvable_external_lineage_count}",
+                    context=(
+                        "unresolvable_count="
+                        f"{self.report.num_external_lineage_unresolvable_connection}"
+                    ),
+                )
+            if self.report.num_external_lineage_skipped_unmapped_connection_type > 0:
+                self.report.warning(
+                    title="External Lineage Connection Type Unrecognized",
+                    message=(
+                        "TS Logical Tables are backed by a connection "
+                        "whose warehouse type this connector doesn't map "
+                        "to a DataHub platform. Cross-platform upstream "
+                        "edges for these tables will be missing. If this "
+                        "connection type should be supported, add it to "
+                        "``_TS_TO_DATAHUB_PLATFORM``."
+                    ),
+                    context=(
+                        "count="
+                        f"{self.report.num_external_lineage_skipped_unmapped_connection_type}"
+                    ),
+                )
+            if self.report.num_external_lineage_skipped_missing_database > 0:
+                self.report.warning(
+                    title="External Lineage Physical Mapping Incomplete",
+                    message=(
+                        "TS Logical Tables resolved to a known warehouse "
+                        "connection, but TS didn't return enough physical "
+                        "database/table information to build an upstream "
+                        "URN. Cross-platform upstream edges for these "
+                        "tables will be missing."
+                    ),
+                    context=(
+                        "count="
+                        f"{self.report.num_external_lineage_skipped_missing_database}"
+                    ),
                 )
             # Aggregated SQL-parser-failure surfacing: per-object DEBUG/INFO
             # logs alone don't surface to operators in the run report.
@@ -2188,10 +2222,17 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         """Resolve a TS Logical Table to its external (Databricks /
         Snowflake / ...) dataset URN. Returns ``None`` for:
 
-        * In-memory data (``dataSourceTypeEnum == 'DEFAULT'``)
-        * Tables backed by a connection type we don't recognise
-        * Tables whose connection isn't in the cache (stale TS state)
-        * When ``include_external_lineage`` is disabled
+        * In-memory data (``dataSourceTypeEnum == 'DEFAULT'``) — expected,
+          counted via ``report_external_lineage_skipped_internal``.
+        * Tables whose connection isn't in the cache (stale TS state) —
+          counted via ``report_external_lineage_unresolvable_connection``.
+        * Tables backed by a connection type we don't recognise —
+          counted via
+          ``report_external_lineage_skipped_unmapped_connection_type``.
+        * Tables missing enough physical database/table information to
+          build a URN — counted via
+          ``report_external_lineage_skipped_missing_database``.
+        * When ``include_external_lineage`` is disabled.
 
         Side effect: populates ``_connection_lookup`` on first call.
         Returns the resolved reference so callers can also build
@@ -2200,40 +2241,56 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         if not self.config.include_external_lineage:
             return None
         if not table.data_source_id:
+            self.report.report_external_lineage_skipped_internal()
             return None
         # Skip silently when the table's own type isn't a known external
         # platform — FALCON / DEFAULT / unmapped types are TS-internal
         # stores (sample data, system tables, CSV uploads) with no
-        # external upstream to emit, so a missing connection-lookup
-        # entry isn't a real failure to warn about. Without this guard,
-        # every TS-internal table on a tenant triggers a false-positive
-        # "External Lineage Resolution Failed" warning.
+        # external upstream to emit, so this isn't a real failure —
+        # tracked as its own counter, not the "resolution failed" warning.
         ts_type = normalize_ts_table_type(table.data_source_type)
         if ts_type not in _TS_TO_DATAHUB_PLATFORM:
+            self.report.report_external_lineage_skipped_internal()
             return None
         conn = self._get_connection_lookup().get(table.data_source_id)
         if conn is None:
-            self._unresolvable_external_lineage_count += 1
+            self.report.report_external_lineage_unresolvable_connection()
             return None
         # ``data_source_type`` is Optional on ConnectionResponse — TS
-        # occasionally omits it for legacy connections. Mirror the same
-        # ``or ""`` guard already used in ``_resolve_sql_view_warehouse``
-        # so an unset field falls through to the "platform unknown"
-        # warning rather than an AttributeError.
-        platform = _TS_TO_DATAHUB_PLATFORM.get((conn.data_source_type or "").upper())
+        # occasionally omits it for legacy connections. Also apply
+        # ``normalize_ts_table_type`` here (not just on the table-level
+        # type above): the BigQuery fix in #18167 found that TS can
+        # prefix a *table's* ``dataSourceTypeEnum`` with ``RDBMS_``/etc.,
+        # and there's no contract guaranteeing ``ConnectionResponse``
+        # never does the same on some TS version/tenant. The call is a
+        # no-op on already-bare names, so this is free hardening.
+        platform = _TS_TO_DATAHUB_PLATFORM.get(
+            normalize_ts_table_type(conn.data_source_type)
+        )
         if not platform:
+            self.report.report_external_lineage_skipped_unmapped_connection_type()
             return None  # in-memory, FALCON, or unmapped platform
 
         database = table.physical_database_name or conn.default_database
         schema = table.physical_schema_name or conn.default_schema
         physical_name = table.physical_table_name or table.name
         if not database or not physical_name:
+            self.report.report_external_lineage_skipped_missing_database()
             return None  # incomplete physical mapping
 
         builder = _KEY_BUILDERS.get(platform)
         if builder is None:
             return None  # platform mapped but no key builder — coverage bug
         key = builder(database, schema, physical_name)
+        # Match each target platform's own canonical URN casing (the same
+        # convention ``SchemaResolver`` and every other BI connector in
+        # this repo follow): lowercase by default, except the platforms
+        # that store/emit case-sensitive identifiers verbatim. Without
+        # this, e.g. a Snowflake-native ``DB.PUBLIC.ORDERS`` never
+        # string-matches the lowercased URN the ``snowflake`` source
+        # actually emits, so the lineage edge silently never resolves.
+        if platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES:
+            key = key.lower()
 
         overrides = self._external_connection_overrides(conn)
         platform_instance = overrides.platform_instance
@@ -2241,7 +2298,9 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # ``platform_instance`` is prepended to the dataset key when set —
         # this is the convention ``make_dataset_urn_with_platform_instance``
         # uses internally. We construct the URN string explicitly so the
-        # ExternalRef carries it cleanly.
+        # ExternalRef carries it cleanly. Left out of the case
+        # normalization above: it's a user-configured recipe value that
+        # must match the target recipe's casing verbatim.
         full_name = f"{platform_instance}.{key}" if platform_instance else key
         urn = f"urn:li:dataset:(urn:li:dataPlatform:{platform},{full_name},{env})"
         return ExternalRef(
