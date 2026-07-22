@@ -21,6 +21,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import (
     DimensionClass,
+    ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -397,9 +398,14 @@ def test_metric_entities_emitted_with_derived_from_relationships():
     assert revenue_info.aiContext is not None
     assert revenue_info.aiContext.synonyms == ["revenue"]
 
-    # Metrics that don't reference other metrics emit no relationships aspect.
-    assert not _aspects_for(workunits, revenue_urn, MetricRelationshipsClass)
-    assert not _aspects_for(workunits, count_urn, MetricRelationshipsClass)
+    # Metrics that don't reference other metrics still emit metricRelationships,
+    # with an empty derivedFrom and no parentMetric, so hasParentMetric is indexed
+    # as false and they appear as root metrics in the /metrics sidebar.
+    for urn in (revenue_urn, count_urn):
+        relationships = _aspects_for(workunits, urn, MetricRelationshipsClass)
+        assert len(relationships) == 1
+        assert relationships[0].derivedFrom == []
+        assert relationships[0].parentMetric is None
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -718,7 +724,11 @@ def test_derived_from_ignores_qualified_column_matching_metric_name():
         "double_amount", semantic_view.name, _SCHEMA, _DB
     )
 
-    assert not _aspects_for(workunits, double_amount_urn, MetricRelationshipsClass)
+    # The qualified fact reference yields no derived edge, but the aspect is still
+    # emitted with an empty derivedFrom.
+    relationships = _aspects_for(workunits, double_amount_urn, MetricRelationshipsClass)
+    assert len(relationships) == 1
+    assert relationships[0].derivedFrom == []
 
 
 def test_derived_from_ignores_metric_name_inside_string_literal():
@@ -758,7 +768,11 @@ def test_derived_from_ignores_metric_name_inside_string_literal():
         "label_metric", semantic_view.name, _SCHEMA, _DB
     )
 
-    assert not _aspects_for(workunits, label_metric_urn, MetricRelationshipsClass)
+    # The metric name inside the string literal is not a reference, so no derived
+    # edge is produced, but the aspect is still emitted with an empty derivedFrom.
+    relationships = _aspects_for(workunits, label_metric_urn, MetricRelationshipsClass)
+    assert len(relationships) == 1
+    assert relationships[0].derivedFrom == []
 
 
 def test_derived_from_unparseable_expression_yields_no_edges():
@@ -797,7 +811,11 @@ def test_derived_from_unparseable_expression_yields_no_edges():
         "broken_metric", semantic_view.name, _SCHEMA, _DB
     )
 
-    assert not _aspects_for(workunits, broken_metric_urn, MetricRelationshipsClass)
+    # An unparseable expression yields no derived edges, but the aspect is still
+    # emitted with an empty derivedFrom.
+    relationships = _aspects_for(workunits, broken_metric_urn, MetricRelationshipsClass)
+    assert len(relationships) == 1
+    assert relationships[0].derivedFrom == []
     # The parse failure must be diagnosable via the report counter, not silent.
     assert mapper.report.num_semantic_view_metric_expr_parse_failures == 1
 
@@ -1424,6 +1442,8 @@ def test_relationships_populated_with_datasets_matching_model_dataset_names():
     assert relationship.to == "CUSTOMERS"
     assert relationship.fromColumns == ["customer_id"]
     assert relationship.toColumns == ["customer_id"]
+    # FK joins are many-to-one from the referencing side to the referenced side.
+    assert relationship.cardinality == ERModelRelationshipCardinalityClass.N_ONE
 
 
 def test_relationships_omitted_when_none_defined():
@@ -1477,8 +1497,11 @@ def test_join_key_column_collision_does_not_warn():
             ),
         ],
     )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
 
-    list(
+    workunits = list(
         mapper.gen_workunits(
             semantic_view=semantic_view,
             schema_name=_SCHEMA,
@@ -1489,6 +1512,12 @@ def test_join_key_column_collision_does_not_warn():
 
     messages = [w.title for w in mapper.report.warnings]
     assert not any("multiple logical tables" in (m or "") for m in messages)
+
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
+    assert info.relationships is not None
+    assert info.relationships[0].cardinality == (
+        ERModelRelationshipCardinalityClass.N_ONE
+    )
 
 
 def test_primary_key_column_collision_does_not_warn():

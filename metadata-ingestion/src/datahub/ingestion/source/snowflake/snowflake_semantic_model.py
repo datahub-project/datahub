@@ -43,6 +43,7 @@ from datahub.metadata.schema_classes import (
     DialectExpressionClass,
     DimensionClass,
     EdgeClass,
+    ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     MetricExpressionClass,
@@ -207,6 +208,12 @@ class SnowflakeSemanticModelMapper:
                 fromColumns=relationship.from_columns,
                 to=relationship.to_table.upper(),
                 toColumns=relationship.to_columns,
+                # Snowflake semantic-view relationships are foreign-key joins:
+                # from_table(foreign_keys) REFERENCES to_table(ref_keys), which is
+                # many-to-one from the referencing side to the referenced side.
+                # Snowflake exposes no explicit cardinality column in
+                # INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS, so it is derived here.
+                cardinality=ERModelRelationshipCardinalityClass.N_ONE,
             )
             for relationship in semantic_view.relationships
         ]
@@ -431,11 +438,15 @@ class SnowflakeSemanticModelMapper:
         derived_from = self._derived_from_metrics(
             occurrence, metric_occurrences, semantic_view, schema_name, db_name
         )
-        if derived_from:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=metric_urn,
-                aspect=MetricRelationshipsClass(derivedFrom=derived_from),
-            ).as_workunit()
+        # Always emit metricRelationships (even with an empty derivedFrom) so the
+        # hasParentMetric search field is indexed as false. The /metrics sidebar lists
+        # root metrics via hasParentMetric=false; without this aspect the field is never
+        # indexed and no metric appears as a root. Snowflake semantic-view metrics have
+        # no parent metric, so parentMetric is intentionally left unset.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=metric_urn,
+            aspect=MetricRelationshipsClass(derivedFrom=derived_from),
+        ).as_workunit()
 
     def _build_metric_upstreams(
         self, metric_lineages: List[FineGrainedLineageClass]
