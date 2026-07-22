@@ -285,6 +285,8 @@ datacatalog_lineage_common = {
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
     "google-cloud-resource-manager<2.0.0",
+    # Reads metadata EXPORT job output (extraction_method: export) from GCS.
+    "google-cloud-storage>=2.10.0,<4.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }

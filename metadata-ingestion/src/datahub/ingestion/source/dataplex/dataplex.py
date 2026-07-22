@@ -18,7 +18,7 @@ from typing import Dict, Iterable, List, Optional
 import google.auth
 import google.auth.transport.requests
 from google.api_core import exceptions
-from google.cloud import dataplex_v1, resourcemanager_v3
+from google.cloud import dataplex_v1, resourcemanager_v3, storage
 from google.cloud.datacatalog_lineage import LineageClient
 from google.oauth2 import service_account
 
@@ -43,6 +43,12 @@ from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
+)
+from datahub.ingestion.source.dataplex.dataplex_export import (
+    DATAPLEX_API_ROOT,
+    build_authed_session,
+    iter_exported_entries,
+    run_exports,
 )
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
@@ -239,8 +245,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         # Shared context — all processors read/write to this single object.
         self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
 
-        # Catalog client for Entry Groups and Entries extraction
-        self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
+        # Catalog client for Entry Groups and Entries extraction. Not needed in
+        # export mode, where entries arrive pre-fetched from the metadata
+        # export's GCS output instead of per-entry Catalog API calls.
+        self.catalog_client: Optional[dataplex_v1.CatalogServiceClient] = (
+            dataplex_v1.CatalogServiceClient(credentials=credentials)
+            if self.config.extraction_method == "api"
+            else None
+        )
 
         # Initialize redundant lineage run skip handler for stateful lineage ingestion.
         # TODO: Wire this into DataplexLineageExtractor execution flow so lineage API calls
@@ -347,6 +359,36 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
 
+            if config.extraction_method == "export":
+                # Export mode exercises the metadataJobs API on the job runner
+                # project and the export bucket instead of Catalog listing.
+                assert config.export_config is not None
+                session = build_authed_session(credentials)
+                location = config.entries_locations[0]
+                runner_project = config.export_config.export_job_runner_project
+                resp = session.get(
+                    f"{DATAPLEX_API_ROOT}/projects/{runner_project}"
+                    f"/locations/{location}/metadataJobs?pageSize=1"
+                )
+                resp.raise_for_status()
+
+                bucket_name = config.export_config.bucket_for_location(location)
+                storage_client = storage.Client(
+                    project=runner_project, credentials=credentials
+                )
+                if not storage_client.bucket(bucket_name).exists():
+                    test_report.basic_connectivity = CapabilityReport(
+                        capable=False,
+                        failure_reason=(
+                            f"Export bucket '{bucket_name}' for location "
+                            f"'{location}' does not exist or is not accessible."
+                        ),
+                    )
+                    return test_report
+
+                test_report.basic_connectivity = CapabilityReport(capable=True)
+                return test_report
+
             if config.project_ids:
                 project_id: Optional[str] = config.project_ids[0]
             else:
@@ -394,25 +436,62 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         """Return the ingestion report."""
         return self.report
 
+    def _get_entries_workunits_via_export(self) -> Iterable[MetadataWorkUnit]:
+        """Entries stage for ``extraction_method: export``.
+
+        Submits one metadata EXPORT job per entries location, waits for them to
+        finish, then streams the exported JSONL from GCS through the same
+        filter + mapper pipeline as the API path (populating the lineage
+        side-channel identically).
+        """
+        assert self.config.export_config is not None  # enforced by config validation
+        with self.report.new_stage("Submitting Dataplex metadata export jobs"):
+            session = build_authed_session(self._credentials)
+            targets = run_exports(
+                config=self.config,
+                project_ids=self._project_ids,
+                session=session,
+                report=self.report,
+            )
+
+        with self.report.new_stage("Reading Dataplex export output from GCS"):
+            storage_client = storage.Client(
+                project=self.config.export_config.export_job_runner_project,
+                credentials=self._credentials,
+            )
+            for target in targets:
+                entries = iter_exported_entries(
+                    storage_client=storage_client,
+                    target=target,
+                    config=self.config,
+                    report=self.report,
+                )
+                yield from auto_workunit(
+                    self.entries_processor.process_exported_entries(entries)
+                )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        with self.report.new_stage(
-            "Processing entries from Universal Catalog (parallel)"
-        ):
-            try:
-                yield from auto_workunit(
-                    self.entries_processor.process_entries(
-                        project_ids=self._project_ids,
-                        max_workers=self.config.max_workers_entries,
+        if self.config.extraction_method == "export":
+            yield from self._get_entries_workunits_via_export()
+        else:
+            with self.report.new_stage(
+                "Processing entries from Universal Catalog (parallel)"
+            ):
+                try:
+                    yield from auto_workunit(
+                        self.entries_processor.process_entries(
+                            project_ids=self._project_ids,
+                            max_workers=self.config.max_workers_entries,
+                        )
                     )
-                )
-            except exceptions.GoogleAPICallError as exc:
-                self.report.warning(
-                    title="Failed to process Dataplex entries",
-                    message="Error while extracting entries from Universal Catalog.",
-                    context=str(self._project_ids),
-                    exc=exc,
-                )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.warning(
+                        title="Failed to process Dataplex entries",
+                        message="Error while extracting entries from Universal Catalog.",
+                        context=str(self._project_ids),
+                        exc=exc,
+                    )
 
         if self.config.include_glossaries and self.glossary_processor:
             with self.report.new_stage(
