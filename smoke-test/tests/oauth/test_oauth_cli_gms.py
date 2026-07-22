@@ -23,6 +23,8 @@ from requests.exceptions import HTTPError
 
 from datahub.cli.config_utils import load_client_config
 from datahub.configuration.common import OperationalError
+from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -265,13 +267,8 @@ def test_ingest_explicit_static_token_wins_over_env_auth(
 @requires_env_auth
 def test_bare_emitter_explicit_host_uses_env_auth(monkeypatch):
     # The auth path the other tests do not cover: a client constructed with an
-    # EXPLICIT host and no token (how the Airflow hook/listener, GX, Prefect, and
-    # any DataHubGraph(config=...) consumer build it) must pick up env-based OAuth.
-    # Everything else here goes through the sink, load_client_config, or an
-    # explicit config.auth.
-    from datahub.emitter.rest_emitter import DataHubRestEmitter
-    from datahub.emitter.token_provider import TokenProviderAuth
-
+    # EXPLICIT host and no token must pick up env-based OAuth. Everything else
+    # here goes through the sink, load_client_config, or an explicit config.auth.
     _set_env_auth(monkeypatch)
 
     # GMS is guaranteed set by the module-level skipif; assert for the type checker.

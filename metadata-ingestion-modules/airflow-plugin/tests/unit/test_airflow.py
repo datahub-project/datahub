@@ -8,6 +8,7 @@ import pytest
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -161,8 +162,6 @@ def test_rest_hook_emitter_uses_env_oauth(monkeypatch):
     common case for a bare Server Endpoint connection), the emitter's env-OAuth
     fallback (DATAHUB_AUTH_TYPE) must engage instead of leaving the session
     unauthenticated."""
-    from datahub.emitter.token_provider import TokenProviderAuth
-
     monkeypatch.delenv("DATAHUB_GMS_TOKEN", raising=False)
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
