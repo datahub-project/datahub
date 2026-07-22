@@ -1,3 +1,10 @@
+import pytest
+
+# gql lives in the `circuit-breaker` extra, not the base `dev` deps the fast
+# `testQuick` unit gate installs — skip this whole module there rather than fail
+# at collection. It still runs in the integration-tests jobs, which pull the extra.
+pytest.importorskip("gql")
+
 from datahub.api.gql_transport import build_gql_transport
 from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.auth.registry import AuthConfig
