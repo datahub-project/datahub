@@ -43,13 +43,14 @@ public class FeatureFlags {
   private boolean showIngestionPageRedesign = false;
   private boolean ingestionOnboardingRedesignV1 = false;
   private boolean showLineageExpandMore = true;
+  private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;
-  private boolean logicalModelsEnabled = false;
+  private boolean logicalModelsEnabled = true;
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
@@ -58,6 +59,7 @@ public class FeatureFlags {
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
+  private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;

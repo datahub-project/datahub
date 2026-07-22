@@ -16,5 +16,6 @@ public class UsageMetricRegistryManifest {
     private String distinctKey;
     private String valueUnit;
     private String emitWhen;
+    private java.util.List<String> requestApis;
   }
 }

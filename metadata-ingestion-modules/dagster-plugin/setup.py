@@ -54,7 +54,7 @@ base_dev_requirements = {
     "dagster-snowflake >= 0.11.0",
     "dagster-snowflake-pandas >= 0.11.0",
     "coverage>=5.1",
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
