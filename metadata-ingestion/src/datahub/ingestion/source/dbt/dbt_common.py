@@ -104,6 +104,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ChangeAuditStampsClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
@@ -571,6 +573,19 @@ class DBTCommonConfig(
     target_platform_instance: Optional[str] = Field(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
+    emit_target_platform_instance_aspects: bool = Field(
+        default=True,
+        description="When target_platform_instance is set, emit dataPlatformInstance and "
+        "browsePathsV2 aspects for target-platform sibling entities. Without these, a "
+        "target entity that is never ingested directly by the warehouse connector is "
+        "auto-created by the server with a platform-only dataPlatformInstance and a "
+        "name-derived browse path, which surfaces as a duplicate plain-name navigation "
+        "folder and hides the entity from platform-instance filters. browsePathsV2 is "
+        "only written when a DataHub graph connection is available and the entity's "
+        "existing browse path is missing or is a plain name-derived default; "
+        "container-based browse paths written by the warehouse connector are never "
+        "overwritten.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -2985,6 +3000,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for mcp in target_patch.build()
                     )
 
+                # Emit platform-instance metadata for the target entity. If the
+                # target entity is never ingested directly by the warehouse
+                # connector, the server auto-creates it with a platform-only
+                # dataPlatformInstance and a name-derived browse path, which
+                # surfaces as a duplicate plain-name navigation folder and hides
+                # the entity from platform-instance filters.
+                for mcp in self._create_target_platform_instance_mcps(
+                    node, node_datahub_urn
+                ):
+                    yield mcp.as_workunit(is_primary_source=False)
+
                 # This code block is run when we are generating entities of platform type.
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
@@ -3025,6 +3051,69 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to emit target-platform metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
+
+    def _create_target_platform_instance_mcps(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
+
+        Only active when target_platform_instance is configured. The
+        dataPlatformInstance value is identical to what the warehouse connector
+        writes for the same entity, so the upsert is a no-op for entities the
+        warehouse connector owns and a fix for sibling-only "stub" entities.
+        """
+        if not self.config.target_platform_instance:
+            return
+        if not self.config.emit_target_platform_instance_aspects:
+            return
+
+        platform_urn = mce_builder.make_data_platform_urn(self.config.target_platform)
+        instance_urn = mce_builder.make_dataplatform_instance_urn(
+            platform_urn, self.config.target_platform_instance
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node_datahub_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=platform_urn,
+                instance=instance_urn,
+            ),
+        )
+
+        if self._should_write_target_browse_path(node_datahub_urn):
+            path = [BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
+            for segment in (node.database, node.schema):
+                if segment:
+                    path.append(BrowsePathEntryClass(id=segment))
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node_datahub_urn,
+                aspect=BrowsePathsV2Class(path=path),
+            )
+
+    def _should_write_target_browse_path(self, node_datahub_urn: str) -> bool:
+        """Whether it is safe to write a browsePathsV2 aspect for a target entity.
+
+        The warehouse connector is authoritative for browse paths of entities it
+        ingests (container-based, entries are URNs). Overwrite only when the
+        entity has no browse path yet or carries a plain name-derived default
+        (server-generated for auto-created stub entities). Without a graph
+        connection we cannot distinguish the two, so we skip the write.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return False
+        try:
+            existing = graph.get_aspect(node_datahub_urn, BrowsePathsV2Class)
+        except Exception as e:
+            logger.debug(
+                f"Skipping browsePathsV2 for {node_datahub_urn}: failed to read existing aspect: {e}"
+            )
+            return False
+        if existing is None or not existing.path:
+            return True
+        first_entry_id = existing.path[0].id
+        return not first_entry_id.startswith("urn:")
 
     def extract_query_tag_aspects(
         self,
