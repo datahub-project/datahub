@@ -502,7 +502,9 @@ def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") ->
     suffix (see :func:`unique_suffix`) is appended so parallel modules never
     share the URN.
     """
-    return make_dataset_urn(platform=platform, name=f"{name}-{unique_suffix()}", env=env)
+    return make_dataset_urn(
+        platform=platform, name=f"{name}-{unique_suffix()}", env=env
+    )
 
 
 def materialize_unique_dataset(
