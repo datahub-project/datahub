@@ -248,7 +248,7 @@ class BigQueryAdapter(PlatformAdapter):
             if context.temp_table:
                 # A partition/query temp table exists — count it, not the
                 # original table (its size differs from the full table).
-                table_obj: Any = sa.Table(
+                table_obj: sa.Table = sa.Table(
                     context.temp_table,
                     sa.MetaData(),
                     schema=context.temp_schema,
