@@ -181,11 +181,18 @@ def _migrate_single_entity(
     on_conflict: Optional[ConflictStrategy],
     system_metadata: SystemMetadataClass,
     migration_report: MigrationReport,
+    url_map: Optional[Dict[str, str]] = None,
 ) -> None:
     """Migrate a single entity URN to a new URN."""
     new_urn = make_new_urn(src_entity_urn)
     log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
+    # Self-only rewriter for the incoming-reference pass (external referrers).
     rewrite_urn = migration_utils.make_self_urn_rewriter(src_entity_urn, new_urn)
+    # Batch rewriter for the clone path: also rewrites references to *sibling*
+    # entities migrated in the same run (e.g. a co-migrated upstream), which the
+    # eventually-consistent relationship index would miss for this batch.
+    batch_map = url_map or {src_entity_urn: new_urn}
+    clone_rewrite_urn = migration_utils.make_batch_urn_rewriter(batch_map)
 
     # Check if target already exists (for merge mode)
     target_exists = False
@@ -198,7 +205,7 @@ def _migrate_single_entity(
     if target_exists and on_conflict is not None:
         log.info(f"Target {new_urn} exists — merging aspects")
         merged, skipped = merge_entity(
-            src_entity_urn, new_urn, on_conflict, graph, dry_run
+            src_entity_urn, new_urn, on_conflict, graph, dry_run, url_map=batch_map
         )
         migration_report.aspects_merged += merged
         migration_report.conflicts_skipped += skipped
@@ -214,11 +221,12 @@ def _migrate_single_entity(
             dst_urn=new_urn,
             run_id=run_id,
         ):
-            # Rewrite the entity's own self-references inside the aspect body
-            # (e.g. fineGrainedLineages schemaField URNs), driven by the
-            # aspect's relationship/Urn field markers.
+            # Rewrite references inside the aspect body (e.g. fineGrainedLineages
+            # schemaField URNs and upstreamLineage pointers), driven by the
+            # aspect's relationship/Urn field markers. Uses the batch rewriter so
+            # references to co-migrated siblings are also moved to their new URNs.
             if mcp.aspect is not None:
-                transform_urns(mcp.aspect, rewrite_urn)
+                transform_urns(mcp.aspect, clone_rewrite_urn)
             if not dry_run:
                 graph.emit_mcp(mcp)
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
@@ -281,6 +289,10 @@ def _migrate_entities(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
+    # Full old->new map for the whole batch, so each entity's clone rewrites
+    # references to co-migrated siblings (not just its own self-references).
+    url_map = {urn: make_new_urn(urn) for urn in urns_to_migrate}
+
     if not force and not dry_run:
         sampled_urns = random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))
         sampled_new_urns = [make_new_urn(u) for u in sampled_urns]
@@ -305,6 +317,7 @@ def _migrate_entities(
                 on_conflict=on_conflict,
                 system_metadata=system_metadata,
                 migration_report=migration_report,
+                url_map=url_map,
             )
         except Exception as e:
             if skip_on_error:

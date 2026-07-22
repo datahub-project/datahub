@@ -11,6 +11,7 @@ from datahub.cli.migrate import (
 )
 from datahub.cli.migration_utils import (
     ConflictStrategy,
+    make_batch_urn_rewriter,
     make_i2i_chart_urn,
     make_i2i_dashboard_urn,
     make_i2i_dataflow_urn,
@@ -489,3 +490,71 @@ class TestMergeEntityNonDataset:
 
         mock_clone.assert_called_once()
         assert skipped == 0
+
+
+class TestBatchUrnRewriter:
+    """Batch URN rewriter — rewrites references to any entity migrated together.
+
+    Reproduces the co-migration gap: when two linked datasets are migrated in one
+    pass, the migrated downstream's cross-reference to a co-migrated upstream must
+    be rewritten at clone time (not left to the eventually-consistent relationship
+    index, which is stale for siblings created earlier in the same batch).
+    """
+
+    A = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.orders,PROD)"
+    A_NEW = "urn:li:dataset:(urn:li:dataPlatform:mysql,DB.ORDERS,PROD)"
+    B = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.orders_raw,PROD)"
+    B_NEW = "urn:li:dataset:(urn:li:dataPlatform:mysql,DB.ORDERS_RAW,PROD)"
+
+    def _map(self) -> Dict[str, str]:
+        return {self.A: self.A_NEW, self.B: self.B_NEW}
+
+    def test_rewrites_each_entity_urn_in_the_batch(self):
+        rewrite = make_batch_urn_rewriter(self._map())
+        assert rewrite(self.A) == self.A_NEW
+        assert rewrite(self.B) == self.B_NEW
+
+    def test_leaves_urns_outside_the_batch_untouched(self):
+        rewrite = make_batch_urn_rewriter(self._map())
+        other = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.customers,PROD)"
+        assert rewrite(other) == other
+
+    def test_rewrites_schema_field_of_a_sibling(self):
+        rewrite = make_batch_urn_rewriter(self._map())
+        assert (
+            rewrite(f"urn:li:schemaField:({self.B},order_id)")
+            == f"urn:li:schemaField:({self.B_NEW},order_id)"
+        )
+
+    def test_transform_urns_rewrites_cross_reference_to_sibling(self):
+        """The bug: migrating A must rewrite its upstream pointer + CLL to the
+        co-migrated sibling B, not just A's own self-references."""
+        from datahub.emitter.mce_builder import make_schema_field_urn
+        from datahub.metadata.schema_classes import (
+            FineGrainedLineageClass,
+            FineGrainedLineageDownstreamTypeClass,
+            FineGrainedLineageUpstreamTypeClass,
+        )
+        from datahub.utilities.urns.urn_iter import transform_urns
+
+        aspect = UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=self.B, type="TRANSFORMED")],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(self.B, "order_id")],
+                    downstreams=[make_schema_field_urn(self.A, "order_id")],
+                )
+            ],
+        )
+
+        transform_urns(aspect, make_batch_urn_rewriter(self._map()))
+
+        assert aspect.upstreams[0].dataset == self.B_NEW
+        assert aspect.fineGrainedLineages[0].upstreams == [
+            make_schema_field_urn(self.B_NEW, "order_id")
+        ]
+        assert aspect.fineGrainedLineages[0].downstreams == [
+            make_schema_field_urn(self.A_NEW, "order_id")
+        ]

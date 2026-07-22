@@ -139,6 +139,79 @@ class TestMigrateSingleEntity:
         "datahub.cli.migrate.migration_utils.get_incoming_relationships",
         return_value=[],
     )
+    @patch("datahub.cli.migrate.migration_utils.clone_aspect")
+    def test_clone_rewrites_reference_to_co_migrated_sibling(
+        self,
+        mock_clone: MagicMock,
+        mock_rels: MagicMock,
+        mock_delete: MagicMock,
+    ) -> None:
+        """Regression: migrating a downstream must repoint its upstreamLineage +
+        CLL to a sibling migrated in the same batch, without relying on the
+        (eventually-consistent) relationship index."""
+        from datahub.emitter.mce_builder import make_schema_field_urn
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import (
+            FineGrainedLineageClass,
+            FineGrainedLineageDownstreamTypeClass,
+            FineGrainedLineageUpstreamTypeClass,
+            UpstreamClass,
+            UpstreamLineageClass,
+        )
+
+        down_old = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.orders,PROD)"
+        down_new = "urn:li:dataset:(urn:li:dataPlatform:mysql,DB.ORDERS,PROD)"
+        up_old = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.orders_raw,PROD)"
+        up_new = "urn:li:dataset:(urn:li:dataPlatform:mysql,DB.ORDERS_RAW,PROD)"
+
+        aspect = UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=up_old, type="TRANSFORMED")],
+            fineGrainedLineages=[
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(up_old, "order_id")],
+                    downstreams=[make_schema_field_urn(down_old, "order_id")],
+                )
+            ],
+        )
+        mock_clone.return_value = [
+            MetadataChangeProposalWrapper(entityUrn=down_new, aspect=aspect)
+        ]
+
+        deps = self._make_deps(dry_run=False, keep=True)
+        deps["graph"].exists.return_value = False
+        _migrate_single_entity(
+            src_entity_urn=down_old,
+            make_new_urn=lambda _: down_new,
+            platform=None,
+            target_instance=None,
+            dry_run=False,
+            hard=False,
+            keep=True,
+            run_id="test-run",
+            on_conflict=None,
+            url_map={down_old: down_new, up_old: up_new},
+            **deps,
+        )
+
+        emitted = [c.args[0] for c in deps["graph"].emit_mcp.call_args_list]
+        ul = next(
+            a.aspect for a in emitted if isinstance(a.aspect, UpstreamLineageClass)
+        )
+        assert ul.upstreams[0].dataset == up_new
+        assert ul.fineGrainedLineages[0].upstreams == [
+            make_schema_field_urn(up_new, "order_id")
+        ]
+        assert ul.fineGrainedLineages[0].downstreams == [
+            make_schema_field_urn(down_new, "order_id")
+        ]
+
+    @patch("datahub.cli.migrate.delete_cli._delete_one_urn")
+    @patch(
+        "datahub.cli.migrate.migration_utils.get_incoming_relationships",
+        return_value=[],
+    )
     @patch("datahub.cli.migrate.migration_utils.clone_aspect", return_value=[])
     def test_deletes_source_when_not_keep(
         self,
