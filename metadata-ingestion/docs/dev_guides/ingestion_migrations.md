@@ -34,6 +34,7 @@ class MySource(StatefulIngestionSourceBase):
                 id="mysource-0001-lowercase-urns",  # stable & unique; never reuse an id
                 description="Lowercase dataset URNs after the casing fix.",
                 run=self._lowercase_urns,
+                apply_before="1.5.0",  # optional; only needed for data from < 1.5.0
             ),
         ]
 
@@ -65,6 +66,17 @@ def _lowercase_urns(self, graph, report, dry_run):
 `run_transform` discovers **all** matching datasets from the graph for the given `platform` (optionally narrowed to a `platform_instance`) — not just the URNs in the current pipeline's checkpoint state — so a migration reshapes every affected entity regardless of which pipeline produced it. Omit `platform_instance` to cover all instances of the platform.
 
 For aspect-shape changes, fetch the affected aspects and re-emit them in the new shape from within `run`.
+
+## Ordering and version gating
+
+**Ordering** is simply the order of the list returned by `get_migrations()`. Pending migrations run top-to-bottom, sequentially, each recorded on success — so if one migration depends on another, put the dependency earlier. The numeric id prefix (`-0001-`, `-0002-`) is a readability convention only; it is not parsed or sorted on. Append new migrations at the end; never reorder or reuse ids.
+
+**Version gating** (`apply_before`) is optional and answers "is this migration still needed?". A migration is only needed for data produced by versions **before** the fix — once the pipeline's last run was already at or after `apply_before`, the newer code emits the correct shape, so the migration is skipped. Set `apply_before` to the release whose output is correct (usually the release that ships the migration):
+
+- last run `< apply_before` (or unknown) → run the migration;
+- last run `>= apply_before` → skip (data already correct).
+
+If you omit `apply_before`, the migration is gated only by the id ledger (runs exactly once, regardless of version). The last-run version is recorded in the ledger when a migration is applied.
 
 ## Enabling migrations
 

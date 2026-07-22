@@ -11,7 +11,9 @@ checkpoint, keyed per pipeline. Migrations must be idempotent (see design spec).
 
 import logging
 from dataclasses import dataclass
-from typing import Callable, List, Protocol, Set
+from typing import Callable, List, Optional, Protocol, Set
+
+from packaging.version import InvalidVersion, Version
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -44,6 +46,12 @@ class Migration:
     id: str
     description: str
     run: MigrationFn
+    # Optional version gate: the version whose output is already correct (usually
+    # the release that ships this migration). The migration is only needed for
+    # data produced by *earlier* versions, so it is skipped once the pipeline's
+    # last run was already at/after `apply_before` (newer code emits the correct
+    # shape). None => gate on the id ledger only.
+    apply_before: Optional[str] = None
 
 
 class MigrationConfig(ConfigModel):
@@ -54,6 +62,19 @@ class MigrationConfig(ConfigModel):
 
 class MigrationCheckpointState(CheckpointStateBase):
     applied: List[str] = []
+    # The source/CLI version recorded when a migration was last applied. Used by
+    # the optional `apply_before` version gate.
+    last_source_version: Optional[str] = None
+
+
+def _is_superseded(apply_before: Optional[str], last_version: Optional[str]) -> bool:
+    """True when the last run was already at/after `apply_before` (data already correct)."""
+    if not apply_before or not last_version:
+        return False
+    try:
+        return Version(last_version) >= Version(apply_before)
+    except InvalidVersion:
+        return False
 
 
 class MigrationPendingError(Exception):
@@ -63,7 +84,9 @@ class MigrationPendingError(Exception):
 class MigrationLedger(Protocol):
     def read_applied(self) -> Set[str]: ...
 
-    def record(self, migration_id: str) -> None: ...
+    def read_last_version(self) -> Optional[str]: ...
+
+    def record(self, migration_id: str, source_version: Optional[str]) -> None: ...
 
 
 class CheckpointMigrationLedger:
@@ -81,9 +104,11 @@ class CheckpointMigrationLedger:
         self._urn = IngestionCheckpointingProviderBase.get_data_job_urn(
             "datahub", pipeline_name, MIGRATIONS_JOB_ID
         )
-        self._applied: Set[str] = self._read()
+        state = self._read()
+        self._applied: Set[str] = set(state.applied) if state else set()
+        self._last_version: Optional[str] = state.last_source_version if state else None
 
-    def _read(self) -> Set[str]:
+    def _read(self) -> Optional[MigrationCheckpointState]:
         aspect = self.graph.get_latest_timeseries_value(
             entity_urn=self._urn,
             aspect_type=DatahubIngestionCheckpointClass,
@@ -97,19 +122,25 @@ class CheckpointMigrationLedger:
         if checkpoint is not None and isinstance(
             checkpoint.state, MigrationCheckpointState
         ):
-            return set(checkpoint.state.applied)
-        return set()
+            return checkpoint.state
+        return None
 
     def read_applied(self) -> Set[str]:
         return set(self._applied)
 
-    def record(self, migration_id: str) -> None:
+    def read_last_version(self) -> Optional[str]:
+        return self._last_version
+
+    def record(self, migration_id: str, source_version: Optional[str]) -> None:
         self._applied.add(migration_id)
+        self._last_version = source_version
         checkpoint: Checkpoint[MigrationCheckpointState] = Checkpoint(
             job_name=MIGRATIONS_JOB_ID,
             pipeline_name=self.pipeline_name,
             run_id=self.run_id,
-            state=MigrationCheckpointState(applied=sorted(self._applied)),
+            state=MigrationCheckpointState(
+                applied=sorted(self._applied), last_source_version=source_version
+            ),
         )
         aspect = checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**24)
         if aspect is not None:
@@ -124,14 +155,23 @@ def run_migrations(
     graph: DataHubGraph,
     report: SourceReport,
     config: MigrationConfig,
+    current_version: str,
 ) -> None:
     """Apply pending migrations (declared order) before ingestion.
 
-    Pending = migrations whose id is not in the ledger. If disabled, pending
-    migrations are reported (and optionally fail the run) but not applied.
+    Pending = migrations whose id is not in the ledger and whose optional
+    ``apply_before`` version is not already superseded by the last applied version
+    (i.e. still needed for data produced by an earlier version). If disabled,
+    pending migrations are reported (and optionally fail the run) but not
+    applied. ``current_version`` is recorded on each apply.
     """
     applied = ledger.read_applied()
-    pending = [m for m in migrations if m.id not in applied]
+    last_version = ledger.read_last_version()
+    pending = [
+        m
+        for m in migrations
+        if m.id not in applied and not _is_superseded(m.apply_before, last_version)
+    ]
     if not pending:
         return
 
@@ -152,4 +192,4 @@ def run_migrations(
         )
         migration.run(graph, report, config.dry_run)
         if not config.dry_run:
-            ledger.record(migration.id)
+            ledger.record(migration.id, current_version)

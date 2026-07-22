@@ -6,6 +6,7 @@ import pydantic
 from pydantic import BaseModel as GenericModel, model_validator
 from pydantic.fields import Field
 
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
@@ -270,7 +271,12 @@ class StatefulIngestionSourceBase(Source):
             return
         ledger = CheckpointMigrationLedger(graph, pipeline_name, self.ctx.run_id)
         run_migrations(
-            migrations, ledger, graph, self.report, self._migrations_config
+            migrations,
+            ledger,
+            graph,
+            self.report,
+            self._migrations_config,
+            nice_version_name(),
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
