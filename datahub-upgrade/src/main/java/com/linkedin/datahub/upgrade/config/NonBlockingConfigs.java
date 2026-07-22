@@ -7,6 +7,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePath
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
+import com.linkedin.datahub.upgrade.system.dataproducts.BackfillDataProductAssets;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -76,6 +77,17 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.browsePathsV2.batchSize}") final Integer batchSize) {
     return new BackfillBrowsePathsV2(
         opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade backfillDataProductAssets(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.dataProductAssets.enabled}") final boolean enabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+    return new BackfillDataProductAssets(
+        opContext, entityService, searchService, enabled, batchSize);
   }
 
   @Bean

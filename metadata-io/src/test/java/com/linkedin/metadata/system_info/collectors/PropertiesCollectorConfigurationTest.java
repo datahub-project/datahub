@@ -857,6 +857,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.cdcMode",
           "systemUpdate.browsePathsV2.batchSize",
           "systemUpdate.browsePathsV2.enabled",
+          "systemUpdate.dataProductAssets.batchSize",
+          "systemUpdate.dataProductAssets.enabled",
           "systemUpdate.browsePathsV2.reprocess.enabled",
           "systemUpdate.dashboardInfo.batchSize",
           "systemUpdate.dashboardInfo.delayMs",
@@ -920,6 +922,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Additional configuration
           "metadataChangeProposal.consumer.batch.enabled",
           "metadataChangeProposal.consumer.batch.size",
+          "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
           "metadataChangeProposal.sideEffects.dataProductUnset.enabled",
           "metadataChangeProposal.sideEffects.schemaField.enabled",
           "metadataChangeProposal.throttle.components.apiRequests.enabled",
