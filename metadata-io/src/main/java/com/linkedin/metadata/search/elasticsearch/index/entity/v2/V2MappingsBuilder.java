@@ -330,7 +330,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
         subFields.put(
             NGRAM, getPartialNgramConfigWithOverrides(Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
       }
-      subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+      subFields.put(
+          KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
       mappingForField.put(FIELDS, subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put(TYPE, ESUtils.BOOLEAN_FIELD_TYPE);
@@ -383,6 +384,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
