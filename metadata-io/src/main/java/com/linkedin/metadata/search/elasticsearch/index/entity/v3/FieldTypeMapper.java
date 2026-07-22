@@ -317,7 +317,7 @@ public class FieldTypeMapper {
     switch (valueType) {
       case STRING:
       case RICH_TEXT:
-        return getMappingsForKeyword();
+        return getMappingsForKeywordWithIgnoreAbove();
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
       case URN:
@@ -326,7 +326,7 @@ public class FieldTypeMapper {
         return Map.of("type", DOUBLE_FIELD_TYPE);
       default:
         log.debug("LogicalValueType {} not supported, defaulting to keyword", valueType);
-        return getMappingsForKeyword();
+        return getMappingsForKeywordWithIgnoreAbove();
     }
   }
 

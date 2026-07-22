@@ -261,7 +261,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
               LogicalValueType logicalType = getLogicalValueType(property.getValueType());
               switch (logicalType) {
                 case STRING:
-                  mappingForField = getMappingsForKeyword();
+                  mappingForField = getMappingsForKeywordWithIgnoreAbove();
                   break;
                 case RICH_TEXT:
                   mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
@@ -276,7 +276,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
                   break;
                 default:
-                  mappingForField = getMappingsForKeyword();
+                  mappingForField = getMappingsForKeywordWithIgnoreAbove();
                   break;
               }
               return Map.entry(
@@ -376,6 +376,27 @@ public class V2MappingsBuilder implements MappingsBuilder {
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
     // Add keyword subfield without lowercase filter
     mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
+    return mappingForField;
+  }
+
+  /**
+   * Same shape as {@link #getMappingsForKeyword()} (keyword parent + .keyword sub-field) but with
+   * an {@code ignore_above} guard: a value longer than the limit is skipped from the keyword index
+   * (it remains in _source) instead of failing the whole document write on Lucene's 32,766-byte
+   * per-term limit.
+   */
+  private static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
+    Map<String, Object> mappingForField = new HashMap<>();
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
+    mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_MAXLENGTH);
+    // Outer KEYWORD is the sub-field name; the inner KEYWORD is the field type value (both
+    // "keyword").
+    // The sub-field carries the same ignore_above guard, so KEYWORD_TYPE_MAP cannot be reused here.
+    mappingForField.put(
+        FIELDS,
+        ImmutableMap.of(
+            KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_MAXLENGTH)));
     return mappingForField;
   }
 
