@@ -1125,34 +1125,43 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         require a two-pass approach (collect all, sort by depth, then emit), which adds
         complexity for minimal benefit given typical folder counts (~10-100).
         """
-        for folder in self.client.list_folders(page_size=self.config.page_size):
-            folder_id = folder.get("id")
-            if not folder_id:
-                continue
-            logger.info(
-                "Processing folder: folder_id=%s name=%s", folder_id, folder.get("name")
+        try:
+            for folder in self.client.list_folders(page_size=self.config.page_size):
+                folder_id = folder.get("id")
+                if not folder_id:
+                    continue
+                logger.info(
+                    "Processing folder: folder_id=%s name=%s",
+                    folder_id,
+                    folder.get("name"),
+                )
+                owner = folder.get("owner") or {}
+                path = str(folder.get("path") or "")
+                folder_url = str(folder.get("url") or "")
+                parent_path = path.rsplit("/", 1)[0] if "/" in path else ""
+                yield from self._emit_dataset(
+                    name=f"folder.{folder_id}",
+                    description="Omni folder entity.",
+                    custom_properties={
+                        "entityType": "folder",
+                        "folderId": str(folder_id),
+                        "folderPath": path,
+                        "parentFolderPath": parent_path,
+                        "ownerId": str(owner.get("id") or ""),
+                        "ownerName": str(owner.get("name") or ""),
+                        "scope": str(folder.get("scope") or ""),
+                        "url": folder_url,
+                    },
+                    subtype="Folder",
+                    external_url=folder_url or None,
+                )
+                self._folder_dataset_urns.add(self._folder_dataset_urn(folder_id))
+        except Exception as exc:
+            self.report.warning(
+                title="Folders fetch error",
+                message="Failed to fetch folders from Omni API",
+                exc=exc,
             )
-            owner = folder.get("owner") or {}
-            path = str(folder.get("path") or "")
-            folder_url = str(folder.get("url") or "")
-            parent_path = path.rsplit("/", 1)[0] if "/" in path else ""
-            yield from self._emit_dataset(
-                name=f"folder.{folder_id}",
-                description="Omni folder entity.",
-                custom_properties={
-                    "entityType": "folder",
-                    "folderId": str(folder_id),
-                    "folderPath": path,
-                    "parentFolderPath": parent_path,
-                    "ownerId": str(owner.get("id") or ""),
-                    "ownerName": str(owner.get("name") or ""),
-                    "scope": str(folder.get("scope") or ""),
-                    "url": folder_url,
-                },
-                subtype="Folder",
-                external_url=folder_url or None,
-            )
-            self._folder_dataset_urns.add(self._folder_dataset_urn(folder_id))
 
     # ------------------------------------------------------------------
     # _ingest_documents helpers
