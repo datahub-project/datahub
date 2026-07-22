@@ -32,6 +32,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.PropertyCardinality;
@@ -43,6 +44,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -70,7 +72,8 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
   private static final Set<ChangeType> CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT);
+      ImmutableSet.of(
+          ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT, ChangeType.UPDATE);
 
   private static final Set<LogicalValueType> VALID_VALUE_STORED_AS_STRING =
       new HashSet<>(
@@ -88,6 +91,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    * com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator}).
    */
   private boolean dropMissingPropertyValuesWithWarning = false;
+
+  /** Max UTF-8 bytes for string-backed SP values; defaults to Lucene keyword term limit. */
+  private int keywordMaxLength = ESUtils.KEYWORD_MAXLENGTH;
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -121,7 +127,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     toValidate.addAll(patchAddItems);
 
     return validateProposedUpserts(
-        toValidate, aspectRetriever, dropMissingPropertyValuesWithWarning);
+        toValidate, aspectRetriever, dropMissingPropertyValuesWithWarning, keywordMaxLength);
   }
 
   @Override
@@ -139,7 +145,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   public static Stream<AspectValidationException> validateProposedUpserts(
       @Nonnull Collection<BatchItem> mcpItems, @Nonnull AspectRetriever aspectRetriever) {
-    return validateProposedUpserts(mcpItems, aspectRetriever, false);
+    return validateProposedUpserts(mcpItems, aspectRetriever, false, ESUtils.KEYWORD_MAXLENGTH);
   }
 
   /**
@@ -219,6 +225,15 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       @Nonnull Collection<BatchItem> mcpItems,
       @Nonnull AspectRetriever aspectRetriever,
       boolean dropMissingPropertyValuesWithWarning) {
+    return validateProposedUpserts(
+        mcpItems, aspectRetriever, dropMissingPropertyValuesWithWarning, ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean dropMissingPropertyValuesWithWarning,
+      int keywordMaxLength) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
@@ -303,6 +318,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
           validateType(i, propertyUrn, structuredPropertyDefinition, value)
               .ifPresent(exceptions::addException);
           validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
+          validateKeywordByteLength(
+                  i, propertyUrn, structuredPropertyDefinition, value, keywordMaxLength)
               .ifPresent(exceptions::addException);
         }
       }
@@ -429,6 +447,36 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         .map(StructuredPropertyValueAssignment::getPropertyUrn)
         .filter(propertyUrn -> propertyUrn.getEntityType().equals("structuredProperty"))
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Rejects string-backed structured property values whose UTF-8 encoding exceeds the configured
+   * keyword max length (default {@link ESUtils#KEYWORD_MAXLENGTH}). Oversized values otherwise fail
+   * Elasticsearch / OpenSearch indexing with {@code max_bytes_length_exceeded_exception}.
+   */
+  private static Optional<AspectValidationException> validateKeywordByteLength(
+      BatchItem item,
+      Urn propertyUrn,
+      StructuredPropertyDefinition definition,
+      PrimitivePropertyValue value,
+      int keywordMaxLength) {
+    LogicalValueType typeDefinition = getLogicalValueType(definition.getValueType());
+    if (!VALID_VALUE_STORED_AS_STRING.contains(typeDefinition) || value.getString() == null) {
+      return Optional.empty();
+    }
+    int maxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
+    int byteLength = value.getString().getBytes(StandardCharsets.UTF_8).length;
+    if (byteLength > maxLength) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Property: %s, value is %d bytes which exceeds the maximum of %d UTF-8 bytes"
+                      + " for structured property values indexed as Elasticsearch keywords"
+                      + " (structuredProperties.keywordMaxLength)",
+                  propertyUrn, byteLength, maxLength)));
+    }
+    return Optional.empty();
   }
 
   private static Optional<AspectValidationException> validateAllowedValues(

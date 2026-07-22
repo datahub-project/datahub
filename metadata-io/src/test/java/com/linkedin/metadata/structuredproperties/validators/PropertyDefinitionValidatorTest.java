@@ -1,9 +1,12 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -11,12 +14,15 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
@@ -24,9 +30,14 @@ import com.linkedin.structured.PropertyValueArray;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
-import org.testng.annotations.BeforeTest;
+import java.util.Map;
+import java.util.Set;
+import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PropertyDefinitionValidatorTest {
@@ -34,15 +45,21 @@ public class PropertyDefinitionValidatorTest {
   private EntityRegistry entityRegistry;
   private Urn testPropertyUrn;
   private RetrieverContext mockRetrieverContext;
+  private AspectRetriever mockAspectRetriever;
+  private StructuredPropertyMappingLookup mockStructuredPropertyMappingLookup;
 
-  @BeforeTest
-  public void init() {
+  @BeforeMethod
+  public void init() throws IOException {
     entityRegistry = new TestEntityRegistry();
     testPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
-    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
     when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any()))
+        .thenReturn(Collections.emptyMap());
+    mockStructuredPropertyMappingLookup = mock(StructuredPropertyMappingLookup.class);
+    when(mockStructuredPropertyMappingLookup.fieldExists(any())).thenReturn(false);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -533,6 +550,110 @@ public class PropertyDefinitionValidatorTest {
                 mockRetrieverContext)
             .count(),
         1);
+  }
+
+  @Test
+  public void testRejectsElasticsearchFieldNameCollisionWithExistingProperty()
+      throws URISyntaxException, IOException {
+    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition newDefinition =
+        createCollisionTestDefinition("certification_status");
+
+    when(mockStructuredPropertyMappingLookup.fieldExists(eq("certification_status")))
+        .thenReturn(true);
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testAllowsCreateWhenNormalizedNamesDiffer() throws URISyntaxException {
+    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition newDefinition =
+        createCollisionTestDefinition("certification_status");
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testAllowsUpsertOfExistingDefinitionWithoutMappingLookup()
+      throws URISyntaxException, IOException {
+    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition existing = createCollisionTestDefinition("certification_status");
+    StructuredPropertyDefinition updated = createCollisionTestDefinition("certification_status");
+    updated.setDisplayName("updated display");
+
+    when(mockAspectRetriever.getLatestAspectObjects(any(), any()))
+        .thenReturn(
+            Map.of(
+                urn,
+                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(existing.data()))));
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                TestMCP.ofOneMCP(urn, updated, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        0);
+    Mockito.verify(mockStructuredPropertyMappingLookup, Mockito.never()).fieldExists(any());
+  }
+
+  @Test
+  public void testRejectsInBatchElasticsearchFieldCollision() throws URISyntaxException {
+    Urn urnA = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnB = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defA = createCollisionTestDefinition("certification.status");
+    StructuredPropertyDefinition defB = createCollisionTestDefinition("certification_status");
+
+    Set<ChangeMCP> batch = new java.util.HashSet<>();
+    batch.addAll(TestMCP.ofOneMCP(urnA, defA, entityRegistry));
+    batch.addAll(TestMCP.ofOneMCP(urnB, defB, entityRegistry));
+
+    long exceptionCount =
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                batch, mockRetrieverContext, mockStructuredPropertyMappingLookup)
+            .count();
+    assertTrue(exceptionCount >= 1);
+  }
+
+  @Test
+  public void testFailsClosedWhenMappingLookupFails() throws URISyntaxException, IOException {
+    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition newDefinition =
+        createCollisionTestDefinition("certification_status");
+
+    when(mockStructuredPropertyMappingLookup.fieldExists(eq("certification_status")))
+        .thenThrow(new IOException("mapping backend unavailable"));
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        1);
+  }
+
+  private StructuredPropertyDefinition createCollisionTestDefinition(String qualifiedName)
+      throws URISyntaxException {
+    return new StructuredPropertyDefinition()
+        .setEntityTypes(new UrnArray(Urn.createFromString("urn:li:entityType:datahub.dataset")))
+        .setDisplayName(qualifiedName)
+        .setQualifiedName(qualifiedName)
+        .setCardinality(PropertyCardinality.MULTIPLE)
+        .setValueType(Urn.createFromString("urn:li:dataType:datahub.string"));
   }
 
   private StructuredPropertyDefinition createValidPropertyDefinition() throws URISyntaxException {

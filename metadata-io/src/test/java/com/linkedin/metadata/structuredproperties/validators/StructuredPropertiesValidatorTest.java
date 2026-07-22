@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -680,5 +681,215 @@ public class StructuredPropertiesValidatorTest {
                 null)
             .collect(Collectors.toList());
     assertEquals(exceptions.size(), 0);
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertRejectsOversizedValue() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        1,
+        "Should reject string values larger than Lucene keyword max bytes");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertAllowsMaxKeywordBytes() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String atLimit = "a".repeat(ESUtils.KEYWORD_MAXLENGTH);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(atLimit)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        0,
+        "Values exactly at Lucene keyword max bytes should be accepted");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertRejectsOversizedMultibyteValue()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    // 'é' is 2 UTF-8 bytes; enough repeats exceed KEYWORD_MAXLENGTH by byte length while char
+    // length remains under the limit.
+    int charsNeeded = (ESUtils.KEYWORD_MAXLENGTH / 2) + 1;
+    String oversized = "é".repeat(charsNeeded);
+    Assert.assertTrue(oversized.length() <= ESUtils.KEYWORD_MAXLENGTH);
+    Assert.assertTrue(
+        oversized.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+            > ESUtils.KEYWORD_MAXLENGTH);
+
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef))
+            .count(),
+        1,
+        "Should reject values whose UTF-8 byte length exceeds the keyword limit");
+  }
+
+  @Test
+  public void testValidateAspectRichTextUpsertRejectsOversizedValue() throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition richTextPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.rich_text"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    StructuredProperties payload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(oversized)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(payload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, richTextPropertyDef))
+            .count(),
+        1,
+        "Should reject rich text values larger than Lucene keyword max bytes");
+  }
+
+  @Test
+  public void testValidateAspectStringUpsertHonorsConfiguredKeywordMaxLength()
+      throws URISyntaxException {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    int configuredMax = 100;
+    String atConfiguredLimit = "a".repeat(configuredMax);
+    String overConfiguredLimit = "a".repeat(configuredMax + 1);
+
+    StructuredProperties allowedPayload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(atConfiguredLimit)))));
+    StructuredProperties rejectedPayload =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrn)
+                        .setValues(
+                            new PrimitivePropertyValueArray(
+                                PrimitivePropertyValue.create(overConfiguredLimit)))));
+
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(allowedPayload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                configuredMax)
+            .count(),
+        0,
+        "Values at the configured keyword max length should be accepted");
+    assertEquals(
+        StructuredPropertiesValidator.validateProposedUpserts(
+                TestMCP.ofOneUpsertItemDatasetUrn(rejectedPayload, TEST_REGISTRY),
+                new MockAspectRetriever(propertyUrn, stringPropertyDef),
+                false,
+                configuredMax)
+            .count(),
+        1,
+        "Values over the configured keyword max length should be rejected");
+  }
+
+  @Test
+  public void testValidateProposedRejectsOversizedPatchAdd() throws Exception {
+    Urn propertyUrn =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.vendorDetails");
+    StructuredPropertyDefinition stringPropertyDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    String oversized = "a".repeat(ESUtils.KEYWORD_MAXLENGTH + 1);
+    // Escape JSON string content.
+    String addOps =
+        "[{\"op\":\"add\",\"path\":\"/properties/"
+            + propertyUrn
+            + "\",\"value\":{\"propertyUrn\":\""
+            + propertyUrn
+            + "\",\"values\":[{\"string\":\""
+            + oversized
+            + "\"}]}}]";
+
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator()
+            .setKeywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
+            .setConfig(PATCH_TEST_CONFIG);
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposed(
+                List.of(TestPatchMCP.ofProposed(TEST_DATASET_URN, "structuredProperties", addOps)),
+                patchContext(new MockAspectRetriever(propertyUrn, stringPropertyDef)),
+                null)
+            .collect(Collectors.toList());
+    assertEquals(
+        exceptions.size(),
+        1,
+        "Proposed-time PATCH ADD validation should reject oversized string values");
   }
 }
