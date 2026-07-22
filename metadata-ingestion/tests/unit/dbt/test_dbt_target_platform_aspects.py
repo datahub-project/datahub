@@ -7,7 +7,7 @@ name-derived defaults (plain-name browse folder, instance-less
 dataPlatformInstance).
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Type, TypeVar
 from unittest import mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -79,7 +79,10 @@ def target_platform_workunit_aspects(source: DBTCoreSource, node: DBTNode) -> Li
     ]
 
 
-def get_aspect(aspects: List, aspect_type: type):
+T = TypeVar("T")
+
+
+def get_aspect(aspects: List, aspect_type: Type[T]) -> Optional[T]:
     matches = [a for a in aspects if isinstance(a, aspect_type)]
     assert len(matches) <= 1
     return matches[0] if matches else None
