@@ -62,3 +62,31 @@ class TestMigrateWithoutInstance:
 
         assert emitted, "expected the cloned aspect to be emitted"
         assert not any(isinstance(m.aspect, DataPlatformInstanceClass) for m in emitted)
+
+
+class TestRunTransform:
+    @patch("datahub.cli.migrate._migrate_entities")
+    def test_filters_by_should_convert_and_drops_instance(
+        self, mock_migrate: MagicMock
+    ) -> None:
+        from datahub.cli.migrate import run_transform
+        from datahub.cli.migration_utils import LowercaseConverter
+
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = [MIXED, LOWER]  # LOWER already lower
+        run_transform(graph, LowercaseConverter(), "snowflake")
+
+        _, kwargs = mock_migrate.call_args
+        assert kwargs["urns_to_migrate"] == [MIXED]
+        assert kwargs["platform"] is None
+        assert kwargs["target_instance"] is None
+
+    @patch("datahub.cli.migrate._migrate_entities")
+    def test_noop_when_nothing_to_convert(self, mock_migrate: MagicMock) -> None:
+        from datahub.cli.migrate import run_transform
+        from datahub.cli.migration_utils import LowercaseConverter
+
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = [LOWER]
+        run_transform(graph, LowercaseConverter(), "snowflake")
+        mock_migrate.assert_not_called()

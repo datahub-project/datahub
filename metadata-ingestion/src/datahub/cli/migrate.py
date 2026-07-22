@@ -321,6 +321,55 @@ def _migrate_entities(
     return migration_report
 
 
+def run_transform(
+    graph: DataHubGraph,
+    converter: "migration_utils.UrnConverter",
+    platform: str,
+    *,
+    env: str = DEFAULT_ENV,
+    dry_run: bool = False,
+    force: bool = True,
+    hard: bool = False,
+    keep: bool = False,
+    on_conflict: Optional[ConflictStrategy] = None,
+    skip_on_error: bool = False,
+    run_id: Optional[str] = None,
+) -> MigrationReport:
+    """Migrate a platform's datasets under a URN converter (e.g. LowercaseConverter).
+
+    Discovers non-soft-deleted datasets for ``platform``, filters by
+    ``converter.should_convert``, and migrates each under ``converter.convert_urn``
+    using the same aspect/URN-rewriting core as instance2instance (no
+    dataPlatformInstance emit). Reusable from the ``migrate transform`` command
+    and from connector migrations (see get_migrations). ``force`` defaults to
+    True for non-interactive/programmatic use.
+    """
+    run_id = run_id or f"migrate-transform-{converter.name}-{uuid.uuid4()}"
+    all_urns = graph.get_urns_by_filter(
+        platform=platform,
+        env=env,
+        entity_types=["dataset"],
+        status=RemovedStatusFilter.NOT_SOFT_DELETED,
+    )
+    urns = [urn for urn in all_urns if converter.should_convert(urn)]
+    if not urns:
+        return MigrationReport(run_id, dry_run, keep)
+    return _migrate_entities(
+        urns_to_migrate=urns,
+        make_new_urn=converter.convert_urn,
+        platform=None,
+        target_instance=None,
+        dry_run=dry_run,
+        force=force,
+        hard=hard,
+        keep=keep,
+        run_id=run_id,
+        graph=graph,
+        on_conflict=on_conflict,
+        skip_on_error=skip_on_error,
+    )
+
+
 def _migrate_containers(
     env: str,
     platform: str,
@@ -791,36 +840,17 @@ def transform(
     change. Unlike instance2instance, no dataPlatformInstance aspect is emitted.
     """
     conv = migration_utils.CONVERTERS[converter]()
-    conflict = ConflictStrategy(on_conflict)
-    run_id = f"migrate-transform-{conv.name}-{uuid.uuid4()}"
     graph = get_default_graph(ClientMode.CLI)
-
-    all_urns = graph.get_urns_by_filter(
-        platform=platform,
+    report = run_transform(
+        graph,
+        conv,
+        platform,
         env=env,
-        entity_types=["dataset"],
-        status=RemovedStatusFilter.NOT_SOFT_DELETED,
-    )
-    urns = [urn for urn in all_urns if conv.should_convert(urn)]
-    if not urns:
-        click.echo(
-            f"No datasets need '{conv.name}' conversion for platform {platform}."
-        )
-        return
-
-    click.echo(f"Found {len(urns)} datasets to {conv.name}.")
-    report = _migrate_entities(
-        urns_to_migrate=urns,
-        make_new_urn=conv.convert_urn,
-        platform=None,
-        target_instance=None,
         dry_run=dry_run,
         force=force,
         hard=hard,
         keep=keep,
-        run_id=run_id,
-        graph=graph,
-        on_conflict=conflict,
+        on_conflict=ConflictStrategy(on_conflict),
         skip_on_error=skip_on_error,
     )
     click.echo(f"{report}")
