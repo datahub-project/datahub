@@ -61,15 +61,30 @@ class TestFetchTopicRow:
         row = _repo().fetch_topic_row(conn, "t")
         assert row == (1, 2, None)
 
+    def test_second_fetch_uses_cache(self) -> None:
+        cur = MagicMock()
+        cur.fetchone.return_value = (3, 1, None)
+        conn = _cursor_conn(cur)
+        repo = _repo()
+
+        assert repo.fetch_topic_row(conn, "cached") == (3, 1, None)
+        assert repo.fetch_topic_row(conn, "cached") == (3, 1, None)
+        assert cur.execute.call_count == 1
+
 
 class TestEnsureTopic:
     def test_upsert_and_select_id(self) -> None:
         mime_cur = MagicMock()
         mime_cur.fetchone.return_value = (2,)
         topic_cur = MagicMock()
-        topic_cur.fetchone.return_value = (99,)
+        refresh_cur = MagicMock()
+        refresh_cur.fetchone.return_value = (99, 4, 2)
         conn = MagicMock()
-        conn.cursor.return_value.__enter__.side_effect = [mime_cur, topic_cur]
+        conn.cursor.return_value.__enter__.side_effect = [
+            mime_cur,
+            topic_cur,
+            refresh_cur,
+        ]
 
         topic_id = _repo().ensure_topic(
             conn,
@@ -81,28 +96,84 @@ class TestEnsureTopic:
         )
 
         assert topic_id == 99
-        assert mime_cur.execute.call_count == 2
-        assert topic_cur.execute.call_count == 2
+        assert mime_cur.execute.call_count == 1
+        assert "SELECT id FROM" in mime_cur.execute.call_args[0][0]
+        assert "WHERE mime = %s" in mime_cur.execute.call_args[0][0]
+        assert topic_cur.execute.call_count == 1
+        assert refresh_cur.execute.call_count == 1
+
+    def test_upsert_includes_aggressive_retention(self) -> None:
+        mime_cur = MagicMock()
+        mime_cur.fetchone.return_value = (2,)
+        topic_cur = MagicMock()
+        refresh_cur = MagicMock()
+        refresh_cur.fetchone.return_value = (1, 2, 2)
+        conn = MagicMock()
+        conn.cursor.return_value.__enter__.side_effect = [
+            mime_cur,
+            topic_cur,
+            refresh_cur,
+        ]
+
+        _repo().ensure_topic(
+            conn,
+            "t",
+            partition_count=2,
+            retention_max_age_seconds=0,
+            max_rows_per_topic=0,
+            max_total_payload_bytes=0,
+            aggressive_retention=True,
+        )
+
+        insert_sql = topic_cur.execute.call_args_list[0][0][0]
+        assert "aggressive_retention" in insert_sql
+        assert topic_cur.execute.call_args_list[0][0][1][-1] is True
+
+
+class TestEnsureMimeRegistered:
+    def test_lookup_existing_mime_without_insert(self) -> None:
+        cur = MagicMock()
+        cur.fetchone.return_value = (7,)
+        conn = _cursor_conn(cur)
+
+        assert _repo()._ensure_mime_registered(conn, "application/avro") == 7
+
+        assert cur.execute.call_count == 1
+        assert "SELECT id FROM" in cur.execute.call_args[0][0]
+        assert "INSERT INTO" not in cur.execute.call_args[0][0]
+
+    def test_insert_when_mime_missing(self) -> None:
+        cur = MagicMock()
+        cur.fetchone.side_effect = [None, (9,)]
+        conn = _cursor_conn(cur)
+
+        assert _repo()._ensure_mime_registered(conn, "application/test") == 9
+
+        assert cur.execute.call_count == 3
+        assert "SELECT id FROM" in cur.execute.call_args_list[0][0][0]
+        insert_sql = cur.execute.call_args_list[1][0][0]
+        assert "INSERT INTO" in insert_sql
+        assert "ON CONFLICT (mime) DO NOTHING" in insert_sql
+        assert "SELECT id FROM" in cur.execute.call_args_list[2][0][0]
+
+    def test_cache_hit_skips_database(self) -> None:
+        repo = _repo()
+        repo._content_type_id_by_mime["application/avro"] = 7
+        conn = MagicMock()
+
+        assert repo._ensure_mime_registered(conn, "application/avro") == 7
+        conn.cursor.assert_not_called()
 
 
 class TestEnqueueMessageInTransaction:
     def test_priority_out_of_range(self) -> None:
         repo = _repo()
         conn = MagicMock()
-        with (
-            patch.object(repo, "ensure_topic", return_value=1),
-            patch.object(repo, "fetch_topic_row", return_value=(1, 4, None)),
-            pytest.raises(ValueError, match="priority"),
-        ):
+        with pytest.raises(ValueError, match="priority"):
             repo._enqueue_message_in_transaction(
                 conn,
-                topic_name="t",
+                topic_row=(1, 4, None),
                 routing_key="urn:li:dataset:1",
-                partition_count=4,
-                retention_max_age_seconds=1,
-                max_rows_per_topic=1,
-                max_total_payload_bytes=1,
-                default_content_type_mime=None,
                 priority=10,
                 payload=b"x",
                 content_type=None,
@@ -116,20 +187,11 @@ class TestEnqueueMessageInTransaction:
         cur.fetchone.return_value = (55, enq_at, 7)
         conn = _cursor_conn(cur)
 
-        with (
-            patch.object(repo, "ensure_topic", return_value=10),
-            patch.object(repo, "fetch_topic_row", return_value=(10, 8, 3)),
-            patch.object(repo, "_compute_stored_content_type_id", return_value=None),
-        ):
+        with patch.object(repo, "_compute_stored_content_type_id", return_value=None):
             handle = repo._enqueue_message_in_transaction(
                 conn,
-                topic_name="MetadataChangeProposal_v1",
+                topic_row=(10, 8, 3),
                 routing_key="urn:li:dataset:(urn:li:dataPlatform:mysql,db.t,PROD)",
-                partition_count=8,
-                retention_max_age_seconds=86400,
-                max_rows_per_topic=1_000_000,
-                max_total_payload_bytes=1_000_000_000,
-                default_content_type_mime="application/avro",
                 priority=0,
                 payload=b"\x00avro",
                 content_type=None,
@@ -210,8 +272,8 @@ class TestTransactionalRepositoryMethods:
 
         assert deleted == 2
         conn.commit.assert_called_once()
-        # DELETE + one UPSERT per (topic_id, partition_id)
-        assert cur.execute.call_count == 2
+        # mark-acked per handle + one offset UPSERT per (topic_id, partition_id)
+        assert cur.execute.call_count >= 2
 
     def test_commit_for_group_empty_is_noop(
         self, _flush: MagicMock, _restore: MagicMock

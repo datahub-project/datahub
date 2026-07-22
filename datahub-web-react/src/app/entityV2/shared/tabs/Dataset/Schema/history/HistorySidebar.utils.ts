@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -22,11 +24,22 @@ export const PARAM_PROPERTY_VALUES = 'propertyValues';
 // These are the formal type names the backend uses ("Is A", "Has A", etc.),
 // distinct from the UI tab labels ("Contains", "Inherits").
 // ──────────────────────────────────────────────────────────────────────────────
+// Getters, not plain values: the map keys ('Is A', 'Has A', ...) are the backend's own technical
+// relationship-type strings and stay untranslated, but the values are real English words — re-evaluate
+// i18next.t() on every read rather than baking in one language at module-init time.
 export const GLOSSARY_RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
-    'Is A': 'inherited',
-    'Has A': 'contained',
-    'Has Value': 'value',
-    'Is Related To': 'related',
+    get 'Is A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.inherited');
+    },
+    get 'Has A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.contained');
+    },
+    get 'Has Value'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.value');
+    },
+    get 'Is Related To'() {
+        return i18next.t('entity.profile.schema:changeEventString.defaultRelationship');
+    },
 };
 
 // Owner types that don't add useful context in change event display
@@ -51,17 +64,40 @@ export type ChangeCategoryValue = ChangeCategoryType | string;
 
 export type CategoryOption = { value: ChangeCategoryValue; label: string };
 
-export const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
-    { value: ChangeCategoryType.TechnicalSchema, label: 'Schema' },
-    { value: ChangeCategoryType.Documentation, label: 'Documentation' },
-    { value: ChangeCategoryType.Tag, label: 'Tags' },
-    { value: ChangeCategoryType.GlossaryTerm, label: 'Terms' },
-    { value: ChangeCategoryType.Ownership, label: 'Owners' },
-    { value: CATEGORY_DOMAIN, label: 'Domains' },
-    { value: CATEGORY_STRUCTURED_PROPERTY, label: 'Properties' },
-    { value: CATEGORY_APPLICATION, label: 'Applications' },
-    { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
-];
+export function getAllCategoryOptions(): CategoryOption[] {
+    return [
+        {
+            value: ChangeCategoryType.TechnicalSchema,
+            label: i18next.t('entity.profile.schema:historySidebar.categorySchema'),
+        },
+        {
+            value: ChangeCategoryType.Documentation,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryDocumentation'),
+        },
+        { value: ChangeCategoryType.Tag, label: i18next.t('entity.profile.schema:historySidebar.categoryTags') },
+        {
+            value: ChangeCategoryType.GlossaryTerm,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryTerms'),
+        },
+        {
+            value: ChangeCategoryType.Ownership,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryOwners'),
+        },
+        { value: CATEGORY_DOMAIN, label: i18next.t('entity.profile.schema:historySidebar.categoryDomains') },
+        {
+            value: CATEGORY_STRUCTURED_PROPERTY,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryProperties'),
+        },
+        {
+            value: CATEGORY_APPLICATION,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryApplications'),
+        },
+        {
+            value: CATEGORY_ASSET_MEMBERSHIP,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryAssets'),
+        },
+    ];
+}
 
 // Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
 export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
@@ -101,9 +137,10 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
 };
 
 export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
+    const allOptions = getAllCategoryOptions();
     const supported = entityType ? ENTITY_SUPPORTED_CATEGORIES[entityType] : undefined;
-    if (!supported) return ALL_CATEGORY_OPTIONS;
-    return ALL_CATEGORY_OPTIONS.filter((o) => supported.has(o.value));
+    if (!supported) return allOptions;
+    return allOptions.filter((o) => supported.has(o.value));
 }
 
 /**

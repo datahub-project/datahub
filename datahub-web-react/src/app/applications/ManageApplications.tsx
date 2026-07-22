@@ -1,6 +1,7 @@
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -55,6 +56,7 @@ const LoadingBar = styled.div`
 const PAGE_SIZE = 10;
 
 const ManageApplications = () => {
+    const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -93,22 +95,22 @@ const ManageApplications = () => {
     const totalApplications = searchData?.searchAcrossEntities?.total || 0;
 
     if (searchError) {
-        return <Message type="error" content={`Failed to load applications: ${searchError.message}`} />;
+        return <Message type="error" content={t('applications.loadError', { error: searchError.message })} />;
     }
     // Create the Create Application button with proper permissions handling
     const renderCreateApplicationButton = () => {
         if (!canManageApplications) {
             return (
                 <StructuredPopover
-                    title="You do not have permission to create applications"
+                    title={t('applications.noCreatePermissionTooltip')}
                     placement="left"
                     showArrow
                     mouseEnterDelay={0.1}
                     mouseLeaveDelay={0.1}
                 >
-                    <span>
-                        <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
-                            Create Application
+                    <span data-testid="create-application-button">
+                        <Button size="md" color="primary" icon={{ icon: Plus }} disabled>
+                            {t('applications.createButton')}
                         </Button>
                     </span>
                 </StructuredPopover>
@@ -116,8 +118,14 @@ const ManageApplications = () => {
         }
 
         return (
-            <Button onClick={() => setShowCreateApplicationModal(true)} size="md" color="violet" icon={{ icon: Plus }}>
-                Create Application
+            <Button
+                onClick={() => setShowCreateApplicationModal(true)}
+                size="md"
+                color="primary"
+                icon={{ icon: Plus }}
+                data-testid="create-application-button"
+            >
+                {t('applications.createButton')}
             </Button>
         );
     };
@@ -127,13 +135,13 @@ const ManageApplications = () => {
             {searchLoading && <LoadingBar />}
 
             <HeaderContainer>
-                <PageTitle title="Manage Applications" subTitle="Create and edit applications" />
+                <PageTitle title={t('applications.pageTitle')} subTitle={t('applications.pageSubtitle')} />
                 {renderCreateApplicationButton()}
             </HeaderContainer>
 
             <SearchContainer>
                 <SearchBar
-                    placeholder="Search applications..."
+                    placeholder={t('applications.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e)}
                     id="application-search-input"

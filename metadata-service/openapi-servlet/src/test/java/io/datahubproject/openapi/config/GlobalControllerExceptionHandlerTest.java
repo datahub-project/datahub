@@ -8,6 +8,9 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -163,7 +166,13 @@ public class GlobalControllerExceptionHandlerTest {
 
   @Test
   public void testHandleThrottleExceptionWithDuration() {
-    APIThrottleException ex = new APIThrottleException(5000L, "Too many requests");
+    APIThrottleException ex =
+        new APIThrottleException(
+            5000L,
+            "Too many requests",
+            "MCL_VERSIONED_LAG",
+            ThrottleMechanismType.INGEST,
+            ThrottleResponseSource.METADATA_WRITE);
 
     ResponseEntity<Map<String, String>> response =
         GlobalControllerExceptionHandler.handleThrottleException(ex);
@@ -174,7 +183,10 @@ public class GlobalControllerExceptionHandlerTest {
 
     HttpHeaders headers = response.getHeaders();
     assertNotNull(headers);
-    assertEquals(headers.getFirst(HttpHeaders.RETRY_AFTER), "5");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.RETRY_AFTER), "5");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.TYPE), "ingest");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.SOURCE), "metadata-write");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.RULE), "MCL_VERSIONED_LAG");
   }
 
   @Test
@@ -189,7 +201,9 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(response.getBody().get("error"), "Too many requests");
 
     HttpHeaders headers = response.getHeaders();
-    assertNull(headers.getFirst(HttpHeaders.RETRY_AFTER));
+    assertNull(headers.getFirst(ThrottleResponseHeaders.RETRY_AFTER));
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.TYPE), "ingest");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.SOURCE), "metadata-write");
   }
 
   @Test

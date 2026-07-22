@@ -115,4 +115,13 @@ record CorpUserInfo includes CustomProperties {
   }
   system: optional boolean = false
 
+  /**
+   * Whether the corpUser is a support user authenticated through the support OIDC flow.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN",
+    "queryByDefault": false
+  }
+  isSupportUser: optional boolean
+
 }

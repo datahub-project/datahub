@@ -1,5 +1,6 @@
 import { Pagination } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entity/Entity';
@@ -167,6 +168,7 @@ export const SearchResults = ({
     previewType,
     onCardClick,
 }: Props) => {
+    const { t } = useTranslation('search');
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
@@ -248,18 +250,22 @@ export const SearchResults = ({
                                             )}
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>
-                                                    Showing{' '}
-                                                    <b>
-                                                        {lastResultIndex > 0 ? (page - 1) * numResultsPerPage + 1 : 0} -{' '}
-                                                        {lastResultIndex}
-                                                    </b>{' '}
-                                                    of{' '}
-                                                    <b>
-                                                        {totalResults >= 10000
-                                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                                            : formatNumberWithoutAbbreviation(totalResults)}
-                                                    </b>{' '}
-                                                    results
+                                                    <Trans
+                                                        t={t}
+                                                        i18nKey="results.showingCount"
+                                                        values={{
+                                                            start:
+                                                                lastResultIndex > 0
+                                                                    ? (page - 1) * numResultsPerPage + 1
+                                                                    : 0,
+                                                            end: lastResultIndex,
+                                                            total:
+                                                                totalResults >= 10000
+                                                                    ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                                    : formatNumberWithoutAbbreviation(totalResults),
+                                                        }}
+                                                        components={{ bold: <b /> }}
+                                                    />
                                                 </LeftControlsContainer>
                                             </PaginationInfoContainer>
                                             <SearchResultList

@@ -52,6 +52,11 @@ class SchemaResolverInterface(Protocol):
     @property
     def platform(self) -> str: ...
 
+    # Declared as a settable attribute (not a read-only property like `platform`)
+    # because implementers assign it in __init__; a Protocol property would
+    # install a read-only descriptor and break those assignments.
+    platform_instance: Optional[str]
+
     def includes_temp_tables(self) -> bool: ...
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]: ...
@@ -147,6 +152,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         return urn, None
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve a table to its URN and (best-effort) schema.
+
+        Contract: the returned URN is **best-effort and always non-None** — on a
+        cache/graph miss a *synthesized* URN is still returned. The resolution
+        signal is the **second element**: ``SchemaInfo is None`` means the table
+        was not found in DataHub. Callers deciding whether a table actually
+        exists must test the ``SchemaInfo``, never ``urn is None``.
+        """
         urn = self.get_urn_for_table(table)
         urn_lower = self.get_urn_for_table(table, lower=True)
         # Our treatment of platform instances when lowercasing urns
@@ -231,6 +244,23 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self._track_cache_miss()
 
         return (urn_lower if self._prefers_urn_lower() else urn), None
+
+    def resolve_table_parts(
+        self,
+        *,
+        database: Optional[str],
+        db_schema: Optional[str],
+        table: str,
+    ) -> Tuple[str, Optional[SchemaInfo]]:
+        """Resolve catalog/schema/table parts to a URN without importing _TableName.
+
+        Same contract as :meth:`resolve_table`: the URN is always non-None
+        (synthesized on a miss); test the returned ``SchemaInfo`` (2nd element)
+        to tell whether the table was actually found.
+        """
+        return self.resolve_table(
+            _TableName(database=database, db_schema=db_schema, table=table)
+        )
 
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
@@ -345,6 +375,7 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
     ):
         self._base_resolver = base_resolver
         self._extra_schemas = extra_schemas
+        self.platform_instance = base_resolver.platform_instance
 
     @property
     def platform(self) -> str:

@@ -286,6 +286,102 @@ def test_field_tags_patch(patch_dataset):
     assert len(field_info.globalTags.tags) == 0
 
 
+def test_field_tag_patch_on_new_field_preserves_fieldpath(patch_dataset):
+    """Patch-add a field tag with no pre-existing editableSchemaMetadata entry.
+
+    The field is created from the patch path alone, so fieldPath comes only from the
+    map key. Pre-fix GMS rejected this with HTTP 422 (fieldPath is required).
+    """
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"new_field_{uuid.uuid4().hex[:8]}"
+    new_tag_urn = make_tag_urn(tag=f"testTag-{uuid.uuid4()}")
+
+    for patch_mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_tag(TagAssociationClass(tag=new_tag_urn))
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info, "patch must create the field entry"
+    assert field_info.fieldPath == field_path
+    assert field_info.globalTags is not None
+    assert [t.tag for t in field_info.globalTags.tags] == [new_tag_urn]
+
+
+def test_field_term_patch_on_new_field_preserves_fieldpath(patch_dataset):
+    """Patch-add a field term with no pre-existing editableSchemaMetadata entry (see tag variant)."""
+    graph_client, dataset_urn = patch_dataset
+    field_path = f"new_field_{uuid.uuid4().hex[:8]}"
+    new_term = GlossaryTermAssociationClass(urn=make_term_urn(f"test-{uuid.uuid4()}"))
+
+    for patch_mcp in (
+        DatasetPatchBuilder(dataset_urn)
+        .for_field(field_path)
+        .add_term(new_term)
+        .parent()
+        .build()
+    ):
+        graph_client.emit_mcp(patch_mcp)
+
+    field_info = get_field_info(graph_client, dataset_urn, field_path)
+    assert field_info, "patch must create the field entry"
+    assert field_info.fieldPath == field_path
+    assert field_info.glossaryTerms is not None
+    assert [t.urn for t in field_info.glossaryTerms.terms] == [new_term.urn]
+
+
+def test_field_patch_multiple_new_fields_merges_with_existing(patch_dataset):
+    """The enrichment shape: one patch adds tag+term to several new fields while an
+    existing curated field is left untouched. Exercises per-map-entry fieldPath
+    re-injection and merge-without-clobber.
+    """
+    graph_client, dataset_urn = patch_dataset
+    existing_field = "kept.field"
+    field_a = f"new_a_{uuid.uuid4().hex[:8]}"
+    field_b = f"new_b_{uuid.uuid4().hex[:8]}"
+    tag_a = make_tag_urn(tag=f"tagA-{uuid.uuid4()}")
+    tag_b = make_tag_urn(tag=f"tagB-{uuid.uuid4()}")
+    term_a = GlossaryTermAssociationClass(urn=make_term_urn(f"termA-{uuid.uuid4()}"))
+    term_b = GlossaryTermAssociationClass(urn=make_term_urn(f"termB-{uuid.uuid4()}"))
+
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=EditableSchemaMetadataClass(
+                [
+                    EditableSchemaFieldInfoClass(
+                        fieldPath=existing_field, description="curated by a steward"
+                    )
+                ]
+            ),
+        )
+    )
+
+    builder = DatasetPatchBuilder(dataset_urn)
+    builder.for_field(field_a).add_tag(TagAssociationClass(tag=tag_a)).add_term(term_a)
+    builder.for_field(field_b).add_tag(TagAssociationClass(tag=tag_b)).add_term(term_b)
+    for patch_mcp in builder.build():
+        graph_client.emit_mcp(patch_mcp)
+
+    kept = get_field_info(graph_client, dataset_urn, existing_field)
+    assert kept and kept.description == "curated by a steward", (
+        "existing curated field must survive the merge"
+    )
+
+    for fp, tag, term in ((field_a, tag_a, term_a), (field_b, tag_b, term_b)):
+        info = get_field_info(graph_client, dataset_urn, fp)
+        assert info, f"new field {fp} must be created"
+        assert info.fieldPath == fp
+        assert info.globalTags and [t.tag for t in info.globalTags.tags] == [tag]
+        assert info.glossaryTerms and [t.urn for t in info.glossaryTerms.terms] == [
+            term.urn
+        ]
+
+
 def get_custom_properties(
     graph: DataHubGraph, dataset_urn: str
 ) -> Optional[Dict[str, str]]:

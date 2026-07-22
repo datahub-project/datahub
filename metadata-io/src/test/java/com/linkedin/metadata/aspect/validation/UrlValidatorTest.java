@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -64,6 +65,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -90,6 +92,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -116,6 +119,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -142,6 +146,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -168,6 +173,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -194,6 +200,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -220,6 +227,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -246,6 +254,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -272,6 +281,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -298,6 +308,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -324,6 +335,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -350,6 +362,7 @@ public class UrlValidatorTest {
     assertEquals(
         validator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -394,6 +407,7 @@ public class UrlValidatorTest {
     assertEquals(
         httpValidator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -424,6 +438,7 @@ public class UrlValidatorTest {
     assertEquals(
         customValidator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -454,6 +469,7 @@ public class UrlValidatorTest {
     assertEquals(
         customValidator
             .validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)

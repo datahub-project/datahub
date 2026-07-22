@@ -1,16 +1,11 @@
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
-import {
-    CronSchedule,
-    FixedIntervalSchedule,
-    FreshnessAssertionInfo,
-    FreshnessAssertionScheduleType,
-    FreshnessAssertionType,
-} from '@types';
+import { CronSchedule, FreshnessAssertionInfo, FreshnessAssertionScheduleType, FreshnessAssertionType } from '@types';
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
@@ -24,57 +19,55 @@ const getCronAsLabel = (cronSchedule: CronSchedule) => {
     }
     return `${removeTimePrefix(cronToString(cron).toLocaleLowerCase())} (${timezone})`;
 };
-export const createCronText = (cronSchedule: CronSchedule) => {
-    return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
-};
-
-export const createFixedIntervalText = (
-    fixedIntervalSchedule?: FixedIntervalSchedule | null,
-    monitorSchedule?: Maybe<CronSchedule>,
-) => {
-    if (!fixedIntervalSchedule) {
-        return 'No interval found!';
-    }
-    const { multiple, unit } = fixedIntervalSchedule;
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
-};
-
-export const createSinceTheLastCheckText = (monitorSchedule?: Maybe<CronSchedule>) => {
-    const cronText = monitorSchedule ? `, as of ${getCronAsLabel(monitorSchedule)}` : '';
-    return `since the previous check${cronText}.`;
-};
 
 /**
  * A human-readable description of an Freshness Assertion.
+ *
+ * Each (freshness type × schedule type) combination maps to a single full-sentence translation key so
+ * translators control the word order of the whole sentence. Dynamic, non-translatable values (interval
+ * size, time unit, library-generated cron labels) are interpolated as opaque slots.
  */
 export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const scheduleType = assertionInfo.schedule?.type;
-    const freshnessType = assertionInfo.type;
+    const prefix = assertionInfo.type === FreshnessAssertionType.DatasetChange ? 'datasetChange' : 'dataTask';
+    const cronLabel = monitorSchedule ? getCronAsLabel(monitorSchedule) : '';
 
-    let scheduleText = '';
+    let scheduleText: string;
     switch (scheduleType) {
-        case FreshnessAssertionScheduleType.FixedInterval:
-            scheduleText = createFixedIntervalText(assertionInfo.schedule?.fixedInterval, monitorSchedule);
+        case FreshnessAssertionScheduleType.FixedInterval: {
+            const fixedInterval = assertionInfo.schedule?.fixedInterval;
+            if (!fixedInterval) {
+                scheduleText = t(`freshnessDescription.${prefix}.noInterval`);
+            } else {
+                const values = {
+                    multiple: fixedInterval.multiple,
+                    unit: `${fixedInterval.unit.toLocaleLowerCase()}s`,
+                    schedule: cronLabel,
+                };
+                scheduleText = monitorSchedule
+                    ? t(`freshnessDescription.${prefix}.fixedIntervalWithCron`, values)
+                    : t(`freshnessDescription.${prefix}.fixedInterval`, values);
+            }
             break;
+        }
         case FreshnessAssertionScheduleType.Cron:
-            scheduleText = createCronText(assertionInfo.schedule?.cron as any);
+            scheduleText = t(`freshnessDescription.${prefix}.cron`, {
+                schedule: getCronAsLabel(assertionInfo.schedule?.cron as CronSchedule),
+            });
             break;
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
-            scheduleText = createSinceTheLastCheckText(monitorSchedule);
+            scheduleText = monitorSchedule
+                ? t(`freshnessDescription.${prefix}.sinceLastCheckWithCron`, { schedule: cronLabel })
+                : t(`freshnessDescription.${prefix}.sinceLastCheck`);
             break;
         default:
-            scheduleText = 'within an unrecognized schedule window.';
+            scheduleText = t(`freshnessDescription.${prefix}.unknown`);
             break;
     }
     return (
         <div>
-            <Typography.Text>
-                {freshnessType === FreshnessAssertionType.DatasetChange
-                    ? 'Table was updated '
-                    : 'Data Task is run successfully '}
-                {scheduleText}
-            </Typography.Text>
+            <Typography.Text>{scheduleText}</Typography.Text>
         </div>
     );
 };

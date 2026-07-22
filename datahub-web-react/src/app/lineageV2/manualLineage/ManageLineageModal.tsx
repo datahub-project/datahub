@@ -1,5 +1,6 @@
 import { message } from 'antd';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,7 +11,6 @@ import { buildUpdateLineagePayload } from '@app/lineageV2/manualLineage/buildUpd
 import { recordAnalyticsEvents } from '@app/lineageV2/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV2/manualLineage/updateNodeContext';
 import { getValidEntityTypes } from '@app/lineageV2/manualLineage/utils';
-import { toTitleCase } from '@app/lineageV3/utils/toTitleCase';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
@@ -73,6 +73,9 @@ interface Props {
 }
 
 export default function ManageLineageModal({ node, direction, closeModal, refetch }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
+    const { t: tcFeedback } = useTranslation('common.feedback');
     const nodeContext = useContext(LineageNodesContext);
     const expandOneLevel = useOnClickExpandLineage(node.urn, node.type, direction, false);
     const { user } = useUserContext();
@@ -109,7 +112,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success('Updated lineage, refetching graph!');
+                    message.success(t('manualLineage.updateLineageSuccess'));
                     updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
                     refetch?.();
 
@@ -125,12 +128,13 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 }
             })
             .catch((error) => {
-                message.error(error.message || 'Error updating lineage');
+                message.error(error.message || t('manualLineage.updateLineageError'));
                 setIsSaving(false);
             });
     }
 
-    const directionTitle = toTitleCase(direction.toLocaleLowerCase());
+    const setDirectionsText =
+        direction === LineageDirection.Upstream ? t('manualLineage.setUpstreams') : t('manualLineage.setDownstreams');
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
@@ -140,32 +144,42 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         }
     };
 
+    const buttons = useMemo(
+        () => [
+            {
+                text: tcAction('cancel'),
+                variant: 'text' as const,
+                onClick: onCancelSelect,
+                key: 'cancel',
+            },
+            {
+                text: isSaving ? tcFeedback('saving') : setDirectionsText,
+                onClick: saveLineageChanges,
+                disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
+                key: 'save',
+            },
+        ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [isSaving, setDirectionsText, entitiesToAdd.length, entitiesToRemove.length],
+    );
+
     return (
         <ClickOutside onClickOutside={onCancelSelect} wrapperClassName="search-select-modal">
             <StyledModal
-                title={`Select the ${directionTitle}s to add to ${node.entity?.name}`}
+                title={
+                    direction === LineageDirection.Upstream
+                        ? t('manualLineage.modalTitleUpstream', { entityName: node.entity?.name })
+                        : t('manualLineage.modalTitleDownstream', { entityName: node.entity?.name })
+                }
                 width={MODAL_WIDTH_PX}
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
-                buttons={[
-                    {
-                        text: 'Cancel',
-                        variant: 'text',
-                        onClick: onCancelSelect,
-                        key: 'cancel',
-                    },
-                    {
-                        text: isSaving ? 'Saving...' : `Set ${directionTitle}s`,
-                        onClick: saveLineageChanges,
-                        disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
-                        key: 'save',
-                    },
-                ]}
+                buttons={buttons}
             >
                 <ModalContentContainer>
                     <SearchSection>
-                        <SectionHeader>Search and Add</SectionHeader>
+                        <SectionHeader>{t('manualLineage.searchAndAddHeader')}</SectionHeader>
                         <ScrollableContent>
                             <SearchSelect
                                 fixedEntityTypes={Array.from(validEntityTypes)}
@@ -175,7 +189,11 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                         </ScrollableContent>
                     </SearchSection>
                     <CurrentSection>
-                        <SectionHeader>Current {directionTitle}s</SectionHeader>
+                        <SectionHeader>
+                            {direction === LineageDirection.Upstream
+                                ? t('manualLineage.currentUpstreamsHeader')
+                                : t('manualLineage.currentDownstreamsHeader')}
+                        </SectionHeader>
                         <ScrollableContent>
                             <LineageEdges
                                 parentUrn={node.urn}
@@ -196,10 +214,10 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     setShowConfirmationModal(false);
                 }}
                 handleConfirm={closeModal}
-                modalTitle="Exit Lineage Management"
-                modalText={`Are you sure you want to exit? ${
-                    entitiesToAdd.length + entitiesToRemove.length
-                } change(s) will be cleared.`}
+                modalTitle={t('manualLineage.exitConfirmTitle')}
+                modalText={t('manualLineage.exitConfirmText', {
+                    count: entitiesToAdd.length + entitiesToRemove.length,
+                })}
             />
         </ClickOutside>
     );

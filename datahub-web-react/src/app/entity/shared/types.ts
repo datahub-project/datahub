@@ -23,6 +23,7 @@ import {
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
+    Entity,
     EntityLineageResult,
     EntityPrivileges,
     EntityRelationshipsResult,
@@ -86,6 +87,9 @@ export type GenericEntityProperties = {
     domain?: Maybe<DomainAssociation>;
     applications?: Maybe<ApplicationAssociation[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
@@ -179,6 +183,7 @@ export type EntityContextType = {
     updateEntity?: UpdateEntityType<any> | null;
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
+    refetchForms?: () => Promise<any>;
     lineage?: FetchedEntity | undefined;
     shouldRefetchEmbeddedListSearch?: boolean;
     setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;

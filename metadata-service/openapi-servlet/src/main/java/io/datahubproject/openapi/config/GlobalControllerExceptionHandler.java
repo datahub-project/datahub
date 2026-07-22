@@ -4,11 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaderWriter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
@@ -90,9 +94,9 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       APIThrottleException e) {
 
     HttpHeaders headers = new HttpHeaders();
-    if (e.getDurationMs() >= 0) {
-      headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getDurationSeconds()));
-    }
+    ThrottleResponseHeaderWriter.createDenialHeaders(
+            e.getRuleId(), e.getMechanismType(), e.getSource(), e.getDurationMs())
+        .forEach(headers::add);
 
     return new ResponseEntity<>(
         Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);
@@ -167,6 +171,9 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       @Nullable Exception ex, HttpServletRequest request, HttpServletResponse response)
       throws IOException {
     log.error("Error while resolving request: {}", request.getRequestURI(), ex);
+    if (ex != null) {
+      recordErrorOnSpan(ex, HttpStatus.INTERNAL_SERVER_ERROR.value());
+    }
     request.setAttribute("jakarta.servlet.error.exception", ex);
     response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value());
   }
@@ -222,6 +229,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     }
 
     log.error("Unhandled exception occurred for request: {}", request.getRequestURI(), e);
+    recordErrorOnSpan(e, HttpStatus.INTERNAL_SERVER_ERROR.value());
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
   }
@@ -251,5 +259,22 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
         Map.of(
             "error", "Invalid GraphQL syntax", "message", sanitizeExceptionMessage(e.getMessage())),
         HttpStatus.BAD_REQUEST);
+  }
+
+  /**
+   * Stamps the current trace span with the error type and status so a failed request is diagnosable
+   * in traces. Deliberately omits the exception message — messages can carry user input / internal
+   * detail (the same CWE-200 concern {@link #sanitizeExceptionMessage} guards against), and traces
+   * are a lower-trust store than the sanitized HTTP response. Type + status are low-cardinality and
+   * safe.
+   */
+  private static void recordErrorOnSpan(@Nonnull final Throwable ex, final int statusCode) {
+    final Span span = Span.current();
+    if (!span.getSpanContext().isValid()) {
+      return;
+    }
+    span.setStatus(StatusCode.ERROR);
+    span.setAttribute("error.type", ex.getClass().getSimpleName());
+    span.setAttribute("http.response.status_code", (long) statusCode);
   }
 }

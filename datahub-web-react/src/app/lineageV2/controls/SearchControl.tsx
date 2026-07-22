@@ -1,14 +1,19 @@
-import { SearchOutlined } from '@ant-design/icons';
 import { Button } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
 
+import { InputContainer, InputField } from '@components/components/Input/components';
+
+import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
+import { LINEAGE_CONTROL_ICON_WEIGHT } from '@app/lineage/controls/constants';
+import { getWrappedIndex } from '@app/lineage/controls/lineageControlsUtils';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
 
@@ -16,54 +21,56 @@ const StyledPanel = styled(Panel)`
     margin-top: 20px;
 `;
 
-const StyledInput = styled(Input)<{ width: number }>`
-    min-width: 50px;
-    min-height: 50px;
-    width: ${({ width }) => width}px;
-
+const SearchRow = styled.div<{ $width: number }>`
     display: flex;
     align-items: center;
-    justify-content: center;
-
-    font-size: 14px;
-
-    border-color: ${(props) => props.theme.colors.border} !important;
-    box-shadow: none !important;
+    gap: 4px;
+    width: ${({ $width }) => $width}px;
 `;
 
-const ClosedSearchIcon = styled(SearchOutlined)`
-    margin-left: 5px;
-    font-size: 16px;
+const SearchBox = styled(InputContainer)<{ $isOpen: boolean }>`
+    min-width: 50px;
+    min-height: 50px;
+    height: 50px;
+    width: ${({ $isOpen }) => ($isOpen ? 'auto' : '50px')};
+    flex: ${({ $isOpen }) => ($isOpen ? '1' : '0 0 50px')};
+    padding: ${({ $isOpen }) => ($isOpen ? '0 12px' : '0')};
+    cursor: text;
+    justify-content: ${({ $isOpen }) => ($isOpen ? 'flex-start' : 'center')};
 `;
 
-const OpenSearchIcon = styled(SearchOutlined)`
-    color: ${(props) => props.theme.colors.textPlaceholder};
+const SearchInputField = styled(InputField)<{ $isOpen: boolean }>`
+    width: ${({ $isOpen }) => ($isOpen ? '100%' : '0')};
+    min-width: 0;
+    padding: ${({ $isOpen }) => ($isOpen ? undefined : '0')};
+    opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
+    pointer-events: ${({ $isOpen }) => ($isOpen ? 'auto' : 'none')};
 `;
 
-const VerticalDivider = styled.hr<{ margin: number }>`
+const VerticalDivider = styled.div<{ $margin: number }>`
     align-self: stretch;
-    height: auto;
-    margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid ${(props) => props.theme.colors.border};
-    vertical-align: text-top;
+    width: 0.5px;
+    margin: 0 ${({ $margin }) => $margin}px;
+    background-color: ${(props) => props.theme.colors.border};
 `;
 
 export default function SearchControl() {
+    const { t } = useTranslation('lineage');
     const { searchQuery, setSearchQuery, setSearchedEntity } = useContext(LineageVisualizationContext);
     const [isFocused, setIsFocused] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
 
-    const inputRef = useRef<InputRef>(null);
     useCaptureKeyboardSearch(inputRef, setIsFocused);
 
     const matchedNodes = useComputeMatchedNodes();
     const searchIndex = useAssignSearchedEntity(matchedNodes);
 
     const prev = useCallback(
-        () => setSearchedEntity(matchedNodes[(searchIndex - 1 + matchedNodes.length) % matchedNodes.length]),
+        () => setSearchedEntity(matchedNodes[getWrappedIndex(searchIndex, -1, matchedNodes.length)]),
         [matchedNodes, searchIndex, setSearchedEntity],
     );
     const next = useCallback(
-        () => setSearchedEntity(matchedNodes[(searchIndex + 1) % matchedNodes.length]),
+        () => setSearchedEntity(matchedNodes[getWrappedIndex(searchIndex, 1, matchedNodes.length)]),
         [matchedNodes, searchIndex, setSearchedEntity],
     );
 
@@ -75,36 +82,67 @@ export default function SearchControl() {
     }, [setSearchQuery]);
     useCaptureEscape(isOpen, close);
 
+    const openSearch = useCallback(() => {
+        setIsFocused(true);
+        setTimeout(() => inputRef.current?.focus(), 0);
+    }, []);
+
     return (
         <StyledPanel position="top-left">
-            <StyledInput
-                ref={inputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onPressEnter={(e) => {
-                    if (e.shiftKey) prev();
-                    else next();
+            <SearchRow
+                $width={isOpen ? 330 : 50}
+                onFocusCapture={() => setIsFocused(true)}
+                onBlurCapture={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                        setIsFocused(false);
+                    }
                 }}
-                placeholder={isOpen ? 'Search Graph' : undefined}
-                width={isOpen ? 330 : 40}
-                prefix={isOpen ? <OpenSearchIcon /> : <ClosedSearchIcon />}
-                suffix={
-                    isOpen &&
-                    searchQuery && (
-                        <>
-                            <span>
-                                {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
-                            </span>
-                            <VerticalDivider margin={8} />
-                            <Button icon={{ icon: CaretUp }} variant="outline" size="sm" onClick={prev} />
-                            <Button icon={{ icon: CaretDown }} variant="outline" size="sm" onClick={next} />
-                            <Button icon={{ icon: X }} variant="outline" size="sm" onClick={close} />
-                        </>
-                    )
-                }
-                onBlur={() => setIsFocused(false)}
-                onFocus={() => setIsFocused(true)}
-            />
+            >
+                <SearchBox $isOpen={isOpen} onClick={() => !isOpen && openSearch()}>
+                    <LineageControlIcon icon={MagnifyingGlass} color={isOpen ? 'textPlaceholder' : 'icon'} />
+                    <SearchInputField
+                        ref={inputRef}
+                        $isOpen={isOpen}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder={isOpen ? t('controls.search.placeholder') : ''}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                if (e.shiftKey) prev();
+                                else next();
+                            }
+                        }}
+                    />
+                </SearchBox>
+                {isOpen && searchQuery && (
+                    <>
+                        {/* eslint-disable i18next/no-literal-string -- (untranslated-text) numeric match-position separator (e.g. "3 / 10"), not translatable */}
+                        <span>
+                            {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
+                        </span>
+                        {/* eslint-enable i18next/no-literal-string */}
+                        <VerticalDivider $margin={8} />
+                        <Button
+                            icon={{ icon: CaretUp, weight: LINEAGE_CONTROL_ICON_WEIGHT }}
+                            variant="outline"
+                            size="sm"
+                            onClick={prev}
+                        />
+                        <Button
+                            icon={{ icon: CaretDown, weight: LINEAGE_CONTROL_ICON_WEIGHT }}
+                            variant="outline"
+                            size="sm"
+                            onClick={next}
+                        />
+                        <Button
+                            icon={{ icon: X, weight: LINEAGE_CONTROL_ICON_WEIGHT }}
+                            variant="outline"
+                            size="sm"
+                            onClick={close}
+                        />
+                    </>
+                )}
+            </SearchRow>
         </StyledPanel>
     );
 }
@@ -132,30 +170,25 @@ function useAssignSearchedEntity(matchedNodes: string[]) {
 
     const [searchIndex, newSearchedEntity] = useMemo(() => {
         if (!searchedEntity) {
-            // No previously selected entity, default to first matched node
             return [0, matchedNodes.length ? matchedNodes[0] : null];
         }
         const index = matchedNodes.indexOf(searchedEntity);
         if (index === -1) {
-            // Previously selected entity no longer in search list, default to first matched node
             return [0, matchedNodes[0]];
         }
-        // Previously selected entity still in search list, keep it selected and recalculate index
         return [index, searchedEntity];
     }, [searchedEntity, matchedNodes]);
 
-    // Add debounce so graph doesn't jump around while user is typing
     useDebounce(() => setSearchedEntity(newSearchedEntity), 300, [searchQuery]);
 
     return searchIndex;
 }
 
-function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef>, setIsFocused: (value: boolean) => void) {
+function useCaptureKeyboardSearch(inputRef: React.RefObject<HTMLInputElement>, setIsFocused: (value: boolean) => void) {
     const { isFocused } = useContext(LineageVisualizationContext);
 
     const handleKeyPress = useCallback(
         (e: KeyboardEvent) => {
-            // Capture ctrl-f or cmd-f
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                 e.preventDefault();
                 inputRef.current?.focus();

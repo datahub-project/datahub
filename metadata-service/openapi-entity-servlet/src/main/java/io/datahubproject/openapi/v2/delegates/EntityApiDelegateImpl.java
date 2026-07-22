@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -66,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -96,6 +98,18 @@ public class EntityApiDelegateImpl<I, O, S> {
   private static final String BUSINESS_ATTRIBUTE_ERROR_MESSAGE =
       "business attribute is disabled, enable it using featureflag : BUSINESS_ATTRIBUTE_ENTITY_ENABLED";
   private final StackWalker walker = StackWalker.getInstance();
+
+  @Nullable
+  private Boolean resolveAsyncRequestParam() {
+    if (request == null) {
+      return null;
+    }
+    String raw = request.getParameter("async");
+    if (raw == null || raw.isBlank()) {
+      return null;
+    }
+    return Boolean.parseBoolean(raw);
+  }
 
   public EntityApiDelegateImpl(
       OperationContext systemOperationContext,
@@ -155,7 +169,8 @@ public class EntityApiDelegateImpl<I, O, S> {
         throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
       }
     }
-    _v1Controller.postEntities(request, aspects, false, createIfNotExists, createEntityIfNotExists);
+    _v1Controller.postEntities(
+        request, aspects, resolveAsyncRequestParam(), createIfNotExists, createEntityIfNotExists);
     List<O> responses =
         body.stream()
             .map(req -> OpenApiEntitiesUtil.convertToResponse(req, _respClazz, _entityRegistry))
@@ -183,7 +198,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(
-                      auth.getActor().toUrnStr(), request, "head", entityUrn.getEntityType()),
+                      auth.getActor().toUrnStr(), request, "head", entityUrn.getEntityType())
+                  .withUsageOperation(UsageOperation.METADATA_READ),
               _authorizationChain,
               auth,
               true);
@@ -230,7 +246,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     _v1Controller.postEntities(
         request,
         Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()),
-        false,
+        resolveAsyncRequestParam(),
         createIfNotExists,
         createEntityIfNotExists);
     AR response = OpenApiEntitiesUtil.convertToResponseAspect(body, respClazz);
@@ -247,7 +263,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               systemOperationContext,
               RequestContext.builder()
                   .buildOpenapi(
-                      auth.getActor().toUrnStr(), request, "headAspect", entityUrn.getEntityType()),
+                      auth.getActor().toUrnStr(), request, "headAspect", entityUrn.getEntityType())
+                  .withUsageOperation(UsageOperation.METADATA_READ),
               _authorizationChain,
               auth,
               true);
@@ -275,12 +292,14 @@ public class EntityApiDelegateImpl<I, O, S> {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "deleteAspect", entityUrn.getEntityType()),
+                    auth.getActor().toUrnStr(), request, "deleteAspect", entityUrn.getEntityType())
+                .withUsageOperation(UsageOperation.ASPECT_DELETE),
             _authorizationChain,
             auth,
             true);
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
-    _v1Controller.deleteEntities(request, new String[] {urn}, false, false);
+    _v1Controller.deleteEntities(
+        opContext, auth.getActor().toUrnStr(), Set.of(entityUrn), false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
@@ -617,7 +636,8 @@ public class EntityApiDelegateImpl<I, O, S> {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "scroll", entitySpec.getName()),
+                    authentication.getActor().toUrnStr(), request, "scroll", entitySpec.getName())
+                .withUsageOperation(UsageOperation.SEARCH_QUERY),
             _authorizationChain,
             authentication,
             true);

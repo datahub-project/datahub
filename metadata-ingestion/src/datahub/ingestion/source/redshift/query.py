@@ -446,6 +446,15 @@ ORDER BY target_schema, target_table, filename
         raise NotImplementedError
 
     @staticmethod
+    def list_all_queries_sql() -> str:
+        # Queries-v2 unified feed: every statement in the window (reads AND
+        # writes) with its full reconstructed text, user, timestamp and session —
+        # NOT pre-filtered by table, so a single aggregator pass derives lineage
+        # (from writes), usage and column usage (from all reads), each query
+        # parsed exactly once. The aggregator filters by allowed table internally.
+        raise NotImplementedError
+
+    @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
         raise NotImplementedError
 
@@ -817,11 +826,19 @@ where
             FROM stl_scan ss
               JOIN svv_table_info sti ON ss.tbl = sti.table_id
               JOIN stl_query sq ON ss.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT (enrichment only): svl_user_info supplies the username but must
+              -- not gate the row. An INNER join drops any scan whose user has no row
+              -- in the view -- which includes the rdsdb system user (excluded below by
+              -- userid) and, on Redshift editions that keep the user-info views
+              -- superuser/self-only, real users a non-superuser can't resolve.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE ss.starttime >= '{start_time}'
             AND ss.starttime < '{end_time}'
             AND sti.database = '{database}'
             AND sq.aborted = 0
+            -- Exclude the rdsdb internal system user (always usesysid 1). Previously
+            -- this was an implicit side effect of the INNER join to svl_user_info.
+            AND sq.userid <> 1
             AND NOT (
                 sq.querytxt LIKE 'small table validation: %'
                 OR sq.querytxt LIKE 'Small table conversion: %'
@@ -829,6 +846,53 @@ where
             )
             ORDER BY ss.endtime DESC;
         """.strip()
+
+    @staticmethod
+    def list_all_queries_sql() -> str:
+        # Queries-v2 unified feed: every statement in the window (reads + writes)
+        # with its full reconstructed text, user, timestamp and session — not
+        # pre-filtered by table. Fed once to a single aggregator, this yields
+        # lineage (from writes), usage and column usage (from reads), and Query
+        # entities, each query parsed exactly once. Reconstructs full text from
+        # STL_QUERYTEXT (segments ordered by sequence), like the lineage queries.
+        #
+        # The time window and database are bound as query parameters (%s) by
+        # RedshiftDataDictionary.get_query_result, so config/catalog-derived
+        # values never enter the SQL string. Order: start_time, end_time, database.
+        return """
+            WITH query_txt AS (
+                SELECT
+                    query,
+                    pid,
+                    RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY sequence)) AS query_text
+                FROM (
+                    SELECT query, pid, text, sequence
+                    FROM STL_QUERYTEXT
+                    WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
+                    ORDER BY sequence
+                )
+                GROUP BY query, pid
+            )
+            SELECT DISTINCT
+                q.query AS query_id,
+                qt.query_text AS query_text,
+                sui.usename AS username,
+                q.starttime AS starttime,
+                q.pid AS session_id
+            FROM stl_query q
+              JOIN query_txt qt ON q.query = qt.query AND q.pid = qt.pid
+              LEFT JOIN svl_user_info sui ON q.userid = sui.usesysid
+            WHERE q.starttime >= %s
+            AND q.starttime < %s
+            AND q.aborted = 0
+            AND q.database = %s
+            AND (sui.usename IS NULL OR sui.usename <> 'rdsdb')
+            ORDER BY q.starttime
+        """.format(
+            _PROVISIONED_SEGMENT_SIZE=_PROVISIONED_SEGMENT_SIZE,
+            _QUERY_SEQUENCE_LIMIT=_QUERY_SEQUENCE_LIMIT,
+        ).strip()
 
     @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
@@ -856,9 +920,14 @@ where
               ) as si
               JOIN svv_table_info sti ON si.tbl = sti.table_id
               JOIN stl_query sq ON si.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT (enrichment only): resolve the actor without gating the row;
+              -- actor is optional downstream. rdsdb is excluded by userid below.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE
-              sq.aborted = 0)
+              sq.aborted = 0
+              -- Exclude the rdsdb internal system user (always usesysid 1); this was
+              -- previously an implicit side effect of the INNER join to svl_user_info.
+              AND sq.userid <> 1)
         UNION
           (SELECT
               DISTINCT sd.userid AS userid,
@@ -883,9 +952,11 @@ where
               ) as sd
               JOIN svv_table_info sti ON sd.tbl = sti.table_id
               JOIN stl_query sq ON sd.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT + rdsdb-by-userid, same as the insert branch above.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE
-              sq.aborted = 0)
+              sq.aborted = 0
+              AND sq.userid <> 1)
         ORDER BY
           endtime DESC
         """.strip()
@@ -1097,7 +1168,12 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LEFT JOIN SYS_LOAD_DETAIL ld ON ld.query_id = qd.query_id
                 WHERE
                     qd.step_name = 'insert' AND
-                    sui.user_name <> 'rdsdb' AND
+                    -- Exclude rdsdb by its system user_id (1), not by name. SVV_USER_INFO
+                    -- has no rdsdb row, so a name-based rdsdb filter relied on NULL
+                    -- propagation to drop it -- which also silently dropped any real
+                    -- user the view can't resolve. Filtering by user_id excludes rdsdb
+                    -- while the LEFT join keeps unresolved real users (username NULL).
+                    qd.user_id <> 1 AND
                     cluster = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
@@ -1203,7 +1279,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             FROM
                 SYS_QUERY_DETAIL qd
                 JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-                JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                -- LEFT (enrichment only): resolve the username without gating the row;
+                -- rdsdb is excluded by user_id below.
+                LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
                 JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
             WHERE
                 qd.step_name = 'scan'
@@ -1211,9 +1289,56 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 AND qh.start_time < '{end_time}'
                 AND sti.database = '{database}'
                 AND qh.status = 'success'
+                -- Exclude the rdsdb internal system user (always user_id 1).
+                AND qd.user_id <> 1
             ORDER BY qh.end_time DESC
             ;
         """.strip()
+
+    @staticmethod
+    def list_all_queries_sql() -> str:
+        # Queries-v2 unified feed (serverless): every statement in the window
+        # (reads + writes) with full reconstructed text, user, timestamp, session
+        # — not pre-filtered by table. Reconstructs full text from SYS_QUERY_TEXT
+        # (sequence-capped for the LISTAGG size limit). Validated against a live
+        # serverless cluster.
+        #
+        # The time window and database are bound as query parameters (%s) by
+        # RedshiftDataDictionary.get_query_result, so config/catalog-derived
+        # values never enter the SQL string. Order: start_time, end_time, database.
+        return """
+            SELECT
+                query_id,
+                query_text,
+                username,
+                starttime,
+                session_id
+            FROM (
+                SELECT
+                    qh.query_id AS query_id,
+                    qh.session_id AS session_id,
+                    qh.start_time AS starttime,
+                    sui.user_name AS username,
+                    RTRIM(LISTAGG(RTRIM(qt."text") || CASE WHEN LEN(RTRIM(qt."text")) < {_SERVERLESS_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
+                        WITHIN GROUP (ORDER BY qt.sequence)) AS query_text
+                FROM
+                    SYS_QUERY_HISTORY qh
+                    LEFT JOIN SYS_QUERY_TEXT qt ON qt.query_id = qh.query_id
+                    LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qh.user_id
+                WHERE
+                    qh.start_time >= %s
+                    AND qh.start_time < %s
+                    AND qh.status = 'success'
+                    AND qh.database_name = %s
+                    AND qt.sequence < 16
+                    AND (sui.user_name IS NULL OR sui.user_name <> 'rdsdb')
+                GROUP BY qh.query_id, qh.session_id, qh.start_time, sui.user_name
+            )
+            ORDER BY starttime
+            ;
+        """.format(
+            _SERVERLESS_SEGMENT_SIZE=_SERVERLESS_SEGMENT_SIZE,
+        ).strip()
 
     @staticmethod
     def operation_aspect_query(start_time: str, end_time: str) -> str:
@@ -1246,10 +1371,14 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         qd.step_name in ('insert', 'delete')
                         AND qd.start_time >= '{start_time}'
                         AND qd.start_time < '{end_time}'
+                        -- Exclude the rdsdb internal system user (always user_id 1).
+                        AND qd.user_id <> 1
                     GROUP BY qd.user_id, qd.query_id, qd.table_id, qd.step_name
                 ) qd
                 JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-                JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                -- LEFT (enrichment only): resolve the actor without gating the row;
+                -- actor is optional downstream. rdsdb is excluded by user_id above.
+                LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
                 JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
             WHERE
                 qh.status = 'success'

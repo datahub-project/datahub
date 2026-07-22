@@ -32,6 +32,8 @@ from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
 from datahub.cli.search_cli import search
+from datahub.cli.specific.agent_skill_cli import agent_skill
+from datahub.cli.specific.api_cli import api
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -175,6 +177,7 @@ def _validate_init_inputs(
     password: Optional[str],
     token_duration: Optional[str],
     sso: bool = False,
+    oauth: bool = False,
 ) -> None:
     """Validate init command inputs for consistency.
 
@@ -185,10 +188,33 @@ def _validate_init_inputs(
         password: Password value (if provided)
         token_duration: Token expiration duration (if provided)
         sso: Whether SSO browser login is requested
+        oauth: Whether native OAuth2 PKCE login is requested
 
     Raises:
         click.UsageError: If inputs are invalid or inconsistent
     """
+    if oauth and sso:
+        raise click.UsageError("--oauth and --sso cannot be used together.")
+
+    # OAuth PKCE is mutually exclusive with all credential options
+    if oauth:
+        if token or os.environ.get("DATAHUB_GMS_TOKEN"):
+            raise click.UsageError(
+                "--oauth cannot be used with --token. "
+                "Use --oauth alone to authenticate via browser OAuth2 login."
+            )
+        if username or password or get_username() or get_password():
+            raise click.UsageError(
+                "--oauth cannot be used with --username/--password. "
+                "Use --oauth alone to authenticate via browser OAuth2 login."
+            )
+        if token_duration is not None:
+            raise click.UsageError(
+                "--token-duration cannot be used with --oauth. "
+                "Token TTL is managed automatically by the OAuth2 server."
+            )
+        return
+
     # SSO is mutually exclusive with other auth methods
     if sso:
         if token or os.environ.get("DATAHUB_GMS_TOKEN"):
@@ -301,10 +327,22 @@ def _validate_init_inputs(
     help="Open browser for SSO login (requires: pip install 'acryl-datahub[sso]' && playwright install chromium)",
 )
 @click.option(
+    "--oauth",
+    is_flag=True,
+    default=False,
+    help="Open browser for native OAuth2 PKCE login (no extra dependencies)",
+)
+@click.option(
     "--support",
     is_flag=True,
     default=False,
-    help="Use support login path for DataHub Cloud customer debugging (use with --sso)",
+    help="Use support login for DataHub Cloud customer debugging (use with --oauth or --sso)",
+)
+@click.option(
+    "--ticket-id",
+    type=str,
+    default=None,
+    help="Support ticket ID (required with --oauth --support)",
 )
 @click.option(
     "--agent-context",
@@ -321,7 +359,9 @@ def init(
     token_duration: Optional[str] = None,
     force: bool = False,
     sso: bool = False,
+    oauth: bool = False,
     support: bool = False,
+    ticket_id: Optional[str] = None,
     agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -357,8 +397,15 @@ def init(
             --token-duration ONE_MONTH
 
     \b
+    Mode 4: Native OAuth2 PKCE Login
+        datahub init --oauth --host https://your-instance.acryl.io/gms
+        Stores an access token + refresh token; auto-refreshes on expiry.
+        Requires an instance with the OAuth2 server enabled. No extra
+        dependencies (unlike --sso which requires Playwright).
+
+    \b
     Support Login (DataHub Cloud — customer debugging):
-        datahub init --sso --support \\
+        datahub init --oauth --support --ticket-id SUPPORT-123 \\
             --host https://customer.acryl.io/gms
 
     \b
@@ -388,9 +435,12 @@ def init(
         click.echo(text)
         return
 
-    # Validate: --support requires --sso
-    if support and not sso:
-        raise click.UsageError("--support requires --sso")
+    if support and not (sso or oauth):
+        raise click.UsageError("--support requires --oauth or --sso")
+    if ticket_id and not support:
+        raise click.UsageError("--ticket-id requires --support")
+    if support and oauth and not ticket_id:
+        raise click.UsageError("--oauth --support requires --ticket-id")
 
     # Show deprecation warning if --use-password used
     if use_password:
@@ -402,7 +452,7 @@ def init(
 
     # Validate input combinations
     _validate_init_inputs(
-        use_password, token, username, password, token_duration, sso=sso
+        use_password, token, username, password, token_duration, sso=sso, oauth=oauth
     )
 
     # Handle overwrite confirmation: prompt only on interactive TTYs.
@@ -447,14 +497,37 @@ def init(
     password_provided = password or get_password()
     should_generate_token = bool(username_provided and password_provided)
 
-    if sso:
+    if oauth:
+        # Native OAuth2 PKCE login — no Playwright dependency, stores refresh token
+        from datahub.cli.config_utils import write_oauth_config
+        from datahub.cli.oauth_cli import pkce_login
+
+        result = pkce_login(host_value, support=support, ticket_id=ticket_id)
+        click.echo("✓ Successfully authenticated with DataHub")
+        if result.refresh_token:
+            click.echo(
+                "✓ Refresh token stored — access token will auto-renew on expiry"
+            )
+        write_oauth_config(
+            host=host_value,
+            access_token=result.access_token,
+            client_id=result.client_id,
+            refresh_token=result.refresh_token,
+            token_endpoint=result.token_endpoint,
+        )
+        click.echo(f"✓ Configuration written to {DATAHUB_CONFIG_PATH}")
+        return
+    elif sso:
         # SSO browser login flow
         from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
         from datahub.cli.sso_cli import browser_sso_login
 
         frontend_url = guess_frontend_url_from_gms_url(host_value)
         _, token_value = browser_sso_login(
-            frontend_url, effective_duration, support=support
+            frontend_url,
+            effective_duration,
+            support=support,
+            ticket_id=ticket_id,
         )
         click.echo(f"✓ Generated token (expires: {effective_duration})")
     elif should_generate_token or use_password:
@@ -520,6 +593,8 @@ datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
 datahub.add_command(datapack)
+datahub.add_command(api)
+datahub.add_command(agent_skill)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
@@ -559,9 +634,9 @@ try:
     datahub.add_command(agent)
 except ImportError as e:
     logger.debug(f"Failed to load datahub-agent-context framework: {e}")
-    datahub.add_command(
-        make_shim_command("agent", "run `pip install datahub-agent-context`")
-    )
+    from datahub.cli.specific.agent_cli import agent as agent_registry
+
+    datahub.add_command(agent_registry)
 
 # Adding telemetry and upgrade decorators to all commands
 enable_auto_decorators(datahub)

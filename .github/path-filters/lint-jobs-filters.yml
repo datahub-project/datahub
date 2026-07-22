@@ -1,6 +1,6 @@
 lint-job:
   - modified: ".github/workflows/lint-jobs.yml"
-  - ".github/path-filters/lint-job-filter.yml"
+  - ".github/path-filters/lint-jobs-filters.yml"
 markdown:
   - added|modified: "**/*.md"
   - ".github/scripts/check_docusaurus_markdown.py"
@@ -21,14 +21,30 @@ code-check-sources:
   - "**/build.gradle.kts"
   - "**/gradle.lockfile"
   - ".github/scripts/check_*.py"
+pdl:
+  - added|modified: "**/*.pdl"
+  - ".github/scripts/bump_schema_versions.py"
 smoke-test-python:
   - added|modified: "smoke-test/**/*.py"
   - "smoke-test/pyproject.toml"
   - "smoke-test/requirements.txt"
   - "smoke-test/build.gradle"
-smoke-test-cypress:
-  - "smoke-test/tests/cypress/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
+metadata-ingestion:
+  - added|modified: "metadata-ingestion/**"
+  - "metadata-models/**"
+datahub-actions:
+  - added|modified: "datahub-actions/**"
+datahub-agent-context:
+  - added|modified: "datahub-agent-context/**"
+airflow-plugin:
+  - added|modified: "metadata-ingestion-modules/airflow-plugin/**"
+gx-plugin:
+  - added|modified: "metadata-ingestion-modules/gx-plugin/**"
+dagster-plugin:
+  - added|modified: "metadata-ingestion-modules/dagster-plugin/**"
+prefect-plugin:
+  - added|modified: "metadata-ingestion-modules/prefect-plugin/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"

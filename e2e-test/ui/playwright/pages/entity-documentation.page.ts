@@ -79,10 +79,10 @@ export class EntityDocumentationPage extends BasePage {
     // force: true bypasses the viewport/visibility check; Remirror auto-focuses on mount
     // but the element may have zero height until the flex layout resolves.
     await this.proseMirrorEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.type(text);
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   async clearDocumentation(): Promise<void> {
@@ -91,10 +91,10 @@ export class EntityDocumentationPage extends BasePage {
     await this.saveDescriptionButton.waitFor({ state: 'attached', timeout: 30000 });
     await this.proseMirrorEditor.waitFor({ state: 'attached', timeout: 30000 });
     await this.proseMirrorEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   // ── Field documentation (v1 schema tab) ─────────────────────────────────
@@ -141,12 +141,12 @@ export class EntityDocumentationPage extends BasePage {
     // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
     await this.fieldDescriptionEditor.waitFor({ state: 'attached', timeout: 15000 });
     await this.fieldDescriptionEditor.click({ force: true });
-    await this.page.keyboard.press('Control+a');
+    await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.page.waitForTimeout(500);
     await this.page.keyboard.type(description);
     await this.fieldDescriptionUpdateButton.click();
-    await expect(this.page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Updated!', { timeout: 15000 });
   }
 
   // ── Link management ──────────────────────────────────────────────────────
@@ -179,7 +179,12 @@ export class EntityDocumentationPage extends BasePage {
     await this.openAddLinkForm();
     await this.fillLinkForm(url, label, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Added')).toBeVisible({ timeout: 15000 });
+    // Confirm success by the link surfacing in the Resources list. We deliberately do
+    // NOT assert the "Link Added" toast: toasts stack and linger (~3s), so when several
+    // links are added in quick succession getByText('Link Added') resolves to multiple
+    // nodes and fails Playwright strict mode.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async updateLink(
@@ -189,27 +194,32 @@ export class EntityDocumentationPage extends BasePage {
     newLabel: string,
     showInPreview: boolean,
   ): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href='${currentUrl}']`) })
-      .filter({ hasText: currentLabel })
-      .getByTestId('edit-link-button')
-      .click();
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the edit
+    // button under the anchor for this link.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${currentUrl}"]`).filter({ hasText: currentLabel });
+    await pill.getByTestId('edit-link-button').click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Updated')).toBeVisible({ timeout: 15000 });
+    // Confirm via the updated link surfacing in the list rather than the stacking toast.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${newUrl}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async removeLinkByUrl(url: string): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href="${url}"]`) })
-      .getByTestId('remove-link-button')
-      .click();
-    await expect(this.page.getByText('Link Removed')).toBeVisible({ timeout: 15000 });
-    await expect(this.page.getByText('Link Removed')).not.toBeVisible({ timeout: 15000 });
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the remove
+    // button under the anchor for this link.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${url}"]`);
+    await pill.getByTestId('remove-link-button').click();
+    // Confirm removal by the link disappearing from the list. We deliberately do NOT
+    // assert the "Link Removed" toast: toasts stack and linger, so removing several links
+    // in quick succession makes getByText('Link Removed') match multiple nodes (strict-
+    // mode failure on both the visible and not-visible assertions).
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toHaveCount(0, { timeout: 15000 });
   }
 
   // ── Link verification helpers ────────────────────────────────────────────

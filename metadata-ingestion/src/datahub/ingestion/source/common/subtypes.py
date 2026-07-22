@@ -22,17 +22,20 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
     GRAFANA_DATASET = "Grafana Dataset"
+    QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
+    MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    KINESIS_STREAM = "Stream"
     SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
@@ -48,6 +51,7 @@ class DatasetSubTypes(StrEnum):
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
+    CUBE = "Cube"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -58,11 +62,14 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
+    # AWS Kinesis
+    KINESIS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     INSTANCE = "Instance"
+    SERVICE = "Service"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
@@ -76,11 +83,14 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    # Dremio
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    DREMIO_FOLDER = "Dremio Folder"
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
+    MATILLION_FOLDER = "Folder"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -89,6 +99,8 @@ class DatasetContainerSubTypes(StrEnum):
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
+    # Cube
+    CUBE_DEPLOYMENT = "Cube Deployment"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -110,6 +122,8 @@ class BIContainerSubTypes(StrEnum):
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
     THOUGHTSPOT_WORKSPACE = "Workspace"
+    MICROSTRATEGY_PROJECT = "Project"
+    MICROSTRATEGY_FOLDER = "Folder"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -146,6 +160,8 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_ANSWER = "Answer"
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
+    MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
@@ -194,9 +210,13 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
+    KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
+    # Amazon Data Firehose — the single delivery step within a Firehose stream.
+    KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

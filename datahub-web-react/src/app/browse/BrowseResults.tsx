@@ -1,6 +1,7 @@
 import { Col, Divider, Empty, List, Pagination, Row } from 'antd';
 import { Content } from 'antd/lib/layout/layout';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -46,6 +47,7 @@ export const BrowseResults = ({
     onChangePage,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('misc');
 
     const onGroupClick = (group: BrowseResultGroup) => {
         analytics.event({
@@ -97,7 +99,12 @@ export const BrowseResults = ({
                             )}
                             bordered
                             locale={{
-                                emptyText: <Empty description="No Entities" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                                emptyText: (
+                                    <Empty
+                                        description={t('browse.noEntitiesEmpty')}
+                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                    />
+                                ),
                             }}
                         />
                     )}

@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectSizeOptions } from '@components/components/Select/types';
@@ -21,10 +22,11 @@ interface Props {
 }
 
 export default function DropdownFooterActions({ onCancel, onUpdate, size }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     return (
         <FooterBase>
             <Button onClick={onCancel} variant="text" size={size} data-testid="footer-button-cancel">
-                Cancel
+                {tc('cancel')}
             </Button>
             <Button
                 onClick={onUpdate}
@@ -32,7 +34,7 @@ export default function DropdownFooterActions({ onCancel, onUpdate, size }: Prop
                 onFocus={(e) => e.stopPropagation()}
                 data-testid="footer-button-update"
             >
-                Update
+                {tc('update')}
             </Button>
         </FooterBase>
     );

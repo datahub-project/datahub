@@ -29,7 +29,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.abs.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.abs.report import DataLakeSourceReport
@@ -50,9 +49,6 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     add_partition_columns_to_schema,
 )
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -408,6 +404,24 @@ class ABSSource(StatefulIngestionSourceBase):
                 container_name, f"{folder}{folder_split[1]}"
             )
 
+    def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
+        """Emit folder Containers for a folders-only path spec, to the depth defined by
+        the wildcards in `include`. Lists only folders — never blobs."""
+        if self.source_config.azure_config is None:
+            raise ValueError("azure_config not set. Cannot browse Azure Blob Storage")
+        container_name = self.source_config.azure_config.container_name
+        relative_glob = get_container_relative_path(path_spec.glob_include)
+        logger.info(f"Processing folders-only path spec: {path_spec.include}")
+        for folder in self.resolve_templated_folders(container_name, relative_glob):
+            abs_uri = self.create_abs_path(folder.rstrip("/"))
+            if not path_spec.folder_allowed(abs_uri):
+                logger.debug(f"Skipping folder excluded by path_spec: {abs_uri}")
+                continue
+            self.report.report_folder_scanned()
+            yield from self.container_WU_creator.create_folder_containers(
+                abs_uri.rstrip("/")
+            )
+
     def get_dir_to_process(
         self,
         container_name: str,
@@ -578,6 +592,10 @@ class ABSSource(StatefulIngestionSourceBase):
         with PerfTimer():
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
+                if path_spec.emit_folders_only:
+                    yield from self._process_folders(path_spec)
+                    continue
+
                 file_browser = (
                     self.abs_browser(
                         path_spec, self.source_config.number_of_files_to_sample
@@ -615,14 +633,6 @@ class ABSSource(StatefulIngestionSourceBase):
 
                 for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def is_abs_platform(self):
         return self.source_config.platform == "abs"

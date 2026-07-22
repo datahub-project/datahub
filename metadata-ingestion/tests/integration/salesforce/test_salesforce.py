@@ -5,8 +5,10 @@ from unittest.mock import Mock
 
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
+from datahub.metadata.schema_classes import DatasetProfileClass
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-05-12 11:00:00"
@@ -68,6 +70,14 @@ def side_effect_call_salesforce(type, url):
     elif url.endswith("/recordCount?sObjects=Property__c"):
         return MockResponse(_read_response("record_count_property_response.json"), 200)
     return MockResponse({}, 404)
+
+
+def side_effect_call_salesforce_empty_record_count(type, url):
+    # Salesforce omits some objects from the recordCount response, returning
+    # {"sObjects": []}. Reuse the standard mocks but simulate that case.
+    if url.endswith("/recordCount?sObjects=Property__c"):
+        return MockResponse(_read_response("record_count_empty_response.json"), 200)
+    return side_effect_call_salesforce(type, url)
 
 
 @mock.patch("datahub.ingestion.source.salesforce.Salesforce")
@@ -264,3 +274,44 @@ def test_salesforce_ingest_with_lineage(pytestconfig, tmp_path):
             golden_path=test_resources_dir / "salesforce_mces_with_lineage_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
+
+
+@mock.patch("datahub.ingestion.source.salesforce.Salesforce")
+def test_profiling_with_empty_record_count(mock_sdk):
+    # Salesforce returns {"sObjects": []} for some objects (e.g. Contract in
+    # certain org configs). Profiling must not crash with IndexError; it should
+    # still emit a column-only profile and record a warning.
+    mock_sf = mock.Mock()
+    mocked_call = mock.Mock()
+    mocked_call.side_effect = side_effect_call_salesforce_empty_record_count
+    mock_sf._call_salesforce = mocked_call
+    mock_sdk.return_value = mock_sf
+
+    config = SalesforceConfig.model_validate(
+        {
+            "auth": "DIRECT_ACCESS_TOKEN",
+            "instance_url": "https://mydomain.my.salesforce.com/",
+            "access_token": "access_token",
+            "object_pattern": {"allow": ["^Property__c$"]},
+            "profiling": {"enabled": True},
+            "profile_pattern": {"allow": ["^Property__c$"]},
+        }
+    )
+    source = SalesforceSource(config=config, ctx=Mock())
+    workunits = list(source.get_workunits())
+
+    profiles = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetProfileClass)
+    ]
+    assert len(profiles) == 1, "Expected a profile to still be emitted"
+    profile = profiles[0]
+    assert isinstance(profile, DatasetProfileClass)
+    assert profile.rowCount is None, "rowCount should be omitted when unavailable"
+    assert profile.columnCount is not None, "columnCount should still be set"
+
+    assert len(source.report.warnings) > 0, (
+        "A warning should be recorded for the missing record count"
+    )

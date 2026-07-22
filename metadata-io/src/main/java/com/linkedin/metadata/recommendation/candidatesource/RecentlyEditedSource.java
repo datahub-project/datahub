@@ -4,7 +4,6 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
@@ -87,6 +86,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     try {
       analyticsEnabled =
           _searchClient.indexExists(
+              opContext,
               new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
               RequestOptions.DEFAULT);
     } catch (IOException e) {
@@ -102,15 +102,14 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest =
-        buildSearchRequest(
-            opContext.getSessionActorContext().getActorUrn(), opContext.getAspectRetriever());
+        buildSearchRequest(opContext, opContext.getSessionActorContext().getActorUrn());
 
     return opContext.withSpan(
         "getRecentlyEdited",
         () -> {
           try {
             final SearchResponse searchResponse =
-                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             List<String> bucketUrns =
@@ -135,7 +134,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   }
 
   private SearchRequest buildSearchRequest(
-      @Nonnull Urn userUrn, @Nullable AspectRetriever aspectRetriever) {
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) {
     // TODO: Proactively filter for entity types in the supported set.
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
@@ -143,7 +142,11 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     // Filter for the entity edit events of the user requesting recommendation
     query.must(
         QueryBuilders.termQuery(
-            ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, false, aspectRetriever),
+            ESUtils.toKeywordField(
+                opContext,
+                DataHubUsageEventConstants.ACTOR_URN,
+                false,
+                opContext.getAspectRetriever()),
             userUrn.toString()));
     // Filter for the entity action events
     query.must(
@@ -157,7 +160,10 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
         AggregationBuilders.terms(ENTITY_AGG_NAME)
             .field(
                 ESUtils.toKeywordField(
-                    DataHubUsageEventConstants.ENTITY_URN, false, aspectRetriever))
+                    opContext,
+                    DataHubUsageEventConstants.ENTITY_URN,
+                    false,
+                    opContext.getAspectRetriever()))
             .size(MAX_CONTENT)
             .order(BucketOrder.aggregation(lastViewed, false))
             .subAggregation(

@@ -45,7 +45,7 @@ class HiveColumnToAvroConverter:
         "byteint": "int",
     }
 
-    _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
+    _COMPLEX_TYPE = re.compile("^(struct|map|array|list|uniontype)")
 
     _FIXED_DECIMAL = re.compile(r"(decimal|numeric)(\(\s*(\d+)\s*,\s*(\d+)\s*\))?")
 
@@ -58,12 +58,14 @@ class HiveColumnToAvroConverter:
         s: str, **kwargs: Any
     ) -> Union[object, Dict[str, object]]:
         s = s.strip()
-        if s.startswith("array<"):
+        if s.startswith("array<") or s.startswith("list<"):
             if s[-1] != ">":
                 raise ValueError("'>' should be the last char, but got: %s" % s)
             return {
                 "type": "array",
-                "items": HiveColumnToAvroConverter._parse_datatype_string(s[6:-1]),
+                "items": HiveColumnToAvroConverter._parse_datatype_string(
+                    s[s.index("<") + 1 : -1]
+                ),
                 "native_data_type": s,
             }
         elif s.startswith("map<"):

@@ -2,6 +2,7 @@ import { Button, Editor, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -40,16 +41,19 @@ const DescriptionContainer = styled.div`
 
 interface Props {
     hideLinksButton: boolean;
+    hideEditDescription?: boolean;
 }
 
-export default function AboutSection({ hideLinksButton }: Props) {
+export default function AboutSection({ hideLinksButton, hideEditDescription }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
     const history = useHistory();
     const { search, pathname } = useLocation();
-    const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
+    const isEditingDescription =
+        !hideEditDescription && !!queryString.parse(search, { parseBooleans: true }).editingDescription;
 
     const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
-    const canEditDescription = useDocumentationPermission();
+    const canEditDescription = useDocumentationPermission() && !hideEditDescription;
     const {
         displayedDescription,
         updatedDescription,
@@ -83,11 +87,11 @@ export default function AboutSection({ hideLinksButton }: Props) {
         <div data-testid="about-section">
             <SectionHeaderWrapper>
                 <Text weight="bold" color="gray" colorLevel={600} size="sm">
-                    About
+                    {t('documentation.aboutTitle')}
                 </Text>
                 <ButtonsWrapper>
                     {canEditDescription && (
-                        <Tooltip title="Edit description">
+                        <Tooltip title={t('documentation.editTooltip')}>
                             <Button
                                 variant="text"
                                 color="gray"

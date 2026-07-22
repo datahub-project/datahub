@@ -62,7 +62,7 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 ### `quickstart-postgres`
 
-Identical to `quickstart` with Postgres instead of MySQL.
+Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
 
 ### `quickstart-cassandra`
 
@@ -80,7 +80,7 @@ of docker.
 | quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
 | quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
-| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
 | quickstart-cassandra |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-consumers | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
 | quickstart-storage   | X     |          |           |       |          |     |         |              |     |     | X     | X          |
@@ -124,17 +124,18 @@ This will populate the running DataHub instance with sample data suitable for Cy
 
 ### Development Profiles Table
 
-| Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
-| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
-| debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
-| debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-postgres      |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-cassandra     |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
-| debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
-| debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
-| debug-backend-aws   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
+| Profile Name             | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
+| ------------------------ | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
+| debug                    | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-frontend           | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
+| debug-backend            | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-postgres           |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |               |                  |
+| debug-postgres-consumers |       | X        |           |       | X        | X   | X       | X            | X   | X   |       | X          |               |                  |
+| debug-cassandra          |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
+| debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
 

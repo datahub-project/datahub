@@ -79,49 +79,6 @@ The `queryUsageStatistics` aspect is a timeseries aspect that tracks execution s
 
 This aspect is typically populated automatically by ingestion connectors that process query logs from data platforms. The timeseries nature allows for tracking trends and patterns in query usage over time.
 
-### Tags and Glossary Terms
-
-Like other DataHub entities, queries can have Tags or Terms attached to them. Tags are informal labels for categorizing queries (e.g., "production", "experimental", "deprecated"), while Terms are formal vocabulary from a business glossary (e.g., "Customer Data", "Financial Reporting").
-
-#### Adding Tags to a Query
-
-Tags are added to queries using the `globalTags` aspect.
-
-<details>
-<summary>Python SDK: Add a tag to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_tag.py show_path_as_comment }}
-```
-
-</details>
-
-#### Adding Glossary Terms to a Query
-
-Terms are added using the `glossaryTerms` aspect.
-
-<details>
-<summary>Python SDK: Add a term to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_term.py show_path_as_comment }}
-```
-
-</details>
-
-### Ownership
-
-Ownership is associated to a query using the `ownership` aspect. Owners can be of different types such as `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, etc. Ownership helps identify who is responsible for maintaining and understanding specific queries.
-
-<details>
-<summary>Python SDK: Add an owner to a query</summary>
-
-```python
-{{ inline /metadata-ingestion/examples/library/query_add_owner.py show_path_as_comment }}
-```
-
-</details>
-
 ### Platform Instance
 
 The `dataPlatformInstance` aspect allows you to specify which specific instance of a data platform the query is associated with. This is useful when you have multiple instances of the same platform (e.g., multiple Snowflake accounts or BigQuery projects).
@@ -134,6 +91,17 @@ Queries have a fundamental relationship with dataset entities through the `query
 
 - Navigate from a query to the datasets it references
 - Navigate from a dataset to all queries that reference it
+
+**Authorization:** Query write operations (create, update, delete) require **Edit Dataset Queries** (or **Edit Entity**) on every subject dataset in `querySubjects`. GraphQL mutations enforce this via resolver pre-checks; there is no separate aspect validator for Query writes today.
+
+**Read authorization** is derived, not stored on the Query URN:
+
+- When view authorization is enabled (`VIEW_AUTHORIZATION_ENABLED`), Query metadata is visible if the actor has **View Entity Page** or **Edit Dataset Queries** (or **Edit Entity**) on **every** subject dataset.
+- Queries with **no subjects** are hidden (fail-closed).
+- Schema field subjects are resolved to their parent dataset before checking access.
+- If the actor can read via some but not all subjects, the entire Query is hidden.
+
+Read checks apply consistently across GraphQL, Rest.li, and search. See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#derived-authorization-rules).
 
 This relationship is crucial for understanding dataset usage and query-based lineage.
 
@@ -172,7 +140,7 @@ Queries can be created, updated, and deleted through the DataHub GraphQL API:
 
 - **createQuery**: Creates a new query with specified properties and subjects
 - **updateQuery**: Updates an existing query's name, description, or statement
-- **deleteQuery**: Soft-deletes a query entity
+- **deleteQuery**: Hard-deletes a query entity
 
 These mutations are available through the GraphQL endpoint and are used by the DataHub UI for manual query management.
 

@@ -68,7 +68,7 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
 
     // Submit async delete
     CompletableFuture<String> taskFuture =
-        getEsWriteDAO().deleteByQueryAsync(indexName, query, null);
+        getEsWriteDAO().deleteByQueryAsync(getOperationContext(), indexName, query, null);
     String taskSubmission = taskFuture.get(30, TimeUnit.SECONDS);
 
     assertNotNull(taskSubmission);
@@ -79,7 +79,9 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
 
     // Monitor the task
     ESWriteDAO.DeleteByQueryResult monitorResult =
-        getEsWriteDAO().monitorDeleteByQueryTask(taskId, Duration.ofMinutes(1), indexName, query);
+        getEsWriteDAO()
+            .monitorDeleteByQueryTask(
+                getOperationContext(), taskId, Duration.ofMinutes(1), indexName, query);
 
     assertTrue(monitorResult.isSuccess(), "Async task should complete successfully");
 
@@ -117,7 +119,7 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
                 Urn.createFromString("urn:li:corpuser:test"),
                 Map.of());
 
-        getGraphService().addEdge(edge);
+        getGraphService().addEdge(getOperationContext(), edge);
       } catch (Exception e) {
         throw new RuntimeException("Failed to create test edge", e);
       }
@@ -139,7 +141,8 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
                 + testRunId
                 + ",PROD)"));
 
-    CountResponse response = getSearchClient().count(countRequest, RequestOptions.DEFAULT);
+    CountResponse response =
+        getSearchClient().count(getOperationContext(), countRequest, RequestOptions.DEFAULT);
     return response.getCount();
   }
 }

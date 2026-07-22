@@ -13,17 +13,21 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Set
 
-import setuptools
+import setuptools  # type: ignore[import-untyped]
 
 package_metadata: dict = {}
 with open("./src/datahub_agent_context/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 _version: str = package_metadata["__version__"]
-_self_pin = (
-    f"=={_version}"
+
+# Pin acryl-datahub to a known-good stable release (see __acryl_datahub_pin__ in
+# _version.py) for published wheels instead of self-pinning to this package's own
+# server-derived version. During local/dev builds the pin is omitted so the
+# editable acryl-datahub from this monorepo resolves.
+_datahub_pin = (
+    f"=={package_metadata['__acryl_datahub_pin__']}"
     if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
     else ""
 )
@@ -40,12 +44,12 @@ def get_long_description():
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
 }
 
 base_requirements = {
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest]{_datahub_pin}",
     # Core dependencies for MCP tools
     "pydantic>=2.0.0,<3.0.0",
     "json-repair>=0.25.0,<1.0.0",
@@ -94,14 +98,15 @@ dev_requirements = {
 setuptools.setup(
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahub.io/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache License 2.0",
-    description="DataHub Agent Context - MCP Tools for AI Agents",
+    description="MCP tools for AI agents to search and query your DataHub metadata catalog — works with Claude, Cursor, Copilot, and any MCP-compatible AI assistant",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -109,11 +114,7 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

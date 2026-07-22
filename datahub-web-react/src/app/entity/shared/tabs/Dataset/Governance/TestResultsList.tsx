@@ -1,7 +1,8 @@
 import { CopyOutlined, StopOutlined } from '@ant-design/icons';
 import { Button, Divider, Empty, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import { getResultColor, getResultIcon, getResultText } from '@app/entity/shared/tabs/Dataset/Governance/testUtils';
@@ -42,6 +43,9 @@ type Props = {
 };
 
 export const TestResultsList = ({ title, results }: Props) => {
+    const { t } = useTranslation('entity.profile.tests');
+    const { t: tc } = useTranslation(['entity.profile.queries', 'shared.misc']);
+    const theme = useTheme();
     const resultsTableData = results.map((result) => ({
         urn: result.test?.urn,
         name: result?.test?.name,
@@ -56,9 +60,10 @@ export const TestResultsList = ({ title, results }: Props) => {
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
-                const resultColor = (record.resultType && getResultColor(record.resultType)) || 'default';
-                const resultText = (record.resultType && getResultText(record.resultType)) || 'No Evaluations';
-                const resultIcon = (record.resultType && getResultIcon(record.resultType)) || <StopOutlined />;
+                const resultColor = (record.resultType && getResultColor(record.resultType, theme)) || 'default';
+                const resultText =
+                    (record.resultType && getResultText(record.resultType)) || t('testResults.noEvaluations');
+                const resultIcon = (record.resultType && getResultIcon(record.resultType, theme)) || <StopOutlined />;
                 return (
                     <ResultContainer>
                         <div>
@@ -74,12 +79,12 @@ export const TestResultsList = ({ title, results }: Props) => {
                                     <TestCategory type="secondary">{record.category}</TestCategory>
                                     <Divider type="vertical" />
                                     <Typography.Text type={record.description ? undefined : 'secondary'}>
-                                        {record.description || 'No description'}
+                                        {record.description || tc('entity.profile.queries:queryCard.noDescription')}
                                     </Typography.Text>
                                 </div>
                             </div>
                             {navigator.clipboard && (
-                                <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                                <Tooltip title={tc('shared.misc:copyUrn.tooltip')}>
                                     <Button
                                         icon={<CopyOutlined />}
                                         onClick={() => {
@@ -103,7 +108,7 @@ export const TestResultsList = ({ title, results }: Props) => {
                 dataSource={resultsTableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Tests Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: <Empty description={t('testResults.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
                 showHeader={false}
                 pagination={false}

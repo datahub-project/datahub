@@ -60,6 +60,7 @@ export const ViewBuilderForm = ({ urn, mode, state, updateState }: Props) => {
                 <Input
                     label={t('viewForm.nameLabel')}
                     data-testid="view-name-input"
+                    inputTestId="view-name-input-inner"
                     placeholder={t('viewForm.namePlaceholder')}
                     value={state.name || ''}
                     onChange={(e) => setName(e.target.value)}

@@ -1,9 +1,9 @@
 import { AppstoreOutlined, FileOutlined, UnlockOutlined } from '@ant-design/icons';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
 import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
@@ -25,6 +25,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
@@ -34,7 +35,11 @@ import { useAppConfig } from '@app/useAppConfig';
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub Container entity.
@@ -71,9 +76,9 @@ export class ContainerEntity implements Entity<Container> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Container';
+    getEntityName = () => i18next.t('entity.types:container.name');
 
-    getCollectionName = () => 'Containers';
+    getCollectionName = () => i18next.t('entity.types:container.namePlural');
 
     useEntityQuery = useGetContainerQuery;
 
@@ -89,7 +94,7 @@ export class ContainerEntity implements Entity<Container> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ContainerSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                     display: {
@@ -99,22 +104,22 @@ export class ContainerEntity implements Entity<Container> {
                     },
                 },
                 {
-                    name: 'Contents',
+                    name: i18next.t('entity.types:tab.contents'),
                     component: ContainerEntitiesTab,
                     icon: AppstoreOutlined,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
-                    name: 'Access',
+                    name: i18next.t('entity.types:shared.accessTab'),
                     component: AccessManagement,
                     icon: UnlockOutlined,
                     display: {
@@ -175,9 +180,9 @@ export class ContainerEntity implements Entity<Container> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -199,6 +204,7 @@ export class ContainerEntity implements Entity<Container> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 tags={data.tags}
                 externalUrl={data.properties?.externalUrl}
+                deprecation={data.deprecation}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
@@ -233,6 +239,7 @@ export class ContainerEntity implements Entity<Container> {
                 paths={(result as any).paths}
                 entityCount={data.entities?.total}
                 isOutputPort={isOutputPort(result)}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
                 previewType={PreviewType.SEARCH}
@@ -277,6 +284,7 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.TEST,

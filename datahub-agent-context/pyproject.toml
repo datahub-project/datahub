@@ -7,6 +7,8 @@ line-length = 88
 target-version = "py39"
 exclude = [
     ".git",
+    "build",
+    "dist",
     "venv",
     ".tox",
     "__pycache__",
@@ -58,3 +60,4 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+"examples/*" = ["E402"]

@@ -32,7 +32,8 @@ def get_dialect_str(platform: str) -> str:
     elif platform_lower == "fabric-onelake":
         # Fabric SQL Analytics Endpoint speaks T-SQL.
         return "tsql"
-    elif platform_lower == "athena":
+    elif platform_lower in {"athena", "glue"}:
+        # Glue catalog views are Athena/Presto views, which speak Trino SQL.
         return "trino"
     elif platform_lower == "hana":
         # sqlglot does not ship a dedicated SAP HANA dialect. HANA SQL is
@@ -51,13 +52,16 @@ def get_dialect_str(platform: str) -> str:
         # Temporary workaround is to treat SOQL as databricks dialect
         # At least it allows to parse simple SQL queries and build lineage for them
         return "databricks"
-    elif platform_lower in {"mysql", "mariadb"}:
+    elif platform_lower in {"mysql", "mariadb", "tidb"}:
         # In sqlglot v20+, MySQL is now case-sensitive by default, which is the
         # default behavior on Linux. However, MySQL's default case sensitivity
         # actually depends on the underlying OS.
         # For us, it's simpler to just assume that it's case-insensitive, and
         # let the fuzzy resolution logic handle it.
-        # MariaDB is a fork of MySQL, so we reuse the same dialect.
+        # MariaDB and TiDB are MySQL-compatible (TiDB speaks the MySQL wire
+        # protocol and presents as MySQL 8.0), so we reuse the same dialect.
+        # Without this, sqlglot has no "tidb" dialect and view/query lineage
+        # parsing silently produces nothing.
         return "mysql, normalization_strategy = lowercase"
     elif platform == "timescaledb":
         return "postgres"

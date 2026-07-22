@@ -1,13 +1,13 @@
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.matillion_dpc.constants import (
     API_MAX_PAGE_SIZE,
+    MATILLION_NAMESPACE_PREFIX,
     TWO_TIER_PLATFORMS,
 )
-from datahub.metadata.urns import DatasetUrn
 
 
 class MatillionPlatformInstanceInfo(BaseModel):
@@ -104,6 +104,10 @@ class MatillionDatasetInfo(BaseModel):
     namespace: str
     platform_instance: Optional[str] = None
     env: str = Field(default="PROD")
+    # Resolved from the namespace mapping; used as default_db/default_schema when
+    # parsing SQL queries that reference tables by unqualified names.
+    database: Optional[str] = None
+    default_schema: Optional[str] = None
 
     @staticmethod
     def normalize_name(
@@ -145,18 +149,39 @@ class MatillionColumnLineageInfo(BaseModel):
     upstream_fields: List[str]
 
 
-class PipelineLineageResult(BaseModel):
-    model_config = {"arbitrary_types_allowed": True}
+class MatillionJobNamespace(BaseModel):
+    project_id: Optional[str] = None
+    environment_id: Optional[str] = None
 
-    input_urns: List[Union[str, DatasetUrn]] = Field(
-        default_factory=list,
-    )
-    output_urns: List[Union[str, DatasetUrn]] = Field(
-        default_factory=list,
-    )
-    sql_queries: List[str] = Field(
-        default_factory=list,
-    )
+    @classmethod
+    def parse(cls, namespace: str) -> "MatillionJobNamespace":
+        # Namespace format: matillion://<project_id>.<environment_id>
+        remainder = namespace[len(MATILLION_NAMESPACE_PREFIX) :]
+        if not remainder:
+            return cls()
+        project_id, _, environment_id = remainder.partition(".")
+        return cls(
+            project_id=project_id or None,
+            environment_id=environment_id or None,
+        )
+
+
+class SqlAggregatorKey(BaseModel):
+    # frozen so instances are hashable and usable as dict keys
+    model_config = ConfigDict(frozen=True)
+
+    platform: str
+    platform_instance: Optional[str] = None
+    env: str
+
+
+class OutputLineageAccumulator(BaseModel):
+    info: MatillionDatasetInfo
+    inputs: Dict[str, MatillionDatasetInfo] = Field(default_factory=dict)
+    column_lineages: List[MatillionColumnLineageInfo] = Field(default_factory=list)
+    # SQL queries (from OpenLineage job facets) that produced this output, used to
+    # parse additional column lineage when OpenLineage provides none.
+    sql_queries: List[str] = Field(default_factory=list)
 
 
 class ArtifactDetails(BaseModel):

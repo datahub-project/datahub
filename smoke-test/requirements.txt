@@ -3,7 +3,7 @@ pytest-dependency>=0.6.0
 pytest-rerunfailures==16.1
 psutil
 tenacity
--e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql,postgres,datahub-documents]
+-e ../metadata-ingestion[datahub-rest,datahub-kafka,datahub-pg-queue,mysql,postgres,datahub-documents]
 pydantic>2
 slack-sdk==3.18.1
 aiohttp
@@ -11,9 +11,10 @@ joblib
 pytest-xdist
 pytest-timeout==2.3.1
 networkx
+jinja2>=3.0.0,<4.0.0
 # libaries for linting below this
 mypy==1.14.1
-ruff==0.11.7
+ruff==0.15.22
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
 # requests>=2.32.4 required by snowflake-connector-python>=4.4.0 (pyOpenSSL 26+); types stubs track runtime
 # Upper bound matches metadata-ingestion: newer types-requests (e.g. >=2.32.0.20250306) require urllib3>=2,
