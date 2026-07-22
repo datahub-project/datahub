@@ -341,6 +341,7 @@ def run_transform(
     *,
     platform_instance: Optional[str] = None,
     env: str = DEFAULT_ENV,
+    entity_types: Optional[List[str]] = None,
     dry_run: bool = False,
     force: bool = True,
     hard: bool = False,
@@ -349,22 +350,28 @@ def run_transform(
     skip_on_error: bool = False,
     run_id: Optional[str] = None,
 ) -> MigrationReport:
-    """Migrate a platform's datasets under a URN converter (e.g. LowercaseConverter).
+    """Migrate a platform's entities under a URN converter (e.g. LowercaseConverter).
 
-    Discovers non-soft-deleted datasets for ``platform`` (optionally narrowed to
-    ``platform_instance``) from the graph — all such datasets, not just those in
+    Discovers non-soft-deleted entities for ``platform`` (optionally narrowed to
+    ``platform_instance``) from the graph — all such entities, not just those in
     a pipeline's checkpoint state — filters by ``converter.should_convert``, and
     migrates each under ``converter.convert_urn`` using the same aspect/URN-
     rewriting core as instance2instance (no dataPlatformInstance emit). Reusable
     from the ``migrate transform`` command and from connector migrations (see
     get_migrations). ``force`` defaults to True for non-interactive use.
+
+    Entity types to discover come from ``converter.entity_types`` (so the engine
+    is not hardcoded to datasets); pass ``entity_types`` to override. ``env`` is
+    an origin filter and only applies to entity types that carry an origin
+    (datasets).
     """
     run_id = run_id or f"migrate-transform-{converter.name}-{uuid.uuid4()}"
+    discover_types = entity_types or converter.entity_types
     all_urns = graph.get_urns_by_filter(
         platform=platform,
         platform_instance=platform_instance,
         env=env,
-        entity_types=["dataset"],
+        entity_types=discover_types,
         status=RemovedStatusFilter.NOT_SOFT_DELETED,
     )
     urns = [urn for urn in all_urns if converter.should_convert(urn)]

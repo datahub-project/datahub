@@ -184,6 +184,11 @@ class UrnConverter(Protocol):
     """A pluggable URN transform driving a generic (non-instance) migration."""
 
     name: str
+    # Entity types this converter can rewrite; drives run_transform discovery so
+    # the engine isn't hardcoded to datasets. A converter that only knows how to
+    # rewrite dataset URNs declares ["dataset"]; one that handles charts too adds
+    # "chart", etc.
+    entity_types: List[str]
 
     def should_convert(self, urn: str) -> bool:
         """Whether this URN needs converting (skip no-ops)."""
@@ -198,6 +203,8 @@ class LowercaseConverter:
     """Lowercase the name segment of dataset URNs (e.g. mixed-case -> lowercase)."""
 
     name = "lowercase"
+    # lowercase_dataset_urn only understands dataset URNs.
+    entity_types = ["dataset"]
 
     def should_convert(self, urn: str) -> bool:
         return urn != lowercase_dataset_urn(urn)
