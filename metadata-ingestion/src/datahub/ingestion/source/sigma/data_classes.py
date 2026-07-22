@@ -104,6 +104,14 @@ class WarehouseTableUpstream(BaseModel):
     type: Literal["table"] = "table"
     url_id: str  # BFS nodeId with "inode-" prefix stripped
     name: str  # BFS node name; used for name-based lookup in wb_warehouse_table_index
+    # Diagnostic-only: connectionId carried from the BFS payload so that
+    # "table not found in workbook index" logs can attribute the missing
+    # table to the connection that owns it. Helps distinguish a connector
+    # bug (lookup miss) from a Sigma API gap (workbook-level payload
+    # redacted because the OAuth scope can't see the connection).
+    # Optional because not all BFS payload shapes are guaranteed to include
+    # it; treated as ``""`` when absent.
+    connection_id: str = ""
 
 
 # "join" nodes are BFS pass-throughs and are not stored as upstreams.
