@@ -58,6 +58,9 @@ class MigrationConfig(ConfigModel):
     enabled: bool = False
     dry_run: bool = False
     fail_on_pending: bool = False
+    # Re-run every migration even if the ledger/version gate would skip it
+    # (e.g. to re-apply after a fix). Still requires enabled=true to mutate.
+    force: bool = False
 
 
 class MigrationCheckpointState(CheckpointStateBase):
@@ -161,16 +164,18 @@ def run_migrations(
 
     Pending = migrations whose id is not in the ledger and whose optional
     ``apply_before`` version is not already superseded by the last applied version
-    (i.e. still needed for data produced by an earlier version). If disabled,
-    pending migrations are reported (and optionally fail the run) but not
-    applied. ``current_version`` is recorded on each apply.
+    (i.e. still needed for data produced by an earlier version) — unless
+    ``config.force`` is set, which re-runs every migration regardless. If
+    disabled, pending migrations are reported (and optionally fail the run) but
+    not applied. ``current_version`` is recorded on each apply.
     """
     applied = ledger.read_applied()
     last_version = ledger.read_last_version()
     pending = [
         m
         for m in migrations
-        if m.id not in applied and not _is_superseded(m.apply_before, last_version)
+        if config.force
+        or (m.id not in applied and not _is_superseded(m.apply_before, last_version))
     ]
     if not pending:
         return

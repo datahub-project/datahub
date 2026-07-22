@@ -154,3 +154,20 @@ def test_no_apply_before_ignores_version():
         [a], ledger, MagicMock(), MagicMock(), MigrationConfig(enabled=True), VERSION
     )
     ra.assert_called_once()
+
+
+def test_force_reruns_applied_and_version_gated():
+    (a, ra) = _mig("a")  # already applied
+    (b, rb) = _mig("b", apply_before="1.2.0")  # version-superseded
+    ledger = FakeLedger({"a"}, last_version="9.9.9")
+    run_migrations(
+        [a, b],
+        ledger,
+        MagicMock(),
+        MagicMock(),
+        MigrationConfig(enabled=True, force=True),
+        VERSION,
+    )
+    ra.assert_called_once()
+    rb.assert_called_once()
+    assert set(ledger.recorded) == {"a", "b"}

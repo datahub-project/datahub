@@ -92,9 +92,12 @@ source:
         enabled: true        # apply pending migrations before ingestion
         dry_run: false       # log what would run without mutating
         fail_on_pending: false  # if true, abort when a migration is pending but disabled
+        force: false         # re-run every migration even if the ledger/version gate would skip it
 ```
 
 When migrations are pending but `enabled` is false, the run logs a warning listing the pending ids (and fails if `fail_on_pending` is set), so operators know a migration is waiting.
+
+Set `force: true` to re-run every migration regardless of the ledger or `apply_before` gate — useful to re-apply after a fix or to force a one-off re-run. It still requires `enabled: true` to mutate, and (like all migrations) relies on migrations being idempotent.
 
 ## Guidelines
 
