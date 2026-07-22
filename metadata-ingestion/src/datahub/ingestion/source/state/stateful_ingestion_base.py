@@ -28,6 +28,8 @@ from datahub.ingestion.source.state.ingestion_migration import (
     CheckpointMigrationLedger,
     Migration,
     MigrationConfig,
+    collect_migrations,
+    read_last_ingestion_version,
     run_migrations,
 )
 from datahub.ingestion.source.state.use_case_handler import (
@@ -257,7 +259,7 @@ class StatefulIngestionSourceBase(Source):
         return []
 
     def _run_pending_migrations(self) -> None:
-        migrations = self.get_migrations()
+        migrations = collect_migrations(self.get_migrations(), self)
         if not migrations:
             return
         graph = self.ctx.graph
@@ -270,6 +272,15 @@ class StatefulIngestionSourceBase(Source):
             )
             return
         ledger = CheckpointMigrationLedger(graph, pipeline_name, self.ctx.run_id)
+        # First run has no recorded version yet; seed the window gate from the
+        # pipeline's last ingestion run summary (best-effort) so a migration for a
+        # bug the pipeline never hit is skipped rather than scanned.
+        if ledger.read_last_version() is None:
+            ledger.seed_last_version(
+                read_last_ingestion_version(
+                    graph, getattr(self.ctx, "pipeline_config", None)
+                )
+            )
         run_migrations(
             migrations,
             ledger,
