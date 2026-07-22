@@ -11,6 +11,7 @@ import time_machine
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
@@ -511,8 +512,6 @@ def test_sink_declines_env_oauth_on_origin_mismatch(monkeypatch):
 
 
 def test_sink_applies_env_oauth_on_origin_match(monkeypatch):
-    from datahub.emitter.token_provider import TokenProviderAuth
-
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
     monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
