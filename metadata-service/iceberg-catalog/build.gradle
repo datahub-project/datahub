@@ -85,6 +85,6 @@ task pyIntegrationTest(type: Exec, dependsOn: installDev) {
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "ruff check --fix src/integrationTest/ && " +
-    "ruff format src/integrationTest/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }

@@ -159,7 +159,11 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeseriesAspectBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.logical.CreateLogicalModelResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.LinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.UnlinkPhysicalChildResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.UpdateLogicalModelSchemaResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
@@ -1368,6 +1372,13 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
               .dataFetcher(
                   "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher("createLogicalModel", new CreateLogicalModelResolver(this.entityClient))
+              .dataFetcher("linkPhysicalChild", new LinkPhysicalChildResolver(this.entityClient))
+              .dataFetcher(
+                  "unlinkPhysicalChild", new UnlinkPhysicalChildResolver(this.entityClient))
+              .dataFetcher(
+                  "updateLogicalModelSchema",
+                  new UpdateLogicalModelSchemaResolver(this.entityClient, this.graphClient))
               .dataFetcher(
                   "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
@@ -1618,6 +1629,13 @@ public class GmsGraphQLEngine {
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
     builder
+        .type(
+            "EntityEdge",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "destination",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((EntityEdge) env.getSource()).getDestination())))
         .type(
             "SearchResult",
             typeWiring ->

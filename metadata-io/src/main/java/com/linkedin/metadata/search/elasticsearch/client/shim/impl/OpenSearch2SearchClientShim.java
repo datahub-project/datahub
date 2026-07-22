@@ -565,10 +565,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Nonnull
   @Override
   public ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
-      throws IOException {
+      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
     return client.cluster().health(healthRequest, options);
   }
 

@@ -1,25 +1,5 @@
 [
 {
-    "entityType": "dataPlatform",
-    "entityUrn": "urn:li:dataPlatform:odcs",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInfo",
-    "aspect": {
-        "json": {
-            "name": "odcs",
-            "displayName": "Open Data Contract Standard",
-            "type": "OTHERS",
-            "datasetNameDelimiter": ".",
-            "logoUrl": "assets/platforms/odcslogo.png"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-bitol-schema__table-columns-with-partition",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,53581432-6c55-4ba2-a65f-72344a91553c.tbl,PROD)",
     "changeType": "UPSERT",

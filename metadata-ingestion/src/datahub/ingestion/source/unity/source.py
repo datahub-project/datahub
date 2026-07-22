@@ -2003,7 +2003,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
-        if table.is_metric_view and self.config.include_metric_views:
+        # Classification is always accurate regardless of include_metric_views: a
+        # metric view is a view, never a plain Table. The flag only gates the richer
+        # enrichment (YAML body parsing, lineage, Dimension/Measure tags), not the
+        # sub-type label. Mislabeling a metric view as "Table" breaks downstream
+        # consumers that reason about entity type (e.g. skipping ANALYZE TABLE, which
+        # Databricks rejects on views).
+        if table.is_metric_view:
             type_name = DatasetSubTypes.METRIC_VIEW
         elif table.is_view:
             type_name = DatasetSubTypes.VIEW
