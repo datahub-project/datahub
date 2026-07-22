@@ -715,9 +715,19 @@ def test_airflow_plugin(
     max_attempts = 3 if test_case.success else 1
     airflow_instance: Optional[AirflowInstance] = None
     for attempt in range(1, max_attempts + 1):
+        # Each attempt gets a fresh airflow_home (and thus a clean sqlite
+        # metadata DB) and a unique DagRun id. Reusing the same home/run_id
+        # across retries caused two races on Airflow 3.0:
+        #   1. `DagRunAlreadyExists` -- the prior attempt's DagRun still lives
+        #      in the shared DB, so `dags trigger -r manual_run_test` rejects.
+        #   2. `_wait_for_dag_finish` reads dag_runs[0], which on a shared DB
+        #      is the *old* failed run rather than the new one.
+        attempt_dir = tmp_path / f"attempt_{attempt}"
+        attempt_dir.mkdir()
+        dag_run_id = f"manual_run_test_{attempt}"
         try:
             with _run_airflow(
-                tmp_path,
+                attempt_dir,
                 dags_folder=DAGS_FOLDER,
                 multiple_connections=test_case.multiple_connections,
                 platform_instance=test_case.platform_instance,
@@ -739,7 +749,7 @@ def test_airflow_plugin(
                     "--logical-date",
                     "2023-09-27T21:34:38+00:00",
                     "-r",
-                    "manual_run_test",
+                    dag_run_id,
                     dag_id,
                 ]
 

@@ -23,6 +23,7 @@ from tests.integration.airbyte.airbyte_test_setup import (  # type: ignore[impor
     wait_for_airbyte_ready,
 )
 from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import docker_compose_pull_with_retry
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -38,6 +39,10 @@ def test_resources_dir(pytestconfig: Any) -> Path:
 def test_databases(
     test_resources_dir: Path, docker_compose_runner: Any
 ) -> Generator[Any, None, None]:
+    # Pre-pull with retry to absorb transient Docker Hub rate-limit / TLS
+    # handshake timeouts that otherwise abort the whole module before `up`
+    # even gets a chance.
+    docker_compose_pull_with_retry(test_resources_dir / "docker-compose.yml")
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "airbyte-test-dbs"
     ) as docker_services:
@@ -211,6 +216,13 @@ def test_airbyte_ingest(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 
@@ -240,6 +252,13 @@ def test_airbyte_platform_instance_urns(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )
 
@@ -269,5 +288,12 @@ def test_airbyte_schema_filter(
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['source_created_at'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['destination_created_at'\]",
+            # Airbyte's abctl install assigns a random workspace id UUID on
+            # each fresh install (the golden was captured with
+            # 12345678-...-123456789012). The id leaks into customProperties
+            # and the externalUrl, so ignore both to keep the comparison
+            # deterministic across runs.
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['workspace_id'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
         ],
     )

@@ -8,7 +8,11 @@ import time_machine
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import (
+    cleanup_image,
+    docker_compose_pull_with_retry,
+    wait_for_port,
+)
 
 pytestmark = pytest.mark.integration_batch_3
 
@@ -22,6 +26,10 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def loaded_nifi(docker_compose_runner, test_resources_dir):
+    # Pre-pull with retry to absorb transient Docker Hub rate-limit / TLS
+    # handshake timeouts (seen intermittently pulling the large nifi image)
+    # that otherwise abort the whole module before `up` even gets a chance.
+    docker_compose_pull_with_retry(test_resources_dir / "docker-compose.yml")
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "nifi"
     ) as docker_services:
@@ -111,8 +119,14 @@ def test_nifi_ingest_standalone(
 
 
 @time_machine.travel(FROZEN_TIME, tick=True)
+@pytest.mark.flaky(reruns=2)
 def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
-    # Wait for nifi cluster to execute all lineage processors, max wait time 180 seconds
+    # Wait for nifi cluster to execute all lineage processors, max wait time 180 seconds.
+    # Marked flaky because the cluster's provenance events across the three nodes
+    # (nifi01/02/03) don't always settle within the wait window -- occasionally the
+    # S3/SFTP processor outputs (enriched-topical-chat, sftp_public_host) land just
+    # after ingestion, producing a "Urn removed" golden diff on the first attempt
+    # that passes on an immediate rerun.
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"
     for i in range(36):
         logging.info("waiting...")

@@ -10,7 +10,7 @@ import json
 import pathlib
 import threading
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import patch
 
 import time_machine
@@ -85,6 +85,11 @@ class ThreadSafeMockSession:
         self.headers: Dict[str, str] = {}
         self._call_count = 0
         self._lock = threading.Lock()
+        # Track how many get() calls overlap in time. With max_threads=1 these
+        # never overlap (max == 1); with max_threads>1 they should (max > 1).
+        # This is a deterministic behavioral signal, unlike wall-clock speedup.
+        self._current_concurrent = 0
+        self._max_concurrent = 0
 
     def mount(self, prefix: str, adapter: object) -> None:
         pass
@@ -115,24 +120,38 @@ class ThreadSafeMockSession:
         )
 
     def get(self, url: str, timeout: int = 40) -> ThreadSafeResponse:
-        if self.latency > 0:
-            time.sleep(self.latency)
-
         with self._lock:
-            self._call_count += 1
+            self._current_concurrent += 1
+            if self._current_concurrent > self._max_concurrent:
+                self._max_concurrent = self._current_concurrent
 
-        base_url = url.split("?")[0]
+        try:
+            if self.latency > 0:
+                time.sleep(self.latency)
 
-        if "page=2" in url:
-            return self._empty_page_response(base_url)
+            with self._lock:
+                self._call_count += 1
 
-        data = self._resolve_response(base_url)
-        return ThreadSafeResponse(data, url=base_url)
+            base_url = url.split("?")[0]
+
+            if "page=2" in url:
+                return self._empty_page_response(base_url)
+
+            data = self._resolve_response(base_url)
+            return ThreadSafeResponse(data, url=base_url)
+        finally:
+            with self._lock:
+                self._current_concurrent -= 1
 
     @property
     def call_count(self) -> int:
         with self._lock:
             return self._call_count
+
+    @property
+    def max_concurrent(self) -> int:
+        with self._lock:
+            return self._max_concurrent
 
 
 def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession:
@@ -425,13 +444,17 @@ def _build_perf_response_map(
 
 
 def test_threading_speedup(tmp_path):
-    """Verify that max_threads > 1 provides wall-clock speedup with simulated latency.
+    """Verify that max_threads > 1 actually processes reports concurrently.
 
-    Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms.
-    With 4 threads, expect ~2-4x wall-clock speedup.
+    Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms so that
+    overlapping calls are observable via the mock session's concurrency
+    counter.
 
-    Note: No @time_machine.travel here -- time_machine patches time.monotonic()
-    which would make our wall-clock measurements return 0.
+    The assertion is behavioral (calls overlap across threads), not wall-clock:
+    a wall-clock speedup threshold is flaky on shared/loaded CI runners where
+    the parallel run barely beats sequential. No @time_machine.travel here --
+    time_machine patches time.monotonic() which would make our wall-clock
+    measurements return 0.
     """
     num_reports = 10
     num_queries_per_report = 2
@@ -439,78 +462,76 @@ def test_threading_speedup(tmp_path):
 
     responses = _build_perf_response_map(num_reports, num_queries_per_report)
 
-    # Sequential run (max_threads=1)
-    with patch(
-        "datahub.ingestion.source.mode.requests.Session",
-        side_effect=lambda *a, **kw: ThreadSafeMockSession(responses, latency=latency),
-    ):
-        pipeline_seq = Pipeline.create(
-            {
-                "run_id": "mode-perf-sequential",
-                "source": {
-                    "type": "mode",
-                    "config": {
-                        "token": "xxxx",
-                        "password": "xxxx",
-                        "connect_uri": "https://app.mode.com/",
-                        "workspace": "acryl",
-                        "max_threads": 1,
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/perf_seq.json",
-                    },
-                },
-            }
-        )
-        t0 = time.perf_counter()
-        pipeline_seq.run()
-        sequential_time = time.perf_counter() - t0
+    def run_pipeline(
+        max_threads: int, run_id: str, output_name: str
+    ) -> Tuple[List[ThreadSafeMockSession], float]:
+        sessions: List[ThreadSafeMockSession] = []
 
-    # Threaded run (max_threads=4)
-    with patch(
-        "datahub.ingestion.source.mode.requests.Session",
-        side_effect=lambda *a, **kw: ThreadSafeMockSession(responses, latency=latency),
-    ):
-        pipeline_par = Pipeline.create(
-            {
-                "run_id": "mode-perf-parallel",
-                "source": {
-                    "type": "mode",
-                    "config": {
-                        "token": "xxxx",
-                        "password": "xxxx",
-                        "connect_uri": "https://app.mode.com/",
-                        "workspace": "acryl",
-                        "max_threads": 4,
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/perf_par.json",
-                    },
-                },
-            }
-        )
-        t0 = time.perf_counter()
-        pipeline_par.run()
-        parallel_time = time.perf_counter() - t0
+        def session_factory(*a: Any, **kw: Any) -> ThreadSafeMockSession:
+            session = ThreadSafeMockSession(responses, latency=latency)
+            sessions.append(session)
+            return session
 
+        with patch(
+            "datahub.ingestion.source.mode.requests.Session",
+            side_effect=session_factory,
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": run_id,
+                    "source": {
+                        "type": "mode",
+                        "config": {
+                            "token": "xxxx",
+                            "password": "xxxx",
+                            "connect_uri": "https://app.mode.com/",
+                            "workspace": "acryl",
+                            "max_threads": max_threads,
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {
+                            "filename": f"{tmp_path}/{output_name}.json",
+                        },
+                    },
+                }
+            )
+            t0 = time.perf_counter()
+            pipeline.run()
+            pipeline.raise_from_status()
+            elapsed = time.perf_counter() - t0
+        return sessions, elapsed
+
+    seq_sessions, sequential_time = run_pipeline(
+        max_threads=1, run_id="mode-perf-sequential", output_name="perf_seq"
+    )
+    par_sessions, parallel_time = run_pipeline(
+        max_threads=4, run_id="mode-perf-parallel", output_name="perf_par"
+    )
+
+    seq_max_concurrent = max((s.max_concurrent for s in seq_sessions), default=0)
+    par_max_concurrent = max((s.max_concurrent for s in par_sessions), default=0)
     speedup = sequential_time / parallel_time if parallel_time > 0 else float("inf")
 
     print(
-        f"\nPerf results: sequential={sequential_time:.2f}s, "
-        f"parallel={parallel_time:.2f}s, speedup={speedup:.1f}x"
+        f"\nPerf results: sequential={sequential_time:.2f}s "
+        f"(max concurrent={seq_max_concurrent}), "
+        f"parallel={parallel_time:.2f}s (max concurrent={par_max_concurrent}), "
+        f"speedup={speedup:.1f}x"
     )
 
-    # With 4 threads and 50ms latency, we should see at least 1.5x speedup.
-    # Using a conservative threshold to avoid flaky CI.
-    assert speedup > 1.5, (
-        f"Expected >1.5x speedup but got {speedup:.2f}x "
-        f"(seq={sequential_time:.2f}s, par={parallel_time:.2f}s)"
+    # Sequential run must serialize HTTP calls -- no overlap.
+    assert seq_max_concurrent == 1, (
+        f"Sequential run (max_threads=1) executed HTTP calls concurrently "
+        f"(max concurrent={seq_max_concurrent}); expected strictly serialized."
+    )
+    # Parallel run must actually overlap calls across threads. This is the
+    # deterministic signal that max_threads>1 is honored, independent of
+    # runner load.
+    assert par_max_concurrent > 1, (
+        f"Parallel run (max_threads=4) never executed HTTP calls concurrently "
+        f"(max concurrent={par_max_concurrent}); expected overlapping calls."
     )
 
 
