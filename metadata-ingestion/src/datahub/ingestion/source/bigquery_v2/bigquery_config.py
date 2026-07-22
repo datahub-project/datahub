@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
+    NonNegativeInt,
     PositiveInt,
     PrivateAttr,
     ValidationInfo,
@@ -32,6 +33,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -65,6 +67,65 @@ _DEPRECATED_USAGE_TOP_LEVEL_FIELDS: Tuple[str, ...] = (
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(GEProfilingConfig):
+    fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when partition discovery fails. Keys are column "
+        "names, values are the fallback values to use (string, int, or float). For non-date columns, the "
+        "values are used directly. Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    partition_fetch_timeout: PositiveInt = Field(
+        default=30,
+        description="Timeout in seconds for each partition value fetch query. On timeout the "
+        "table is treated as having no discoverable partition, so it is either skipped or "
+        "(for require_partition_filter=false tables) profiled without a partition filter.",
+    )
+
+    profiling_row_limit: NonNegativeInt = Field(
+        default=1000000,
+        description="Maximum number of rows to scan when profiling a table (applied as a LIMIT "
+        "on the generated profiling SQL); distinct from `sample_size`, which controls "
+        "row-level sampling. Set to 0 to disable this limit, though a safety LIMIT still "
+        "applies to unpartitioned tables above ~1M rows.",
+    )
+
+    skip_stale_tables: bool = Field(
+        default=True,
+        description="Skip profiling for tables not modified within `staleness_threshold_days` "
+        "(default 365). Uses last_altered (BigQuery's last_modified_time) for both regular and "
+        "external tables. This helps avoid profiling abandoned or archived tables.",
+    )
+
+    staleness_threshold_days: PositiveInt = Field(
+        default=365,
+        description="Number of days after which a table is considered stale and profiling will be skipped "
+        "if skip_stale_tables is enabled. Must be positive; disable the behavior with "
+        "skip_stale_tables=false rather than setting this to 0.",
+    )
+
+    partition_datetime_window_days: Optional[NonNegativeInt] = Field(
+        default=30,
+        description="Limit profiling to partitions within this many days from the selected partition date. "
+        "For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
+        "'2025-07-16' to '2025-08-15' will be included in profiling. Set to None to disable date windowing. "
+        "This helps focus profiling on recent data patterns and improves performance.",
+    )
+
+    @field_validator("fallback_partition_values")
+    @classmethod
+    def reject_bool_fallback_values(
+        cls, v: Dict[str, Union[str, int, float]]
+    ) -> Dict[str, Union[str, int, float]]:
+        # bool is an int subclass, so it slips past Union[str, int, float] otherwise.
+        for col, val in v.items():
+            if isinstance(val, bool):
+                raise ValueError(
+                    f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                )
+        return v
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -560,6 +621,11 @@ class BigQueryV2Config(
         "regions detected from dataset locations during schema ingestion. "
         "Defaults to False to avoid unexpected query cost increases. "
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
+    )
+
+    profiling: BigQueryProfilingConfig = Field(
+        default_factory=BigQueryProfilingConfig,
+        description="Profiling related configs",
     )
 
     pushdown_deny_usernames: List[str] = Field(
