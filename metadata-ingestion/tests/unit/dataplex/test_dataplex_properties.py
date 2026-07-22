@@ -380,20 +380,18 @@ class _FakeAspectValue:
 
 
 def test_aspect_pattern_denies_datahub_authored_aspects():
+    # Real Dataplex aspect keys are "<project>.<location>.<aspect_type>", and the
+    # sync-back uses hyphenated type ids (Dataplex forbids underscores).
     aspects = {
-        "projects/p/locations/l/aspectTypes/datahub_tags": _FakeAspectValue(
-            {"pii": "urn:li:tag:pii"}
-        ),
-        "projects/p/locations/l/aspectTypes/business_metadata": _FakeAspectValue(
-            {"team": "growth"}
-        ),
+        "my-project.global.datahub-tags": _FakeAspectValue({"pii": "urn:li:tag:pii"}),
+        "my-project.global.business-metadata": _FakeAspectValue({"team": "growth"}),
     }
-    props: dict = {}
+    props: dict[str, str] = {}
     extract_aspects_to_custom_properties(
-        aspects, props, aspect_pattern=AllowDenyPattern(deny=["datahub_.*"])
+        aspects, props, aspect_pattern=AllowDenyPattern(deny=["datahub-.*"])
     )
     # DataHub-authored aspect is filtered out entirely...
-    assert not any(k.startswith("dataplex_datahub_tags") for k in props)
-    assert "dataplex_aspect_datahub_tags" not in props
-    # ...but a genuine native aspect is still flattened.
-    assert props["dataplex_business_metadata_team"] == "growth"
+    assert not any(k.startswith("dataplex_datahub-tags") for k in props)
+    assert "dataplex_aspect_datahub-tags" not in props
+    # ...but a genuine native aspect is still flattened (matched by bare type name).
+    assert props["dataplex_business-metadata_team"] == "growth"
