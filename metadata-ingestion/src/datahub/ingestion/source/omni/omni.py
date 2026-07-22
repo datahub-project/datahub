@@ -961,7 +961,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             }
 
             model_urn = self._model_dataset_urn(model_id)
-            self._model_dataset_urns.add(model_urn)
+            # Register atomically; the primary model always emits (richer data
+            # than an inferred stub), so we don't guard on the return value.
+            self._model_dataset_urns.check_and_add(model_urn)
 
             if connection_id:
                 conn = self._connections_by_id.get(str(connection_id))
@@ -991,6 +993,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if base_model_id:
                 base_model_urn = self._model_dataset_urn(base_model_id)
                 model_upstream_urns.add(base_model_urn)
+                # Only emit an inferred stub if no worker has registered
+                # this URN yet (avoids duplicate emission when the base
+                # model is also in the filtered set).
                 if self._model_dataset_urns.check_and_add(base_model_urn):
                     work_units.extend(
                         self._emit_dataset(
