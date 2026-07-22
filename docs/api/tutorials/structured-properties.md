@@ -97,6 +97,32 @@ If successful, you should see `Created structured property urn:li:structuredProp
 
 </TabItem>
 
+<TabItem value="Python" label="Python">
+
+Using the Python SDK, define your properties in a YAML file (same schema as the CLI tab)
+and register them with the `StructuredProperties.create` **staticmethod** — note it takes
+a **YAML file path and a graph**, it is *not* an instance method:
+
+```python
+from datahub.api.entities.structuredproperties.structuredproperties import StructuredProperties
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
+
+graph = DataHubGraph(DatahubClientConfig(server="http://localhost:8080"))
+
+# create(file, graph) is a @staticmethod: pass the YAML file path, then the graph.
+StructuredProperties.create("structured_properties.yaml", graph)
+```
+
+:::caution
+`StructuredProperties.create` is a **static method**: `create(file: str, graph: DataHubGraph)`.
+Calling it on an instance — `StructuredProperties(id=...).create(graph)` — passes the graph
+as the `file` argument and fails. To define a property fully in code without a YAML file,
+emit the definition as an MCP instead (see
+[`examples/structured_properties/create_structured_property.py`](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/structured_properties/create_structured_property.py)).
+:::
+
+</TabItem>
+
 <TabItem value="Graphql" label="GraphQL" default>
 
 ```graphql
@@ -676,6 +702,14 @@ Example Response:
 
 This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
 
+:::info Privileges & the MCP mutation flag
+Writing via the Python SDK / GraphQL emitter goes **directly to GMS** and is governed only
+by your token's platform privileges: **Manage Structured Properties** to create a
+definition, and **Edit Properties** to set a value on an entity. The
+`TOOLS_IS_MUTATION_ENABLED` environment variable gates mutation *tools* on the
+`mcp-server-datahub` MCP server only — it has **no effect** on direct SDK/GraphQL writes.
+:::
+
 <Tabs>
 <TabItem value="GraphQL" label="GraphQL" default>
 
@@ -861,6 +895,33 @@ query getDataset {
 ```
 
 </TabItem>  
+
+<TabItem value="Python" label="Python">
+
+There is no single-property *value* read primitive. A structured property's value on an
+entity is returned as part of the entity's `structuredProperties` **aspect**, which you
+fetch in one call and then filter by property URN:
+
+```python
+from datahub.metadata.schema_classes import StructuredPropertiesClass
+
+sp = graph.get_aspect(
+    entity_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)",
+    aspect_type=StructuredPropertiesClass,
+)
+if sp:
+    for assignment in sp.properties:
+        print(assignment.propertyUrn, assignment.values)
+```
+
+:::note
+This differs from the **"Read a single Structured Property"** section above, which reads a
+property's **definition** by its `structuredProperty` URN. There is no endpoint that reads
+one property's **value** on one entity in isolation — you read the entity's
+`structuredProperties` aspect and select the assignment whose `propertyUrn` matches.
+:::
+
+</TabItem>
 </Tabs>
 
 ## Remove Structured Properties From a Dataset
