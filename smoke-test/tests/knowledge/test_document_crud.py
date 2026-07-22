@@ -4,7 +4,7 @@ import time
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.knowledge.document_helpers import unique_id, execute_graphql
+from tests.knowledge.document_helpers import execute_graphql, unique_id
 
 logger = logging.getLogger(__name__)
 
