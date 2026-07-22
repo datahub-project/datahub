@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -381,6 +382,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "testProp");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -388,8 +392,10 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            KEYWORD_MAXLENGTH,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword"))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
@@ -532,6 +538,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testProp.00000000000001.string");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -539,8 +548,10 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            KEYWORD_MAXLENGTH,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword"))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
