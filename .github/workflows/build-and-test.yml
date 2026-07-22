@@ -261,6 +261,16 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      # Vite's transform/deps cache. Reused across runs so the module-graph transform isn't
+      # recomputed cold. frontend-build is the writer; frontend-test restores the same key.
+      # Invalidates when deps (yarn.lock) or the vite config change.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            datahub-web-react/node_modules/.vite
+          key: ${{ runner.os }}-vite-${{ hashFiles('datahub-web-react/yarn.lock', 'datahub-web-react/vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-vite-
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Set up JDK 21
@@ -306,8 +316,9 @@ jobs:
           timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - name: Free up disk space
-        uses: ./.github/actions/free-disk-space
+      # No free-disk-space here: this job only downloads a small codegen artifact, runs
+      # yarn install + vitest (no Docker builds). GitHub runners ship 14–22GB free — plenty.
+      # The cleanup action itself costs ~2min/leg, so removing it is a net speedup.
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
@@ -326,6 +337,15 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
+      # Restore Vite's transform/deps cache written by frontend-build (same key). Parallel
+      # matrix legs no-op on the redundant save; the restore is what speeds up vitest here.
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: |
+            datahub-web-react/node_modules/.vite
+          key: ${{ runner.os }}-vite-${{ hashFiles('datahub-web-react/yarn.lock', 'datahub-web-react/vite.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-vite-
       - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:

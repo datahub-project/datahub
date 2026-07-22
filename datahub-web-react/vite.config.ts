@@ -256,9 +256,35 @@ export default defineConfig(async ({ mode }) => {
         test: {
             globals: true,
             environment: 'jsdom',
+            // NOTE: isolate:false (share a worker across files) is the biggest lever but is
+            // deferred to its own PR — this suite has multiple cross-file state-bleed sources
+            // (unrestored fake timers stub performance.now → vitest worker crash, plus others)
+            // that need a per-suite cleanup audit before it's safe.
             setupFiles: './src/setupTests.ts',
-            css: true,
-            // reporters: ['verbose'],
+            // Skip CSS processing in tests. Re-enable (or use `// @vitest-environment`
+            // tricks) only if a suite asserts computed styles / styled-components output.
+            css: false,
+            // Pre-bundle heavy dependencies once instead of transforming their many small
+            // modules on every test file. monaco-editor is intentionally absent — the
+            // Monaco Editor is globally mocked in setupTests.ts, so it never loads here.
+            // If a lib mis-bundles (import/interop error), drop it — surfaces on first run.
+            deps: {
+                optimizer: {
+                    web: {
+                        include: [
+                            'antd',
+                            '@ant-design/icons',
+                            '@apollo/client',
+                            'styled-components',
+                            'react-syntax-highlighter',
+                            '@react-spring/web',
+                        ],
+                    },
+                },
+            },
+            // CI uses the minimal 'dot' reporter (much less stdout across 442 files);
+            // local runs keep the readable default. process.env.CI is set by GitHub Actions.
+            reporters: process.env.CI ? ['dot'] : ['default'],
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.
@@ -276,7 +302,10 @@ export default defineConfig(async ({ mode }) => {
                 return undefined;
             },
             coverage: {
-                enabled: true,
+                // CI-only: v8 coverage instruments every loaded module and is the biggest
+                // per-run tax. CI needs it (Codecov 'frontend' flag); local/watch runs skip
+                // it for a faster dev loop. Run locally with `CI=1 yarn test` to force it on.
+                enabled: !!process.env.CI,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
                 include: ['src/**/*.ts'],
