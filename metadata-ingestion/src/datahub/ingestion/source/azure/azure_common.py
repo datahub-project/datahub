@@ -16,6 +16,11 @@ class AzureConnectionConfig(ConfigModel):
     https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-directory-file-acl-python
     """
 
+    # Safe to cache: credentials are static or self-refreshing
+    # (ClientSecretCredential refreshes its own tokens).
+    _blob_service_client: Optional[BlobServiceClient] = None
+    _data_lake_service_client: Optional[DataLakeServiceClient] = None
+
     base_path: str = Field(
         default="/",
         description="Base folder in hierarchical namespaces to start from.",
@@ -59,16 +64,20 @@ class AzureConnectionConfig(ConfigModel):
         )
 
     def get_blob_service_client(self):
-        return BlobServiceClient(
-            account_url=f"https://{self.account_name}.blob.core.windows.net",
-            credential=self.get_credentials(),
-        )
+        if self._blob_service_client is None:
+            self._blob_service_client = BlobServiceClient(
+                account_url=f"https://{self.account_name}.blob.core.windows.net",
+                credential=self.get_credentials(),
+            )
+        return self._blob_service_client
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
-        return DataLakeServiceClient(
-            account_url=f"https://{self.account_name}.dfs.core.windows.net",
-            credential=self.get_credentials(),
-        )
+        if self._data_lake_service_client is None:
+            self._data_lake_service_client = DataLakeServiceClient(
+                account_url=f"https://{self.account_name}.dfs.core.windows.net",
+                credential=self.get_credentials(),
+            )
+        return self._data_lake_service_client
 
     def get_credentials(
         self,
