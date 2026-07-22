@@ -15,10 +15,10 @@
 # Limits: a ref that adds dependencies, entry points, or changes model codegen
 # is not covered by the overlay; that would need a full codegen build.
 #
-# Assertions: pytest's exit code (via pipefail) is the pass/fail signal; the
-# greps additionally assert that nothing SKIPPED — the tests skip themselves
-# when env vars are missing or the SDK lacks the auth layer, and pytest exits 0
-# on an all-skipped run, which must not count as green.
+# Pass/fail is pytest's exit code alone (set -e + pipefail below). No skip may
+# slip through as green — pytest exits 0 on an all-skipped run — so the two skip
+# triggers are guarded upstream instead: the SDK auth layer by the import check
+# below, the GMS/Keycloak env by the precondition just above the pytest call.
 set -euo pipefail
 
 # CLI_VERSION is the canonical floor from gradle/versioning/cliVersion.gradle
@@ -31,6 +31,9 @@ pip install --quiet "acryl-datahub>=${CLI_VERSION}" pytest requests
 SITE_DATAHUB=$(python -c "import datahub, os; print(os.path.dirname(datahub.__file__))")
 tar -C /repo/metadata-ingestion/src/datahub --exclude="./metadata" --exclude="*__pycache__*" -cf - . | tar -C "$SITE_DATAHUB" -xf -
 python -c "from datahub.ingestion.auth.env import build_auth_config_from_env"  # overlay sanity check
-pytest /smoke/test_oauth_cli_gms.py -v 2>&1 | tee /tmp/pytest-oauth.out
-grep -qE "[0-9]+ passed" /tmp/pytest-oauth.out
-! grep -qE "[0-9]+ skipped|no tests ran" /tmp/pytest-oauth.out
+# Assert the tester's OAuth env (set on the compose service) so a missing var
+# fails loudly here instead of skipping the whole module — an all-skipped run
+# exits 0 and would read as green.
+: "${DATAHUB_GMS_URL:?}"
+: "${KEYCLOAK_TOKEN_ENDPOINT:?}"
+pytest /smoke/test_oauth_cli_gms.py -v
