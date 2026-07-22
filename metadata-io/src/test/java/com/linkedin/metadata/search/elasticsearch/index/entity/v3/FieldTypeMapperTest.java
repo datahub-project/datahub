@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.LogicalValueType;
@@ -46,7 +45,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping =
         FieldTypeMapper.getMappingsForLogicalValueType(LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
   }
 
   @Test
@@ -54,7 +53,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping =
         FieldTypeMapper.getMappingsForLogicalValueType(LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
   }
 
   @Test
