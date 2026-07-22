@@ -3,12 +3,14 @@ connector emits one DataJob per source->destination pair (one inlet, one
 outlet) instead of a single node connecting every source to every destination.
 """
 
+from functools import partial
 from unittest.mock import patch
 
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fivetran.config import (
+    Constant,
     FivetranLogConfig,
     FivetranSourceConfig,
     PlatformDetail,
@@ -19,6 +21,13 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    auto_stale_entity_removal,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.metadata.urns import DataFlowUrn
 
 CONNECTOR_ID = "my_connector_id"
 DESTINATION_ID = "test_destination"
@@ -78,6 +87,15 @@ def _connector(num_tables: int) -> Connector:
     )
 
 
+def _flow_urn(source: FivetranSource, connector: Connector) -> DataFlowUrn:
+    return DataFlowUrn.create_from_ids(
+        orchestrator=Constant.ORCHESTRATOR,
+        flow_id=connector.connector_id,
+        env=source.config.env,
+        platform_instance=source.config.platform_instance,
+    )
+
+
 def _table_datajobs(source: FivetranSource, connector: Connector) -> list:
     source_details = source._resolve_source_details(connector)
     destination_details = source.resolve_destination_details(connector.destination_id)
@@ -86,7 +104,12 @@ def _table_datajobs(source: FivetranSource, connector: Connector) -> list:
     )
     return list(
         source._generate_table_datajobs(
-            connector, source_details, destination_details, lineage_properties
+            connector,
+            source_details,
+            destination_details,
+            lineage_properties,
+            _flow_urn(source, connector),
+            None,
         )
     )
 
@@ -116,7 +139,7 @@ def test_no_single_datajob_fans_out_all_sources(source):
     connector = _connector(5)
 
     connector_job = source._generate_datajob_from_connector(
-        connector, lineage_properties={}
+        connector, {}, _flow_urn(source, connector), None
     )
     # Connector-level job anchors run history only — no dataset I/O.
     assert connector_job.inlets == []
@@ -154,7 +177,7 @@ def test_datajob_names_are_unique_and_deterministic(source):
 
 def test_long_table_names_use_stable_hashed_datajob_id(source):
     """When the readable job id would exceed the URN length limit, the id
-    falls back to a deterministic content hash that is stable across runs."""
+    falls back to a deterministic content hash that respects the cap."""
     long_table = "dbo." + "x" * 300
     lineage = TableLineage(
         source_table=long_table,
@@ -167,23 +190,47 @@ def test_long_table_names_use_stable_hashed_datajob_id(source):
     name_2 = source._table_datajob_name(connector, lineage)
 
     assert name_1 == name_2
-    assert len(name_1) < len(long_table)
+    assert len(name_1) <= 200
     assert name_1.startswith(f"{CONNECTOR_ID}.")
 
 
-def test_duplicate_table_pairs_emit_one_datajob(source):
-    """Repeated (source, destination) pairs collapse to a single DataJob."""
+def test_short_table_names_keep_readable_datajob_id(source):
+    """Under the length cap, the readable name is used verbatim (not hashed)."""
     lineage = TableLineage(
         source_table="dbo.orders",
-        destination_table="dbo.orders",
+        destination_table="public.orders",
         column_lineage=[],
     )
     connector = _connector(0)
-    connector.lineage = [lineage, lineage]
+
+    name = source._table_datajob_name(connector, lineage)
+
+    assert name == f"{CONNECTOR_ID}.dbo.orders_to_public.orders"
+
+
+def test_duplicate_table_pairs_merge_into_one_datajob(source):
+    """Repeated (source, destination) pairs collapse to one DataJob, and their
+    column lineage is merged rather than dropped."""
+    connector = _connector(0)
+    connector.lineage = [
+        TableLineage(
+            source_table="dbo.orders",
+            destination_table="dbo.orders",
+            column_lineage=[ColumnLineage("id", "id")],
+        ),
+        TableLineage(
+            source_table="dbo.orders",
+            destination_table="dbo.orders",
+            column_lineage=[ColumnLineage("amount", "amount")],
+        ),
+    ]
 
     datajobs = _table_datajobs(source, connector)
 
     assert len(datajobs) == 1
+    assert source.report.num_duplicate_table_pairs_merged == 1
+    # Both rows' columns survive on the single merged job.
+    assert len(datajobs[0].fine_grained_lineages) == 2
 
 
 def test_column_lineage_disabled_produces_no_fine_grained(source):
@@ -223,9 +270,43 @@ def test_undetermined_destination_urn_skips_edges_with_one_warning(source):
     datajobs = _table_datajobs(source, connector)
 
     assert datajobs == []
+    # Every skipped edge is counted, even though the warning is deduped to one.
+    assert source.report.num_lineage_edges_skipped == 3
     warnings = [
         w
         for w in source.report._structured_logs.warnings
         if w.title == "Destination URN could not be constructed"
     ]
     assert len(warnings) == 1
+
+
+def test_no_column_lineage_when_source_urn_unresolved(source):
+    """A pair with column lineage but no resolvable input dataset URN yields no
+    fine-grained edges (an FGL with empty upstreams would be malformed)."""
+    lineage = TableLineage(
+        source_table="dbo.orders",
+        destination_table="dbo.orders",
+        column_lineage=[ColumnLineage("id", "id")],
+    )
+    destination_details = source.resolve_destination_details(DESTINATION_ID)
+    output_urn = source.build_destination_urn("dbo.orders", destination_details)
+
+    fgls = source._build_fine_grained_lineages(
+        lineage, input_dataset_urn=None, output_dataset_urn=output_urn
+    )
+
+    assert fgls == []
+
+
+def test_stale_removal_processor_is_wired(source):
+    """Per-pair DataJob URNs churn as table pairs are added/dropped, so stale
+    removal must be active: the manual processor is registered and the
+    framework's automatic one is excluded to avoid double processing."""
+    assert AutoStaleEntityRemovalProcessor in source.get_excluded_workunit_processors()
+    manual = [
+        p
+        for p in source.get_workunit_processors()
+        if isinstance(p, partial) and p.func is auto_stale_entity_removal
+    ]
+    assert len(manual) == 1
+    assert manual[0].args == (source.stale_entity_removal_handler,)

@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from functools import partial
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 
 import pydantic
@@ -21,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
     SourceReport,
     StructuredLogCategory,
 )
@@ -50,8 +52,16 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranDestinationConfig,
     FivetranDestinationDetails,
 )
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
@@ -189,6 +199,29 @@ class FivetranSource(StatefulIngestionSourceBase):
         # exactly one warning per destination per ingest, and the
         # individual edges are still skipped silently after the first.
         self._destinations_with_urn_warning: set[str] = set()
+        # Per-pair DataJob URNs are derived from table names, so a dropped or
+        # renamed pair leaves an orphan DataJob carrying stale lineage. Stale
+        # removal soft-deletes primary-source entities missing from this run.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
+
+    def get_excluded_workunit_processors(self):
+        # Stale removal is wired manually below so the handler instance is
+        # shared with this source; exclude the framework's automatic processor.
+        return [AutoStaleEntityRemovalProcessor]
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
 
     def _build_log_reader(self) -> FivetranConnectorReader:
         # By the time we get here, `validate_log_source_credentials` has
@@ -310,21 +343,22 @@ class FivetranSource(StatefulIngestionSourceBase):
     ) -> List[FineGrainedLineage]:
         if not self.config.include_column_lineage:
             return []
+        # No input URN (e.g. an unresolved Google Sheets source) means no
+        # upstream field to point at, so skip column lineage rather than emit
+        # a malformed edge with empty upstreams. The table-level outlet stands.
+        if input_dataset_urn is None:
+            return []
         fine_grained_lineage: List[FineGrainedLineage] = []
         for column_lineage in lineage.column_lineage:
             fine_grained_lineage.append(
                 FineGrainedLineage(
                     upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=(
-                        [
-                            builder.make_schema_field_urn(
-                                str(input_dataset_urn),
-                                column_lineage.source_column,
-                            )
-                        ]
-                        if input_dataset_urn
-                        else []
-                    ),
+                    upstreams=[
+                        builder.make_schema_field_urn(
+                            str(input_dataset_urn),
+                            column_lineage.source_column,
+                        )
+                    ],
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         builder.make_schema_field_urn(
@@ -724,7 +758,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         return {**connector_properties, **lineage_properties}
 
     def _generate_datajob_from_connector(
-        self, connector: Connector, lineage_properties: Dict[str, str]
+        self,
+        connector: Connector,
+        lineage_properties: Dict[str, str],
+        dataflow_urn: DataFlowUrn,
+        owners: Optional[List[CorpUserUrn]],
     ) -> DataJob:
         """Connector-level DataJob anchoring sync run-history and metadata.
 
@@ -733,19 +771,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         `DataJobInputOutput` is emitted (not omitted) so any previously
         ingested fan-out lineage on this URN is cleared on re-ingest.
         """
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
-            flow_id=connector.connector_id,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
-        owner_email = self.log_reader.get_user_email(connector.user_id)
         datajob = DataJob(
             name=connector.connector_id,
             flow_urn=dataflow_urn,
             platform_instance=self.config.platform_instance,
             display_name=connector.connector_name,
-            owners=[CorpUserUrn(owner_email)] if owner_email else None,
+            owners=owners,
             extra_aspects=[
                 DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
             ],
@@ -768,12 +799,39 @@ class FivetranSource(StatefulIngestionSourceBase):
         digest = hashlib.md5(pair.encode("utf-8")).hexdigest()[:16]
         return f"{connector.connector_id}.{digest}"
 
+    @staticmethod
+    def _merge_duplicate_lineage(
+        connector: Connector, report: FivetranSourceReport
+    ) -> Iterable[TableLineage]:
+        """Collapse rows that repeat a (source, destination) pair into one.
+
+        Each pair maps to a single DataJob URN, so duplicate rows would collide.
+        Fivetran can split a pair's column lineage across rows, so later rows'
+        column lineage is merged into the first-seen pair instead of dropped.
+        """
+        merged: Dict[str, TableLineage] = {}
+        for lineage in connector.lineage:
+            pair_key = f"{lineage.source_table}\t{lineage.destination_table}"
+            existing = merged.get(pair_key)
+            if existing is None:
+                merged[pair_key] = TableLineage(
+                    source_table=lineage.source_table,
+                    destination_table=lineage.destination_table,
+                    column_lineage=list(lineage.column_lineage),
+                )
+            else:
+                existing.column_lineage.extend(lineage.column_lineage)
+                report.num_duplicate_table_pairs_merged += 1
+        return merged.values()
+
     def _generate_table_datajobs(
         self,
         connector: Connector,
         source_details: PlatformDetail,
         destination_details: PlatformDetail,
         lineage_properties: Dict[str, str],
+        dataflow_urn: DataFlowUrn,
+        owners: Optional[List[CorpUserUrn]],
     ) -> Iterable[DataJob]:
         """One DataJob per (source_table -> destination_table) pair.
 
@@ -781,22 +839,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         lineage), so DataHub resolves table lineage precisely instead of
         fanning every source out to every destination.
         """
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
-            flow_id=connector.connector_id,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
-        owner_email = self.log_reader.get_user_email(connector.user_id)
-        owners = [CorpUserUrn(owner_email)] if owner_email else None
-
-        seen_pairs: set[str] = set()
-        for lineage in connector.lineage:
-            pair_key = f"{lineage.source_table}\t{lineage.destination_table}"
-            if pair_key in seen_pairs:
-                continue
-            seen_pairs.add(pair_key)
-
+        for lineage in self._merge_duplicate_lineage(connector, self.report):
             try:
                 output_dataset_urn = self.build_destination_urn(
                     lineage.destination_table,
@@ -809,15 +852,17 @@ class FivetranSource(StatefulIngestionSourceBase):
                 # destination (`s3`/`gcs`/`abs`) whose `database` (the
                 # bucket-or-container prefix) couldn't be discovered or
                 # pinned. Skip the lineage edge and keep the ingest going.
-                # Dedup the warning per destination — every connector on a
-                # misconfigured destination would otherwise emit its own copy.
+                self.report.num_lineage_edges_skipped += 1
+                # Dedup the warning per destination; the counter above still
+                # reflects the true number of skipped edges.
                 if connector.destination_id not in self._destinations_with_urn_warning:
                     self._destinations_with_urn_warning.add(connector.destination_id)
                     self.report.warning(
                         title="Destination URN could not be constructed",
                         message=(
                             "Skipping all lineage edges for this destination. "
-                            "Subsequent edges will be skipped silently. Set "
+                            "Subsequent edges will be skipped silently (see "
+                            "num_lineage_edges_skipped for the total). Set "
                             "`destination_to_platform_instance.<id>.platform` "
                             "if it wasn't auto-detected, and (for s3/gcs/abs "
                             "destinations only) `.database` with the path "
@@ -930,6 +975,17 @@ class FivetranSource(StatefulIngestionSourceBase):
             source_details, destination_details
         )
 
+        # Resolve the dataflow URN and owner once and thread them into both
+        # the connector-level and per-pair DataJob builders.
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=Constant.ORCHESTRATOR,
+            flow_id=connector.connector_id,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        owner_email = self.log_reader.get_user_email(connector.user_id)
+        owners = [CorpUserUrn(owner_email)] if owner_email else None
+
         max_table_lineage = self.config.max_table_lineage_per_connector
         if len(connector.lineage) >= max_table_lineage:
             self.report.warning(
@@ -941,14 +997,21 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Connector-level DataJob: anchors sync run-history and connector
         # metadata, with no dataset I/O (lineage lives on the per-table jobs).
-        datajob = self._generate_datajob_from_connector(connector, lineage_properties)
+        datajob = self._generate_datajob_from_connector(
+            connector, lineage_properties, dataflow_urn, owners
+        )
         yield datajob
 
         # One DataJob per source->destination table pair carries the actual
         # lineage, so each destination maps only to its true source(s) instead
         # of fanning out to every source in the connector.
         for table_datajob in self._generate_table_datajobs(
-            connector, source_details, destination_details, lineage_properties
+            connector,
+            source_details,
+            destination_details,
+            lineage_properties,
+            dataflow_urn,
+            owners,
         ):
             yield table_datajob
 
