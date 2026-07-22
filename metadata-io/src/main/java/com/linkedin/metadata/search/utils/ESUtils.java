@@ -140,13 +140,27 @@ public class ESUtils {
   // End of field types
 
   /**
-   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
-   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
-   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
-   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
-   * sub-fields are unaffected.
+   * Lucene's hard per-term limit: an indexed keyword term may be at most 32766 <b>bytes</b>
+   * (UTF-8). A value exceeding it is rejected and takes the whole document write down with it.
    */
   public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /**
+   * {@code ignore_above} value for TEXT-derived keyword fields, so an oversized value is silently
+   * skipped from the keyword index (it stays in {@code _source} and its tokenized {@code
+   * .delimited} sub-field still indexes in full) instead of failing the whole document write.
+   *
+   * <p>This is measured in <b>characters</b> by Elasticsearch/OpenSearch, but the Lucene limit
+   * above is in <b>bytes</b>. A UTF-8 character is at most 4 bytes, so {@code 32766 / 4 = 8191}
+   * characters is the largest threshold that can never exceed the byte limit — even for all-4-byte
+   * text. Using the byte number directly (32766) as a character count would let multi-byte values
+   * slip past {@code ignore_above} and still hit Lucene's byte limit, re-triggering the
+   * whole-document rejection this guard exists to prevent.
+   *
+   * <p>See https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/
+   */
+  public static final int KEYWORD_IGNORE_ABOVE = KEYWORD_MAXLENGTH / 4;
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
