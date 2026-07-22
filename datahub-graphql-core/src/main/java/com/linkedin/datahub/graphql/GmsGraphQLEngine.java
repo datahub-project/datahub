@@ -1630,6 +1630,13 @@ public class GmsGraphQLEngine {
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
     builder
         .type(
+            "EntityEdge",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "destination",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((EntityEdge) env.getSource()).getDestination())))
+        .type(
             "SearchResult",
             typeWiring ->
                 typeWiring.dataFetcher(
