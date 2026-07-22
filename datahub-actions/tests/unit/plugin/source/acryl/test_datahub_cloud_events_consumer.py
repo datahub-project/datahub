@@ -206,9 +206,9 @@ def test_poll_events_http_error(mock_graph: DataHubGraph) -> None:
     with (
         patch(
             "datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer.stop_after_attempt",
-            side_effect=lambda n: stop_after_attempt(3)
-            if n == 15
-            else stop_after_attempt(n),
+            side_effect=lambda n: (
+                stop_after_attempt(3) if n == 15 else stop_after_attempt(n)
+            ),
         ),
         patch.object(
             mock_graph.session, "get", side_effect=HTTPError(response=dummy_response)
