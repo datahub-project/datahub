@@ -7,7 +7,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.FLOAT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.INTEGER_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
 
@@ -142,13 +142,14 @@ public class FieldTypeMapper {
   /**
    * Creates a mapping configuration for a keyword field with ignore_above set to prevent indexing
    * failures on long TEXT values. The Lucene keyword term limit is 32,766 bytes; ignore_above
-   * silently skips indexing values that exceed the threshold (they remain in _source).
+   * silently skips indexing values that exceed the threshold (they remain in _source). The
+   * threshold is measured in characters, so it is set byte-safe — see ESUtils.KEYWORD_IGNORE_ABOVE.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", KEYWORD_MAXLENGTH);
+    mapping.put("ignore_above", KEYWORD_IGNORE_ABOVE);
     return mapping;
   }
 
@@ -316,7 +317,7 @@ public class FieldTypeMapper {
     switch (valueType) {
       case STRING:
       case RICH_TEXT:
-        return getMappingsForKeyword();
+        return getMappingsForKeywordWithIgnoreAbove();
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
       case URN:
@@ -325,7 +326,7 @@ public class FieldTypeMapper {
         return Map.of("type", DOUBLE_FIELD_TYPE);
       default:
         log.debug("LogicalValueType {} not supported, defaulting to keyword", valueType);
-        return getMappingsForKeyword();
+        return getMappingsForKeywordWithIgnoreAbove();
     }
   }
 

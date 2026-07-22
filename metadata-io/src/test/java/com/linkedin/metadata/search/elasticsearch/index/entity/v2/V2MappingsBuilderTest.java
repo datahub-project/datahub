@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -21,6 +22,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -83,6 +85,65 @@ public class V2MappingsBuilderTest {
       assertTrue(properties.containsKey("runId"), "Should contain runId field");
       assertTrue(properties.containsKey("systemCreated"), "Should contain systemCreated field");
     }
+  }
+
+  @Test
+  public void testSearchTextFieldsUseByteSafeIgnoreAbove() {
+    // Analyzed-text fields (TEXT / TEXT_PARTIAL / WORD_GRAM) map to a keyword parent guarded by a
+    // byte-safe ignore_above so an oversized value (e.g. a large document body) is skipped from the
+    // keyword index instead of failing the whole document write. The tokenized .delimited subfield
+    // (no per-term limit) still indexes the value in full and is what full-text queries target. The
+    // .keyword subfield carries the same byte-safe guard.
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
+
+    boolean sawGuardedField = false;
+    for (IndexMapping indexMapping : result) {
+      Object propsObj = indexMapping.getMappings().get("properties");
+      if (!(propsObj instanceof Map)) {
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties = (Map<String, Object>) propsObj;
+      for (Object fieldMappingObj : properties.values()) {
+        if (!(fieldMappingObj instanceof Map)) {
+          continue;
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldMapping = (Map<String, Object>) fieldMappingObj;
+        Object subFieldsObj = fieldMapping.get("fields");
+        // A keyword parent with BOTH .delimited and .keyword subfields is an analyzed-text field
+        // (getMappingsForSearchText). URN fields also have a .delimited subfield but no .keyword,
+        // so requiring both excludes them.
+        if (!(subFieldsObj instanceof Map)
+            || !((Map<?, ?>) subFieldsObj).containsKey("delimited")
+            || !((Map<?, ?>) subFieldsObj).containsKey("keyword")) {
+          continue;
+        }
+        assertEquals(fieldMapping.get("type"), "keyword", "search-text parent should be keyword");
+        assertEquals(
+            fieldMapping.get("ignore_above"),
+            ESUtils.KEYWORD_IGNORE_ABOVE,
+            "search-text parent must use the byte-safe ignore_above guard");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> subFields = (Map<String, Object>) subFieldsObj;
+        assertTrue(
+            subFields.containsKey("delimited"),
+            "search-text field must keep the tokenized .delimited subfield (full-body search)");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> keywordSubField = (Map<String, Object>) subFields.get("keyword");
+        assertNotNull(keywordSubField, "search-text field must keep the .keyword subfield");
+        assertEquals(
+            keywordSubField.get("ignore_above"),
+            ESUtils.KEYWORD_IGNORE_ABOVE,
+            "the .keyword subfield must also use the byte-safe ignore_above guard");
+        sawGuardedField = true;
+      }
+    }
+
+    assertTrue(
+        sawGuardedField,
+        "Expected at least one analyzed-text field guarded by byte-safe ignore_above");
   }
 
   @Test
@@ -381,6 +442,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "testProp");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -388,8 +452,10 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            KEYWORD_MAXLENGTH,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword"))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
@@ -532,6 +598,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testProp.00000000000001.string");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -539,8 +608,10 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            KEYWORD_MAXLENGTH,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword"))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
