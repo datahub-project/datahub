@@ -385,7 +385,59 @@ class TestInitOAuthFlag:
             init,
             ["--oauth", "--host", "https://example.datahub.io/gms", "--force"],
         )
-        self.mock_pkce.assert_called_once_with("https://example.datahub.io/gms")
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms", support=False, ticket_id=None
+        )
+
+    def test_oauth_without_host_prompts_for_cloud_url(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        result = CliRunner().invoke(
+            init,
+            ["--oauth", "--force"],
+            input="https://example.datahub.io/gms\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Enter your DataHub host" in result.output
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms", support=False, ticket_id=None
+        )
+
+    def test_oauth_support_passes_ticket_to_pkce_login(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            init,
+            [
+                "--oauth",
+                "--support",
+                "--ticket-id",
+                "SUPPORT-123",
+                "--host",
+                "https://example.datahub.io/gms",
+                "--force",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        self.mock_pkce.assert_called_once_with(
+            "https://example.datahub.io/gms",
+            support=True,
+            ticket_id="SUPPORT-123",
+        )
+
+    def test_oauth_support_requires_ticket(
+        self, config_path: Path, clean_env: None
+    ) -> None:
+        result = CliRunner().invoke(
+            init,
+            ["--oauth", "--support", "--host", "https://example.datahub.io/gms"],
+        )
+
+        assert result.exit_code != 0
+        assert "requires --ticket-id" in result.output
 
     def test_oauth_prints_refresh_token_stored_message(
         self, config_path: Path, clean_env: None

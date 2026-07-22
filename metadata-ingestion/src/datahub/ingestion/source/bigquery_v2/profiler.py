@@ -276,6 +276,10 @@ WHERE
         return dict(
             schema=db_name,  # <project>
             table=f"{schema_name}.{table.name}",  # <dataset>.<table>
+            # Pass the row count the crawl already collected so the SQLAlchemy
+            # profiler's sampling decision avoids a COUNT(*). The GE profiler
+            # ignores it (it has **kwargs and recomputes rowCount itself).
+            row_count=table.rows_count,
         )
 
     def get_profile_request(
@@ -289,6 +293,11 @@ WHERE
         # Below code handles profiling changes required for partitioned or sharded tables
         # 1. Skip profile if partition profiling is disabled.
         # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
+        #
+        # NOTE: unlike Snowflake (where #18253 gated custom_sql to the GE path),
+        # this partition custom_sql feeds BOTH the GE and SQLAlchemy profilers,
+        # so its shape must stay valid for both engines. Once GE is removed, this
+        # partition selection should move down into the SQLAlchemy adapter.
 
         bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(

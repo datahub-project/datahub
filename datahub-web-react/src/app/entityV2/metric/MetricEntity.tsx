@@ -16,6 +16,7 @@ import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/pro
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -96,6 +97,10 @@ export class MetricEntity implements Entity<Metric> {
                 properties: {
                     hideEditDescription: true,
                 },
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
             },
             {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
