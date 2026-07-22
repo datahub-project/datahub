@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, Iterable, List, Optional, Type, TypeVar
 
 import pydantic
 from pydantic import BaseModel as GenericModel, model_validator
@@ -21,7 +21,14 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint, StateType
+from datahub.ingestion.source.state.ingestion_migration import (
+    CheckpointMigrationLedger,
+    Migration,
+    MigrationConfig,
+    run_migrations,
+)
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
@@ -70,6 +77,11 @@ class StatefulIngestionConfig(ConfigModel):
     ignore_new_state: HiddenFromDocs[bool] = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
+    )
+    migrations: MigrationConfig = Field(
+        default_factory=MigrationConfig,
+        description="Per-connector metadata migrations to run before ingestion. "
+        "Disabled by default; migrations only apply when migrations.enabled=true.",
     )
 
     @model_validator(mode="after")
@@ -229,6 +241,43 @@ class StatefulIngestionSourceBase(Source):
         super().__init__(ctx)
         self.report: StatefulIngestionReport = StatefulIngestionReport()
         self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
+        self._migrations_config = (
+            config.stateful_ingestion.migrations
+            if config.stateful_ingestion is not None
+            else MigrationConfig()
+        )
+
+    def get_migrations(self) -> List[Migration]:
+        """One-time metadata migrations to run before ingestion.
+
+        Connectors override this to ship migrations for breaking changes. Each
+        migration must be idempotent (see MigrationConfig / the design spec).
+        """
+        return []
+
+    def _run_pending_migrations(self) -> None:
+        migrations = self.get_migrations()
+        if not migrations:
+            return
+        graph = self.ctx.graph
+        pipeline_name = self.ctx.pipeline_name
+        if graph is None or not pipeline_name:
+            self.report.warning(
+                message="Ingestion migrations are defined but require stateful "
+                "ingestion (a graph and pipeline_name); skipping.",
+                title="Ingestion migrations skipped",
+            )
+            return
+        ledger = CheckpointMigrationLedger(graph, pipeline_name, self.ctx.run_id)
+        run_migrations(
+            migrations, ledger, graph, self.report, self._migrations_config
+        )
+
+    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Run any pending migrations before producing workunits, so ingestion
+        # lands on already-migrated metadata.
+        self._run_pending_migrations()
+        yield from super().get_workunits()
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
