@@ -1,5 +1,5 @@
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Dict
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -73,15 +73,14 @@ class OmniSourceReport(StaleEntityRemovalSourceReport):
             self.client_report = OmniClientReport()
 
     def increment_counter(self, name: str, delta: int = 1) -> None:
-        """Thread-safe counter increment.
-
-        Args:
-            name: Counter attribute name (e.g., "models_scanned")
-            delta: Amount to increment by (default: 1)
-        """
+        """Thread-safe counter increment with field validation."""
+        valid = {f.name for f in fields(self) if f.type is int}
+        if name not in valid:
+            raise ValueError(
+                f"Unknown counter {name!r}; valid counters: {sorted(valid)}"
+            )
         with self._report_lock:
-            current = getattr(self, name)
-            setattr(self, name, current + delta)
+            setattr(self, name, getattr(self, name) + delta)
 
     def report_model_filtered(self, model_id: str) -> None:
         self.filtered_models.append(model_id)
