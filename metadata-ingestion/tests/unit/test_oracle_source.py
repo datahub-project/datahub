@@ -13,14 +13,21 @@ from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.sql.oracle import (
+    _DEPENDENT_OBJECT_TYPES_SQL,
+    _PROCEDURE_LIKE_TYPES_SQL,
+    _PROCEDURE_SOURCE_TYPES_SQL,
+    _UPSTREAM_REFERENCED_TYPES_SQL,
     VSQL_USAGE_QUERY,
     OracleConfig,
     OracleInspectorObjectWrapper,
+    OracleObjectType,
     OracleSource,
     ProcedureDependencies,
     VSqlPrerequisiteCheckResult,
     _preload_oracle_client_libs,
+    _sql_type_list,
     extra_oracle_types,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -734,6 +741,59 @@ class TestOracleSource:
             "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\nEND;"
         )
 
+    def test_get_procedure_source_codes_for_schema_preserves_spec_trailing_newline(
+        self,
+    ):
+        """When the spec's last source line already ends with a newline, the
+        merge must not insert a second boundary newline before the body."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;\n"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        # Exactly one newline separates END; and the body — no doubled boundary.
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\n"
+        )
+
+    def test_get_procedure_source_codes_for_schema_body_only_package(self):
+        """A package with only a body row (spec missing, e.g. wrapped or
+        inaccessible) must still surface under the PACKAGE key with the body
+        text alone rather than being dropped."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+            Mock(
+                type="PACKAGE BODY",
+                line=2,
+                text="  PROCEDURE do_it IS BEGIN NULL; END;\nEND;",
+            ),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {("PKG1", "PACKAGE")}
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE BODY pkg1 AS\n  PROCEDURE do_it IS BEGIN NULL; END;\nEND;"
+        )
+
     def test_get_procedures_for_schema_emits_unenriched_when_helpers_fail(self):
         """If the procedures query succeeds but every enrichment helper
         fails, procedures must still be emitted, just unenriched."""
@@ -903,6 +963,118 @@ class TestOracleSource:
         assert p3_deps.upstream is None
         assert p3_deps.downstream is not None
         assert "TEST_SCHEMA.P2 (PROCEDURE)" in p3_deps.downstream
+
+    def test_get_procedures_for_schema_dependency_string_is_deterministic(self):
+        """The emitted upstream/downstream dependency strings must be sorted so
+        they're stable regardless of the order rows come back from Oracle —
+        otherwise golden files and downstream diffs churn spuriously."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        proc = Mock()
+        proc.name = "P1"
+        proc.type = "PROCEDURE"
+        proc.created = datetime.now()
+        proc.last_ddl_time = datetime.now()
+        proc.status = "VALID"
+        mock_connection.execute.return_value = [proc]
+
+        # Deliberately out of alphabetical order to prove the sort happens.
+        out_of_order = ProcedureDependencies(
+            upstream=[
+                "TEST_SCHEMA.Z_TABLE (TABLE)",
+                "TEST_SCHEMA.A_TABLE (TABLE)",
+                "TEST_SCHEMA.M_PROC (PROCEDURE)",
+            ],
+            downstream=[
+                "TEST_SCHEMA.Y_PROC (PROCEDURE)",
+                "TEST_SCHEMA.B_PROC (PROCEDURE)",
+            ],
+        )
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source,
+                "_get_procedure_dependencies_for_schema",
+                return_value={"P1": out_of_order},
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        assert len(result) == 1
+        extra_props = result[0].extra_properties or {}
+        assert extra_props["upstream_dependencies"] == (
+            "TEST_SCHEMA.A_TABLE (TABLE), "
+            "TEST_SCHEMA.M_PROC (PROCEDURE), "
+            "TEST_SCHEMA.Z_TABLE (TABLE)"
+        )
+        assert extra_props["downstream_dependencies"] == (
+            "TEST_SCHEMA.B_PROC (PROCEDURE), TEST_SCHEMA.Y_PROC (PROCEDURE)"
+        )
+
+    def test_get_procedures_for_schema_mixed_types_set_subtypes(self):
+        """A single fetch mixing PROCEDURE, FUNCTION and PACKAGE must map only
+        FUNCTION to the FUNCTION subtype; PROCEDURE and PACKAGE both fall
+        through to STORED_PROCEDURE."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        rows = []
+        for name, obj_type in (
+            ("MY_PROC", "PROCEDURE"),
+            ("MY_FUNC", "FUNCTION"),
+            ("MY_PKG", "PACKAGE"),
+        ):
+            row = Mock()
+            row.name = name
+            row.type = obj_type
+            row.created = datetime.now()
+            row.last_ddl_time = datetime.now()
+            row.status = "VALID"
+            rows.append(row)
+        mock_connection.execute.return_value = rows
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_dependencies_for_schema", return_value={}
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        subtypes = {proc.name: proc.subtype for proc in result}
+        assert subtypes == {
+            "MY_PROC": JobContainerSubTypes.STORED_PROCEDURE,
+            "MY_FUNC": JobContainerSubTypes.FUNCTION,
+            "MY_PKG": JobContainerSubTypes.STORED_PROCEDURE,
+        }
 
     def test_loop_materialized_views(self):
         """Test looping through materialized views."""
@@ -1091,7 +1263,7 @@ class TestOracleSource:
 
     def test_error_handling_in_procedure_methods_reports_via_report(self):
         """Batch-helper failures must be visible on self.report, not just a
-        bare logger, and must increment procedures_missing_enrichment."""
+        bare logger, and must increment procedure_enrichment_query_failures."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
@@ -1107,10 +1279,13 @@ class TestOracleSource:
             conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
         )
 
-        assert source.report.procedures_missing_enrichment == 3
+        # One failure per failed query (3), not per affected procedure.
+        assert source.report.procedure_enrichment_query_failures == 3
         assert len(source.report.warnings) == 3
         for warning in source.report.warnings:
-            assert warning.title == "Failed to Fetch Stored Procedure Enrichment"
+            # Substring rather than exact equality so a reword of the title
+            # doesn't break this test (see AGENTS.md testing guidance).
+            assert warning.title is not None and "Enrichment" in warning.title
             assert any("TEST_SCHEMA" in c for c in warning.context)
 
 
@@ -1454,6 +1629,37 @@ def test_oracle_sample_query_uses_where_rownum():
     executed_query = mock_conn.execute.call_args[0][0]
     assert "WHERE ROWNUM <= 100" in executed_query
     assert "AND ROWNUM" not in executed_query
+
+
+def test_sql_type_list_renders_quoted_in_list():
+    """_sql_type_list must render enum members as a comma-separated, quoted
+    SQL IN-list using each member's .value (which can contain a space)."""
+    assert (
+        _sql_type_list(OracleObjectType.TABLE, OracleObjectType.VIEW)
+        == "'TABLE', 'VIEW'"
+    )
+    # PACKAGE BODY has a space in its value and must stay a single quoted token.
+    assert _sql_type_list(OracleObjectType.PACKAGE_BODY) == "'PACKAGE BODY'"
+
+
+def test_generated_procedure_sql_fragments():
+    """Pin the rendered IN-list fragments so the SQL is documented here and a
+    reordering or rename of OracleObjectType members is caught immediately."""
+    assert _PROCEDURE_LIKE_TYPES_SQL == "'PROCEDURE', 'FUNCTION', 'PACKAGE'"
+    # Source query also needs PACKAGE BODY so a package's body source is fetched.
+    assert (
+        _PROCEDURE_SOURCE_TYPES_SQL
+        == "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'PACKAGE BODY'"
+    )
+    assert (
+        _DEPENDENT_OBJECT_TYPES_SQL
+        == "'TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE'"
+    )
+    # Upstream references can also be reached through a synonym.
+    assert _UPSTREAM_REFERENCED_TYPES_SQL == (
+        "'TABLE', 'VIEW', 'MATERIALIZED VIEW', "
+        "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM'"
+    )
 
 
 def test_oracle_get_identifier_uses_urn_db_name():

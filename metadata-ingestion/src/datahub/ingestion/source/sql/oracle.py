@@ -1374,10 +1374,12 @@ def _parse_oracle_procedure_dependencies(
 class OracleSourceReport(SQLSourceReport):
     """Report for the Oracle source, tracking stored-procedure enrichment health."""
 
-    # Incremented once per schema each time a batched enrichment query (source
-    # code, arguments, or dependencies) fails; affected procedures are still
-    # emitted, just without that enrichment. Should be 0 on a clean run.
-    procedures_missing_enrichment: int = 0
+    # Incremented once per batched enrichment query (source code, arguments, or
+    # dependencies) that fails, per schema — not per affected procedure, since a
+    # single failed query drops enrichment for every procedure in that schema.
+    # Affected procedures are still emitted, just without that enrichment.
+    # Should be 0 on a clean run.
+    procedure_enrichment_query_failures: int = 0
 
 
 @platform_name("Oracle")
@@ -1441,6 +1443,10 @@ class OracleSource(SQLAlchemySource):
         super().__init__(config, ctx, "oracle")
 
         self.report: OracleSourceReport = OracleSourceReport()
+        # The base class built classification_handler against the report it
+        # created in super().__init__(); re-point it at our subclass report so
+        # classification warnings/counters land on the report we actually use.
+        self.classification_handler.report = self.report
 
         # if connecting to oracle with enable_thick_mode, it must be initialized before calling
         # create_engine, which is called in get_inspectors()
@@ -1836,18 +1842,23 @@ class OracleSource(SQLAlchemySource):
             self._validate_tables_prefix(tables_prefix)
             return fetch()
         except Exception as e:
+            # ``fetch`` runs both the query and the in-memory shaping
+            # (e.g. PACKAGE/PACKAGE BODY merge), so this isn't necessarily a
+            # permissions problem — keep the grant hint but defer to the
+            # attached exception rather than asserting the cause.
             self.report.warning(
                 title="Failed to Fetch Stored Procedure Enrichment",
                 message=(
                     f"Failed to {operation}. Affected procedures in this schema "
-                    "will be emitted without this enrichment. Grant SELECT on "
-                    f"{tables_prefix}_SOURCE/ARGUMENTS/DEPENDENCIES or set "
-                    "'include_stored_procedures: false' to disable."
+                    "will be emitted without this enrichment. Often caused by "
+                    f"missing SELECT on {tables_prefix}_SOURCE/ARGUMENTS/DEPENDENCIES "
+                    "(grant it or set 'include_stored_procedures: false' to "
+                    "disable); see the attached error for the actual cause."
                 ),
                 context=f"schema={schema}",
                 exc=e,
             )
-            self.report.procedures_missing_enrichment += 1
+            self.report.procedure_enrichment_query_failures += 1
             return default
 
     def _get_procedure_source_codes_for_schema(
