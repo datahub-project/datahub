@@ -260,3 +260,28 @@ def test_ingest_explicit_static_token_wins_over_env_auth(
     assert "401" in str(exc_info.value) or "Unauthorized" in str(exc_info.value), (
         f"expected an authentication failure, got: {exc_info.value!r}"
     )
+
+
+@requires_env_auth
+def test_bare_emitter_explicit_host_uses_env_auth(monkeypatch):
+    # The auth path the other tests do not cover: a client constructed with an
+    # EXPLICIT host and no token (how the Airflow hook/listener, GX, Prefect, and
+    # any DataHubGraph(config=...) consumer build it) must pick up env-based OAuth.
+    # Everything else here goes through the sink, load_client_config, or an
+    # explicit config.auth.
+    from datahub.emitter.rest_emitter import DataHubRestEmitter
+    from datahub.emitter.token_provider import TokenProviderAuth
+
+    _set_env_auth(monkeypatch)
+
+    # Shape 1: bare emitter -> graph.
+    graph = DataHubRestEmitter(gms_server=GMS).to_graph()
+    assert graph.execute_graphql(_ME_QUERY)["me"]["corpUser"]["urn"]
+
+    # Shape 2: DataHubGraph(config=...) with explicit host, no token — the shape
+    # every integrations-service graph client uses.
+    graph2 = DataHubGraph(DatahubClientConfig(server=GMS, token=None))
+    assert graph2.execute_graphql(_ME_QUERY)["me"]["corpUser"]["urn"]
+    # The session carries the OAuth AuthBase, not a baked header — this is what
+    # makes graph.session safe to reuse for raw authenticated requests.
+    assert isinstance(graph2.session.auth, TokenProviderAuth)
