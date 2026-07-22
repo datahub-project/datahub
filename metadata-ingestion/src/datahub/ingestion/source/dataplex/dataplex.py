@@ -61,6 +61,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+# OAuth2 scope required for the lookupEntryLinks REST session; service-account
+# credentials must be scoped explicitly or AuthorizedSession token refresh fails.
+_DATAPLEX_OAUTH_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+
 
 def _resolve_project_numbers(
     project_ids: List[str],
@@ -232,7 +236,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         creds = self.config.get_credentials()
         credentials = (
-            service_account.Credentials.from_service_account_info(creds)
+            service_account.Credentials.from_service_account_info(
+                creds, scopes=_DATAPLEX_OAUTH_SCOPES
+            )
             if creds
             else None
         )
@@ -365,7 +371,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             config = DataplexConfig.model_validate(config_dict)
             creds = config.get_credentials()
             credentials = (
-                service_account.Credentials.from_service_account_info(creds)
+                service_account.Credentials.from_service_account_info(
+                    creds, scopes=_DATAPLEX_OAUTH_SCOPES
+                )
                 if creds
                 else None
             )
