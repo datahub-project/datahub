@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
@@ -52,12 +53,35 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    // Validate the merged aspect at pre-commit so a value written via PATCH (whose delta skips the
+    // proposed hook because PATCH is not in supportedOperations) is still checked: a patch-applied
+    // item arrives here as an UPSERT ChangeMCP carrying the merged LogicalParent.
+    return validateFieldPaths(
+        operationContext,
+        changeMCPs.stream()
+            .filter(item -> LOGICAL_PARENT_ASPECT_NAME.equals(item.getAspectName()))
+            .collect(Collectors.toList()),
+        retrieverContext);
+  }
+
+  public static Stream<AspectValidationException> validateFieldPaths(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     final ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     // A multi-column link emits one item per mapped column, all referencing the same two datasets;
     // cache field paths per dataset so each schema is read at most once per batch.
     final Map<Urn, Set<String>> fieldPathCache = new HashMap<>();
 
-    mcpItems.forEach(
+    changeMCPs.forEach(
         item -> {
           final LogicalParent logicalParent = item.getAspect(LogicalParent.class);
           if (logicalParent == null
@@ -100,7 +124,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
-  private void validateFieldPresent(
+  private static void validateFieldPresent(
       @Nonnull final BatchItem item,
       @Nonnull final Urn datasetUrn,
       @Nonnull final String fieldPath,
@@ -120,7 +144,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
   }
 
   @Nonnull
-  private Set<String> readFieldPaths(
+  private static Set<String> readFieldPaths(
       @Nonnull final Urn datasetUrn,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
@@ -136,13 +160,5 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       return Set.of();
     }
     return schema.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet());
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
   }
 }

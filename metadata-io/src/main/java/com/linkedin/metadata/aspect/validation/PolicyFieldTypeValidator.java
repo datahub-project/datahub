@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
+
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -44,10 +46,29 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    // Validate the merged aspect at pre-commit so a value applied via PATCH is checked: the applied
+    // patch arrives here as an UPSERT, while the proposed hook only sees the raw delta and skips
+    // PATCH entirely via supportedOperations.
+    return validatePolicyFieldTypes(
+        changeMCPs.stream()
+            .filter(i -> DATAHUB_POLICY_INFO_ASPECT_NAME.equals(i.getAspectName()))
+            .collect(Collectors.toList()));
+  }
+
+  public static Stream<AspectValidationException> validatePolicyFieldTypes(
+      @Nonnull Collection<ChangeMCP> changeMCPs) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
-    mcpItems.forEach(
+    changeMCPs.forEach(
         item -> {
           DataHubPolicyInfo policyInfo = item.getAspect(DataHubPolicyInfo.class);
           if (policyInfo != null && policyInfo.hasResources()) {
@@ -63,7 +84,7 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
-  private void validateFilter(
+  private static void validateFilter(
       BatchItem item, PolicyMatchFilter filter, ValidationExceptionCollection exceptions) {
     if (filter != null && filter.hasCriteria()) {
       for (PolicyMatchCriterion criterion : filter.getCriteria()) {
@@ -78,13 +99,5 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
         }
       }
     }
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
   }
 }

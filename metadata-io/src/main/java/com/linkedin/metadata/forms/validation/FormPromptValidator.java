@@ -48,7 +48,7 @@ public class FormPromptValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return validateFormInfoUpserts(mcpItems, retrieverContext);
+    return Stream.empty();
   }
 
   @Override
@@ -56,15 +56,20 @@ public class FormPromptValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+    // Validate the merged aspect at pre-commit so PATCH writes (applied into an UPSERT
+    // ChangeMCP) are checked; the proposed hook only sees the raw patch delta.
+    return validateFormInfoUpserts(
+        changeMCPs.stream()
+            .filter(i -> FORM_INFO_ASPECT_NAME.equals(i.getAspectName()))
+            .collect(Collectors.toList()),
+        retrieverContext);
   }
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validateFormInfoUpserts(
-      @Nonnull Collection<? extends BatchItem> mcpItems,
-      @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> mcpItems, @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
-    for (BatchItem mcpItem : mcpItems) {
+    for (ChangeMCP mcpItem : mcpItems) {
       FormInfo formInfo = mcpItem.getAspect(FormInfo.class);
       if (formInfo != null) {
         List<String> promptIds =

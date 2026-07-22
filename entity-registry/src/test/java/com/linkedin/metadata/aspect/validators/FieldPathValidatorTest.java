@@ -79,7 +79,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
-        test.validateProposed(
+        test.validatePreCommit(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -92,8 +92,7 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext,
-                null)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -103,7 +102,7 @@ public class FieldPathValidatorTest {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
     assertEquals(
-        test.validateProposed(
+        test.validatePreCommit(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -116,8 +115,7 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext,
-                null)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -126,7 +124,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedEditableSchemaFieldPath() {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
     assertEquals(
-        test.validateProposed(
+        test.validatePreCommit(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -139,8 +137,7 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext,
-                null)
+                mockRetrieverContext)
             .count(),
         0);
   }
@@ -150,7 +147,7 @@ public class FieldPathValidatorTest {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(true);
 
     assertEquals(
-        test.validateProposed(
+        test.validatePreCommit(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -163,8 +160,7 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext,
-                null)
+                mockRetrieverContext)
             .count(),
         1);
   }
@@ -185,8 +181,7 @@ public class FieldPathValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validateProposed(
-                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, null)
+        test.validatePreCommit(OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext)
             .collect(Collectors.toSet());
 
     assertEquals(
@@ -194,6 +189,45 @@ public class FieldPathValidatorTest {
         Set.of(
             AspectValidationException.forItem(
                 testItem, "SchemaMetadata aspect has empty field path.")));
+  }
+
+  /**
+   * A patch is merged into an UPSERT {@link com.linkedin.metadata.aspect.batch.ChangeMCP} that
+   * reaches pre-commit. Drive a mixed batch (both schema aspects, each carrying a duplicate)
+   * through the pre-commit hook to assert violations are caught there and that dispatch is keyed on
+   * the aspect name rather than an unconditional else branch.
+   */
+  @Test
+  public void testValidatePreCommitMixedDuplicateFieldPaths() {
+    final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
+    final EditableSchemaMetadata editableSchema = getMockEditableSchemaMetadataAspect(true);
+    assertEquals(
+        test.validatePreCommit(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_DATASET_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                                .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
+                        .recordTemplate(schema)
+                        .build(),
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_DATASET_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                                .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
+                        .recordTemplate(editableSchema)
+                        .build()),
+                mockRetrieverContext)
+            .count(),
+        2);
   }
 
   private static SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields) {

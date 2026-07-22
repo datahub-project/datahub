@@ -35,33 +35,43 @@ import lombok.experimental.Accessors;
 public class FieldPathValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
-  /** Prevent any MCP for SchemaMetadata where field ids are duplicated. */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-
-    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
-
-    mcpItems.forEach(
-        i -> {
-          if (i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
-            processSchemaMetadataAspect(i, exceptions);
-          } else {
-            processEditableSchemaMetadataAspect(i, exceptions);
-          }
-        });
-
-    return exceptions.streamAllExceptions();
+    return Stream.empty();
   }
 
+  /**
+   * Validate the merged aspect at pre-commit so the field-id/field-path constraints apply to
+   * PATCH-applied writes too. A PATCH item is dropped by the proposed-hook change-type gate, but
+   * the patch is merged into an UPSERT {@link ChangeMCP} that reaches this hook, so validating here
+   * covers both upsert and patch without adding PATCH to the bean's supportedOperations.
+   */
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.of();
+    return validateFieldPathUpserts(changeMCPs);
+  }
+
+  /** Prevent duplicate field ids or empty field paths in the merged schema aspect. */
+  public static Stream<AspectValidationException> validateFieldPathUpserts(
+      @Nonnull Collection<ChangeMCP> changeMCPs) {
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+
+    for (ChangeMCP i : changeMCPs) {
+      if (SCHEMA_METADATA_ASPECT_NAME.equals(i.getAspectName())) {
+        processSchemaMetadataAspect(i, exceptions);
+      } else if (EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(i.getAspectName())) {
+        processEditableSchemaMetadataAspect(i, exceptions);
+      }
+    }
+
+    return exceptions.streamAllExceptions();
   }
 
   private static void processEditableSchemaMetadataAspect(
