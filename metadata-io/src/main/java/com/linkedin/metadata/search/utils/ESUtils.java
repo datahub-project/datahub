@@ -142,6 +142,8 @@ public class ESUtils {
   /**
    * Lucene's hard per-term limit: an indexed keyword term may be at most 32766 <b>bytes</b>
    * (UTF-8). A value exceeding it is rejected and takes the whole document write down with it.
+   * Structured-property write validation is configured separately via {@code
+   * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
    */
   public static final int KEYWORD_MAXLENGTH = 32766;
 
@@ -161,6 +163,12 @@ public class ESUtils {
    * https://docs.opensearch.org/latest/field-types/supported-field-types/string/
    */
   public static final int KEYWORD_IGNORE_ABOVE = KEYWORD_MAXLENGTH / 4;
+
+  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return maxBytes / 4;
+  }
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
