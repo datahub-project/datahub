@@ -492,3 +492,34 @@ def test_rest_sink_config_accepts_client_config_dump():
     client = DatahubClientConfig(server="http://localhost:8080")
     cfg = DatahubRestSinkConfig(**client.model_dump())
     assert cfg.server == "http://localhost:8080"
+
+
+def test_sink_declines_env_oauth_on_origin_mismatch(monkeypatch):
+    # Regression: DATAHUB_AUTH_TYPE set but the sink server != DATAHUB_GMS_URL ->
+    # the sink declines env OAuth (origin guard). The emitter must NOT re-resolve
+    # and attach the bearer token to the mismatched host.
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://env-gms:8080")
+    config = DatahubRestSinkConfig(server="http://other-gms:8080")
+    emitter = DatahubRestSink._make_emitter(
+        config, DatahubRestSink._resolve_auth(config)
+    )
+    assert emitter._session.auth is None
+
+
+def test_sink_applies_env_oauth_on_origin_match(monkeypatch):
+    from datahub.emitter.token_provider import TokenProviderAuth
+
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    config = DatahubRestSinkConfig(server="http://gms:8080")
+    emitter = DatahubRestSink._make_emitter(
+        config, DatahubRestSink._resolve_auth(config)
+    )
+    assert isinstance(emitter._session.auth, TokenProviderAuth)

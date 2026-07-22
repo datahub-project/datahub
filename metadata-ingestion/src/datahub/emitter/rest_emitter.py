@@ -504,6 +504,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         server_config_refresh_interval: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
         default_emit_mode: Optional[EmitMode] = None,
+        resolve_env_auth: bool = True,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -521,11 +522,14 @@ class DataHubRestEmitter(Closeable, Emitter):
         # Env-based OAuth (DATAHUB_AUTH_TYPE) applies whenever the caller supplied
         # no explicit credentials — covering __from_env__ AND any explicit-host
         # caller (Airflow hook/listener, GX, Prefect, doc-connector graph
-        # fallbacks). It takes precedence over an env static DATAHUB_GMS_TOKEN,
-        # mirroring the sink and load_client_config. No-op when DATAHUB_AUTH_TYPE
-        # is unset, so existing deployments are unaffected. The datahub-rest sink
-        # passes explicit auth (its own origin-guarded merge) and so is untouched.
-        if not caller_supplied_creds:
+        # fallbacks, DataHubGraph(config=...)). It takes precedence over an env
+        # static DATAHUB_GMS_TOKEN, mirroring load_client_config. No-op when
+        # DATAHUB_AUTH_TYPE is unset, so existing deployments are unaffected.
+        # Callers that do their OWN env-auth resolution pass resolve_env_auth=False
+        # so we do not re-resolve and bypass their logic — notably the datahub-rest
+        # sink, which applies an origin guard before attaching env OAuth (attaching
+        # it here to a mismatched host would leak the bearer token).
+        if not caller_supplied_creds and resolve_env_auth:
             env_auth_config = build_auth_config_from_env()
             if env_auth_config is not None:
                 auth = TokenProviderAuth(build_token_provider(env_auth_config))
