@@ -175,6 +175,31 @@ def test_skips_browse_path_when_aspect_read_fails() -> None:
     assert get_aspect(aspects, BrowsePathsV2Class) is None
 
 
+def test_no_hierarchy_segments_skips_browse_path() -> None:
+    node = create_dbt_node()
+    node.database = None
+    node.schema = None
+    source = create_dbt_source()
+    aspects = target_platform_workunit_aspects(source, node)
+
+    assert get_aspect(aspects, DataPlatformInstanceClass) is not None
+    assert get_aspect(aspects, BrowsePathsV2Class) is None
+
+
+def test_schema_only_none_keeps_database_segment() -> None:
+    node = create_dbt_node()
+    node.schema = None
+    source = create_dbt_source()
+    aspects = target_platform_workunit_aspects(source, node)
+
+    browse = get_aspect(aspects, BrowsePathsV2Class)
+    assert browse is not None
+    assert [entry.id for entry in browse.path] == [
+        INSTANCE_URN,
+        "warehouse_db",
+    ]
+
+
 def test_two_tier_node_omits_database_segment() -> None:
     node = create_dbt_node()
     node.database = None

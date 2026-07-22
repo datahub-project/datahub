@@ -577,15 +577,9 @@ class DBTCommonConfig(
     emit_target_platform_instance_aspects: bool = Field(
         default=True,
         description="When target_platform_instance is set, emit dataPlatformInstance and "
-        "browsePathsV2 aspects for target-platform sibling entities. Without these, a "
-        "target entity that is never ingested directly by the warehouse connector is "
-        "auto-created by the server with a platform-only dataPlatformInstance and a "
-        "name-derived browse path, which surfaces as a duplicate plain-name navigation "
-        "folder and hides the entity from platform-instance filters. browsePathsV2 is "
-        "only written when a DataHub graph connection is available and the entity's "
-        "existing browse path is missing or is a plain name-derived default; "
-        "container-based browse paths written by the warehouse connector are never "
-        "overwritten.",
+        "browsePathsV2 aspects for target-platform sibling entities so they are correctly "
+        "grouped under their platform instance in browse and filters. Browse paths written "
+        "by the warehouse connector are never overwritten.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -3000,12 +2994,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for mcp in target_patch.build()
                     )
 
-                # Emit platform-instance metadata for the target entity. If the
-                # target entity is never ingested directly by the warehouse
-                # connector, the server auto-creates it with a platform-only
-                # dataPlatformInstance and a name-derived browse path, which
-                # surfaces as a duplicate plain-name navigation folder and hides
-                # the entity from platform-instance filters.
+                # Deliberately NOT gated by _should_create_sibling_relationships:
+                # lineage emission below also auto-creates target entities, so
+                # these aspects are needed whenever the target URN is referenced,
+                # not only when this source emits the sibling patch itself.
                 for mcp in self._create_target_platform_instance_mcps(
                     node, node_datahub_urn
                 ):
@@ -3081,6 +3073,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         )
 
+        # With neither database nor schema we would emit a single-entry path,
+        # flattening the entity directly under the instance folder; the
+        # server's name-derived default is at least as good, so skip.
+        if node.database is None and node.schema is None:
+            return
+
         if self._should_write_target_browse_path(node_datahub_urn):
             path = [BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
             for segment in (node.database, node.schema):
@@ -3099,6 +3097,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         entity has no browse path yet or carries a plain name-derived default
         (server-generated for auto-created stub entities). Without a graph
         connection we cannot distinguish the two, so we skip the write.
+
+        The first-entry discriminator works because every non-default writer
+        produces a URN first entry: the warehouse connectors' auto_browse_path_v2
+        emits a platform-instance or container URN, and the server's default
+        generation post datahub-project/datahub#17263 resolves the first segment
+        to a dataPlatformInstance URN when one exists. Only pre-#17263
+        server-generated defaults have a plain-name first entry, and those are
+        exactly the paths this method is meant to replace.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -3106,8 +3112,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         try:
             existing = graph.get_aspect(node_datahub_urn, BrowsePathsV2Class)
         except Exception as e:
-            logger.debug(
-                f"Skipping browsePathsV2 for {node_datahub_urn}: failed to read existing aspect: {e}"
+            self.report.warning(
+                title="Failed to read existing browse path",
+                message="Could not determine whether the entity's browse path is "
+                "safe to replace; skipping browsePathsV2 emission for this entity.",
+                context=node_datahub_urn,
+                exc=e,
             )
             return False
         if existing is None or not existing.path:
