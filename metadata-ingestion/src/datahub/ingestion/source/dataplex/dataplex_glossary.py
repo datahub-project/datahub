@@ -646,7 +646,7 @@ class DataplexGlossaryProcessor:
                 for ref in link.get("entryReferences", []):
                     if ref.get("type") != _SOURCE_ROLE:
                         continue
-                    entry_name = ref.get("name", "")
+                    entry_name = self._normalize_entry_project_id(ref.get("name", ""))
                     asset_urn = entry_name_to_urn.get(entry_name)
                     if asset_urn is None:
                         logger.debug(
@@ -665,6 +665,20 @@ class DataplexGlossaryProcessor:
             datahub_term_urn=datahub_term_urn,
             asset_links=asset_links,
         )
+
+    def _normalize_entry_project_id(self, entry_name: str) -> str:
+        """Map a leading ``projects/{number}`` segment back to ``projects/{id}``.
+
+        ``lookupEntryLinks`` returns the source entry's entry-group project as a
+        project *number*, but entries ingested in the entries stage key
+        ``entry_name_to_urn`` by the project *id*. Without this the asset lookup
+        silently misses and no term association is emitted.
+        """
+        for project_id, project_number in self._ctx.project_numbers.items():
+            prefix = f"projects/{project_number}/"
+            if entry_name.startswith(prefix):
+                return f"projects/{project_id}/" + entry_name[len(prefix) :]
+        return entry_name
 
     def _lookup_entry_links(
         self, project_id: str, location: str, term_entry_path: str
