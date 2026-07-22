@@ -279,13 +279,15 @@ class UnityCatalogSourceConfig(
     include_metric_views: bool = pydantic.Field(
         default=False,
         description=(
-            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
-            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
-            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
-            " `Dimension` / `Measure` tags on matching columns, `materialization`"
-            " → `ViewProperties.materialized`, and `filter` as a custom property."
-            " Default `false` keeps metric views as plain Tables. Requires a"
-            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
+            "Enable enriched ingestion of Unity Catalog Metric Views: YAML body as"
+            " ViewProperties, upstream and column-level lineage from `source` / `joins`"
+            " / `dimensions.expr` / `measures.expr`, `Dimension` / `Measure` tags on"
+            " matching columns, `materialization` → `ViewProperties.materialized`, and"
+            " `filter` as a custom property. Metric views are always assigned the"
+            " 'Metric View' subtype regardless of this flag (they are never plain"
+            " Tables); this flag only controls the additional enrichment above."
+            " Requires a `databricks-sdk` recent enough to expose"
+            " `TableType.METRIC_VIEW`."
         ),
     )
 
