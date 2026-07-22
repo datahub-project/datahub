@@ -444,7 +444,11 @@ class PlatformAdapter(ABC):
         return None
 
     def get_column_unique_count(
-        self, table: sa.Table, column: str, conn: Connection, use_approx: bool = True
+        self,
+        table: sa.Table,
+        column: str,
+        conn: Connection,
+        use_approx: bool = True,
     ) -> int:
         """
         Get unique count (approximate if use_approx=True).

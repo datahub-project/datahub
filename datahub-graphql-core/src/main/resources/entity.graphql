@@ -3035,6 +3035,11 @@ type DataPlatformProperties {
   A logo URL associated with the platform
   """
   logoUrl: String
+
+  """
+  Whether datasets on this platform are logical models (hand-authored, no ingestion source)
+  """
+  logical: Boolean
 }
 
 """
@@ -3987,6 +3992,22 @@ enum SchemaFieldDataType {
   An complex struct type
   """
   STRUCT
+}
+
+"""
+A single editable schema field definition (name + type), for APIs that let a caller
+author or replace a dataset's schema fields directly (e.g. logical models).
+"""
+input EditableSchemaFieldInput {
+  """
+  The column name / field path.
+  """
+  fieldPath: String!
+
+  """
+  The DataHub data type of the column.
+  """
+  type: SchemaFieldDataType!
 }
 
 """
@@ -13544,6 +13565,11 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Whether the Data Product exists in DataHub
+  """
+  exists: Boolean
 }
 
 """

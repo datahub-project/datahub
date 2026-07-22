@@ -495,11 +495,15 @@ class SnowflakeIdentifierBuilder:
         return f'"{db_name}"."{schema_name}"'
 
     @staticmethod
-    def get_quoted_identifier_for_table(db_name, schema_name, table_name):
-        db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+    def get_quoted_identifier_for_table(
+        db_name: Optional[str], schema_name: str, table_name: str
+    ) -> str:
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         table_name = SnowflakeIdentifierBuilder._escape_identifier(table_name)
-        return f'"{db_name}"."{schema_name}"."{table_name}"'
+        if db_name is not None:
+            db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+            return f'"{db_name}"."{schema_name}"."{table_name}"'
+        return f'"{schema_name}"."{table_name}"'
 
     # Note - decide how to construct user urns.
     # Historically urns were created using part before @ from user's email.

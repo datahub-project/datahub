@@ -3,7 +3,17 @@ import pytest
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_kafka_broker_url, get_kafka_schema_registry
+from tests.utilities.messaging_transport import (
+    build_pgqueue_sink_config,
+    is_pgqueue_transport,
+)
+from tests.utils import (
+    get_db_password,
+    get_db_url,
+    get_db_username,
+    get_kafka_broker_url,
+    get_kafka_schema_registry,
+)
 
 # Reuse the existing delete-test sample data + its dataset URN.
 DATA_FILE = "tests/delete/cli_test_data.json"
@@ -52,6 +62,11 @@ def test_default_sink_ingests_end_to_end(
     The Kafka arm exercises the exact flow UI ingestion uses; only the two env
     markers differ from the REST arm.
     """
+    if default_sink == "kafka" and is_pgqueue_transport(auth_session):
+        pytest.skip(
+            "No Kafka broker on pgQueue-only stacks; covered by the pgQueue sink test"
+        )
+
     # Clean slate so a passing existence check proves this run delivered.
     graph_client.hard_delete_entity(DATASET_URN)
     wait_for_writes_to_sync()
@@ -62,6 +77,41 @@ def test_default_sink_ingests_end_to_end(
     # ctx.graph must be wired either way so stateful ingestion (checkpoints,
     # stale-entity soft-deletes) keeps working.
     assert pipeline.ctx.graph is not None
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    wait_for_writes_to_sync()
+
+    assert graph_client.exists(DATASET_URN)
+
+
+def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client):
+    """On pgQueue stacks (no Kafka broker), exercise the same file recipe over
+    the explicit datahub-pg-queue sink so async transport + GMS landing is still
+    covered. DATAHUB_INGESTION_DEFAULT_SINK only supports rest/kafka, so this
+    cannot share the env-driven default-sink path.
+    """
+    if not is_pgqueue_transport(auth_session):
+        pytest.skip("pgQueue is not the active messaging transport")
+
+    graph_client.hard_delete_entity(DATASET_URN)
+    wait_for_writes_to_sync()
+    assert not graph_client.exists(DATASET_URN)
+
+    pipeline = Pipeline.create(
+        {
+            "source": {"type": "file", "config": {"filename": DATA_FILE}},
+            "sink": build_pgqueue_sink_config(
+                schema_registry_url=get_kafka_schema_registry(),
+                host_port=get_db_url(),
+                database="datahub",
+                username=get_db_username(),
+                password=get_db_password(),
+            ),
+            "pipeline_name": "default_sink_smoke_pgqueue",
+        }
+    )
+    assert pipeline.sink_type == "datahub-pg-queue"
 
     pipeline.run()
     pipeline.raise_from_status()

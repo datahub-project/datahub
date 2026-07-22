@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SemanticModelMetricsResolver implements DataFetcher<CompletableFuture<ScrollResults>> {
 
   static final String SEMANTIC_MODEL_FIELD_NAME = "semanticModel";
+  static final String HAS_PARENT_METRIC_FIELD_NAME = "hasParentMetric";
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
@@ -45,11 +46,14 @@ public class SemanticModelMetricsResolver implements DataFetcher<CompletableFutu
 
     final Criterion semanticModelFilter =
         CriterionUtils.buildCriterion(SEMANTIC_MODEL_FIELD_NAME, Condition.EQUAL, entity.getUrn());
+    final Criterion noParentFilter =
+        CriterionUtils.buildCriterion(HAS_PARENT_METRIC_FIELD_NAME, Condition.EQUAL, "false");
     final Filter baseFilter =
         new Filter()
             .setOr(
                 new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(new CriterionArray(semanticModelFilter))));
+                    new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(semanticModelFilter, noParentFilter))));
     final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
 
     return SearchUtils.scrollAcrossEntities(

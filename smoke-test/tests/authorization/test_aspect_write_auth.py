@@ -53,7 +53,7 @@ TARGET_DATASET_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-target-{_UNIQUE},PROD)"
 )
 PARENT_DATASET_URN = (
-    f"urn:li:dataset:(urn:li:dataPlatform:kafka,auth-parent-{_UNIQUE},PROD)"
+    f"urn:li:dataset:(urn:li:dataPlatform:logical,auth-parent-{_UNIQUE},PROD)"
 )
 PHYSICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({TARGET_DATASET_URN},col1)"
 LOGICAL_SCHEMA_FIELD_URN = f"urn:li:schemaField:({PARENT_DATASET_URN},col1)"
