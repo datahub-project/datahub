@@ -217,7 +217,14 @@ class BigQueryAdapter(PlatformAdapter):
             # Without it, we'd silently profile the full table instead of the requested sample
             raise RuntimeError(error_msg) from e
         finally:
-            raw_conn.close()
+            # Guard the close so a teardown error can't replace the in-flight
+            # exception (the actionable RuntimeError/DatabaseError above).
+            try:
+                raw_conn.close()
+            except Exception as close_err:
+                logger.debug(
+                    f"Failed to close raw connection after temp-table creation: {close_err}"
+                )
 
     def _get_quick_row_count(
         self, context: ProfilingContext, conn: Connection
