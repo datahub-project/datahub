@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
@@ -80,7 +80,10 @@ export const EntityPage = ({ entityType }: Props) => {
     const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
 
     const showLineage = isLineageMode && isLineageSupported;
-    const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    // Seed from any enclosing EntitySidebarContext (e.g. DomainRoutes opens collapsed) so the
+    // provider below doesn't shadow it and force the sidebar open.
+    const { isClosed: parentSidebarClosed } = useContext(EntitySidebarContext);
+    const [isSidebarClosed, setIsSidebarClosed] = useState(parentSidebarClosed);
     const [isTabFullsize, setTabFullsize] = useState(false);
     const sidebarWidth = useSidebarWidth();
 
