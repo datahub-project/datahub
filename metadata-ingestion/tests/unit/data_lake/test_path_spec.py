@@ -797,3 +797,57 @@ def test_extract_table_name_and_path_with_table() -> None:
 
     assert table_name == "users"
     assert table_path == "s3://bucket/users"
+
+
+# Equivalence guard for the precompiled matcher (CLEAN-1). The precompiled
+# _include_matcher / _exclude_matcher must be byte-identical to the reference
+# wcmatch PurePath.globmatch across a representative path table.
+@pytest.mark.parametrize(
+    "include, exclude, allow_double_stars",
+    [
+        ("s3://bucket/{table}/*.csv", [], False),
+        ("s3://bucket/{table}/{partition0}/*.csv", [], False),
+        ("s3://bucket/{table}/**", [], True),
+        ("s3://bucket/{table}/*.csv", ["*/temp/*", "*/staging/*"], False),
+        ("s3://bucket/data/*/*.parquet", ["*/_delta_log/*"], False),
+    ],
+)
+def test_precompiled_matcher_matches_reference(
+    include: str, exclude: list, allow_double_stars: bool
+) -> None:
+    from wcmatch import pathlib as wpathlib
+
+    path_spec = PathSpec(
+        include=include, exclude=exclude, allow_double_stars=allow_double_stars
+    )
+
+    paths = [
+        "s3://bucket/table/f.csv",
+        "s3://bucket/table/p1/f.csv",
+        "s3://bucket/table/p1/p2/f.csv",
+        "s3://bucket/table/temp/f.csv",
+        "s3://bucket/table/staging/f.csv",
+        "s3://bucket/data/t1/f.parquet",
+        "s3://bucket/data/t1/_delta_log/000.parquet",
+        "s3://bucket//table/f.csv",
+        "s3://bucket/table/f.json",
+        "s3://bucket/table/sub/",
+    ]
+    for path in paths:
+        expected_include = wpathlib.PurePath(path).globmatch(
+            path_spec.glob_include, flags=wpathlib.GLOBSTAR
+        )
+        assert (
+            path_spec._globmatch(path_spec._include_matcher, path) == expected_include
+        ), f"include mismatch for {path!r}"
+
+        if path_spec.exclude:
+            expected_exclude = any(
+                wpathlib.PurePath(path).globmatch(e, flags=wpathlib.GLOBSTAR)
+                for e in path_spec.exclude
+            )
+            assert path_spec._exclude_matcher is not None
+            assert (
+                path_spec._globmatch(path_spec._exclude_matcher, path)
+                == expected_exclude
+            ), f"exclude mismatch for {path!r}"
