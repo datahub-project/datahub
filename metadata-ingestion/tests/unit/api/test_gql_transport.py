@@ -5,7 +5,9 @@ import pytest
 # at collection. It still runs in the integration-tests jobs, which pull the extra.
 pytest.importorskip("gql")
 
+from datahub.api.circuit_breaker.circuit_breaker import AbstractCircuitBreaker
 from datahub.api.gql_transport import build_gql_transport
+from datahub.api.graphql.base import BaseApi
 from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.auth.registry import AuthConfig
 
@@ -52,8 +54,6 @@ def test_no_creds_no_env_is_unauthenticated(monkeypatch):
 
 
 def test_base_api_declarative_auth_routes_through_helper():
-    from datahub.api.graphql.base import BaseApi
-
     api = BaseApi(
         datahub_host="http://gms",
         datahub_auth=AuthConfig(
@@ -69,16 +69,12 @@ def test_base_api_declarative_auth_routes_through_helper():
 
 
 def test_base_api_static_token_still_bakes_header():
-    from datahub.api.graphql.base import BaseApi
-
     api = BaseApi(datahub_host="http://gms", datahub_token="tok")
     assert api.transport.headers == {"Authorization": "Bearer tok"}
     assert getattr(api.transport, "auth", None) is None
 
 
 def test_circuit_breaker_declarative_auth_routes_through_helper():
-    from datahub.api.circuit_breaker.circuit_breaker import AbstractCircuitBreaker
-
     class _CB(AbstractCircuitBreaker):
         def is_circuit_breaker_active(self, urn: str) -> bool:
             return False
