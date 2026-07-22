@@ -847,16 +847,15 @@ def snowflake_semantic_views(
     """Copy governance between legacy Snowflake "Semantic View" datasets and
     semanticModel/metric entities.
 
-    Both source and destination must already exist (does not create thin
-    semanticModel/metric shells). Typical order: Snowflake ingest with
-    emit_semantic_model_entities, then this migrate with --include-soft-deleted
-    once you have confirmed the soft-deleted source set.
+    Source must exist; destination URNs may not (aspects are written so a later
+    Snowflake ingest with emit_semantic_model_entities can fill structural
+    aspects). Typical order: migrate governance, then ingest.
 
     Copies entity-level ownership, domains, tags, glossary terms, institutional
     memory, structured properties, documentation, deprecation, and applications.
     Also fans out column tags/terms (from editableSchemaMetadata and non-synthetic
-    schemaMetadata tags) onto existing metric / schemaField URNs. Does NOT touch
-    lineage, policies, data products, or soft/hard-delete.
+    schemaMetadata tags) onto metric / schemaField URNs. Does NOT touch lineage,
+    policies, data products, or soft/hard-delete.
 
     Re-running is safe: destination entity aspects are overwritten (last-write-wins);
     editableSchemaMetadata field entries are merged (descriptions preserved; tags

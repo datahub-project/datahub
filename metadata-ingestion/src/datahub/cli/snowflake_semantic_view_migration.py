@@ -2,9 +2,9 @@
 
 Copies entity-level governance and DataHub-only column tags/terms between
 legacy dataset "Semantic View" URNs and semanticModel/metric (+ schemaField)
-URNs. Both source and destination entities must already exist — this tool does
-not create thin semanticModel/metric shells. Typical order: connector ingest
-with emit_semantic_model_entities, then migrate governance.
+URNs. The source must exist; the destination may not yet (aspects are written
+to the mapped URNs so ingest can fill structural aspects afterward). Typical
+order: migrate governance, then Snowflake ingest with emit_semantic_model_entities.
 
 Lineage, policies, data products, and soft-delete are out of scope.
 
@@ -527,42 +527,15 @@ def _emit_aspect(
         )
 
 
-def _ensure_src_and_dst_exist(
-    graph: DataHubGraph, src_urn: str, dst_urn: str
-) -> Optional[str]:
-    """Return an error message if source or destination is missing; else None."""
+def _ensure_src_exists(graph: DataHubGraph, src_urn: str) -> Optional[str]:
+    """Return an error message if the source is missing; else None.
+
+    Destinations may be absent: migrate-first writes governance aspects onto the
+    mapped URNs, and a later Snowflake ingest supplies structural aspects.
+    """
     if not graph.exists(src_urn):
         return f"source entity does not exist: {src_urn}"
-    if not graph.exists(dst_urn):
-        return (
-            f"destination entity does not exist: {dst_urn}. "
-            "Refusing to create a thin entity — run Snowflake ingest so the "
-            "destination exists first (emit_semantic_model_entities for "
-            "dataset-to-sm; legacy dataset mode for sm-to-dataset)."
-        )
     return None
-
-
-def _semantic_model_field_names(
-    graph: DataHubGraph, semantic_model_urn: str, convert_urns_to_lowercase: bool
-) -> Optional[Set[str]]:
-    """Field paths present on semanticModelInfo, or None if info is missing."""
-    model_info = graph.get_aspects_for_entity(
-        entity_urn=semantic_model_urn,
-        aspects=["semanticModelInfo"],
-        aspect_types=[SemanticModelInfoClass],
-    ).get("semanticModelInfo")
-    if not isinstance(model_info, SemanticModelInfoClass) or not model_info.datasets:
-        return None
-    names: Set[str] = set()
-    for model_dataset in model_info.datasets:
-        for semantic_field in model_dataset.fields or []:
-            schema_field = semantic_field.schemaField
-            if schema_field is None or not schema_field.fieldPath:
-                continue
-            # Store the path as emitted on semanticModelInfo (already upper+identifier).
-            names.add(get_simple_field_path_from_v2_field_path(schema_field.fieldPath))
-    return names
 
 
 def migrate_dataset_field_governance(
@@ -576,16 +549,11 @@ def migrate_dataset_field_governance(
 ) -> Tuple[List[str], List[str]]:
     """Fan out DataHub column tags/terms to metric entities or schemaField URNs.
 
-    Returns (migrated entries, skip notes). Metrics must already exist (connector
-    emits them). Dim/fact targets are schemaField URNs under an existing
-    semanticModel — those fields rarely have a key aspect, so we require the
-    column to appear on semanticModelInfo instead of graph.exists(schemaField).
+    Returns (migrated entries, skip notes). Destination metric / schemaField URNs
+    need not exist yet (migrate-before-ingest).
     """
     migrated: List[str] = []
     skipped: List[str] = []
-    known_fields = _semantic_model_field_names(
-        graph, semantic_model_urn, convert_urns_to_lowercase
-    )
     for field_gov in collect_dataset_field_governance(graph, src_dataset_urn):
         if field_gov.is_metric:
             dst_urn = gen_metric_urn(
@@ -594,22 +562,10 @@ def migrate_dataset_field_governance(
                 platform_instance,
                 convert_urns_to_lowercase,
             )
-            if not graph.exists(dst_urn):
-                skipped.append(
-                    f"skipped field governance for {field_gov.column_name}: "
-                    f"metric does not exist ({dst_urn})"
-                )
-                continue
         else:
             field_path = _semantic_model_field_path(
                 field_gov.column_name, convert_urns_to_lowercase
             )
-            if known_fields is None or field_path not in known_fields:
-                skipped.append(
-                    f"skipped field governance for {field_gov.column_name}: "
-                    f"not present on semanticModelInfo for {semantic_model_urn}"
-                )
-                continue
             dst_urn = make_schema_field_urn(semantic_model_urn, field_path)
         if field_gov.global_tags is not None:
             _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
@@ -876,12 +832,13 @@ def migrate_entity(
 ) -> EntityMigrationResult:
     """Copy the governance-aspect allowlist from src_urn to dst_urn.
 
-    Both URNs must already exist. Always overwrites the destination's existing
-    aspect values (last-write-wins); no merge/conflict strategy is offered here
-    (unlike dataplatform2instance/instance2instance).
+    Source must exist; destination may be created by writing aspects (migrate
+    before ingest). Always overwrites the destination's existing aspect values
+    (last-write-wins); no merge/conflict strategy is offered here (unlike
+    dataplatform2instance/instance2instance).
     """
     result = EntityMigrationResult(src_urn=src_urn, dst_urn=dst_urn)
-    missing = _ensure_src_and_dst_exist(graph, src_urn, dst_urn)
+    missing = _ensure_src_exists(graph, src_urn)
     if missing is not None:
         result.error = missing
         return result

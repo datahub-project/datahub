@@ -282,7 +282,7 @@ def _graph_with_aspects(**stored) -> MagicMock:
 
     graph.get_aspects_for_entity.side_effect = get_aspects
     graph.get_related_entities.return_value = []
-    # Entity migrate requires src + dst to exist; field fan-out requires metrics.
+    # Entity migrate requires the source to exist; destinations may be absent.
     graph.exists.return_value = True
     return graph
 
@@ -400,7 +400,8 @@ class TestMigrateDatasetToSemanticModel:
         assert result.aspects_copied == []
         graph.emit_mcp.assert_not_called()
 
-    def test_skips_when_destination_does_not_exist(self):
+    def test_allows_when_destination_does_not_exist(self):
+        """Migrate-first: write governance onto mapped URNs before ingest."""
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -420,10 +421,10 @@ class TestMigrateDatasetToSemanticModel:
             report_inbound_refs=False,
         )
 
-        assert result.error is not None
-        assert "destination entity does not exist" in result.error
-        assert "thin entity" in result.error
-        graph.emit_mcp.assert_not_called()
+        assert result.error is None
+        assert result.aspects_copied == ["ownership"]
+        assert graph.emit_mcp.call_count == 1
+        assert graph.emit_mcp.call_args.args[0].entityUrn == result.dst_urn
 
     def test_skips_when_source_does_not_exist(self):
         graph = _graph_with_aspects(ownership=OwnershipClass(owners=[]))
@@ -989,10 +990,7 @@ class TestFieldGovernanceFanOut:
                 ),
             ],
         )
-        graph = _graph_with_aspects(
-            schemaMetadata=schema,
-            semanticModelInfo=_semantic_model_info("customer_id"),
-        )
+        graph = _graph_with_aspects(schemaMetadata=schema)
 
         result = migrate_dataset_to_semantic_model(
             graph,
@@ -1019,7 +1017,8 @@ class TestFieldGovernanceFanOut:
                 assert make_tag_urn("DIMENSION") not in tag_urns
                 assert make_tag_urn("METRIC") not in tag_urns
 
-    def test_skips_metric_field_when_metric_missing(self):
+    def test_emits_metric_tags_when_metric_missing(self):
+        """Migrate-first may write tags onto metric URNs before ingest creates them."""
         schema = SchemaMetadataClass(
             schemaName="sales_analytics",
             platform="urn:li:dataPlatform:snowflake",
@@ -1034,7 +1033,7 @@ class TestFieldGovernanceFanOut:
             ],
         )
         graph = _graph_with_aspects(schemaMetadata=schema)
-        graph.exists.side_effect = lambda urn: urn != self.METRIC
+        graph.exists.side_effect = lambda urn: urn == self.SRC
 
         result = migrate_dataset_to_semantic_model(
             graph,
@@ -1046,9 +1045,8 @@ class TestFieldGovernanceFanOut:
         )
 
         assert result.error is None
-        assert result.fields_migrated == []
-        assert any("metric does not exist" in n for n in result.notes)
-        assert not any(
+        assert any("total_revenue" in entry for entry in result.fields_migrated)
+        assert any(
             call.args[0].entityUrn == self.METRIC
             for call in graph.emit_mcp.call_args_list
         )
