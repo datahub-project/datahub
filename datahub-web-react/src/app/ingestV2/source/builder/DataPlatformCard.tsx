@@ -2,21 +2,28 @@ import { Button, Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { SupportStatusBadge } from '@app/ingestV2/source/builder/SupportStatusBadge';
+
 const Container = styled(Button)`
-    padding: 32px;
-    height: 200px;
-    display: flex;
-    justify-content: center;
-    border-radius: 8px;
-    align-items: start;
-    flex-direction: column;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    background-color: ${(props) => props.theme.colors.bg};
+    && {
+        padding: 32px;
+        min-height: 172px;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        border-radius: 8px;
+        align-items: start;
+        flex-direction: column;
+        border: 1px solid ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.bg};
+        white-space: unset;
+        position: relative;
+        overflow: hidden;
+    }
     &&:hover {
         border: 1px solid ${(props) => props.theme.colors.borderHover};
         background-color: ${(props) => props.theme.colors.bg};
     }
-    white-space: unset;
 `;
 
 const PlatformLogo = styled(Image)`
@@ -43,6 +50,21 @@ const Description = styled.div`
     word-break: break-word;
     text-align: left;
     color: ${(props) => props.theme.colors.textTertiary};
+    // Clamp to exactly 2 lines. As a flex item the -webkit-box display is
+    // blockified (to flow-root), which disables -webkit-line-clamp, so the clamp
+    // is done by line-height + max-height (= 2 lines) with overflow hidden — this
+    // cuts cleanly at the line boundary. flex-shrink: 0 stops the flex column from
+    // compressing the text below 2 lines (which was clipping the 2nd line).
+    line-height: 1.4;
+    max-height: 2.8em;
+    flex-shrink: 0;
+    overflow: hidden;
+`;
+
+const BadgePosition = styled.div`
+    position: absolute;
+    top: 10px;
+    right: 10px;
 `;
 
 type Props = {
@@ -50,13 +72,27 @@ type Props = {
     logoComponent?: React.ReactNode;
     name: string;
     description?: string;
+    supportStatus?: string;
     onClick?: () => void;
     dataTestId?: string;
 };
 
-export const DataPlatformCard = ({ logoUrl, logoComponent, name, description, onClick, dataTestId }: Props) => {
+export const DataPlatformCard = ({
+    logoUrl,
+    logoComponent,
+    name,
+    description,
+    supportStatus,
+    onClick,
+    dataTestId,
+}: Props) => {
     return (
         <Container type="link" onClick={onClick} data-testid={dataTestId}>
+            {supportStatus && (
+                <BadgePosition>
+                    <SupportStatusBadge status={supportStatus} />
+                </BadgePosition>
+            )}
             <LogoContainer>
                 {(logoUrl && <PlatformLogo preview={false} src={logoUrl} alt={name} />) || logoComponent}
             </LogoContainer>
