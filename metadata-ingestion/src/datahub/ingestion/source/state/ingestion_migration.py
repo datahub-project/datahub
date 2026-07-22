@@ -147,6 +147,10 @@ class CheckpointMigrationLedger:
         )
         aspect = checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**24)
         if aspect is not None:
+            # Soft-delete the bookkeeping DataJob so it stays out of search/UI
+            # (the timeseries checkpoint aspect remains readable), matching the
+            # built-in checkpointing provider.
+            self.graph.soft_delete_entity(self._urn)
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(entityUrn=self._urn, aspect=aspect)
             )

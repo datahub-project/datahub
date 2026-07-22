@@ -171,3 +171,24 @@ def test_force_reruns_applied_and_version_gated():
     ra.assert_called_once()
     rb.assert_called_once()
     assert set(ledger.recorded) == {"a", "b"}
+
+
+def test_checkpoint_ledger_hides_bookkeeping_datajob():
+    from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+        IngestionCheckpointingProviderBase,
+    )
+    from datahub.ingestion.source.state.ingestion_migration import (
+        MIGRATIONS_JOB_ID,
+        CheckpointMigrationLedger,
+    )
+
+    graph = MagicMock()
+    graph.get_latest_timeseries_value.return_value = None
+    ledger = CheckpointMigrationLedger(graph, "p", "r")
+    ledger.record("m1", "1.0.0")
+
+    urn = IngestionCheckpointingProviderBase.get_data_job_urn(
+        "datahub", "p", MIGRATIONS_JOB_ID
+    )
+    graph.soft_delete_entity.assert_called_with(urn)
+    graph.emit_mcp.assert_called_once()
