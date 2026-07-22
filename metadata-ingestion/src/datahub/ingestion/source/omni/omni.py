@@ -163,8 +163,8 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report.client_report,
         )
         # Internal caches – populated during _ingest_semantic_model and reused
-        # later when processing documents/dashboards. All collections are
-        # thread-safe (GuardedSet / GuardedDict) so workers in the
+        # later when processing documents/dashboards. Collections use
+        # GuardedSet / GuardedDict so document workers in the
         # ThreadPoolExecutor can access them without external locking.
         self._semantic_fields: GuardedDict[str, _SemanticField] = GuardedDict()
         self._semantic_dataset_urns: GuardedSet[str] = GuardedSet()
@@ -912,10 +912,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_model_worker(self, model: Dict[str, Any]) -> List[MetadataWorkUnit]:
-        """Process a single model and return work units (thread-safe).
+        """Process a single model and return work units.
 
-        Extracts detailed model processing logic into a dedicated worker function
-        that can be called in parallel by ThreadPoolExecutor. The model context
+        Called sequentially from _ingest_semantic_model. The model context
         must already be populated in _model_context_by_id.
         """
         work_units: List[MetadataWorkUnit] = []
@@ -961,9 +960,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             }
 
             model_urn = self._model_dataset_urn(model_id)
-            # Register atomically; the primary model always emits (richer data
-            # than an inferred stub), so we don't guard on the return value.
-            self._model_dataset_urns.check_and_add(model_urn)
+            self._model_dataset_urns.add(model_urn)
 
             if connection_id:
                 conn = self._connections_by_id.get(str(connection_id))
@@ -993,9 +990,6 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             if base_model_id:
                 base_model_urn = self._model_dataset_urn(base_model_id)
                 model_upstream_urns.add(base_model_urn)
-                # Only emit an inferred stub if no worker has registered
-                # this URN yet (avoids duplicate emission when the base
-                # model is also in the filtered set).
                 if self._model_dataset_urns.check_and_add(base_model_urn):
                     work_units.extend(
                         self._emit_dataset(
@@ -1045,13 +1039,16 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             return []
 
     def _ingest_semantic_model(self) -> Iterator[MetadataWorkUnit]:
-        """Ingest Omni semantic models in two phases: context collection, then parallel processing.
+        """Ingest Omni semantic models in two phases: context collection, then entity emission.
 
         Phase 1 (sequential): Collect context for ALL models (even filtered ones)
                               because documents may reference any model.
-        Phase 2 (parallel):   Process filtered models in detail using ThreadPoolExecutor.
+        Phase 2 (sequential): Emit entities for filtered models. No threading here
+                              because model workers make no I/O calls — they only
+                              read pre-populated context and build MCPs in memory,
+                              so the GIL serializes them anyway.
         """
-        # Phase 1: Collect ALL models and their context (sequential - needed for dashboard lineage)
+        # Phase 1: Collect ALL models and their context (needed for dashboard lineage)
         filtered_models: List[Dict[str, Any]] = []
 
         try:
@@ -1108,25 +1105,17 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
-        # Phase 2: Process filtered models in parallel
-        with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            future_to_model = {
-                executor.submit(self._process_model_worker, model): model
-                for model in filtered_models
-            }
-
-            for future in as_completed(future_to_model):
-                try:
-                    work_units = future.result()
-                    yield from work_units
-                except Exception as exc:
-                    model = future_to_model[future]
-                    self.report.warning(
-                        title="Model processing error",
-                        message="Failed to process model",
-                        context=f"model_id={model.get('id')}",
-                        exc=exc,
-                    )
+        # Phase 2: Emit entities for filtered models (sequential — no I/O)
+        for model in filtered_models:
+            try:
+                yield from self._process_model_worker(model)
+            except Exception as exc:
+                self.report.warning(
+                    title="Model processing error",
+                    message="Failed to process model",
+                    context=f"model_id={model.get('id')}",
+                    exc=exc,
+                )
 
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
         """Ingest Omni folder hierarchy as DataHub containers.
