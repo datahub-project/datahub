@@ -164,6 +164,12 @@ class SnowflakeV2Report(
 
     edition: Optional[SnowflakeEdition] = None
 
+    # Server-aware resolution of semantic_views.emit_semantic_model_entities.
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database

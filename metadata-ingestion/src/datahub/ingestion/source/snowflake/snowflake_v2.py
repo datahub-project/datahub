@@ -62,6 +62,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
     SemanticViewUsageExtractor,
 )
@@ -518,8 +521,53 @@ class SnowflakeV2Source(
             name, SnowflakeObjectDomain.TABLE
         )
 
+    def _resolve_semantic_model_emission(self) -> None:
+        # Resolve the tri-state semantic_views.emit_semantic_model_entities flag
+        # against server signals (SaaS version + Metrics feature) before any
+        # semantic-view processing reads it. self.ctx.graph may be None (file
+        # sink / no connection); the resolver handles that as the OSS path.
+        recipe_value = self.config.semantic_views.emit_semantic_model_entities
+        decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
+
+        # Write back a concrete bool so every downstream call site reads the
+        # resolved value. ConfigModel has extra="forbid" but no
+        # validate_assignment, so this does not re-run validators.
+        self.config.semantic_views.emit_semantic_model_entities = decision.enabled
+
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        self.report.semantic_model_emission_is_saas = decision.is_saas
+        self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
+
+        logger.info(
+            "Resolved semantic_views.emit_semantic_model_entities: effective=%s "
+            "(recipe=%s, is_saas=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            decision.enabled,
+            recipe_value,
+            decision.is_saas,
+            decision.version,
+            decision.metrics_enabled,
+            decision.reason,
+        )
+
+        # Product choice: when the recipe explicitly requested emission but a
+        # server hard veto forces it off, warn the operator rather than failing
+        # the pipeline so ingestion still proceeds in legacy dataset mode.
+        if recipe_value is True and not decision.enabled:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities forced off",
+                message=(
+                    "semantic_views.emit_semantic_model_entities was requested but "
+                    "the connected DataHub server does not support it; falling back "
+                    "to legacy dataset emission."
+                ),
+                context=decision.reason,
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
+
+        self._resolve_semantic_model_emission()
 
         self.inspect_session_metadata(self.connection)
 

@@ -882,11 +882,11 @@ class TestSemanticViewOrchestrationFlowLegacyDatasetMode:
         assert kwargs["view_definition"] == "CREATE SEMANTIC VIEW ..."
 
     def test_emit_semantic_model_entities_defaults_to_false(self, mock_schema_gen):
-        """emit_semantic_model_entities must default to False, and with no
-        override _process_semantic_view must route to the legacy dataset path:
-        only dataset URN aspects, no semanticModel/metric MCPs."""
+        """emit_semantic_model_entities must default to None (auto-resolve), and
+        with no override _process_semantic_view must route to the legacy dataset
+        path: only dataset URN aspects, no semanticModel/metric MCPs."""
         gen = mock_schema_gen
-        assert gen.config.semantic_views.emit_semantic_model_entities is False
+        assert gen.config.semantic_views.emit_semantic_model_entities is None
         assert gen.data_dictionary._emit_semantic_model_entities is False
 
         semantic_view = self._make_semantic_view([])

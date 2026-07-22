@@ -105,9 +105,24 @@ class SemanticViewsConfig(ConfigModel):
         description="If enabled, semantic views will be ingested. By default they are ingested as datasets with subtype `Semantic View` (see emit_semantic_model_entities to change this). Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
     )
 
-    emit_semantic_model_entities: bool = Field(
-        default=False,
-        description='If enabled, semantic views are ingested as semanticModel entities with their metrics as metric entities; if disabled (default), semantic views are ingested as datasets with subtype "Semantic View" (legacy behavior).',
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Tri-state control for emitting semantic views as semanticModel entities "
+            "(with their metrics as metric entities) instead of datasets with subtype "
+            '"Semantic View" (legacy behavior). '
+            "`None` (default): auto-resolve from the connected DataHub server - on "
+            "DataHub Cloud >= 2.1.0 with Metrics enabled (or the metricsEnabled flag "
+            "absent) it auto-enables; older Cloud versions or an explicit "
+            "metricsEnabled=false kill-switch keep it off; OSS/self-hosted and "
+            "connectionless runs (e.g. file sink) stay off. "
+            "`true`: request semanticModel emission - still honored only when the "
+            "server supports it (DataHub Cloud hard-blocks below 2.1.0 or when the "
+            "Metrics kill-switch is off; there it warns and falls back to legacy "
+            "datasets). "
+            "`false`: always force legacy dataset behavior, overriding any "
+            "server-side auto-enable."
+        ),
     )
 
     column_lineage: bool = Field(

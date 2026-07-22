@@ -177,7 +177,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             fetch_views_from_information_schema=fetch_views_from_information_schema,
             # isinstance guards against SnowflakeSummaryConfig (see the FIXME on the
             # `config` parameter above), which has no `semantic_views` field.
-            emit_semantic_model_entities=(
+            emit_semantic_model_entities=bool(
                 isinstance(config, SnowflakeV2Config)
                 and config.semantic_views.emit_semantic_model_entities
             ),
