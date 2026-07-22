@@ -25,7 +25,29 @@ class AutoLowercaseUrnsProcessor(WorkunitProcessor[AutoLowercaseUrnsProcessorRep
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
-        return bool(getattr(ctx.source_config, "convert_urns_to_lowercase", False))
+        # Gate on the value explicitly set in the recipe rather than the parsed
+        # config's effective (default-applied) value. Enabling this from a
+        # connector default (e.g. Snowflake defaults convert_urns_to_lowercase
+        # to True) lowercases the platform_instance segment of dataset URNs,
+        # which changes asset identity on upgrade and orphans previously
+        # attached metadata (assertions, incidents, manual edits) for recipes
+        # that never explicitly opted in. Restores the pre-#17852 behavior.
+        pipeline_config = getattr(ctx.pipeline_context, "pipeline_config", None)
+        if not (
+            pipeline_config and pipeline_config.source and pipeline_config.source.config
+        ):
+            return False
+        raw_config = pipeline_config.source.config
+        return bool(
+            (
+                hasattr(raw_config, "convert_urns_to_lowercase")
+                and raw_config.convert_urns_to_lowercase
+            )
+            or (
+                hasattr(raw_config, "get")
+                and raw_config.get("convert_urns_to_lowercase")
+            )
+        )
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """Lowercase all dataset urns"""
