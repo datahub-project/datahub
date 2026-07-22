@@ -302,7 +302,10 @@ def test_s3_path_without_aws_config_reports_warning() -> None:
     assert profiler.report.warnings.total_elements > 0
 
 
-def test_partitioned_s3_without_aws_config_raises() -> None:
+def test_partitioned_s3_without_aws_config_warns_and_skips() -> None:
+    # Listing a partitioned S3 table needs aws_config. Without it the listing
+    # error must be reported as a warning and the table skipped, not propagated
+    # out of get_table_profile (which would abort the whole source run).
     profiler = make_profiler()  # aws_config=None
     table_data = StubTableData(
         display_name="demo",
@@ -310,8 +313,10 @@ def test_partitioned_s3_without_aws_config_raises() -> None:
         table_path="s3://test-bucket/data",
         partitions=["year=2023"],
     )
-    with pytest.raises(ValueError, match="AWS config is required"):
-        list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert work_units == []
+    assert profiler.report.warnings.total_elements > 0
 
 
 def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
@@ -334,6 +339,40 @@ def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert get_profile(work_units[0]).rowCount == 400
+
+
+@pytest.mark.parametrize(
+    "flag,attr",
+    [
+        ("include_field_min_value", "min"),
+        ("include_field_max_value", "max"),
+        ("include_field_mean_value", "mean"),
+        ("include_field_stddev_value", "stdev"),
+        ("include_field_median_value", "median"),
+        ("include_field_quantiles", "quantiles"),
+        ("include_field_histogram", "histogram"),
+    ],
+)
+def test_include_field_flag_disables_individual_stat(
+    tmp_path: Path, flag: str, attr: str
+) -> None:
+    # A high-cardinality numeric column populates every one of these fields by
+    # default; toggling a single include_field_* flag off must null out exactly
+    # that field (the gates in _build_field_profile are otherwise only exercised
+    # in the True direction).
+    path = tmp_path / "test.parquet"
+    pq.write_table(
+        pa.table({"id": pa.array(HIGH_CARDINALITY_IDS, type=pa.int64())}), str(path)
+    )
+
+    profiler = make_profiler(**{flag: False})
+    work_units = list(
+        profiler.get_table_profile(make_table_data(str(path)), "urn:li:dataset:test")
+    )
+
+    field_profiles = get_profile(work_units[0]).fieldProfiles or []
+    id_profile = next(f for f in field_profiles if f.fieldPath == "id")
+    assert getattr(id_profile, attr) is None
 
 
 def test_partial_table_read_failure_skips_emission(tmp_path: Path) -> None:

@@ -8,6 +8,7 @@ from datahub.emitter.mce_builder import get_sys_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_boto_utils import list_objects_recursive
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -124,14 +125,13 @@ class FileProfiler:
         if is_s3_uri(table_path):
             if self.aws_config is None:
                 raise ValueError("AWS config is required to profile S3/GCS files")
-            s3_client = self.aws_config.get_s3_client(self.verify_ssl)
             bucket = get_bucket_name(table_path)
             prefix = get_bucket_relative_path(table_path)
-            paginator = s3_client.get_paginator("list_objects_v2")
-            for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-                for obj in page.get("Contents", []):
-                    if obj["Key"].endswith(extension):
-                        yield f"s3://{bucket}/{obj['Key']}"
+            # Reuse the shared lister (paged, structured, GCS-cursor aware)
+            # rather than hand-rolling list_objects_v2 pagination here.
+            for obj in list_objects_recursive(bucket, prefix, self.aws_config):
+                if obj.key.endswith(extension):
+                    yield f"s3://{obj.bucket_name}/{obj.key}"
         else:
             for root, _dirs, files in os.walk(table_path):
                 for name in files:
@@ -217,7 +217,23 @@ class FileProfiler:
 
         table_read_failed = False
         with PerfTimer() as timer:
-            for path in self._iter_table_paths(table_data):
+            try:
+                # `_iter_table_paths` is a generator whose S3 listing runs as it
+                # is consumed; materialize it here so a listing failure
+                # (throttling / AccessDenied) warns and skips this table like a
+                # read failure, instead of propagating out and aborting the
+                # whole source run.
+                paths = list(self._iter_table_paths(table_data))
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to list files during profiling",
+                    message="Table could not be profiled because its files could not be listed",
+                    context=table_data.full_path,
+                    exc=e,
+                )
+                return
+
+            for path in paths:
                 try:
                     with self._open_file(path) as file_obj:
                         source = self._read_source(file_obj, extension)
@@ -283,9 +299,12 @@ class FileProfiler:
                     # The accumulator may already hold partial rows from this
                     # file, so the whole table profile is now untrustworthy;
                     # record the failure and stop rather than emit polluted stats.
+                    # This also catches profiling errors (e.g. a value that
+                    # doesn't match a column's Avro-declared type), not just I/O
+                    # failures, so the wording covers both.
                     self.report.warning(
-                        title="Failed to read file during profiling",
-                        message="Table profile was skipped because a file could not be read",
+                        title="Failed to read or profile a file",
+                        message="Table profile was skipped because a file could not be read or profiled",
                         context=path,
                         exc=e,
                     )
@@ -294,8 +313,8 @@ class FileProfiler:
 
             if accumulator is None:
                 self.report.warning(
-                    title="Failed to read file during profiling",
-                    message="Table could not be profiled because no file was readable",
+                    title="Failed to read or profile a file",
+                    message="Table could not be profiled because no file could be read or profiled",
                     context=table_data.full_path,
                 )
                 return
@@ -308,11 +327,6 @@ class FileProfiler:
 
             try:
                 table_stats = accumulator.finalize()
-
-                telemetry.telemetry_instance.ping(
-                    "profile_data_lake_table",
-                    {"rows_profiled": stats.discretize(table_stats.row_count)},
-                )
 
                 profile = DatasetProfileClass(timestampMillis=get_sys_time())
                 profile.rowCount = table_stats.row_count
@@ -335,6 +349,13 @@ class FileProfiler:
                     exc=e,
                 )
                 return
+
+            # Emitted after the profile is assembled and outside the guard
+            # above, so a telemetry failure can never suppress a valid profile.
+            telemetry.telemetry_instance.ping(
+                "profile_data_lake_table",
+                {"rows_profiled": stats.discretize(table_stats.row_count)},
+            )
 
             time_taken = timer.elapsed_seconds()
             logger.info(

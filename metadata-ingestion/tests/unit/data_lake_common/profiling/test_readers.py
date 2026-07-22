@@ -150,6 +150,19 @@ def test_reflow_reraises_when_not_a_width_mismatch() -> None:
         _reflow_ragged_rows(io.BytesIO(b"id,name\n1,a\n2,b\n"), delimiter=",")
 
 
+def test_read_csv_handles_multiline_quoted_header() -> None:
+    # A quoted column name with an embedded newline (as in the ARCN chemistry
+    # fixture). newlines_in_values=True keeps it a single header field instead
+    # of splitting it into a bogus extra row/column.
+    csv_bytes = b'id,"NH3-N\n(mg N/L)"\n1,0.5\n2,0.7\n'
+
+    source = read_csv(io.BytesIO(csv_bytes))
+
+    assert source.columns == ["id", "NH3-N\n(mg N/L)"]
+    assert sum(batch.num_rows for batch in source.batches) == 2
+    assert source.reflowed_rows == 0
+
+
 def test_avro_field_kinds_cover_other_and_nested_types() -> None:
     schema = {
         "type": "record",
