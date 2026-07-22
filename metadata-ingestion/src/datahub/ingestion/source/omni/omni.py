@@ -1494,7 +1494,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     self._ensure_inline_folder(str(folder_id), folder_name, folder_path)
                 )
 
-            document_connection_id = str(document.get("connectionId"))
+            document_connection_id = str(document.get("connectionId") or "")
             if document_connection_id:
                 work_units.extend(
                     self._ensure_connection_dataset(
