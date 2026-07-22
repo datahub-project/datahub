@@ -48,8 +48,16 @@ import org.springframework.http.ResponseEntity;
 public final class ScrollUtils {
 
   /**
-   * Scrolls generic relationship edges filtered by independent source/destination type and entity
-   * filters.
+   * Shared implementation for scroll endpoints. When {@code baseFilters} is non-null its filters
+   * (e.g. lineage triplets) are applied additively to the filters derived from the request
+   * parameters.
+   *
+   * <p>When {@code entityUrn} is set, {@code direction} is interpreted as walker-relative to that
+   * entity (same as {@code GET /{entityName}/{entityUrn}}): the URN is pinned on the destination
+   * for {@code INCOMING} or the source for {@code OUTGOING}. The internal relationship filter uses
+   * {@code OUTGOING} so GraphQueryUtils maps source/destination filters onto document fields
+   * without remapping. When {@code entityUrn} is absent, {@code direction} retains its existing
+   * query-role field-remap semantics for {@code sourceFilter}/{@code destinationFilter}.
    */
   public static ResponseEntity<GenericScrollResult<GenericRelationship>> doScrollRelationships(
       OperationContext systemOperationContext,
@@ -57,6 +65,7 @@ public final class ScrollUtils {
       GraphService graphService,
       HttpServletRequest request,
       String operationName,
+      UsageOperation usageOperation,
       String[] relationshipTypes,
       String[] sourceTypes,
       String[] destinationTypes,
@@ -67,7 +76,50 @@ public final class ScrollUtils {
       Integer sliceId,
       Integer sliceMax,
       String pitKeepAlive,
-      ScrollRelationshipsRequestBody body) {
+      ScrollRelationshipsRequestBody body,
+      @Nullable GraphFilters baseFilters) {
+    return doScrollRelationships(
+        systemOperationContext,
+        authorizationChain,
+        graphService,
+        request,
+        operationName,
+        usageOperation,
+        relationshipTypes,
+        sourceTypes,
+        destinationTypes,
+        direction,
+        count,
+        scrollId,
+        includeSoftDelete,
+        sliceId,
+        sliceMax,
+        pitKeepAlive,
+        body,
+        baseFilters,
+        null);
+  }
+
+  public static ResponseEntity<GenericScrollResult<GenericRelationship>> doScrollRelationships(
+      OperationContext systemOperationContext,
+      AuthorizerChain authorizationChain,
+      GraphService graphService,
+      HttpServletRequest request,
+      String operationName,
+      UsageOperation usageOperation,
+      String[] relationshipTypes,
+      String[] sourceTypes,
+      String[] destinationTypes,
+      String direction,
+      Integer count,
+      String scrollId,
+      Boolean includeSoftDelete,
+      Integer sliceId,
+      Integer sliceMax,
+      String pitKeepAlive,
+      ScrollRelationshipsRequestBody body,
+      @Nullable GraphFilters baseFilters,
+      @Nullable String entityUrn) {
 
     OperationContext opContext =
         getOpContext(
@@ -75,23 +127,53 @@ public final class ScrollUtils {
             authorizationChain,
             request,
             operationName,
-            UsageOperation.METADATA_READ,
+            usageOperation,
             includeSoftDelete,
             sliceId,
             sliceMax);
     checkAuthorized(opContext);
 
+    final boolean walkerMode = entityUrn != null && !entityUrn.isBlank();
+    if (walkerMode
+        && !AuthUtil.isAPIAuthorizedUrns(
+            opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
+      throw unauthorized();
+    }
+
+    Filter sourceEntityFilter = toFilter(body.getSourceFilter());
+    Filter destinationEntityFilter = toFilter(body.getDestinationFilter());
+    Filter edgeFilter = toFilter(body.getEdgeFilter());
+
     RelationshipDirection relationshipDirection = parseRelationshipDirection(direction);
+
+    if (walkerMode) {
+      // Mirror getRelationshipsByEntity: pin the focal URN on a literal edge end.
+      // Use OUTGOING for the relationship filter so GraphQueryUtils does not remap fields.
+      if (relationshipDirection == RelationshipDirection.UNDIRECTED) {
+        throw new IllegalArgumentException(
+            "When entityUrn is set, direction must be INCOMING or OUTGOING");
+      }
+      Filter entityUrnFilter = QueryUtils.newFilter("urn", entityUrn);
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        destinationEntityFilter = entityUrnFilter;
+      } else {
+        sourceEntityFilter = entityUrnFilter;
+      }
+      relationshipDirection = RelationshipDirection.OUTGOING;
+    }
 
     GraphFilters graphFilters =
         new GraphFilters(
-            toFilter(body.getSourceFilter()),
-            toFilter(body.getDestinationFilter()),
+            sourceEntityFilter,
+            destinationEntityFilter,
             toOptionalTypesSet(sourceTypes),
             toOptionalTypesSet(destinationTypes),
             toRelationshipTypesSet(relationshipTypes),
-            QueryUtils.newRelationshipFilter(
-                toFilter(body.getEdgeFilter()), relationshipDirection));
+            QueryUtils.newRelationshipFilter(edgeFilter, relationshipDirection));
+
+    if (baseFilters != null && baseFilters.getAllowedEdgeTriplets() != null) {
+      graphFilters.setAllowedEdgeTriplets(baseFilters.getAllowedEdgeTriplets());
+    }
 
     RelatedEntitiesScrollResult result =
         scrollRelatedEntities(graphService, opContext, graphFilters, scrollId, pitKeepAlive, count);
@@ -104,6 +186,8 @@ public final class ScrollUtils {
                         UrnUtils.getUrn(edge.getSourceUrn()),
                         UrnUtils.getUrn(edge.getDestinationUrn())))
             .collect(Collectors.toSet());
+    checkAuthorizedOnUrns(opContext, resultUrns);
+
     return ResponseEntity.ok(
         GenericScrollResult.<GenericRelationship>builder()
             .results(toGenericRelationships(result.getEntities()))

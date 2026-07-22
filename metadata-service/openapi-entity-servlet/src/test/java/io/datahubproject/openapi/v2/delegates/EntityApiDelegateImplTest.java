@@ -37,7 +37,6 @@ import io.datahubproject.openapi.generated.ScrollDatasetEntityResponseV2;
 import io.datahubproject.openapi.generated.Status;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.TagAssociation;
-import io.datahubproject.openapi.v1.relationships.RelationshipsController;
 import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.openapi.v2.generated.controller.ChartApiController;
 import io.datahubproject.openapi.v2.generated.controller.DatasetApiController;
@@ -85,7 +84,6 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
 
   @MockitoBean private TimelineService timelineService;
   @MockitoBean private TimelineControllerV2 timelineControllerV2;
-  @MockitoBean private RelationshipsController relationshipsController;
 
   @Test
   public void initTest() {

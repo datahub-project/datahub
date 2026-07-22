@@ -22,7 +22,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -144,7 +147,8 @@ public class RestEmitter implements Emitter {
     this.httpClient = httpClientBuilder.build();
     this.httpClient.start();
     this.ingestProposalUrl = this.config.getServer() + "/aspects?action=ingestProposal";
-    this.ingestOpenApiUrl = config.getServer() + "/openapi/entities/v1/";
+    // Prefer platform MCP ingest; /openapi/entities/v1 was removed after long deprecation.
+    this.ingestOpenApiUrl = config.getServer() + "/openapi/v2/platform/entities/v1/";
     this.configUrl = this.config.getServer() + "/config";
     this.eventFormatter = this.config.getEventFormatter();
   }
@@ -346,6 +350,44 @@ public class RestEmitter implements Emitter {
     return this.postOpenAPI(request, callback);
   }
 
+  private static String aspectNameFromClass(Class<?> cls) {
+    char[] c = cls.getSimpleName().toCharArray();
+    c[0] = Character.toLowerCase(c[0]);
+    return new String(c);
+  }
+
+  /**
+   * Maps UpsertAspectRequest list to OpenAPI MetadataChangeProposal JSON accepted by {@code
+   * /openapi/v2/platform/entities/v1/}.
+   */
+  @VisibleForTesting
+  static List<Map<String, Object>> toOpenApiMcps(List<UpsertAspectRequest> requests) {
+    List<Map<String, Object>> mcps = new ArrayList<>(requests.size());
+    for (UpsertAspectRequest request : requests) {
+      Map<String, Object> mcp = new HashMap<>();
+      mcp.put("entityType", request.getEntityType());
+      if (request.getEntityUrn() != null) {
+        mcp.put("entityUrn", request.getEntityUrn());
+      }
+      mcp.put("changeType", "UPSERT");
+      if (request.getAspect() != null) {
+        mcp.put("aspectName", aspectNameFromClass(request.getAspect().getClass()));
+        Map<String, Object> aspect = new HashMap<>();
+        aspect.put("contentType", "application/json");
+        aspect.put("value", request.getAspect());
+        mcp.put("aspect", aspect);
+      }
+      if (request.getEntityKeyAspect() != null) {
+        Map<String, Object> keyAspect = new HashMap<>();
+        keyAspect.put("contentType", "application/json");
+        keyAspect.put("value", request.getEntityKeyAspect());
+        mcp.put("entityKeyAspect", keyAspect);
+      }
+      mcps.add(mcp);
+    }
+    return mcps;
+  }
+
   private Future<MetadataWriteResponse> postOpenAPI(
       List<UpsertAspectRequest> payload, Callback callback) throws IOException {
     SimpleRequestBuilder simpleRequestBuilder =
@@ -360,7 +402,7 @@ public class RestEmitter implements Emitter {
       simpleRequestBuilder.addHeader("Authorization", "Bearer " + this.config.getToken());
     }
     simpleRequestBuilder.setBody(
-        objectMapper.writeValueAsString(payload), ContentType.APPLICATION_JSON);
+        objectMapper.writeValueAsString(toOpenApiMcps(payload)), ContentType.APPLICATION_JSON);
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =

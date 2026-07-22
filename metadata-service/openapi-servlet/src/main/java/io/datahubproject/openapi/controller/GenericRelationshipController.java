@@ -206,6 +206,8 @@ public abstract class GenericRelationshipController {
               + RELATIONSHIP);
     }
 
+    // API direction selects which edge end is pinned. RelationshipFilter uses OUTGOING so
+    // GraphQueryUtils maps source/destination filters onto document fields without remapping.
     switch (RelationshipDirection.valueOf(direction.toUpperCase())) {
       case INCOMING -> result =
           graphService.scrollRelatedEntities(
@@ -218,7 +220,7 @@ public abstract class GenericRelationshipController {
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
               QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -236,7 +238,7 @@ public abstract class GenericRelationshipController {
                   ? Arrays.stream(relationshipTypes).collect(Collectors.toSet())
                   : Set.of(),
               QueryUtils.newRelationshipFilter(
-                  QueryUtils.EMPTY_FILTER, RelationshipDirection.UNDIRECTED),
+                  QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
               pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -275,9 +277,14 @@ public abstract class GenericRelationshipController {
   /**
    * Scrolls relationships with configurable filters on source/destination entity types and edges.
    *
+   * <p>When {@code entityUrn} is set, {@code direction} is walker-relative to that URN (same as
+   * {@code GET /{entityName}/{entityUrn}}). When omitted, {@code direction} retains its existing
+   * filter field-remap semantics.
+   *
    * @param relationshipTypes relationship types to filter on (default all)
    * @param sourceTypes entity types to filter on for source
    * @param destinationTypes entity types to filter on for destination
+   * @param entityUrn optional focal entity; enables walker-relative direction semantics
    * @param count number of results
    * @param scrollId scrolling id
    * @param body request body containing sourceFilter, destinationFilter, and edgeFilter
@@ -286,13 +293,15 @@ public abstract class GenericRelationshipController {
   @PostMapping(value = "/scroll", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       summary =
-          "Scroll relationships with configurable filters on source/destination types and edges.")
+          "Scroll relationships with configurable filters on source/destination types and edges."
+              + " Optional entityUrn uses walker-relative direction (like GET by entity).")
   public ResponseEntity<GenericScrollResult<GenericRelationship>> scrollRelationships(
       HttpServletRequest request,
       @RequestParam(value = "relationshipTypes", required = false) String[] relationshipTypes,
       @RequestParam(value = "sourceTypes", required = false) String[] sourceTypes,
       @RequestParam(value = "destinationTypes", required = false) String[] destinationTypes,
       @RequestParam(value = "direction", defaultValue = "OUTGOING") String direction,
+      @RequestParam(value = "entityUrn", required = false) String entityUrn,
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
@@ -308,6 +317,7 @@ public abstract class GenericRelationshipController {
         graphService,
         request,
         "scrollRelationships",
+        UsageOperation.METADATA_READ,
         relationshipTypes,
         sourceTypes,
         destinationTypes,
@@ -318,6 +328,8 @@ public abstract class GenericRelationshipController {
         sliceId,
         sliceMax,
         pitKeepAlive,
-        body);
+        body,
+        null,
+        entityUrn);
   }
 }

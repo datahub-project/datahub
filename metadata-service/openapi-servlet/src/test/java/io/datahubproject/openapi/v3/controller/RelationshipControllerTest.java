@@ -9,11 +9,14 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.authorization.ApiGroup;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -35,6 +38,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -367,6 +372,8 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     // Use ArgumentCaptor to verify the correct filter parameters for INCOMING
     ArgumentCaptor<Filter> sourceEntityFilterCaptor = ArgumentCaptor.forClass(Filter.class);
     ArgumentCaptor<Filter> destEntityFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<RelationshipFilter> relationshipFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
@@ -375,7 +382,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             isNull(),
             destEntityFilterCaptor.capture(),
             anySet(),
-            any(),
+            relationshipFilterCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -393,10 +400,16 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("test-scroll-id"));
 
-    // Verify INCOMING direction: sourceTypes=null, sourceEntityFilter=EMPTY, destTypes=null,
-    // destEntityFilter=entityUrn
-    assertNotNull(sourceEntityFilterCaptor.getValue());
-    assertNotNull(destEntityFilterCaptor.getValue());
+    // Verify INCOMING: dest pinned to entityUrn; RelationshipFilter OUTGOING avoids field remap
+    assertTrue(
+        sourceEntityFilterCaptor.getValue().getOr().isEmpty()
+            || sourceEntityFilterCaptor.getValue().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+    Filter destFilter = destEntityFilterCaptor.getValue();
+    assertEquals(destFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
+    assertEquals(destFilter.getOr().get(0).getAnd().get(0).getValues().get(0), entityUrn);
+    assertEquals(
+        relationshipFilterCaptor.getValue().getDirection(), RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -409,6 +422,8 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
     // Use ArgumentCaptor to verify the correct filter parameters for OUTGOING
     ArgumentCaptor<Filter> sourceEntityFilterCaptor = ArgumentCaptor.forClass(Filter.class);
     ArgumentCaptor<Filter> destEntityFilterCaptor = ArgumentCaptor.forClass(Filter.class);
+    ArgumentCaptor<RelationshipFilter> relationshipFilterCaptor =
+        ArgumentCaptor.forClass(RelationshipFilter.class);
 
     when(mockGraphService.scrollRelatedEntities(
             any(),
@@ -417,7 +432,7 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
             isNull(),
             destEntityFilterCaptor.capture(),
             anySet(),
-            any(),
+            relationshipFilterCaptor.capture(),
             any(),
             isNull(),
             anyString(),
@@ -435,10 +450,16 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("test-scroll-id"));
 
-    // Verify OUTGOING direction: sourceTypes=null, sourceEntityFilter=entityUrn, destTypes=null,
-    // destEntityFilter=EMPTY
-    assertNotNull(sourceEntityFilterCaptor.getValue());
-    assertNotNull(destEntityFilterCaptor.getValue());
+    // Verify OUTGOING: source pinned to entityUrn; RelationshipFilter OUTGOING avoids field remap
+    Filter sourceFilter = sourceEntityFilterCaptor.getValue();
+    assertEquals(sourceFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
+    assertEquals(sourceFilter.getOr().get(0).getAnd().get(0).getValues().get(0), entityUrn);
+    assertTrue(
+        destEntityFilterCaptor.getValue().getOr().isEmpty()
+            || destEntityFilterCaptor.getValue().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+    assertEquals(
+        relationshipFilterCaptor.getValue().getDirection(), RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -1311,6 +1332,136 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityUrnIncoming() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,test,PROD)";
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-walker-in", Arrays.asList());
+
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            graphFiltersCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("entityUrn", entityUrn)
+                .param("direction", "INCOMING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-walker-in"));
+
+    GraphFilters captured = graphFiltersCaptor.getValue();
+    assertEquals(captured.getRelationshipFilter().getDirection(), RelationshipDirection.OUTGOING);
+    Filter destFilter = captured.getDestinationEntityFilter();
+    assertEquals(destFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
+    assertEquals(destFilter.getOr().get(0).getAnd().get(0).getValues().get(0), entityUrn);
+    assertTrue(
+        captured.getSourceEntityFilter().getOr().isEmpty()
+            || captured.getSourceEntityFilter().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityUrnOutgoing() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,test,PROD)";
+    RelatedEntitiesScrollResult expectedResult =
+        new RelatedEntitiesScrollResult(0, 10, "scroll-walker-out", Arrays.asList());
+
+    ArgumentCaptor<GraphFilters> graphFiltersCaptor = ArgumentCaptor.forClass(GraphFilters.class);
+
+    when(mockGraphService.scrollRelatedEntities(
+            any(),
+            graphFiltersCaptor.capture(),
+            any(),
+            isNull(),
+            anyString(),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(expectedResult);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("entityUrn", entityUrn)
+                .param("direction", "OUTGOING")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.scrollId").value("scroll-walker-out"));
+
+    GraphFilters captured = graphFiltersCaptor.getValue();
+    assertEquals(captured.getRelationshipFilter().getDirection(), RelationshipDirection.OUTGOING);
+    Filter sourceFilter = captured.getSourceEntityFilter();
+    assertEquals(sourceFilter.getOr().get(0).getAnd().get(0).getField(), "urn");
+    assertEquals(sourceFilter.getOr().get(0).getAnd().get(0).getValues().get(0), entityUrn);
+    assertTrue(
+        captured.getDestinationEntityFilter().getOr().isEmpty()
+            || captured.getDestinationEntityFilter().getOr().stream()
+                .allMatch(cc -> cc.getAnd().isEmpty()));
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityUrnRejectsUndirected() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,test,PROD)";
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                .param("entityUrn", entityUrn)
+                .param("direction", "UNDIRECTED")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  public void testScrollRelationshipsWithEntityUrnDeniedForEntity() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,test,PROD)";
+    try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorized(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ)))
+          .thenReturn(true);
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAPIAuthorizedUrns(
+                      any(OperationContext.class),
+                      eq(ApiGroup.RELATIONSHIP),
+                      eq(ApiOperation.READ),
+                      anyList()))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/relationship/scroll")
+                  .param("entityUrn", entityUrn)
+                  .param("direction", "INCOMING")
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(EMPTY_SCROLL_BODY))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+    }
   }
 
   @Test
