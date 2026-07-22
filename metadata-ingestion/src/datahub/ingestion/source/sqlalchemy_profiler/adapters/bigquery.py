@@ -321,7 +321,11 @@ class BigQueryAdapter(PlatformAdapter):
             target = self.quote_identifier(
                 f"{context.schema}.{context.table}" if context.schema else context.table
             )
-            row_count = context.row_count or self._get_quick_row_count(context, conn)
+            row_count = (
+                context.row_count
+                if context.row_count is not None
+                else self._get_quick_row_count(context, conn)
+            )
         else:
             return context
 
