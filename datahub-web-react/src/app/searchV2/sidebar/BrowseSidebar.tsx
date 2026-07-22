@@ -141,6 +141,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                         icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
                         isActive={!isClosed}
                         onClick={() => setIsClosed(!isClosed)}
+                        data-testid="browse-v2-toggle"
                     />
                 </Controls>
                 <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>

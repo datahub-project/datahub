@@ -100,7 +100,7 @@ public class RequestContext implements ContextInterface {
   private final boolean responseBodyMaterialized;
 
   /** Multiplier for per-proposal ingest cost profiling (batch size). Defaults to 1. */
-  @Builder.Default private final int usageQuantity = 1;
+  @Builder.Default private final long usageQuantity = 1L;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -175,7 +175,7 @@ public class RequestContext implements ContextInterface {
       @Nullable Long outputBytes,
       boolean requestBodyMaterialized,
       boolean responseBodyMaterialized,
-      int usageQuantity) {
+      long usageQuantity) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -224,7 +224,7 @@ public class RequestContext implements ContextInterface {
     this.outputBytes = outputBytes;
     this.requestBodyMaterialized = requestBodyMaterialized;
     this.responseBodyMaterialized = responseBodyMaterialized;
-    this.usageQuantity = Math.max(1, usageQuantity);
+    this.usageQuantity = Math.max(1L, usageQuantity);
 
     putUsageFieldsInMdc();
 
@@ -243,33 +243,33 @@ public class RequestContext implements ContextInterface {
   }
 
   /** Counts JSON array elements for ingest batch usage quantity; returns 1 when not an array. */
-  public static int resolveIngestUsageQuantity(
+  public static long resolveIngestUsageQuantity(
       @Nonnull String jsonBody, @Nonnull ObjectMapper objectMapper) {
     try {
       JsonNode node = objectMapper.readTree(jsonBody);
       if (node.isArray()) {
-        return Math.max(1, node.size());
+        return Math.max(1L, node.size());
       }
     } catch (JsonProcessingException e) {
       log.debug("Could not parse ingest body for usage quantity", e);
     }
-    return 1;
+    return 1L;
   }
 
   /** Sums array sizes under a JSON object keyed by entity type (generic multi-type ingest). */
-  public static int resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
+  public static long resolveIngestUsageQuantity(@Nonnull JsonNode rootObject) {
     if (!rootObject.isObject()) {
-      return 1;
+      return 1L;
     }
-    int total = 0;
+    long total = 0L;
     for (JsonNode value : rootObject) {
       if (value.isArray()) {
         total += value.size();
       } else {
-        total += 1;
+        total += 1L;
       }
     }
-    return Math.max(1, total);
+    return Math.max(1L, total);
   }
 
   /** Resolves request wire bytes from servlet {@code Content-Length} when not streaming/chunked. */
@@ -344,10 +344,10 @@ public class RequestContext implements ContextInterface {
 
   public static class RequestContextBuilder {
 
-    private int usageQuantity = 1;
+    private long usageQuantity = 1L;
 
-    public RequestContextBuilder usageQuantity(int usageQuantity) {
-      this.usageQuantity = Math.max(1, usageQuantity);
+    public RequestContextBuilder usageQuantity(long usageQuantity) {
+      this.usageQuantity = Math.max(1L, usageQuantity);
       return this;
     }
 
@@ -484,14 +484,24 @@ public class RequestContext implements ContextInterface {
     }
 
     private static String extractSourceIP(@Nonnull HttpServletRequest request) {
+      // Both X-Forwarded-For and getRemoteAddr() can be null (async-dispatched requests,
+      // non-IP transports, or unstubbed test mocks). Coalesce to "" so the @Nonnull sourceIP
+      // field setter never sees null.
       return Optional.ofNullable(request.getHeader(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(request.getRemoteAddr());
+          .or(() -> Optional.ofNullable(request.getRemoteAddr()))
+          .orElse("");
     }
 
     private static String extractSourceIP(@Nonnull ResourceContext resourceContext) {
+      // Defensive null-handling: header lookup and REMOTE_ADDR attribute can both be absent.
       return Optional.ofNullable(
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
+          .or(
+              () ->
+                  Optional.ofNullable(
+                          resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR"))
+                      .map(Object::toString))
+          .orElse("");
     }
 
     public RequestAPI peekRequestAPI() {
@@ -541,8 +551,8 @@ public class RequestContext implements ContextInterface {
     }
 
     @Nonnull
-    public RequestContextBuilder withUsageQuantity(int quantity) {
-      return usageQuantity(Math.max(1, quantity));
+    public RequestContextBuilder withUsageQuantity(long quantity) {
+      return usageQuantity(Math.max(1L, quantity));
     }
 
     @Nonnull
@@ -607,17 +617,19 @@ public class RequestContext implements ContextInterface {
       String requestAPI = requestContext.getRequestAPI().toMetricLabel();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
-      // Per-request Micrometer counter. When USAGE_AGGREGATION_ENABLED is on, the flush path also
-      // exports datahub_request_count; keep this until aggregation is the default in smoke/dev.
-      metricUtils.incrementMicrometer(
-          MetricUtils.DATAHUB_REQUEST_COUNT,
-          1,
-          "user_category",
-          userCategory,
-          "agent_class",
-          agentClass,
-          "request_api",
-          requestAPI);
+      // Per-request Micrometer counter. Skip when aggregation Micrometer export owns
+      // datahub_request_count (flush uses billing tag keys; Micrometer forbids mixed tag sets).
+      if (!metricUtils.isSuppressLegacyRequestCountMicrometer()) {
+        metricUtils.incrementMicrometer(
+            MetricUtils.DATAHUB_REQUEST_COUNT,
+            1,
+            "user_category",
+            userCategory,
+            "agent_class",
+            agentClass,
+            "request_api",
+            requestAPI);
+      }
     }
   }
 

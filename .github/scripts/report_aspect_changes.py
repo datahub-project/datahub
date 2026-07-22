@@ -221,7 +221,17 @@ _FIELD_LINE_RE = re.compile(
 
 
 def fields(src: str) -> dict[str, dict]:
-    """Return {field_name: {'optional': bool, 'type': str}} for the outermost record."""
+    """Return {field_name: {'optional': bool, 'type': str, 'annotations': dict}}
+    for the outermost record.
+
+    Delegates to bump_schema_versions.parse_record_fields — the brace-balanced
+    parser shared with the auto-bumper — so both tools capture the same
+    whitelisted reindex-relevant annotations (@Searchable, @Relationship,
+    @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection) identically,
+    including values that span multiple lines. Falls back to the previous
+    naive per-line scan (no annotation capture) only when that parser returns
+    None — a construct it can't model unambiguously.
+    """
     cleaned = _strip_comments(src)
     m = _RECORD_RE.search(cleaned)
     if not m:
@@ -229,6 +239,20 @@ def fields(src: str) -> dict[str, dict]:
     body = m.group("body")
     # Drop nested record/enum/typeref bodies so we don't pick up their fields
     body = re.sub(r"(record|enum|typeref)\s+\w+[^{}]*\{[^{}]*\}", "", body)
+
+    parsed = bsv.parse_record_fields(body)
+    if parsed is not None:
+        out: dict[str, dict] = {}
+        for name, (typ, opt, ann) in parsed.items():
+            # bsv keeps a leading "optional" keyword inside its type text (so
+            # a required<->optional flip also shows up as a type difference
+            # there); this module tracks optionality separately from type so
+            # such a flip is reported as "required-ness flip", not a type
+            # change — strip the prefix to preserve that distinction.
+            type_only = re.sub(r"^optional\s+", "", typ, count=1)
+            out[name] = {"optional": opt, "type": type_only, "annotations": ann}
+        return out
+
     out: dict[str, dict] = {}
     for raw_line in body.splitlines():
         line = re.sub(r"@\w+(?:\s*=\s*(?:\{[^}]*\}|\"[^\"]*\"|\d+))?", "", raw_line)
@@ -243,6 +267,7 @@ def fields(src: str) -> dict[str, dict]:
         out[name] = {
             "optional": bool(fm.group("opt")),
             "type": fm.group("type").strip().rstrip(","),
+            "annotations": {},
         }
     return out
 
@@ -402,12 +427,14 @@ def upstream_attribution_for_transitive(
 
 
 # Bump-status classification per aspect (mirrors bump_schema_versions semantics:
-# schemaVersion defaults to 1 when absent; any structural change OR transitive
-# dependency change requires a bump).
-BUMP_DONE = "bump_done"  # head schemaVersion > base AND a real change exists
-BUMP_NEEDED = "bump_needed"  # changed (direct or transitive) but version not bumped
-BUMP_SPURIOUS = "bump_spurious"  # version bumped but NO schema change (auto-bumper side-effect, e.g. PR #9579)
-BUMP_NOT_NEEDED = "bump_not_needed"  # new file, deleted, non-aspect, no change, or version regressed — no forward bump applies
+# schemaVersion defaults to 1 when absent; a *breaking* structural change OR a
+# transitive dependency change requires a bump). Additive-only changes
+# (optional fields, new enum values) do not — previously-serialized aspects
+# remain valid, so no migration / version hop is warranted.
+BUMP_DONE = "bump_done"  # head schemaVersion > base AND a bump-required change exists
+BUMP_NEEDED = "bump_needed"  # breaking change (direct or transitive) but version not bumped
+BUMP_SPURIOUS = "bump_spurious"  # version bumped but NO bump-required change (auto-bumper side-effect, e.g. PR #9579 / CorpUserInfo #18278)
+BUMP_NOT_NEEDED = "bump_not_needed"  # new file, deleted, non-aspect, additive-only, unchanged, or version regressed — no forward bump applies
 # Backwards-compat aliases. Both now resolve to BUMP_NOT_NEEDED so the
 # 4-bucket classification is exhaustive: every changed PDL lands in
 # bump_done / bump_needed / bump_spurious / bump_not_needed.
@@ -416,10 +443,10 @@ BUMP_NA = BUMP_NOT_NEEDED
 
 # Short human-readable descriptions used in the report legend
 BUMP_STATUS_DESCRIPTIONS = {
-    BUMP_DONE: "head schemaVersion > base AND a real change exists (intentional bump)",
-    BUMP_NEEDED: "change exists (direct or transitive) but schemaVersion was NOT bumped",
-    BUMP_SPURIOUS: "schemaVersion bumped but no actual schema change — likely auto-bumper side-effect",
-    BUMP_NOT_NEEDED: "bump is not required — new file, deleted, non-aspect, unchanged, or version regressed",
+    BUMP_DONE: "head schemaVersion > base AND a bump-required (breaking) change exists",
+    BUMP_NEEDED: "breaking change exists (direct or transitive) but schemaVersion was NOT bumped",
+    BUMP_SPURIOUS: "schemaVersion bumped but no bump-required change — likely auto-bumper side-effect",
+    BUMP_NOT_NEEDED: "bump is not required — new file, deleted, non-aspect, additive-only, unchanged, or version regressed",
 }
 
 # Captures `(#1234)` PR reference appended by GitHub squash-merge commit subjects.
@@ -465,10 +492,10 @@ def _bump_breakdown(findings: list["FileFinding"], status: str) -> str:
 
 
 _BUMP_WHY = {
-    BUMP_DONE: "version bumped AND a real schema change exists in the window",
-    BUMP_NEEDED: "schema changed (direct or transitive) but version was NOT bumped",
-    BUMP_SPURIOUS: "version bumped but NO schema change in the contributing PR(s)",
-    BUMP_NOT_NEEDED: "bump is not required (new file, deleted, non-aspect, unchanged, or version regressed)",
+    BUMP_DONE: "version bumped AND a bump-required (breaking) change exists in the window",
+    BUMP_NEEDED: "breaking schema change (direct or transitive) but version was NOT bumped",
+    BUMP_SPURIOUS: "version bumped but NO bump-required change in the contributing PR(s)",
+    BUMP_NOT_NEEDED: "bump is not required (new file, deleted, non-aspect, additive-only, unchanged, or version regressed)",
 }
 
 
@@ -502,6 +529,7 @@ _REQ_FLIP_RE = re.compile(r"required-ness flip on (\S+): (.+)")
 _TYPE_CHANGE_RE = re.compile(r"type change on (\S+): (.+)")
 _ENUM_CHANGE_RE = re.compile(r"enum (\S+): (added|removed) value (\S+)")
 _RENAME_RE = re.compile(r"record renamed (\S+)→(\S+)")
+_ANNOTATION_CHANGE_RE = re.compile(r"annotation change on (\S+): .+")
 
 
 def _shorten_change_line(line: str) -> str:
@@ -513,6 +541,7 @@ def _shorten_change_line(line: str) -> str:
     `type change on foo: A→B`         → `type change on foo: A→B`
     `enum X: added value Y`           → `enum X: added value Y`
     `record renamed A→B (...)`        → `record renamed A→B`
+    `annotation change on foo: {..} → {..}` → `annotation changed on foo`
     Unrecognised lines pass through verbatim.
     """
     m = _FIELD_ADD_RE.match(line)
@@ -534,6 +563,9 @@ def _shorten_change_line(line: str) -> str:
     m = _RENAME_RE.match(line)
     if m:
         return f"record renamed {m.group(1)}→{m.group(2)}"
+    m = _ANNOTATION_CHANGE_RE.match(line)
+    if m:
+        return f"annotation changed on {m.group(1)}"
     return line
 
 
@@ -878,7 +910,7 @@ class FileFinding:
     )
     last_commit_date: Optional[str] = None  # YYYY-MM-DD of most recent commit
     has_structural: bool = (
-        False  # tracked so main() can re-classify with transitive context
+        False  # True when a bump-required (breaking) change exists; additive-only does not set this
     )
     old_v: Optional[int] = None  # schemaVersion at base (None if missing/not-aspect)
     new_v: Optional[int] = None  # schemaVersion at head (None if missing/not-aspect)
@@ -969,7 +1001,9 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
         aspect_name=new_meta.get("name") or old_meta.get("name"),
         head_commit=latest_commit(head, path, base),
     )
-    # Track whether any actual structural changes have been found
+    # Track whether any *bump-required* (breaking) structural changes exist.
+    # Additive-only edits (optional fields, new enum values) are reported in
+    # the Additive bucket but do not set this flag — they need no migration.
     has_structural = False
 
     if not old:
@@ -1003,7 +1037,10 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
         opt = "optional" if new_fields[a]["optional"] else "REQUIRED"
         bucket = f.additive if new_fields[a]["optional"] else f.breaking
         bucket.append(f"added {opt} field: {a}: {new_fields[a]['type']}")
-        has_structural = True
+        # Optional field adds are additive / backward-compatible — no bump.
+        # Required field adds are breaking and require a schemaVersion bump.
+        if not new_fields[a]["optional"]:
+            has_structural = True
     for name in sorted(set(old_fields) & set(new_fields)):
         o, n = old_fields[name], new_fields[name]
         if o["optional"] and not n["optional"]:
@@ -1015,6 +1052,10 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
         if o["type"] != n["type"]:
             f.breaking.append(f"type change on {name}: {o['type']}→{n['type']}")
             has_structural = True
+        o_ann, n_ann = o.get("annotations") or {}, n.get("annotations") or {}
+        if o_ann != n_ann:
+            f.breaking.append(f"annotation change on {name}: {o_ann or '{}'} → {n_ann or '{}'}")
+            has_structural = True
 
     old_enums, new_enums = enums(old), enums(new)
     for ename in sorted(set(old_enums) & set(new_enums)):
@@ -1023,7 +1064,7 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
             has_structural = True
         for v in sorted(set(new_enums[ename]) - set(old_enums[ename])):
             f.additive.append(f"enum {ename}: added value {v}")
-            has_structural = True
+            # Additive enum values do not require a schemaVersion bump.
 
     if is_aspect:
         # Use bump_schema_versions semantics: missing schemaVersion is treated as 1.
@@ -1476,6 +1517,40 @@ def _is_comment_only_change(path: str, base: str, head: str) -> bool:
     return bsv.normalize_pdl_for_compare(old) == bsv.normalize_pdl_for_compare(new)
 
 
+def _is_backward_compatible_change(path: str, base: str, head: str) -> bool:
+    """True if path's only diff between base and head is backward-compatible —
+    additive optional fields, added enum symbols, new type definitions, or
+    default-only edits on existing fields.
+
+    Mirrors bump_schema_versions.is_backward_compatible_change so the report and
+    the actual bumper agree on which non-aspect edits cascade a schemaVersion
+    bump. Without this filter the report over-flags: any textual change (e.g. an
+    added enum value, an added optional field) that is NOT comment-only would
+    seed the transitive BFS and wrongly mark downstream aspects bump_done, even
+    though the bumper drops such additive changes before cascading.
+
+    The only difference from the bumper is that this compares two git refs (the
+    report's base and head) rather than the working tree, reusing bsv's pure
+    content parsers (parse_top_level_defs, _defs_backward_compatible). Fails
+    closed (returns False → treated as bump-worthy) on created/deleted files,
+    @Aspect changes beyond schemaVersion, or any parse ambiguity — matching the
+    bumper's conservative stance.
+    """
+    old = file_at(base, path)
+    new = file_at(head, path)
+    if not old or not new:
+        return False
+    if bsv._aspect_annotation_without_version(
+        old
+    ) != bsv._aspect_annotation_without_version(new):
+        return False
+    old_defs = bsv.parse_top_level_defs(old)
+    new_defs = bsv.parse_top_level_defs(new)
+    if old_defs is None or new_defs is None:
+        return False
+    return bsv._defs_backward_compatible(old_defs, new_defs)
+
+
 def _classify_window(base: str, head: str) -> list[FileFinding]:
     """Run the full classification for a single base..head window.
 
@@ -1487,16 +1562,25 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
     findings = [analyze_file(p_, base, head) for p_ in paths]
 
     direct_set = set(paths)
-    # Drop non-aspect records whose only change is comments/whitespace from the
-    # transitive BFS seed: a doc-comment edit carries no schema semantics, so it
-    # must not cascade a schemaVersion bump into aspects that reference it. This
-    # reuses bump_schema_versions' normalize-and-compare so the report classifies
-    # comment-only edits exactly as the bumper does — a real (non-comment) change
-    # to a field default, includes clause, annotation, etc. still seeds the BFS.
+    # Drop non-aspect records whose change does not warrant a downstream bump
+    # from the transitive BFS seed, mirroring the two filters the actual bumper
+    # (bump_schema_versions.main) applies before it cascades:
+    #   1. comment-only / whitespace edits — no schema semantics, and
+    #   2. backward-compatible edits — added optional fields, added enum symbols,
+    #      new type defs, or default-only changes.
+    # Neither requires a migration, so neither must cascade a schemaVersion bump
+    # into aspects that reference the record. Without filter (2) the report would
+    # over-flag: an additive-only upstream change (e.g. a new enum value) would
+    # seed the BFS and mark downstream aspects bump_done, even though the bumper
+    # never bumps them — the exact disagreement this alignment closes. A genuinely
+    # breaking change (removal, type change, required-ness flip, includes change,
+    # reindex-relevant annotation edit) still seeds the BFS.
     non_aspect_changed = [
         f.path
         for f in findings
-        if not f.is_aspect and not _is_comment_only_change(f.path, base, head)
+        if not f.is_aspect
+        and not _is_comment_only_change(f.path, base, head)
+        and not _is_backward_compatible_change(f.path, base, head)
     ]
     if not non_aspect_changed:
         return findings

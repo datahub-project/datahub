@@ -111,7 +111,10 @@ services:
       STRICT_URN_VALIDATION_ENABLED: 'true'
       THEME_V2_DEFAULT: 'true'
       UI_INGESTION_ENABLED: 'true'
+      USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: '3600'
       USAGE_AGGREGATION_ENABLED: 'true'
+      USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: '30'
+      USAGE_AGGREGATION_INCLUDE_AGENT_NAME: 'true'
       UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
     expose:
     - '4319'
@@ -175,6 +178,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
+      LOG_AGGREGATOR_ENDPOINT: ''
       PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     expose:

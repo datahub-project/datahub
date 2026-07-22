@@ -107,6 +107,14 @@ export class SearchPage extends BasePage {
     await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
   }
 
+  async getResultCount(): Promise<number> {
+    // Extract count from text like "1-20 of 1234 results"
+    const resultText = await this.page.getByText(/of [0-9]+ result/).textContent();
+    if (!resultText) return 0;
+    const match = resultText.match(/of (\d+) result/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
   async clickResult(resultName: string): Promise<void> {
     await this.page.getByText(resultName).first().click();
   }

@@ -826,11 +826,19 @@ where
             FROM stl_scan ss
               JOIN svv_table_info sti ON ss.tbl = sti.table_id
               JOIN stl_query sq ON ss.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT (enrichment only): svl_user_info supplies the username but must
+              -- not gate the row. An INNER join drops any scan whose user has no row
+              -- in the view -- which includes the rdsdb system user (excluded below by
+              -- userid) and, on Redshift editions that keep the user-info views
+              -- superuser/self-only, real users a non-superuser can't resolve.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE ss.starttime >= '{start_time}'
             AND ss.starttime < '{end_time}'
             AND sti.database = '{database}'
             AND sq.aborted = 0
+            -- Exclude the rdsdb internal system user (always usesysid 1). Previously
+            -- this was an implicit side effect of the INNER join to svl_user_info.
+            AND sq.userid <> 1
             AND NOT (
                 sq.querytxt LIKE 'small table validation: %'
                 OR sq.querytxt LIKE 'Small table conversion: %'
@@ -912,9 +920,14 @@ where
               ) as si
               JOIN svv_table_info sti ON si.tbl = sti.table_id
               JOIN stl_query sq ON si.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT (enrichment only): resolve the actor without gating the row;
+              -- actor is optional downstream. rdsdb is excluded by userid below.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE
-              sq.aborted = 0)
+              sq.aborted = 0
+              -- Exclude the rdsdb internal system user (always usesysid 1); this was
+              -- previously an implicit side effect of the INNER join to svl_user_info.
+              AND sq.userid <> 1)
         UNION
           (SELECT
               DISTINCT sd.userid AS userid,
@@ -939,9 +952,11 @@ where
               ) as sd
               JOIN svv_table_info sti ON sd.tbl = sti.table_id
               JOIN stl_query sq ON sd.query = sq.query
-              JOIN svl_user_info sui ON sq.userid = sui.usesysid
+              -- LEFT + rdsdb-by-userid, same as the insert branch above.
+              LEFT JOIN svl_user_info sui ON sq.userid = sui.usesysid
             WHERE
-              sq.aborted = 0)
+              sq.aborted = 0
+              AND sq.userid <> 1)
         ORDER BY
           endtime DESC
         """.strip()
@@ -1153,7 +1168,12 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LEFT JOIN SYS_LOAD_DETAIL ld ON ld.query_id = qd.query_id
                 WHERE
                     qd.step_name = 'insert' AND
-                    sui.user_name <> 'rdsdb' AND
+                    -- Exclude rdsdb by its system user_id (1), not by name. SVV_USER_INFO
+                    -- has no rdsdb row, so a name-based rdsdb filter relied on NULL
+                    -- propagation to drop it -- which also silently dropped any real
+                    -- user the view can't resolve. Filtering by user_id excludes rdsdb
+                    -- while the LEFT join keeps unresolved real users (username NULL).
+                    qd.user_id <> 1 AND
                     cluster = '{db_name}' AND
                     qd.start_time >= '{start_time}' AND
                     qd.start_time < '{end_time}' AND
@@ -1259,7 +1279,9 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             FROM
                 SYS_QUERY_DETAIL qd
                 JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-                JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                -- LEFT (enrichment only): resolve the username without gating the row;
+                -- rdsdb is excluded by user_id below.
+                LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
                 JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
             WHERE
                 qd.step_name = 'scan'
@@ -1267,6 +1289,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 AND qh.start_time < '{end_time}'
                 AND sti.database = '{database}'
                 AND qh.status = 'success'
+                -- Exclude the rdsdb internal system user (always user_id 1).
+                AND qd.user_id <> 1
             ORDER BY qh.end_time DESC
             ;
         """.strip()
@@ -1347,10 +1371,14 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                         qd.step_name in ('insert', 'delete')
                         AND qd.start_time >= '{start_time}'
                         AND qd.start_time < '{end_time}'
+                        -- Exclude the rdsdb internal system user (always user_id 1).
+                        AND qd.user_id <> 1
                     GROUP BY qd.user_id, qd.query_id, qd.table_id, qd.step_name
                 ) qd
                 JOIN SVV_TABLE_INFO sti ON qd.table_id = sti.table_id
-                JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
+                -- LEFT (enrichment only): resolve the actor without gating the row;
+                -- actor is optional downstream. rdsdb is excluded by user_id above.
+                LEFT JOIN SVV_USER_INFO sui ON sui.user_id = qd.user_id
                 JOIN SYS_QUERY_HISTORY qh ON qh.query_id = qd.query_id
             WHERE
                 qh.status = 'success'

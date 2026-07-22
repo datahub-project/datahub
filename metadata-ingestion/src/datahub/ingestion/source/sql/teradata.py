@@ -2825,7 +2825,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
                     "pool_pre_ping": True,
-                    "pool_recycle": 1800,
+                    "pool_recycle": 900,
                     "pool_reset_on_return": "rollback",
                 }
                 # Use setdefault so that a user-supplied pool_timeout in
@@ -3287,7 +3287,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         finally:
             watchdog_stop.set()
             if watchdog_thread is not None:
-                watchdog_thread.join(timeout=5)
+                watchdog_thread.join(timeout=2)
+                if watchdog_thread.is_alive():
+                    logger.warning(
+                        "Teradata lineage watchdog did not stop within 2s; "
+                        "continuing shutdown anyway."
+                    )
             fetch_engine.dispose()
 
     def _check_historical_table_exists(self) -> bool:

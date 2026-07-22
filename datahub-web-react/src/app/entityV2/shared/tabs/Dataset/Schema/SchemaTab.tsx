@@ -4,12 +4,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import { KEY_SCHEMA_PREFIX } from '@app/entityV2/dataset/profile/schema/utils/constants';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { isLogicalModel } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
 import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/CompactSchemaTable';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
@@ -27,6 +29,7 @@ import useUpdateSchemaFilterQueryString from '@app/entityV2/shared/tabs/Dataset/
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -59,7 +62,9 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
 
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const entityRegistry = useEntityRegistry();
-    const { urn, entityData } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
+    const { logicalModelsEnabled } = useAppConfig().config.featureFlags;
+    const { platformPrivileges } = useUserContext();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     // Dynamically load the schema + editable schema information.
     const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
@@ -244,6 +249,13 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                 matches={matches}
                 highlightedMatchIndex={highlightedMatchIndex}
                 setHighlightedMatchIndex={setHighlightedMatchIndex}
+                showAddLogicalModelColumnButton={
+                    logicalModelsEnabled &&
+                    isLogicalModel(entityType, entityData) &&
+                    // Adding a column runs through updateLogicalModelSchema, which requires the
+                    // CREATE_LOGICAL_MODELS platform privilege — hide the button from users who lack it.
+                    !!platformPrivileges?.createLogicalModels
+                }
             />
             {loading && !schemaMetadata ? (
                 <LoadingWrapper>
