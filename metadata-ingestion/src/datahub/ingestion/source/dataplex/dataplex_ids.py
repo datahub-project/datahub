@@ -108,6 +108,19 @@ class DataplexVertexAiProject(DataplexProjectId):
     platform: str = "vertexai"
 
 
+class DataplexDataprocMetastoreProject(DataplexProjectId):
+    platform: str = "dataproc-metastore"
+
+
+class DataplexDataprocMetastoreService(DataplexDataprocMetastoreProject):
+    location: str
+    service_id: str
+
+
+class DataplexDataprocMetastoreDatabase(DataplexDataprocMetastoreService):
+    database_id: str
+
+
 PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
     DataplexProjectId,
     DataplexBigQueryProject,
@@ -116,6 +129,7 @@ PROJECT_KEY_CLASSES: tuple[type[DataplexProjectId], ...] = (
     DataplexPubSubProject,
     DataplexBigtableProject,
     DataplexVertexAiProject,
+    DataplexDataprocMetastoreProject,
 )
 
 
@@ -169,6 +183,15 @@ BIGTABLE_TABLE_FQN_REGEX = re.compile(
 VERTEX_AI_DATASET_FQN_REGEX = re.compile(
     r"^vertex_ai:dataset:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<dataset_id>[^.]+)$"
 )
+DATAPROC_METASTORE_SERVICE_FQN_REGEX = re.compile(
+    r"^dataproc_metastore:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<service_id>[^.]+)$"
+)
+DATAPROC_METASTORE_DATABASE_FQN_REGEX = re.compile(
+    r"^dataproc_metastore:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<service_id>[^.]+)\.(?P<database_id>[^.]+)$"
+)
+DATAPROC_METASTORE_TABLE_FQN_REGEX = re.compile(
+    r"^dataproc_metastore:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<service_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<table_id>[^.]+)$"
+)
 
 # parent_entry regexes
 BIGQUERY_DATASET_PARENT_ENTRY_REGEX = re.compile(
@@ -189,6 +212,12 @@ SPANNER_DATABASE_PARENT_ENTRY_REGEX = re.compile(
 BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX = re.compile(
     r"^projects/[^/]+/locations/[^/]+/entryGroups/[^/]+/entries/bigtable\.googleapis\.com/projects/(?P<project_id>[^/]+)/instances/(?P<instance_id>[^/]+)$"
 )
+DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX = re.compile(
+    r"^projects/[^/]+/locations/[^/]+/entryGroups/[^/]+/entries/metastore\.googleapis\.com/projects/(?P<project_id>[^/]+)/locations/(?P<location>[^/]+)/services/(?P<service_id>[^/]+)$"
+)
+DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX = re.compile(
+    r"^projects/[^/]+/locations/[^/]+/entryGroups/[^/]+/entries/metastore\.googleapis\.com/projects/(?P<project_id>[^/]+)/locations/(?P<location>[^/]+)/services/(?P<service_id>[^/]+)/databases/(?P<database_id>[^/]+)$"
+)
 
 
 # Platform -> project-level key class. Keyed by plain ``str`` because the
@@ -200,6 +229,7 @@ PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM: dict[str, type[DataplexProjectId]] = {
     "pubsub": DataplexPubSubProject,
     "bigtable": DataplexBigtableProject,
     "vertexai": DataplexVertexAiProject,
+    "dataproc-metastore": DataplexDataprocMetastoreProject,
 }
 
 

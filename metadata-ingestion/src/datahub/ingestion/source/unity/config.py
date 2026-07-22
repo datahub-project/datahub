@@ -20,6 +20,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
@@ -156,6 +157,41 @@ class UnityCatalogSQLAlchemyProfilerConfig(
     )
 
 
+class FederationConnectionDetail(ConfigModel):
+    platform: Optional[str] = pydantic.Field(
+        default=None,
+        description="Override the DataHub platform auto-detected from the Unity Catalog "
+        "connection type (e.g. 'mssql', 'postgres').",
+    )
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="platform_instance the external source was ingested under. Must match "
+        "for the lineage link to resolve.",
+    )
+    env: Optional[str] = pydantic.Field(
+        default=None,
+        description="env of the external dataset (defaults to the source env).",
+    )
+    database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Override the remote database name (falls back to the foreign catalog's "
+        "connection options).",
+    )
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description="Lower-case the external URN's name. Enabled by default because "
+        "DataHub SQL connectors lower-case identifiers; set to false for a connection "
+        "whose external source was ingested case-sensitively so the URN still matches.",
+    )
+
+    @field_validator("env", mode="after")
+    @classmethod
+    def env_must_be_one_of(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.upper() not in ALL_ENV_TYPES:
+            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
+        return v.upper() if v is not None else v
+
+
 class UnityCatalogSourceConfig(
     UnityCatalogConnectionConfig,
     SQLCommonConfig,
@@ -228,6 +264,9 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    # view_pattern and include_views are inherited from SQLCommonConfig and applied
+    # in process_tables; not redeclared here to avoid drift from the base defaults.
+
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -240,13 +279,15 @@ class UnityCatalogSourceConfig(
     include_metric_views: bool = pydantic.Field(
         default=False,
         description=(
-            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
-            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
-            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
-            " `Dimension` / `Measure` tags on matching columns, `materialization`"
-            " → `ViewProperties.materialized`, and `filter` as a custom property."
-            " Default `false` keeps metric views as plain Tables. Requires a"
-            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
+            "Enable enriched ingestion of Unity Catalog Metric Views: YAML body as"
+            " ViewProperties, upstream and column-level lineage from `source` / `joins`"
+            " / `dimensions.expr` / `measures.expr`, `Dimension` / `Measure` tags on"
+            " matching columns, `materialization` → `ViewProperties.materialized`, and"
+            " `filter` as a custom property. Metric views are always assigned the"
+            " 'Metric View' subtype regardless of this flag (they are never plain"
+            " Tables); this flag only controls the additional enrichment above."
+            " Requires a `databricks-sdk` recent enough to expose"
+            " `TableType.METRIC_VIEW`."
         ),
     )
 
@@ -294,6 +335,37 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_federation_lineage: bool = pydantic.Field(
+        default=True,
+        description="Emit an upstream COPY lineage edge from each Lakehouse Federation "
+        "foreign catalog table to its external source dataset (with column-level lineage "
+        "when include_column_lineage is set). Disable to skip the cross-platform link.",
+    )
+    emit_federation_structured_properties: bool = pydantic.Field(
+        default=True,
+        description="Define and assign structured properties marking foreign catalogs as "
+        "federated (facetable in the UI).",
+    )
+    federation_structured_property_namespace: str = pydantic.Field(
+        default="databricks.federation",
+        description="Qualified-name prefix for the federation structured properties; "
+        "each property is this prefix plus its suffix (e.g. 'databricks.federation.platform').",
+    )
+    federation_connection_details: Dict[str, FederationConnectionDetail] = (
+        pydantic.Field(
+            default_factory=dict,
+            description="Per-connection overrides keyed by Unity Catalog connection name.",
+        )
+    )
+    include_federation_column_backfill: bool = pydantic.Field(
+        default=True,
+        description="For foreign (Lakehouse Federation) catalog tables whose columns "
+        "Unity Catalog has not synced yet, resolve the schema from the already-ingested "
+        "external source dataset via the DataHub graph. Requires a graph connection "
+        "(e.g. a datahub-rest sink) and the external source to be ingested; otherwise "
+        "it is a no-op.",
     )
 
     include_table_constraints: bool = pydantic.Field(
@@ -457,6 +529,13 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    include_ml_models: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest ML models (MLModelGroups and MLModels) "
+        "registered in Unity Catalog. Set to False to skip ML model discovery "
+        "entirely — no calls are made to the registered-models API.",
+    )
+
     include_ml_model_aliases: bool = pydantic.Field(
         default=False,
         description="Whether to include ML model aliases in the ingestion.",
@@ -465,7 +544,9 @@ class UnityCatalogSourceConfig(
     ml_model_max_results: int = pydantic.Field(
         default=1000,
         ge=0,
-        description="Maximum number of ML models to ingest.",
+        description="Maximum total number of ML models to ingest per schema. "
+        "Set to 0 to ingest none. To disable ML model ingestion entirely "
+        "(including API calls), use `include_ml_models: false` instead.",
     )
 
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)

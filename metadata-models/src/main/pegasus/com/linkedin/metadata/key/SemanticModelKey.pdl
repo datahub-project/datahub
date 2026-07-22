@@ -1,0 +1,46 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a Semantic Model
+ */
+@Aspect = {
+  "name": "semanticModelKey"
+}
+record SemanticModelKey {
+  /**
+   * The data platform URN that owns this semantic model
+   * (e.g. urn:li:dataPlatform:dbt, urn:li:dataPlatform:snowflake).
+   *
+   * REQUIRED. This field is part of the semantic model URN and therefore
+   * immutable once written. If the source platform is unknown at ingest
+   * time the ingestion layer is responsible for assigning a stable
+   * fallback URN (e.g. urn:li:dataPlatform:datahub for native /
+   * SDK-authored semantic models).
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "enableAutocomplete": true,
+    "addToFilters": true,
+    "filterNameOverride": "Platform"
+  }
+  platform: Urn
+
+  /**
+   * Namespace path that scopes this semantic model within its platform. Ingestors must set
+   * this to the canonical container path so that two teams can define models with the same
+   * `id` on the same platform without colliding.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Path"
+  }
+  path: string
+
+  /**
+   * Unique identifier for the semantic model within its platform and path.
+   */
+  id: string
+}

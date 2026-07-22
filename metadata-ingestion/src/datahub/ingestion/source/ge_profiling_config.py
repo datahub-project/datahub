@@ -226,7 +226,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
         default=None,
         description=(
-            "Fixed list of tags to ignore sampling."
+            "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
+            " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
     )
@@ -234,6 +235,13 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     profile_nested_fields: bool = Field(
         default=False,
         description="Whether to profile complex types like structs, arrays and maps. ",
+    )
+
+    nested_field_max_depth: pydantic.PositiveInt = Field(
+        default=10,
+        description="Maximum recursion depth when flattening nested JSON structures during profiling. "
+        "Lower values prevent recursion errors but may truncate deeply nested data. "
+        "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
     )
 
     @model_validator(mode="before")

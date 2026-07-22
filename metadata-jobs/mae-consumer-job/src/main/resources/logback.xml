@@ -35,4 +35,41 @@
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>
     </root>
+
+    <!-- Optional shipping of logs to a Loki-push-compatible aggregator (e.g. Grafana Loki,
+         VictoriaLogs). Dormant unless LOG_AGGREGATOR_ENDPOINT is set. Async with a bounded
+         queue; drops batches rather than ever blocking the service. Uses the standard Loki
+         push path; VictoriaLogs users should set LOG_AGGREGATOR_ENDPOINT to their base URL
+         plus "/insert" (e.g. http://<host>:9428/insert), since VictoriaLogs serves the Loki
+         push API under that prefix rather than at the bare path. -->
+    <if condition='!property("LOG_AGGREGATOR_ENDPOINT").isEmpty()'>
+        <then>
+            <appender name="AGGREGATOR" class="com.github.loki4j.logback.Loki4jAppender">
+                <http>
+                    <url>${LOG_AGGREGATOR_ENDPOINT}/loki/api/v1/push</url>
+                </http>
+                <format>
+                    <label>
+                        <pattern>service=mae-consumer,pod=${HOSTNAME:-unknown},level=%level</pattern>
+                    </label>
+                    <message>
+                        <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
+                    </message>
+                </format>
+                <batchMaxItems>1000</batchMaxItems>
+                <batchTimeoutMs>5000</batchTimeoutMs>
+                <drainOnStop>true</drainOnStop>
+                <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                    <level>INFO</level>
+                </filter>
+                <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+                    <excluded>scanned from multiple locations</excluded>
+                    <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
+                </filter>
+            </appender>
+            <root level="INFO">
+                <appender-ref ref="AGGREGATOR"/>
+            </root>
+        </then>
+    </if>
 </configuration>

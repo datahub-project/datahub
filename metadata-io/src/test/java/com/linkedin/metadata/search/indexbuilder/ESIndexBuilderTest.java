@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -800,6 +801,79 @@ public class ESIndexBuilderTest {
             any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
     assertEquals(deleteCaptor.getAllValues().size(), 1);
     assertEquals(deleteCaptor.getValue().indices()[0], deletableOrphan);
+  }
+
+  @Test
+  void testCleanIndex_DoesNotDeleteSemanticSiblingIndex() throws Exception {
+    // The base entity config's clean pattern (e.g. datasetindex_v2_*) also matches the live
+    // semantic index (datasetindex_v2_semantic). The bare semantic index is alias-less and old, so
+    // it otherwise satisfies the orphan condition, but it must NOT be deleted as an orphan of the
+    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT semantic
+    // per isSemanticEntityIndex (they end in a timestamp), so a stale, alias-less one must still be
+    // deleted - the guard protects only the bare name, not the semantic index's backing churn.
+    // Names are derived from the context's IndexConvention so the semantic suffix (and any
+    // configured prefix) match what isSemanticEntityIndex expects.
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String baseName = indexConvention.getEntityIndexName("dataset");
+    String semanticSibling = indexConvention.getEntityIndexNameSemantic("dataset");
+    String baseBackingOrphan = baseName + "_1700000000000";
+    String semanticBackingOrphan = semanticSibling + "_1700000000000";
+
+    ReindexConfig baseConfig = mock(ReindexConfig.class);
+    when(baseConfig.name()).thenReturn(baseName);
+    when(baseConfig.indexPattern()).thenReturn(baseName + "*");
+    when(baseConfig.indexCleanPattern()).thenReturn(baseName + "_*");
+
+    long tenDaysAgo = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000;
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    when(getIndexResponse.getIndices())
+        .thenReturn(new String[] {baseBackingOrphan, semanticSibling, semanticBackingOrphan});
+    when(getIndexResponse.getSetting(anyString(), eq("index.creation_date")))
+        .thenReturn(String.valueOf(tenDaysAgo));
+    // All alias-less: the two backing indices are genuine orphans; the bare semantic index is live
+    // but addressed by physical name (no alias).
+    when(getIndexResponse.getAliases())
+        .thenReturn(
+            Map.of(
+                baseBackingOrphan,
+                List.of(),
+                semanticSibling,
+                List.of(),
+                semanticBackingOrphan,
+                List.of()));
+
+    when(searchClient.getIndex(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(
+        searchClient, opContext, elasticSearchConfiguration, baseConfig, Set.of());
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient, times(2))
+        .deleteIndex(
+            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    Set<String> deleted = new HashSet<>();
+    for (DeleteIndexRequest request : deleteCaptor.getAllValues()) {
+      deleted.add(request.indices()[0]);
+    }
+    assertTrue(deleted.contains(baseBackingOrphan), "Base backing orphan should be deleted");
+    assertTrue(
+        deleted.contains(semanticBackingOrphan), "Stale semantic backing orphan should be deleted");
+    assertFalse(deleted.contains(semanticSibling), "Live bare semantic index must not be deleted");
   }
 
   @Test
@@ -1625,10 +1699,7 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1641,10 +1712,7 @@ public class ESIndexBuilderTest {
     indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1663,10 +1731,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
@@ -1675,10 +1740,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1701,10 +1763,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
@@ -1712,10 +1771,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1729,10 +1785,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw IOException
@@ -1752,10 +1805,7 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1770,10 +1820,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
@@ -1793,10 +1840,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
@@ -1881,6 +1925,30 @@ public class ESIndexBuilderTest {
     ReindexConfig config = mock(ReindexConfig.class);
     when(config.targetSettings()).thenReturn(ImmutableMap.of("index", ImmutableMap.of()));
     ESIndexBuilder.extractTargetShards(config);
+  }
+
+  @Test(dataProvider = "estimateMinutesRemainingData")
+  void testEstimateMinutesRemaining(
+      long docsIndexedSinceStart,
+      long elapsedMillisSinceStart,
+      long remainingDocs,
+      long expectedMinutes) {
+    assertEquals(
+        ESIndexBuilder.estimateMinutesRemaining(
+            docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs),
+        expectedMinutes);
+  }
+
+  @DataProvider(name = "estimateMinutesRemainingData")
+  public Object[][] provideEstimateMinutesRemainingData() {
+    return new Object[][] {
+      // docsIndexedSinceStart, elapsedMillisSinceStart, remainingDocs, expectedMinutes
+      {1000L, 60_000L, 9000L, 9L}, // steady cumulative rate
+      {100L, 0L, 500L, 0L}, // zero elapsed time guards divide-by-zero
+      {0L, 30_000L, 1000L, 0L}, // no progress yet
+      {1000L, 60_000L, 0L, 0L}, // already complete
+      {10_000L, 60_000L, 100L, 0L}, // sub-minute ETA truncates to 0
+    };
   }
 
   @Test
