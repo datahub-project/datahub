@@ -22,7 +22,10 @@ def extract_aspects_to_custom_properties(
         aspect_pattern: Allow/deny pattern matched against aspect type names
     """
     for aspect_key, aspect_value in aspects.items():
-        aspect_type = aspect_key.split("/")[-1]
+        # Dataplex aspect keys arrive as "<project>.<location>.<aspect_type>"
+        # (and occasionally as a ".../aspectTypes/<aspect_type>" path); take the
+        # final segment either way so the pattern matches the bare aspect type.
+        aspect_type = aspect_key.replace("/", ".").split(".")[-1]
         if not aspect_pattern.allowed(aspect_type):
             continue
         custom_properties[f"dataplex_aspect_{aspect_type}"] = aspect_type
