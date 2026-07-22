@@ -178,12 +178,14 @@ class TestBootstrapErrorHandling:
         finally:
             shutdown_secret_masking()
 
-    def test_bootstrap_concurrent_with_force(self):
+    def test_concurrent_init_installs_filter_once(self):
         """
-        Verify thread safety when force=True is used.
+        Verify concurrent initialization installs the masking filter exactly once.
 
-        When force=True, initialization should run even if already completed,
-        but it should still be thread-safe (only one thread at a time).
+        The filter is installed once for the process lifetime — re-installing it
+        is what caused the original celery log-silencing bug, so `force` no longer
+        re-installs (it is a no-op kept for backward compatibility). The bootstrap
+        lock must make concurrent initialize calls safe and idempotent.
         """
         import threading
         import time
@@ -192,15 +194,11 @@ class TestBootstrapErrorHandling:
             initialize_secret_masking,
             shutdown_secret_masking,
         )
+        from datahub.masking.secret_registry import SecretRegistry
 
         try:
             shutdown_secret_masking()
 
-            # First initialization
-            with patch("datahub.masking.bootstrap.install_masking_filter"):
-                initialize_secret_masking()
-
-            # Track calls with force=True
             init_counter = {"count": 0}
             lock = threading.Lock()
 
@@ -213,29 +211,29 @@ class TestBootstrapErrorHandling:
                 "datahub.masking.bootstrap.install_masking_filter",
                 counting_install,
             ):
-                # Launch threads with force=True
-                threads = []
-                for i in range(5):
-                    t = threading.Thread(
+                threads = [
+                    threading.Thread(
                         target=lambda: initialize_secret_masking(force=True),
-                        name=f"ForceThread-{i}",
+                        name=f"InitThread-{i}",
                     )
-                    threads.append(t)
-
+                    for i in range(5)
+                ]
                 for t in threads:
                     t.start()
-
                 for t in threads:
                     t.join(timeout=5.0)
 
-            # With force=True, all threads should initialize (sequentially)
-            # This is expected behavior - force=True bypasses the completion check
-            # The lock ensures they run sequentially, not concurrently
-            assert init_counter["count"] == 5, (
-                f"Expected 5 initializations with force=True, got {init_counter['count']}"
+            # Installed exactly once despite 5 concurrent initializers, and
+            # force=True did not trigger any re-installation.
+            assert init_counter["count"] == 1, (
+                f"Expected exactly 1 install, got {init_counter['count']}"
             )
 
         finally:
+            # Each thread opened its own execution scope; clear them all (the
+            # main thread can't see other threads' contextvars) before tearing
+            # down so bootstrap state doesn't leak into the next test.
+            SecretRegistry.reset_instance()
             shutdown_secret_masking()
 
 

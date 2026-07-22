@@ -452,44 +452,49 @@ class StreamMaskingWrapper:
         return getattr(self._original, name)
 
 
-def _update_existing_handlers() -> None:
-    """Update all existing logging handlers to use wrapped streams."""
-    updated_count = 0
+def _iter_all_loggers() -> list[logging.Logger]:
+    """Root logger plus every initialized named logger (skipping PlaceHolders)."""
+    loggers: list[logging.Logger] = [logging.getLogger()]
+    # .get() per snapshotted key: a logger may be removed between snapshot and access.
+    for name in list(logging.root.manager.loggerDict.keys()):
+        obj = logging.root.manager.loggerDict.get(name)
+        if isinstance(obj, logging.Logger):
+            loggers.append(obj)
+    return loggers
 
-    # Get all loggers (including root and all named loggers)
-    all_loggers = [logging.getLogger()] + [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict
-    ]
 
-    for log in all_loggers:
-        if not isinstance(log, logging.Logger):
-            # Skip PlaceHolder objects in logger dict
+def _add_filter_to_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
+    """Attach the masking filter to all existing handlers.
+
+    Masking lives on handlers, not the logger: Python skips logger-level filters
+    for records propagated from child loggers, so a root-logger filter would miss
+    almost everything. A handler filter sees every record reaching that output and
+    masks it in place, without touching the handler's stream. (Repointing streams
+    instead loops forever under celery -- see install_masking_filter.)
+
+    Skip datahub.masking.* loggers: they log to the original stderr by design and
+    carry no secrets, so filtering them only risks re-entrancy.
+    """
+    added = 0
+    for log in _iter_all_loggers():
+        if log.name.startswith("datahub.masking"):
             continue
+        # Copy: handlers may be added/removed by other threads during iteration.
+        for handler in list(log.handlers):
+            if not any(isinstance(f, SecretMaskingFilter) for f in handler.filters):
+                handler.addFilter(masking_filter)
+                added += 1
+    if added:
+        logger.debug(f"Installed SecretMaskingFilter on {added} handler(s)")
 
-        for handler in log.handlers:
-            if isinstance(handler, logging.StreamHandler):
-                # Check if handler is using an unwrapped stream
-                if hasattr(handler, "stream"):
-                    stream = handler.stream
 
-                    # If handler's stream is the original unwrapped stdout/stderr,
-                    # update it to use our wrapped version
-                    if not isinstance(stream, StreamMaskingWrapper):
-                        # Check if this is stdout or stderr by comparing the underlying file
-                        try:
-                            if hasattr(stream, "name"):
-                                if stream.name == "<stderr>":
-                                    handler.setStream(sys.stderr)
-                                    updated_count += 1
-                                elif stream.name == "<stdout>":
-                                    handler.setStream(sys.stdout)
-                                    updated_count += 1
-                        except Exception:
-                            # If we can't determine the stream, skip it
-                            pass
-
-    if updated_count > 0:
-        logger.debug(f"Updated {updated_count} logging handlers to use wrapped streams")
+def _remove_filter_from_existing_handlers() -> None:
+    """Remove the masking filter from every handler it was attached to."""
+    for log in _iter_all_loggers():
+        for handler in list(log.handlers):
+            handler.filters = [
+                f for f in handler.filters if not isinstance(f, SecretMaskingFilter)
+            ]
 
 
 def install_masking_filter(
@@ -497,28 +502,44 @@ def install_masking_filter(
     max_message_size: int = 5000,
     install_stdout_wrapper: bool = True,
 ) -> SecretMaskingFilter:
-    """Install secret masking filter on root logger and optionally wrap stdout/stderr."""
-    # Create filter
+    """Enable secret masking: install the filter on existing handlers (+ root
+    logger) and, optionally, wrap sys.stdout/stderr for raw writes.
+
+    Masking happens at the handler level (see _add_filter_to_existing_handlers).
+    Coverage is a snapshot of the handlers present now, so call this AFTER logging
+    is configured; handlers added later are covered only by a re-install or, for
+    stdout/stderr, by the stream wrapper.
+
+    Fail-open limitation: a handler added to a child logger after install can emit
+    unmasked (a logger's own handlers run before ancestors'). Not a concern in the
+    executor, where handlers exist before masking is installed per task.
+    """
     masking_filter = SecretMaskingFilter(
         secret_registry=secret_registry, max_message_size=max_message_size
     )
-
-    # Install on root logger (affects all loggers)
     root_logger = logging.getLogger()
 
-    # Check if already installed (avoid duplicates)
+    # The root-logger filter is just the "already installed?" sentinel (and masks
+    # records logged directly on root). The real masking is the handler filters
+    # below, since logger-level filters don't see propagated child-logger records.
     existing_filters = [
         f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)
     ]
 
     if existing_filters:
-        logger.debug("SecretMaskingFilter already installed on root logger")
-        return existing_filters[0]
+        # Already installed: re-scan to cover handlers added since (fail-open).
+        masking_filter = existing_filters[0]
+        _add_filter_to_existing_handlers(masking_filter)
+        logger.debug("SecretMaskingFilter already installed; refreshed handlers")
+        return masking_filter
 
     root_logger.addFilter(masking_filter)
-    logger.info("Installed SecretMaskingFilter on root logger")
+    _add_filter_to_existing_handlers(masking_filter)
+    logger.info("Installed SecretMaskingFilter on root logger and existing handlers")
 
-    # Optionally install stdout/stderr wrapper as backup
+    # Wrap stdout/stderr only to mask raw writes (print(), C-extension output).
+    # We do NOT repoint handler streams here: under celery, sys.stderr re-enters
+    # logging, so a handler pointed at it would recurse infinitely and drop output.
     if install_stdout_wrapper:
         if not isinstance(sys.stdout, StreamMaskingWrapper):
             sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
@@ -528,11 +549,6 @@ def install_masking_filter(
             sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
             logger.debug("Wrapped sys.stderr with StreamMaskingWrapper")
 
-        # Update all existing logging handlers to use wrapped streams
-        # Handlers created before masking was initialized will have cached
-        # references to the original unwrapped stderr/stdout
-        _update_existing_handlers()
-
     return masking_filter
 
 
@@ -540,10 +556,12 @@ def uninstall_masking_filter() -> None:
     """Remove secret masking filter from root logger."""
     root_logger = logging.getLogger()
 
-    # Remove filters
+    # Remove filter from the root logger and from every handler it was added to
+    # (symmetric with install_masking_filter).
     root_logger.filters = [
         f for f in root_logger.filters if not isinstance(f, SecretMaskingFilter)
     ]
+    _remove_filter_from_existing_handlers()
 
     # Unwrap stdout/stderr
     if isinstance(sys.stdout, StreamMaskingWrapper):

@@ -25,8 +25,9 @@ from datahub.masking.bootstrap import (
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
-    _update_existing_handlers,
+    _add_filter_to_existing_handlers,
     install_masking_filter,
+    uninstall_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -279,8 +280,10 @@ class TestStreamWrapperErrorHandling:
         assert callable(wrapper.getvalue)
 
 
-class TestUpdateExistingHandlers:
-    """Test _update_existing_handlers function."""
+class TestAddFilterToExistingHandlers:
+    """Test _add_filter_to_existing_handlers: masking attaches to handlers
+    without modifying their streams (the celery-safe replacement for the old
+    stream-redirecting behavior)."""
 
     def setup_method(self):
         shutdown_secret_masking()
@@ -290,79 +293,91 @@ class TestUpdateExistingHandlers:
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
-    def test_update_existing_handlers_with_stdout_handler(self):
-        """Test that existing stdout handlers are updated."""
-        # Create a logger with a stdout handler
-        test_logger = logging.getLogger("test_stdout_update")
-        test_logger.handlers.clear()
-
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        test_logger.addHandler(stdout_handler)
-
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
-
-        # Update handlers
-        _update_existing_handlers()
-
-        # Cleanup
-        test_logger.removeHandler(stdout_handler)
-        test_logger.handlers.clear()
-
-    def test_update_existing_handlers_with_stderr_handler(self):
-        """Test that existing stderr handlers are updated."""
-        # Create a logger with a stderr handler
-        test_logger = logging.getLogger("test_stderr_update")
-        test_logger.handlers.clear()
-
-        stderr_handler = logging.StreamHandler(sys.stderr)
-        test_logger.addHandler(stderr_handler)
-
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
-
-        # Update handlers
-        _update_existing_handlers()
-
-        # Cleanup
-        test_logger.removeHandler(stderr_handler)
-        test_logger.handlers.clear()
-
-    def test_update_existing_handlers_with_custom_stream(self):
-        """Test that handlers with custom streams are not updated."""
-        test_logger = logging.getLogger("test_custom_stream")
+    def test_filter_added_without_changing_stream(self):
+        """The filter is attached to an existing handler and its stream is left
+        untouched (repointing the stream is what caused the celery deadlock)."""
+        test_logger = logging.getLogger("test_add_filter_stream")
         test_logger.handlers.clear()
 
         custom_stream = StringIO()
-        custom_handler = logging.StreamHandler(custom_stream)
-        test_logger.addHandler(custom_handler)
+        handler = logging.StreamHandler(custom_stream)
+        test_logger.addHandler(handler)
 
-        # Install masking
         install_masking_filter(install_stdout_wrapper=True)
 
-        # Update handlers
-        _update_existing_handlers()
+        assert handler.stream is custom_stream
+        assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
 
-        # Custom handler should not be updated
-        assert custom_handler.stream is custom_stream
-
-        # Cleanup
-        test_logger.removeHandler(custom_handler)
+        test_logger.removeHandler(handler)
         test_logger.handlers.clear()
 
-    def test_update_existing_handlers_skips_placeholders(self):
-        """Test that PlaceHolder objects in logger dict are skipped."""
-        # This tests the check for isinstance(log, logging.Logger)
-        # PlaceHolder objects exist in logging.root.manager.loggerDict
-        # but are not actual Logger instances
+    def test_filter_not_added_twice(self):
+        """Calling the helper again must not add a duplicate filter."""
+        test_logger = logging.getLogger("test_add_filter_idempotent")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        test_logger.addHandler(handler)
 
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        masking_filter = install_masking_filter(install_stdout_wrapper=False)
+        _add_filter_to_existing_handlers(masking_filter)
 
-        # Call update (should handle placeholders gracefully)
-        _update_existing_handlers()
+        count = sum(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+        assert count == 1
 
-        # Should not raise any errors
+        test_logger.removeHandler(handler)
+        test_logger.handlers.clear()
+
+    def test_masking_namespace_loggers_are_skipped(self):
+        """The masking framework's own loggers bypass masking by design."""
+        masking_logger = logging.getLogger("datahub.masking.test_skip")
+        masking_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        masking_logger.addHandler(handler)
+
+        install_masking_filter(install_stdout_wrapper=False)
+
+        assert not any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        masking_logger.removeHandler(handler)
+        masking_logger.handlers.clear()
+
+    def test_repeat_install_attaches_to_newly_added_handler(self):
+        """A second install must re-scan and cover handlers added after the
+        first install (masking is fail-open, so missed handlers leak)."""
+        test_logger = logging.getLogger("test_repeat_install")
+        test_logger.handlers.clear()
+        h1 = logging.StreamHandler(StringIO())
+        test_logger.addHandler(h1)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in h1.filters)
+
+        # Handler added AFTER the first install.
+        h2 = logging.StreamHandler(StringIO())
+        test_logger.addHandler(h2)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in h2.filters)
+
+        test_logger.removeHandler(h1)
+        test_logger.removeHandler(h2)
+        test_logger.handlers.clear()
+
+    def test_uninstall_removes_filter_from_all_handlers(self):
+        """Teardown is symmetric: no SecretMaskingFilter remains on any handler."""
+        test_logger = logging.getLogger("test_uninstall_handlers")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        test_logger.addHandler(handler)
+
+        install_masking_filter(install_stdout_wrapper=False)
+        assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        uninstall_masking_filter()
+        assert not any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        test_logger.removeHandler(handler)
+        test_logger.handlers.clear()
 
 
 class TestBootstrapErrorHandling:
@@ -673,6 +688,145 @@ class TestLogRecordAttributes:
         # stack_info should be masked
         assert "secret_value_ghi" not in record.stack_info
         assert "REDACTED" in record.stack_info
+
+
+class TestConcurrentExecutions:
+    """Masking must be correct when two executions overlap in one process
+    (the dispatcher runs each execution on its own thread). One execution's
+    teardown must not unmask or wipe another execution that is still running."""
+
+    def setup_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def teardown_method(self):
+        shutdown_secret_masking()
+        SecretRegistry.reset_instance()
+
+    def test_shutdown_of_one_execution_does_not_unmask_another(self):
+        secret_a = "secretA_value_aaaaaa"
+        secret_b = "secretB_value_bbbbbb"
+
+        cap = StringIO()
+        child = logging.getLogger("datahub.ingestion.source.concurrent_test")
+        child.setLevel(logging.INFO)
+        handler = logging.StreamHandler(cap)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        child.addHandler(handler)
+
+        a_ready = threading.Event()
+        b_registered = threading.Event()
+        a_done = threading.Event()
+        result: dict[str, str] = {}
+
+        def execution_a():
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("A_TOKEN", secret_a)
+            a_ready.set()
+            b_registered.wait(5)
+            # A finishes and tears down WHILE B is still active.
+            shutdown_secret_masking()
+            a_done.set()
+
+        def execution_b():
+            a_ready.wait(5)
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("B_TOKEN", secret_b)
+            b_registered.set()
+            a_done.wait(5)
+            # B logs its secret AFTER A has torn down. It must still be masked.
+            cap.truncate(0)
+            cap.seek(0)
+            child.warning(f"connecting with {secret_b}")
+            result["b_output"] = cap.getvalue()
+            shutdown_secret_masking()
+
+        ta = threading.Thread(target=execution_a)
+        tb = threading.Thread(target=execution_b)
+        ta.start()
+        tb.start()
+        ta.join(10)
+        tb.join(10)
+
+        out = result.get("b_output", "")
+        assert secret_b not in out, f"B's secret leaked after A's teardown: {out!r}"
+        assert "***REDACTED:B_TOKEN***" in out
+
+        try:
+            child.removeHandler(handler)
+        finally:
+            child.handlers.clear()
+
+    def test_secrets_dropped_when_execution_ends(self):
+        # Bounded memory: an execution's secrets are gone after it shuts down.
+        initialize_secret_masking(force=True)
+        SecretRegistry.get_instance().register_secret("X_TOKEN", "value_xyz_123456")
+        assert SecretRegistry.get_instance().get_count() > 0
+        shutdown_secret_masking()
+        assert SecretRegistry.get_instance().get_count() == 0
+
+    def test_execution_starting_during_teardown_is_masked(self):
+        """A new execution C beginning *while the last active execution A is
+        tearing down* must not run unmasked. A's teardown (decide-it-is-last +
+        uninstall) must be atomic with C's (check-bootstrap + register-scope),
+        or C registers secrets, sees bootstrap still complete so skips re-install,
+        and A then strips the filter out from under it. Never under-mask."""
+        from datahub.masking.logging_utils import reset_masking_safe_loggers
+
+        secret_c = "secretC_value_cccccc"
+
+        cap = StringIO()
+        child = logging.getLogger("datahub.ingestion.source.teardown_race_test")
+        child.setLevel(logging.INFO)
+        handler = logging.StreamHandler(cap)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        child.addHandler(handler)
+
+        teardown_entered = threading.Event()
+        c_logged = threading.Event()
+        result: dict[str, str] = {}
+
+        # reset_masking_safe_loggers runs late in A's teardown, after the filter
+        # is uninstalled but before _bootstrap_completed flips to False — i.e.
+        # inside the leak window. Use it to release C into that window.
+        def slow_reset() -> None:
+            teardown_entered.set()
+            # Wait for C to log. Under the fix C is blocked on the bootstrap lock
+            # A holds, so this times out and A finishes first (no deadlock).
+            c_logged.wait(timeout=2.0)
+            reset_masking_safe_loggers()
+
+        def execution_c() -> None:
+            teardown_entered.wait(5)
+            initialize_secret_masking(force=True)
+            SecretRegistry.get_instance().register_secret("C_TOKEN", secret_c)
+            cap.truncate(0)
+            cap.seek(0)
+            child.warning(f"connecting with {secret_c}")
+            result["c_output"] = cap.getvalue()
+            c_logged.set()
+            shutdown_secret_masking()
+
+        # A is the sole active execution (main-thread context).
+        initialize_secret_masking(force=True)
+        SecretRegistry.get_instance().register_secret("A_TOKEN", "secretA_value_aaaa")
+
+        tc = threading.Thread(target=execution_c)
+        with mock.patch(
+            "datahub.masking.logging_utils.reset_masking_safe_loggers", slow_reset
+        ):
+            tc.start()
+            shutdown_secret_masking()  # A tears down while C races to start.
+            tc.join(10)
+
+        out = result.get("c_output", "")
+        assert secret_c not in out, f"C's secret leaked during A's teardown: {out!r}"
+        assert "***REDACTED:C_TOKEN***" in out
+
+        try:
+            child.removeHandler(handler)
+        finally:
+            child.handlers.clear()
 
 
 if __name__ == "__main__":
