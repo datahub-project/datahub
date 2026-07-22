@@ -37,6 +37,7 @@ dependencies {
   implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:s3'
   implementation 'software.amazon.awssdk:sts'
+  implementation externalDependency.googleCloudStorage
 
   annotationProcessor externalDependency.lombok
 
