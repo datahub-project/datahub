@@ -45,7 +45,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping =
         FieldTypeMapper.getMappingsForLogicalValueType(LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
   }
 
   @Test
@@ -53,7 +53,7 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping =
         FieldTypeMapper.getMappingsForLogicalValueType(LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
   }
 
   @Test
