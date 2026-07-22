@@ -66,6 +66,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -664,6 +665,31 @@ public class JavaEntityClient implements EntityClient {
             start,
             count),
         entityService);
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, SearchResult> searchLatestPerGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entity,
+      @Nonnull String groupField,
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria)
+      throws RemoteInvocationException {
+    final Map<String, SearchResult> raw =
+        entitySearchService.searchLatestPerGroup(
+            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            entity,
+            groupField,
+            groupValues,
+            sortCriteria);
+    final Map<String, SearchResult> validated = new LinkedHashMap<>();
+    for (Map.Entry<String, SearchResult> entry : raw.entrySet()) {
+      validated.put(
+          entry.getKey(),
+          ValidationUtils.validateSearchResult(opContext, entry.getValue(), entityService));
+    }
+    return validated;
   }
 
   @Override

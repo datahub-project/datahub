@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAspectMap;
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSystemAspectMap;
 
@@ -21,6 +22,10 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageScrollResult;
@@ -34,6 +39,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -517,6 +524,37 @@ public interface EntityClient {
       int start,
       @Nullable Integer limit)
       throws RemoteInvocationException;
+
+  /**
+   * For each value of {@code groupField}, returns the latest matching entity (by {@code
+   * sortCriteria}, page size 1) and the total hit count for that group.
+   *
+   * <p>Default implementation issues one {@link #filter} call per group value. In-process clients
+   * may override with a single aggregated search. Every input value is present in the result map.
+   */
+  @Nonnull
+  default Map<String, SearchResult> searchLatestPerGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entity,
+      @Nonnull String groupField,
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria)
+      throws RemoteInvocationException {
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
+    for (String groupValue : groupValues) {
+      final Filter filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  Collections.singletonList(
+                                      buildCriterion(groupField, Condition.EQUAL, groupValue))))));
+      results.put(groupValue, filter(opContext, entity, filter, sortCriteria, 0, 1));
+    }
+    return results;
+  }
 
   /**
    * Checks whether an entity with a given urn exists

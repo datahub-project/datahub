@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -7,10 +9,17 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -150,6 +159,44 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size);
+
+  /**
+   * For each value of {@code groupField}, returns a {@link SearchResult} containing the latest
+   * matching document (by {@code sortCriteria}, limited to 1) and {@code numEntities} equal to the
+   * total number of documents in that group.
+   *
+   * <p>Default implementation issues one {@link #filter} call per group value. Search backends may
+   * override with a single terms + top_hits aggregation.
+   *
+   * @param entityName entity to search
+   * @param groupField searchable field to group by (e.g. {@code ingestionSource})
+   * @param groupValues values of {@code groupField} to resolve
+   * @param sortCriteria sort applied within each group to pick the "latest" document
+   * @return map from group value to a page-size-1 {@link SearchResult}; every input value is
+   *     present (empty result when the group has no documents)
+   */
+  @Nonnull
+  default Map<String, SearchResult> searchLatestPerGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String groupField,
+      @Nonnull Collection<String> groupValues,
+      @Nullable List<SortCriterion> sortCriteria) {
+    final Map<String, SearchResult> results = new LinkedHashMap<>();
+    for (String groupValue : groupValues) {
+      final Filter filter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  Collections.singletonList(
+                                      buildCriterion(groupField, Condition.EQUAL, groupValue))))));
+      results.put(groupValue, filter(opContext, entityName, filter, sortCriteria, 0, 1));
+    }
+    return results;
+  }
 
   /**
    * Returns a list of suggestions given type ahead query.
