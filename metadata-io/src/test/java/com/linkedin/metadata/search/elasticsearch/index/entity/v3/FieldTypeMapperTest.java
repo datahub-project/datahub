@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.LogicalValueType;
