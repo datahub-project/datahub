@@ -3,9 +3,12 @@ package com.linkedin.metadata.aspect.validation;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -14,6 +17,8 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonValue;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -35,48 +40,110 @@ import lombok.experimental.Accessors;
 public class FieldPathValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
+  private static final String FIELD_PATH_FIELD = "fieldPath";
+  private static final String SCHEMA_FIELDS_PATH = "/fields";
+  private static final String EDITABLE_FIELDS_PATH = "/editableSchemaFieldInfo";
+
+  /** Prevent any MCP for SchemaMetadata where field ids are duplicated. */
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+
+    mcpItems.forEach(
+        i -> {
+          if (i instanceof PatchMCP) {
+            processPatchItem((PatchMCP) i, exceptions);
+          } else if (i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
+            processSchemaMetadata(i, i.getAspect(SchemaMetadata.class), exceptions);
+          } else {
+            processEditableSchemaMetadata(i, i.getAspect(EditableSchemaMetadata.class), exceptions);
+          }
+        });
+
+    return exceptions.streamAllExceptions();
   }
 
-  /**
-   * Validate the merged aspect at pre-commit so the field-id/field-path constraints apply to
-   * PATCH-applied writes too. A PATCH item is dropped by the proposed-hook change-type gate, but
-   * the patch is merged into an UPSERT {@link ChangeMCP} that reaches this hook, so validating here
-   * covers both upsert and patch without adding PATCH to the bean's supportedOperations.
-   */
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    return validateFieldPathUpserts(changeMCPs);
+    return Stream.of();
   }
 
-  /** Prevent duplicate field ids or empty field paths in the merged schema aspect. */
-  public static Stream<AspectValidationException> validateFieldPathUpserts(
-      @Nonnull Collection<ChangeMCP> changeMCPs) {
+  /**
+   * A patch item carries only its delta, so validate the field paths the patch itself writes: a
+   * root or whole-array value is checked like an upsert (duplicates and empty paths), a single
+   * keyed-array element only for an empty path — keyed merging already collapses duplicate keys —
+   * and deeper sub-field operations (e.g. a tag added under an existing field) do not modify the
+   * field path at all. Unparseable values are left to schema validation at merge time.
+   */
+  private static void processPatchItem(PatchMCP item, ValidationExceptionCollection exceptions) {
+    final boolean isSchemaMetadata = SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName());
+    final String arrayPath = isSchemaMetadata ? SCHEMA_FIELDS_PATH : EDITABLE_FIELDS_PATH;
 
-    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op -> {
+              final String path = op.getFirst();
+              final JsonValue value = op.getSecond();
+              try {
+                if (path.isEmpty() || "/".equals(path)) {
+                  processParsedAspect(item, isSchemaMetadata, value.toString(), exceptions);
+                } else if (path.equals(arrayPath)) {
+                  processParsedAspect(
+                      item,
+                      isSchemaMetadata,
+                      "{\"" + arrayPath.substring(1) + "\":" + value + "}",
+                      exceptions);
+                } else if (isArrayElementPath(path, arrayPath)
+                    && value.getValueType() == JsonValue.ValueType.OBJECT) {
+                  JsonObject element = value.asJsonObject();
+                  if (element.containsKey(FIELD_PATH_FIELD)) {
+                    validateFieldPath(element.getString(FIELD_PATH_FIELD, null))
+                        .ifPresent(message -> exceptions.addException(item, message));
+                  }
+                }
+              } catch (RuntimeException e) {
+                // unparseable delta — schema validation rejects it at merge time
+              }
+            });
+  }
 
-    for (ChangeMCP i : changeMCPs) {
-      if (SCHEMA_METADATA_ASPECT_NAME.equals(i.getAspectName())) {
-        processSchemaMetadataAspect(i, exceptions);
-      } else if (EDITABLE_SCHEMA_METADATA_ASPECT_NAME.equals(i.getAspectName())) {
-        processEditableSchemaMetadataAspect(i, exceptions);
-      }
+  private static void processParsedAspect(
+      PatchMCP item,
+      boolean isSchemaMetadata,
+      String aspectJson,
+      ValidationExceptionCollection exceptions) {
+    if (isSchemaMetadata) {
+      processSchemaMetadata(
+          item, RecordUtils.toRecordTemplate(SchemaMetadata.class, aspectJson), exceptions);
+    } else {
+      processEditableSchemaMetadata(
+          item, RecordUtils.toRecordTemplate(EditableSchemaMetadata.class, aspectJson), exceptions);
     }
-
-    return exceptions.streamAllExceptions();
   }
 
-  private static void processEditableSchemaMetadataAspect(
-      BatchItem i, ValidationExceptionCollection exceptions) {
-    final EditableSchemaMetadata schemaMetadata = i.getAspect(EditableSchemaMetadata.class);
+  /** True for {@code <arrayPath>/<key>} exactly — deeper sub-field paths are not elements. */
+  private static boolean isArrayElementPath(String path, String arrayPath) {
+    if (!path.startsWith(arrayPath + "/")) {
+      return false;
+    }
+    String remainder = path.substring(arrayPath.length() + 1);
+    if (remainder.endsWith("/")) {
+      remainder = remainder.substring(0, remainder.length() - 1);
+    }
+    return !remainder.isEmpty() && !remainder.contains("/");
+  }
+
+  private static void processEditableSchemaMetadata(
+      BatchItem i,
+      EditableSchemaMetadata schemaMetadata,
+      ValidationExceptionCollection exceptions) {
     final long uniquePaths =
         validateAndCount(
             i,
@@ -93,9 +160,8 @@ public class FieldPathValidator extends AspectPayloadValidator {
     }
   }
 
-  private static void processSchemaMetadataAspect(
-      BatchItem i, ValidationExceptionCollection exceptions) {
-    final SchemaMetadata schemaMetadata = i.getAspect(SchemaMetadata.class);
+  private static void processSchemaMetadata(
+      BatchItem i, SchemaMetadata schemaMetadata, ValidationExceptionCollection exceptions) {
     final long uniquePaths =
         validateAndCount(
             i, schemaMetadata.getFields().stream().map(SchemaField::getFieldPath), exceptions);

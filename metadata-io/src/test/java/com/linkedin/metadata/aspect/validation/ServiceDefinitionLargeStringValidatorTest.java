@@ -3,17 +3,19 @@ package com.linkedin.metadata.aspect.validation;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.CompressionType;
 import com.linkedin.common.LargeString;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.utils.LargeStrings;
 import com.linkedin.service.ServiceDefinition;
 import com.linkedin.service.ServiceDefinitionFormat;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,10 +33,8 @@ public class ServiceDefinitionLargeStringValidatorTest {
     validator = new ServiceDefinitionLargeStringValidator();
   }
 
-  // A patch-applied write reaches pre-commit as a merged UPSERT ChangeMCP, so the decode check
-  // runs here rather than on the raw proposal.
-  private ChangeMCP mcpFor(final ServiceDefinition definition) {
-    final ChangeMCP item = mock(ChangeMCP.class);
+  private BatchItem itemFor(final ServiceDefinition definition) {
+    final BatchItem item = mock(BatchItem.class);
     when(item.getAspect(ServiceDefinition.class)).thenReturn(definition);
     when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
     when(item.getUrn()).thenReturn(SERVICE_URN);
@@ -42,15 +42,9 @@ public class ServiceDefinitionLargeStringValidatorTest {
     return item;
   }
 
-  private List<AspectValidationException> preCommit(final ServiceDefinition definition) {
+  private List<AspectValidationException> validate(final ServiceDefinition definition) {
     return validator
-        .validatePreCommitAspects(null, Set.of(mcpFor(definition)), null)
-        .collect(Collectors.toList());
-  }
-
-  private List<AspectValidationException> proposed(final ServiceDefinition definition) {
-    return validator
-        .validateProposedAspects(null, Set.of(mcpFor(definition)), null)
+        .validateProposedAspects(null, Set.of(itemFor(definition)), null)
         .collect(Collectors.toList());
   }
 
@@ -61,14 +55,48 @@ public class ServiceDefinitionLargeStringValidatorTest {
     definition.setFormat(ServiceDefinitionFormat.OPENAPI);
     definition.setRawSpec(LargeStrings.encode("openapi: 3.0.0"));
 
-    assertTrue(preCommit(definition).isEmpty());
+    assertTrue(validate(definition).isEmpty());
+  }
+
+  /** A rawSpec set via patch is decode-checked from the patch's own value at the request stage. */
+  @Test
+  public void testPatchRawSpecValidated() {
+    final String corruptOps =
+        "[{\"op\":\"add\",\"path\":\"/rawSpec\",\"value\":"
+            + "{\"compression\":\"GZIP\",\"blob\":\"!!!not-valid-base64!!!\"}}]";
+    assertEquals(
+        validator
+            .validateProposedAspects(
+                null,
+                Set.of(
+                    TestPatchMCP.of(
+                        SERVICE_URN, Constants.SERVICE_DEFINITION_ASPECT_NAME, corruptOps)),
+                null)
+            .count(),
+        1,
+        "Patch with a corrupt rawSpec blob should be rejected");
+
+    final LargeString valid = LargeStrings.encode("openapi: 3.0.0");
+    final String validOps =
+        "[{\"op\":\"add\",\"path\":\"/rawSpec\",\"value\":"
+            + RecordUtils.toJsonString(valid)
+            + "}]";
+    assertEquals(
+        validator
+            .validateProposedAspects(
+                null,
+                Set.of(
+                    TestPatchMCP.of(
+                        SERVICE_URN, Constants.SERVICE_DEFINITION_ASPECT_NAME, validOps)),
+                null)
+            .count(),
+        0,
+        "Patch with a decodable rawSpec should pass");
   }
 
   @Test
-  public void testCorruptRawSpecRejectedAtPreCommit() {
-    // Declares GZIP but the blob is not valid base64 -> decode throws -> one violation. Running at
-    // pre-commit means a value written via PATCH (merged into an UPSERT here) is also caught, not
-    // just full UPSERTs.
+  public void testCorruptGzipBlobRejected() {
+    // Declares GZIP but the blob is not valid base64 -> decode throws -> one violation.
     final LargeString corrupt = new LargeString();
     corrupt.setCompression(CompressionType.GZIP);
     corrupt.setBlob("!!!not-valid-base64!!!");
@@ -77,23 +105,8 @@ public class ServiceDefinitionLargeStringValidatorTest {
     definition.setFormat(ServiceDefinitionFormat.OPENAPI);
     definition.setRawSpec(corrupt);
 
-    final List<AspectValidationException> exceptions = preCommit(definition);
+    final List<AspectValidationException> exceptions = validate(definition);
     assertEquals(exceptions.size(), 1);
     assertTrue(exceptions.get(0).getMessage().contains("failed to decode"));
-  }
-
-  @Test
-  public void testProposedHookReturnsEmptyForCorruptRawSpec() {
-    // The check moved to pre-commit; the proposed hook must no longer reject, otherwise a PATCH
-    // (dropped by the proposed-time supportedOperations gate) would bypass validation again.
-    final LargeString corrupt = new LargeString();
-    corrupt.setCompression(CompressionType.GZIP);
-    corrupt.setBlob("!!!not-valid-base64!!!");
-
-    final ServiceDefinition definition = new ServiceDefinition();
-    definition.setFormat(ServiceDefinitionFormat.OPENAPI);
-    definition.setRawSpec(corrupt);
-
-    assertTrue(proposed(definition).isEmpty());
   }
 }

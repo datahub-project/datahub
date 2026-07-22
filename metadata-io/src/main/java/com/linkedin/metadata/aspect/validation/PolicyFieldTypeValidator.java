@@ -1,12 +1,13 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
-
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -46,45 +47,59 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    // Validate the merged aspect at pre-commit so a value applied via PATCH is checked: the applied
-    // patch arrives here as an UPSERT, while the proposed hook only sees the raw delta and skips
-    // PATCH entirely via supportedOperations.
-    return validatePolicyFieldTypes(
-        changeMCPs.stream()
-            .filter(i -> DATAHUB_POLICY_INFO_ASPECT_NAME.equals(i.getAspectName()))
-            .collect(Collectors.toList()));
-  }
-
-  public static Stream<AspectValidationException> validatePolicyFieldTypes(
-      @Nonnull Collection<ChangeMCP> changeMCPs) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
 
-    changeMCPs.forEach(
+    mcpItems.forEach(
         item -> {
-          DataHubPolicyInfo policyInfo = item.getAspect(DataHubPolicyInfo.class);
-          if (policyInfo != null && policyInfo.hasResources()) {
-            if (policyInfo.getResources().hasFilter()) {
-              validateFilter(item, policyInfo.getResources().getFilter(), exceptions);
-            }
-            if (policyInfo.getResources().hasPrivilegeConstraints()) {
-              validateFilter(item, policyInfo.getResources().getPrivilegeConstraints(), exceptions);
-            }
+          if (item instanceof PatchMCP) {
+            validatePatchItem((PatchMCP) item, exceptions);
+            return;
           }
+          validatePolicyInfo(item, item.getAspect(DataHubPolicyInfo.class), exceptions);
         });
 
     return exceptions.streamAllExceptions();
   }
 
-  private static void validateFilter(
+  /**
+   * A patch item carries only its delta; rebuild a partial policy from each add/replace operation
+   * (e.g. a value at {@code /resources/filter} becomes {@code {"resources":{"filter":<value>}}})
+   * and validate the field types it contains. Unparseable values are left to schema validation at
+   * merge time.
+   */
+  private void validatePatchItem(PatchMCP item, ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op ->
+                PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                    .ifPresent(
+                        nested -> {
+                          try {
+                            validatePolicyInfo(
+                                item,
+                                RecordUtils.toRecordTemplate(
+                                    DataHubPolicyInfo.class, nested.toString()),
+                                exceptions);
+                          } catch (RuntimeException e) {
+                            // unparseable delta — schema validation rejects it at merge time
+                          }
+                        }));
+  }
+
+  private void validatePolicyInfo(
+      BatchItem item, DataHubPolicyInfo policyInfo, ValidationExceptionCollection exceptions) {
+    if (policyInfo != null && policyInfo.hasResources()) {
+      if (policyInfo.getResources().hasFilter()) {
+        validateFilter(item, policyInfo.getResources().getFilter(), exceptions);
+      }
+      if (policyInfo.getResources().hasPrivilegeConstraints()) {
+        validateFilter(item, policyInfo.getResources().getPrivilegeConstraints(), exceptions);
+      }
+    }
+  }
+
+  private void validateFilter(
       BatchItem item, PolicyMatchFilter filter, ValidationExceptionCollection exceptions) {
     if (filter != null && filter.hasCriteria()) {
       for (PolicyMatchCriterion criterion : filter.getCriteria()) {
@@ -99,5 +114,13 @@ public class PolicyFieldTypeValidator extends AspectPayloadValidator {
         }
       }
     }
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
   }
 }

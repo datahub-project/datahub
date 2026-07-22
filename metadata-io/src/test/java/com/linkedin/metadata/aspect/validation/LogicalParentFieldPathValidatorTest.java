@@ -1,7 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.eq;
@@ -11,12 +10,11 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -26,6 +24,7 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.Mockito;
@@ -43,11 +42,21 @@ public class LogicalParentFieldPathValidatorTest {
   private final EntityRegistry registry =
       TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
 
+  private LogicalParentFieldPathValidator validator;
   private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
+    validator =
+        new LogicalParentFieldPathValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className("test")
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT"))
+                    .supportedEntityAspectNames(List.of())
+                    .build());
     mockAspectRetriever = Mockito.mock(CachingAspectRetriever.class);
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
@@ -69,15 +78,12 @@ public class LogicalParentFieldPathValidatorTest {
             any(OperationFingerprint.class), eq(datasetUrn), eq(SCHEMA_METADATA_ASPECT_NAME));
   }
 
-  // A patch-applied logicalParent reaches pre-commit as a merged UPSERT ChangeMCP; the validator
-  // now runs there, so tests drive that merged item rather than the (now empty) proposed hook.
-  private ChangeMCP columnLink(String childField, String parentField) {
+  private BatchItem columnLink(String childField, String parentField) {
     Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, childField);
     Urn parentFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(PARENT_DATASET, parentField);
     LogicalParent aspect =
         new LogicalParent().setParent(new Edge().setDestinationUrn(parentFieldUrn));
-    ChangeMCP item = TestMCP.ofOneMCP(childFieldUrn, aspect, registry).stream().findFirst().get();
-    return ((TestMCP) item).toBuilder().changeType(ChangeType.UPSERT).build();
+    return TestMCP.ofOneUpsertItem(childFieldUrn, aspect, registry).stream().findFirst().get();
   }
 
   @Test
@@ -86,7 +92,8 @@ public class LogicalParentFieldPathValidatorTest {
     stubSchema(PARENT_DATASET, "id");
 
     List<AspectValidationException> exceptions =
-        LogicalParentFieldPathValidator.validateFieldPaths(
+        validator
+            .validateProposedAspects(
                 OperationFingerprint.EMPTY, List.of(columnLink("id", "id")), retrieverContext)
             .toList();
 
@@ -99,7 +106,8 @@ public class LogicalParentFieldPathValidatorTest {
     stubSchema(PARENT_DATASET, "other");
 
     List<AspectValidationException> exceptions =
-        LogicalParentFieldPathValidator.validateFieldPaths(
+        validator
+            .validateProposedAspects(
                 OperationFingerprint.EMPTY, List.of(columnLink("id", "id")), retrieverContext)
             .toList();
 
@@ -112,7 +120,8 @@ public class LogicalParentFieldPathValidatorTest {
     stubSchema(PARENT_DATASET, "id");
 
     List<AspectValidationException> exceptions =
-        LogicalParentFieldPathValidator.validateFieldPaths(
+        validator
+            .validateProposedAspects(
                 OperationFingerprint.EMPTY, List.of(columnLink("id", "id")), retrieverContext)
             .toList();
 
@@ -125,47 +134,57 @@ public class LogicalParentFieldPathValidatorTest {
     // read any schema).
     LogicalParent unlink = new LogicalParent();
     Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, "id");
-    ChangeMCP item = TestMCP.ofOneMCP(childFieldUrn, unlink, registry).stream().findFirst().get();
+    BatchItem item =
+        TestMCP.ofOneUpsertItem(childFieldUrn, unlink, registry).stream().findFirst().get();
 
     List<AspectValidationException> exceptions =
-        LogicalParentFieldPathValidator.validateFieldPaths(
-                OperationFingerprint.EMPTY, List.of(item), retrieverContext)
+        validator
+            .validateProposedAspects(OperationFingerprint.EMPTY, List.of(item), retrieverContext)
             .toList();
 
     Assert.assertTrue(exceptions.isEmpty());
     Mockito.verifyNoInteractions(mockAspectRetriever);
   }
 
+  /** A parent edge set via patch is validated from the patch's own value at the request stage. */
   @Test
-  public void testPreCommitRejectsInvalidFieldPathThroughGating() {
-    // Regression guard for the PATCH bypass: the check moved from the proposed hook to pre-commit,
-    // so a merged UPSERT (which is what a patch-applied logicalParent becomes) must still be
-    // rejected. Drive the production validatePreCommit entry with the bean's real change-type and
-    // entity/aspect gating so the wiring — not just the check body — is exercised.
+  public void testPatchParentEdgeValidated() {
     stubSchema(CHILD_DATASET, "id");
     stubSchema(PARENT_DATASET, "other");
 
-    LogicalParentFieldPathValidator gatedValidator =
-        new LogicalParentFieldPathValidator()
-            .setConfig(
-                AspectPluginConfig.builder()
-                    .className("test")
-                    .enabled(true)
-                    .supportedOperations(List.of("UPSERT"))
-                    .supportedEntityAspectNames(
-                        List.of(
-                            AspectPluginConfig.EntityAspectName.builder()
-                                .entityName(SCHEMA_FIELD_ENTITY_NAME)
-                                .aspectName(LOGICAL_PARENT_ASPECT_NAME)
-                                .build()))
-                    .build());
+    Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, "id");
+    Urn parentFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(PARENT_DATASET, "id");
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/parent\",\"value\":{\"destinationUrn\":\""
+            + parentFieldUrn
+            + "\"}}]";
 
     List<AspectValidationException> exceptions =
-        gatedValidator
-            .validatePreCommit(
-                OperationFingerprint.EMPTY, List.of(columnLink("id", "id")), retrieverContext)
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY,
+                List.of(TestPatchMCP.of(childFieldUrn, LOGICAL_PARENT_ASPECT_NAME, ops)),
+                retrieverContext)
             .toList();
 
+    // parent field "id" does not exist on the parent schema
     Assert.assertFalse(exceptions.isEmpty());
+  }
+
+  @Test
+  public void testPatchRemoveIgnored() {
+    String ops = "[{\"op\":\"remove\",\"path\":\"/parent\"}]";
+    Urn childFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(CHILD_DATASET, "id");
+
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposedAspects(
+                OperationFingerprint.EMPTY,
+                List.of(TestPatchMCP.of(childFieldUrn, LOGICAL_PARENT_ASPECT_NAME, ops)),
+                retrieverContext)
+            .toList();
+
+    Assert.assertTrue(exceptions.isEmpty());
+    Mockito.verifyNoInteractions(mockAspectRetriever);
   }
 }

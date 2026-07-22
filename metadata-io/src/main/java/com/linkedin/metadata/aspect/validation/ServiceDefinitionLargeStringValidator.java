@@ -1,10 +1,12 @@
 package com.linkedin.metadata.aspect.validation;
 
 import com.datahub.context.OperationFingerprint;
-import com.linkedin.metadata.Constants;
+import com.datahub.util.RecordUtils;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -37,10 +39,60 @@ public class ServiceDefinitionLargeStringValidator extends AspectPayloadValidato
       OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    // The decode check runs at pre-commit against the merged aspect so that PATCH writes (which the
-    // supportedOperations set omits, and which carry only a delta here) are covered — a patch is
-    // applied into an UPSERT ChangeMCP before pre-commit. See validatePreCommitAspects.
-    return Stream.empty();
+
+    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
+
+    mcpItems.forEach(
+        item -> {
+          if (item instanceof PatchMCP) {
+            validatePatchItem((PatchMCP) item, exceptions);
+            return;
+          }
+          validateDefinition(item, item.getAspect(ServiceDefinition.class), exceptions);
+        });
+
+    return exceptions.streamAllExceptions();
+  }
+
+  /**
+   * A patch item carries only its delta; rebuild a partial definition from each add/replace
+   * operation (a value at {@code /rawSpec} becomes {@code {"rawSpec":<value>}}) and run the same
+   * decode check. Unparseable values are left to schema validation at merge time.
+   */
+  private void validatePatchItem(PatchMCP item, ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op ->
+                PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                    .ifPresent(
+                        nested -> {
+                          try {
+                            validateDefinition(
+                                item,
+                                RecordUtils.toRecordTemplate(
+                                    ServiceDefinition.class, nested.toString()),
+                                exceptions);
+                          } catch (RuntimeException e) {
+                            // unparseable delta — schema validation rejects it at merge time
+                          }
+                        }));
+  }
+
+  private void validateDefinition(
+      BatchItem item, ServiceDefinition definition, ValidationExceptionCollection exceptions) {
+    if (definition != null && definition.hasRawSpec()) {
+      try {
+        LargeStrings.decode(definition.getRawSpec());
+      } catch (IllegalArgumentException e) {
+        exceptions.addException(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "serviceDefinition rawSpec LargeString failed to decode under declared"
+                        + " compression %s: %s",
+                    definition.getRawSpec().getCompression(), e.getMessage())));
+      }
+    }
   }
 
   @Override
@@ -48,29 +100,6 @@ public class ServiceDefinitionLargeStringValidator extends AspectPayloadValidato
       OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-
-    ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
-
-    changeMCPs.stream()
-        .filter(item -> Constants.SERVICE_DEFINITION_ASPECT_NAME.equals(item.getAspectName()))
-        .forEach(
-            item -> {
-              ServiceDefinition definition = item.getAspect(ServiceDefinition.class);
-              if (definition != null && definition.hasRawSpec()) {
-                try {
-                  LargeStrings.decode(definition.getRawSpec());
-                } catch (IllegalArgumentException e) {
-                  exceptions.addException(
-                      AspectValidationException.forItem(
-                          item,
-                          String.format(
-                              "serviceDefinition rawSpec LargeString failed to decode under declared"
-                                  + " compression %s: %s",
-                              definition.getRawSpec().getCompression(), e.getMessage())));
-                }
-              }
-            });
-
-    return exceptions.streamAllExceptions();
+    return Stream.empty();
   }
 }

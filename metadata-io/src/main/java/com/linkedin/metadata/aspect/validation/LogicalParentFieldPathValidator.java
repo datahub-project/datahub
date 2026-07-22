@@ -1,15 +1,17 @@
 package com.linkedin.metadata.aspect.validation;
 
-import static com.linkedin.metadata.Constants.LOGICAL_PARENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -53,68 +55,21 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return Stream.empty();
-  }
-
-  @Override
-  protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
-    // Validate the merged aspect at pre-commit so a value written via PATCH (whose delta skips the
-    // proposed hook because PATCH is not in supportedOperations) is still checked: a patch-applied
-    // item arrives here as an UPSERT ChangeMCP carrying the merged LogicalParent.
-    return validateFieldPaths(
-        operationContext,
-        changeMCPs.stream()
-            .filter(item -> LOGICAL_PARENT_ASPECT_NAME.equals(item.getAspectName()))
-            .collect(Collectors.toList()),
-        retrieverContext);
-  }
-
-  public static Stream<AspectValidationException> validateFieldPaths(
-      @Nonnull OperationFingerprint operationContext,
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
     final ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     // A multi-column link emits one item per mapped column, all referencing the same two datasets;
     // cache field paths per dataset so each schema is read at most once per batch.
     final Map<Urn, Set<String>> fieldPathCache = new HashMap<>();
 
-    changeMCPs.forEach(
+    mcpItems.forEach(
         item -> {
-          final LogicalParent logicalParent = item.getAspect(LogicalParent.class);
-          if (logicalParent == null
-              || logicalParent.getParent() == null
-              || logicalParent.getParent().getDestinationUrn() == null) {
-            // Unlink (parent cleared) — nothing to validate.
+          if (item instanceof PatchMCP) {
+            validatePatchItem(
+                (PatchMCP) item, operationContext, retrieverContext, fieldPathCache, exceptions);
             return;
           }
-
-          final Optional<Pair<Urn, String>> child =
-              SchemaFieldUtils.parseSchemaFieldUrn(item.getUrn());
-          final Optional<Pair<Urn, String>> parent =
-              SchemaFieldUtils.parseSchemaFieldUrn(logicalParent.getParent().getDestinationUrn());
-          if (child.isEmpty() || parent.isEmpty()) {
-            // Not a column-level (schemaField -> schemaField) edge; dataset-level links carry no
-            // field paths to validate.
-            return;
-          }
-
-          validateFieldPresent(
+          validateLogicalParent(
               item,
-              child.get().getFirst(),
-              child.get().getSecond(),
-              "child",
-              operationContext,
-              retrieverContext,
-              fieldPathCache,
-              exceptions);
-          validateFieldPresent(
-              item,
-              parent.get().getFirst(),
-              parent.get().getSecond(),
-              "parent",
+              item.getAspect(LogicalParent.class),
               operationContext,
               retrieverContext,
               fieldPathCache,
@@ -124,7 +79,83 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
-  private static void validateFieldPresent(
+  /**
+   * A patch item carries only its delta; rebuild a partial aspect from each add/replace operation
+   * (a value at {@code /parent} becomes {@code {"parent":<value>}}) and run the same edge check —
+   * the child field path comes from the item's own urn. Unparseable values are left to schema
+   * validation at merge time.
+   */
+  private void validatePatchItem(
+      @Nonnull final PatchMCP item,
+      @Nonnull final OperationFingerprint operationContext,
+      @Nonnull final RetrieverContext retrieverContext,
+      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
+      @Nonnull final ValidationExceptionCollection exceptions) {
+    PatchOperationUtils.addAndReplaceValues(item)
+        .forEach(
+            op ->
+                PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                    .ifPresent(
+                        nested -> {
+                          try {
+                            validateLogicalParent(
+                                item,
+                                RecordUtils.toRecordTemplate(
+                                    LogicalParent.class, nested.toString()),
+                                operationContext,
+                                retrieverContext,
+                                fieldPathCache,
+                                exceptions);
+                          } catch (RuntimeException e) {
+                            // unparseable delta — schema validation rejects it at merge time
+                          }
+                        }));
+  }
+
+  private void validateLogicalParent(
+      @Nonnull final BatchItem item,
+      final LogicalParent logicalParent,
+      @Nonnull final OperationFingerprint operationContext,
+      @Nonnull final RetrieverContext retrieverContext,
+      @Nonnull final Map<Urn, Set<String>> fieldPathCache,
+      @Nonnull final ValidationExceptionCollection exceptions) {
+    if (logicalParent == null
+        || logicalParent.getParent() == null
+        || logicalParent.getParent().getDestinationUrn() == null) {
+      // Unlink (parent cleared) — nothing to validate.
+      return;
+    }
+
+    final Optional<Pair<Urn, String>> child = SchemaFieldUtils.parseSchemaFieldUrn(item.getUrn());
+    final Optional<Pair<Urn, String>> parent =
+        SchemaFieldUtils.parseSchemaFieldUrn(logicalParent.getParent().getDestinationUrn());
+    if (child.isEmpty() || parent.isEmpty()) {
+      // Not a column-level (schemaField -> schemaField) edge; dataset-level links carry no
+      // field paths to validate.
+      return;
+    }
+
+    validateFieldPresent(
+        item,
+        child.get().getFirst(),
+        child.get().getSecond(),
+        "child",
+        operationContext,
+        retrieverContext,
+        fieldPathCache,
+        exceptions);
+    validateFieldPresent(
+        item,
+        parent.get().getFirst(),
+        parent.get().getSecond(),
+        "parent",
+        operationContext,
+        retrieverContext,
+        fieldPathCache,
+        exceptions);
+  }
+
+  private void validateFieldPresent(
       @Nonnull final BatchItem item,
       @Nonnull final Urn datasetUrn,
       @Nonnull final String fieldPath,
@@ -144,7 +175,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
   }
 
   @Nonnull
-  private static Set<String> readFieldPaths(
+  private Set<String> readFieldPaths(
       @Nonnull final Urn datasetUrn,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
@@ -160,5 +191,13 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
       return Set.of();
     }
     return schema.getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet());
+  }
+
+  @Override
+  protected Stream<AspectValidationException> validatePreCommitAspects(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
+    return Stream.empty();
   }
 }

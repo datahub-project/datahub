@@ -26,6 +26,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,7 +80,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedSchemaFieldPath() {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
-        test.validatePreCommit(
+        test.validateProposed(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -92,7 +93,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -102,7 +104,7 @@ public class FieldPathValidatorTest {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
 
     assertEquals(
-        test.validatePreCommit(
+        test.validateProposed(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -115,7 +117,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -124,7 +127,7 @@ public class FieldPathValidatorTest {
   public void testValidateNonDuplicatedEditableSchemaFieldPath() {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
     assertEquals(
-        test.validatePreCommit(
+        test.validateProposed(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -137,7 +140,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -147,7 +151,7 @@ public class FieldPathValidatorTest {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(true);
 
     assertEquals(
-        test.validatePreCommit(
+        test.validateProposed(
                 OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
@@ -160,7 +164,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -181,7 +186,8 @@ public class FieldPathValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validatePreCommit(OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext)
+        test.validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, null)
             .collect(Collectors.toSet());
 
     assertEquals(
@@ -191,43 +197,53 @@ public class FieldPathValidatorTest {
                 testItem, "SchemaMetadata aspect has empty field path.")));
   }
 
-  /**
-   * A patch is merged into an UPSERT {@link com.linkedin.metadata.aspect.batch.ChangeMCP} that
-   * reaches pre-commit. Drive a mixed batch (both schema aspects, each carrying a duplicate)
-   * through the pre-commit hook to assert violations are caught there and that dispatch is keyed on
-   * the aspect name rather than an unconditional else branch.
-   */
+  /** A patch item is validated from its own add/replace values at the request stage. */
   @Test
-  public void testValidatePreCommitMixedDuplicateFieldPaths() {
-    final SchemaMetadata schema = getMockSchemaMetadataAspect(true);
-    final EditableSchemaMetadata editableSchema = getMockEditableSchemaMetadataAspect(true);
+  public void testValidatePatchAddEmptyFieldPathRejected() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a\",\"value\":{\"fieldPath\":\"\"}}]";
     assertEquals(
-        test.validatePreCommit(
+        test.validateProposed(
                 OperationFingerprint.EMPTY,
                 Set.of(
-                    TestMCP.builder()
-                        .changeType(ChangeType.UPSERT)
-                        .urn(TEST_DATASET_URN)
-                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
-                        .aspectSpec(
-                            entityRegistry
-                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
-                                .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
-                        .recordTemplate(schema)
-                        .build(),
-                    TestMCP.builder()
-                        .changeType(ChangeType.UPSERT)
-                        .urn(TEST_DATASET_URN)
-                        .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
-                        .aspectSpec(
-                            entityRegistry
-                                .getEntitySpec(TEST_DATASET_URN.getEntityType())
-                                .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
-                        .recordTemplate(editableSchema)
-                        .build()),
-                mockRetrieverContext)
+                    TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
             .count(),
-        2);
+        1);
+  }
+
+  @Test
+  public void testValidatePatchWholeAspectDuplicatesRejected() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"\",\"value\":"
+            + "{\"fields\":[{\"fieldPath\":\"col_a\"},{\"fieldPath\":\"col_a\"}]}}]";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
+  /** Sub-field ops (e.g. a tag under an existing field) and removes carry no field path. */
+  @Test
+  public void testValidatePatchSubFieldAndRemoveOpsIgnored() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a/globalTags\","
+            + "\"value\":{\"tags\":[]}},"
+            + "{\"op\":\"remove\",\"path\":\"/editableSchemaFieldInfo/col_b\"}]";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0);
   }
 
   private static SchemaMetadata getMockSchemaMetadataAspect(boolean duplicateFields) {
