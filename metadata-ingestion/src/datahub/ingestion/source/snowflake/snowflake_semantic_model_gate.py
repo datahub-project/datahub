@@ -7,8 +7,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
-# DataHub Cloud must be at least this version to support semanticModel/metric
-# entities; below it we hard-block auto-enable even when the recipe requests it.
+# Minimum DataHub Cloud version supporting semanticModel/metric entities.
 _MIN_SAAS_VERSION: Tuple[int, int, int] = (2, 1, 0)
 
 _SEMANTIC_MODEL_ENTITY = "semanticModel"
@@ -27,9 +26,8 @@ _METRICS_ENABLED_QUERY = """
     }
 """
 
-# Substrings that identify a GraphQL error meaning the server's schema simply
-# does not define metricsEnabled (an older server). Anything else is a real
-# failure and must fail closed rather than silently allowing auto-enable.
+# A GraphQL error carrying both markers means the server predates metricsEnabled;
+# any other error is real and must fail closed.
 _FIELD_UNDEFINED_MARKER = "FieldUndefined"
 _METRICS_ENABLED_FIELD = "metricsEnabled"
 
@@ -44,12 +42,11 @@ class ResolvedEmitDecision:
 
 
 def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
-    """Read the server's metricsEnabled feature flag.
+    """Read the server's metricsEnabled flag.
 
-    Returns True/False when the server reports it, and None when the flag is
-    absent/stripped/null (older server or unset) — callers treat None as "not
-    the kill-switch" and allow. Re-raises any error that is NOT the field being
-    undefined, so the resolver can fail closed on auth/network problems.
+    Returns None when the flag is absent/null (older server or unset), which
+    callers treat as "not the kill-switch". Re-raises non-FieldUndefined errors
+    so the resolver fails closed on auth/network problems.
     """
     try:
         response = graph.execute_graphql(
@@ -58,9 +55,8 @@ def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # An older server without the field rejects the query with FieldUndefined
-        # when the graphql-core stripper is unavailable. Treat that as "flag
-        # absent" (allow); propagate every other GraphError to fail closed.
+        # Older servers reject the query with FieldUndefined; treat as "flag
+        # absent" (allow). Propagate everything else to fail closed.
         message = str(e)
         if _FIELD_UNDEFINED_MARKER in message and _METRICS_ENABLED_FIELD in message:
             return None
@@ -75,8 +71,8 @@ def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
 def _server_supports_entities(graph: DataHubGraph) -> Optional[bool]:
     """Whether the server registry supports semanticModel + metric.
 
-    Returns None when the specs fetch failed (do not block on it — version and
-    metrics gating already apply); True/False otherwise.
+    Returns None when the specs fetch failed; callers must not block on it since
+    version and metrics gating already apply.
     """
     specs = graph.get_entity_aspect_specs()
     if specs is None:
@@ -93,8 +89,8 @@ def _server_supports_entities(graph: DataHubGraph) -> Optional[bool]:
 def resolve_emit_semantic_model_entities(
     graph: Optional[DataHubGraph], recipe_value: Optional[bool]
 ) -> ResolvedEmitDecision:
-    # No graph client (file sink / no DataHub connection): we cannot detect the
-    # server, so fall back to OSS semantics — recipe must be explicit True.
+    # No graph client: cannot detect the server, so fall back to OSS semantics
+    # (recipe must be explicit True).
     if graph is None:
         if recipe_value:
             return ResolvedEmitDecision(
@@ -159,8 +155,7 @@ def resolve_emit_semantic_model_entities(
             metrics_enabled=None,
         )
 
-    # Probe the metricsEnabled kill-switch. A hard failure (auth/network/other
-    # GraphQL error) fails closed — we do not auto-enable when we cannot verify.
+    # Fail closed: if we can't read the Metrics kill-switch, do not auto-enable.
     try:
         metrics_enabled = _fetch_metrics_enabled(graph)
     except Exception:
@@ -177,8 +172,7 @@ def resolve_emit_semantic_model_entities(
             metrics_enabled=None,
         )
 
-    # Only an explicit false is the kill-switch; absent/None means "not disabled"
-    # (older servers or unset config) and is allowed.
+    # Only explicit false is the kill-switch; absent/None means "not disabled".
     if metrics_enabled is False:
         return ResolvedEmitDecision(
             enabled=False,
@@ -188,9 +182,8 @@ def resolve_emit_semantic_model_entities(
             metrics_enabled=False,
         )
 
-    # Belt-and-suspenders: confirm the server registry actually knows these
-    # entities/aspects before returning ON. A None (specs unavailable) does not
-    # block — version + metrics gating already vouched for the server.
+    # Confirm the registry knows these entities before returning ON. None (specs
+    # unavailable) does not block — version + metrics gating already vouched.
     supports = _server_supports_entities(graph)
     if supports is False:
         return ResolvedEmitDecision(

@@ -522,16 +522,17 @@ class SnowflakeV2Source(
         )
 
     def _resolve_semantic_model_emission(self) -> None:
-        # Resolve the tri-state semantic_views.emit_semantic_model_entities flag
-        # against server signals (SaaS version + Metrics feature) before any
-        # semantic-view processing reads it. self.ctx.graph may be None (file
-        # sink / no connection); the resolver handles that as the OSS path.
+        # Resolve the tri-state flag against server signals before any
+        # semantic-view processing reads it. A None graph (file sink / no
+        # connection) is handled by the resolver as the OSS path.
         recipe_value = self.config.semantic_views.emit_semantic_model_entities
         decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
 
-        # Write back a concrete bool so every downstream call site reads the
-        # resolved value. ConfigModel has extra="forbid" but no
-        # validate_assignment, so this does not re-run validators.
+        # Single-pass: overwrite the tri-state with the resolved bool so every
+        # downstream call site reads it. Safe to clobber — ConfigModel has no
+        # validate_assignment (no revalidation), the original request is captured
+        # in report.semantic_model_emission_*, and recipe_value must not be read
+        # past this point.
         self.config.semantic_views.emit_semantic_model_entities = decision.enabled
 
         self.report.semantic_model_emission_effective = decision.enabled
@@ -550,9 +551,8 @@ class SnowflakeV2Source(
             decision.reason,
         )
 
-        # Product choice: when the recipe explicitly requested emission but a
-        # server hard veto forces it off, warn the operator rather than failing
-        # the pipeline so ingestion still proceeds in legacy dataset mode.
+        # Warn instead of failing when the recipe requested emission but a server
+        # veto forces it off, so ingestion still proceeds in legacy dataset mode.
         if recipe_value is True and not decision.enabled:
             self.report.warning(
                 title="semantic_views.emit_semantic_model_entities forced off",
@@ -561,6 +561,13 @@ class SnowflakeV2Source(
                     "the connected DataHub server does not support it; falling back "
                     "to legacy dataset emission."
                 ),
+                context=decision.reason,
+            )
+
+        if decision.enabled and self.config.semantic_views.include_usage:
+            self.report.warning(
+                title="semantic_views.include_usage ignored",
+                message="semanticModel mode emits no usage statistics; include_usage is ignored.",
                 context=decision.reason,
             )
 

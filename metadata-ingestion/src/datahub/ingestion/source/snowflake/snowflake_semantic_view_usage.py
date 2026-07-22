@@ -230,11 +230,8 @@ class SemanticViewUsageExtractor:
         produced by _build_identifier_lookup), not a freshly-lowercased match key -
         see that method's docstring for why.
         """
-        # maxsplit=2 protects the view name (matching existing codebase patterns);
-        # this assumes db/schema names contain no dots themselves - a quoted
-        # identifier with an embedded dot (e.g. "MY.DB") would misparse here, the
-        # same residual caveat that applies to dataset URN construction elsewhere
-        # in this connector.
+        # maxsplit=2 protects the view name (matching existing patterns); assumes
+        # db/schema names contain no dots - the same caveat as dataset URN construction.
         db_name, schema_name, view_name = identifier.split(".", 2)
         return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
 

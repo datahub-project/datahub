@@ -109,19 +109,14 @@ class SemanticViewsConfig(ConfigModel):
         default=None,
         description=(
             "Tri-state control for emitting semantic views as semanticModel entities "
-            "(with their metrics as metric entities) instead of datasets with subtype "
-            '"Semantic View" (legacy behavior). '
-            "`None` (default): auto-resolve from the connected DataHub server - on "
-            "DataHub Cloud >= 2.1.0 with Metrics enabled (or the metricsEnabled flag "
-            "absent) it auto-enables; older Cloud versions or an explicit "
-            "metricsEnabled=false kill-switch keep it off; OSS/self-hosted and "
+            "(with their metrics as metric entities) instead of legacy datasets "
+            'subtyped "Semantic View". '
+            "`None` (default): auto-enable on DataHub Cloud >= 2.1.0 with Metrics "
+            "enabled; OSS, older Cloud, an explicit metricsEnabled kill-switch, and "
             "connectionless runs (e.g. file sink) stay off. "
-            "`true`: request semanticModel emission - still honored only when the "
-            "server supports it (DataHub Cloud hard-blocks below 2.1.0 or when the "
-            "Metrics kill-switch is off; there it warns and falls back to legacy "
-            "datasets). "
-            "`false`: always force legacy dataset behavior, overriding any "
-            "server-side auto-enable."
+            "`true`: request emission, honored only when the server supports it "
+            "(else warns and falls back to legacy datasets). "
+            "`false`: force legacy dataset behavior."
         ),
     )
 
@@ -134,8 +129,8 @@ class SemanticViewsConfig(ConfigModel):
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
         "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
-        "Ignored (no usage statistics are emitted) when emit_semantic_model_entities is "
-        "enabled - semanticModel entities do not carry usage statistics.",
+        "Ignored when emit_semantic_model_entities is enabled, since semanticModel "
+        "entities carry no usage statistics.",
     )
 
     include_queries: bool = Field(
@@ -178,12 +173,10 @@ class SemanticViewsConfig(ConfigModel):
     def validate_usage_ignored_in_semantic_model_mode(self) -> "SemanticViewsConfig":
         if self.include_usage and self.emit_semantic_model_entities:
             logger.warning(
-                "semantic_views.include_usage is set to True but "
-                "semantic_views.emit_semantic_model_entities is also True. "
-                "semanticModel entities do not carry usage statistics (per "
-                "model-owner decision), so include_usage is ignored in this "
-                "mode - no usage statistics will be emitted. Query entities are "
-                "unaffected; see semantic_views.include_queries."
+                "semantic_views.include_usage is ignored because "
+                "semantic_views.emit_semantic_model_entities is enabled: "
+                "semanticModel entities carry no usage statistics. Query entities "
+                "are unaffected (see semantic_views.include_queries)."
             )
         return self
 
@@ -902,20 +895,17 @@ class SnowflakeV2Config(
     def validate_semantic_model_entities_requires_technical_schema(
         self,
     ) -> "SnowflakeV2Config":
-        # emit_semantic_model_entities lives on the nested SemanticViewsConfig, but
-        # include_technical_schema is top-level; semantic view processing itself is
-        # gated on include_technical_schema, so this combination is a silent no-op
-        # that must be validated here, where both fields are visible.
+        # Validated here (not on SemanticViewsConfig) because semantic view
+        # processing is gated on the top-level include_technical_schema, which is
+        # not visible from the nested config.
         if (
             self.semantic_views.emit_semantic_model_entities
             and not self.include_technical_schema
         ):
             logger.warning(
-                "semantic_views.emit_semantic_model_entities is set to True but "
-                "include_technical_schema is False. No semanticModel or metric entities "
-                "will be emitted in this combination, since semantic view processing "
-                "requires include_technical_schema. Set include_technical_schema to True "
-                "to emit semanticModel/metric entities."
+                "semantic_views.emit_semantic_model_entities is set but "
+                "include_technical_schema is False; no semanticModel/metric entities "
+                "will be emitted. Set include_technical_schema to True."
             )
         return self
 

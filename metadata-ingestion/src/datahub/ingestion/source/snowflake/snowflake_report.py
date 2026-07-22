@@ -64,10 +64,8 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
-    # semanticModel lineage (semantic_views.emit_semantic_model_entities) is emitted
-    # directly as upstreamLineage/metricUpstreams rather than through the dataset-mode
-    # view lineage path, so it gets its own counter instead of sharing
-    # num_table_to_view_edges_scanned.
+    # semanticModel lineage is emitted directly, not via the dataset-mode view
+    # lineage path, so it needs its own counter.
     num_semantic_model_lineage_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
@@ -128,10 +126,8 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_dynamic_tables_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
-    # Incremented when sqlglot fails to parse a semantic view metric's expression
-    # while resolving metric-to-metric derivedFrom references (best-effort: the
-    # metric entity is still emitted, just without derivedFrom edges for that
-    # expression). See SnowflakeSemanticModelMapper._derived_from_metrics.
+    # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
+    # best-effort, the metric is still emitted without those edges.
     num_semantic_view_metric_expr_parse_failures: int = 0
 
     marketplace_listings_scanned: int = 0

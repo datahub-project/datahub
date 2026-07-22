@@ -669,14 +669,10 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def ensure_semantic_model_info_size(
         self, entity_urn: str, semantic_model_info: SemanticModelInfoClass
     ) -> None:
-        # semanticModelInfo has two large components: nativeDefinition (the CREATE
-        # SEMANTIC VIEW DDL string) and the datasets array (structured logical
-        # dimensions/facts). Only nativeDefinition is safe to shrink; the datasets
-        # array carries the primary queryable metadata and is left intact. Like the
-        # view-properties path, nativeDefinition is the primary payload, so it is
-        # only trimmed when the whole aspect would otherwise exceed the payload
-        # limit. Serialized-byte budget + overhead-measured-once pattern; see
-        # ensure_query_properties_size for the rationale.
+        # semanticModelInfo's large parts are nativeDefinition (the DDL) and the
+        # datasets array. Only nativeDefinition is trimmed, and only when the whole
+        # aspect exceeds the payload limit; the datasets array carries the primary
+        # queryable metadata and is left intact. See ensure_query_properties_size.
         original_value = semantic_model_info.nativeDefinition
         if not original_value:
             return

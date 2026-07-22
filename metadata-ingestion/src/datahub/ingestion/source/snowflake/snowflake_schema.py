@@ -277,21 +277,16 @@ class SnowflakeSemanticView(BaseView):
     )
     # Pre-computed upstream dataset URNs for column lineage generation
     resolved_upstream_urns: List[str] = field(default_factory=list)
-    # Raw per-logical-table column occurrences (uppercase column name -> occurrences).
-    # Unlike the merged fields above, this preserves each occurrence's own
-    # expression/comment/synonyms/subtype, which the semanticModel mapper needs to
-    # group fields per logical dataset. Only populated when
-    # semantic_views.emit_semantic_model_entities is enabled - see
-    # SnowflakeDataDictionary._process_column_occurrences - since the legacy
-    # dataset-mode mapper never reads it and it would otherwise add per-column
-    # memory overhead for no benefit.
+    # Raw per-logical-table column occurrences (uppercase column name -> occurrences),
+    # preserving each occurrence's own expression/comment/synonyms/subtype for the
+    # semanticModel mapper. Only populated when emit_semantic_model_entities is enabled
+    # (see _process_column_occurrences); the legacy path never reads it.
     column_occurrences: Dict[str, List["SemanticViewColumnMetadata"]] = field(
         default_factory=dict
     )
     # Join relationships between logical tables, from INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS.
-    # Only populated when semantic_views.emit_semantic_model_entities is enabled - see
-    # SnowflakeDataDictionary._populate_semantic_view_relationships - since it is only
-    # consumed by the semanticModel mapper, not the legacy dataset-mode path.
+    # Only populated when emit_semantic_model_entities is enabled (see
+    # _populate_semantic_view_relationships); consumed only by the semanticModel mapper.
     relationships: List["SnowflakeSemanticViewRelationship"] = field(
         default_factory=list
     )
@@ -697,9 +692,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self.connection = connection
         self.report = report
         self._fetch_views_from_information_schema = fetch_views_from_information_schema
-        # Relationships are only consumed by the semanticModel mapper (new mode), so
-        # gate the extra INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS query behind this
-        # flag to keep the legacy dataset-mode path's cost unchanged.
+        # Gate the extra SEMANTIC_RELATIONSHIPS query behind the flag; only the
+        # new-mode mapper consumes relationships, so the legacy path's cost is unchanged.
         self._emit_semantic_model_entities = emit_semantic_model_entities
 
     def as_obj(self) -> Dict[str, Any]:

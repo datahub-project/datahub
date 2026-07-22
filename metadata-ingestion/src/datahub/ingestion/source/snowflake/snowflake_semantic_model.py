@@ -200,19 +200,14 @@ class SnowflakeSemanticModelMapper:
         return [
             SemanticModelRelationshipClass(
                 name=relationship.name,
-                # from_table/to_table are normalized to match the ModelDataset.name
-                # values built in _build_model_datasets (uppercased logical-table
-                # keys from logical_to_physical_table), so relationship references
-                # resolve to real datasets in the model.
+                # Uppercased to match the ModelDataset.name values in
+                # _build_model_datasets, so references resolve to real datasets.
                 from_=relationship.from_table.upper(),
                 fromColumns=relationship.from_columns,
                 to=relationship.to_table.upper(),
                 toColumns=relationship.to_columns,
-                # Snowflake semantic-view relationships are foreign-key joins:
-                # from_table(foreign_keys) REFERENCES to_table(ref_keys), which is
-                # many-to-one from the referencing side to the referenced side.
-                # Snowflake exposes no explicit cardinality column in
-                # INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS, so it is derived here.
+                # FK joins are many-to-one (referencing -> referenced); Snowflake
+                # exposes no cardinality column, so it is derived here.
                 cardinality=ERModelRelationshipCardinalityClass.N_ONE,
             )
             for relationship in semantic_view.relationships
@@ -225,10 +220,8 @@ class SnowflakeSemanticModelMapper:
     ) -> List[ModelDatasetClass]:
         datasets: List[ModelDatasetClass] = []
         self._warn_field_path_collisions(semantic_view)
-        # Metrics are never placed on a logical table (they become metric entities,
-        # not fields), so they must not count as "unplaced" below - seed them up
-        # front rather than relying on the per-logical-table loop below, which does
-        # not run at all when logical_to_physical_table is empty.
+        # Metrics become entities, not fields, so seed them as "placed" up front -
+        # the per-table loop below never runs when logical_to_physical_table is empty.
         placed_columns: Set[str] = set(metric_occurrences.keys())
 
         for (
@@ -243,10 +236,8 @@ class SnowflakeSemanticModelMapper:
             )
 
             fields: List[SemanticFieldClass] = []
-            # Guards against INFORMATION_SCHEMA returning a repeated row for the same
-            # column on this logical table, which would otherwise produce duplicate
-            # SemanticFields (the legacy dataset-mode path merges duplicates the same
-            # way).
+            # INFORMATION_SCHEMA can repeat a column row per logical table; dedupe to
+            # avoid duplicate SemanticFields (legacy dataset mode merges the same way).
             seen_columns_upper: Set[str] = set()
             for (
                 col_name_upper,
@@ -288,13 +279,10 @@ class SnowflakeSemanticModelMapper:
         return datasets
 
     def _warn_field_path_collisions(self, semantic_view: SnowflakeSemanticView) -> None:
-        # _build_semantic_field anchors fieldPath on the bare uppercased column
-        # name (see its docstring for why). If a non-metric column with the same
-        # name is defined on more than one logical table, the two ModelDatasets
-        # each get a SemanticField with that same fieldPath, and both collide on
-        # a single schemaField URN - ambiguous for lineage anchoring and
-        # structured-property tags. We don't change the URN scheme here (a
-        # separate design decision); just surface it so operators know.
+        # fieldPath is the bare uppercased column name, so a non-metric column on
+        # multiple logical tables collides on one schemaField URN - ambiguous for
+        # lineage anchoring and SP tags. The URN scheme is a separate design
+        # decision; just surface the collision to operators.
         join_key_columns = self._relationship_key_columns(semantic_view)
         for col_name_upper, occurrences in semantic_view.column_occurrences.items():
             # A same-name column on multiple logical tables is expected - and not a
@@ -347,15 +335,12 @@ class SnowflakeSemanticModelMapper:
 
         return SemanticFieldClass(
             schemaField=SchemaFieldClass(
-                # Intentionally uppercased. The column_occurrences key and the
-                # fine-grained-lineage downstream field anchor built in
-                # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
-                # both use `col_name_upper`, so the field path must match to keep the
-                # SemanticField and its lineage anchor in sync. The cost is that a
-                # quoted mixed-case Snowflake identifier ("myCol") renders as MYCOL in
-                # semanticModelInfo when convert_urns_to_lowercase=False. Do NOT
-                # "restore" the original case here - that would desync the field path
-                # from its lineage anchor and break column-level lineage resolution.
+                # Must stay uppercased to match the col_name_upper anchor used by
+                # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view;
+                # do NOT restore the original case, or the field path desyncs from its
+                # lineage anchor and column-level lineage breaks. (So a quoted
+                # mixed-case identifier renders uppercased when
+                # convert_urns_to_lowercase=False.)
                 fieldPath=self.identifiers.snowflake_identifier(
                     occurrence.name.upper()
                 ),
@@ -478,16 +463,12 @@ class SnowflakeSemanticModelMapper:
         schema_name: str,
         db_name: str,
     ) -> List[DerivedMetricInputClass]:
-        # In Snowflake semantic view expressions, a reference to another metric is a
-        # bare (unqualified) column name (e.g. REVENUE / ORDER_COUNT), while a
-        # reference to a fact/dimension column on a logical table is qualified
-        # (e.g. ORDERS.AMOUNT). Parsing with sqlglot instead of regex tokenization
-        # avoids matching identifiers inside string literals and correctly handles
-        # quoted identifiers; requiring no table qualifier avoids misreading a
-        # qualified fact reference that happens to share a metric's name. Names that
-        # are ambiguous - both a metric and a dimension/fact column of the same view -
-        # are shadowed and omitted: derivedFrom is isLineage:true, so a wrong edge is
-        # worse than a missing one.
+        # A metric reference is an unqualified name (REVENUE); a fact/dimension
+        # reference is qualified (ORDERS.AMOUNT). sqlglot (vs regex) skips string
+        # literals and handles quoting; requiring no qualifier avoids misreading a
+        # qualified fact that shares a metric's name. Ambiguous names (both a metric
+        # and a column of the same view) are omitted - derivedFrom is isLineage:true,
+        # so a wrong edge is worse than a missing one.
         if not occurrence.expression:
             return []
         try:
@@ -628,13 +609,10 @@ class SnowflakeSemanticModelMapper:
     def _gen_field_structured_property_workunits(
         self, semantic_view: SnowflakeSemanticView, model_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        # _column_tags only handles the normal (GlobalTags) tag mode, since it is
-        # embedded directly into the SchemaFieldClass built in _build_semantic_field.
-        # In extract_tags_as_structured_properties mode there is no aspect on
-        # SchemaFieldClass to carry structured properties, so DIMENSION/FACT field
-        # tags must be emitted as separate schemaField-level structured-properties
-        # MCPs here, mirroring gen_column_tags_as_structured_properties in
-        # snowflake_schema_gen.py for the legacy dataset-mode path.
+        # _column_tags covers only GlobalTags mode (embedded in the SchemaFieldClass).
+        # In structured-properties mode there is no field aspect to carry them, so
+        # DIMENSION/FACT field tags are emitted as separate schemaField-level SP MCPs
+        # here, mirroring gen_column_tags_as_structured_properties (legacy path).
         if not self.config.extract_tags_as_structured_properties:
             return
         for occurrences in semantic_view.column_occurrences.values():
@@ -710,14 +688,9 @@ class SnowflakeSemanticModelMapper:
             if not metric_occurrences:
                 continue
 
-            # A metric may be declared on multiple logical tables. Which row
-            # Snowflake returns "first" for a given name is an artifact of query
-            # result ordering and is not guaranteed stable across runs, so picking
-            # the first-encountered occurrence would make the metricInfo aspect
-            # flap on re-ingestion. Instead pick canonically and deterministically:
-            # the occurrence whose table_name sorts lexicographically smallest,
-            # tie-broken by expression, so the same input always yields the same
-            # selection regardless of row order.
+            # A metric can be declared on multiple logical tables; Snowflake's row
+            # order isn't stable, so pick deterministically (smallest table_name,
+            # then expression) to keep metricInfo from flapping across re-ingestions.
             canonical = min(
                 metric_occurrences,
                 key=lambda o: (o.table_name or "", o.expression or ""),
@@ -744,15 +717,10 @@ class SnowflakeSemanticModelMapper:
     ) -> (
         "tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]"
     ):
-        # Routing relies on _downstream_field_name looking at only the first
-        # downstream of each FineGrainedLineageClass. This is safe today because
-        # every FGL produced for semantic view column lineage
-        # (snowflake_schema_gen.py's _column_lineage_workunits/*) is built with
-        # exactly one downstream per (column, logical-table) pair - there is no
-        # producer in this codebase that emits a semantic-view FGL with multiple
-        # downstreams. If that ever changes, this method would silently key off
-        # only the first downstream; see _downstream_field_name for the runtime
-        # guard.
+        # Routing keys off only the first downstream of each FGL, which is safe
+        # because every semantic-view FGL is built with exactly one downstream per
+        # (column, logical-table). _downstream_field_name guards at runtime if that
+        # ever changes.
         model_lineages: List[FineGrainedLineageClass] = []
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:

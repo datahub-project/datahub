@@ -383,8 +383,8 @@ A flag, `semantic_views.emit_semantic_model_entities`, ingests each semantic vie
 
 This flag is tri-state and server-aware:
 
-- **Unset (default):** auto-resolved from the connected DataHub server. On DataHub Cloud running version `2.1.0` or later with the Metrics feature enabled (or the `metricsEnabled` flag absent), semanticModel/metric emission is auto-enabled. It is left off on older Cloud versions, when the Metrics feature is explicitly disabled, on OSS/self-hosted DataHub, and on runs without a DataHub connection (for example a file sink, where the server cannot be detected).
-- **`true`:** request semanticModel/metric emission. On DataHub Cloud this is still subject to the hard blocks above — if the server is below `2.1.0` or the Metrics kill-switch is off, the connector logs a warning and falls back to legacy dataset emission rather than failing. On OSS/self-hosted DataHub, `true` enables emission.
+- **Unset (default):** auto-resolved from the server. Auto-enabled on DataHub Cloud ≥ `2.1.0` with Metrics enabled (or `metricsEnabled` absent); off on older Cloud, when Metrics is disabled, on OSS/self-hosted, and with no DataHub connection (e.g. a file sink).
+- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0` or with Metrics off, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
 - **`false`:** always force legacy dataset behavior, overriding any server-side auto-enable.
 
 ##### Configuration
@@ -421,11 +421,11 @@ semantic_view_pattern:
 - Semantic views are ingested as **semanticModel** entities (with **metric** entities for `METRIC` columns) instead of Datasets — the URNs, subtype, and dataset-specific aspects (schema, dataset properties, view properties) described above no longer apply.
 - Table-level and column-level lineage are emitted directly on the semanticModel/metric entities instead of as dataset `upstreamLineage`.
 - Metric entities' `metricUpstreams` (field/dataset upstreams for each metric) are only populated when `semantic_views.column_lineage` is also enabled — there is no table-level fallback for metric upstreams, so with `column_lineage: false` metric entities are emitted without any upstream lineage.
-- `semantic_views.include_usage` has no effect in this mode: semanticModel entities do not carry usage statistics (per model-owner decision), so no usage statistics are emitted for semantic views when `emit_semantic_model_entities` is enabled. Usage statistics are only emitted in the default (legacy dataset) mode. `semantic_views.include_queries` is unaffected and continues to emit query entities, attributed to the semanticModel instead of a dataset.
+- `semantic_views.include_usage` has no effect in this mode — semanticModel entities carry no usage statistics; usage is emitted only in the default dataset mode. `semantic_views.include_queries` still emits query entities, attributed to the semanticModel.
 - Semantic views no longer have a container aspect, so they no longer appear inside their database/schema container pages. Find them via search, lineage, or the metrics experience instead.
 - **Known limitation:** a dataset or dashboard whose SQL selects `FROM SEMANTIC_VIEW(...)` cannot yet declare the semanticModel as an upstream, since dataset `upstreamLineage` only accepts dataset URNs. With `use_queries_v2` enabled, query-history parsing may still resolve that `FROM SEMANTIC_VIEW(...)` reference to the legacy (now soft-deleted) dataset URN for the semantic view, rather than the new semanticModel URN.
 - **Known limitation:** `emit_semantic_model_entities` has no effect when `include_technical_schema: false` — no semanticModel or metric entities are emitted in that case, since semantic view processing itself is skipped, so enabling the flag together with `include_technical_schema: false` is not useful.
-- **Server version requirement:** `emit_semantic_model_entities` emits `semanticModel`/`metric` entities, which requires a DataHub server (GMS) whose entity registry includes them. The connector detects this automatically: on DataHub Cloud it auto-enables only at version `2.1.0` or later (and when the server registry actually supports the entities), and warns and falls back to legacy datasets otherwise. On OSS/self-hosted DataHub the flag is recipe-driven, so use a server on the same release as this connector change before setting it to `true`.
+- **Server version requirement:** `semanticModel`/`metric` entities require a GMS whose registry includes them. On DataHub Cloud the connector auto-enables only at `2.1.0`+ (and when the registry supports them), warning and falling back otherwise. On OSS the flag is recipe-driven, so run a server on the same release as this connector before setting `true`.
 
 ##### Requirements
 
