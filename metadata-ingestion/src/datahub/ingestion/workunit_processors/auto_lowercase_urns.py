@@ -25,29 +25,34 @@ class AutoLowercaseUrnsProcessor(WorkunitProcessor[AutoLowercaseUrnsProcessorRep
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
-        # Gate on the value explicitly set in the recipe rather than the parsed
-        # config's effective (default-applied) value. Enabling this from a
-        # connector default (e.g. Snowflake defaults convert_urns_to_lowercase
-        # to True) lowercases the platform_instance segment of dataset URNs,
-        # which changes asset identity on upgrade and orphans previously
-        # attached metadata (assertions, incidents, manual edits) for recipes
-        # that never explicitly opted in. Restores the pre-#17852 behavior.
+        # convert_urns_to_lowercase affects dataset identity, so any change in
+        # how the flag is evaluated changes URNs and breaks previously-emitted
+        # entities. We deliberately restore the previous (buggy) behavior — gate
+        # on the value explicitly present in the recipe rather than the parsed
+        # config's default-applied value — to avoid that. The correct,
+        # default-honoring check (to restore once it can be done identity-safely)
+        # would be:
+        #     return bool(getattr(ctx.source_config, "convert_urns_to_lowercase", False))
         pipeline_config = getattr(ctx.pipeline_context, "pipeline_config", None)
-        if not (
-            pipeline_config and pipeline_config.source and pipeline_config.source.config
-        ):
-            return False
-        raw_config = pipeline_config.source.config
-        return bool(
-            (
-                hasattr(raw_config, "convert_urns_to_lowercase")
-                and raw_config.convert_urns_to_lowercase
-            )
-            or (
-                hasattr(raw_config, "get")
-                and raw_config.get("convert_urns_to_lowercase")
-            )
+        raw_config = getattr(getattr(pipeline_config, "source", None), "config", None)
+        # Only what the recipe explicitly set; None means the key is absent.
+        recipe_value = (
+            raw_config.get("convert_urns_to_lowercase")
+            if isinstance(raw_config, dict)
+            else getattr(raw_config, "convert_urns_to_lowercase", None)
         )
+
+        if recipe_value is None and getattr(
+            ctx.source_config, "convert_urns_to_lowercase", False
+        ):
+            ctx.source_report.warning(
+                title="URN lowercasing not applied",
+                message="convert_urns_to_lowercase defaults to true for this source "
+                "but is not set in the recipe; leaving it disabled to preserve "
+                "existing dataset URNs. Set it explicitly in the recipe to enable.",
+            )
+
+        return bool(recipe_value)
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         """Lowercase all dataset urns"""
