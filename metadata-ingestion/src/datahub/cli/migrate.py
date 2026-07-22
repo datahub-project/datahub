@@ -35,6 +35,7 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -170,8 +171,8 @@ def _warn_dataflow_datajob_coupling(
 def _migrate_single_entity(
     src_entity_urn: str,
     make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
+    platform: Optional[str],
+    target_instance: Optional[str],
     dry_run: bool,
     hard: bool,
     keep: bool,
@@ -180,11 +181,18 @@ def _migrate_single_entity(
     on_conflict: Optional[ConflictStrategy],
     system_metadata: SystemMetadataClass,
     migration_report: MigrationReport,
+    url_map: Optional[Dict[str, str]] = None,
 ) -> None:
     """Migrate a single entity URN to a new URN."""
     new_urn = make_new_urn(src_entity_urn)
     log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
+    # Self-only rewriter for the incoming-reference pass (external referrers).
     rewrite_urn = migration_utils.make_self_urn_rewriter(src_entity_urn, new_urn)
+    # Batch rewriter for the clone path: also rewrites references to *sibling*
+    # entities migrated in the same run (e.g. a co-migrated upstream), which the
+    # eventually-consistent relationship index would miss for this batch.
+    batch_map = url_map or {src_entity_urn: new_urn}
+    clone_rewrite_urn = migration_utils.make_batch_urn_rewriter(batch_map)
 
     # Check if target already exists (for merge mode)
     target_exists = False
@@ -197,7 +205,7 @@ def _migrate_single_entity(
     if target_exists and on_conflict is not None:
         log.info(f"Target {new_urn} exists — merging aspects")
         merged, skipped = merge_entity(
-            src_entity_urn, new_urn, on_conflict, graph, dry_run
+            src_entity_urn, new_urn, on_conflict, graph, dry_run, url_map=batch_map
         )
         migration_report.aspects_merged += merged
         migration_report.conflicts_skipped += skipped
@@ -213,28 +221,33 @@ def _migrate_single_entity(
             dst_urn=new_urn,
             run_id=run_id,
         ):
-            # Rewrite the entity's own self-references inside the aspect body
-            # (e.g. fineGrainedLineages schemaField URNs), driven by the
-            # aspect's relationship/Urn field markers.
+            # Rewrite references inside the aspect body (e.g. fineGrainedLineages
+            # schemaField URNs and upstreamLineage pointers), driven by the
+            # aspect's relationship/Urn field markers. Uses the batch rewriter so
+            # references to co-migrated siblings are also moved to their new URNs.
             if mcp.aspect is not None:
-                transform_urns(mcp.aspect, rewrite_urn)
+                transform_urns(mcp.aspect, clone_rewrite_urn)
             if not dry_run:
                 graph.emit_mcp(mcp)
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
 
-    # Always emit dataPlatformInstance
-    if not dry_run:
-        graph.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityUrn=new_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(platform),
-                    instance=make_dataplatform_instance_urn(platform, target_instance),
-                ),
-                systemMetadata=system_metadata,
+    # Emit dataPlatformInstance for instance migrations. A generic transform
+    # (e.g. lowercase) leaves platform/target_instance unset and skips this.
+    if platform is not None and target_instance is not None:
+        if not dry_run:
+            graph.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=new_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=make_data_platform_urn(platform),
+                        instance=make_dataplatform_instance_urn(
+                            platform, target_instance
+                        ),
+                    ),
+                    systemMetadata=system_metadata,
+                )
             )
-        )
-    migration_report.on_entity_create(new_urn, "dataPlatformInstance")
+        migration_report.on_entity_create(new_urn, "dataPlatformInstance")
 
     # Update incoming relationships. The relationship index tells us which
     # entities reference the migrated URN; we then rewrite that reference
@@ -261,8 +274,8 @@ def _migrate_single_entity(
 def _migrate_entities(
     urns_to_migrate: List[str],
     make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
+    platform: Optional[str],
+    target_instance: Optional[str],
     dry_run: bool,
     force: bool,
     hard: bool,
@@ -275,6 +288,10 @@ def _migrate_entities(
     """Migrate a list of entity URNs to new URNs, updating relationships."""
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
+
+    # Full old->new map for the whole batch, so each entity's clone rewrites
+    # references to co-migrated siblings (not just its own self-references).
+    url_map = {urn: make_new_urn(urn) for urn in urns_to_migrate}
 
     if not force and not dry_run:
         sampled_urns = random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))
@@ -300,6 +317,7 @@ def _migrate_entities(
                 on_conflict=on_conflict,
                 system_metadata=system_metadata,
                 migration_report=migration_report,
+                url_map=url_map,
             )
         except Exception as e:
             if skip_on_error:
@@ -314,6 +332,65 @@ def _migrate_entities(
                 raise
 
     return migration_report
+
+
+def run_transform(
+    graph: DataHubGraph,
+    converter: "migration_utils.UrnConverter",
+    platform: str,
+    *,
+    platform_instance: Optional[str] = None,
+    env: str = DEFAULT_ENV,
+    entity_types: Optional[List[str]] = None,
+    dry_run: bool = False,
+    force: bool = True,
+    hard: bool = False,
+    keep: bool = False,
+    on_conflict: Optional[ConflictStrategy] = None,
+    skip_on_error: bool = False,
+    run_id: Optional[str] = None,
+) -> MigrationReport:
+    """Migrate a platform's entities under a URN converter (e.g. LowercaseConverter).
+
+    Discovers non-soft-deleted entities for ``platform`` (optionally narrowed to
+    ``platform_instance``) from the graph — all such entities, not just those in
+    a pipeline's checkpoint state — filters by ``converter.should_convert``, and
+    migrates each under ``converter.convert_urn`` using the same aspect/URN-
+    rewriting core as instance2instance (no dataPlatformInstance emit). Reusable
+    from the ``migrate transform`` command and from connector migrations (see
+    get_migrations). ``force`` defaults to True for non-interactive use.
+
+    Entity types to discover come from ``converter.entity_types`` (so the engine
+    is not hardcoded to datasets); pass ``entity_types`` to override. ``env`` is
+    an origin filter and only applies to entity types that carry an origin
+    (datasets).
+    """
+    run_id = run_id or f"migrate-transform-{converter.name}-{uuid.uuid4()}"
+    discover_types = entity_types or converter.entity_types
+    all_urns = graph.get_urns_by_filter(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        entity_types=discover_types,
+        status=RemovedStatusFilter.NOT_SOFT_DELETED,
+    )
+    urns = [urn for urn in all_urns if converter.should_convert(urn)]
+    if not urns:
+        return MigrationReport(run_id, dry_run, keep)
+    return _migrate_entities(
+        urns_to_migrate=urns,
+        make_new_urn=converter.convert_urn,
+        platform=None,
+        target_instance=None,
+        dry_run=dry_run,
+        force=force,
+        hard=hard,
+        keep=keep,
+        run_id=run_id,
+        graph=graph,
+        on_conflict=on_conflict,
+        skip_on_error=skip_on_error,
+    )
 
 
 def _migrate_containers(
@@ -726,3 +803,85 @@ def instance2instance(
         keep=keep,
         rest_emitter=graph,
     )
+
+
+@migrate.command()
+@click.option("--platform", type=str, required=True)
+@click.option(
+    "--platform-instance",
+    type=str,
+    default=None,
+    help="Only migrate datasets on this platform instance (default: all instances).",
+)
+@click.option(
+    "--converter",
+    type=click.Choice(list(migration_utils.CONVERTERS.keys())),
+    required=True,
+    help="URN transform to apply.",
+)
+@click.option("--env", type=str, default=DEFAULT_ENV)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option("-F", "--force", type=bool, is_flag=True, default=False)
+@click.option(
+    "--hard",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Hard-delete previous entities instead of soft-delete.",
+)
+@click.option(
+    "--keep",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Do not delete previous entities.",
+)
+@click.option(
+    "--on-conflict",
+    type=click.Choice(["overwrite", "patch", "prompt"]),
+    default="patch",
+    help="How to handle existing target entities.",
+)
+@click.option(
+    "--skip-on-error",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip entities that cause errors instead of aborting.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def transform(
+    platform: str,
+    platform_instance: Optional[str],
+    converter: str,
+    env: str,
+    dry_run: bool,
+    force: bool,
+    hard: bool,
+    keep: bool,
+    on_conflict: str,
+    skip_on_error: bool,
+) -> None:
+    """Migrate datasets under a URN transform (e.g. lowercase).
+
+    Applies the same aspect-cloning and URN-rewriting as instance2instance, but
+    the new URN is produced by the chosen converter rather than an instance
+    change. Unlike instance2instance, no dataPlatformInstance aspect is emitted.
+    """
+    conv = migration_utils.CONVERTERS[converter]()
+    graph = get_default_graph(ClientMode.CLI)
+    report = run_transform(
+        graph,
+        conv,
+        platform,
+        platform_instance=platform_instance,
+        env=env,
+        dry_run=dry_run,
+        force=force,
+        hard=hard,
+        keep=keep,
+        on_conflict=ConflictStrategy(on_conflict),
+        skip_on_error=skip_on_error,
+    )
+    click.echo(f"{report}")

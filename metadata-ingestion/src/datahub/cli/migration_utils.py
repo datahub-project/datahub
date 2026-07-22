@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Union
 
 import click
 from avrogen.dict_wrapper import DictWrapper
@@ -37,7 +37,11 @@ from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
-from datahub.utilities.urns.urn_iter import list_urns, transform_urns
+from datahub.utilities.urns.urn_iter import (
+    list_urns,
+    lowercase_dataset_urn,
+    transform_urns,
+)
 
 log = logging.getLogger(__name__)
 
@@ -131,27 +135,87 @@ def get_migratable_aspect_names(entity_type: str) -> List[str]:
     ]
 
 
-def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
-    """Rewrite references to a single migrated entity URN.
+def make_batch_urn_rewriter(url_map: Dict[str, str]) -> Callable[[str], str]:
+    """Rewrite references to any entity migrated in the same batch.
 
     Intended for use with ``urn_iter.transform_urns``, which walks an aspect
     using its ``@Relationship``/Urn field markers and applies this function to
-    every URN it finds. Rewrites both the entity URN itself and ``schemaField``
-    URNs that embed it (column-level lineage), so FineGrainedLineage is covered
-    without any per-aspect special-casing. References to *other* entities are
-    left untouched.
+    every URN it finds. Rewrites both entity URNs present in ``url_map`` and
+    ``schemaField`` URNs that embed them (column-level lineage), so
+    FineGrainedLineage is covered without any per-aspect special-casing.
+
+    Unlike a self-only rewriter, this rewrites cross-references *between*
+    co-migrated entities (e.g. a downstream's ``upstreamLineage`` pointer to a
+    sibling being migrated in the same run) deterministically at clone time —
+    independent of the eventually-consistent relationship index, which is stale
+    for siblings created earlier in the same batch. References to entities
+    outside the batch are left untouched.
     """
 
     def rewrite(urn: str) -> str:
-        if urn == old_urn:
-            return new_urn
+        mapped = url_map.get(urn)
+        if mapped is not None:
+            return mapped
         # schemaField URNs are 'urn:li:schemaField:(<datasetUrn>,<field>)'.
-        # Rewrite only when the embedded dataset is the one being migrated.
-        if urn.startswith(f"{_SCHEMA_FIELD_PREFIX}({old_urn},"):
-            return urn.replace(old_urn, new_urn, 1)
+        # Rewrite when the embedded dataset is any entity being migrated.
+        if urn.startswith(f"{_SCHEMA_FIELD_PREFIX}("):
+            for old_urn, new_urn in url_map.items():
+                if urn.startswith(f"{_SCHEMA_FIELD_PREFIX}({old_urn},"):
+                    return urn.replace(old_urn, new_urn, 1)
         return urn
 
     return rewrite
+
+
+def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
+    """Rewrite references to a single migrated entity URN.
+
+    A one-entry :func:`make_batch_urn_rewriter`; kept for the incoming-reference
+    path, where an external referrer is rewritten against just the one URN being
+    migrated.
+    """
+    return make_batch_urn_rewriter({old_urn: new_urn})
+
+
+# --- URN converters (pluggable transforms for `migrate transform`) ---
+
+
+class UrnConverter(Protocol):
+    """A pluggable URN transform driving a generic (non-instance) migration."""
+
+    name: str
+    # Entity types this converter can rewrite; drives run_transform discovery so
+    # the engine isn't hardcoded to datasets. A converter that only knows how to
+    # rewrite dataset URNs declares ["dataset"]; one that handles charts too adds
+    # "chart", etc.
+    entity_types: List[str]
+
+    def should_convert(self, urn: str) -> bool:
+        """Whether this URN needs converting (skip no-ops)."""
+        ...
+
+    def convert_urn(self, urn: str) -> str:
+        """Return the new URN for a source URN."""
+        ...
+
+
+class LowercaseConverter:
+    """Lowercase the name segment of dataset URNs (e.g. mixed-case -> lowercase)."""
+
+    name = "lowercase"
+    # lowercase_dataset_urn only understands dataset URNs.
+    entity_types = ["dataset"]
+
+    def should_convert(self, urn: str) -> bool:
+        return urn != lowercase_dataset_urn(urn)
+
+    def convert_urn(self, urn: str) -> str:
+        return lowercase_dataset_urn(urn)
+
+
+CONVERTERS: Dict[str, Callable[[], UrnConverter]] = {
+    LowercaseConverter.name: LowercaseConverter,
+}
 
 
 def rewrite_incoming_references(
@@ -492,11 +556,15 @@ def merge_entity(
     on_conflict: ConflictStrategy,
     graph: DataHubGraph,
     dry_run: bool,
+    url_map: Optional[Dict[str, str]] = None,
 ) -> tuple[int, int]:
     """Merge all aspects from source entity into existing target.
 
     Only dataset entities support full merge via the Patch API. For other entity
     types (chart, dashboard, dataFlow, dataJob), this falls back to overwrite.
+
+    ``url_map`` is the full old->new map for the batch; when given, merged aspects
+    also rewrite references to co-migrated siblings (not just self-references).
 
     Returns (aspects_merged, conflicts_skipped).
     """
@@ -518,10 +586,11 @@ def merge_entity(
         typed=True,
     )
 
-    # Rewrite the source's self-references (e.g. fineGrainedLineages schemaField
-    # URNs) to the target URN before merging, so merged aspects don't carry the
-    # old URN — mirroring the clone path.
-    rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
+    # Rewrite the source's references (e.g. fineGrainedLineages schemaField URNs
+    # and upstreamLineage pointers) before merging, so merged aspects don't carry
+    # old URNs — mirroring the clone path. The batch map also moves references to
+    # co-migrated siblings.
+    rewrite_urn = make_batch_urn_rewriter(url_map or {src_urn: dst_urn})
     for aspect in src_aspect_map.values():
         if isinstance(aspect, DictWrapper):
             transform_urns(aspect, rewrite_urn)
