@@ -1,0 +1,32 @@
+namespace com.linkedin.dataproduct
+
+import com.linkedin.common.Urn
+
+/**
+ * Links from an Asset to the Data Products it belongs to.
+ *
+ * This aspect is a denormalized, search-only mirror of the authoritative membership stored on the
+ * Data Product side (dataProductProperties.assets). It is maintained by DataProductAssetsSideEffect
+ * so that assets can be filtered and faceted by Data Product in normal search, the same way domains
+ * and applications work. Unlike those aspects there is intentionally no @Relationship here: the
+ * authoritative graph edge (DataProductContains) already exists from the Data Product side, and a
+ * second reverse edge would double-count.
+ */
+@Aspect = {
+  "name": "dataProducts"
+}
+record DataProducts {
+  /**
+   * The Data Products this asset belongs to.
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "dataProduct",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDataProduct",
+      "addToFilters": true,
+      "filterNameOverride": "Data Product"
+    }
+  }
+  dataProducts: array[Urn]
+}

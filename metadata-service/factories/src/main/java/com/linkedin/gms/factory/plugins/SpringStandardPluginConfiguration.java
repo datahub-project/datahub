@@ -39,6 +39,7 @@ import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
@@ -204,6 +205,32 @@ public class SpringStandardPluginConfiguration {
         DataProductUnsetSideEffect.class.getName(),
         !multipleDataProductsEnabled);
     return new DataProductUnsetSideEffect().setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect dataProductAssetsSideEffect() {
+    // Mirrors Data Product membership onto each member asset's dataProducts aspect so assets are
+    // filterable/facetable by Data Product in search. Enabled regardless of the
+    // multipleDataProductsPerAsset flag.
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductAssetsSideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", DataProductAssetsSideEffect.class.getName());
+    return new DataProductAssetsSideEffect().setConfig(config);
   }
 
   // Returns null when MeterRegistry/ObjectMapper unavailable
