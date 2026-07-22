@@ -51,6 +51,7 @@ import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidat
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -648,8 +649,12 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator propertyDefinitionValidator() {
+  public AspectPayloadValidator propertyDefinitionValidator(
+      @Nullable StructuredPropertyMappingLookup structuredPropertyMappingLookup) {
+    // Nullable: SqlSetup and other slim contexts load plugins without search factories.
+    // PropertyDefinitionValidator already skips ES mapping checks when the lookup is absent.
     return new PropertyDefinitionValidator()
+        .setStructuredPropertyMappingLookup(structuredPropertyMappingLookup)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PropertyDefinitionValidator.class.getName())
@@ -677,6 +682,10 @@ public class SpringStandardPluginConfiguration {
         .setDropMissingPropertyValuesWithWarning(
             structuredPropertiesConfiguration != null
                 && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setKeywordMaxLength(
+            structuredPropertiesConfiguration != null
+                ? structuredPropertiesConfiguration.getKeywordMaxLength()
+                : 0)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())

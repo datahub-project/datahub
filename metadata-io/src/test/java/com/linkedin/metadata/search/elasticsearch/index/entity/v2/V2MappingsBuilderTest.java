@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -453,9 +452,9 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            KEYWORD_MAXLENGTH,
+            ESUtils.KEYWORD_IGNORE_ABOVE,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
+            Map.of("keyword", Map.of("type", "keyword"))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
@@ -609,9 +608,9 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            KEYWORD_MAXLENGTH,
+            ESUtils.KEYWORD_IGNORE_ABOVE,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
+            Map.of("keyword", Map.of("type", "keyword"))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
@@ -634,6 +633,66 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testPropNumber.00000000000001.number");
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertySameTypeCollisionKeepsLowestUrn()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    // urnDot < urnUnderscore lexicographically
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot)));
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyDifferentTypeCollisionOmitsField()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defString =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defNumber =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
+
+    assertFalse(mappings.containsKey("certification_status"));
   }
 
   @Test

@@ -28,6 +28,7 @@ import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidat
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import java.util.List;
 import org.mockito.Answers;
 import org.mockito.Mockito;
@@ -55,6 +56,8 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   private ConfigurationProvider configurationProvider;
 
+  @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
   @BeforeClass
   private void setup() {
     Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
@@ -62,6 +65,7 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         .thenReturn(
             StructuredPropertiesConfiguration.builder()
                 .dropMissingPropertyValuesWithWarning(true)
+                .keywordMaxLength(32766)
                 .build());
   }
 
