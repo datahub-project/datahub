@@ -136,6 +136,50 @@ public class DatasetStatsSummaryResolverTest {
   }
 
   @Test
+  public void testBatchLoadDisabledUsesPerUrnPath() throws Exception {
+    // With the flag explicitly off, the resolver must take the per-URN path (call the usage client
+    // directly) and must never touch the batch DataLoader registry. This guards the safety-valve:
+    // disabling DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED reverts to the legacy behavior.
+    UsageQueryResult testResult = new UsageQueryResult();
+    testResult.setAggregations(
+        new UsageQueryResultAggregations().setUniqueUserCount(3).setTotalSqlQueries(7));
+
+    final UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
+    Mockito.when(
+            mockClient.getUsageStats(
+                any(OperationContext.class),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
+        .thenReturn(testResult);
+
+    final FeatureFlags flags = new FeatureFlags();
+    flags.setDatasetStatsSummaryBatchLoadEnabled(false);
+    final DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient, flags);
+
+    final QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    final DatasetStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getQueryCountLast30Days(), 7);
+    Assert.assertEquals((int) result.getUniqueUserCountLast30Days(), 3);
+    Mockito.verify(mockClient)
+        .getUsageStats(
+            any(OperationContext.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(UsageTimeRange.MONTH),
+            Mockito.eq(null),
+            Mockito.eq(null));
+    // The batch DataLoader registry must never be consulted when the flag is off.
+    Mockito.verify(mockEnv, Mockito.never()).getDataLoaderRegistry();
+  }
+
+  @Test
   public void testGetException() throws Exception {
     // Init test UsageQueryResult
     UsageQueryResult testResult = new UsageQueryResult();
