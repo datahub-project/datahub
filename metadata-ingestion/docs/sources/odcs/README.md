@@ -21,6 +21,8 @@ relationship). Propagation of the contract's expectations onto physical instance
 handled by DataHub through that relationship — the source itself never writes assertions
 against physical datasets.
 
+These ODCS datasets live on a data platform explicitly marked as logical.
+
 :::info Logical Models are in private beta
 
 Logical Models render in the DataHub UI only when the `LOGICAL_MODELS_ENABLED` feature flag
