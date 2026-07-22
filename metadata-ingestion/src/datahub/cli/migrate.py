@@ -35,6 +35,7 @@ from datahub.ingestion.graph.client import (
     DataHubGraph,
     get_default_graph,
 )
+from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -170,8 +171,8 @@ def _warn_dataflow_datajob_coupling(
 def _migrate_single_entity(
     src_entity_urn: str,
     make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
+    platform: Optional[str],
+    target_instance: Optional[str],
     dry_run: bool,
     hard: bool,
     keep: bool,
@@ -222,19 +223,23 @@ def _migrate_single_entity(
                 graph.emit_mcp(mcp)
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
 
-    # Always emit dataPlatformInstance
-    if not dry_run:
-        graph.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityUrn=new_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(platform),
-                    instance=make_dataplatform_instance_urn(platform, target_instance),
-                ),
-                systemMetadata=system_metadata,
+    # Emit dataPlatformInstance for instance migrations. A generic transform
+    # (e.g. lowercase) leaves platform/target_instance unset and skips this.
+    if platform is not None and target_instance is not None:
+        if not dry_run:
+            graph.emit_mcp(
+                MetadataChangeProposalWrapper(
+                    entityUrn=new_urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=make_data_platform_urn(platform),
+                        instance=make_dataplatform_instance_urn(
+                            platform, target_instance
+                        ),
+                    ),
+                    systemMetadata=system_metadata,
+                )
             )
-        )
-    migration_report.on_entity_create(new_urn, "dataPlatformInstance")
+        migration_report.on_entity_create(new_urn, "dataPlatformInstance")
 
     # Update incoming relationships. The relationship index tells us which
     # entities reference the migrated URN; we then rewrite that reference
@@ -261,8 +266,8 @@ def _migrate_single_entity(
 def _migrate_entities(
     urns_to_migrate: List[str],
     make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
+    platform: Optional[str],
+    target_instance: Optional[str],
     dry_run: bool,
     force: bool,
     hard: bool,
@@ -726,3 +731,96 @@ def instance2instance(
         keep=keep,
         rest_emitter=graph,
     )
+
+
+@migrate.command()
+@click.option("--platform", type=str, required=True)
+@click.option(
+    "--converter",
+    type=click.Choice(list(migration_utils.CONVERTERS.keys())),
+    required=True,
+    help="URN transform to apply.",
+)
+@click.option("--env", type=str, default=DEFAULT_ENV)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option("-F", "--force", type=bool, is_flag=True, default=False)
+@click.option(
+    "--hard",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Hard-delete previous entities instead of soft-delete.",
+)
+@click.option(
+    "--keep",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Do not delete previous entities.",
+)
+@click.option(
+    "--on-conflict",
+    type=click.Choice(["overwrite", "patch", "prompt"]),
+    default="patch",
+    help="How to handle existing target entities.",
+)
+@click.option(
+    "--skip-on-error",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip entities that cause errors instead of aborting.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def transform(
+    platform: str,
+    converter: str,
+    env: str,
+    dry_run: bool,
+    force: bool,
+    hard: bool,
+    keep: bool,
+    on_conflict: str,
+    skip_on_error: bool,
+) -> None:
+    """Migrate datasets under a URN transform (e.g. lowercase).
+
+    Applies the same aspect-cloning and URN-rewriting as instance2instance, but
+    the new URN is produced by the chosen converter rather than an instance
+    change. Unlike instance2instance, no dataPlatformInstance aspect is emitted.
+    """
+    conv = migration_utils.CONVERTERS[converter]()
+    conflict = ConflictStrategy(on_conflict)
+    run_id = f"migrate-transform-{conv.name}-{uuid.uuid4()}"
+    graph = get_default_graph(ClientMode.CLI)
+
+    all_urns = graph.get_urns_by_filter(
+        platform=platform,
+        env=env,
+        entity_types=["dataset"],
+        status=RemovedStatusFilter.NOT_SOFT_DELETED,
+    )
+    urns = [urn for urn in all_urns if conv.should_convert(urn)]
+    if not urns:
+        click.echo(
+            f"No datasets need '{conv.name}' conversion for platform {platform}."
+        )
+        return
+
+    click.echo(f"Found {len(urns)} datasets to {conv.name}.")
+    report = _migrate_entities(
+        urns_to_migrate=urns,
+        make_new_urn=conv.convert_urn,
+        platform=None,
+        target_instance=None,
+        dry_run=dry_run,
+        force=force,
+        hard=hard,
+        keep=keep,
+        run_id=run_id,
+        graph=graph,
+        on_conflict=conflict,
+        skip_on_error=skip_on_error,
+    )
+    click.echo(f"{report}")

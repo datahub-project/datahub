@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Union
 
 import click
 from avrogen.dict_wrapper import DictWrapper
@@ -37,7 +37,11 @@ from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
-from datahub.utilities.urns.urn_iter import list_urns, transform_urns
+from datahub.utilities.urns.urn_iter import (
+    list_urns,
+    lowercase_dataset_urn,
+    transform_urns,
+)
 
 log = logging.getLogger(__name__)
 
@@ -152,6 +156,40 @@ def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
         return urn
 
     return rewrite
+
+
+# --- URN converters (pluggable transforms for `migrate transform`) ---
+
+
+class UrnConverter(Protocol):
+    """A pluggable URN transform driving a generic (non-instance) migration."""
+
+    name: str
+
+    def should_convert(self, urn: str) -> bool:
+        """Whether this URN needs converting (skip no-ops)."""
+        ...
+
+    def convert_urn(self, urn: str) -> str:
+        """Return the new URN for a source URN."""
+        ...
+
+
+class LowercaseConverter:
+    """Lowercase the name segment of dataset URNs (e.g. mixed-case -> lowercase)."""
+
+    name = "lowercase"
+
+    def should_convert(self, urn: str) -> bool:
+        return urn != lowercase_dataset_urn(urn)
+
+    def convert_urn(self, urn: str) -> str:
+        return lowercase_dataset_urn(urn)
+
+
+CONVERTERS: Dict[str, Callable[[], UrnConverter]] = {
+    LowercaseConverter.name: LowercaseConverter,
+}
 
 
 def rewrite_incoming_references(
