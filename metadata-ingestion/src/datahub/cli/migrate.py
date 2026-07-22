@@ -893,6 +893,13 @@ def snowflake_semantic_views(
             )
 
     if not urns_to_process:
+        if subtype_skipped:
+            click.echo(
+                f"No entities found to migrate: all {len(subtype_skipped)} provided "
+                f"urn(s) lack the '{SEMANTIC_VIEW_SUBTYPE}' subtype. Pass --force to "
+                "bypass this check."
+            )
+            return
         if used_discovery and not include_soft_deleted:
             if migration_direction == MigrationDirection.DATASET_TO_SM:
                 soft_only = discover_semantic_view_dataset_urns(
