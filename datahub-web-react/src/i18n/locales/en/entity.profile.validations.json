@@ -539,8 +539,6 @@
     "severity.low": "Low severity",
     "severity.medium": "Medium severity",
     "sourceType.external": "External",
-    "sourceType.native": "Native",
-    "sourceType.smartAssertions": "Smart Assertions",
     "status.error": "Error",
     "status.errors": "Errors",
     "status.failing": "Failing",
