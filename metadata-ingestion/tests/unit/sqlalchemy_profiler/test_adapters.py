@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import sqlalchemy as sa
+from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import SQLAlchemyError
@@ -1241,8 +1242,6 @@ class TestBigQueryAdapter:
         self, adapter, mock_bigquery_engine
     ):
         """The pooled raw connection is closed even when the query fails."""
-        from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
-
         mock_cursor = Mock()
         mock_cursor.execute.side_effect = bq_exceptions.DatabaseError("boom")
         mock_raw_conn = Mock()
