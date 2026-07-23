@@ -6,11 +6,12 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -62,9 +63,9 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
 
     mcpItems.forEach(
         item -> {
-          if (item instanceof PatchMCP) {
+          if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
             validatePatchItem(
-                (PatchMCP) item, operationContext, retrieverContext, fieldPathCache, exceptions);
+                (MCPItem) item, operationContext, retrieverContext, fieldPathCache, exceptions);
             return;
           }
           validateLogicalParent(
@@ -86,7 +87,7 @@ public class LogicalParentFieldPathValidator extends AspectPayloadValidator {
    * validation at merge time.
    */
   private void validatePatchItem(
-      @Nonnull final PatchMCP item,
+      @Nonnull final MCPItem item,
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
       @Nonnull final Map<Urn, Set<String>> fieldPathCache,

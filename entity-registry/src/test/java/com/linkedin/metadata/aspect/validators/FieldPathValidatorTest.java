@@ -228,6 +228,29 @@ public class FieldPathValidatorTest {
         1);
   }
 
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the serialized patch must be read from the MCP payload
+   * itself.
+   */
+  @Test
+  public void testValidatePatchViaProposedItemShape() {
+    String serialized =
+        "{\"arrayPrimaryKeys\":{\"editableSchemaFieldInfo\":[\"fieldPath\"]},\"patch\":"
+            + "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a\","
+            + "\"value\":{\"fieldPath\":\"\"}}]}";
+    assertEquals(
+        test.validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
+  }
+
   /** Sub-field ops (e.g. a tag under an existing field) and removes carry no field path. */
   @Test
   public void testValidatePatchSubFieldAndRemoveOpsIgnored() {

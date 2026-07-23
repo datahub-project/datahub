@@ -6,12 +6,13 @@ import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -72,8 +73,8 @@ public class FormPromptValidator extends AspectPayloadValidator {
       @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     for (BatchItem mcpItem : mcpItems) {
-      if (mcpItem instanceof PatchMCP) {
-        validatePatchItem((PatchMCP) mcpItem, retrieverContext, exceptions);
+      if (ChangeType.PATCH.equals(mcpItem.getChangeType()) && mcpItem instanceof MCPItem) {
+        validatePatchItem((MCPItem) mcpItem, retrieverContext, exceptions);
         continue;
       }
       FormInfo formInfo = mcpItem.getAspect(FormInfo.class);
@@ -92,7 +93,7 @@ public class FormPromptValidator extends AspectPayloadValidator {
    * change a prompt's id and unparseable values are left to schema validation at merge time.
    */
   private static void validatePatchItem(
-      PatchMCP item, RetrieverContext retrieverContext, ValidationExceptionCollection exceptions) {
+      MCPItem item, RetrieverContext retrieverContext, ValidationExceptionCollection exceptions) {
     List<String> addedPromptIds = new ArrayList<>();
 
     PatchOperationUtils.addAndReplaceValues(item)

@@ -240,6 +240,39 @@ public class FormPromptValidatorTest {
     Assert.assertFalse(validationResult.findAny().isEmpty());
   }
 
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the serialized patch must be read from the MCP payload
+   * itself.
+   */
+  @Test
+  public void testPatchAddedPromptCrossFormConflictViaProposedItemShape() {
+    SearchEntity existingForm = new SearchEntity();
+    existingForm.setEntity(TEST_FORM_URN_2);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(Collections.singletonList(existingForm)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10),
+                Mockito.eq(new ArrayList<>()),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(mockResult);
+
+    String serialized =
+        "{\"arrayPrimaryKeys\":{\"prompts\":[\"id\"]},\"patch\":"
+            + "[{\"op\":\"add\",\"path\":\"/prompts/dup1\",\"value\":{\"id\":\"dup1\"}}]}";
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            Collections.singletonList(
+                TestPatchMCP.ofProposed(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, serialized)),
+            retrieverContext);
+
+    Assert.assertFalse(validationResult.findAny().isEmpty());
+  }
+
   /** Removes and sub-field ops carry no prompt id — no value check and no search. */
   @Test
   public void testPatchRemoveAndSubFieldOpsSkipped() {
