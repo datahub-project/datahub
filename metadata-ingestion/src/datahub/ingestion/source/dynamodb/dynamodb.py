@@ -24,6 +24,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, add_tags_to_entity_wu
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -131,6 +132,22 @@ class DynamoDBConfig(
     @property
     def dynamodb_client(self):
         return self.get_dynamodb_client()
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.dynamodb.dynamodb_probe import (
+            DYNAMODB_PROBE_HIERARCHY,
+        )
+
+        return DYNAMODB_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.dynamodb.dynamodb_probe import (
+            list_dynamodb_children,
+        )
+
+        return list_dynamodb_children(self, parent_path, limit)
 
 
 @dataclass

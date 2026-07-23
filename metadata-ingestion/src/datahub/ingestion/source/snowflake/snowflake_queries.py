@@ -20,6 +20,7 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
     get_time_bucket,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
@@ -196,6 +197,15 @@ class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
 ):
     connection: SnowflakeConnectionConfig
+
+    # Probe by delegating to the embedded connection, which already implements the
+    # probe contract — the queries source shares Snowflake's live catalog.
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        return SnowflakeConnectionConfig.probe_hierarchy()
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        return self.connection.list_probe_children(parent_path, limit)
 
 
 @dataclass

@@ -1,13 +1,18 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 from pydantic import Field
 from typing_extensions import Self
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import SupportStatus, support_status
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
@@ -50,8 +55,18 @@ class BigQueryQueriesSourceConfig(
         default_factory=BigQueryConnectionConfig
     )
 
+    # Probe by delegating to the embedded connection, which already implements the
+    # probe contract — the queries source shares BigQuery's live catalog.
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        return BigQueryConnectionConfig.probe_hierarchy()
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        return self.connection.list_probe_children(parent_path, limit)
+
 
 @support_status(SupportStatus.CERTIFIED)
+@config_class(BigQueryQueriesSourceConfig)
 class BigQueryQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: BigQueryQueriesSourceConfig):
         self.ctx = ctx
