@@ -48,7 +48,7 @@ class WorkUnitGenerator:
 
         if not isinstance(datahub_graph, DataHubGraph):
             logger.error(f"Expected DataHubGraph, got {type(datahub_graph)}")
-            self.report.report_failure(f"Invalid AST type: {type(datahub_graph)}")
+            self.report.failure(f"Invalid AST type: {type(datahub_graph)}")
             return  # Generator returns nothing on error
 
         try:
@@ -96,7 +96,7 @@ class WorkUnitGenerator:
             )
 
         except RuntimeError as e:
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to generate work units from DataHub AST",
                 context=f"Glossary terms: {len(datahub_graph.glossary_terms)}, "
                 f"Domains: {len(datahub_graph.domains)}, "
@@ -127,7 +127,7 @@ class WorkUnitGenerator:
             summary_str = ", ".join(
                 [f"{count} {name}" for name, count in summary.items()]
             )
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to generate work units",
                 context=f"AST summary: {summary_str}",
                 exc=e,
@@ -160,7 +160,7 @@ class WorkUnitGenerator:
                     if hasattr(workunit, "mcp") and hasattr(workunit.mcp, "entityUrn")
                     else "unknown"
                 )
-                self.report.report_failure(
+                self.report.failure(
                     "Failed to process work unit",
                     context=f"Work unit ID: {workunit_id}, Entity URN: {entity_urn}",
                     exc=e,
@@ -222,7 +222,7 @@ class WorkUnitGenerator:
                     yield mcp
             except RuntimeError as e:
                 # Continue processing other entity types even if one fails
-                self.report.report_failure(
+                self.report.failure(
                     f"Failed to process {entity_type} entities",
                     context=f"Entity type: {entity_type}",
                     exc=e,
@@ -268,7 +268,7 @@ class WorkUnitGenerator:
                         f"Created {len(post_mcps)} glossary node/term MCPs from domain hierarchy"
                     )
             except RuntimeError as e:
-                self.report.report_failure(
+                self.report.failure(
                     "Failed to create glossary node MCPs from domain hierarchy",
                     context=f"Domains: {len(datahub_graph.domains)}",
                     exc=e,
@@ -300,7 +300,7 @@ class WorkUnitGenerator:
                         f"Created {len(post_mcps)} structured property value assignment MCPs"
                     )
             except RuntimeError as e:
-                self.report.report_failure(
+                self.report.failure(
                     "Failed to create structured property value assignment MCPs",
                     context="Post-processing hook",
                     exc=e,

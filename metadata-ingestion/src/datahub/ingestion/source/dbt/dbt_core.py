@@ -1010,7 +1010,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 and catalog_version.startswith("1.7.")
                 and version.parse(catalog_version) < version.parse("1.7.3")
             ):
-                self.report.report_warning(
+                self.report.warning(
                     title="Dbt Catalog Version",
                     message="Due to a bug in dbt version between 1.7.0 and 1.7.2, you will have incomplete metadata "
                     "source",
@@ -1018,6 +1018,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     f"sources."
                     "Please upgrade to dbt version 1.7.3 or later. "
                     "See https://github.com/dbt-labs/dbt-core/issues/9119 for details on the bug.",
+                    log=False,
                 )
         except Exception as e:
             self.report.info(

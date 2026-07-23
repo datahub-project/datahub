@@ -395,7 +395,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
             error_type: Type of error for reporting
             error_context: Contextual error message
         """
-        self.report.report_failure(error_type, context=error_context, exc=error)
+        self.report.failure(error_type, context=error_context, exc=error)
         logger.error(
             f"{error_type}: {self.config.source}. {error_context}",
             exc_info=True,
@@ -591,7 +591,7 @@ class RDFSource(StatefulIngestionSourceBase, TestableSource):
                 f"Error: {str(e)}. "
                 "Please verify your SPARQL query syntax and ensure it's a valid CONSTRUCT query."
             )
-            self.report.report_failure(
+            self.report.failure(
                 "Failed to apply SPARQL filter",
                 context=error_context,
                 exc=e,

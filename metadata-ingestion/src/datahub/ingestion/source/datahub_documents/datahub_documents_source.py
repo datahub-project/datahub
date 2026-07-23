@@ -284,11 +284,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # cleanly without processing (this is expected, not a failure).
         if self.lock is not None and not self.lock.acquire():
             self.report.lock_skipped_run = True
-            self.report.report_warning(
+            self.report.warning(
                 title="Run skipped (lock held)",
                 message="Another datahub-documents run is in progress; this run exited "
                 "without processing to avoid duplicate work. Adjust the schedule or "
                 "locking.lock_ttl_seconds if this happens persistently.",
+                log=False,
             )
             return
 
@@ -299,7 +300,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.report_failure(str(e))
+            self.report.failure(str(e))
         finally:
             # Save state after processing
             if self.config.incremental.enabled:

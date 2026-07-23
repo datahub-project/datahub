@@ -345,11 +345,12 @@ class InvokePipelineLineageExtractor:
         if operation_type == self.SUPPORTED_OPERATION_TYPE:
             return self._resolve_fabric_pipeline(activity, parent_workspace_id)
 
-        self._report.report_warning(
+        self._report.warning(
             title="InvokePipeline Lineage Not Resolved",
             message="Unsupported operationType. "
             "Only InvokeFabricPipeline is supported.",
             context=f"activity={activity.name}, operationType={operation_type}",
+            log=False,
         )
         return None
 

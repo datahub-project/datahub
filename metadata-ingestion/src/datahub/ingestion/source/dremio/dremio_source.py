@@ -371,7 +371,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_containers_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio container",
                         context=f"{'.'.join(container.path)}.{container.container_name}",
                         exc=exc,
@@ -401,7 +401,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
                 except Exception as exc:
                     self.report.num_datasets_failed += 1
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
@@ -419,7 +419,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process Glossary terms",
                         context=f"{glossary_term.glossary_term}",
                         exc=exc,
@@ -452,7 +452,7 @@ class DremioSource(StatefulIngestionSourceBase):
                             self.report.profiling_skipped_other[
                                 target.resource_name
                             ] += 1
-                            self.report.report_failure(
+                            self.report.failure(
                                 message="Failed to profile dataset",
                                 context=target.full_table_name,
                                 exc=exc,
@@ -682,7 +682,7 @@ class DremioSource(StatefulIngestionSourceBase):
             try:
                 self.process_query(query)
             except Exception as exc:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process dremio query",
                     context=f"{query.job_id}: {exc}",
                     exc=exc,

@@ -549,7 +549,7 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
                     e, report.name, report.id
                 )
                 LOGGER.exception(message, e)
-                self.report.report_warning(report.id, message)
+                self.report.warning(report.id, message, log=False)
             finally:
                 # Increase Dashboard and tiles count in report
                 self.report.report_scanned(count=1)

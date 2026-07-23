@@ -593,11 +593,12 @@ class DocumentChunkingSource(Source):
                 except Exception as e:
                     short_error = str(e).split("\n")[0][:200]
                     self.report.report_embedding_failure(doc["urn"], short_error)
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Embedding generation failed",
                         message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
                         context=f"{doc['urn']}: {short_error}",
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.debug(

@@ -240,5 +240,5 @@ class SnowflakeAssertionsHandler:
             return workunits
 
         except Exception as e:
-            self.report.report_warning("assertion-result-parse-failure", str(e))
+            self.report.warning("assertion-result-parse-failure", str(e), log=False)
             return []

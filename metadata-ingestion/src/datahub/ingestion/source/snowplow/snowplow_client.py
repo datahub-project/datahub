@@ -322,7 +322,7 @@ class SnowplowBDPClient:
                 error_msg = f"Failed to parse organization response: {parse_error}"
                 logger.error(error_msg)
                 if self.report:
-                    self.report.report_warning("organization_parsing", error_msg)
+                    self.report.warning("organization_parsing", error_msg, log=False)
                 logger.debug(
                     f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
                 )
@@ -332,7 +332,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch organization details: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("organization_fetch", error_msg)
+                self.report.warning("organization_fetch", error_msg, log=False)
             return None
 
     # ============================================
@@ -393,7 +393,9 @@ class SnowplowBDPClient:
                 )
                 logger.warning(error_msg)
                 if self.report:
-                    self.report.report_warning("data_structures_pagination", error_msg)
+                    self.report.warning(
+                        "data_structures_pagination", error_msg, log=False
+                    )
                 break  # Return partial results instead of losing everything
 
             # BDP API returns direct array (per Swagger spec)
@@ -401,7 +403,7 @@ class SnowplowBDPClient:
                 error_msg = f"Expected list from BDP API, got {type(response_data)}"
                 logger.error(error_msg)
                 if self.report:
-                    self.report.report_warning("data_structures_format", error_msg)
+                    self.report.warning("data_structures_format", error_msg, log=False)
                 break
 
             # No more results
@@ -429,7 +431,7 @@ class SnowplowBDPClient:
                     f"Raw response data (first item): {json.dumps(response_data[0] if response_data else 'empty', indent=2, default=str)}"
                 )
                 if self.report:
-                    self.report.report_warning("data_structures_parsing", error_msg)
+                    self.report.warning("data_structures_parsing", error_msg, log=False)
                 break
 
         logger.info(f"Found {len(all_structures)} data structures total")
@@ -457,7 +459,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch data structure {data_structure_hash}: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("data_structure_fetch", error_msg)
+                self.report.warning("data_structure_fetch", error_msg, log=False)
             return None
 
         if not response_data:
@@ -470,7 +472,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse data structure {data_structure_hash}: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("data_structure_parsing", error_msg)
+                self.report.warning("data_structure_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -515,7 +517,7 @@ class SnowplowBDPClient:
             )
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("schema_version_fetch", error_msg)
+                self.report.warning("schema_version_fetch", error_msg, log=False)
             return None
 
         if not response_data:
@@ -562,7 +564,7 @@ class SnowplowBDPClient:
             )
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("schema_version_parsing", error_msg)
+                self.report.warning("schema_version_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -605,7 +607,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch deployments for {data_structure_hash}: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("deployment_fetch", error_msg)
+                self.report.warning("deployment_fetch", error_msg, log=False)
             return []
 
         if not response_data:
@@ -624,7 +626,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse deployments for {data_structure_hash}: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("deployment_parsing", error_msg)
+                self.report.warning("deployment_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -669,7 +671,7 @@ class SnowplowBDPClient:
             error_msg = f"Expected dict (wrapped response) from event specs API, got {type(response_data)}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("event_specs_format", error_msg)
+                self.report.warning("event_specs_format", error_msg, log=False)
             return []
 
         try:
@@ -687,7 +689,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse event specifications: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("event_specs_parsing", error_msg)
+                self.report.warning("event_specs_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -719,7 +721,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch event specification {event_spec_id}: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("event_spec_fetch", error_msg)
+                self.report.warning("event_spec_fetch", error_msg, log=False)
             return None
 
         if not response_data:
@@ -731,7 +733,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse event specification {event_spec_id}: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("event_spec_parsing", error_msg)
+                self.report.warning("event_spec_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -777,7 +779,7 @@ class SnowplowBDPClient:
             error_msg = f"Expected dict (wrapped response) from tracking plans API, got {type(response_data)}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("tracking_plans_format", error_msg)
+                self.report.warning("tracking_plans_format", error_msg, log=False)
             return []
 
         try:
@@ -795,7 +797,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse tracking plans: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("tracking_plans_parsing", error_msg)
+                self.report.warning("tracking_plans_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -821,7 +823,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch tracking plan {plan_id}: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("tracking_plan_fetch", error_msg)
+                self.report.warning("tracking_plan_fetch", error_msg, log=False)
             return None
 
         if not response_data:
@@ -833,7 +835,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse tracking plan {plan_id}: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("tracking_plan_parsing", error_msg)
+                self.report.warning("tracking_plan_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -868,7 +870,7 @@ class SnowplowBDPClient:
             )
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("data_models_fetch", error_msg)
+                self.report.warning("data_models_fetch", error_msg, log=False)
             return []
 
         # Handle 404 or empty response
@@ -945,7 +947,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse pipelines: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("pipelines_parsing", error_msg)
+                self.report.warning("pipelines_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -970,7 +972,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch pipeline {pipeline_id}: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("pipeline_fetch", error_msg)
+                self.report.warning("pipeline_fetch", error_msg, log=False)
             return None
 
         if not response_data:
@@ -982,7 +984,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to parse pipeline {pipeline_id}: {e}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("pipeline_parsing", error_msg)
+                self.report.warning("pipeline_parsing", error_msg, log=False)
             logger.debug(
                 f"Raw response data: {json.dumps(response_data, indent=2, default=str)}"
             )
@@ -1036,7 +1038,7 @@ class SnowplowBDPClient:
                 error_msg = f"Failed to parse enrichment in pipeline {pipeline_id}: {e}"
                 logger.warning(error_msg)
                 if self.report:
-                    self.report.report_warning("enrichment_parsing", error_msg)
+                    self.report.warning("enrichment_parsing", error_msg, log=False)
                 continue
 
             if enrichment.id in seen_names:
@@ -1047,7 +1049,9 @@ class SnowplowBDPClient:
                 )
                 logger.warning(error_msg)
                 if self.report:
-                    self.report.report_warning("enrichment_duplicate_name", error_msg)
+                    self.report.warning(
+                        "enrichment_duplicate_name", error_msg, log=False
+                    )
                 continue
             seen_names.add(enrichment.id)
             enrichments.append(enrichment)
@@ -1093,7 +1097,7 @@ class SnowplowBDPClient:
             )
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("destinations_format", error_msg)
+                self.report.warning("destinations_format", error_msg, log=False)
             return []
 
         # Parse destinations individually so one bad item doesn't lose all
@@ -1105,7 +1109,7 @@ class SnowplowBDPClient:
                 error_msg = f"Failed to parse destination: {e}"
                 logger.warning(error_msg)
                 if self.report:
-                    self.report.report_warning("destination_parsing", error_msg)
+                    self.report.warning("destination_parsing", error_msg, log=False)
                 continue
 
         logger.info(f"Found {len(destinations)} destinations")
@@ -1153,7 +1157,7 @@ class SnowplowBDPClient:
             error_msg = f"Failed to fetch users: {e}"
             logger.warning(error_msg)
             if self.report:
-                self.report.report_warning("users_fetch", error_msg)
+                self.report.warning("users_fetch", error_msg, log=False)
             return []
 
         # BDP API returns direct array (per Swagger spec)
@@ -1161,7 +1165,7 @@ class SnowplowBDPClient:
             error_msg = f"Expected list from users API, got {type(response_data)}"
             logger.error(error_msg)
             if self.report:
-                self.report.report_warning("users_format", error_msg)
+                self.report.warning("users_format", error_msg, log=False)
             return []
 
         # Parse users individually so one bad item doesn't lose all
@@ -1173,7 +1177,7 @@ class SnowplowBDPClient:
                 error_msg = f"Failed to parse user: {e}"
                 logger.warning(error_msg)
                 if self.report:
-                    self.report.report_warning("user_parsing", error_msg)
+                    self.report.warning("user_parsing", error_msg, log=False)
                 continue
 
         logger.info(f"Found {len(users)} users")

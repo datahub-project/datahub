@@ -275,15 +275,16 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                         )
 
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to Process Workspace",
                         message="Error processing workspace. Skipping to next.",
                         context=f"workspace={workspace.name}",
                         exc=e,
+                        log=False,
                     )
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Workspaces",
                 message="Unable to retrieve workspaces from Fabric.",
                 context="",
@@ -314,12 +315,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 )
                 self._pipeline_activities_cache[(workspace_id, item.id)] = activities
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Fetch Pipeline Activities",
                     message="Could not retrieve activities. "
                     "Skipping activities for this pipeline.",
                     context=f"pipeline={item.name}",
                     exc=e,
+                    log=False,
                 )
                 self._pipeline_activities_cache[(workspace_id, item.id)] = []
 
@@ -334,12 +336,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 if conn.id not in self._connections_cache:
                     self._connections_cache[conn.id] = conn
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Item Connections",
                 message="Could not retrieve connections for item. "
                 "Lineage may be incomplete for this pipeline.",
                 context=f"pipeline={item.name}",
                 exc=e,
+                log=False,
             )
 
     def _create_workspace_container(
@@ -534,12 +537,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 yield datajob
                 self.report.report_activity_scanned()
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Emit Activity",
                     message="Error processing activity. Skipping to next.",
                     context=f"pipeline={pipeline_item.name}, "
                     f"activity={activity.name}, type={activity.type}",
                     exc=e,
+                    log=False,
                 )
 
     def _resolve_upstream_edges(
@@ -603,29 +607,32 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_lineage_extracted()
             elif missing_source and missing_sink:
                 self.report.report_lineage_failed(activity_key)
-                self.report.report_warning(
+                self.report.warning(
                     title="Copy Activity Lineage Not Resolved",
                     message="Neither source nor destination could be resolved.",
                     context=activity_key,
+                    log=False,
                 )
             else:
                 self.report.report_lineage_extracted()
                 missing_side = "source (input)" if missing_source else "sink (output)"
-                self.report.report_warning(
+                self.report.warning(
                     title="Copy Activity Lineage Partially Resolved",
                     message=f"Missing {missing_side} dataset. "
                     f"Check the activity's {missing_side} connection type and settings.",
                     context=activity_key,
+                    log=False,
                 )
             return input_urns, output_urns
         except Exception as e:
             self.report.report_lineage_failed(activity_key)
-            self.report.report_warning(
+            self.report.warning(
                 title="Copy Activity Lineage Extraction Error",
                 message="Unexpected error extracting lineage. "
                 "Activity will be emitted without lineage.",
                 context=activity_key,
                 exc=e,
+                log=False,
             )
             return [], []
 
@@ -661,11 +668,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 lookback_window_start=lookback_window_start,
             )
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Pipeline Runs",
                 message="Could not retrieve run history. Skipping runs for this pipeline.",
                 context=f"pipeline={pipeline_item.name}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -683,11 +691,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     flow_urn=flow_urn,
                 )
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Process Pipeline Run",
                     message="Error processing pipeline run. Skipping to next run.",
                     context=f"pipeline={pipeline_item.name}, run={run.id}",
                     exc=e,
+                    log=False,
                 )
 
     @staticmethod
@@ -778,11 +787,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 lookback_window_end=datetime.now(timezone.utc),
             )
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Fetch Activity Runs",
                 message="Could not retrieve activity runs. Skipping for this pipeline run.",
                 context=f"pipeline={pipeline_item.name}, run={run.id}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -795,13 +805,14 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 )
                 self.report.report_activity_run_scanned()
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Emit Activity Run",
                     message="Error processing activity run. Skipping to next.",
                     context=f"pipeline={pipeline_item.name}, "
                     f"activity={activity_run.activity_name}, "
                     f"run={activity_run.activity_run_id}",
                     exc=e,
+                    log=False,
                 )
 
     def _emit_activity_run(

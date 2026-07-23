@@ -237,11 +237,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         batch_size=self.config.schema_resolution_batch_size,
                     )
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will proceed with an empty schema resolver.",
                         context=str(e),
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.warning(
@@ -257,12 +258,13 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             and self.config.schema_pattern is not None
             and self.config.schema_pattern != AllowDenyPattern.allow_all()
         ):
-            self.report.report_warning(
+            self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
+                log=False,
             )
 
         # Unlike the forwarded usage.start_time/end_time/bucket_duration/max_query_duration
@@ -271,18 +273,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # in the UI), not just the config-validation-time logger.warning.
         if self.config.use_queries_v2:
             if self.config.usage.include_read_operational_stats:
-                self.report.report_warning(
+                self.report.warning(
                     message="`usage.include_read_operational_stats` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2.",
                     context="Config option deprecation warning",
                     title="Config option deprecation warning",
+                    log=False,
                 )
             if self.config.usage.apply_view_usage_to_tables:
-                self.report.report_warning(
+                self.report.warning(
                     message="`usage.apply_view_usage_to_tables` is only supported with the legacy extraction path "
                     "(`use_queries_v2: False`) and is ignored under queries-v2.",
                     context="Config option deprecation warning",
                     title="Config option deprecation warning",
+                    log=False,
                 )
 
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:

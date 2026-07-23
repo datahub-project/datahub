@@ -284,34 +284,39 @@ class APISource(Source, ABC):
             Exception: For unhandled status codes
         """
         if status_code == 400:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Bad request body when retrieving data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 403:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unauthorized to Extract Metadata",
                 message="Received unauthorized response when attempting to retrieve data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 404:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Unable to find an example for endpoint. Please add it to the list of forced examples.",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 500:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Received unknown server error from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         elif status_code == 504:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Metadata",
                 message="Timed out when attempting to retrieve data from OpenAPI endpoint",
                 context=f"Endpoint Type: {type}, Status Code: {status_code}",
+                log=False,
             )
         else:
             raise Exception(
@@ -841,7 +846,7 @@ class APISource(Source, ABC):
             for w in warn_c:
                 w_msg = w.message
                 w_spl = w_msg.args[0].split(" --- ")  # type: ignore
-                self.report.report_warning(message=w_spl[1], context=w_spl[0])
+                self.report.warning(message=w_spl[1], context=w_spl[0], log=False)
 
         # Sample from "listing endpoint" for guessing composed endpoints
         root_dataset_samples: Dict[str, Any] = {}
@@ -878,10 +883,11 @@ class APISource(Source, ABC):
             ):
                 method = endpoint_dets.get("method", "").lower()
                 if method != "get":
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to Extract Endpoint Metadata",
                         message=f"No schema found in OpenAPI spec for {endpoint_dets.get('method', 'unknown')} method (API calls only made for GET methods with credentials)",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        log=False,
                     )
                     continue
 
@@ -916,16 +922,18 @@ class APISource(Source, ABC):
                     and self.config.enable_api_calls_for_schema_extraction
                     and not self._has_credentials()
                 ):
-                    self.report.report_warning(
+                    self.report.warning(
                         title="No Schema Extracted - Missing Credentials",
                         message="Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        log=False,
                     )
                 else:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="No Schema Extracted",
                         message="Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint",
                         context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                        log=False,
                     )
 
     def get_report(self):

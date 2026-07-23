@@ -260,10 +260,11 @@ class MatillionSource(StatefulIngestionSourceBase):
                 started_before=started_before,
             )
         except (Timeout, ConnectionError) as e:
-            self.report.report_warning(
+            self.report.warning(
                 "pipeline-executions-timeout",
                 f"Timed out discovering pipelines from executions ({e}); unpublished "
                 f"pipelines may be missing. {API_TIMEOUT_TUNING_GUIDANCE}",
+                log=False,
             )
             return []
 
@@ -1015,14 +1016,17 @@ class MatillionSource(StatefulIngestionSourceBase):
                 window_start = window_end
 
         except (Timeout, ConnectionError) as e:
-            self.report.report_warning(
+            self.report.warning(
                 "lineage-events-timeout",
                 f"Timed out fetching lineage events ({e}); returning {len(all_events)} "
                 f"events collected so far. {API_TIMEOUT_TUNING_GUIDANCE}",
+                log=False,
             )
         except (HTTPError, RequestException) as e:
-            self.report.report_warning(
-                "lineage_events", f"Failed to fetch lineage events: {e}"
+            self.report.warning(
+                "lineage_events",
+                f"Failed to fetch lineage events: {e}",
+                log=False,
             )
 
         logger.info(f"Fetched total of {len(all_events)} OpenLineage events")

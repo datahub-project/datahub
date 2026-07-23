@@ -358,7 +358,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.add_deserialize_time(deserialize_duration)
                     yield i, item
             except Exception as e:
-                self.report.report_failure(f"{file_status.path}-{i}", str(e))
+                self.report.failure(f"{file_status.path}-{i}", str(e))
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

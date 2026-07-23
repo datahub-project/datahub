@@ -62,10 +62,11 @@ class KafkaSchemaInference:
     def _note_inference_failure(self, topic: str, exc: Exception) -> None:
         if self.report is not None:
             self.report.schema_inference_sampling_failures += 1
-            self.report.report_warning(
+            self.report.warning(
                 "schema-inference",
                 f"Failed to infer schema for topic {topic}; it will be processed "
                 f"without schema information: {exc}",
+                log=False,
             )
 
     def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
@@ -191,10 +192,11 @@ class KafkaSchemaInference:
             )
             if self.report is not None:
                 self.report.schema_inference_sampling_failures += 1
-                self.report.report_warning(
+                self.report.warning(
                     "schema-inference",
                     f"Could not create a consumer to sample topic {topic} for schema "
                     f"inference ({offset_strategy}): {e}",
+                    log=False,
                 )
             return []
 
@@ -257,10 +259,11 @@ class KafkaSchemaInference:
             # silently fall back to schemaless with nothing in the report.
             if not messages and decode_failures > 0 and self.report is not None:
                 self.report.schema_inference_message_decode_failures += decode_failures
-                self.report.report_warning(
+                self.report.warning(
                     "schema-inference",
                     f"All {decode_failures} sampled message(s) for topic {topic} failed "
                     f"to decode ({offset_strategy}); it will be treated as schemaless.",
+                    log=False,
                 )
 
             return messages
@@ -271,10 +274,11 @@ class KafkaSchemaInference:
             )
             if self.report is not None:
                 self.report.schema_inference_sampling_failures += 1
-                self.report.report_warning(
+                self.report.warning(
                     "schema-inference",
                     f"Failed to sample topic {topic} for schema inference "
                     f"({offset_strategy}): {e}",
+                    log=False,
                 )
             return []
         finally:
@@ -296,10 +300,11 @@ class KafkaSchemaInference:
                 # We had samples but every one failed to yield a field; without
                 # this the topic would go schemaless with no report signal.
                 self.report.schema_inference_no_fields += 1
-                self.report.report_warning(
+                self.report.warning(
                     "schema-inference",
                     f"Sampled {len(sample_messages)} message(s) for topic {topic} "
                     f"but inferred no fields; treating it as schemaless.",
+                    log=False,
                 )
             else:
                 logger.info(

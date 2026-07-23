@@ -344,7 +344,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         conn_id = getattr(connection, "connection_id", "unknown")
                         conn_name = getattr(connection, "name", "unknown")
                         ws_id = getattr(workspace, "workspace_id", "unknown")
-                        self.report.report_failure(
+                        self.report.failure(
                             message="Failed to process connection",
                             context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
                             exc=e,
@@ -354,7 +354,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 raise
             except Exception as e:
                 workspace_id = getattr(workspace, "workspace_id", "unknown")
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process workspace",
                     context=f"workspace-{workspace_id}",
                     exc=e,
@@ -370,7 +370,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process pipeline",
                     context=f"pipeline-{conn_id}",
                     exc=e,
@@ -538,7 +538,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     continue
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to process job executions",
                 context=f"job-executions-{connection_id}-{stream_name}",
                 exc=e,
@@ -1110,7 +1110,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             except Exception as e:
                 conn_name = getattr(pipeline_info.connection, "name", "unknown")
                 ws_id = getattr(pipeline_info.workspace, "workspace_id", "unknown")
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process stream",
                     context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream_info.details.stream_name}",
                     exc=e,
