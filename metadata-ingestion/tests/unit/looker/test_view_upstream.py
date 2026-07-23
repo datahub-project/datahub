@@ -37,6 +37,12 @@ from datahub.ingestion.source.looker.view_upstream import _drop_hive_dot
             "urn:li:dataset:(urn:li:dataPlatform:hive,my_database.my_table,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:hive,my_database.my_table,PROD)",
         ),
+        # A database/table name that merely contains "hive." as a substring
+        # (e.g. "archive.") must not be mangled.
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:glue,archive.my_table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:glue,archive.my_table,PROD)",
+        ),
     ],
     ids=[
         "hive_platform_strips_prefix",
@@ -45,6 +51,7 @@ from datahub.ingestion.source.looker.view_upstream import _drop_hive_dot
         "glue_without_hive_prefix_unchanged",
         "other_platform_unchanged",
         "hive_without_hive_prefix_unchanged",
+        "substring_collision_unchanged",
     ],
 )
 def test_drop_hive_dot(urn: str, expected: str) -> None:

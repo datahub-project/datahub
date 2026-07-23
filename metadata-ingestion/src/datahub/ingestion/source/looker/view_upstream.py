@@ -168,7 +168,10 @@ def _drop_hive_dot(urn: str) -> str:
             "urn:li:dataset:(urn:li:dataPlatform:glue",
         )
     ):
-        return re.sub(r"hive\.", "", urn)
+        # Only strip "hive" as its own path segment (preceded by "," or ".") so
+        # identifiers that merely contain "hive." as a substring (e.g. "archive.foo")
+        # are left untouched.
+        return re.sub(r"([,.]|^)hive\.", r"\1", urn)
 
     return urn
 
