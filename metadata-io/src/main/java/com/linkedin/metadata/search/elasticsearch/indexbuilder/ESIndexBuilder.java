@@ -913,6 +913,14 @@ public class ESIndexBuilder {
       }
     }
 
+    /** No document-failure details (legacy / happy-path callers). */
+    public PollReindexResult(
+        boolean completed,
+        Map<String, Object> latestReindexInfo,
+        Pair<Long, Long> finalDocumentCounts) {
+      this(completed, latestReindexInfo, finalDocumentCounts, List.of(), 0);
+    }
+
     /** Convenience when total equals the (possibly uncapped) list size. */
     public PollReindexResult(
         boolean completed,
