@@ -1,0 +1,63 @@
+- Start Date: 2022-09-18
+- RFC PR: [5976](https://github.com/datahub-project/datahub/pull/5976)
+- Discussion Issue: [Discussion on Slack](https://datahubspace.slack.com/archives/C02R2NBJXD1/p1663342886300989)
+- Implementation PR(s): (leave this empty)
+
+# Schemas as a Top-level Entity
+
+## Summary
+
+Currently a schema is just an aspect of a Dataset. This forces schemas to have a life cycle that is controlled completely by the Dataset entity.
+It would be great to have a schema be a top level standalone entity, independent of datasets, effectively having DataHub as a schema registry along 
+with all the other great capabilities. And if a Dataset did get created based on the same schema, we’d want to reference it. 
+
+## Motivation
+
+See Summary section.
+
+## Requirements
+
+- Support for logical schemas to exist without needing tight coupling to Datasets or other entities. 
+- Support for Datasets to have 1:N relationship with Schemas (1 dataset can be related to more than 1 schema)
+- Support for Schemas to have 1:N relationship with Datasets (1 schema can be related to more than 1 dataset)
+
+
+### Extensibility
+
+- Should support backwards compatibility with existing schemas that are inlined with existing Datasets as aspects.
+
+## Non-Requirements
+
+- Support for column-level lineage should be orthogonal to this discussion, but a future design of SchemaField as a 
+top-level entity might be worth bringing in scope for this design. 
+
+## Detailed design
+
+TBD
+
+## How we teach this
+
+Existing concepts should continue to work with the exception of Schemas having their own identity. 
+Conflicts with Relational DB "Schema" as a sub-type needs to be addressed in the UI and rendering of these concepts. 
+DataHub frontend developers, API users and users of the DataHub application would be imapcted
+
+## Drawbacks
+
+TBD
+
+## Alternatives
+
+TBD
+
+## Rollout / Adoption Strategy
+
+TBD
+
+## Future Work
+
+- Support for DataHub as a search and discovery experience for pure schemas
+- Support for DataHub as a Schema Registry
+
+
+## Unresolved questions
+
