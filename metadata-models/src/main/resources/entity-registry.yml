@@ -679,6 +679,7 @@ entities:
     searchGroup: primary
     aspects:
       - applicationProperties
+      - applicationLineage
       - ownership
       - glossaryTerms
       - globalTags
@@ -842,6 +843,100 @@ entities:
     keyAspect: dataHubOpenAPISchemaKey
     aspects:
       - systemMetadata
+  - name: service
+    doc: A Service represents an external service that can be integrated with DataHub, such as an MCP server.
+    category: core
+    keyAspect: serviceKey
+    searchGroup: primary
+    aspects:
+      - serviceProperties
+      - mcpServerProperties
+      - serviceDefinition
+      - incidentsSummary
+      - subTypes
+      - ownership
+      - status
+      - globalTags
+      - semanticContent
+      - dataPlatformInstance
+  - name: aiAgent
+    doc: An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.
+    category: core
+    keyAspect: aiAgentKey
+    searchGroup: primary
+    aspects:
+      - aiAgentInfo
+      - aiAgentDependencies
+      - dataPlatformInstance
+      - displayProperties
+      - ownership
+      - status
+      - structuredProperties
+      - upstreamLineage
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - incidentsSummary
+      - versionProperties
+  - name: api
+    doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
+    category: core
+    keyAspect: apiKey
+    searchGroup: primary
+    aspects:
+      - apiProperties
+      - apiSignature
+      - restApiProperties
+      - subTypes
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - structuredProperties
+      - versionProperties
+  - name: repository
+    doc: A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).
+    category: core
+    keyAspect: repositoryKey
+    searchGroup: primary
+    aspects:
+      - repositoryProperties
+      - repositorySource
+      - repositoryLineage
+      - subTypes
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - domains
+      - institutionalMemory
+      - structuredProperties
+      - browsePathsV2
+  - name: agentSkill
+    doc: A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.
+    category: core
+    keyAspect: agentSkillKey
+    searchGroup: primary
+    aspects:
+      - agentSkillInfo
+      - dataPlatformInstance
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
+      - semanticContent
+      - institutionalMemory
+      - domains
+      - structuredProperties
+      - versionProperties
 events:
 plugins:
   aspectPayloadValidators:

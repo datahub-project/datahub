@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_admin_credentials, get_frontend_url, login_as
+from tests.utils import get_frontend_url
 
 logger = logging.getLogger(__name__)
 
@@ -285,6 +285,10 @@ def create_user(session, email, password):
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token
+    # Snapshot admin cookies before /signUp overwrites them. Prefer restore over a
+    # fresh admin login_as — parallel xdist workers otherwise stampede /logIn and
+    # can get intermittent 400s while also invalidating each other's sessions.
+    admin_cookies = session.cookies.copy()
     # Create a new user using the invite token
     sign_up_json = {
         "fullName": "Test User",
@@ -298,10 +302,11 @@ def create_user(session, email, password):
     assert sign_up_response
     assert "error" not in sign_up_response
     wait_for_writes_to_sync()
+    # /signUp rotates cookies to the new user; put the admin cookies back on the
+    # same session object so callers (including TestSessionWrapper) stay admin.
     session.cookies.clear()
-    (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = login_as(admin_user, admin_pass)
-    return admin_session
+    session.cookies.update(admin_cookies)
+    return session
 
 
 def remove_user(session, urn):

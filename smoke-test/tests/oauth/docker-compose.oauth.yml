@@ -4,11 +4,19 @@
 #
 #   docker compose -f <quickstart-compose> -f docker-compose.oauth.yml up -d
 #
+# Bind-mount paths are anchored on ${DATAHUB_OAUTH_HARNESS_DIR:-.} so they resolve
+# correctly no matter which compose file is first (Docker resolves relative paths
+# against the FIRST -f file's directory). Standalone from this directory the default
+# `.` works; when layered under the quickstart compose (CI), set
+# DATAHUB_OAUTH_HARNESS_DIR to this directory's absolute path.
+#
 # The smoke test is run from the `tester` service so that both the token endpoint
 # and GMS are reached via internal hostnames — this keeps the token's `iss` claim
 # (http://keycloak:8080/realms/datahub) consistent with what GMS trusts and can
 # fetch JWKS from. Running the client from the host instead would issue a token
 # whose issuer/JWKS host GMS cannot reach.
+#
+# Uses only public images (Keycloak + python-slim), so it needs no registry creds.
 services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
@@ -17,12 +25,30 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     volumes:
-      - ./keycloak/datahub-realm.json:/opt/keycloak/data/import/datahub-realm.json:ro
+      - "${DATAHUB_OAUTH_HARNESS_DIR:-.}/keycloak/datahub-realm.json:/opt/keycloak/data/import/datahub-realm.json:ro"
     ports:
       - "8083:8080"
 
-  datahub-gms:
+  # Overrides the quickstart GMS service — the service KEY is
+  # `datahub-gms-quickstart` (its network hostname is still `datahub-gms`).
+  # Using the wrong key here makes compose create a new image-less service
+  # and reject the whole project.
+  datahub-gms-quickstart:
     environment:
+      # Quickstart ships METADATA_SERVICE_AUTH_ENABLED=false, which makes GMS
+      # accept ANY request — the OAuth tests would pass/fail vacuously without
+      # this. Actions/frontend keep working: they use the image-default system
+      # client credentials.
+      METADATA_SERVICE_AUTH_ENABLED: "true"
+      # This canary tests AUTHENTICATION (token acceptance/rejection), not
+      # authorization. An OAuth machine principal materializes as a fresh
+      # synthetic corpuser with no roles, so with authorization enforced every
+      # write is a 403 (`... is unauthorized to modify entity`) — in a real
+      # deployment the operator grants it a role/policy. Both the policy
+      # authorizer and Rest.li API authorization are disabled so writes succeed
+      # for any AUTHENTICATED principal; anonymous requests still 401.
+      AUTH_POLICIES_ENABLED: "false"
+      REST_API_AUTHORIZATION_ENABLED: "false"
       EXTERNAL_OAUTH_ENABLED: "true"
       EXTERNAL_OAUTH_TRUSTED_ISSUERS: "http://keycloak:8080/realms/datahub"
       EXTERNAL_OAUTH_ALLOWED_AUDIENCES: "datahub-gms"
@@ -37,11 +63,11 @@ services:
     image: python:3.10-slim
     working_dir: /smoke
     volumes:
-      - ../../..:/repo:ro
-      - ./:/smoke:ro
+      - "${DATAHUB_OAUTH_HARNESS_DIR:-.}/../../..:/repo:ro"
+      - "${DATAHUB_OAUTH_HARNESS_DIR:-.}:/smoke:ro"
     environment:
       DATAHUB_GMS_URL: "http://datahub-gms:8080"
       KEYCLOAK_TOKEN_ENDPOINT: "http://keycloak:8080/realms/datahub/protocol/openid-connect/token"
     command: ["sleep", "infinity"]
     depends_on:
-      - datahub-gms
+      - datahub-gms-quickstart

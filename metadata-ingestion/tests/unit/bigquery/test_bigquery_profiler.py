@@ -37,6 +37,28 @@ def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table(
     assert query == (None, None)
 
 
+def test_get_batch_kwargs_includes_row_count():
+    # The SQLAlchemy profiler uses this row count to skip a COUNT(*) when
+    # deciding whether to sample. The GE profiler ignores it (**kwargs).
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+    test_table = BigqueryTable(
+        name="test_table",
+        comment="test_comment",
+        rows_count=12345,
+        size_in_bytes=1,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+    )
+
+    kwargs = profiler.get_batch_kwargs(
+        table=test_table, schema_name="test_dataset", db_name="test_project"
+    )
+
+    assert kwargs["row_count"] == 12345
+    assert kwargs["schema"] == "test_project"
+    assert kwargs["table"] == "test_dataset.test_table"
+
+
 def test_generate_day_partitioned_partition_profiler_query():
     column = BigqueryColumn(
         name="date",

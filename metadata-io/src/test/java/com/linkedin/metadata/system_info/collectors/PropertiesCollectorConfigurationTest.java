@@ -531,6 +531,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.usage.aggregation.flush.retryAttempts",
           "datahub.usage.aggregation.flush.retryInitialBackoffMillis",
           "datahub.usage.aggregation.flush.alignmentPeriodSeconds",
+          "datahub.usage.aggregation.flush.includeAgentNameDimension",
           // Messaging transport
           "datahub.messaging.transport",
           // Feature flags
@@ -590,6 +591,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.i18nEnabled",
           "featureFlags.timeseriesAspectBatchLoadEnabled",
           "featureFlags.timeseriesAspectAggBatchLoadEnabled",
+          "featureFlags.datasetStatsSummaryBatchLoadEnabled",
           "featureFlags.themeV2Default",
           "featureFlags.themeV2Enabled",
           "featureFlags.themeV2Toggleable",
@@ -981,6 +983,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
           "structuredProperties.dropMissingPropertyValuesWithWarning",
+          "structuredProperties.keywordMaxLength",
           "structuredProperties.systemUpdateEnabled",
           "structuredProperties.writeEnabled",
           "telemetry.enabledCli",

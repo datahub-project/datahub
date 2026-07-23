@@ -1,10 +1,12 @@
 import importlib.metadata
 import json
 import logging
+import os
 import socket
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, urlparse, urlunparse
 
 import click
@@ -16,6 +18,7 @@ from packaging import version
 from requests.structures import CaseInsensitiveDict
 
 from datahub.cli import cli_utils, env_utils
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
@@ -40,7 +43,11 @@ def _is_transient_login_error(exception: BaseException) -> bool:
     if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
         return True
     if isinstance(exception, requests.HTTPError) and exception.response is not None:
-        return exception.response.status_code >= 500
+        # 400/429: parallel /logIn under xdist can briefly fail with Bad Request
+        # or rate limiting; treat as retryable like 5xx.
+        return exception.response.status_code in (400, 429) or (
+            exception.response.status_code >= 500
+        )
     return False
 
 
@@ -472,6 +479,74 @@ def ingest_file_via_rest(
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
     return pipeline
+
+
+def unique_suffix() -> str:
+    """Return a short, collision-resistant suffix for test-scoped entity names.
+
+    Under pytest-xdist ``--dist=loadscope`` (see smoke-test/smoke.sh) different
+    test modules run concurrently against the SAME GMS, so any entity URN
+    hardcoded in two modules races and flakes. Append this suffix to
+    the name of an entity a test creates/mutates/deletes so no other test —
+    now or later — can collide with it. Mirrors the uuid4-hex slice already used
+    in tests/metrics/test_queue_ingest_usage.py.
+    """
+    return uuid.uuid4().hex[:8]
+
+
+def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") -> str:
+    """Build a dataset URN whose name is unique per test run.
+
+    Prefer this over a hardcoded dataset URN whenever a test creates and then
+    mutates or deletes the dataset. ``name`` is a human-readable prefix; a unique
+    suffix (see :func:`unique_suffix`) is appended so parallel modules never
+    share the URN.
+    """
+    return make_dataset_urn(
+        platform=platform, name=f"{name}-{unique_suffix()}", env=env
+    )
+
+
+def materialize_with_unique_name(
+    src_file: str, name: str, dest_dir: Union[str, os.PathLike]
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with every occurrence of ``name`` rewritten to a
+    run-unique ``name-<suffix>``. Returns ``(dest_file, unique_name)``.
+
+    Building the entity URN (dataset, tag, …) from ``unique_name`` is the
+    caller's job. Substitution is a plain string replace over the whole file,
+    so ``name`` must be a token that appears ONLY where a rename is intended —
+    e.g. an entity key embedded in URNs. Do not pass a value that could also
+    occur in a description or other free-text field, or it will be corrupted.
+    """
+    unique_name = f"{name}-{unique_suffix()}"
+    with open(src_file) as f:
+        content = f.read().replace(name, unique_name)
+    dest_file = os.path.join(str(dest_dir), os.path.basename(src_file))
+    with open(dest_file, "w") as f:
+        f.write(content)
+    return dest_file, unique_name
+
+
+def materialize_unique_dataset(
+    src_file: str,
+    dataset_name: str,
+    dest_dir: Union[str, os.PathLike],
+    platform: str = "kafka",
+    env: str = "PROD",
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with ``dataset_name`` rewritten to a run-unique name.
+
+    Returns ``(dest_file, dataset_urn)``. Use from a module-scoped fixture so a
+    file-driven test owns a dataset no other test module can collide with under
+    xdist ``--dist=loadscope``. Every occurrence of ``dataset_name`` in the file
+    is replaced, so field-level and reference URNs stay consistent with the
+    returned dataset URN.
+    """
+    dest_file, unique_name = materialize_with_unique_name(
+        src_file, dataset_name, dest_dir
+    )
+    return dest_file, make_dataset_urn(platform=platform, name=unique_name, env=env)
 
 
 def delete_urn(graph_client, urn: str) -> None:

@@ -2,8 +2,6 @@ import json
 from typing import Dict, Any, Optional, Tuple
 import click
 
-import json
-from typing import Dict, Any
 
 
 def diff_lists(list1, list2):
@@ -56,7 +54,7 @@ def diff_lists(list1, list2):
         value1 = list1[i]
         value2 = list2[i]
 
-        if type(value1) != type(value2):
+        if type(value1) is not type(value2):
             result["modified"].add(str(i))
             result["modified_details"][str(i)] = {"before": value1, "after": value2}
         elif isinstance(value1, dict) and isinstance(value2, dict):
