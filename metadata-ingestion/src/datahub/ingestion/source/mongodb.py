@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    Any,
     Dict,
     Iterable,
     List,
@@ -35,6 +36,7 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -158,6 +160,32 @@ class MongoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for collections to filter in ingestion.",
     )
+
+    def get_mongo_client(self) -> MongoClient:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        options: Dict[str, Any] = {}
+        if self.username is not None:
+            options["username"] = self.username
+        if self.password is not None:
+            options["password"] = self.password.get_secret_value()
+        if self.authMechanism is not None:
+            options["authMechanism"] = self.authMechanism
+        options = {**options, **self.options}
+        return MongoClient(
+            self.connect_uri, datetime_conversion="DATETIME_AUTO", **options
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.mongodb_probe import MONGODB_PROBE_HIERARCHY
+
+        return MONGODB_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.mongodb_probe import list_mongodb_children
+
+        return list_mongodb_children(self, parent_path, limit)
+
     excludeSystemCollections: bool = Field(
         default=True,
         description=(
@@ -328,24 +356,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
         self.report = MongoDBSourceReport()
         self.platform = config.platform
 
-        options = {}
-        if self.config.username is not None:
-            options["username"] = self.config.username
-        if self.config.password is not None:
-            options["password"] = self.config.password.get_secret_value()
-        if self.config.authMechanism is not None:
-            options["authMechanism"] = self.config.authMechanism
-        options = {
-            **options,
-            **self.config.options,
-        }
-
-        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
-        self.mongo_client = MongoClient(
-            self.config.connect_uri,
-            datetime_conversion="DATETIME_AUTO",
-            **options,  # type: ignore
-        )
+        self.mongo_client = self.config.get_mongo_client()
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient

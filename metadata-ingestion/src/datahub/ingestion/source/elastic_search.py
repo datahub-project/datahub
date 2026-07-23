@@ -27,6 +27,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -354,6 +355,37 @@ class ElasticsearchSourceConfig(
             )
         )
 
+    def get_client(self) -> Elasticsearch:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        return Elasticsearch(
+            self.host,
+            http_auth=self.http_auth,
+            api_key=self.api_key,
+            use_ssl=self.use_ssl,
+            verify_certs=self.verify_certs,
+            ca_certs=self.ca_certs,
+            client_cert=self.client_cert,
+            client_key=self.client_key,
+            ssl_assert_hostname=self.ssl_assert_hostname,
+            ssl_assert_fingerprint=self.ssl_assert_fingerprint,
+            url_prefix=self.url_prefix,
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.elastic_search_probe import (
+            ELASTICSEARCH_PROBE_HIERARCHY,
+        )
+
+        return ELASTICSEARCH_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.elastic_search_probe import (
+            list_elasticsearch_children,
+        )
+
+        return list_elasticsearch_children(self, parent_path, limit)
+
 
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
@@ -370,19 +402,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
-        self.client = Elasticsearch(
-            self.source_config.host,
-            http_auth=self.source_config.http_auth,
-            api_key=self.source_config.api_key,
-            use_ssl=self.source_config.use_ssl,
-            verify_certs=self.source_config.verify_certs,
-            ca_certs=self.source_config.ca_certs,
-            client_cert=self.source_config.client_cert,
-            client_key=self.source_config.client_key,
-            ssl_assert_hostname=self.source_config.ssl_assert_hostname,
-            ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
-            url_prefix=self.source_config.url_prefix,
-        )
+        self.client = self.source_config.get_client()
         self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
