@@ -1,21 +1,31 @@
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
 
-# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
-# activate it, we must import it so that it can hook into SQLAlchemy. While
-# we don't use the Geometry type that we import, we do care about the side
-# effects of the import. For more details, see here:
+# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. Importing it
+# hooks PostGIS reflection into SQLAlchemy, and the imported types are also
+# registered in the DataHub type mapping below. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
-from geoalchemy2 import Geometry  # noqa: F401
+from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -54,6 +64,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
+    RecordTypeClass,
+    StringTypeClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
@@ -65,6 +77,94 @@ register_custom_type(custom_types.ARRAY, ArrayTypeClass)
 register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.JSONB, BytesTypeClass)
 register_custom_type(custom_types.HSTORE, MapTypeClass)
+
+
+class _PostgresCustomType(UserDefinedType):
+    """Placeholder for postgres types that SQLAlchemy does not ship.
+
+    Registering these in ``ischema_names`` keeps their columns from reflecting
+    as ``NullType``, which would both classify them as DataHub NullType and
+    replace their native type name with the literal string "null".
+    """
+
+    cache_ok = True
+    type_name = ""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Reflection passes type modifiers through (e.g. vector(4) -> args=(4,)).
+        self._type_args = args
+
+    def get_col_spec(self, **kw: Any) -> str:
+        if self._type_args:
+            return f"{self.type_name}({', '.join(str(arg) for arg in self._type_args)})"
+        return self.type_name
+
+
+def _make_postgres_type(name: str) -> Type[_PostgresCustomType]:
+    postgres_type: Type[_PostgresCustomType] = type(
+        name, (_PostgresCustomType,), {"type_name": name}
+    )
+    return postgres_type
+
+
+# pgvector (https://github.com/pgvector/pgvector)
+VECTOR = _make_postgres_type("VECTOR")
+HALFVEC = _make_postgres_type("HALFVEC")
+SPARSEVEC = _make_postgres_type("SPARSEVEC")
+# Built-in geometric types (https://www.postgresql.org/docs/current/datatype-geometric.html)
+POINT = _make_postgres_type("POINT")
+LINE = _make_postgres_type("LINE")
+LSEG = _make_postgres_type("LSEG")
+BOX = _make_postgres_type("BOX")
+PATH = _make_postgres_type("PATH")
+POLYGON = _make_postgres_type("POLYGON")
+CIRCLE = _make_postgres_type("CIRCLE")
+XML = _make_postgres_type("XML")
+LTREE = _make_postgres_type("LTREE")
+CITEXT = _make_postgres_type("CITEXT")
+
+# PostGIS types are reflected via the geoalchemy2 import above; map them so
+# their columns stop falling back to NullType.
+register_custom_type(Geometry, RecordTypeClass)
+register_custom_type(Geography, RecordTypeClass)
+register_custom_type(Raster, RecordTypeClass)
+
+for _vector_type in (VECTOR, HALFVEC, SPARSEVEC):
+    register_custom_type(_vector_type, ArrayTypeClass)
+for _geometric_type in (POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE):
+    register_custom_type(_geometric_type, RecordTypeClass)
+for _string_like_type in (XML, LTREE, CITEXT):
+    register_custom_type(_string_like_type, StringTypeClass)
+
+register_custom_type(custom_types.CIDR, StringTypeClass)
+for _range_type in (
+    custom_types.INT4RANGE,
+    custom_types.INT8RANGE,
+    custom_types.NUMRANGE,
+    custom_types.DATERANGE,
+    custom_types.TSRANGE,
+    custom_types.TSTZRANGE,
+):
+    register_custom_type(_range_type, StringTypeClass)
+
+# Same pattern as the MySQL source's spatial type registrations.
+custom_types.base.ischema_names.update(
+    {
+        "vector": VECTOR,
+        "halfvec": HALFVEC,
+        "sparsevec": SPARSEVEC,
+        "point": POINT,
+        "line": LINE,
+        "lseg": LSEG,
+        "box": BOX,
+        "path": PATH,
+        "polygon": POLYGON,
+        "circle": CIRCLE,
+        "xml": XML,
+        "ltree": LTREE,
+        "citext": CITEXT,
+    }
+)
 
 
 VIEW_LINEAGE_QUERY = """

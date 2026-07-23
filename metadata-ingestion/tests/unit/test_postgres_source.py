@@ -339,3 +339,110 @@ def test_get_procedures_for_schema(create_engine_mock):
     assert "INSERT INTO processed_orders" in proc.procedure_definition
     # prosrc returns body only — no CREATE PROCEDURE wrapper that would break lineage
     assert not proc.procedure_definition.strip().upper().startswith("CREATE")
+
+
+def test_postgres_special_types_map_to_datahub_types():
+    """
+    PostGIS, pgvector, built-in geometric, xml, ltree, citext, cidr and range
+    columns must map to real DataHub types instead of NullType (#18575).
+    """
+    from geoalchemy2 import Geography, Geometry, Raster
+    from sqlalchemy.dialects.postgresql import (
+        CIDR,
+        DATERANGE,
+        INT4RANGE,
+        INT8RANGE,
+        NUMRANGE,
+        TSRANGE,
+        TSTZRANGE,
+        base as pg_base,
+    )
+
+    from datahub.ingestion.source.sql.sql_common import get_column_type
+    from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+    from datahub.metadata.schema_classes import (
+        ArrayTypeClass,
+        RecordTypeClass,
+        StringTypeClass,
+    )
+
+    cases = [
+        (Geometry(), RecordTypeClass),
+        (Geography(), RecordTypeClass),
+        (Raster(), RecordTypeClass),
+        (pg_base.ischema_names["vector"](), ArrayTypeClass),
+        (pg_base.ischema_names["halfvec"](), ArrayTypeClass),
+        (pg_base.ischema_names["sparsevec"](), ArrayTypeClass),
+        (pg_base.ischema_names["point"](), RecordTypeClass),
+        (pg_base.ischema_names["line"](), RecordTypeClass),
+        (pg_base.ischema_names["lseg"](), RecordTypeClass),
+        (pg_base.ischema_names["box"](), RecordTypeClass),
+        (pg_base.ischema_names["path"](), RecordTypeClass),
+        (pg_base.ischema_names["polygon"](), RecordTypeClass),
+        (pg_base.ischema_names["circle"](), RecordTypeClass),
+        (pg_base.ischema_names["xml"](), StringTypeClass),
+        (pg_base.ischema_names["ltree"](), StringTypeClass),
+        (pg_base.ischema_names["citext"](), StringTypeClass),
+        (CIDR(), StringTypeClass),
+        (INT4RANGE(), StringTypeClass),
+        (INT8RANGE(), StringTypeClass),
+        (NUMRANGE(), StringTypeClass),
+        (DATERANGE(), StringTypeClass),
+        (TSRANGE(), StringTypeClass),
+        (TSTZRANGE(), StringTypeClass),
+    ]
+
+    report = SQLSourceReport()
+    for column_type, expected_class in cases:
+        actual = get_column_type(report, "test_dataset", column_type)
+        assert isinstance(actual.type, expected_class), (
+            f"{column_type!r} mapped to {actual.type}, expected {expected_class.__name__}"
+        )
+
+    # None of these should have hit the "Unable to map" fallback.
+    assert not report.infos
+
+
+def test_postgres_special_types_preserve_native_names():
+    """nativeDataType must carry the real type name, not 'null' (#18575)."""
+    from sqlalchemy.dialects.postgresql import CIDR, INT4RANGE, base as pg_base
+    from sqlalchemy.dialects.postgresql.base import PGDialect
+
+    from datahub.utilities.sqlalchemy_type_converter import (
+        get_native_data_type_for_sqlalchemy_type,
+    )
+
+    inspector = mock.MagicMock()
+    inspector.dialect = PGDialect()
+
+    expected_native = {
+        "vector": "VECTOR",
+        "point": "POINT",
+        "line": "LINE",
+        "lseg": "LSEG",
+        "box": "BOX",
+        "path": "PATH",
+        "polygon": "POLYGON",
+        "circle": "CIRCLE",
+        "xml": "XML",
+        "ltree": "LTREE",
+        "citext": "CITEXT",
+    }
+    for ischema_key, native in expected_native.items():
+        column_type = pg_base.ischema_names[ischema_key]()
+        assert (
+            get_native_data_type_for_sqlalchemy_type(column_type, inspector) == native
+        )
+
+    assert get_native_data_type_for_sqlalchemy_type(CIDR(), inspector) == "CIDR"
+    assert (
+        get_native_data_type_for_sqlalchemy_type(INT4RANGE(), inspector) == "INT4RANGE"
+    )
+
+    # Reflection passes type modifiers through, e.g. a vector(4) column.
+    assert (
+        get_native_data_type_for_sqlalchemy_type(
+            pg_base.ischema_names["vector"](4), inspector
+        )
+        == "VECTOR(4)"
+    )
