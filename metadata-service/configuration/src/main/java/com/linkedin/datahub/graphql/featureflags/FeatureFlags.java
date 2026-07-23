@@ -75,4 +75,5 @@ public class FeatureFlags {
   // Gates browser Core Web Vitals (LCP/CLS/FID/FCP/TTFB) emission as OTel spans. Independent of
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
+  private boolean datasetStatsSummaryBatchLoadEnabled = true;
 }
