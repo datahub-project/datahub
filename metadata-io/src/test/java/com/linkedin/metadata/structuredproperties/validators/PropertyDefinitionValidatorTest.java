@@ -673,6 +673,30 @@ public class PropertyDefinitionValidatorTest {
   }
 
   @Test
+  public void testRejectsConservativelyWhenTooManySeparatorPositions()
+      throws URISyntaxException, IOException {
+    // >MAX_SEPARATOR_PERMUTATION_BITS (12) separator positions: variant enumeration is skipped and
+    // the check falls back to a conservative reject without a primary-store lookup.
+    String qualifiedName = "a.b.c.d.e.f.g.h.i.j.k.l.m.n"; // 13 '.' separators
+    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:" + qualifiedName);
+    StructuredPropertyDefinition newDefinition = createCollisionTestDefinition(qualifiedName);
+
+    when(mockStructuredPropertyMappingLookup.fieldExists(any(), any())).thenReturn(true);
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                operationContext,
+                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        1);
+    // Fallback must not consult the primary store for candidate owners.
+    Mockito.verify(mockAspectRetriever, Mockito.never())
+        .getLatestAspectObjects(any(), Mockito.argThat(urns -> urns.size() > 1), any());
+  }
+
+  @Test
   public void testAllowsCreateWhenNormalizedNamesDiffer() throws URISyntaxException {
     Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
     StructuredPropertyDefinition newDefinition =

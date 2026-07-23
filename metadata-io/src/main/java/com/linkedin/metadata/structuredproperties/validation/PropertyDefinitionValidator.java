@@ -322,11 +322,19 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       return Optional.of(collisionException(item, esField, newDefinition));
     }
 
-    Set<Urn> candidateUrns =
-        variantFqns.stream()
-            .map(fqn -> UrnUtils.getUrn(STRUCTURED_PROPERTY_URN_PREFIX + fqn))
-            .filter(urn -> !urn.equals(item.getUrn()))
-            .collect(Collectors.toSet());
+    final Set<Urn> candidateUrns;
+    try {
+      candidateUrns =
+          variantFqns.stream()
+              .map(fqn -> UrnUtils.getUrn(STRUCTURED_PROPERTY_URN_PREFIX + fqn))
+              .filter(urn -> !urn.equals(item.getUrn()))
+              .collect(Collectors.toSet());
+    } catch (RuntimeException e) {
+      // A variant couldn't be parsed into a URN — fail closed like the fieldExists IOException
+      // path.
+      log.warn("Failed to build candidate URNs for structured property field {}", esField, e);
+      return Optional.of(collisionException(item, esField, newDefinition));
+    }
     if (candidateUrns.isEmpty()) {
       return Optional.empty();
     }

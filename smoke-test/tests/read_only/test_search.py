@@ -3,7 +3,6 @@ from typing import Optional
 from urllib.parse import quote
 
 import pytest
-import requests
 
 from tests.test_result_msg import add_datahub_stats
 from tests.utilities.concurrent_test_runner import (
@@ -120,7 +119,7 @@ def test_openapi_v3_entity(auth_session):
         # the entity store under xdist --dist=loadscope), so a by-URN GET races
         # into a 404. Try each result and accept the first that still resolves;
         # only fail if none do.
-        last_error: Optional[Exception] = None
+        last_missing: Optional[str] = None
         for result in entities:
             urn = result["entity"]["urn"]
             encoded_urn = quote(urn, safe="")
@@ -128,7 +127,7 @@ def test_openapi_v3_entity(auth_session):
             response = auth_session.get(url, headers=default_headers)
             if response.status_code == 404:
                 # Transient / concurrently-deleted entity — try the next hit.
-                last_error = requests.HTTPError(f"404 for {urn}")
+                last_missing = urn
                 continue
             response.raise_for_status()
             actual_data = response.json()
@@ -140,7 +139,7 @@ def test_openapi_v3_entity(auth_session):
 
         raise AssertionError(
             f"No searchResult for {entity_type} resolved via OpenAPI v3 "
-            f"({len(entities)} tried); last error: {last_error}"
+            f"({len(entities)} tried); last missing urn: {last_missing}"
         )
 
     run_concurrent_tests(entity_types, test_entity, test_name="test_openapi_v3_entity")
