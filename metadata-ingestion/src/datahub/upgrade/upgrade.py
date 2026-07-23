@@ -12,9 +12,8 @@ from pydantic import BaseModel
 
 from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
-from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
+from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import RestServiceConfig
 
@@ -127,30 +126,17 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-def _resolve_request_token(client_config: DatahubClientConfig) -> Optional[str]:
-    """Materialize a bearer token for the single version-check request: minted
-    fresh from the token provider under OAuth (auth=), else the static token."""
-    if client_config.auth is not None:
-        return build_token_provider(client_config.auth).get_token().token
-    return client_config.token
-
-
-async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
-    import aiohttp
-
-    headers = {
-        "X-RestLi-Protocol-Version": "2.0.0",
-        "Content-Type": "application/json",
-    }
-
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    async with aiohttp.ClientSession() as session:
-        config_endpoint = f"{gms_url}/config"
-        async with session.get(config_endpoint, headers=headers) as dh_response:
-            dh_response_json = await dh_response.json()
-            return RestServiceConfig(raw_config=dh_response_json)
+def fetch_server_config_via_graph() -> RestServiceConfig:
+    """Fetch /config through DataHubGraph so auth resolution (static token or
+    auth= token provider) stays in one place. Requests-based (sync) — callers
+    on the event loop must run it in a thread."""
+    client_config = load_client_config()
+    client_config.client_mode = ClientMode.CLI
+    # The version check is best-effort with a ~2s asyncio budget; bound the
+    # underlying requests too so an abandoned worker thread exits promptly.
+    client_config.timeout_sec = 3
+    client_config.retry_max_times = 0
+    return DataHubGraph(client_config).server_config
 
 
 async def get_server_version_stats(
@@ -163,14 +149,11 @@ async def get_server_version_stats(
     server_config: Optional[RestServiceConfig] = None
     if not server:
         try:
-            # let's get the server from the cli config
-            client_config = load_client_config()
-            client_config.client_mode = ClientMode.CLI
-            host = client_config.server
-            # Resolves OAuth (auth=) to a fresh token; failures land in the
-            # except below — the version check is best-effort by design.
-            token = _resolve_request_token(client_config)
-            server_config = await get_server_config(host, token)
+            # In a thread: keeps the event loop free (concurrent GitHub/PyPI
+            # fetches keep running) and the asyncio budget enforceable even if
+            # a token provider stalls. Failures land in the except below — the
+            # version check is best-effort by design.
+            server_config = await asyncio.to_thread(fetch_server_config_via_graph)
             log.debug(f"server_config:{server_config}")
         except Exception as e:
             log.debug(f"Failed to get a valid server: {e}")
