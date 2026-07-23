@@ -13,7 +13,7 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { DataHubPageModuleType, Entity, EntityEdge, Metric } from '@types';
 
 const RELATIONSHIP_LABEL = {
-    parentMetric: 'Used In',
+    parentMetric: 'Child of',
     derivedFrom: 'Derived From',
     relatedMetrics: 'Related To',
 } as const;
