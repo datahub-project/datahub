@@ -234,8 +234,10 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(FieldPathValidator.class.getName())
                 .enabled(true)
+                // PATCH is required so patch writes reach the proposed hook, where the field
+                // paths carried by the patch's own add/replace values are validated
                 .supportedOperations(
-                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE"))
+                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -310,7 +312,7 @@ public class SpringStandardPluginConfiguration {
                 .className(FormPromptValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
-                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE"))
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -759,7 +761,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(LifecycleStageValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -776,7 +778,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(PolicyFieldTypeValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
