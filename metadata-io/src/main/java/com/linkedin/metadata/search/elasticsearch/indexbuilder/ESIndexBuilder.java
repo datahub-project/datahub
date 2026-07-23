@@ -1186,7 +1186,7 @@ public class ESIndexBuilder {
           s.getBulkRetries(),
           s.getSearchRetries());
     }
-        log.error(
+    log.error(
         "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
         sourceIndex,
         destIndex,
