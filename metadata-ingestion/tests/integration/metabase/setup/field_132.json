@@ -1,0 +1,9 @@
+{
+  "id": 132,
+  "name": "rental_rate",
+  "display_name": "Rental Rate",
+  "table_id": 21,
+  "base_type": "type/Decimal",
+  "semantic_type": "type/Currency",
+  "description": null
+}

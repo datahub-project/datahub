@@ -2566,12 +2566,12 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Supported by default",
+          "description": "Supported by default for charts and dashboards",
           "subtype_modifier": null,
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.metabase.MetabaseSource",
+      "classname": "datahub.ingestion.source.metabase.source.MetabaseSource",
       "platform_id": "metabase",
       "platform_name": "Metabase",
       "support_status": "CERTIFIED"
