@@ -1652,6 +1652,41 @@ def test_ensure_size_semantic_model_info_datasets_oversized(processor_ctx):
     assert processor.report.num_truncations_by_aspect.get("semanticModelInfo", 0) == 1
 
 
+def test_ensure_size_semantic_model_info_oversized_no_native_definition(processor_ctx):
+    """When the aspect is over budget but has no nativeDefinition to trim, the
+    oversized warning still fires (the datasets array is left intact)."""
+    small_constraint = 2000  # 2KB
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = small_constraint
+
+    datasets = [
+        ModelDatasetClass(
+            name=f"logical_table_{i:04d}",
+            source=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)",
+        )
+        for i in range(200)
+    ]
+    semantic_model_info = SemanticModelInfoClass(
+        name="Sales_Analytics",
+        nativeDefinition=None,
+        datasets=datasets,
+    )
+
+    assert len(json.dumps(semantic_model_info.to_obj())) > small_constraint
+
+    processor.ensure_semantic_model_info_size(
+        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.public,sales_analytics)",
+        semantic_model_info,
+    )
+
+    # datasets structure is left intact.
+    assert semantic_model_info.datasets is not None
+    assert len(semantic_model_info.datasets) == 200
+
+    warning_titles = [w for w in processor.ctx.source_report.warnings]
+    assert any("remains oversized" in str(t).lower() for t in warning_titles)
+
+
 class TestEnsureAspectSizeProcessorReport:
     @pytest.fixture
     def ctx(self):

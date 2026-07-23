@@ -571,6 +571,20 @@ class SnowflakeV2Source(
                 context=decision.reason,
             )
 
+        # The config-time validator does not fire on the Cloud auto-enable path
+        # (the flag is resolved to True here, after config validation), so warn at
+        # runtime too: semantic-view processing is gated on include_technical_schema.
+        if decision.enabled and not self.config.include_technical_schema:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities requires include_technical_schema",
+                message=(
+                    "emit_semantic_model_entities is enabled but "
+                    "include_technical_schema is False; no semanticModel/metric "
+                    "entities will be emitted. Set include_technical_schema to True."
+                ),
+                context=decision.reason,
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 

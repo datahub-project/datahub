@@ -673,14 +673,26 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         # datasets array. Only nativeDefinition is trimmed, and only when the whole
         # aspect exceeds the payload limit; the datasets array carries the primary
         # queryable metadata and is left intact. See ensure_query_properties_size.
-        original_value = semantic_model_info.nativeDefinition
-        if not original_value:
-            return
 
+        # Fast path: if the whole aspect already fits, there's nothing to do.
         if (
             self._semantic_model_info_serialized_size(semantic_model_info)
             < self.payload_constraint
         ):
+            return
+
+        original_value = semantic_model_info.nativeDefinition
+        if not original_value:
+            # Over budget with no DDL to trim: the datasets array alone is oversized.
+            # We deliberately do not trim it (it is the primary structured payload),
+            # so warn that the aspect may be rejected by GMS rather than fail silently.
+            self.ctx.source_report.warning(
+                title="Semantic model info remains oversized after truncation",
+                message="semanticModelInfo exceeded the size limit and has no "
+                "nativeDefinition to truncate; the datasets structure was not trimmed "
+                "and the aspect may be rejected by GMS",
+                context=entity_urn,
+            )
             return
 
         original_size = len(original_value)

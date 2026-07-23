@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 import sqlglot
 import sqlglot.expressions
@@ -138,15 +138,9 @@ class SnowflakeSemanticModelMapper:
             semantic_view, model_urn
         )
 
-        if self.domain_registry and self.config.domain:
-            yield from get_domain_wu(
-                dataset_name=self.identifiers.get_dataset_identifier(
-                    semantic_view.name, schema_name, db_name
-                ),
-                entity_urn=model_urn,
-                domain_config=self.config.domain,
-                domain_registry=self.domain_registry,
-            )
+        yield from self._gen_domain_workunits(
+            model_urn, semantic_view, schema_name, db_name
+        )
 
         if semantic_view.resolved_upstream_urns:
             yield MetadataChangeProposalWrapper(
@@ -366,6 +360,26 @@ class SnowflakeSemanticModelMapper:
             ),
         )
 
+    def _gen_domain_workunits(
+        self,
+        entity_urn: str,
+        semantic_view: SnowflakeSemanticView,
+        schema_name: str,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Resolve the domain from the semantic view's identifier so both the
+        # semanticModel and its metrics land in the SAME domain (the pattern match
+        # is on the view, not the individual metric).
+        if self.domain_registry and self.config.domain:
+            yield from get_domain_wu(
+                dataset_name=self.identifiers.get_dataset_identifier(
+                    semantic_view.name, schema_name, db_name
+                ),
+                entity_urn=entity_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+            )
+
     def _gen_metric_workunits(
         self,
         occurrence: SemanticViewColumnMetadata,
@@ -389,6 +403,10 @@ class SnowflakeSemanticModelMapper:
             aspect=MetricInfoClass(
                 name=occurrence.name,
                 description=occurrence.comment,
+                created=self._audit_stamp(make_ts_millis(semantic_view.created)),
+                lastModified=self._audit_stamp(
+                    make_ts_millis(semantic_view.last_altered)
+                ),
                 expression=self._metric_expression(occurrence),
                 semanticModel=model_urn,
                 aiContext=(
@@ -412,6 +430,10 @@ class SnowflakeSemanticModelMapper:
 
         yield from self._emit_tags_for_entity(
             metric_urn, semantic_view.column_tags.get(occurrence.name, [])
+        )
+
+        yield from self._gen_domain_workunits(
+            metric_urn, semantic_view, schema_name, db_name
         )
 
         upstreams = self._build_metric_upstreams(metric_lineages)
@@ -704,7 +726,7 @@ class SnowflakeSemanticModelMapper:
                     message="A metric is declared on more than one logical table with "
                     "different expressions. The occurrence with the lexicographically "
                     "smallest table name (expression as tiebreak) is used for the "
-                    "metric entity; the others are silently dropped.",
+                    "metric entity; the other occurrences are not used.",
                     context=f"{semantic_view.name}.{canonical.name}",
                 )
         return metrics
@@ -714,9 +736,7 @@ class SnowflakeSemanticModelMapper:
         fine_grained_lineages: List[FineGrainedLineageClass],
         metric_names_upper: Set[str],
         shadowed_metric_names: Set[str],
-    ) -> (
-        "tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]"
-    ):
+    ) -> Tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]:
         # Routing keys off only the first downstream of each FGL, which is safe
         # because every semantic-view FGL is built with exactly one downstream per
         # (column, logical-table). _downstream_field_name guards at runtime if that

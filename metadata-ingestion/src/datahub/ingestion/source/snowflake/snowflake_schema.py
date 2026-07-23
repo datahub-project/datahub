@@ -1694,8 +1694,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 f"({row_count} relationship rows)"
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch semantic relationships for database {db_name}: {e}"
+            self.report.warning(
+                title="Failed to fetch semantic view relationships",
+                message="Could not query INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS; "
+                "join relationships will be missing for this database's semantic "
+                "views. Ingestion continues without them.",
+                context=db_name,
+                exc=e,
             )
 
     def get_semantic_views_for_schema_using_information_schema(

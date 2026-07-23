@@ -55,8 +55,11 @@ def _fetch_metrics_enabled(graph: DataHubGraph) -> Optional[bool]:
             strip_unsupported_fields=True,
         )
     except GraphError as e:
-        # Older servers reject the query with FieldUndefined; treat as "flag
-        # absent" (allow). Propagate everything else to fail closed.
+        # Fallback for when the graphql-core field stripper is unavailable: older
+        # servers reject the query with FieldUndefined; treat as "flag absent"
+        # (allow). Propagate everything else to fail closed. The primary path is
+        # strip_unsupported_fields=True above, which removes the unknown field and
+        # returns an empty featureFlags rather than raising.
         message = str(e)
         if _FIELD_UNDEFINED_MARKER in message and _METRICS_ENABLED_FIELD in message:
             return None
@@ -119,13 +122,27 @@ def resolve_emit_semantic_model_entities(
 
     # OSS / self-hosted: recipe-driven only.
     if not is_saas:
+        if not recipe_value:
+            return ResolvedEmitDecision(
+                enabled=False,
+                reason="OSS server; recipe did not explicitly request emission",
+                is_saas=False,
+                version=version,
+                metrics_enabled=None,
+            )
+        # Recipe asked for emission: confirm the registry knows these entities
+        # before enabling. None (specs unavailable) does not block.
+        if _server_supports_entities(graph) is False:
+            return ResolvedEmitDecision(
+                enabled=False,
+                reason="server registry lacks semanticModel/metric support",
+                is_saas=False,
+                version=version,
+                metrics_enabled=None,
+            )
         return ResolvedEmitDecision(
-            enabled=bool(recipe_value),
-            reason=(
-                "OSS server; enabled by explicit recipe request"
-                if recipe_value
-                else "OSS server; recipe did not explicitly request emission"
-            ),
+            enabled=True,
+            reason="OSS server; enabled by explicit recipe request",
             is_saas=False,
             version=version,
             metrics_enabled=None,

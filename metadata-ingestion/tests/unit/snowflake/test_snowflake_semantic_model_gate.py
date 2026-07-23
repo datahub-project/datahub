@@ -146,6 +146,31 @@ def test_saas_capability_missing_forces_off():
     assert "registry lacks" in decision.reason
 
 
+def test_oss_recipe_true_specs_unsupported_forces_off():
+    specs = EntityAspectSpecs(entity_aspects={"dataset": {"datasetProperties"}})
+    graph = _make_graph(is_cloud=False, version="1.2.0", specs=specs)
+    decision = resolve_emit_semantic_model_entities(graph, True)
+    assert not decision.enabled
+    assert "registry lacks" in decision.reason
+
+
+def test_oss_recipe_true_specs_none_does_not_block():
+    graph = _make_graph(is_cloud=False, version="1.2.0")
+    graph.get_entity_aspect_specs.return_value = None
+    decision = resolve_emit_semantic_model_entities(graph, True)
+    assert decision.enabled
+    assert not decision.is_saas
+
+
+def test_saas_metrics_field_stripped_resolves_on():
+    # Real strip path: strip_unsupported_fields removes the unknown field and
+    # returns an empty featureFlags (no GraphError) → metricsEnabled is None → ON.
+    graph = _make_graph(is_cloud=True, version="2.1.0", metrics_flags={})
+    decision = resolve_emit_semantic_model_entities(graph, None)
+    assert decision.enabled
+    assert decision.metrics_enabled is None
+
+
 def test_saas_specs_unavailable_does_not_block():
     graph = _make_graph(
         is_cloud=True,
