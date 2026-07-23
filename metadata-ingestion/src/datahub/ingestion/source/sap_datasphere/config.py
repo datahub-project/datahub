@@ -1,5 +1,3 @@
-# src/datahub/ingestion/source/sap_datasphere/config.py
-import re
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
@@ -8,14 +6,16 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.source.sap_datasphere.constants import (
+    PLATFORM_NAME_RE,
+    XSUAA_URL_RE,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-
-MANAGED_CONNECTION_KEY = "_managed"
 
 
 class ConnectionPlatformConfig(BaseModel):
@@ -55,18 +55,12 @@ class ConnectionPlatformConfig(BaseModel):
     @field_validator("platform")
     @classmethod
     def _validate_platform(cls, v: str) -> str:
-        """Catch the most common typo class (uppercase / spaces / empty).
-
-        We don't enforce that ``v`` is in the bundled DataHub platform registry
-        because users can legitimately route to a custom platform that the
-        connector has no knowledge of. But we do enforce the kebab-case-ish
-        shape DataHub platform names always follow, which catches typos like
-        ``Snowflake`` or ``my snowflake`` at config-load time instead of
-        producing a malformed URN at runtime.
-        """
+        # Don't enforce membership in the bundled platform registry (custom
+        # platforms are legitimate), but enforce the kebab-case-ish shape so a
+        # typo surfaces at config-load time rather than as a malformed URN.
         if not v or not v.strip():
             raise ValueError("platform must be a non-empty string")
-        if not re.match(r"^[a-z0-9_\-]+$", v):
+        if not PLATFORM_NAME_RE.match(v):
             raise ValueError(
                 f"platform={v!r} should be lowercase with hyphens/underscores only "
                 f"(e.g., 'snowflake', 'bigquery', 'sap-hana')."
@@ -78,9 +72,8 @@ class ConnectionPlatformConfig(BaseModel):
     def _validate_env(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        # Allowed env values are derived from FabricTypeClass; we enumerate via dir()
-        # at validation time so the connector stays in sync with whatever the
-        # DataHub schema layer defines, without hard-coding the full set.
+        # Enumerate allowed envs from FabricTypeClass so the connector stays in
+        # sync with the schema layer without hard-coding the full set.
         from datahub.metadata.schema_classes import FabricTypeClass
 
         allowed = {
@@ -282,6 +275,64 @@ class SapDatasphereConfig(
         ),
     )
 
+    include_data_flows: bool = Field(
+        default=False,
+        description=(
+            "If True, discover SAP Datasphere Data Flows and emit each as a "
+            "DataJob (grouped under a per-space DataFlow) with its source/target "
+            "tables as input/output datasets and column-level lineage from the "
+            "producer's attributeMappings. Data Flows are the primary lineage "
+            "source for Local Tables populated by an ETL flow. Uses the supported "
+            "`/dwaas-core/api/v1/spaces/X/dataflows` endpoint (one list call per "
+            "space + one read call per flow)."
+        ),
+    )
+    include_replication_flows: bool = Field(
+        default=False,
+        description=(
+            "If True, discover SAP Datasphere Replication Flows and emit each as a "
+            "DataJob with its source/target objects as input/output datasets and "
+            "per-task column-level lineage. Replication Flows move data between two "
+            "external systems; their source/target objects are routed to DataHub "
+            "platforms via `connection_to_platform_map` / `platform_type_defaults` "
+            "(objects on unmapped connections are skipped and reported under "
+            "`flow_endpoints_unresolved`)."
+        ),
+    )
+    include_remote_tables: bool = Field(
+        default=False,
+        description=(
+            "If True, discover federated Remote Tables and emit each as a Dataset "
+            "with upstream lineage to its external source object (parsed from the "
+            "CSN `@DataWarehouse.remote.connection` / `@DataWarehouse.remote.entity` "
+            "annotations). The external upstream is routed via "
+            "`connection_to_platform_map` / `platform_type_defaults`; unmapped "
+            "connections leave the remote table without upstream lineage "
+            "(reported under `remote_table_source_unresolved`)."
+        ),
+    )
+    include_transformation_flows: bool = Field(
+        default=False,
+        description=(
+            "EXPERIMENTAL. If True, discover Transformation Flows and emit them as "
+            "DataJobs. This path is parsed with the Data Flow process-graph reader "
+            "but has NOT been verified against a live Transformation Flow payload, "
+            "so lineage may be incomplete. Enable only if you can validate the "
+            "output; please report payload samples so the parser can be hardened."
+        ),
+    )
+    include_task_chains: bool = Field(
+        default=False,
+        description=(
+            "EXPERIMENTAL. If True, discover Task Chains and emit each as a DataJob. "
+            "No live Task Chain payload was available to reverse-engineer the "
+            "member/reference grammar, so chains are currently surfaced as IO-less "
+            "jobs (their presence + subtype only) without lineage edges. Enable to "
+            "catalogue the objects; please report payload samples so lineage can be "
+            "added."
+        ),
+    )
+
     include_view_definitions: bool = Field(
         default=True,
         description=(
@@ -327,11 +378,9 @@ class SapDatasphereConfig(
     @field_validator("base_url")
     @classmethod
     def strip_trailing_slash(cls, v: str) -> str:
-        # base_url is the most-used field: every request URL and the xsuaa_url
-        # derivation regex assume a scheme-qualified host. A value missing the
-        # scheme silently produces broken request URLs and an unmatched
-        # xsuaa_url, surfacing far downstream as a confusing OAuth error — so
-        # validate the scheme here where the message is actionable.
+        # A missing scheme silently produces broken request URLs and an unmatched
+        # xsuaa_url, surfacing far downstream as a confusing OAuth error; validate
+        # here where the message is actionable.
         if not v.startswith(("http://", "https://")):
             raise ValueError(
                 f"base_url must start with 'https://' (or 'http://'), "
@@ -347,10 +396,7 @@ class SapDatasphereConfig(
     @model_validator(mode="after")
     def derive_xsuaa_url(self) -> "SapDatasphereConfig":
         if self.xsuaa_url is None:
-            match = re.match(
-                r"https://([^.]+)\.([^.]+)\.hcs\.cloud\.sap",
-                self.base_url,
-            )
+            match = XSUAA_URL_RE.match(self.base_url)
             if match:
                 subdomain, region = match.group(1), match.group(2)
                 self.xsuaa_url = (
@@ -360,14 +406,10 @@ class SapDatasphereConfig(
 
     @model_validator(mode="after")
     def _at_least_one_credential(self) -> "SapDatasphereConfig":
-        # Order matters: this runs AFTER `derive_xsuaa_url`, so self.xsuaa_url reflects
-        # any auto-derived value before we check the credential paths.
-        #
-        # When refresh_token or client_secret is given, we enforce that the
-        # supporting XSUAA fields are also present — even if a raw `token` is ALSO
-        # supplied — so the user gets a clear validation error up-front instead of
-        # a confusing runtime failure when the bearer expires and the connector
-        # tries to refresh with incomplete OAuth config.
+        # Runs after derive_xsuaa_url, so self.xsuaa_url reflects any auto-derived
+        # value. Enforce supporting XSUAA fields even when a raw token is also
+        # supplied, so incomplete OAuth config fails up-front rather than at
+        # bearer-expiry mid-run.
         if self.refresh_token is not None and (
             self.xsuaa_url is None or self.client_id is None
         ):
@@ -399,8 +441,8 @@ class SapDatasphereConfig(
 
     @model_validator(mode="after")
     def _merge_builtin_platform_type_defaults(self) -> "SapDatasphereConfig":
-        """Merge user-supplied platform_type_defaults on top of the built-in table so the
-        user only has to list the entries they want to override or add."""
+        # Merge user overrides on top of the built-in table so the user only lists
+        # the entries they want to add or change.
         merged: Dict[str, ConnectionPlatformConfig] = dict(
             _BUILTIN_PLATFORM_TYPE_DEFAULTS
         )

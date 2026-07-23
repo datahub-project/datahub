@@ -680,6 +680,12 @@ def test_fetch_object_definition_404_is_benign_no_warning(requests_mock):
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/VIEW_X",
         status_code=404,
     )
+    # The object doesn't exist under the sibling type either — the fallback probe
+    # also 404s, so this stays the genuinely-missing (benign) case.
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/VIEW_X",
+        status_code=404,
+    )
     client = SapDatasphereClient(cfg, report=report)
     assert client.fetch_object_definition("S1", "views", "VIEW_X") is None
 
@@ -688,6 +694,88 @@ def test_fetch_object_definition_404_is_benign_no_warning(requests_mock):
         for w in report.warnings
     )
     assert "S1.VIEW_X" in list(report.assets_csn_fetch_failed)
+
+
+def test_fetch_object_definition_404_falls_back_to_alternate_object_type(
+    requests_mock,
+):
+    """The catalog ``supportsAnalyticalQueries`` flag can misroute an asset: an
+    analytic-enabled view reports ``true`` (routing to ``/analyticmodels/``) but
+    only serves CSN under ``/views/``. A 404 on the primary type must transparently
+    retry the sibling type, recover the CSN, and record the correction WITHOUT
+    counting a fetch failure."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/ASSET_X",
+        status_code=404,
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/ASSET_X",
+        json={"definitions": {"ASSET_X": {"kind": "entity"}}},
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    result = client.fetch_object_definition("S1", "analyticmodels", "ASSET_X")
+
+    assert result is not None
+    assert "ASSET_X" in result["definitions"]
+    # Recovery recorded, not a failure.
+    assert "S1.ASSET_X" not in list(report.assets_csn_fetch_failed)
+    corrected = list(report.assets_csn_object_type_corrected)
+    assert corrected == ["S1.ASSET_X: analyticmodels->views"], (
+        f"Expected one correction record; got: {corrected}"
+    )
+
+
+def test_fetch_object_definition_404_both_types_reports_failed_exactly_once(
+    requests_mock,
+):
+    """When BOTH the primary and sibling object types 404, the asset is genuinely
+    missing: return None and record the failure exactly once (the fallback attempt
+    must not double-count it), with no correction recorded."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/GONE",
+        status_code=404,
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/GONE",
+        status_code=404,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert client.fetch_object_definition("S1", "views", "GONE") is None
+
+    failed = list(report.assets_csn_fetch_failed)
+    assert failed.count("S1.GONE") == 1, (
+        f"Expected the miss counted exactly once; got: {failed}"
+    )
+    assert list(report.assets_csn_object_type_corrected) == []
+
+
+def test_fetch_object_definition_localtables_404_has_no_alternate(requests_mock):
+    """Local Tables have no sibling object type — a 404 must be reported as a
+    failure directly, with no fallback request attempted."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/localtables/T1",
+        status_code=404,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert client.fetch_object_definition("S1", "localtables", "T1") is None
+
+    assert "S1.T1" in list(report.assets_csn_fetch_failed)
+    assert list(report.assets_csn_object_type_corrected) == []
+    # Only the single localtables request was made — no fallback probe.
+    csn_calls = [h for h in requests_mock.request_history if "/dwaas-core/" in h.url]
+    assert len(csn_calls) == 1, f"Expected no fallback probe; got: {csn_calls}"
 
 
 def test_fetch_object_definition_429_warning_mentions_rate_limit(requests_mock):

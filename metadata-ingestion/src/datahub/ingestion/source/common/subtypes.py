@@ -48,6 +48,7 @@ class DatasetSubTypes(StrEnum):
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     SAP_ANALYTICAL_MODEL = "Analytic Model"
     SAP_LOCAL_TABLE = "Local Table"
+    SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -204,9 +205,16 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # SAP Datasphere — the per-space grouping of flow jobs.
+    SAP_DATASPHERE = "SAP Datasphere"
 
 
 class DataJobSubTypes(StrEnum):
+    # SAP Datasphere flow object types.
+    SAP_DATA_FLOW = "Data Flow"
+    SAP_REPLICATION_FLOW = "Replication Flow"
+    SAP_TRANSFORMATION_FLOW = "Transformation Flow"
+    SAP_TASK_CHAIN = "Task Chain"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

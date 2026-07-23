@@ -10,7 +10,10 @@ from datahub.ingestion.source.sap_datasphere.tags import (
     sap_dimension_type_tag_urn,
 )
 from datahub.metadata.schema_classes import TagPropertiesClass
-from tests.unit.sap_datasphere_test_helpers import aspect_as, entity_urn_of
+from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
+    aspect_as,
+    entity_urn_of,
+)
 
 
 def test_universal_bi_tag_urns_are_flat():

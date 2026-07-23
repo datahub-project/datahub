@@ -2,15 +2,17 @@ from typing import Dict
 
 from datahub.ingestion.source.sap_datasphere.config import (
     _BUILTIN_PLATFORM_TYPE_DEFAULTS,
-    MANAGED_CONNECTION_KEY,
     ConnectionPlatformConfig,
     SapDatasphereConfig,
 )
-from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+from datahub.ingestion.source.sap_datasphere.constants import MANAGED_CONNECTION_KEY
+from datahub.ingestion.source.sap_datasphere.models import (
     ConnectionRecord,
-    PlatformMappingResolver,
     ResolvedPlatform,  # noqa: F401 – exported symbol, useful for type hints in call sites
     ResolveSkipReason,
+)
+from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+    PlatformMappingResolver,
 )
 from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 
@@ -315,3 +317,51 @@ def test_federated_connection_unchanged():
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "acct_xyz"
+
+
+# ---------------------------------------------------------------------------
+# resolve_external — flow / replication-flow endpoints carrying an explicit
+# connectionType that may not appear in the space's connections list.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_external_uses_connection_type_when_name_absent():
+    """A replication-flow endpoint names a connectionId not in the connections
+    list; the endpoint's own connectionType resolves it via type defaults."""
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved, reason = resolver.resolve_external("NOT_IN_LIST", "S3")
+    assert resolved is not None
+    assert reason is None
+    assert resolved.platform == "s3"
+
+
+def test_resolve_external_prefers_explicit_name_map_over_type():
+    cfg = _config_with(
+        map_overrides={"SRC_CONN": {"platform": "snowflake", "platform_instance": "a"}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    # connectionType would map to S3, but the explicit name mapping wins.
+    resolved, _ = resolver.resolve_external("SRC_CONN", "S3")
+    assert resolved is not None
+    assert resolved.platform == "snowflake"
+    assert resolved.platform_instance == "a"
+
+
+def test_resolve_external_unknown_type_and_name_returns_none():
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved, reason = resolver.resolve_external("MYSTERY", "SNOWFLAKE")
+    assert resolved is None
+    assert reason == ResolveSkipReason.UNKNOWN_CONNECTION
+
+
+def test_resolve_external_disabled_type_default_returns_none():
+    cfg = _config_with(
+        type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved, _ = resolver.resolve_external(None, "S3")
+    # A disabled type default is not usable; with no name to fall back on the
+    # endpoint is unresolved.
+    assert resolved is None

@@ -1,18 +1,13 @@
-"""Parse a SAP Datasphere CSN ``elements`` map into DataHub SchemaFieldClass.
-
-CSN (Core Schema Notation) is SAP's JSON AST for CDS definitions. Each column
-appears under ``definitions[name].elements`` as ``{name: {type, length, precision,
-scale, @EndUserText.label, ...}}``. We map the type literal to a DataHub
-schema-field type, surface the length/precision/scale in the nativeDataType
-string, and preserve the human label as the description.
-
-Mirrors edmx_parser.py for the EDMX path, but consumes CSN directly so we can
-fetch Local Table schemas (which aren't exposed via the OData $metadata
-endpoint that views use).
-"""
-
 from typing import Dict, List, Tuple
 
+from datahub.ingestion.source.sap_datasphere.constants import (
+    CSN_ATTR_LABEL,
+    CSN_ATTR_LENGTH,
+    CSN_ATTR_PRECISION,
+    CSN_ATTR_SCALE,
+    CSN_TYPE,
+)
+from datahub.ingestion.source.sap_datasphere.models import UnknownColumnType
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -24,7 +19,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
-# CDS type -> (DataHub type class, native-type display root)
+# CDS type literal -> (DataHub type class, native-type display root)
 _TYPE_MAP = {
     "cds.String": (StringTypeClass, "VARCHAR"),
     "cds.LargeString": (StringTypeClass, "NCLOB"),
@@ -65,11 +60,10 @@ _TYPE_MAP = {
 
 
 def _native_type_string(root: str, element: Dict) -> str:
-    """Render ``VARCHAR(10)`` / ``DECIMAL(10,2)`` / ``TINYINT`` etc."""
-    if "length" in element:
-        return f"{root}({element['length']})"
-    precision = element.get("precision")
-    scale = element.get("scale")
+    if CSN_ATTR_LENGTH in element:
+        return f"{root}({element[CSN_ATTR_LENGTH]})"
+    precision = element.get(CSN_ATTR_PRECISION)
+    scale = element.get(CSN_ATTR_SCALE)
     if precision is not None and scale is not None:
         return f"{root}({precision},{scale})"
     if precision is not None:
@@ -79,38 +73,31 @@ def _native_type_string(root: str, element: Dict) -> str:
 
 def parse_csn_elements_to_schema_fields(
     elements: Dict[str, Dict],
-) -> Tuple[List[SchemaFieldClass], List[Tuple[str, str]]]:
-    """Convert a CSN ``elements`` map to a list of DataHub SchemaFieldClass.
+) -> Tuple[List[SchemaFieldClass], List[UnknownColumnType]]:
+    """Convert a CSN ``elements`` map to DataHub schema fields.
 
-    Returns ``(fields, unknown_types)`` where ``unknown_types`` is a list of
-    ``(cds_type, column_name)`` for any CDS type literal not in ``_TYPE_MAP``.
-    The element order intentionally matches ``EdmxParseResult.unknown_edm_types``
-    (``(edm_type, property_name)``) so the two parsers' report consumers stay
-    interchangeable. Such columns still emit (mapped to ``StringTypeClass`` with
-    the raw type preserved in ``nativeDataType``), but the caller should surface
-    them in the ingestion report — mirrors how ``edmx_parser`` reports
-    ``unknown_edm_types`` so a mis-typed column is visible to the operator
-    instead of silently becoming a string.
-
-    Preserves dict insertion order so the schema rendered in DataHub matches
-    the upstream SAP definition's column order.
+    Consumes CSN directly (mirroring the EDMX path) so Local Table and analytic
+    model schemas are available even without an OData ``$metadata`` endpoint.
+    Returns the fields plus any columns whose CDS type literal is unmapped;
+    those still emit as ``StringTypeClass`` with the raw type in
+    ``nativeDataType``, but the caller surfaces them in the report rather than
+    silently degrading. Dict insertion order is preserved so the rendered schema
+    matches the upstream column order.
     """
     fields: List[SchemaFieldClass] = []
-    unknown_types: List[Tuple[str, str]] = []
+    unknown_types: List[UnknownColumnType] = []
     for col_name, element in elements.items():
         if not isinstance(element, dict):
             continue
-        cds_type = element.get("type", "")
-        # Only flag a genuinely unrecognized, non-empty type literal; a missing
-        # ``type`` key is a separate (structural) concern, not an unknown type.
-        # Order is (cds_type, col_name) to match EdmxParseResult.unknown_edm_types.
+        cds_type = element.get(CSN_TYPE, "")
+        # A missing type key is a structural concern, not an unknown type.
         if cds_type and cds_type not in _TYPE_MAP:
-            unknown_types.append((cds_type, col_name))
+            unknown_types.append(UnknownColumnType(cds_type, col_name))
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (StringTypeClass, cds_type or "UNKNOWN")
         )
         native = _native_type_string(native_root, element)
-        description = element.get("@EndUserText.label")
+        description = element.get(CSN_ATTR_LABEL)
         fields.append(
             SchemaFieldClass(
                 fieldPath=col_name,

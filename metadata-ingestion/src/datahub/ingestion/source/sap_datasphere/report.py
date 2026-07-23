@@ -2,25 +2,18 @@ import heapq
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from datahub.ingestion.source.sap_datasphere.constants import (
+    SLOWEST_API_CALLS_RETAINED,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.utilities.lossy_collections import LossyList
 
-# Number of slowest individual API calls to retain for outlier spotting. Kept as
-# a module-level constant (not a dataclass field) so it never leaks into the
-# report's ``as_obj`` serialization regardless of underscore-prefix rules.
-_SLOWEST_N = 10
-
 
 @dataclass
 class ApiCallStats:
-    """Aggregated timing for one logical API operation (e.g. ``csn_fetch``).
-
-    Memory is O(1) per operation — only running aggregates are kept, never
-    per-call samples.
-    """
-
+    # O(1) per operation — only running aggregates are kept, never per-call samples.
     count: int = 0
     total_seconds: float = 0.0
     max_seconds: float = 0.0
@@ -43,52 +36,61 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     assets_scanned: int = 0
     assets_filtered: int = 0
     assets_schema_fetched: int = 0
-    # PR-1: Local Tables emitted via the supported /dwaas-core/ discovery
-    # endpoint (gated on `include_local_tables`).
+    # Assets whose schema came from the CSN elements map because no OData/EDMX
+    # metadata URL was available (e.g. analytic models).
+    assets_schema_from_csn: int = 0
     local_tables_emitted: int = 0
-    # M4: columns dropped from emitted schemas via `column_pattern`.
     columns_filtered: int = 0
     assets_schema_failed: LossyList[str] = field(default_factory=LossyList)
-    # Tagged skip-reason buckets (replaces the older, ambiguous
-    # `assets_skipped_unknown_platform`).
     assets_skipped_unknown_typeid: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_unknown_connection: LossyList[str] = field(default_factory=LossyList)
     assets_skipped_disabled: LossyList[str] = field(default_factory=LossyList)
-    # Surfaces from EDMX parsing and CSN fetch failures.
     assets_with_unknown_edm_types: LossyList[str] = field(default_factory=LossyList)
-    # CDS type literals from the CSN path not in the parser's type map (mapped
-    # to StringType as a fallback). Mirrors `assets_with_unknown_edm_types`.
     assets_with_unknown_cds_types: LossyList[str] = field(default_factory=LossyList)
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
-    # CSN body fetched successfully (HTTP 200) but its shape was unexpected, so
-    # no schema could be parsed — distinguishes a parse miss from a genuine
-    # no-schema base table.
+    # Non-empty means the supportsAnalyticalQueries routing heuristic was wrong
+    # for those assets but the sibling-type fallback recovered them.
+    assets_csn_object_type_corrected: LossyList[str] = field(default_factory=LossyList)
+    # HTTP 200 but an unexpected shape, so no schema could be parsed —
+    # distinguishes a parse miss from a genuine no-schema base table.
     assets_csn_unparseable: LossyList[str] = field(default_factory=LossyList)
     column_lineage_unresolved: LossyList[str] = field(default_factory=LossyList)
-    """Per-asset records of column-lineage refs that could not be resolved to a known
-    upstream column (e.g., `S1.VIEW.col1 -> MISSING_TABLE.x`). LossyList caps the
-    entries so it doesn't grow unbounded at 1M-entity scale."""
 
-    # Per-endpoint API timing aggregates, keyed by logical operation
+    # Flow-based lineage (data / replication / transformation flows, task chains)
+    # emitted as DataJobs under a per-space DataFlow.
+    data_flows_scanned: int = 0
+    data_flows_emitted: int = 0
+    replication_flows_scanned: int = 0
+    replication_flows_emitted: int = 0
+    transformation_flows_scanned: int = 0
+    transformation_flows_emitted: int = 0
+    task_chains_scanned: int = 0
+    task_chains_emitted: int = 0
+    # A flow whose definition fetch failed, or which parsed to no IO edges.
+    flows_fetch_failed: LossyList[str] = field(default_factory=LossyList)
+    flows_unparseable: LossyList[str] = field(default_factory=LossyList)
+    # A flow endpoint (source/target object) whose connection could not be mapped
+    # to a DataHub platform, so its lineage edge was skipped.
+    flow_endpoints_unresolved: LossyList[str] = field(default_factory=LossyList)
+
+    # Federated Remote Tables and their external upstream lineage.
+    remote_tables_scanned: int = 0
+    remote_tables_emitted: int = 0
+    # A remote table whose @DataWarehouse.remote connection could not be mapped.
+    remote_table_source_unresolved: LossyList[str] = field(default_factory=LossyList)
+
+    # Per-operation timing aggregates, keyed by logical operation
     # (oauth_token / catalog_list / connections / csn_fetch / edmx_fetch).
-    # Memory is O(#operations) — a fixed, tiny set of keys.
     api_timings: Dict[str, ApiCallStats] = field(default_factory=dict)
-    # The N slowest individual API calls seen, for outlier spotting. Bounded
-    # min-heap (seconds, operation, url); underscore-prefixed so it is excluded
-    # from ``as_obj`` serialization.
+    # Bounded min-heap of the N slowest (seconds, operation, url); underscore
+    # prefix keeps it out of as_obj serialization.
     _slowest_api_calls_heap: List[Tuple[float, str, str]] = field(default_factory=list)
-    # Human-readable view of the slowest calls, rebuilt on each record (<=N items
-    # so the rebuild is cheap). This one IS serialized into the report.
+    # Human-readable view of the slowest calls, rebuilt on each record; serialized.
     slowest_api_calls: List[str] = field(default_factory=list)
 
     def report_api_call(
         self, operation: str, seconds: float, url: Optional[str] = None
     ) -> None:
-        """Record one outbound API call's latency under ``operation``.
-
-        Hot path (up to ~millions of calls): a dict lookup/update plus a bounded
-        heap op. Memory stays O(#operations + N).
-        """
         stats = self.api_timings.get(operation)
         if stats is None:
             stats = ApiCallStats()
@@ -97,13 +99,11 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
         stats.total_seconds += seconds
         if seconds > stats.max_seconds:
             stats.max_seconds = seconds
-        # Maintain a bounded min-heap of the N slowest calls.
         entry = (seconds, operation, url or "")
-        if len(self._slowest_api_calls_heap) < _SLOWEST_N:
+        if len(self._slowest_api_calls_heap) < SLOWEST_API_CALLS_RETAINED:
             heapq.heappush(self._slowest_api_calls_heap, entry)
         elif seconds > self._slowest_api_calls_heap[0][0]:
             heapq.heapreplace(self._slowest_api_calls_heap, entry)
-        # Rebuild the human-readable view (cheap; <=N items).
         self.slowest_api_calls = [
             f"{op}: {s * 1000:.0f}ms {u}".rstrip()
             for s, op, u in sorted(self._slowest_api_calls_heap, reverse=True)

@@ -35,6 +35,36 @@ fetch). At 1M assets with `max_workers_assets=10`, this adds ~3 hours to the
 total run time. The column-level walker itself is essentially free (in-memory
 tree walk over an already-fetched JSON document).
 
+#### Flow and Remote Table lineage (ETL)
+
+The query-derived lineage above captures how views are computed, but not how
+the tables they read are _populated_. Several opt-in flags surface the
+design-time objects that move and transform data, so an otherwise phantom
+upstream Local Table becomes a navigable node with real upstream lineage:
+
+- **`include_data_flows: true`** — emits each Data Flow as a DataJob (grouped
+  under one DataFlow per space) with its source tables as inputs, its target
+  tables as outputs, and column-level lineage from the flow's column mappings.
+  Column lineage is attributed only when a target has a single input source.
+- **`include_replication_flows: true`** — emits each Replication Flow as a
+  DataJob wiring its source object(s) to target object(s), with per-task column
+  mappings. Source/target systems are routed to a DataHub platform via
+  `connection_to_platform_map` / `platform_type_defaults` (using the flow's own
+  `connectionType` when the connection isn't in the space's connections list).
+- **`include_remote_tables: true`** — emits federated Remote Tables as datasets
+  with upstream lineage to their external source object (parsed from the CSN
+  `@DataWarehouse.remote.*` annotations and routed via the connection maps).
+- **`include_transformation_flows` / `include_task_chains`** — **experimental**.
+  These paths were not verifiable against a live payload on the tenants
+  available during development, so lineage may be incomplete: transformation
+  flows reuse the Data Flow reader, and task chains are emitted as jobs without
+  lineage edges. Enable only if you can validate the output.
+
+Endpoints or sources that don't resolve to a platform are counted in
+`report.flow_endpoints_unresolved` and `report.remote_table_source_unresolved`
+rather than being silently dropped. Each flag adds one list call per space plus
+one read call per object.
+
 #### View definitions
 
 With `include_view_definitions: true` (default), a View's or Analytic Model's
@@ -83,9 +113,11 @@ All endpoints called by this connector are SAP-supported public APIs:
 - `/api/v1/datasphere/consumption/catalog/...` — asset discovery (Catalog API)
 - `/api/v1/datasphere/consumption/relational/.../$metadata` — EDMX schema
 - `/api/v1/datasphere/spaces/X/connections` — Connections API
-- `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables}/{name}` —
+- `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables,remotetables}/{name}` —
   per-object-type CSN read (with `Accept: application/vnd.sap.datasphere.object.content+json`),
   the same surface the official `datasphere` CLI uses
+- `/dwaas-core/api/v1/spaces/X/{dataflows,replicationflows,transformationflows,taskchains}/{name}` —
+  per-flow design-time definitions (only called when the matching `include_*` flag is set)
 
 Previous releases of this connector used the `/deepsea/repository/` endpoint
 for lineage extraction, which SAP marks as internal-use-only in

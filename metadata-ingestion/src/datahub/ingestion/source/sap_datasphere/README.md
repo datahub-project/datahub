@@ -8,15 +8,18 @@ For user/recipe documentation see `metadata-ingestion/docs/sources/sap-dataspher
 
 ## What it extracts
 
-| SAP Datasphere object         | DataHub entity                                                | Notes                                                         |
-| ----------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
-| **Space**                     | Container, subtype `Space`                                    | 2-tier model (Space → dataset); no synthetic folder layer     |
-| **View** (graphical / SQL)    | Dataset on `sap-datasphere`, subtype `View`                   | `viewProperties` carries the CSN query tree                   |
-| **Analytic Model**            | Dataset, subtype `Analytic Model`                             | star-schema lineage + measure/dimension tags + variables      |
-| **Local Table** (base table)  | Dataset stub, subtype `Local Table`                           | opt-in via `include_local_tables`                             |
-| **Remote Table** (federation) | Dataset on the **native storage platform** (snowflake/hana/…) | URN-merges with the warehouse connector's own entity          |
-| **Columns**                   | `SchemaField`                                                 | from OData EDMX `$metadata`, decorated with CDS semantic tags |
-| **Lineage**                   | `UpstreamLineage` + `FineGrainedLineage`                      | table-level + column-level (see Lineage below)                |
+| SAP Datasphere object                | DataHub entity                                             | Notes                                                              |
+| ------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Space**                            | Container, subtype `Space`                                 | 2-tier model (Space → dataset); no synthetic folder layer          |
+| **View** (graphical / SQL)           | Dataset on `sap-datasphere`, subtype `View`                | `viewProperties` carries the CSN query tree                        |
+| **Analytic Model**                   | Dataset, subtype `Analytic Model`                          | star-schema lineage + measure/dimension tags + variables           |
+| **Local Table** (base table)         | Dataset stub, subtype `Local Table`                        | opt-in via `include_local_tables`                                  |
+| **Remote Table** (federation)        | Dataset stub, subtype `Remote Table` + external upstream   | opt-in via `include_remote_tables`; upstream = external source URN |
+| **Data Flow**                        | `DataJob` (subtype `Data Flow`) under per-space `DataFlow` | opt-in via `include_data_flows`; IO datasets + column mappings     |
+| **Replication Flow**                 | `DataJob` (subtype `Replication Flow`)                     | opt-in via `include_replication_flows`; source↔target + columns   |
+| **Transformation Flow / Task Chain** | `DataJob` (experimental)                                   | opt-in; experimental — see Flows below                             |
+| **Columns**                          | `SchemaField`                                              | from OData EDMX `$metadata`, decorated with CDS semantic tags      |
+| **Lineage**                          | `UpstreamLineage` + `FineGrainedLineage`                   | table-level + column-level (see Lineage below)                     |
 
 Also emitted: CDS semantic annotations as DataHub **tags** (Dimension/Measure,
 currency, unit, calendar, dimension-type), `sap_*` custom properties, and
@@ -66,7 +69,8 @@ Uses only SAP-supported public endpoints:
 
 - `/api/v1/datasphere/consumption/catalog/{spaces,assets}` — inventory (paginated, 500/page cap, `@odata.nextLink`).
 - `/api/v1/datasphere/consumption/relational/.../$metadata` — EDMX schema.
-- `/dwaas-core/api/v1/spaces/{space}/{views,analyticmodels,localtables}/{name}` — per-object CSN (the surface the official `datasphere` CLI uses).
+- `/dwaas-core/api/v1/spaces/{space}/{views,analyticmodels,localtables,remotetables}/{name}` — per-object CSN (the surface the official `datasphere` CLI uses).
+- `/dwaas-core/api/v1/spaces/{space}/{dataflows,replicationflows,transformationflows,taskchains}/{name}` — per-flow design-time definitions (opt-in).
 - `/api/v1/datasphere/spaces/{space}/connections` — connection → platform routing.
 
 ### Platform model (managed vs. federated)
@@ -86,6 +90,37 @@ Snowflake/HANA/… connector emits — no Siblings config. Routing is driven by
 - **Column-level** — one `FineGrainedLineage` per resolvable downstream column (direct / alias=RENAME / aggregate=AGGREGATE / arithmetic=EXPRESSION / func=TRANSFORMATION).
 - **Analytic-model star schema** — fact/dimension sources from `businessLayerDefinitions`.
   Unresolvable refs are counted in `report.column_lineage_unresolved`, never silently dropped.
+
+### Flows & Remote Tables (opt-in ETL lineage)
+
+Beyond the query-derived lineage above, the connector can discover the
+design-time objects that _populate_ tables, closing the gap where a Local Table
+appears only as a phantom upstream (`flows.py`):
+
+- **Data Flows** (`include_data_flows`) and **Replication Flows**
+  (`include_replication_flows`) are emitted as `DataJob`s grouped under one
+  per-space `DataFlow`. Each job's `*.consumer`/`*.producer` processes (data
+  flows) or `sourceObject`/`targetObject` tasks (replication flows) become
+  inlets/outlets; bare-quoted `attributeMappings` become `FineGrainedLineage`.
+  Column lineage is only attributed when a producer has a single input source
+  (multi-input flows stay table-level to avoid guessing).
+- **Remote Tables** (`include_remote_tables`) are emitted as `sap-datasphere`
+  dataset stubs (matching the name views reference them by) with an
+  `UpstreamLineage` edge to the external source object parsed from the CSN
+  `@DataWarehouse.remote.connection` / `@DataWarehouse.remote.entity`
+  annotations, routed to a platform via the connection maps.
+- **Transformation Flows / Task Chains** (`include_transformation_flows`,
+  `include_task_chains`) are **experimental**: no live payload was available to
+  verify their grammar. Transformation flows reuse the data-flow process-graph
+  reader; task chains are surfaced as IO-less jobs (presence + subtype only).
+  Enable only to catalogue the objects, and report payload samples so lineage
+  can be hardened.
+
+Flow-endpoint resolution reuses the connection maps via
+`PlatformMappingResolver.resolve_external`, which also accepts an endpoint's own
+`connectionType` so a replication-flow system that isn't in the space's
+connections list still routes. Endpoints/sources that don't resolve are counted
+in `report.flow_endpoints_unresolved` / `report.remote_table_source_unresolved`.
 
 ### Scale & safety
 

@@ -264,6 +264,1164 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "BusinessPartner",
+                    "nullable": true,
+                    "description": "BusinessPartner",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_BusinessPartner",
+                    "nullable": true,
+                    "description": "BusinessPartner",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "cds.Association",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartner_Location",
+                    "nullable": true,
+                    "description": "BusinessPartner_Location",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "_BusinessPartner_Loc",
+                    "nullable": true,
+                    "description": "BusinessPartner_Location",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "cds.Association",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_ORDERID",
+                    "nullable": true,
+                    "description": "BW_ORDERID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_YEAR",
+                    "nullable": true,
+                    "description": "BW_Athena_YEAR",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_MONTH",
+                    "nullable": true,
+                    "description": "BW_Athena_MONTH",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_SALESAGENT",
+                    "nullable": true,
+                    "description": "BW_SALESAGENT",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_COUNTRY",
+                    "nullable": true,
+                    "description": "BW_Athena_COUNTRY",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_CUSTOMERSTATUS",
+                    "nullable": true,
+                    "description": "BW_Athena_CUSTOMERSTATUS",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_PRODUCT",
+                    "nullable": true,
+                    "description": "BW_Athena_PRODUCT",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_PRODUCTTYPE",
+                    "nullable": true,
+                    "description": "BW_Athena_PRODUCTTYPE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Opportunity_Id",
+                    "nullable": true,
+                    "description": "Opportunity_Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ForecastCategory",
+                    "nullable": true,
+                    "description": "ForecastCategory",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HasOpenActivity",
+                    "nullable": true,
+                    "description": "HasOpenActivity",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HasOpportunityLineItem",
+                    "nullable": true,
+                    "description": "HasOpportunityLineItem",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsClosed",
+                    "nullable": true,
+                    "description": "IsClosed",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsDeleted",
+                    "nullable": true,
+                    "description": "IsDeleted",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsWon",
+                    "nullable": true,
+                    "description": "IsWon",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LeadSource",
+                    "nullable": true,
+                    "description": "LeadSource",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MainCompetitors",
+                    "nullable": true,
+                    "description": "MainCompetitors",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Name",
+                    "nullable": true,
+                    "description": "Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrderNumber",
+                    "nullable": true,
+                    "description": "OrderNumber",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrderNumber__c_0",
+                    "nullable": true,
+                    "description": "OrderNumber__c_0",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Probability",
+                    "nullable": true,
+                    "description": "Probability",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "StageName",
+                    "nullable": true,
+                    "description": "StageName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Type",
+                    "nullable": true,
+                    "description": "Type",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sold to party",
+                    "nullable": true,
+                    "description": "Sold to party",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Company Code",
+                    "nullable": true,
+                    "description": "Company Code",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerCategory_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerCategory",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerName_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CreationDate_Busin",
+                    "nullable": true,
+                    "description": "CreationDate",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LastChangeDate_Busin",
+                    "nullable": true,
+                    "description": "LastChangeDate",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerIsBlocked_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerIsBlocked",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsBusinessPurposeComplet_Busin",
+                    "nullable": true,
+                    "description": "IsBusinessPurposeCompleted",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrganizationBPName1_Busin",
+                    "nullable": true,
+                    "description": "OrganizationBPName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "InternationalLocationNum_Busin",
+                    "nullable": true,
+                    "description": "InternationalLocationNumber",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LegalForm_Busin",
+                    "nullable": true,
+                    "description": "LegalForm",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsNaturalPerson_Busin",
+                    "nullable": true,
+                    "description": "IsNaturalPerson",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerGrouping_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerGrouping",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerType_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerType",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Risk_Class_Busin",
+                    "nullable": true,
+                    "description": "Risk_Class",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Rating_Payment_Behav_Busin",
+                    "nullable": true,
+                    "description": "Rating_Payment_Behav",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Country_Bus1",
+                    "nullable": true,
+                    "description": "Country",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region_Bus1",
+                    "nullable": true,
+                    "description": "Region",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "State_Bus1",
+                    "nullable": true,
+                    "description": "State",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "City_Bus1",
+                    "nullable": true,
+                    "description": "City",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "City_Population_Bus1",
+                    "nullable": true,
+                    "description": "City_Population",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Average_income_per_head_y_Bus1",
+                    "nullable": true,
+                    "description": "Average_income_per_head_year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Purchasing_Power_per_Year_Bus1",
+                    "nullable": true,
+                    "description": "Purchasing_Power_per_Year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Location_Bus1",
+                    "nullable": true,
+                    "description": "Location",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_ORDERVALUE",
+                    "nullable": true,
+                    "description": "BW_ORDERVALUE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_UNITSSOLD",
+                    "nullable": true,
+                    "description": "BW_UNITSSOLD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_NOCUSTOMERMEETINGS",
+                    "nullable": true,
+                    "description": "BW_NOCUSTOMERMEETINGS",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Athena_Planned_ORDERVALUE",
+                    "nullable": true,
+                    "description": "Athena_Planned_ORDERVALUE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sales_Amount",
+                    "nullable": true,
+                    "description": "Sales_Amount",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sales_ExpectedRevenue",
+                    "nullable": true,
+                    "description": "Sales_ExpectedRevenue",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {

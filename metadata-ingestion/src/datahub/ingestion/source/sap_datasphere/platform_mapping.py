@@ -1,78 +1,38 @@
-"""Platform-mapping resolver for SAP Datasphere.
-
-For each asset, the connector consults this resolver to decide:
-  - which DataHub platform to emit the URN under (hana, snowflake, s3, ...)
-  - which platform_instance to use
-  - which env to use
-  - whether to ingest the asset at all (`enabled` flag)
-
-Resolution priority:
-  1. Explicit per-connection entry in config.connection_to_platform_map
-  2. Per-typeId default in config.platform_type_defaults (which merges user overrides
-     on top of the built-in table)
-  3. Unknown typeId or unknown connection name -> record warning, return (None, reason).
-
-Skip reasons are surfaced via :class:`ResolveSkipReason` so the source can attribute
-each skip to a specific report counter.
-"""
-
 import logging
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional, Set, Tuple, TypedDict
+from typing import TYPE_CHECKING, Dict, Optional, Set, Tuple
 
 from datahub.ingestion.source.sap_datasphere.config import (
-    MANAGED_CONNECTION_KEY,
     ConnectionPlatformConfig,
     SapDatasphereConfig,
 )
-from datahub.utilities.str_enum import StrEnum
-
-
-class ConnectionRecord(TypedDict, total=False):
-    """Shape of a SAP Datasphere connection record returned by
-    ``/api/v1/datasphere/spaces/<space>/connections``.
-
-    The SAP API returns additional fields (id, description, owner, ...) but the
-    connector only consumes ``name`` and ``typeId``; using ``total=False`` keeps
-    the type permissive at the JSON-boundary.
-    """
-
-    name: str
-    typeId: str
-
+from datahub.ingestion.source.sap_datasphere.constants import (
+    MANAGED_CONNECTION_KEY,
+    PLATFORM,
+)
+from datahub.ingestion.source.sap_datasphere.models import (
+    ConnectionRecord,
+    ResolvedPlatform,
+    ResolveResult,
+    ResolveSkipReason,
+)
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 
 logger = logging.getLogger(__name__)
 
-SAP_DATASPHERE_PLATFORM = "sap-datasphere"
-
-
-class ResolveSkipReason(StrEnum):
-    """Why an asset was not resolved to a concrete platform mapping."""
-
-    UNKNOWN_TYPEID = "unknown_typeid"
-    UNKNOWN_CONNECTION = "unknown_connection"
-    DISABLED = "disabled"
-
-
-@dataclass(frozen=True)
-class ResolvedPlatform:
-    """Effective platform mapping for a single asset, with all fallbacks applied.
-
-    The ``enabled`` flag from :class:`ConnectionPlatformConfig` is consumed during
-    resolution: a disabled mapping causes ``resolve()`` to return ``(None,
-    ResolveSkipReason.DISABLED)`` rather than constructing a ``ResolvedPlatform``,
-    so by the time you hold a ``ResolvedPlatform`` it's always enabled.
-    """
-
-    platform: str
-    platform_instance: Optional[str]
-    env: str
+# Kept for callers that imported the platform name from here historically.
+SAP_DATASPHERE_PLATFORM = PLATFORM
 
 
 class PlatformMappingResolver:
+    """Resolves each asset's connection to a DataHub platform/instance/env.
+
+    Priority: explicit ``connection_to_platform_map`` entry, then the
+    ``platform_type_defaults`` entry for the connection's typeId, else a skip
+    with a reason recorded once per unknown connection/typeId.
+    """
+
     def __init__(
         self,
         config: SapDatasphereConfig,
@@ -80,49 +40,36 @@ class PlatformMappingResolver:
         report: Optional["SapDatasphereReport"] = None,
     ) -> None:
         self._config = config
-        # Maps connection name -> connection record (must have at least a `typeId` key).
-        # The synthetic `_managed` connection has typeId "HANA" by definition.
         self._connections_by_name = connections_by_name
         self._report = report
         self.unknown_typeids_seen: Set[str] = set()
         self.unknown_connection_names_seen: Set[str] = set()
 
-    def resolve(
-        self, connection_name: str
-    ) -> Tuple[Optional[ResolvedPlatform], Optional[ResolveSkipReason]]:
-        """Return (resolved, None) on success, or (None, reason) when skipped."""
-        # Step 0: the synthetic `_managed` connection always resolves to the
-        # Datasphere platform. Managed assets (Local Tables, native Views,
-        # Analytical Models) belong to the Datasphere tenant's identity — not
-        # the underlying HANA storage. Federated routing below is unchanged.
+    def resolve(self, connection_name: str) -> ResolveResult:
+        # The synthetic _managed connection is always the Datasphere platform:
+        # managed assets belong to the tenant's identity, not the underlying HANA
+        # storage. The user can disable it via connection_to_platform_map.
         if connection_name == MANAGED_CONNECTION_KEY:
-            # Allow the user to disable managed-asset ingestion entirely by
-            # setting `_managed: {enabled: false}` in connection_to_platform_map.
-            # The other fields (platform, platform_instance, env) are ignored —
-            # managed assets are always sap_datasphere with the
-            # top-level platform_instance.
             user_override = self._config.connection_to_platform_map.get(connection_name)
             if user_override is not None and not user_override.enabled:
-                return None, ResolveSkipReason.DISABLED
-            return (
+                return ResolveResult(None, ResolveSkipReason.DISABLED)
+            return ResolveResult(
                 ResolvedPlatform(
-                    platform=SAP_DATASPHERE_PLATFORM,
+                    platform=PLATFORM,
                     platform_instance=self._config.platform_instance,
                     env=self._config.env,
                 ),
                 None,
             )
-        # Step 1: explicit per-connection entry wins
         raw = self._config.connection_to_platform_map.get(connection_name)
         fallback_reason: Optional[ResolveSkipReason] = None
         if raw is None:
-            # Step 2: fall back to typeId default
             raw, fallback_reason = self._typeid_default_for(connection_name)
         if raw is None:
-            return None, fallback_reason
+            return ResolveResult(None, fallback_reason)
         if not raw.enabled:
-            return None, ResolveSkipReason.DISABLED
-        return (
+            return ResolveResult(None, ResolveSkipReason.DISABLED)
+        return ResolveResult(
             ResolvedPlatform(
                 platform=raw.platform,
                 platform_instance=raw.platform_instance,
@@ -131,10 +78,46 @@ class PlatformMappingResolver:
             None,
         )
 
+    def resolve_external(
+        self, connection_name: Optional[str], connection_type: Optional[str]
+    ) -> ResolveResult:
+        # Flow endpoints (esp. replication-flow source/target systems) carry an
+        # explicit connectionType that may not appear in the space's connections
+        # list, so a plain resolve() by name would spuriously fail. Priority:
+        # explicit name mapping, then the endpoint's own typeId, then the normal
+        # name-based resolution (which records the unknown-connection reason).
+        if connection_name:
+            raw = self._config.connection_to_platform_map.get(connection_name)
+            if raw is not None:
+                if not raw.enabled:
+                    return ResolveResult(None, ResolveSkipReason.DISABLED)
+                return ResolveResult(
+                    ResolvedPlatform(
+                        platform=raw.platform,
+                        platform_instance=raw.platform_instance,
+                        env=raw.env or self._config.env,
+                    ),
+                    None,
+                )
+        if connection_type:
+            default = self._config.platform_type_defaults.get(connection_type)
+            if default is not None and default.enabled:
+                return ResolveResult(
+                    ResolvedPlatform(
+                        platform=default.platform,
+                        platform_instance=default.platform_instance,
+                        env=default.env or self._config.env,
+                    ),
+                    None,
+                )
+        if connection_name:
+            return self.resolve(connection_name)
+        return ResolveResult(None, ResolveSkipReason.UNKNOWN_CONNECTION)
+
     def _typeid_default_for(
         self, connection_name: str
     ) -> Tuple[Optional[ConnectionPlatformConfig], Optional[ResolveSkipReason]]:
-        # `_managed` has a hard-coded typeId of HANA (the Datasphere tenant's own HANA Cloud).
+        # _managed has a hard-coded typeId of HANA (the tenant's own HANA Cloud).
         if connection_name == MANAGED_CONNECTION_KEY:
             typeid = "HANA"
         else:
@@ -158,6 +141,7 @@ class PlatformMappingResolver:
                             context=connection_name,
                         )
                 return None, ResolveSkipReason.UNKNOWN_CONNECTION
+            # Literal key required: TypedDict.get only type-narrows with a literal.
             typeid = conn.get("typeId", "")
 
         default = self._config.platform_type_defaults.get(typeid)

@@ -15,12 +15,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
-from datahub.ingestion.source.sap_datasphere.lineage import (
+from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    ResolvedPlatform,
     UpstreamColRef,
 )
-from datahub.ingestion.source.sap_datasphere.platform_mapping import ResolvedPlatform
 from datahub.ingestion.source.sap_datasphere.report import (
     ApiCallStats,
     SapDatasphereReport,
@@ -44,7 +44,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
-from tests.unit.sap_datasphere_test_helpers import (
+from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
     aspect_as,
     aspect_of,
     entity_urn_of,
@@ -4387,3 +4387,53 @@ def test_report_api_timings_excluded_from_as_obj_underscore_fields():
     assert "_SLOWEST_N" not in obj
     assert "api_timings" in obj
     assert "slowest_api_calls" in obj
+
+
+def test_schema_fields_from_csn_recovers_analytic_model_schema():
+    """Analytic models expose no OData ``$metadata`` URL, so the EDMX path yields
+    nothing. Their schema is recovered from the CSN ``elements`` map instead —
+    measures/attributes become schema fields. Mirrors the analytic-model CSN shape
+    observed on the live tenant (elements present, no relational metadata URL)."""
+    src = _bl_source("csn-schema-am")
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "revenue": {"type": "cds.Decimal", "@EndUserText.label": "Revenue"},
+            "region": {"type": "cds.String", "length": 20},
+        },
+    }
+    fields = src._schema_fields_from_csn("S1", "AM_X", csn_def)
+    assert fields is not None
+    assert {f.fieldPath for f in fields} == {"revenue", "region"}
+    assert src.report.assets_schema_from_csn == 1
+
+
+def test_schema_fields_from_csn_returns_none_for_base_table_shape():
+    """A CSN definition with no ``elements`` map (query-only view / degenerate
+    shape) yields no fields and does not bump the CSN-schema counter."""
+    src = _bl_source("csn-schema-none")
+    assert src._schema_fields_from_csn("S1", "V_X", {"kind": "entity"}) is None
+    assert src.report.assets_schema_from_csn == 0
+
+
+def test_schema_fields_from_csn_applies_column_pattern():
+    """``column_pattern`` filtering is applied on the CSN path for parity with the
+    EDMX ``_decorate_fields`` path."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "column_pattern": {"deny": ["^secret_.*"]},
+        }
+    )
+    src = SapDatasphereSource(PipelineContext(run_id="csn-schema-colfilter"), cfg)
+    csn_def = {
+        "elements": {
+            "keep_me": {"type": "cds.String"},
+            "secret_ssn": {"type": "cds.String"},
+        },
+    }
+    fields = src._schema_fields_from_csn("S1", "AM_X", csn_def)
+    assert fields is not None
+    assert {f.fieldPath for f in fields} == {"keep_me"}
+    assert src.report.columns_filtered == 1
