@@ -6,7 +6,7 @@ import socket
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote, urlparse, urlunparse
 
 import click
@@ -508,7 +508,7 @@ def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") ->
 
 
 def materialize_with_unique_name(
-    src_file: str, name: str, dest_dir: str
+    src_file: str, name: str, dest_dir: Union[str, os.PathLike]
 ) -> Tuple[str, str]:
     """Copy ``src_file`` with every occurrence of ``name`` rewritten to a
     run-unique ``name-<suffix>``. Returns ``(dest_file, unique_name)``.
@@ -531,7 +531,7 @@ def materialize_with_unique_name(
 def materialize_unique_dataset(
     src_file: str,
     dataset_name: str,
-    dest_dir: str,
+    dest_dir: Union[str, os.PathLike],
     platform: str = "kafka",
     env: str = "PROD",
 ) -> Tuple[str, str]:

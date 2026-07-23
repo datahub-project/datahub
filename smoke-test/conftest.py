@@ -189,8 +189,8 @@ def _ingest_cleanup_unique_dataset_impl(
     unique_file, dataset_urn = materialize_unique_dataset(
         data_file, dataset_name, tmp_dir, platform=platform, env=env
     )
-    logger.info(f"deleting {test_name} test data for idempotency")
-    delete_urns_from_file(graph_client, unique_file)
+    # No pre-ingest idempotency delete (unlike _ingest_cleanup_data_impl): the
+    # URN is freshly unique per run, so nothing pre-exists to clean up.
     logger.info(f"ingesting {test_name} test data (dataset={dataset_urn})")
     ingest_file_via_rest(auth_session, unique_file)
     yield dataset_urn
