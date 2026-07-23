@@ -308,14 +308,90 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       return Optional.empty();
     }
 
-    return Optional.of(
-        AspectValidationException.forItem(
-            item,
-            String.format(
-                "Structured property Elasticsearch field '%s' collides with existing property"
-                    + " mapping. Qualified names that differ only by '.' vs '_' normalize to the"
-                    + " same field name (proposed qualifiedName='%s').",
-                esField, newDefinition.getQualifiedName())));
+    // ES mappings are additive: a field survives deletion of the property that created it. So
+    // fieldExists on a create can be this property's own orphaned field from a prior
+    // create/delete cycle — recreating a deleted property under the same qualifiedName is valid.
+    // A real collision needs a different, live property whose qualifiedName normalizes to the same
+    // esField (only its '.'/'_' variants can). Check the primary store, not the additive mapping.
+    Set<String> variantFqns = collidingFqnVariants(newDefinition.getQualifiedName());
+    if (variantFqns == null) {
+      // Too many separator positions to enumerate cheaply — conservative reject.
+      return Optional.of(collisionException(item, esField, newDefinition));
+    }
+
+    Set<Urn> candidateUrns =
+        variantFqns.stream()
+            .map(fqn -> UrnUtils.getUrn(STRUCTURED_PROPERTY_URN_PREFIX + fqn))
+            .filter(urn -> !urn.equals(item.getUrn()))
+            .collect(Collectors.toSet());
+    if (candidateUrns.isEmpty()) {
+      return Optional.empty();
+    }
+
+    Map<Urn, Map<String, Aspect>> liveDefinitions =
+        retrieverContext
+            .getAspectRetriever()
+            .getLatestAspectObjects(
+                operationContext,
+                candidateUrns,
+                ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+    boolean liveDifferentOwner =
+        liveDefinitions.values().stream()
+            .anyMatch(aspects -> aspects.get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME) != null);
+    if (!liveDifferentOwner) {
+      // Colliding field is orphaned; allow the create.
+      return Optional.empty();
+    }
+
+    return Optional.of(collisionException(item, esField, newDefinition));
+  }
+
+  private static final String STRUCTURED_PROPERTY_URN_PREFIX = "urn:li:structuredProperty:";
+
+  private static final int MAX_SEPARATOR_PERMUTATION_BITS = 12;
+
+  /**
+   * QualifiedNames that normalize to the same ES field as {@code qualifiedName} (differ only by '.'
+   * vs '_'), excluding itself. Null if there are too many separator positions to enumerate.
+   */
+  @Nullable
+  private static Set<String> collidingFqnVariants(@Nonnull String qualifiedName) {
+    char[] base = qualifiedName.toCharArray();
+    List<Integer> positions = new ArrayList<>();
+    for (int i = 0; i < base.length; i++) {
+      if (base[i] == '.' || base[i] == '_') {
+        positions.add(i);
+      }
+    }
+    if (positions.size() > MAX_SEPARATOR_PERMUTATION_BITS) {
+      return null;
+    }
+    Set<String> variants = new HashSet<>();
+    int combos = 1 << positions.size();
+    for (int mask = 0; mask < combos; mask++) {
+      char[] candidate = base.clone();
+      for (int b = 0; b < positions.size(); b++) {
+        candidate[positions.get(b)] = ((mask & (1 << b)) != 0) ? '_' : '.';
+      }
+      String variant = new String(candidate);
+      if (!variant.equals(qualifiedName)) {
+        variants.add(variant);
+      }
+    }
+    return variants;
+  }
+
+  private static AspectValidationException collisionException(
+      @Nonnull BatchItem item,
+      @Nonnull String esField,
+      @Nonnull StructuredPropertyDefinition definition) {
+    return AspectValidationException.forItem(
+        item,
+        String.format(
+            "Structured property Elasticsearch field '%s' collides with existing property"
+                + " mapping. Qualified names that differ only by '.' vs '_' normalize to the"
+                + " same field name (proposed qualifiedName='%s').",
+            esField, definition.getQualifiedName()));
   }
 
   private static Map<Urn, Map<String, Aspect>> fetchPropertyStatusAspects(

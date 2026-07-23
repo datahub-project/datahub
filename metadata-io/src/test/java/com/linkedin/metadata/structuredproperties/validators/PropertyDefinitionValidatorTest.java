@@ -584,12 +584,24 @@ public class PropertyDefinitionValidatorTest {
   @Test
   public void testRejectsElasticsearchFieldNameCollisionWithExistingProperty()
       throws URISyntaxException, IOException {
+    // A DIFFERENT, live property (certification.status) already maps to the same ES field, so
+    // creating certification_status is a genuine collision.
     Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
     StructuredPropertyDefinition newDefinition =
         createCollisionTestDefinition("certification_status");
 
+    Urn otherUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    StructuredPropertyDefinition otherDefinition =
+        createCollisionTestDefinition("certification.status");
     when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
         .thenReturn(true);
+    when(mockAspectRetriever.getLatestAspectObjects(any(), eq(Set.of(otherUrn)), any()))
+        .thenReturn(
+            Map.of(
+                otherUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(otherDefinition.data()))));
 
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
@@ -599,6 +611,29 @@ public class PropertyDefinitionValidatorTest {
                 mockStructuredPropertyMappingLookup)
             .count(),
         1);
+  }
+
+  @Test
+  public void testAllowsRecreateWhenCollidingFieldIsOrphaned()
+      throws URISyntaxException, IOException {
+    // The ES field exists (additive mappings retain it after delete), but no live property owns
+    // it — this is a recreate of a previously-deleted property, which must be allowed.
+    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition newDefinition =
+        createCollisionTestDefinition("certification_status");
+
+    when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
+        .thenReturn(true);
+    // No live owner for any '.'/'_' variant (default getLatestAspectObjects -> emptyMap).
+
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
+                operationContext,
+                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
+                mockRetrieverContext,
+                mockStructuredPropertyMappingLookup)
+            .count(),
+        0);
   }
 
   @Test
