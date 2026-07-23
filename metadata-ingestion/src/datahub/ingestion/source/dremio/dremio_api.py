@@ -1266,11 +1266,12 @@ class DremioAPIOperations:
                     f"Error in chunked query extraction at offset {offset}: {e}"
                 )
                 if "'rows'" in str(e):
-                    self.report.report_warning(
+                    self.report.warning(
                         f"Dremio crash detected during query extraction "
                         f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
                         f"Consider reducing chunk size if this persists.",
                         context="query_extraction",
+                        log=False,
                     )
                 break
 

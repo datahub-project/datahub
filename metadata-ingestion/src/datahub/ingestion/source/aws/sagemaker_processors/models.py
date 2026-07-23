@@ -164,9 +164,10 @@ class ModelProcessor:
         endpoint_status = ENDPOINT_STATUS_MAP.get(sagemaker_status)
 
         if endpoint_status is None:
-            self.report.report_warning(
+            self.report.warning(
                 endpoint_arn,
                 f"Unknown status for {endpoint_name} ({endpoint_arn}): {sagemaker_status}",
+                log=False,
             )
 
             endpoint_status = DeploymentStatusClass.UNKNOWN

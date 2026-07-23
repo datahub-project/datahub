@@ -27,9 +27,13 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import java.sql.Date;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,6 +42,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -236,6 +241,72 @@ public class StructuredPropertyUtils {
       // un-typed property
       return qualifiedName.replace('.', '_');
     }
+  }
+
+  /**
+   * A structured-property field mapping entry used to resolve ES field-name collisions across
+   * mapping builders with identical, deterministic semantics.
+   */
+  @Value
+  public static class StructuredPropertyFieldMapping {
+    @Nonnull String fieldName;
+    @Nonnull Urn urn;
+    @Nonnull Object mapping;
+  }
+
+  /**
+   * Resolve duplicate Elasticsearch field names produced by structured properties whose qualified
+   * names collapse under {@link #toElasticsearchFieldName}.
+   *
+   * <ul>
+   *   <li>Same mapping value: keep the lexicographically smallest URN and warn.
+   *   <li>Different mapping values: omit the field and error-log (do not pick a wrong ES type).
+   * </ul>
+   *
+   * <p>V2 and V3 share the same key-selection and omit-on-conflict rules here. Note this only
+   * aligns which field <em>keys</em> survive a collision; V2 and V3 may still emit different
+   * mapping <em>payloads</em> for the same logical type (pre-existing), so this alone does not
+   * guarantee {@code DelegatingMappingsBuilder} consistency checks pass in dual-index mode.
+   */
+  @Nonnull
+  public static Map<String, Object> resolveStructuredPropertyMappingCollisions(
+      @Nonnull Collection<StructuredPropertyFieldMapping> entries) {
+    Map<String, List<StructuredPropertyFieldMapping>> byField =
+        entries.stream()
+            .collect(Collectors.groupingBy(StructuredPropertyFieldMapping::getFieldName));
+
+    Map<String, Object> result = new HashMap<>();
+    for (Map.Entry<String, List<StructuredPropertyFieldMapping>> entry : byField.entrySet()) {
+      String fieldName = entry.getKey();
+      List<StructuredPropertyFieldMapping> group = new ArrayList<>(entry.getValue());
+      if (group.size() == 1) {
+        result.put(fieldName, group.get(0).getMapping());
+        continue;
+      }
+
+      group.sort(Comparator.comparing(m -> m.getUrn().toString()));
+      Object firstMapping = group.get(0).getMapping();
+      boolean allSame = group.stream().allMatch(m -> Objects.equals(m.getMapping(), firstMapping));
+      List<Urn> urns =
+          group.stream().map(StructuredPropertyFieldMapping::getUrn).collect(Collectors.toList());
+
+      if (allSame) {
+        Urn winner = group.get(0).getUrn();
+        log.warn(
+            "Duplicate structured property Elasticsearch field '{}' from URNs {}. Keeping {}.",
+            fieldName,
+            urns,
+            winner);
+        result.put(fieldName, firstMapping);
+      } else {
+        log.error(
+            "Conflicting structured property Elasticsearch field '{}' from URNs {} with different"
+                + " mappings. Omitting field to avoid incorrect index mapping.",
+            fieldName,
+            urns);
+      }
+    }
+    return result;
   }
 
   /**

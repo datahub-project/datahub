@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Enkelte tags ble hentet fra {{platform}}. De synkroniseres periodisk på nytt under planlagt ingestion.",
     "tagTermRenderer.tagsNotEditable": "Enkelte tags kan ikke redigeres.",
     "usageStatsRenderer.hasColumnStats": "Har kolonnestatistikk",
-    "usageStatsRenderer.noColumnStats": "Ingen kolonnestatistikk"
+    "usageStatsRenderer.noColumnStats": "Ingen kolonnestatistikk",
+    "fieldLogical.andMore": "og {{count}} til",
+    "fieldLogical.logicalParentInfo": "Kolonne i den logiske modellen som definerer denne kolonnens metadata. Endringer i den logiske overordnedes kolonnemetadata forplantes automatisk til denne kolonnen.",
+    "fieldLogical.logicalParentTitle": "Logisk overordnet",
+    "fieldLogical.physicalChildrenInfo": "Fysiske implementasjoner av denne kolonnen i den logiske modellen. Endringer i denne kolonnens metadata forplantes automatisk til disse underordnede kolonnene.",
+    "fieldLogical.physicalChildrenTitle": "Fysiske underordnede",
+    "fieldLogical.viewAllPhysicalChildren": "Vis alle fysiske underordnede"
 }

@@ -14,8 +14,9 @@ from tests.utilities.metadata_operations import get_prometheus_metrics
 
 logger = logging.getLogger(__name__)
 
-# Legacy per-request counter (user_category tags). Aggregation flush also targets this name
-# in Micrometer, but quickstart currently exports aggregation dimensions on byte counters.
+# Legacy per-request counter (user_category tags). When USAGE_AGGREGATION_ENABLED and
+# micrometer export are on, RequestContext skips that legacy Micrometer path so flush
+# can own datahub_request_count with billing tag keys.
 REQUEST_COUNT_METRIC = "datahub_request_count"
 INPUT_BYTES_METRIC = "datahub_usage_input_bytes"
 OUTPUT_BYTES_METRIC = "datahub_usage_output_bytes"

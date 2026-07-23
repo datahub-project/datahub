@@ -220,11 +220,11 @@ class PulsarSource(StatefulIngestionSourceBase):
                     f" no messages have been written to the topic yet."
                     f" {http_error}"
                 )
-                self.report.report_warning("NoSchemaFound", message)
+                self.report.warning("NoSchemaFound", message, log=False)
             else:
                 # Authorization error
                 message = f"An HTTP error occurred: {http_error}"
-                self.report.report_warning("HTTPError", message)
+                self.report.warning("HTTPError", message, log=False)
         except requests.exceptions.RequestException as e:
             raise Exception(
                 "An ambiguous exception occurred while handling the request"
@@ -360,9 +360,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 schema.schema_str, is_key_schema=is_key_schema
             )
         else:
-            self.report.report_warning(
+            self.report.warning(
                 pulsar_topic.fullname,
                 f"Parsing Pulsar schema type {schema.schema_type} is currently not implemented",
+                log=False,
             )
         return fields
 

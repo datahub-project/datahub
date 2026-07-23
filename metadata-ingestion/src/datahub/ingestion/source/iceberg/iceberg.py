@@ -236,7 +236,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a namespace",
                     message="Skipping the namespace due to errors while processing it.",
                     context=str(namespace),
@@ -353,7 +353,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     dataset_path, dataset_name, namespace_urn
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a table",
                     message="Skipping the table due to errors when processing it.",
                     context=str(dataset_path),
@@ -363,7 +363,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             self.catalog = self.config.get_catalog()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to initialize catalog object",
                 message="Couldn't start the ingestion due to failure to initialize catalog object.",
                 exc=e,
@@ -373,7 +373,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             yield from self._process_namespaces()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to list namespaces",
                 message="Couldn't start the ingestion due to a failure to process the list of the namespaces",
                 exc=e,
@@ -420,11 +420,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             self.namespaces.append((namespace, namespace_urn))
         except NoSuchNamespaceError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve namespace properties",
                 message="Couldn't find the namespace, was it deleted during the ingestion?",
                 context=namespace_repr,
                 exc=e,
+                log=False,
             )
             return
         except RESTError as e:
@@ -435,7 +436,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 exc=e,
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to process namespace",
                 message="Unhandled exception happened during processing of the namespace",
                 context=namespace_repr,

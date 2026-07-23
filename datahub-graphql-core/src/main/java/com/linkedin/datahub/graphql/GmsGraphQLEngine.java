@@ -149,6 +149,7 @@ import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
@@ -159,7 +160,11 @@ import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeseriesAspectBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.logical.CreateLogicalModelResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.LinkPhysicalChildResolver;
 import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.UnlinkPhysicalChildResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.UpdateLogicalModelSchemaResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetRootMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.GetSemanticModelsResolver;
 import com.linkedin.datahub.graphql.resolvers.metrics.MetricChildMetricsResolver;
@@ -953,6 +958,10 @@ public class GmsGraphQLEngine {
             DashboardStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            DatasetStatsSummaryBatchLoader.LOADER_NAME,
+            context ->
+                DatasetStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
@@ -1368,6 +1377,13 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
               .dataFetcher(
                   "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
+              .dataFetcher("createLogicalModel", new CreateLogicalModelResolver(this.entityClient))
+              .dataFetcher("linkPhysicalChild", new LinkPhysicalChildResolver(this.entityClient))
+              .dataFetcher(
+                  "unlinkPhysicalChild", new UnlinkPhysicalChildResolver(this.entityClient))
+              .dataFetcher(
+                  "updateLogicalModelSchema",
+                  new UpdateLogicalModelSchemaResolver(this.entityClient, this.graphClient))
               .dataFetcher(
                   "moveDomain", new MoveDomainResolver(this.entityService, this.entityClient))
               .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
@@ -1618,6 +1634,13 @@ public class GmsGraphQLEngine {
 
   private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
     builder
+        .type(
+            "EntityEdge",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "destination",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((EntityEdge) env.getSource()).getDestination())))
         .type(
             "SearchResult",
             typeWiring ->
@@ -1959,7 +1982,9 @@ public class GmsGraphQLEngine {
                         new DatasetOperationsStatsResolver(timeseriesAspectService))
                     .dataFetcher(
                         "timeseriesCapabilities", new TimeseriesCapabilitiesResolver(entityClient))
-                    .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
+                    .dataFetcher(
+                        "statsSummary",
+                        new DatasetStatsSummaryResolver(this.usageClient, featureFlags))
                     .dataFetcher(
                         "health",
                         new EntityHealthResolver(

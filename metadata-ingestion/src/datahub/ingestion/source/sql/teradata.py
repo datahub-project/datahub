@@ -2087,11 +2087,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         env=self.config.env,
                     )
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will fall back to lazy on-demand schema fetching.",
                         context=str(e),
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.warning(

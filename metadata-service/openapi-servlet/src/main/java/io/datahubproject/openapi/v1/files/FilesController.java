@@ -172,7 +172,7 @@ public class FilesController {
     try {
       response =
           entityService.getEntityV2(
-              systemOperationContext,
+              opContext,
               Constants.DATAHUB_FILE_ENTITY_NAME,
               fileUrn,
               new HashSet<>(Collections.singleton(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)),

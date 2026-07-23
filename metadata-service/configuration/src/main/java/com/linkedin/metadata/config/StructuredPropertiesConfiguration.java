@@ -25,4 +25,12 @@ public class StructuredPropertiesConfiguration {
    * logging a warning per dropped value. The write fails if no valid assignments remain.
    */
   private boolean dropMissingPropertyValuesWithWarning;
+
+  /**
+   * Max UTF-8 bytes for string-backed structured property values ({@code string}, {@code
+   * rich_text}, {@code date}, {@code urn}). Keyword mappings derive a byte-safe character {@code
+   * ignore_above} from this limit ({@code keywordMaxLength / 4}). Default is set in {@code
+   * application.yaml}.
+   */
+  private int keywordMaxLength;
 }
