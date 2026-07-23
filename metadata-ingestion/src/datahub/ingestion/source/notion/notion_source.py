@@ -780,11 +780,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                         "Synced block content will be skipped due to unstructured-ingest v0.7.2 limitation. "
                         "Pages will be ingested but synced block content will be missing."
                     )
-                    report.report_warning(
+                    report.warning(
                         title="Synced Blocks Limitation",
                         message="Pages with synced blocks were encountered during ingestion. "
                         "The pages were ingested successfully, but synced block content is missing. "
                         "This is a known limitation of the current connector version due to unstructured-ingest v0.7.2 compatibility.",
+                        log=False,
                     )
                     synced_blocks_encountered = True
 
@@ -1356,7 +1357,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.report_failure(str(e))
+            self.report.failure(str(e))
             if self.config.advanced.raise_on_error:
                 raise
 

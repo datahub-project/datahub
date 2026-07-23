@@ -1544,11 +1544,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             try:
                 self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Upstream existence check failed",
                     message="Could not verify upstream existence; keeping the lineage edge to avoid silent lineage loss.",
                     context=urn,
                     exc=e,
+                    log=False,
                 )
                 self._upstream_exists_cache[urn] = True  # fail open
             if not self._upstream_exists_cache[urn]:
@@ -2815,7 +2816,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not isinstance(queries, list):
             msg = f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
             logger.warning(msg)
-            self.report.report_warning(node.dbt_name, msg)
+            self.report.warning(node.dbt_name, msg, log=False)
             return
 
         # Ephemeral models don't exist in target platform, so queries can't be linked
@@ -2874,7 +2875,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if query_urn_str in seen_urns:
                 msg = f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
                 logger.warning(msg)
-                self.report.report_warning(node.dbt_name, msg)
+                self.report.warning(node.dbt_name, msg, log=False)
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
                     f"{node.dbt_name}.{query_name}: URN collision"
@@ -3434,10 +3435,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
             if node.cll_debug_info and node.cll_debug_info.error:
-                self.report.report_warning(
+                self.report.warning(
                     "Error parsing SQL to generate column lineage",
                     context=node.dbt_name,
                     exc=node.cll_debug_info.error,
+                    log=False,
                 )
 
             cll = None
@@ -3474,9 +3476,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 if self.config.prefer_sql_parser_lineage:
                     if node.upstream_cll:
-                        self.report.report_warning(
+                        self.report.warning(
                             "SQL parser lineage is not available for this node, falling back to dbt-based column lineage.",
                             context=node.dbt_name,
+                            log=False,
                         )
                     else:
                         # SQL parsing failed entirely, which is already reported above.

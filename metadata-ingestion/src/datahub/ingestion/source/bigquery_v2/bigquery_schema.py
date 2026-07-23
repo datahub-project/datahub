@@ -995,7 +995,7 @@ def query_project_list_from_labels(
     )
 
     if not projects:  # Report failure on exception and if empty list is returned
-        report.report_failure(
+        report.failure(
             "metadata-extraction",
             "Get projects didn't return any project with any of the specified label(s). "
             "Maybe resourcemanager.projects.list permission is missing for the service account. "

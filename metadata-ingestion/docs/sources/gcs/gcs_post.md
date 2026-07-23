@@ -181,6 +181,21 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
+#### Profiling
+
+Profiling is supported for GCS and, when enabled, extracts:
+
+- Row and column counts for each dataset
+- For each column, if profiling is enabled:
+  - null counts and proportions
+  - distinct counts and proportions
+  - minimum, maximum, mean, median, standard deviation, some quantile values
+  - histograms or frequencies of unique values
+
+Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and requires no Spark, Hadoop, or JVM. Distinct counts and quantiles/histograms are approximate (DataSketches). GCS files are read over the S3-interoperability endpoint using the same credentials configured for ingestion, so no extra setup is needed beyond enabling profiling.
+
+Enabling profiling will slow down ingestion runs.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

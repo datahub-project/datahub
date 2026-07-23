@@ -140,8 +140,9 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     def report_api_error(self, endpoint: str, error: str) -> None:
         """Record an API error."""
         self.api_calls_total_error_count += 1
-        self.report_warning(
+        self.warning(
             title="API Error",
             message="Failed to call Fabric REST API.",
             context=f"endpoint={endpoint}, error={error}",
+            log=False,
         )
