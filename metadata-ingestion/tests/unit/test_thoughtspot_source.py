@@ -6522,9 +6522,9 @@ class TestResolveExternalUpstream:
         )
 
     def test_bigquery_native_case_is_preserved(self):
-        """BigQuery is one of the case-sensitive exceptions
-        (``PLATFORMS_WITH_CASE_SENSITIVE_TABLES``) — its own DataHub
-        source does not lowercase, so ThoughtSpot must not either."""
+        """BigQuery's own DataHub source does not lowercase by default
+        (``BigQueryIdentifierConfig`` inherits ``LowerCaseDatasetUrnConfigMixin``
+        with a ``False`` default), so ThoughtSpot must not either."""
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = [
             ConnectionResponse(
@@ -6547,6 +6547,174 @@ class TestResolveExternalUpstream:
         assert (
             ref.urn
             == "urn:li:dataset:(urn:li:dataPlatform:bigquery,My-Project.Raw.Orders,PROD)"
+        )
+
+    def test_mssql_native_case_is_preserved(self):
+        """MSSQL's own DataHub source does not lowercase by default
+        (``convert_urns_to_lowercase`` defaults ``False``), and unlike
+        Oracle/HANA it isn't rescued by a normalizing SQLAlchemy dialect
+        either — so ThoughtSpot must preserve native case verbatim."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SQL", data_source_type="MSSQL")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="Orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MSSQL",
+        )
+        table.physical_database_name = "MyDB"
+        table.physical_schema_name = "dbo"
+        table.physical_table_name = "Orders"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mssql,MyDB.dbo.Orders,PROD)"
+        )
+
+    def test_oracle_uppercase_is_lowercased_with_two_part_shape(self):
+        """Oracle rides a SQLAlchemy dialect whose ``normalize_name``
+        lowercases all-uppercase identifiers, and its own
+        ``add_database_name_to_urn`` defaults False — schema.table, not
+        database.schema.table. Both must be mirrored here."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod Oracle", data_source_type="ORACLE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="ORACLE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MYSCHEMA"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:oracle,myschema.orders,PROD)"
+        )
+
+    def test_oracle_mixed_case_component_is_preserved(self):
+        """The Oracle/HANA rule is conditional per-component (lowercase
+        only if the value is entirely uppercase), not a blanket lower()
+        on the whole key — a mixed-case schema must pass through
+        untouched even when the table name is all-uppercase."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod Oracle", data_source_type="ORACLE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="ORACLE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MySchema"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:oracle,MySchema.orders,PROD)"
+        )
+
+    def test_hana_uppercase_is_lowercased_with_two_part_shape(self):
+        """HANA's SQLAlchemy dialect normalizes the same way as Oracle's,
+        and ``HanaSource`` has no ``get_identifier`` override — falls
+        back to the default schema.table shape, not database.schema.table."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod HANA", data_source_type="SAPHANA")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SAPHANA",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "MYSCHEMA"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:hana,myschema.orders,PROD)"
+        )
+
+    def test_connection_override_forces_lowercase_for_preserve_platform(self):
+        """``convert_urns_to_lowercase: true`` on a specific connection
+        overrides MSSQL's normal preserve-case default — for an operator
+        whose MSSQL source was actually run with lowercasing enabled."""
+        source, mock_client = self._make_source(
+            {
+                "external_connections": {
+                    "c1": {"convert_urns_to_lowercase": True},
+                }
+            }
+        )
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SQL", data_source_type="MSSQL")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="Orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MSSQL",
+        )
+        table.physical_database_name = "MyDB"
+        table.physical_schema_name = "dbo"
+        table.physical_table_name = "Orders"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mssql,mydb.dbo.orders,PROD)"
+        )
+
+    def test_connection_override_forces_preserve_for_lowercase_platform(self):
+        """``convert_urns_to_lowercase: false`` on a specific connection
+        overrides Snowflake's normal lowercase default — for an operator
+        whose Snowflake source was run with lowercasing disabled."""
+        source, mock_client = self._make_source(
+            {
+                "external_connections": {
+                    "c1": {"convert_urns_to_lowercase": False},
+                }
+            }
+        )
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="ts-table-1",
+            name="ORDERS",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "MYDB"
+        table.physical_schema_name = "PUBLIC"
+        table.physical_table_name = "ORDERS"
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert (
+            ref.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,MYDB.PUBLIC.ORDERS,PROD)"
         )
 
     def test_missing_physical_database_returns_none(self):

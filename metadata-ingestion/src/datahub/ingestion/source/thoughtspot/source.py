@@ -60,12 +60,14 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.thoughtspot.client import (
+    _CASE_NORMALIZERS,
     _KEY_BUILDERS,
     _TS_TO_DATAHUB_PLATFORM,
     ThoughtSpotAPIError,
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    _identity,
     normalize_ts_table_type,
 )
 from datahub.ingestion.source.thoughtspot.config import (
@@ -113,7 +115,6 @@ from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.chart import Chart
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset, UpstreamInputType
-from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_and_cache_schema_resolver,
@@ -2278,21 +2279,29 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_external_lineage_skipped_missing_database()
             return None  # incomplete physical mapping
 
+        overrides = self._external_connection_overrides(conn)
+
+        # Case-normalize each component to match the target platform's own
+        # verified default URN casing — before joining them into a key, since
+        # e.g. Oracle/HANA's rule is conditional per-component (lowercase
+        # only all-uppercase names), not a blanket lower() on the whole key.
+        # An explicit per-connection override always wins over the platform
+        # default.
+        if overrides.convert_urns_to_lowercase is None:
+            normalize = _CASE_NORMALIZERS.get(platform, _identity)
+        elif overrides.convert_urns_to_lowercase:
+            normalize = str.lower
+        else:
+            normalize = _identity
+        database = normalize(database)
+        schema = normalize(schema) if schema else schema
+        physical_name = normalize(physical_name)
+
         builder = _KEY_BUILDERS.get(platform)
         if builder is None:
             return None  # platform mapped but no key builder — coverage bug
         key = builder(database, schema, physical_name)
-        # Match each target platform's own canonical URN casing (the same
-        # convention ``SchemaResolver`` and every other BI connector in
-        # this repo follow): lowercase by default, except the platforms
-        # that store/emit case-sensitive identifiers verbatim. Without
-        # this, e.g. a Snowflake-native ``DB.PUBLIC.ORDERS`` never
-        # string-matches the lowercased URN the ``snowflake`` source
-        # actually emits, so the lineage edge silently never resolves.
-        if platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES:
-            key = key.lower()
 
-        overrides = self._external_connection_overrides(conn)
         platform_instance = overrides.platform_instance
         env = overrides.env or self.config.env
         # ``platform_instance`` is prepended to the dataset key when set —

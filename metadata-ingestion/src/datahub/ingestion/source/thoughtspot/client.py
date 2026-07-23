@@ -200,21 +200,61 @@ def normalize_ts_table_type(data_source_type: Optional[str]) -> str:
 # the single source of truth so adding a platform requires editing one
 # spot. Schema-less platforms (MySQL, Teradata, Athena) collapse the
 # schema component when absent.
+#
+# ``oracle``/``hana`` are 2-part (``schema.table``), not 3-part: Oracle's
+# ``add_database_name_to_urn`` defaults to False (oracle.py) and HANA's
+# source has no ``get_identifier`` override, so it falls back to
+# ``sql_common.py``'s default ``schema.table`` — a 3-part key here would
+# never match either platform's own emitted URN.
 _KEY_BUILDERS: Dict[str, Callable[[Optional[str], Optional[str], str], str]] = {
     "databricks": lambda db, sch, tbl: ".".join(p for p in (db, sch, tbl) if p),
     "snowflake": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "bigquery": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "redshift": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "mssql": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
-    "oracle": lambda db, sch, tbl: f"{db}.{sch}.{tbl}" if sch else f"{db}.{tbl}",
+    "oracle": lambda db, sch, tbl: f"{sch}.{tbl}" if sch else tbl,
     "postgres": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "mysql": lambda db, sch, tbl: f"{db}.{tbl}",
     "teradata": lambda db, sch, tbl: f"{db}.{tbl}",
     "presto": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "trino": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "athena": lambda db, sch, tbl: f"{db}.{tbl}",
-    "hana": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
+    "hana": lambda db, sch, tbl: f"{sch}.{tbl}" if sch else tbl,
     "denodo": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
+}
+
+
+# Per-platform default casing applied to database/schema/table components
+# before ``_KEY_BUILDERS`` joins them, so the resulting URN matches what
+# that platform's own DataHub source actually emits by default. Verified
+# per-platform (not borrowed from the unrelated SQL-parsing
+# ``PLATFORMS_WITH_CASE_SENSITIVE_TABLES`` heuristic):
+#
+# * ``snowflake``: ``SnowflakeIdentifierConfig.convert_urns_to_lowercase``
+#   defaults True — Snowflake stores unquoted identifiers uppercase, so
+#   its own source lowercases them for the URN.
+# * ``oracle``/``hana``: both ride a SQLAlchemy dialect whose
+#   ``normalize_name`` lowercases only all-uppercase identifiers
+#   (``oracle.py``'s ``normalize_db_name`` replicates the same rule;
+#   ``sqlalchemy-hana``'s dialect does it natively) — mixed-case names
+#   pass through untouched, so this is conditional, not a blanket lower.
+# * Every other platform's own DataHub source does no case
+#   transformation at all (it emits the database's native case
+#   verbatim), so the identity default is correct for them.
+#
+def _identity(name: str) -> str:
+    return name
+
+
+def _lower_if_upper(name: str) -> str:
+    return name.lower() if name.isupper() else name
+
+
+# Platforms not listed here fall back to ``_identity``.
+_CASE_NORMALIZERS: Dict[str, Callable[[str], str]] = {
+    "snowflake": str.lower,
+    "oracle": _lower_if_upper,
+    "hana": _lower_if_upper,
 }
 
 
