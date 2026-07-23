@@ -486,5 +486,15 @@
         "category": "Data Collector",
         "isPopular": false,
         "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:zipline",
+        "name": "zipline",
+        "displayName": "Zipline",
+        "description": "Import ML feature tables, features, primary keys, and job lineage from a compiled Chronon/Zipline repository.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/zipline",
+        "recipe": "source:\n  type: zipline\n  config:\n    # Path to the compiled Chronon/Zipline output (the `production/` directory\n    # produced by compile.py, containing group_bys/, joins/ and staging_queries/).\n    path: \"/path/to/chronon/production\"\n\n    # Map the first segment of each source table (namespace/database) to a\n    # DataHub platform so backing datasets resolve to real URNs.\n    # source_platform_map:\n    #   my_warehouse_db: snowflake\n    # default_source_platform: hive\n    # stream_platform: kafka\n\n    # include_joins: true\n    # include_staging_queries: true\n\n    stateful_ingestion:\n      enabled: true",
+        "isPopular": false,
+        "isNew": true
     }
 ]

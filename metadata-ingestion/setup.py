@@ -847,6 +847,9 @@ plugins: Dict[str, Set[str]] = {
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
+    # Reads compiled Chronon thrift-JSON from disk; only needs sqlglot for
+    # StagingQuery SQL lineage parsing.
+    "zipline": sqlglot_lib,
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
@@ -1043,6 +1046,7 @@ base_dev_requirements = {
             "neo4j",
             "vertexai",
             "pinecone",
+            "zipline",
             "mssql-odbc",
             "omni",
             "aws-secret-manager",
@@ -1232,6 +1236,7 @@ entry_points = {
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",
+        "zipline = datahub.ingestion.source.zipline.source:ZiplineSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",

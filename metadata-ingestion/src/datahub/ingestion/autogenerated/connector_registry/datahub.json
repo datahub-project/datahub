@@ -5223,6 +5223,56 @@
       "platform_id": "vertica",
       "platform_name": "Vertica",
       "support_status": "CERTIFIED"
+    },
+    "zipline": {
+      "capabilities": [
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Extracted via owner_mappings when enable_owner_extraction is set",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Extracted from MetaData.customJson when enable_tag_extraction is set",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled via platform_instance for backing source datasets and jobs",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.zipline.source.ZiplineSource",
+      "platform_id": "zipline",
+      "platform_name": "Zipline",
+      "support_status": "INCUBATING"
     }
   }
 }

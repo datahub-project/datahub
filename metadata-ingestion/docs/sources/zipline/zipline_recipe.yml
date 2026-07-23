@@ -1,0 +1,23 @@
+source:
+  type: zipline
+  config:
+    # Path to the compiled Chronon/Zipline output (the `production/` directory
+    # produced by compile.py, containing group_bys/, joins/ and staging_queries/).
+    path: "/path/to/chronon/production"
+
+    # Map the first segment of each source table (namespace/database) to a
+    # DataHub platform so backing datasets resolve to real URNs.
+    source_platform_map:
+      my_warehouse_db: snowflake
+    default_source_platform: hive
+    stream_platform: kafka
+
+    # Emit Joins and StagingQueries as DataJobs with lineage.
+    include_joins: true
+    include_staging_queries: true
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs

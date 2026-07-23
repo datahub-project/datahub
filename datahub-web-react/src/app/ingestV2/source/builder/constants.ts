@@ -72,6 +72,7 @@ import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
+import ziplineLogo from '@images/ziplinelogo.png';
 
 const AIRFLOW = 'airflow';
 const AIRFLOW_URN = `urn:li:dataPlatform:${AIRFLOW}`;
@@ -238,6 +239,8 @@ export const FABRIC_DATA_FACTORY_URN = `urn:li:dataPlatform:${FABRIC_DATA_FACTOR
 export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const RDF = 'rdf';
+export const ZIPLINE = 'zipline';
+export const ZIPLINE_URN = `urn:li:dataPlatform:${ZIPLINE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AIRFLOW_URN]: airflowLogo,
@@ -315,6 +318,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
+    [ZIPLINE_URN]: ziplineLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

@@ -1178,6 +1178,10 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
+zipline = [
+    "sqlglot[c]==30.12.0",
+]
+
 # All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
 all = [
     "acryl-great-expectations==0.15.50.1",
@@ -1910,6 +1914,7 @@ hex = "datahub.ingestion.source.hex.hex:HexSource"
 timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
+zipline = "datahub.ingestion.source.zipline.source:ZiplineSource"
 
 [project.entry-points."datahub.ingestion.transformer.plugins"]
 pattern_cleanup_ownership = "datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership"

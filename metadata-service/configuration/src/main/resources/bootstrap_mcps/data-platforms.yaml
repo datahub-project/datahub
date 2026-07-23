@@ -1157,6 +1157,16 @@
     displayName: Airbyte
     type: OTHERS
     logoUrl: "assets/platforms/airbytelogo.png"
+- entityUrn: urn:li:dataPlatform:zipline
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: zipline
+    displayName: Zipline
+    type: OTHERS
+    logoUrl: "assets/platforms/ziplinelogo.png"
 - entityUrn: urn:li:dataPlatform:logical
   entityType: dataPlatform
   aspectName: dataPlatformInfo

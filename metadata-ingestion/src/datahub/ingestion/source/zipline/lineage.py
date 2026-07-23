@@ -1,0 +1,112 @@
+import logging
+import re
+from typing import List, Optional
+
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.zipline.config import ZiplineConfig
+from datahub.ingestion.source.zipline.models import Source
+from datahub.ingestion.source.zipline.report import ZiplineSourceReport
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
+
+logger = logging.getLogger(__name__)
+
+# Chronon SQL embeds Jinja macros (`{{ start_date }}`) that aren't valid SQL.
+# Replace them with a bare, unquoted token: templates are often already quoted
+# (`'{{ ds }}'`), and adding quotes here would produce an invalid `''...''`.
+_TEMPLATE_RE = re.compile(r"\{\{.*?\}\}")
+_TEMPLATE_REPLACEMENT = "__zipline_template__"
+
+
+def strip_sql_templates(query: str) -> str:
+    return _TEMPLATE_RE.sub(_TEMPLATE_REPLACEMENT, query)
+
+
+class SourceResolver:
+    """Resolves Chronon `Source` structs to backing Dataset URNs.
+
+    The compiled config never records a table's platform, so the user supplies
+    `source_platform_map` (per-namespace) plus a default.
+    """
+
+    def __init__(self, config: ZiplineConfig, report: ZiplineSourceReport) -> None:
+        self.config = config
+        self.report = report
+
+    def resolve_source_urns(self, source: Source) -> List[str]:
+        urns: List[str] = []
+
+        batch_table = source.batch_table
+        if batch_table:
+            urns.append(self.resolve_table_urn(batch_table))
+
+        topic = source.topic
+        if topic:
+            urns.append(self._resolve_topic_urn(topic))
+
+        return urns
+
+    def resolve_table_urn(self, table: str) -> str:
+        namespace = table.split(".", 1)[0] if "." in table else None
+        platform = self.config.default_source_platform
+        if namespace is not None and namespace in self.config.source_platform_map:
+            platform = self.config.source_platform_map[namespace]
+        elif namespace is not None:
+            self.report.report_unmapped_namespace(namespace)
+
+        return make_dataset_urn_with_platform_instance(
+            platform=platform,
+            name=table,
+            platform_instance=self.config.source_platform_instance,
+            env=self.config.env,
+        )
+
+    def _resolve_topic_urn(self, topic: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.config.stream_platform,
+            name=topic,
+            platform_instance=self.config.source_platform_instance,
+            env=self.config.env,
+        )
+
+
+class StagingQueryLineageExtractor:
+    """Best-effort table-level lineage from a StagingQuery's Spark SQL."""
+
+    def __init__(
+        self,
+        config: ZiplineConfig,
+        report: ZiplineSourceReport,
+        graph: Optional[DataHubGraph],
+    ) -> None:
+        self.config = config
+        self.report = report
+        self.graph = graph
+
+    def extract_input_urns(self, query: str) -> List[str]:
+        cleaned = strip_sql_templates(query)
+        try:
+            result = create_lineage_from_sql_statements(
+                queries=cleaned,
+                default_db=None,
+                platform=self.config.default_source_platform,
+                platform_instance=self.config.source_platform_instance,
+                env=self.config.env,
+                graph=self.graph,
+            )
+        except Exception as exc:
+            self.report.sql_lineage_failures += 1
+            self.report.warning(
+                title="StagingQuery SQL parse failure",
+                message="Could not parse StagingQuery SQL for lineage",
+                exc=exc,
+            )
+            return []
+
+        if result.debug_info and result.debug_info.error:
+            self.report.sql_lineage_failures += 1
+            logger.debug("StagingQuery SQL parse error: %s", result.debug_info.error)
+            return []
+
+        self.report.sql_lineage_parsed += 1
+        return sorted(set(result.in_tables))

@@ -66,6 +66,7 @@ import timescaledbLogo from '@images/timescalelogo.png';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
+import ziplineLogo from '@images/ziplinelogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
@@ -221,6 +222,8 @@ export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
 export const OMNI = 'omni';
 export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
+export const ZIPLINE = 'zipline';
+export const ZIPLINE_URN = `urn:li:dataPlatform:${ZIPLINE}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AEROSPIKE_URN]: aerospikeLogo,
@@ -292,6 +295,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
     [OMNI_URN]: omniLogo,
+    [ZIPLINE_URN]: ziplineLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

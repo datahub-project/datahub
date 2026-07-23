@@ -1,0 +1,71 @@
+{
+  "metaData": {
+    "name": "risk_team.account_risk.v1",
+    "online": 1,
+    "customJson": "{\"lag\": 0, \"groupby_tags\": {\"tier\": \"silver\"}, \"column_tags\": {\"risk_score_top5_7d\": {\"sensitivity\": \"high\"}}}",
+    "dependencies": [
+      "{\"name\": \"wait_for_warehouse.accounts_ds\", \"spec\": \"warehouse.accounts/ds={{ ds }}\", \"start\": null, \"end\": null}"
+    ],
+    "tableProperties": {},
+    "outputNamespace": "risk_features",
+    "team": "risk_team",
+    "offlineSchedule": "@daily",
+    "description": "Account risk features keyed on account_id, backed by the warehouse snapshot"
+  },
+  "sources": [
+    {
+      "entities": {
+        "snapshotTable": "warehouse.accounts",
+        "mutationTopic": "events.account_updates",
+        "query": {
+          "selects": {
+            "account_id": "account_id",
+            "risk_score": "risk_score",
+            "status": "status",
+            "balance": "balance",
+            "country": "country"
+          },
+          "timeColumn": "ts",
+          "setups": []
+        }
+      }
+    }
+  ],
+  "keyColumns": [
+    "account_id"
+  ],
+  "aggregations": [
+    {
+      "inputColumn": "risk_score",
+      "operation": 15,
+      "argMap": {
+        "k": "5"
+      },
+      "windows": [
+        {
+          "length": 7,
+          "timeUnit": 1
+        }
+      ]
+    },
+    {
+      "inputColumn": "status",
+      "operation": 3,
+      "argMap": {}
+    },
+    {
+      "inputColumn": "balance",
+      "operation": 7,
+      "argMap": {},
+      "windows": [
+        {
+          "length": 30,
+          "timeUnit": 1
+        }
+      ],
+      "buckets": [
+        "country"
+      ]
+    }
+  ]
+}
