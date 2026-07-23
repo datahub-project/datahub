@@ -10,8 +10,6 @@ import static com.linkedin.metadata.structuredproperties.validation.PropertyDefi
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -29,12 +27,12 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -194,7 +192,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   @Nonnull
   public static List<StructuredPropertyValueAssignment> extractPatchAddAssignments(
       @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
-    GenericJsonPatch genericJsonPatch = resolveGenericJsonPatch(patchItem, objectMapper);
+    GenericJsonPatch genericJsonPatch = PatchOperationUtils.resolveGenericJsonPatch(patchItem);
     if (genericJsonPatch == null || genericJsonPatch.getPatch() == null) {
       return List.of();
     }
@@ -220,47 +218,6 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     return assignments;
   }
 
-  /**
-   * The patch, regardless of how the item was constructed: a {@link PatchItemImpl} carries it
-   * parsed, while under alternate MCP validation the item is a raw proposal whose aspect payload is
-   * the serialized {@link GenericJsonPatch} (or a bare json-patch ops array).
-   */
-  @Nullable
-  private static GenericJsonPatch resolveGenericJsonPatch(
-      @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
-    if (patchItem instanceof PatchItemImpl) {
-      return ((PatchItemImpl) patchItem).getGenericJsonPatch();
-    }
-    if (patchItem.getMetadataChangeProposal() == null
-        || !patchItem.getMetadataChangeProposal().hasAspect()) {
-      return null;
-    }
-    String payload =
-        patchItem
-            .getMetadataChangeProposal()
-            .getAspect()
-            .getValue()
-            .asString(StandardCharsets.UTF_8);
-    try {
-      JsonNode parsed = objectMapper.readTree(payload);
-      if (parsed.isObject()) {
-        return objectMapper.treeToValue(parsed, GenericJsonPatch.class);
-      }
-      if (parsed.isArray()) {
-        List<GenericJsonPatch.PatchOp> ops =
-            objectMapper.convertValue(
-                parsed, new TypeReference<List<GenericJsonPatch.PatchOp>>() {});
-        return GenericJsonPatch.builder().patch(ops).build();
-      }
-    } catch (Exception e) {
-      log.warn(
-          "Skipping unparseable structured property PATCH payload on {}: {}",
-          patchItem.getUrn(),
-          e.toString());
-    }
-    return null;
-  }
-
   @Nonnull
   private static ObjectMapper resolveObjectMapper(@Nonnull OperationFingerprint fingerprint) {
     if (fingerprint instanceof OperationContext) {
@@ -276,6 +233,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       String json = objectMapper.writeValueAsString(value);
       return RecordUtils.toRecordTemplate(StructuredPropertyValueAssignment.class, json);
     } catch (Exception e) {
+      // Skip here: value checks are best-effort on the canonical full-assignment add shape.
+      // Non-canonical values are still rejected by applyPatch / schema when the patch is merged.
       log.debug("Failed to parse structured property patch ADD value: {}", e.toString());
       return null;
     }
@@ -339,9 +298,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         final int assignmentCountBefore =
             structuredProperties.hasProperties() ? structuredProperties.getProperties().size() : 0;
         if (assignmentCountBefore > 0) {
+          // Reuse aspects from fetchPropertyAspects — do not call the retriever overload
+          // (re-reads).
           final Pair<StructuredProperties, Set<Urn>> filtered =
               StructuredPropertyUtils.filterMissingPropertyDefinitions(
-                  operationContext, structuredProperties, aspectRetriever);
+                  structuredProperties, allStructuredPropertiesAspects);
           missingPropertyUrns = filtered.getSecond();
           final boolean noValidAssignmentsRemain =
               filtered.getFirst().getProperties() == null

@@ -10,7 +10,6 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
@@ -19,13 +18,17 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.mxe.SystemMetadata;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonPatch;
+import jakarta.json.JsonReader;
+import java.io.StringReader;
 import java.util.Collection;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -33,6 +36,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Blocks privilege escalation on {@link CorpUserInfo} flags used for actor classification:
@@ -44,6 +48,7 @@ import lombok.experimental.Accessors;
  */
 @Setter
 @Getter
+@Slf4j
 @Accessors(chain = true)
 public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
 
@@ -66,7 +71,7 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
       }
 
       CorpUserInfo current = loadCorpUserInfo(operationContext, aspectRetriever, item.getUrn());
-      CorpUserInfo proposed = resolveProposedCorpUserInfo(item, current, aspectRetriever);
+      CorpUserInfo proposed = resolveProposedCorpUserInfo(item, current);
       if (proposed == null) {
         continue;
       }
@@ -143,37 +148,41 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
 
   @Nullable
   private static CorpUserInfo resolveProposedCorpUserInfo(
-      @Nonnull BatchItem item,
-      @Nullable CorpUserInfo current,
-      @Nonnull AspectRetriever aspectRetriever) {
-    if (item instanceof PatchMCP patchItem) {
-      RecordTemplate currentTemplate = current != null ? current : new CorpUserInfo();
-      ChangeMCP patched = patchItem.applyPatch(currentTemplate, aspectRetriever);
-      return patched.getAspect(CorpUserInfo.class);
-    }
+      @Nonnull BatchItem item, @Nullable CorpUserInfo current) {
     if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
-      // With alternate MCP validation (the quickstart/docker default) a patch arrives as a raw
-      // proposal item, not a PatchMCP; overlay the patch's add/replace values on the current
-      // aspect — sufficient for the top-level flags this check inspects.
-      CorpUserInfo merged =
-          new CorpUserInfo(current != null ? new DataMap(current.data()) : new DataMap());
-      PatchOperationUtils.addAndReplaceValues((MCPItem) item)
-          .forEach(
-              op ->
-                  PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
-                      .ifPresent(
-                          nested -> {
-                            try {
-                              RecordUtils.toRecordTemplate(CorpUserInfo.class, nested.toString())
-                                  .data()
-                                  .forEach((k, v) -> merged.data().put(k, v));
-                            } catch (RuntimeException e) {
-                              // unparseable delta — schema validation rejects it at merge time
-                            }
-                          }));
-      return merged;
+      // Apply the full JsonPatch (add/replace/move/copy) so privilege escalation via copy/move
+      // cannot bypass the check. Nest-overlay of add/replace alone is insufficient for auth.
+      CorpUserInfo base =
+          current != null ? new CorpUserInfo(new DataMap(current.data())) : new CorpUserInfo();
+      JsonPatch patch = PatchOperationUtils.resolveJsonPatch((MCPItem) item);
+      if (patch == null) {
+        return failClosedEscalatingProposal(base);
+      }
+      try (JsonReader reader =
+          Json.createReader(new StringReader(RecordUtils.toJsonString(base)))) {
+        JsonObject patched = patch.apply(reader.readObject());
+        return RecordUtils.toRecordTemplate(CorpUserInfo.class, patched.toString());
+      } catch (RuntimeException e) {
+        log.warn(
+            "Unable to apply corpUserInfo PATCH for privilege check on {}; failing closed: {}",
+            item.getUrn(),
+            e.toString());
+        return failClosedEscalatingProposal(base);
+      }
     }
     return item.getAspect(CorpUserInfo.class);
+  }
+
+  /**
+   * When the patch cannot be evaluated, assume privileged flags are being set so the authorization
+   * check still runs (fail closed for this security control).
+   */
+  @Nonnull
+  private static CorpUserInfo failClosedEscalatingProposal(@Nonnull CorpUserInfo base) {
+    CorpUserInfo out = new CorpUserInfo(new DataMap(base.data()));
+    out.setSystem(true);
+    out.data().put(IS_SUPPORT_USER_FIELD, true);
+    return out;
   }
 
   @Nullable

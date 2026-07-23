@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.validators;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
@@ -17,8 +16,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
@@ -207,30 +204,17 @@ public class CorpUserPrivilegedFlagsValidatorTest {
     corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
     corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
 
-    ChangeMCP patchedChange =
-        TestMCP.builder()
-            .changeType(ChangeType.PATCH)
-            .urn(TARGET_USER_URN)
-            .entitySpec(entityRegistry.getEntitySpec(TARGET_USER_URN.getEntityType()))
-            .aspectSpec(
-                entityRegistry
-                    .getEntitySpec(TARGET_USER_URN.getEntityType())
-                    .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
-            .recordTemplate(corpUserInfo(true, false))
-            .build();
-
-    PatchMCP patchItem = mock(PatchMCP.class);
-    when(patchItem.getChangeType()).thenReturn(ChangeType.PATCH);
-    when(patchItem.getAspectName()).thenReturn(CORP_USER_INFO_ASPECT_NAME);
-    when(patchItem.getUrn()).thenReturn(TARGET_USER_URN);
-    when(patchItem.getSystemMetadata()).thenReturn(null);
-    when(patchItem.getAuditStamp()).thenReturn(null);
-    when(patchItem.applyPatch(any(), any())).thenReturn(patchedChange);
-
     long violations =
         validator
             .validateProposed(
-                operationContext(REGULAR_ACTOR_URN), Set.of(patchItem), mockRetrieverContext, null)
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.of(
+                        TARGET_USER_URN,
+                        CORP_USER_INFO_ASPECT_NAME,
+                        "[{\"op\":\"add\",\"path\":\"/system\",\"value\":true}]")),
+                mockRetrieverContext,
+                null)
             .count();
     assertEquals(violations, 1);
   }
@@ -246,6 +230,49 @@ public class CorpUserPrivilegedFlagsValidatorTest {
     corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
 
     String serialized = "{\"patch\":[{\"op\":\"add\",\"path\":\"/system\",\"value\":true}]}";
+
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testPatchSystemEscalationViaCopyRejectedForRegularUser() {
+    // copy/move do not appear in addAndReplaceValues; full JsonPatch apply must still catch them.
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String patchOps =
+        "[{\"op\":\"add\",\"path\":\"/active\",\"value\":true},"
+            + "{\"op\":\"copy\",\"from\":\"/active\",\"path\":\"/system\"}]";
+
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(TestPatchMCP.of(TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, patchOps)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testPatchSystemEscalationViaCopyRejectedViaProposedItemShape() {
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String serialized =
+        "{\"patch\":[{\"op\":\"add\",\"path\":\"/active\",\"value\":true},"
+            + "{\"op\":\"copy\",\"from\":\"/active\",\"path\":\"/system\"}]}";
 
     long violations =
         validator
