@@ -110,9 +110,14 @@ _BUILTIN_PLATFORM_TYPE_DEFAULTS: Dict[str, ConnectionPlatformConfig] = {
     "ABAP": ConnectionPlatformConfig(platform="abap"),
     "SAPS4HANACLOUD": ConnectionPlatformConfig(platform="s4hana"),
     "SAPBWMODELTRANSFER": ConnectionPlatformConfig(platform="bw"),
-    # Other typeIds we haven't observed in a live tenant (Snowflake, BigQuery, Kafka,
-    # Salesforce, etc.) default to disabled with a warning. Users opt in by adding
-    # them under `platform_type_defaults` in their recipe.
+    # BigQuery is a first-class Datasphere connection type (replication-flow
+    # target / federated remote tables); maps to DataHub's `bigquery` platform so
+    # URNs stitch to the BigQuery connector.
+    "BIGQUERY": ConnectionPlatformConfig(platform="bigquery"),
+    # Other typeIds we haven't observed in a live tenant (Snowflake, Kafka,
+    # Salesforce, etc.) default to disabled with a warning. The resolver logs each
+    # unknown typeId once ("Unknown SAP Datasphere connection typeId"); users opt
+    # in by adding that exact typeId under `platform_type_defaults` in their recipe.
 }
 
 

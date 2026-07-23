@@ -26,8 +26,12 @@ def test_builtin_platform_type_defaults_cover_observed_typeids():
         "ABAP",
         "SAPS4HANACLOUD",
         "SAPBWMODELTRANSFER",
+        "BIGQUERY",
     }
     assert expected.issubset(set(_BUILTIN_PLATFORM_TYPE_DEFAULTS.keys()))
+    # BigQuery must stitch to DataHub's `bigquery` platform (the typeId token is
+    # confirmed from a live tenant's "Unknown ... typeId 'BIGQUERY'" warning).
+    assert _BUILTIN_PLATFORM_TYPE_DEFAULTS["BIGQUERY"].platform == "bigquery"
 
 
 def test_config_accepts_custom_per_connection_map():
@@ -231,9 +235,9 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
     )
     report = SapDatasphereReport()
     connections: Dict[str, ConnectionRecord] = {
-        "X1": {"name": "X1", "typeId": "BIGQUERY"},
-        "X2": {"name": "X2", "typeId": "BIGQUERY"},
-        "X3": {"name": "X3", "typeId": "BIGQUERY"},
+        "X1": {"name": "X1", "typeId": "KAFKA"},
+        "X2": {"name": "X2", "typeId": "KAFKA"},
+        "X3": {"name": "X3", "typeId": "KAFKA"},
     }
     resolver = PlatformMappingResolver(
         cfg, connections_by_name=connections, report=report
@@ -243,10 +247,10 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
         result = resolver.resolve(name)
         assert result.platform is None
         assert result.skip_reason == ResolveSkipReason.UNKNOWN_TYPEID
-    # Only ONE report warning for BIGQUERY despite 3 calls
-    bigquery_warnings = [w for w in report.warnings if "BIGQUERY" in w.message]
-    assert len(bigquery_warnings) == 1, (
-        f"Expected exactly 1 deduplicated warning; got {len(bigquery_warnings)}"
+    # Only ONE report warning for the unmapped typeId despite 3 calls.
+    kafka_warnings = [w for w in report.warnings if "KAFKA" in w.message]
+    assert len(kafka_warnings) == 1, (
+        f"Expected exactly 1 deduplicated warning; got {len(kafka_warnings)}"
     )
 
 

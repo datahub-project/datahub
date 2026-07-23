@@ -47,8 +47,9 @@ your recipe under `platform_type_defaults`.
 | `ABAP`               | `abap`           | SAP ABAP system extraction                                            |
 | `SAPS4HANACLOUD`     | `s4hana`         | SAP S/4HANA Cloud federation                                          |
 | `SAPBWMODELTRANSFER` | `bw`             | SAP BW analytical model transfer (matches the SAC connector's `bw`)   |
+| `BIGQUERY`           | `bigquery`       | Google BigQuery replication-flow target / federated remote tables     |
 
-Other typeIds (Snowflake, BigQuery, Kafka, Salesforce, ...) default to
+Other typeIds (Snowflake, Kafka, Salesforce, ...) default to
 `enabled: false` with a warning — opt in by adding them to
 `platform_type_defaults` in your recipe. The connector reports each
 unmapped-typeId asset once via `report.assets_skipped_unknown_typeid`.

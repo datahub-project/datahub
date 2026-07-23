@@ -1515,10 +1515,10 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     )
     ctx = PipelineContext(run_id="test-unknown-typeid")
 
-    # A connection with a typeId we don't have a built-in default for (BIGQUERY).
+    # A connection with a typeId we don't have a built-in default for (SNOWFLAKE).
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
-        json=[{"name": "GBQ_PROD", "typeId": "BIGQUERY"}],
+        json=[{"name": "SF_PROD", "typeId": "SNOWFLAKE"}],
     )
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
@@ -1538,14 +1538,14 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
             ]
         },
     )
-    # CSN routes this asset to the unknown GBQ_PROD connection
+    # CSN routes this asset to the unknown SF_PROD connection
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/FED_TABLE",
         json={
             "definitions": {
                 "FED_TABLE": {
                     "kind": "entity",
-                    "@remote.source": "GBQ_PROD",
+                    "@remote.source": "SF_PROD",
                 }
             }
         },
@@ -1563,7 +1563,7 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     # The new counter should be 1; assets_filtered should NOT increment for this.
     assert source.report.assets_skipped_unknown_typeid is not None
     skipped = list(source.report.assets_skipped_unknown_typeid)
-    assert any("FED_TABLE" in s or "GBQ_PROD" in s for s in skipped), (
+    assert any("FED_TABLE" in s or "SF_PROD" in s for s in skipped), (
         f"Expected FED_TABLE in assets_skipped_unknown_typeid, got: {skipped}"
     )
 
