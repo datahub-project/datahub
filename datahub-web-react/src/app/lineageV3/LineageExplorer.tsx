@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 
 import { EdgeId, LineageEdge, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
 import DAGNodeInitializer from '@app/lineageV3/initialize/DataFlowGraphInitializer';
+import DataProductGraphInitializer from '@app/lineageV3/initialize/DataProductGraphInitializer';
 import ImpactAnalysisNodeInitializer from '@app/lineageV3/initialize/ImpactAnalysisNodeInitializer';
 import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideTransformations';
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV3/settings/useShouldShowGhostEntities';
+import { FetchedEntityV2 } from '@app/lineageV3/types';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -23,6 +25,7 @@ export default function LineageExplorer(props: Props) {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     });
+    const [dataProductEntities] = useState(new Map<string, FetchedEntityV2>());
     const [nodeVersion, setNodeVersion] = useState(0);
     const [dataVersion, setDataVersion] = useState(0);
     const [columnEdgeVersion, setColumnEdgeVersion] = useState(0);
@@ -31,6 +34,7 @@ export default function LineageExplorer(props: Props) {
     const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
 
     const [showGhostEntities, setShowGhostEntities] = useShouldShowGhostEntities(type);
+    const [outputPortsOnly, setOutputPortsOnly] = useState(false);
 
     const context: NodeContext = {
         rootUrn: urn,
@@ -38,6 +42,7 @@ export default function LineageExplorer(props: Props) {
         nodes,
         edges,
         adjacencyList,
+        dataProductEntities,
         nodeVersion,
         setNodeVersion,
         dataVersion,
@@ -52,12 +57,17 @@ export default function LineageExplorer(props: Props) {
         setShowDataProcessInstances,
         showGhostEntities,
         setShowGhostEntities,
+        outputPortsOnly,
+        setOutputPortsOnly,
     };
 
     return (
         <LineageNodesContext.Provider value={context}>
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
-            {type !== EntityType.DataFlow && <ImpactAnalysisNodeInitializer urn={urn} type={type} />}
+            {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
+            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && (
+                <ImpactAnalysisNodeInitializer urn={urn} type={type} />
+            )}
         </LineageNodesContext.Provider>
     );
 }

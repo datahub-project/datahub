@@ -59,6 +59,7 @@ jobs:
         run: |
           ./gradlew :metadata-integration:java:acryl-spark-lineage:test \
                     :metadata-integration:java:acryl-spark-lineage:sparkRealSmokeTest \
+                    :metadata-integration:java:acryl-spark-lineage:sparkSmoke4Test \
                     :metadata-integration:java:acryl-spark-lineage:jacocoTestReport
       - name: Upload spark-lineage coverage to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
@@ -107,9 +108,12 @@ jobs:
           test-results-paths: |
             **/build/reports/tests/test/**
             **/build/reports/tests/sparkRealSmokeTest/**
+            **/build/reports/tests/sparkSmoke4Test/**
             **/build/test-results/test/**
             **/build/test-results/sparkRealSmokeTest/**
+            **/build/test-results/sparkSmoke4Test/**
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/test/**/*.xml
             **/build/test-results/sparkRealSmokeTest/**/*.xml
+            **/build/test-results/sparkSmoke4Test/**/*.xml

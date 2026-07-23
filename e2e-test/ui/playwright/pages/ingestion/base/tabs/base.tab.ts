@@ -1,16 +1,21 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { DataHubLogger } from '@utils/logger';
+import { ToastComponent } from '@pages/common/toast-component';
 
 export abstract class BaseTab {
   abstract readonly name: string;
   abstract readonly path: string;
   abstract readonly tabKey: string;
 
+  protected readonly toast: ToastComponent;
+
   constructor(
     protected readonly page: Page,
     protected readonly logger?: DataHubLogger,
     protected readonly logDir?: string,
-  ) {}
+  ) {
+    this.toast = new ToastComponent(page);
+  }
 
   get tab(): Locator {
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tab node keyed by data-node-key; no ARIA role exposed

@@ -387,6 +387,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:microstrategy",
+        "name": "microstrategy",
+        "displayName": "MicroStrategy",
+        "description": "Import Projects, Folders, Dossiers, Visualizations, Reports, Metrics, Attributes, and lineage from MicroStrategy.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/microstrategy/",
+        "recipe": "source:\n  type: microstrategy\n  config:\n    base_url: \"https://your-company.example.com/MicroStrategyLibrary\"\n\n    auth:\n      type: password\n      username: \"${MSTR_USERNAME}\"\n      password: \"${MSTR_PASSWORD}\"\n\n    platform_instance: production\n    env: PROD\n\n    # Optional regex filters; all projects, dashboards, and reports\n    # are ingested by default. Example scoping:\n    # dashboard_pattern:\n    #   allow:\n    #     - \"^Quarterly Business Review$\"\n\n    extract_source_warehouses: true\n    extract_dashboard_dependencies: true\n    extract_metric_expressions: true\n    extract_model_lineage: true\n    extract_reports: false\n    extract_report_definitions: true\n    extract_warehouse_lineage: false\n    extract_report_sql_lineage: false\n    emit_dashboard_dataset_edges: false\n    tag_measures_and_dimensions: true\n    ingest_owner: true\n\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:mlflow",
         "name": "mlflow",
         "displayName": "MLflow",
@@ -474,6 +484,16 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/csv-enricher",
         "recipe": "source: \n    type: csv-enricher \n    config: \n        # URL of your csv file to ingest \n        filename: \n        array_delimiter: '|' \n        delimiter: ',' \n        write_semantics: PATCH",
         "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:dataplex",
+        "name": "dataplex",
+        "displayName": "Google Cloud Knowledge Catalog (Dataplex)",
+        "description": "Google Cloud's intelligent data fabric for unified data management, governance, and analytics across data lakes and warehouses.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dataplex",
+        "recipe": "source:\n    type: dataplex\n    config:\n        project_ids:\n            - my-gcp-project\n        include_schema: true\n        include_lineage: true\n        include_glossaries: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
         "isPopular": false
     },
     {

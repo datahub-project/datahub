@@ -224,6 +224,14 @@ const SEARCH_TERMS = {
   HEALTH_TEST: 'playwright_health_test',
 } as const;
 
+// showLineageFilterNodes is omitted so most tests run on the backend default; only the filter test overrides it.
+const BASE_FEATURE_FLAGS = {
+  lineageGraphV3: true,
+  themeV2Enabled: true,
+  themeV2Default: true,
+  showNavBarRedesign: true,
+};
+
 // ── Test Suite ───────────────────────────────────────────────────────────────
 
 test.describe('lineage v3 — lineage graph', () => {
@@ -249,12 +257,7 @@ test.describe('lineage v3 — lineage graph', () => {
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     lineagePage = new LineageV3Page(page, logger, logDir);
 
-    await apiMock.setFeatureFlags({
-      lineageGraphV3: true,
-      themeV2Enabled: true,
-      themeV2Default: true,
-      showNavBarRedesign: true,
-    });
+    await apiMock.setFeatureFlags(BASE_FEATURE_FLAGS);
   });
 
   test('can see full history', async () => {
@@ -545,7 +548,10 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
   });
 
-  test('should allow to expand and filter children', async () => {
+  test('should allow to expand and filter children', async ({ apiMock }) => {
+    // The dedicated filter-node UI asserted below only renders when showLineageFilterNodes is on.
+    await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: true });
+
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, FILTERING_NODE7_URN);
 
     await lineagePage.checkNodeExists(FILTERING_NODE7_URN);
@@ -556,13 +562,14 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'up', 'platform', 'PostgreSQL', '3');
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'up', 'platform', 'Snowflake', '3');
 
-    // Verify initial node visibility
-    await lineagePage.checkNodeNotExists(FILTERING_NODE1_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE2_URN);
+    // Verify initial node visibility: pagination keeps the first `limit` children in priority
+    // order (postgres node1-3, then snowflake node4), so node5/node6 are hidden.
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE3_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE4_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE5_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE6_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE5_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE6_URN);
 
     // Show more upstream
     await lineagePage.showMore(FILTERING_NODE7_URN, 'up');
@@ -643,52 +650,54 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'PostgreSQL', '3');
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'Snowflake', '10');
 
-    // Verify initial downstream node visibility
-    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE9_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE10_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE11_URN);
+    // Verify initial downstream node visibility: first `limit` children in priority order are
+    // postgres node8-10, then snowflake node11; node12-20 are hidden.
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE9_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE10_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE11_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE12_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE13_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE14_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE15_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE16_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE17_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE17_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE18_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE19_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
 
-    // Show more downstream
+    // Show more downstream: limit grows to 8, revealing the next four in priority order
+    // (node12-15); node16-20 remain hidden.
     await lineagePage.showMore(FILTERING_NODE7_URN, 'down');
-    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE9_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE10_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE11_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE12_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE9_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE10_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE11_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE12_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE13_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE14_URN);
     await lineagePage.checkNodeExists(FILTERING_NODE15_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE16_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE17_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE16_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE17_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE18_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE19_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
 
-    // Show less downstream
+    // Show less downstream: back to the first four (node8-11)
     await lineagePage.showLess(FILTERING_NODE7_URN, 'down');
-    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE9_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE10_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE11_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE9_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE10_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE11_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE12_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE13_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE14_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE15_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE16_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE17_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE17_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE18_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE19_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
 
     // Show all downstream
     await lineagePage.showAll(FILTERING_NODE7_URN, 'down');
@@ -825,20 +834,20 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'PostgreSQL', '3');
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'Snowflake', '10');
 
-    // Verify node visibility
-    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE9_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE10_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE11_URN);
+    // Verify node visibility: first four in priority order (node8-11)
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE9_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE10_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE11_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE12_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE13_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE14_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE15_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE16_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE17_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE17_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE18_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE19_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
 
     // Filter with no matches (filtering node should still exist)
     await lineagePage.filterNodes(FILTERING_NODE7_URN, 'down', 'unknown');
@@ -864,19 +873,93 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.ensureFilterNodeTitleHasText(FILTERING_NODE7_URN, 'down', '4 of 13 shown');
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'PostgreSQL', '3');
     await lineagePage.checkFilterCounter(FILTERING_NODE7_URN, 'down', 'platform', 'Snowflake', '10');
-    await lineagePage.checkNodeNotExists(FILTERING_NODE8_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE9_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE10_URN);
-    await lineagePage.checkNodeNotExists(FILTERING_NODE11_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE9_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE10_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE11_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE12_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE13_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE14_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE15_URN);
     await lineagePage.checkNodeNotExists(FILTERING_NODE16_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE17_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE18_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE19_URN);
-    await lineagePage.checkNodeExists(FILTERING_NODE20_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE17_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE18_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE19_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE20_URN);
+  });
+
+  test('paginates and filters children via the contract button', async ({ apiMock }) => {
+    // Filter nodes off: pagination/search lives on the contract button (ContractLineageControl).
+    await apiMock.setFeatureFlags({ ...BASE_FEATURE_FLAGS, showLineageFilterNodes: false });
+
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, FILTERING_NODE7_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE7_URN);
+
+    // No dedicated filter node is rendered in this mode.
+    await expect(lineagePage.getFilterNode(FILTERING_NODE7_URN, 'up')).not.toBeAttached({ timeout: TIMEOUTS.MEDIUM });
+
+    // ── Upstream: initial paginated state ───────────────────────────────────
+    await lineagePage.checkContractControlExists(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '4/6');
+
+    // Pagination keeps the first `limit` children in priority order (node1-4); node5/6 are hidden.
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE4_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE5_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE6_URN);
+
+    // Hover reveals the platform breakdown panel.
+    await lineagePage.openContractControlPanel(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkContractControlPlatformCounter(FILTERING_NODE7_URN, 'up', 'PostgreSQL', '3');
+    await lineagePage.checkContractControlPlatformCounter(FILTERING_NODE7_URN, 'up', 'Snowflake', '3');
+
+    // ── Search by node name: single match ───────────────────────────────────
+    await lineagePage.filterContractControlChildren(FILTERING_NODE7_URN, 'up', 'node6');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '1/6');
+    await lineagePage.checkContractControlMatches(FILTERING_NODE7_URN, 'up', '1');
+    await lineagePage.checkNodeNotExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE6_URN);
+
+    // ── Search by platform: three matches ───────────────────────────────────
+    await lineagePage.filterContractControlChildren(FILTERING_NODE7_URN, 'up', 'postgres');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '3/6');
+    await lineagePage.checkContractControlMatches(FILTERING_NODE7_URN, 'up', '3');
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE3_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE4_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE5_URN);
+    await lineagePage.checkNodeNotExists(FILTERING_NODE6_URN);
+
+    // ── Clear search: back to the initial paginated view ────────────────────
+    await lineagePage.clearContractControlFilter(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '4/6');
+
+    // ── Show more: reveal all 6 upstream children ───────────────────────────
+    await lineagePage.contractControlShowMore(FILTERING_NODE7_URN, 'up');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'up', '6/6');
+    await lineagePage.checkNodeExists(FILTERING_NODE1_URN);
+    await lineagePage.checkNodeExists(FILTERING_NODE2_URN);
+
+    // ── Downstream: show more / less / all (13 children) ────────────────────
+    await lineagePage.checkContractControlExists(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '4/13');
+    // node8 is now among the first `limit` children shown (priority order node8-11).
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
+
+    await lineagePage.contractControlShowMore(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '8/13');
+
+    // show less and show all are only reachable by hovering the show-more button
+    await lineagePage.contractControlShowLess(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '4/13');
+
+    await lineagePage.contractControlShowAll(FILTERING_NODE7_URN, 'down');
+    await lineagePage.checkChildrenShown(FILTERING_NODE7_URN, 'down', '13/13');
+    await lineagePage.checkNodeExists(FILTERING_NODE8_URN);
   });
 
   test('can switch direction between upstream and downstream in compact mode', async () => {

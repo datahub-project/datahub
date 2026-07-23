@@ -11,7 +11,7 @@ from concurrent.futures import (
     ThreadPoolExecutor,
     wait,
 )
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -56,7 +56,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
-from datahub.emitter.mcp_builder import add_owner_to_entity_wu
+from datahub.emitter.mcp_builder import ContainerKey, add_owner_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -90,6 +90,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.str_enum import StrEnum
@@ -101,6 +102,13 @@ NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
 
 # Teradata uses a two-tier database.table naming approach without default database prefixing
 DEFAULT_NO_DATABASE_TERADATA = None
+
+# Upper bound on the number of audit rows we buffer when reconstructing a single
+# multi-row query. Teradata caps a request's SQL text at ~1 MB and each SqlRowNo
+# fragment holds up to ~31 KB, so a well-formed query needs only a few dozen rows.
+# A query_id accumulating far more than that means malformed/corrupt audit data;
+# capping the buffer keeps one bad query_id from growing memory without bound.
+MAX_QUERY_PARTS = 10000
 
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
@@ -655,7 +663,23 @@ class TeradataTable:
     create_timestamp: datetime
     last_alter_name: Optional[str]
     last_alter_timestamp: Optional[datetime]
-    request_text: Optional[str]
+    # NOTE: View SQL text is intentionally NOT stored here. On large installations
+    # (thousands of views) keeping every view's RequestText resident drove the
+    # cache to hundreds of MB. View definitions now live in a disk-backed
+    # FileBackedDict (TeradataSource._view_definitions), keyed by
+    # _view_definition_key(schema, name).
+
+
+def _view_definition_key(schema: str, view_name: str) -> str:
+    """Build the FileBackedDict key for a view's SQL text.
+
+    The entire key is lowercased so that writes (keyed from dbc.TablesV, in
+    Teradata's stored case) and reads (keyed from config- or query-supplied
+    names, in whatever case the caller used) always match. Both schema and view
+    name are folded to lower case — do not "preserve" the view-name case here or
+    the read/write keys will silently diverge.
+    """
+    return f"{schema}.{view_name}".lower()
 
 
 # Bounded cache so multiple schemas stay resident across sequential database processing.
@@ -1026,29 +1050,6 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     return fk_dicts
 
 
-def optimized_get_view_definition(
-    self: Any,
-    connection: Connection,
-    view_name: str,
-    schema: Optional[str] = None,
-    tables_cache: Optional[MutableMapping[str, List[TeradataTable]]] = None,
-    **kw: Dict[str, Any],
-) -> Optional[str]:
-    tables_cache = tables_cache or {}
-    if schema is None:
-        schema = self.default_schema_name
-
-    schema_key = schema.lower()
-    if schema_key not in tables_cache:
-        return None
-
-    for table in tables_cache[schema_key]:
-        if table.name == view_name:
-            return self.normalize_name(table.request_text)
-
-    return None
-
-
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Column extraction metrics
@@ -1100,6 +1101,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
+
+    # Number of reconstructed queries whose row count exceeded MAX_QUERY_PARTS and
+    # were truncated to protect memory (malformed/corrupt audit data).
+    num_queries_truncated: int = 0
 
     # Retry statistics
     num_db_retries: int = 0
@@ -1756,30 +1761,72 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         # record of user intent across sequential recipe runs.
         self._effective_max_workers: int = config.max_workers
 
-        self.schema_resolver = self._init_schema_resolver()
+        # Register every teardown on a single ExitStack so both the normal close()
+        # path and the __init__ failure path release the same resources, in reverse
+        # order, without masking the original exception.
+        # This makes cleanup correct even when __init__ raises before the
+        # pipeline has registered this source for close().
+        self._exit_stack = ExitStack()
 
-        # Initialize SqlParsingAggregator for modern lineage processing
-        logger.info("Initializing SqlParsingAggregator for enhanced lineage processing")
-        self.aggregator = SqlParsingAggregator(
-            platform="teradata",
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            schema_resolver=self.schema_resolver,
-            graph=self.ctx.graph,
-            generate_lineage=self.config.include_view_lineage
-            or self.config.include_table_lineage,
-            generate_queries=self.config.include_queries,
-            generate_usage_statistics=self.config.include_usage_statistics,
-            generate_query_usage_statistics=self.config.include_usage_statistics,
-            generate_operations=self.config.usage.include_operational_stats
-            if self.config.include_usage_statistics
-            else False,
-            usage_config=self.config.usage
-            if self.config.include_usage_statistics
-            else None,
-            eager_graph_load=False,
-        )
-        self.report.sql_aggregator = self.aggregator.report
+        # Guard construction too, not just discovery below: these resources are
+        # registered on the ExitStack one at a time, so if a later one raises (e.g.
+        # the aggregator fails after the SQLite-backed view store is created) the
+        # ones built so far would leak because close() never runs on a failed
+        # __init__. Unwind whatever was registered and re-raise the original error.
+        try:
+            # Register the non-Closeable teardown first so it runs on any failure,
+            # even one during resource construction below: the pooled engine (lazily
+            # created, class-level) and the caches that must not survive into the
+            # next recipe run in the same process. ExitStack unwinds LIFO, so these
+            # run after the Closeables are closed.
+            self._exit_stack.callback(self._dispose_pooled_engine)
+            self._exit_stack.callback(self._clear_table_caches)
+            self._exit_stack.callback(self._clear_schema_lru_caches)
+
+            # View SQL text is offloaded to a temporary SQLite-backed dict instead of
+            # being held in `_tables_cache`. On large installations the resident view
+            # text dominated memory (e.g. thousands of views at ~100KB each). Keyed by
+            # _view_definition_key(schema, view_name). FileBackedDict mutates its
+            # in-memory LRU on read, so reads (which happen on parallel view-processing
+            # worker threads) must be guarded by `_view_definitions_lock`.
+            self._view_definitions: FileBackedDict[str] = (
+                self._exit_stack.enter_context(FileBackedDict())
+            )
+            self._view_definitions_lock = Lock()
+
+            self.schema_resolver = self._exit_stack.enter_context(
+                self._init_schema_resolver()
+            )
+
+            # Initialize SqlParsingAggregator for modern lineage processing
+            logger.info(
+                "Initializing SqlParsingAggregator for enhanced lineage processing"
+            )
+            self.aggregator = self._exit_stack.enter_context(
+                SqlParsingAggregator(
+                    platform="teradata",
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    schema_resolver=self.schema_resolver,
+                    graph=self.ctx.graph,
+                    generate_lineage=self.config.include_view_lineage
+                    or self.config.include_table_lineage,
+                    generate_queries=self.config.include_queries,
+                    generate_usage_statistics=self.config.include_usage_statistics,
+                    generate_query_usage_statistics=self.config.include_usage_statistics,
+                    generate_operations=self.config.usage.include_operational_stats
+                    if self.config.include_usage_statistics
+                    else False,
+                    usage_config=self.config.usage
+                    if self.config.include_usage_statistics
+                    else None,
+                    eager_graph_load=False,
+                )
+            )
+            self.report.sql_aggregator = self.aggregator.report
+        except Exception:
+            self._exit_stack.close()
+            raise
 
         # Surface the size-based profiling filter at startup. This default (5 GB)
         # was previously ignored for Teradata, so log it to avoid surprising users
@@ -1809,7 +1856,13 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
         if self.config.include_tables or self.config.include_views:
             with self.report.new_stage("Table and view discovery"):
-                self.cache_tables_and_views()
+                try:
+                    self.cache_tables_and_views()
+                except Exception:
+                    # Same failed-__init__ rationale as the construction guard
+                    # above: close() won't run, so unwind the ExitStack here.
+                    self._exit_stack.close()
+                    raise
                 logger.info(f"Found {len(self._tables_cache)} tables and views")
             setattr(self, "loop_tables", self.cached_loop_tables)  # noqa: B010
             setattr(self, "loop_views", self.cached_loop_views)  # noqa: B010
@@ -1879,14 +1932,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 ),
             )
 
-            # Disabling the below because the cached view definition is not the view definition the column in tablesv actually holds the last statement executed against the object... not necessarily the view definition
-            # setattr(
-            #   TeradataDialect,
-            #    "get_view_definition",
-            #   lambda self, connection, view_name, schema=None, **kw: optimized_get_view_definition(
-            #        self, connection, view_name, schema, tables_cache=tables_cache, **kw
-            #    ),
-            # )
+            # get_view_definition is intentionally not overridden: the cached text
+            # from dbc.TablesV is the last statement executed against the object,
+            # not necessarily the true view DDL. See the removed
+            # optimized_get_view_definition (git history) for the disabled path.
 
             setattr(  # noqa: B010
                 TeradataDialect,
@@ -2139,6 +2188,10 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
+        # Returns the database name in its source case on purpose: the result is
+        # reused verbatim as a quoted SQL identifier, which must match the stored
+        # case in CASESPECIFIC installations. URN casing is normalized separately
+        # via _maybe_lower_urn_name.
         if hasattr(inspector, "_datahub_database"):
             return inspector._datahub_database
 
@@ -2148,6 +2201,29 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
             return str(engine.url.database).strip('"')
         else:
             raise Exception("Unable to get database name from Sqlalchemy inspector")
+
+    def _maybe_lower_urn_name(self, name: str) -> str:
+        # Lower-case a name used to build a URN/key when convert_urns_to_lowercase
+        # is set, mirroring get_identifier() for datasets. Keeps get_db_name()
+        # source-case for SQL resolution while normalizing URN identity.
+        return name.lower() if self.config.convert_urns_to_lowercase else name
+
+    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
+        # Normalize the name so the container URN matches the dataset URNs.
+        return super().get_database_container_key(
+            self._maybe_lower_urn_name(db_name), self._maybe_lower_urn_name(schema)
+        )
+
+    def gen_database_containers(
+        self,
+        database: str,
+        extra_properties: Optional[Dict[str, Any]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Normalize the name so the container URN matches the dataset URNs.
+        yield from super().gen_database_containers(
+            database=self._maybe_lower_urn_name(database),
+            extra_properties=extra_properties,
+        )
 
     def cached_loop_tables(
         self,
@@ -2182,8 +2258,24 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         for entry in cache_entries:
             if entry.name == table:
                 description = entry.description
-                if entry.object_type == "View" and entry.request_text:
-                    properties["view_definition"] = entry.request_text
+                if entry.object_type == "View":
+                    # View text lives in the disk-backed dict; reads run on parallel
+                    # worker threads and FileBackedDict mutates its LRU on read, so
+                    # the lookup must be serialized.
+                    try:
+                        with self._view_definitions_lock:
+                            request_text = self._view_definitions.get(
+                                _view_definition_key(schema, table)
+                            )
+                        if request_text:
+                            properties["view_definition"] = request_text
+                    except Exception as e:
+                        self.report.warning(
+                            title="Failed to read view definition",
+                            message="A view's SQL definition could not be read from the disk-backed store and will be omitted from the schema.",
+                            context=f"{schema}.{table}",
+                            exc=e,
+                        )
                 break
         return description, properties, location
 
@@ -2404,8 +2496,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
@@ -2654,8 +2750,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         )
 
                         self.report.report_entity_scanned(dataset_name, ent_type="view")
+                        logger.debug(f"Scanning view: {dataset_name}")
 
                         if not sql_config.view_pattern.allowed(dataset_name):
+                            logger.debug(
+                                f"Dropped view by view_pattern: {dataset_name}"
+                            )
                             self.report.report_dropped(dataset_name)
                             continue
 
@@ -2725,7 +2825,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
                     "pool_pre_ping": True,
-                    "pool_recycle": 1800,
+                    "pool_recycle": 900,
                     "pool_reset_on_return": "rollback",
                 }
                 # Use setdefault so that a user-supplied pool_timeout in
@@ -2797,11 +2897,6 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 create_timestamp=entry.CreateTimeStamp,
                                 last_alter_name=entry.LastAlterName,
                                 last_alter_timestamp=entry.LastAlterTimeStamp,
-                                request_text=(
-                                    entry.RequestText.strip()
-                                    if entry.object_type == "View" and entry.RequestText
-                                    else None
-                                ),
                             )
 
                             # Count objects per database for metrics
@@ -2809,6 +2904,23 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                                 database_counts[table.database]["views"] += 1
                             else:
                                 database_counts[table.database]["tables"] += 1
+
+                            # Offload view SQL text to disk rather than holding it in
+                            # the in-memory cache. This loop is single-threaded, so the
+                            # write does not need `_view_definitions_lock` (only the
+                            # concurrent reads later do).
+                            if table.object_type == "View" and entry.RequestText:
+                                try:
+                                    self._view_definitions[
+                                        _view_definition_key(table.database, table.name)
+                                    ] = entry.RequestText.strip()
+                                except Exception as e:
+                                    self.report.warning(
+                                        title="Failed to store view definition",
+                                        message="A view's SQL definition could not be written to the disk-backed store and will be omitted from the schema.",
+                                        context=f"{table.database}.{table.name}",
+                                        exc=e,
+                                    )
 
                             with self._tables_cache_lock:
                                 # Cache key is lowercased so lookups by schema name from
@@ -2857,8 +2969,9 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         by concatenating rows with the same query_id.
         """
         current_query_id = None
-        current_query_parts = []
+        current_query_parts: List[str] = []
         current_query_metadata = None
+        current_query_truncated = False
 
         for entry in entries:
             # Count each audit query entry processed
@@ -2878,10 +2991,24 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 current_query_id = query_id
                 current_query_parts = [query_text] if query_text else []
                 current_query_metadata = entry
+                current_query_truncated = False
             else:
-                # Same query - append the text
-                if query_text:
+                # Same query - append the text, unless we've already hit the safety cap.
+                if query_text and len(current_query_parts) < MAX_QUERY_PARTS:
                     current_query_parts.append(query_text)
+                elif query_text and not current_query_truncated:
+                    # Warn once per query, then keep draining the remaining rows for
+                    # this query_id without buffering them.
+                    current_query_truncated = True
+                    self.report.num_queries_truncated += 1
+                    self.report.warning(
+                        title="Truncated oversized reconstructed query",
+                        message=(
+                            "A query spanned more audit rows than expected and was "
+                            "truncated to protect memory. Its lineage may be incomplete."
+                        ),
+                        context=f"query_id={current_query_id}, kept {MAX_QUERY_PARTS} parts",
+                    )
 
         # Yield the last query if it exists
         if current_query_id is not None and current_query_parts:
@@ -3160,7 +3287,12 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         finally:
             watchdog_stop.set()
             if watchdog_thread is not None:
-                watchdog_thread.join(timeout=5)
+                watchdog_thread.join(timeout=2)
+                if watchdog_thread.is_alive():
+                    logger.warning(
+                        "Teradata lineage watchdog did not stop within 2s; "
+                        "continuing shutdown anyway."
+                    )
             fetch_engine.dispose()
 
     def _check_historical_table_exists(self) -> bool:
@@ -3431,7 +3563,34 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                             )
 
                     if queries_processed == 0:
-                        logger.info("No lineage entries found")
+                        # No queries made it into the aggregator, but that can mean two
+                        # very different things. num_audit_query_entries_processed counts
+                        # raw DBC.QryLogV rows; queries_processed counts queries that
+                        # survived reconstruction. If rows arrived but reconstructed to
+                        # nothing, pointing the operator at grants/scope would be wrong —
+                        # so branch the guidance on which stage actually came up empty.
+                        rows_fetched = self.report.num_audit_query_entries_processed
+                        if rows_fetched > 0:
+                            message = (
+                                f"Fetched {rows_fetched} audit-log row(s) but reconstructed 0 "
+                                "queries, so no lineage was produced. This usually means the rows "
+                                "lacked a usable query_id or query text (e.g. malformed/empty "
+                                "DBC.QryLogV entries), not a scope or permissions problem."
+                            )
+                        else:
+                            message = (
+                                "The audit-log query returned 0 rows for the configured window. "
+                                "This is expected if no queries ran in that period, but can also "
+                                "indicate an over-narrow databases_filter/database_pattern, a "
+                                "start_time/end_time that misses activity, missing SELECT grants on "
+                                "DBC.QryLogV, or a DBC maintenance window. Verify the scope and grants "
+                                "if you expected lineage."
+                            )
+                        self.report.warning(
+                            title="No lineage entries found",
+                            message=message,
+                            context=f"time_range={self.config.start_time}–{self.config.end_time}",
+                        )
                         return
 
                     logger.info(
@@ -3440,37 +3599,47 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
 
             logger.info("Completed lineage extraction from Teradata audit logs")
 
-    def close(self) -> None:
-        """Clean up resources when source is closed."""
-        logger.info("Closing SqlParsingAggregator")
-        self.aggregator.close()
-        self.schema_resolver.close()
-
-        # Clean up pooled engine
+    def _dispose_pooled_engine(self) -> None:
+        # _pooled_engine is class-level and lazily created, so it may not exist yet
+        # (e.g. when __init__ fails before the pool is first used). Null the handle
+        # so a subsequent run recreates it rather than reusing a disposed engine.
         with self._pooled_engine_lock:
             if self._pooled_engine is not None:
                 logger.info("Disposing pooled engine")
-                self._pooled_engine.dispose()
-                self._pooled_engine = None
+                try:
+                    self._pooled_engine.dispose()
+                finally:
+                    self._pooled_engine = None
 
+    def _clear_table_caches(self) -> None:
+        # Class-level caches must be cleared between recipe runs in the same process;
+        # otherwise sequential recipes accumulate all TeradataTable objects and creator
+        # metadata indefinitely.
+        with self._tables_cache_lock:
+            self._tables_cache.clear()
+            self._table_creator_cache.clear()
+
+    def _clear_schema_lru_caches(self) -> None:
+        # Module-level LRU caches hold per-connection schema column/PK/FK data, so they
+        # must not carry over to the next recipe run.
+        get_schema_columns.cache_clear()
+        get_schema_pk_constraints.cache_clear()
+        get_schema_foreign_keys.cache_clear()
+
+    def close(self) -> None:
+        """Clean up resources when source is closed."""
+        logger.info("Closing Teradata source resources")
+        # Emit the failed-views summary and commit stateful-ingestion checkpoints
+        # first (matching snowflake_v2.py), then unwind every resource registered in
+        # __init__ in reverse order. ExitStack runs each cleanup even if an earlier
+        # one raises, so we no longer hand-roll per-resource guards here. Running
+        # super().close() first guarantees the summary is emitted even if a teardown
+        # step raises; the summary reads from self.report and does not touch the
+        # resources being released.
         try:
-            # Clear class-level caches so memory is released between recipe runs in the
-            # same process. Without this, sequential recipes accumulate all TeradataTable
-            # objects (including view request_text) and creator metadata indefinitely.
-            with self._tables_cache_lock:
-                self._tables_cache.clear()
-                self._table_creator_cache.clear()
-
-            # Clear module-level LRU caches for the same reason — schema column/PK/FK
-            # data is per-connection and must not carry over to the next recipe run.
-            get_schema_columns.cache_clear()
-            get_schema_pk_constraints.cache_clear()
-            get_schema_foreign_keys.cache_clear()
-        except Exception as e:
-            logger.warning(f"Failed to clear caches during close: {e}")
-
-        # Report failed views summary
-        super().close()
+            super().close()
+        finally:
+            self._exit_stack.close()
 
     def generate_profile_candidates(
         self,

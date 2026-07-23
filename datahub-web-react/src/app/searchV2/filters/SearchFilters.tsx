@@ -5,6 +5,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import CreateLogicalModelButton from '@app/entityV2/shared/logicalModels/CreateLogicalModelButton';
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
@@ -169,6 +170,7 @@ export default function SearchFilters({
                         selectedSortOption={selectedSortOption}
                         setSelectedSortOption={setSelectedSortOption}
                     />
+                    <CreateLogicalModelButton />
                     <SearchMenuItems
                         filters={generateOrFilters(unionType, activeFilters)}
                         query={query}

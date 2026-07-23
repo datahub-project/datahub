@@ -21,6 +21,7 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BigQuerySinkConnector,
     ClickHouseSinkConnector,
     ConfluentS3SinkConnector,
+    IcebergSinkConnector,
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
@@ -696,6 +697,201 @@ class TestClickHouseSinkConnector:
         report: Mock = Mock(spec=KafkaConnectSourceReport)
 
         connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "events" in source_datasets
+        assert "user_updates" in source_datasets
+        assert "deprecated_topic" not in source_datasets
+
+    def test_clickhouse_sink_uses_sink_direction_fine_grained_lineage(self) -> None:
+        """ClickHouse sink CLL must use the sink-direction helper (Kafka topic → table).
+
+        Regression test: the connector previously called the source-direction
+        ``_extract_fine_grained_lineage`` helper, which hard-returns ``None`` for a
+        Kafka ``source_platform``, so column-level lineage was silently never emitted.
+        It must call ``_extract_sink_fine_grained_lineage`` instead, like the other
+        sink connectors (Snowflake, BigQuery, JDBC).
+        """
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "database": "analytics",
+            "topics": "events",
+        }
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+
+        sentinel_cll: List = [Mock()]
+        with patch.object(
+            connector,
+            "_extract_sink_fine_grained_lineage",
+            return_value=sentinel_cll,
+        ) as mock_sink_cll:
+            lineages: List = connector.extract_lineages()
+
+        mock_sink_cll.assert_called_once_with(
+            source_topic="events",
+            target_dataset="analytics.events",
+            target_platform="clickhouse",
+        )
+        assert len(lineages) == 1
+        assert lineages[0].fine_grained_lineages is sentinel_cll
+
+
+class TestIcebergSinkConnector:
+    """Test Iceberg sink connector lineage extraction."""
+
+    def create_mock_manifest(self, config: Dict[str, str]) -> ConnectorManifest:
+        """Helper to create a mock connector manifest."""
+        return ConnectorManifest(
+            name="test-iceberg-connector",
+            type="sink",
+            config=config,
+            tasks=[],
+            topic_names=["events"],
+        )
+
+    def test_single_topic_single_table(self) -> None:
+        """Test that single topic maps to single table."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "iceberg.tables": "mydb.events",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_dataset == "events"
+        assert lineage.source_platform == "kafka"
+        assert lineage.target_dataset == "mydb.events"
+        assert lineage.target_platform == "iceberg"
+
+    def test_no_tables_configured(self) -> None:
+        """Test that no lineage is emitted when iceberg.tables is empty."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 0
+
+    def test_multi_topic_single_table(self) -> None:
+        """Test N topics to 1 table (N×1 lineage)."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "iceberg.tables": "mydb.events",
+            "topics": "topic1,topic2",
+        }
+
+        manifest = ConnectorManifest(
+            name="test-iceberg-connector",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["topic1", "topic2"],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        topics = {lin.source_dataset for lin in lineages}
+        assert topics == {"topic1", "topic2"}
+        for lineage in lineages:
+            assert lineage.target_dataset == "mydb.events"
+            assert lineage.target_platform == "iceberg"
+
+    def test_multi_topic_multi_table(self) -> None:
+        """Test N topics to M tables (N×M all-to-all lineage)."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "iceberg.tables": "mydb.events,mydb.users",
+            "topics": "events,users",
+        }
+
+        manifest = ConnectorManifest(
+            name="test-iceberg-connector",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["events", "users"],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 4
+        edges = {(lin.source_dataset, lin.target_dataset) for lin in lineages}
+        expected_edges = {
+            ("events", "mydb.events"),
+            ("events", "mydb.users"),
+            ("users", "mydb.events"),
+            ("users", "mydb.users"),
+        }
+        assert edges == expected_edges
+
+    def test_dynamic_routing_emits_all_combinations(self) -> None:
+        """Test that dynamic routing still produces all-to-all lineage."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "iceberg.tables": "mydb.events,mydb.users",
+            "iceberg.tables.dynamic-enabled": "true",
+            "topics": "events",
+        }
+
+        manifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 2
+        tables = {lin.target_dataset for lin in lineages}
+        assert tables == {"mydb.events", "mydb.users"}
+
+    def test_iceberg_sink_stale_topic_excluded_when_runtime_topics_available(
+        self,
+    ) -> None:
+        """When runtime topics are available, intersect to exclude stale topics."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
+            "iceberg.tables": "mydb.events",
+            "topics": "events,user_updates",
+        }
+
+        manifest = ConnectorManifest(
+            name="iceberg-sink-with-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["events", "user_updates", "deprecated_topic"],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = IcebergSinkConnector(manifest, config, report)
         lineages: List = connector.extract_lineages()
 
         source_datasets = {lin.source_dataset for lin in lineages}

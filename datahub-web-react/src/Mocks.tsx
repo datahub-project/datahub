@@ -1138,6 +1138,7 @@ export const sampleTag = {
         description: 'sample tag description',
         colorHex: 'sample tag color',
     },
+    deprecation: null,
     autoRenderAspects: [],
 };
 
@@ -3418,6 +3419,7 @@ export const mocks = [
                         viewManageTags: true,
                         createDomains: true,
                         createTags: true,
+                        createLogicalModels: true,
                         manageUserCredentials: true,
                         manageGlossaries: true,
                         viewTests: false,
@@ -3716,6 +3718,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewManageTags: true,
     createTags: true,
     createDomains: true,
+    createLogicalModels: true,
     manageGlobalViews: true,
     manageGlobalSettings: true,
     manageOwnershipTypes: true,

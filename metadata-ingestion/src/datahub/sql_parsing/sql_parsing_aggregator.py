@@ -127,6 +127,7 @@ class ViewDefinition:
     view_definition: str
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
+    override_dialect: Optional[DialectOrStr] = None
 
 
 @dataclasses.dataclass
@@ -872,6 +873,7 @@ class SqlParsingAggregator(Closeable):
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        override_dialect: Optional[DialectOrStr] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -880,6 +882,11 @@ class SqlParsingAggregator(Closeable):
 
         The actual processing of view definitions is deferred until output time,
         since all schemas will be registered at that point.
+
+        ``override_dialect`` parses this view's SQL with a specific dialect instead
+        of the aggregator's platform default — useful for catalogs whose views span
+        multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
+        Hive views).
         """
 
         self.report.num_view_definitions += 1
@@ -888,6 +895,7 @@ class SqlParsingAggregator(Closeable):
             view_definition=view_definition,
             default_db=default_db,
             default_schema=default_schema,
+            override_dialect=override_dialect,
         )
 
     def add_observed_query(
@@ -1222,6 +1230,7 @@ class SqlParsingAggregator(Closeable):
             default_db=view_definition.default_db,
             default_schema=view_definition.default_schema,
             schema_resolver=self._schema_resolver,
+            override_dialect=view_definition.override_dialect,
         )
         if parsed.debug_info.error:
             self.report.views_parse_failures[view_urn] = (

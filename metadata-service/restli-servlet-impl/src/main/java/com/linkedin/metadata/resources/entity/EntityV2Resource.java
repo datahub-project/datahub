@@ -24,6 +24,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -85,16 +86,16 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     final Urn urn = Urn.createFromString(urnStr);
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getEntityV2", urn.getEntityType()), _authorizer, auth, true);
+                    "getEntityV2", urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAuthorizedToReadEntities(opContext, List.of(urn))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
 
-      return RestliUtils.toTask(systemOperationContext,
+      return RestliUtils.toTask(opContext,
         () -> {
           final String entityName = urnToEntityName(urn);
           final Set<String> projectedAspects =
@@ -128,9 +129,9 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
     }
 
       final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+                    "getEntityV2", urns.stream().map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAuthorizedToReadEntities(opContext, urns)) {
       throw new RestLiServiceException(
@@ -141,7 +142,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       return Task.value(Collections.emptyMap());
     }
     final String entityName = urnToEntityName(urns.iterator().next());
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null

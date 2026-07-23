@@ -20,10 +20,13 @@ from tests.test_result_msg import send_message
 from tests.utilities import env_vars
 from tests.utils import (
     TestSessionWrapper,
+    assert_admin_corpuser_info_preserved,
     delete_urns,
     delete_urns_from_file,
+    fetch_admin_corpuser_info,
     get_frontend_session,
     ingest_file_via_rest,
+    wait_for_admin_corpuser_system_bootstrap,
     wait_for_healthcheck_util,
     wait_for_writes_to_sync,
 )
@@ -52,10 +55,12 @@ def build_auth_session():
         return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
 
     wait_for_healthcheck_util(requests)
-    return TestSessionWrapper(get_frontend_session())
+    auth_session = TestSessionWrapper(get_frontend_session())
+    wait_for_admin_corpuser_system_bootstrap(auth_session)
+    return auth_session
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def auth_session():
     auth_session = build_auth_session()
     os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
@@ -94,6 +99,29 @@ def clear_graph_cache():
     """
     get_default_graph.cache_clear()
     yield
+
+
+@pytest.fixture(scope="session")
+def admin_corpuser_info_baseline(auth_session):
+    """Snapshot privileged admin corpUserInfo flags after session bootstrap."""
+    if os.environ.get("DATAHUB_GMS_TOKEN"):
+        return None
+    return fetch_admin_corpuser_info(auth_session)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def verify_admin_corpuser_info_unchanged(
+    auth_session, admin_corpuser_info_baseline, request
+):
+    """Detect tests that overwrite admin corpUserInfo and clear system/support flags."""
+    yield
+    if admin_corpuser_info_baseline is None:
+        return
+    assert_admin_corpuser_info_preserved(
+        auth_session,
+        admin_corpuser_info_baseline,
+        context=request.node.nodeid,
+    )
 
 
 def _ingest_cleanup_data_impl(
@@ -203,6 +231,23 @@ def load_pytest_test_weights() -> Dict[str, float]:
         return {}
 
 
+def get_pytest_test_weight(item: Item, test_weights: Dict[str, float]) -> float:
+    nodeid = item.nodeid
+    test_id = nodeid.replace("/", ".").replace(".py::", "::")
+    weight = test_weights.get(test_id)
+    if weight is not None:
+        return weight
+
+    nodeid_parts = nodeid.split("::")
+    if len(nodeid_parts) > 2:
+        module_id = nodeid_parts[0].replace("/", ".").removesuffix(".py")
+        weight = test_weights.get(f"{module_id}::{nodeid_parts[-1]}")
+        if weight is not None:
+            return weight
+
+    return 1.0
+
+
 def aggregate_module_weights(
     items: List[Item], test_weights: Dict[str, float]
 ) -> List[Tuple[str, List[Item], float]]:
@@ -229,21 +274,36 @@ def aggregate_module_weights(
     for module_path, module_items in modules.items():
         total_weight = 0.0
         for item in module_items:
-            # Build test ID from nodeid
-            # nodeid format: "tests/database/test_database.py::test_method"
-            # weights format: "tests.database.test_database::test_method"
-            nodeid = item.nodeid
-
-            # Convert path separators to dots and remove .py extension
-            # tests/database/test_database.py::test_method -> tests.database.test_database::test_method
-            test_id = nodeid.replace("/", ".").replace(".py::", "::")
-
-            weight = test_weights.get(test_id, 1.0)  # Default to 1.0 if not found
-            total_weight += weight
+            total_weight += get_pytest_test_weight(item, test_weights)
 
         module_data.append((module_path, module_items, total_weight))
 
     return module_data
+
+
+def _is_global_policy_mutator(item: Item) -> bool:
+    return item.get_closest_marker("global_policy_mutator") is not None
+
+
+def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
+    """Keep batch assignment stable across smoke.sh's two pytest invocations.
+
+    Batching runs on the full module set first; this filter then selects
+    non-mutators (phase 1) or mutators (phase 2). Unset means run everything
+    (ad-hoc local pytest without smoke.sh).
+    """
+    phase = env_vars.get_smoke_policy_phase()
+    if phase is None:
+        return
+    if phase == "1":
+        items[:] = [item for item in items if not _is_global_policy_mutator(item)]
+        logger.info("SMOKE_POLICY_PHASE=1: running %s non-mutator test(s)", len(items))
+        return
+    if phase == "2":
+        items[:] = [item for item in items if _is_global_policy_mutator(item)]
+        logger.info("SMOKE_POLICY_PHASE=2: running %s mutator test(s)", len(items))
+        return
+    logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
 
 
 def pytest_collection_modifyitems(
@@ -285,6 +345,7 @@ def pytest_collection_modifyitems(
                 f"RETRY MODE: Running {len(filtered_items)} tests from {len(filtered_modules)} failed module(s)"
             )
             items[:] = filtered_items
+            _apply_smoke_policy_phase_filter(items)
             return
         except Exception as e:
             logger.warning(
@@ -299,7 +360,7 @@ def pytest_collection_modifyitems(
     batch_number = int(batch_number_env)
 
     if batch_count <= 1:
-        # No batching needed
+        _apply_smoke_policy_phase_filter(items)
         return
 
     # Load test weights
@@ -340,5 +401,6 @@ def pytest_collection_modifyitems(
         f"Batch {batch_number}: Running {len(selected_items)} tests from {len(selected_modules)} modules"
     )
 
-    # Replace items with the filtered list
+    # Replace items with the filtered list, then apply smoke.sh phase filter
     items[:] = selected_items
+    _apply_smoke_policy_phase_filter(items)

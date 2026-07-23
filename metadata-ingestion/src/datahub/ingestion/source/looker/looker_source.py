@@ -124,7 +124,7 @@ class DashboardProcessingResult:
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, configured using `extract_usage_history`",
+    "Dashboard, chart, and explore usage. Enabled by default, configured using `extract_usage_history`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -176,6 +176,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Keep track of ingested chart urns, to omit usage for non-ingested entities
         self.chart_urns: Set[str] = set()
+
+        # Explores we actually emitted, so we only attach usage stats to them
+        self.explores_for_usage: List[looker_usage.LookerExploreForUsage] = []
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -913,6 +916,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 self.source_config.external_base_url or self.source_config.base_url,
                 self.source_config.extract_embed_urls,
             )
+            if explore_dataset_entity is not None:
+                # list.append is atomic under the GIL, so this is safe to call
+                # from the BackpressureAwareExecutor worker threads.
+                self.explores_for_usage.append(
+                    looker_usage.LookerExploreForUsage(
+                        id=None, model_name=model, name=explore
+                    )
+                )
 
         return (
             explore_dataset_entity,
@@ -1403,8 +1414,19 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             filtered_looks,
         )
 
+        explore_usage_generator = looker_usage.create_explore_stat_generator(
+            stat_generator_config,
+            self.reporter,
+            self.source_config,
+            self.explores_for_usage,
+        )
+
         mcps: List[MetadataChangeProposalWrapper] = []
-        for usage_stat_generator in [dashboard_usage_generator, chart_usage_generator]:
+        for usage_stat_generator in [
+            dashboard_usage_generator,
+            chart_usage_generator,
+            explore_usage_generator,
+        ]:
             for mcp in usage_stat_generator.generate_usage_stat_mcps():
                 mcps.append(mcp)
 

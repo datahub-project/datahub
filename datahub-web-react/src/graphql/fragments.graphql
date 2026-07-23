@@ -9,6 +9,9 @@ fragment globalTagsFields on GlobalTags {
                 name
                 colorHex
             }
+            deprecation {
+                ...deprecationFields
+            }
         }
         associatedUrn
         attribution {
@@ -1246,6 +1249,7 @@ fragment platformFields on DataPlatform {
         type
         displayName
         datasetNameDelimiter
+        logical
         logoUrl
     }
     displayName
@@ -1264,6 +1268,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     properties {
         displayName
         datasetNameDelimiter
+        logical
         logoUrl
     }
     displayName
@@ -1343,6 +1348,9 @@ fragment entityDomain on DomainAssociation {
         displayProperties {
             ...displayPropertiesFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     associatedUrn
     attribution {
@@ -1397,6 +1405,9 @@ fragment entityDataProduct on Entity {
                                 name
                             }
                         }
+                    }
+                    deprecation {
+                        ...deprecationFields
                     }
                 }
             }

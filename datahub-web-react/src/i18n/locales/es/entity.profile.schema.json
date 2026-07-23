@@ -14,6 +14,9 @@
     "changeEventString.defaultRelationship": "relacionado",
     "changeEventString.fieldDocEmpty": "La documentación del campo {{fieldPath}} está vacía.",
     "changeEventString.modifiedColumn": "Se modificó la columna {{column}}.",
+    "changeEventString.relationshipLabel.contained": "contenido",
+    "changeEventString.relationshipLabel.inherited": "heredado",
+    "changeEventString.relationshipLabel.value": "valor",
     "changeEventString.removedAsset": "Se quitó el activo «{{assetName}}».",
     "changeEventString.removedColumn": "Se quitó la columna {{column}}.",
     "changeEventString.removedFromApplication": "Se quitó de la aplicación «{{appName}}».",
@@ -158,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Algunos tags se obtuvieron de {{platform}}. Se resincronizarán periódicamente durante la Ingestion programada.",
     "tagTermRenderer.tagsNotEditable": "Algunos tags no son editables.",
     "usageStatsRenderer.hasColumnStats": "Tiene estadísticas de columna",
-    "usageStatsRenderer.noColumnStats": "No tiene estadísticas de columna"
+    "usageStatsRenderer.noColumnStats": "No tiene estadísticas de columna",
+    "fieldLogical.andMore": "y {{count}} más",
+    "fieldLogical.logicalParentInfo": "Columna del modelo lógico que define los metadatos de esta columna. Los cambios en los metadatos de la columna del elemento principal lógico se propagan automáticamente a esta columna.",
+    "fieldLogical.logicalParentTitle": "Elemento principal lógico",
+    "fieldLogical.physicalChildrenInfo": "Implementaciones físicas de esta columna del modelo lógico. Los cambios en los metadatos de esta columna se propagan automáticamente a estas columnas secundarias.",
+    "fieldLogical.physicalChildrenTitle": "Elementos secundarios físicos",
+    "fieldLogical.viewAllPhysicalChildren": "Ver todos los elementos secundarios físicos"
 }

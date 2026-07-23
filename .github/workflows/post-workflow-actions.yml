@@ -28,6 +28,7 @@ on:
       - "Metadata Models Custom CI"
       - "metadata-io"
       - "Nightly Docker Test"
+      - "OAuth Smoke Test"
       - "PR Title Check"
       - "Prefect Plugin"
       - "Publish Datahub Java Jars (Client, Spark Lineage, Protobuf, Auth API)"
@@ -37,6 +38,7 @@ on:
       - "Release Tests"
       - "Release Validation"
       - "spark smoke test"
+      - "Vercel Preview Cleanup"
       - "Verify Quickstart Compose"
     types:
       - completed

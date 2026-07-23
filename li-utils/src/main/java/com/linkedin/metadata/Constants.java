@@ -15,7 +15,7 @@ public class Constants {
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
-  public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
+
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
   // Actor ID for unauthenticated requests
@@ -56,6 +56,14 @@ public class Constants {
   public static final String MAX_JACKSON_STRING_SIZE = "16000000";
   public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH =
       "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
+
+  // Jackson's default max JSON property-name length is 50000. Deeply-nested struct field paths
+  // (e.g. dbt column-level lineage) can be carried as JSON names in patches and exceed it, throwing
+  // a StreamConstraintsException during deserialization. Raise it alongside the string-length
+  // limit.
+  public static final String MAX_JACKSON_NAME_LENGTH = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_NAME_LENGTH =
+      "INGESTION_MAX_SERIALIZED_NAME_LENGTH";
 
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
@@ -122,6 +130,38 @@ public class Constants {
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
   public static final String APPLICATION_ENTITY_NAME = "application";
+  public static final String METRIC_ENTITY_NAME = "metric";
+  public static final String METRIC_KEY_ASPECT_NAME = "metricKey";
+  public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
+  public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
+  public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
+  public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
+  public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
+  // Service (MCP servers, etc.)
+  public static final String SERVICE_ENTITY_NAME = "service";
+  public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
+  public static final String SERVICE_PROPERTIES_ASPECT_NAME = "serviceProperties";
+  public static final String MCP_SERVER_PROPERTIES_ASPECT_NAME = "mcpServerProperties";
+  public static final String AI_AGENT_ENTITY_NAME = "aiAgent";
+  public static final String AI_AGENT_KEY_ASPECT_NAME = "aiAgentKey";
+  public static final String AI_AGENT_INFO_ASPECT_NAME = "aiAgentInfo";
+  public static final String AI_AGENT_DEPENDENCIES_ASPECT_NAME = "aiAgentDependencies";
+  public static final String API_ENTITY_NAME = "api";
+  public static final String API_KEY_ASPECT_NAME = "apiKey";
+  public static final String API_PROPERTIES_ASPECT_NAME = "apiProperties";
+  public static final String API_SIGNATURE_ASPECT_NAME = "apiSignature";
+  public static final String REST_API_PROPERTIES_ASPECT_NAME = "restApiProperties";
+  public static final String REPOSITORY_ENTITY_NAME = "repository";
+  public static final String REPOSITORY_KEY_ASPECT_NAME = "repositoryKey";
+  public static final String REPOSITORY_PROPERTIES_ASPECT_NAME = "repositoryProperties";
+  public static final String REPOSITORY_SOURCE_ASPECT_NAME = "repositorySource";
+  public static final String REPOSITORY_LINEAGE_ASPECT_NAME = "repositoryLineage";
+  public static final String AGENT_SKILL_ENTITY_NAME = "agentSkill";
+  public static final String AGENT_SKILL_KEY_ASPECT_NAME = "agentSkillKey";
+  public static final String AGENT_SKILL_INFO_ASPECT_NAME = "agentSkillInfo";
+  public static final String APPLICATION_LINEAGE_ASPECT_NAME = "applicationLineage";
+  public static final String SERVICE_DEFINITION_ASPECT_NAME = "serviceDefinition";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -448,6 +488,9 @@ public class Constants {
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
+
+  /** Relationship from a physical asset to its logical model parent (via LogicalParent.parent) */
+  public static final String PHYSICAL_INSTANCE_OF_RELATIONSHIP_NAME = "PhysicalInstanceOf";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 

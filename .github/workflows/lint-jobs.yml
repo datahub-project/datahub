@@ -25,6 +25,15 @@ jobs:
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
       pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
       datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      metadata-ingestion: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      datahub-actions: ${{ steps.filter.outputs.datahub-actions == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      datahub-agent-context: ${{ steps.filter.outputs.datahub-agent-context == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      airflow-plugin: ${{ steps.filter.outputs.airflow-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      gx-plugin: ${{ steps.filter.outputs.gx-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      dagster-plugin: ${{ steps.filter.outputs.dagster-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      prefect-plugin: ${{ steps.filter.outputs.prefect-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      # Runs the single python-lint job if ANY Python module's files changed.
+      python-lint: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.datahub-actions == 'true' || steps.filter.outputs.datahub-agent-context == 'true' || steps.filter.outputs.airflow-plugin == 'true' || steps.filter.outputs.gx-plugin == 'true' || steps.filter.outputs.dagster-plugin == 'true' || steps.filter.outputs.prefect-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -207,6 +216,97 @@ jobs:
             ${{ env.UV_CACHE_DIR }}
           key: "uv-${{github.base_ref}}-${{ hashFiles('./smoke-test/requirements.txt', './smoke-test/pyproject.toml') }}"
 
+  python-lint:
+    name: python-lint
+    runs-on: ${{ needs.setup.outputs.default-runner }}
+    needs: setup
+    if: needs.setup.outputs.python-lint == 'true'
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache/
+      DATAHUB_TELEMETRY_ENABLED: false
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+      - name: Restore uv cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          # Shared across PRs (no base_ref in the key) so every PR reuses the same uv cache.
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+      - name: Install system dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      # Per-module lint steps. Each runs independently (if: always()) so a failure in one
+      # does not skip the others. Each uses its module's own Gradle-managed venv (separate
+      # venvs) while sharing the single uv download cache above. Each is gated by its own
+      # path-filter output.
+      - name: metadata-ingestion lint
+        id: metadata-ingestion-lint
+        if: always() && needs.setup.outputs.metadata-ingestion == 'true'
+        run: ./gradlew :metadata-ingestion:lint
+      - name: datahub-actions lint
+        id: datahub-actions-lint
+        if: always() && needs.setup.outputs.datahub-actions == 'true'
+        run: ./gradlew :datahub-actions:lint
+      - name: datahub-agent-context lint
+        id: datahub-agent-context-lint
+        if: always() && needs.setup.outputs.datahub-agent-context == 'true'
+        run: ./gradlew :datahub-agent-context:lint
+      - name: airflow-plugin lint
+        id: airflow-plugin-lint
+        if: always() && needs.setup.outputs.airflow-plugin == 'true'
+        run: ./gradlew :metadata-ingestion-modules:airflow-plugin:lint
+      - name: gx-plugin lint
+        id: gx-plugin-lint
+        if: always() && needs.setup.outputs.gx-plugin == 'true'
+        run: ./gradlew :metadata-ingestion-modules:gx-plugin:lint
+      - name: dagster-plugin lint
+        id: dagster-plugin-lint
+        if: always() && needs.setup.outputs.dagster-plugin == 'true'
+        run: ./gradlew :metadata-ingestion-modules:dagster-plugin:lint
+      - name: prefect-plugin lint
+        id: prefect-plugin-lint
+        if: always() && needs.setup.outputs.prefect-plugin == 'true'
+        run: ./gradlew :metadata-ingestion-modules:prefect-plugin:lint
+      - name: Save uv cache
+        if: always()
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: uv-python-lint-${{ hashFiles('./metadata-ingestion/setup.py', './metadata-ingestion/uv.lock', './datahub-actions/setup.py', './datahub-actions/pyproject.toml', './datahub-agent-context/setup.py', './datahub-agent-context/pyproject.toml', './metadata-ingestion-modules/airflow-plugin/setup.py', './metadata-ingestion-modules/airflow-plugin/pyproject.toml', './metadata-ingestion-modules/gx-plugin/setup.py', './metadata-ingestion-modules/gx-plugin/pyproject.toml', './metadata-ingestion-modules/dagster-plugin/setup.py', './metadata-ingestion-modules/dagster-plugin/pyproject.toml', './metadata-ingestion-modules/prefect-plugin/setup.py', './metadata-ingestion-modules/prefect-plugin/pyproject.toml') }}
+      - name: Report lint results
+        if: always()
+        env:
+          MI: ${{ steps.metadata-ingestion-lint.outcome }}
+          DA: ${{ steps.datahub-actions-lint.outcome }}
+          DAC: ${{ steps.datahub-agent-context-lint.outcome }}
+          AF: ${{ steps.airflow-plugin-lint.outcome }}
+          GX: ${{ steps.gx-plugin-lint.outcome }}
+          DAG: ${{ steps.dagster-plugin-lint.outcome }}
+          PF: ${{ steps.prefect-plugin-lint.outcome }}
+        run: |
+          failed=()
+          [ "$MI" = "failure" ] && failed+=("metadata-ingestion")
+          [ "$DA" = "failure" ] && failed+=("datahub-actions")
+          [ "$DAC" = "failure" ] && failed+=("datahub-agent-context")
+          [ "$AF" = "failure" ] && failed+=("airflow-plugin")
+          [ "$GX" = "failure" ] && failed+=("gx-plugin")
+          [ "$DAG" = "failure" ] && failed+=("dagster-plugin")
+          [ "$PF" = "failure" ] && failed+=("prefect-plugin")
+          if [ ${#failed[@]} -gt 0 ]; then
+            echo "::error::Python lint failed for: ${failed[*]}"
+            exit 1
+          fi
+          echo "All Python lint steps passed (or were skipped)."
+
   datahub-web-react-lint:
     name: datahub-web-react-lint
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
@@ -264,9 +364,17 @@ jobs:
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
     needs: setup
     if: needs.setup.outputs.playwright-e2e == 'true'
+    env:
+      YARN_CACHE_FOLDER: /tmp/.yarn-cache/
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Restore yarn cache
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -280,3 +388,9 @@ jobs:
       - name: ESLint
         working-directory: e2e-test/ui/playwright
         run: yarn lint
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        name: Save yarn cache
+        with:
+          path: |
+            ${{ env.YARN_CACHE_FOLDER }}
+          key: "yarn-${{ github.base_ref }}-${{ hashFiles('./e2e-test/ui/playwright/yarn.lock') }}"

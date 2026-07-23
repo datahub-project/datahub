@@ -29,6 +29,23 @@ public class SystemMetadataFilter {
   @Schema(description = "Include soft-deleted entities in scan", defaultValue = "false")
   private boolean includeSoftDeleted;
 
+  @Schema(
+      description =
+          "When true, scroll only key-aspect system-metadata documents for the entity type "
+              + "(e.g. datasetKey). Reduces scan volume for orphan detection. Takes precedence "
+              + "over aspectFilters for discovery.",
+      defaultValue = "false")
+  private boolean keyAspectOnly;
+
+  @Schema(
+      description =
+          "Restrict system-metadata discovery to these entity types. Empty/omitted = no type "
+              + "restriction at the filter layer (caller chooses types to iterate).",
+      example =
+          "[\"dataset\", \"dashboard\", \"chart\", \"query\", \"schemaField\", \"dataProcessInstance\"]")
+  @Nullable
+  private List<String> entityTypes;
+
   /**
    * Convert to service-layer SystemMetadataFilter.
    *
@@ -40,6 +57,8 @@ public class SystemMetadataFilter {
         .lePitEpochMs(lePitEpochMs)
         .aspectFilters(aspectFilters)
         .includeSoftDeleted(includeSoftDeleted)
+        .keyAspectOnly(keyAspectOnly)
+        .entityTypes(entityTypes)
         .build();
   }
 }

@@ -289,8 +289,30 @@ fragment relatedDocumentsFields on RelatedDocumentsResult {
     documents {
         urn
         type
+        platform {
+            ...platformFields
+        }
         info {
             title
+            status {
+                state
+            }
+            source {
+                sourceType
+            }
+            # URN-only related lists — used by the entity's Resources section to
+            # "unlink" this document via the full-list-replace updateDocumentRelatedEntities
+            # mutation. Kept URN-only to avoid pulling the full entityPreview per row.
+            relatedAssets {
+                asset {
+                    urn
+                }
+            }
+            relatedDocuments {
+                document {
+                    urn
+                }
+            }
             lastModified {
                 time
                 actor {
