@@ -266,9 +266,7 @@ class DataProcessCleanup:
                     deleted_count_last_n += 1
                     futures[future]["deleted"] = True
                 except Exception as e:
-                    self.report.report_failure(
-                        f"Exception while deleting DPI: {e}", exc=e
-                    )
+                    self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
             if (
                 deleted_count_last_n % self.config.batch_size == 0
                 and deleted_count_last_n > 0
@@ -361,7 +359,7 @@ class DataProcessCleanup:
                 deleted_count_retention += 1
                 futures[future]["deleted"] = True
             except Exception as e:
-                self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
+                self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
 
             if (
                 deleted_count_retention % self.config.batch_size == 0

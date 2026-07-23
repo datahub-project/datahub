@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from datahub.ingestion.graph.client import get_default_graph
@@ -13,11 +15,18 @@ from tests.utils import (
     get_db_username,
     get_kafka_broker_url,
     get_kafka_schema_registry,
+    unique_dataset_urn,
 )
 
-# Reuse the existing delete-test sample data + its dataset URN.
-DATA_FILE = "tests/delete/cli_test_data.json"
-DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-delete,PROD)"
+# Template for this module's sample ingestion data. The dataset URN inside is a
+# placeholder — `sample_dataset` rewrites it to a run-unique URN so this module
+# never shares a URN with any other smoke test. Under xdist --dist=loadscope
+# modules run concurrently against the same GMS, so a shared URN would race:
+# this module previously reused tests/delete/cli_test_data.json and its
+# `test-delete` dataset, colliding with tests/delete/delete_test.py which
+# asserts that dataset is clean.
+TEMPLATE_FILE = "tests/default_sink_test_data.json"
+_DATASET_SNAPSHOT_KEY = "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +38,31 @@ def _clear_default_graph_cache():
     get_default_graph.cache_clear()
 
 
-def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
+@pytest.fixture
+def sample_dataset(tmp_path, graph_client):
+    """Materialize the sample ingestion file with a run-unique dataset URN.
+
+    Yields ``(data_file, dataset_urn)``. Hard-deletes the dataset on teardown so
+    the run leaves no state on the shared GMS.
+    """
+    dataset_urn = unique_dataset_urn("test-default-sink")
+    with open(TEMPLATE_FILE) as f:
+        data = json.load(f)
+    # The template holds exactly one entity (the dataset snapshot), so entry 0
+    # is that snapshot; rewrite its URN to the run-unique one.
+    data[0]["proposedSnapshot"][_DATASET_SNAPSHOT_KEY]["urn"] = dataset_urn
+    data_file = tmp_path / "default_sink_data.json"
+    data_file.write_text(json.dumps(data))
+
+    yield str(data_file), dataset_urn
+
+    graph_client.hard_delete_entity(dataset_urn)
+    # Wait so the delete is visible before the next test in this module runs,
+    # matching _ingest_cleanup_unique_dataset_impl's cleanup semantics.
+    wait_for_writes_to_sync()
+
+
+def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink, data_file):
     """Build a no-sink pipeline (the shape UI ingestion uses) whose default sink
     is chosen by env. `default_sink` is "rest" or "kafka"."""
     # Point the default graph / REST (fallback) at the running stack.
@@ -43,7 +76,7 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
     get_default_graph.cache_clear()
     return Pipeline.create(
         {
-            "source": {"type": "file", "config": {"filename": DATA_FILE}},
+            "source": {"type": "file", "config": {"filename": data_file}},
             "pipeline_name": f"default_sink_smoke_{default_sink}",
         }
     )
@@ -54,7 +87,12 @@ def _create_default_sink_pipeline(auth_session, monkeypatch, default_sink):
     [("rest", "datahub-rest"), ("kafka", "datahub-kafka")],
 )
 def test_default_sink_ingests_end_to_end(
-    auth_session, graph_client, monkeypatch, default_sink, expected_sink_type
+    auth_session,
+    graph_client,
+    monkeypatch,
+    sample_dataset,
+    default_sink,
+    expected_sink_type,
 ):
     """Same no-sink recipe run under the REST default and the managed Kafka
     default: each must select the expected sink and still land metadata in GMS.
@@ -67,12 +105,14 @@ def test_default_sink_ingests_end_to_end(
             "No Kafka broker on pgQueue-only stacks; covered by the pgQueue sink test"
         )
 
-    # Clean slate so a passing existence check proves this run delivered.
-    graph_client.hard_delete_entity(DATASET_URN)
-    wait_for_writes_to_sync()
-    assert not graph_client.exists(DATASET_URN)
+    data_file, dataset_urn = sample_dataset
+    # The run-unique URN starts absent, so a passing existence check proves this
+    # run delivered.
+    assert not graph_client.exists(dataset_urn)
 
-    pipeline = _create_default_sink_pipeline(auth_session, monkeypatch, default_sink)
+    pipeline = _create_default_sink_pipeline(
+        auth_session, monkeypatch, default_sink, data_file
+    )
     assert pipeline.sink_type == expected_sink_type
     # ctx.graph must be wired either way so stateful ingestion (checkpoints,
     # stale-entity soft-deletes) keeps working.
@@ -82,10 +122,10 @@ def test_default_sink_ingests_end_to_end(
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
 
-    assert graph_client.exists(DATASET_URN)
+    assert graph_client.exists(dataset_urn)
 
 
-def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client):
+def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client, sample_dataset):
     """On pgQueue stacks (no Kafka broker), exercise the same file recipe over
     the explicit datahub-pg-queue sink so async transport + GMS landing is still
     covered. DATAHUB_INGESTION_DEFAULT_SINK only supports rest/kafka, so this
@@ -94,13 +134,12 @@ def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client):
     if not is_pgqueue_transport(auth_session):
         pytest.skip("pgQueue is not the active messaging transport")
 
-    graph_client.hard_delete_entity(DATASET_URN)
-    wait_for_writes_to_sync()
-    assert not graph_client.exists(DATASET_URN)
+    data_file, dataset_urn = sample_dataset
+    assert not graph_client.exists(dataset_urn)
 
     pipeline = Pipeline.create(
         {
-            "source": {"type": "file", "config": {"filename": DATA_FILE}},
+            "source": {"type": "file", "config": {"filename": data_file}},
             "sink": build_pgqueue_sink_config(
                 schema_registry_url=get_kafka_schema_registry(),
                 host_port=get_db_url(),
@@ -117,4 +156,4 @@ def test_pgqueue_sink_ingests_end_to_end(auth_session, graph_client):
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
 
-    assert graph_client.exists(DATASET_URN)
+    assert graph_client.exists(dataset_urn)

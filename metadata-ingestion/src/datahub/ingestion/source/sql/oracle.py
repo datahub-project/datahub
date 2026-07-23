@@ -2301,7 +2301,7 @@ class OracleSource(SQLAlchemySource):
 
         except sqlalchemy.exc.DatabaseError as e:
             logger.error(f"Failed to extract queries from V$SQL: {e}", exc_info=True)
-            self.report.report_failure(
+            self.report.failure(
                 message=str(e),
                 context="query_extraction_from_vsql_failed",
             )
@@ -2319,9 +2319,10 @@ class OracleSource(SQLAlchemySource):
                     f"V$SQL not accessible for query extraction: {check_result.message}. "
                     "Query-based usage statistics will be skipped."
                 )
-                self.report.report_warning(
+                self.report.warning(
                     message=check_result.message,
                     context="vsql_not_accessible",
+                    log=False,
                 )
                 return
 

@@ -142,7 +142,7 @@ class FabricUsageExtractor:
                 f"Failed usage extraction for item='{item_display_name}' "
                 f"workspace_id={workspace_id} item_id={item_id}: {e}"
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Extract Usage",
                 message=(
                     "Error reading queryinsights.exec_requests_history. "
@@ -150,6 +150,7 @@ class FabricUsageExtractor:
                 ),
                 context=f"workspace_id={workspace_id}, item_id={item_id}",
                 exc=e,
+                log=False,
             )
             # Mark this item's step as failed so the skip handler refuses to advance
             # the usage checkpoint. Otherwise a window where every item failed would

@@ -286,14 +286,15 @@ class StaleEntityRemovalHandler(
         # If the source already had a failure, skip soft-deletion.
         # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far, not just the source.
         if self.report.failures:
-            self.report.report_warning(
+            self.report.warning(
                 title="Skipping stateful ingestion / stale entity removal",
                 message="The soft-deletion of stale entities will be skipped because the source reported a failure.",
+                log=False,
             )
             copy_previous_state_and_exit = True
 
         if not copy_previous_state_and_exit and self.report.events_produced == 0:
-            self.report.report_failure(
+            self.report.failure(
                 title="Skipping stateful ingestion / stale entity removal",
                 message="The source did not produce any metadata. Despite stateful ingestion being enabled, we will not delete any metadata. "
                 "This is a fail-safe mechanism to prevent the accidental deletion of all entities.",
@@ -313,7 +314,7 @@ class StaleEntityRemovalHandler(
             and self.stateful_ingestion_config.fail_safe_threshold < 100.0
         ):
             # Log the failure. This would prevent the current state from getting committed.
-            self.report.report_failure(
+            self.report.failure(
                 title="Skipping stateful ingestion / stale entity removal",
                 message=f"\
 The previous run produced {last_checkpoint_state.urn_count()} entities, whereas this run produced {cur_checkpoint_state.urn_count()} entities. \

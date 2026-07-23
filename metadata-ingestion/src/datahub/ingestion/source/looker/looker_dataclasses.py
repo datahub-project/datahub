@@ -87,11 +87,12 @@ class LookerModel:
                 included_explores = parsed.get("explores", [])
                 explores.extend(included_explores)
             except Exception as e:
-                reporter.report_warning(
+                reporter.warning(
                     title="Error Loading Include",
                     message="Failed to load include file",
                     context=f"Include Details: {included_file}",
                     exc=e,
+                    log=False,
                 )
                 # continue in this case, as it might be better to load and resolve whatever we can
 
@@ -243,11 +244,12 @@ class LookerModel:
                             )
                         )
                 except Exception as e:
-                    reporter.report_warning(
+                    reporter.warning(
                         title="Error Loading Include File",
                         message="Failed to load included file",
                         context=f"Include Details: {included_file}",
                         exc=e,
+                        log=False,
                     )
                     # continue in this case, as it might be better to load and resolve whatever we can
 

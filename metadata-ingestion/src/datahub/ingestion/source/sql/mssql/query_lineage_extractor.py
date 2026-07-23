@@ -260,7 +260,7 @@ class MSSQLLineageExtractor:
                     prereq.method,
                     e,
                 )
-                self.report.report_failure(
+                self.report.failure(
                     message=f"Database error: {e}",
                     context="query_history_extraction_database_error",
                 )
@@ -274,7 +274,7 @@ class MSSQLLineageExtractor:
                     e,
                     exc_info=True,
                 )
-                self.report.report_failure(
+                self.report.failure(
                     message=f"Query structure error: {e} - check SQL Server version compatibility",
                     context="query_history_extraction_structure_error",
                 )
@@ -288,7 +288,7 @@ class MSSQLLineageExtractor:
                     type(e).__name__,
                     exc_info=True,
                 )
-                self.report.report_failure(
+                self.report.failure(
                     message=f"Unexpected error: {e} ({type(e).__name__})",
                     context="query_history_extraction_unexpected_error",
                 )

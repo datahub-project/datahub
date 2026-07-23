@@ -11,6 +11,7 @@ import requests
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -78,12 +79,15 @@ def read_file_as_bytes(
     gcs_connection: Optional[GCSConnectionConfig] = None,
     http_timeout_seconds: int = DEFAULT_HTTP_TIMEOUT_SECONDS,
     max_bytes: Optional[int] = None,
+    http_connection: Optional[HTTPConnectionConfig] = None,
 ) -> bytes:
     """Read a single file from a local path, http(s):// URL, s3:// URI, or gs:// URI.
 
     Object-store URIs require the matching connection config for credentials.
-    When max_bytes is set the read is bounded — an oversized source is rejected
-    from its declared size, or mid-stream, before it is fully buffered.
+    http(s):// URLs may pass an HTTPConnectionConfig for bearer/basic auth and
+    TLS verification. When max_bytes is set the read is bounded — an oversized
+    source is rejected from its declared size, or mid-stream, before it is
+    fully buffered.
     """
     if is_http_uri(uri):
         # stream=True keeps the body out of memory until we pull it chunk by
@@ -93,7 +97,12 @@ def read_file_as_bytes(
         # input, so redirect-based SSRF is an accepted risk here.
         # `with` guarantees the connection is released back to the pool even
         # when the size cap trips before the body is drained.
-        with requests.get(uri, timeout=http_timeout_seconds, stream=True) as resp:
+        with requests.get(
+            uri,
+            timeout=http_timeout_seconds,
+            stream=True,
+            **(http_connection.to_request_kwargs() if http_connection else {}),
+        ) as resp:
             resp.raise_for_status()
             declared = resp.headers.get("Content-Length")
             if declared is not None and declared.isdigit():

@@ -68,7 +68,7 @@ def mock_report():
     """Create a mock SQLSourceReport."""
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
-    report.report_warning = MagicMock()
+    report.warning = MagicMock()
     return report
 
 
