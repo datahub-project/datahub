@@ -8,6 +8,7 @@ from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtract
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 
 _SEMANTIC_MODEL = "urn:li:entityType:datahub.semanticModel"
 _METRIC = "urn:li:entityType:datahub.metric"
@@ -26,13 +27,13 @@ def _entity_types(capable: bool) -> List[str]:
         snowflake_identifiers=SnowflakeIdentifierBuilder(config, report),
     )
     tag = SnowflakeTag(database="db", schema="sch", name="my_tag", value="v")
-    aspects = [
-        wu.metadata.aspect
+    definitions = [
+        wu.get_aspect_of_type(StructuredPropertyDefinitionClass)
         for wu in extractor.gen_tag_as_structured_property_workunits(tag)
-        if getattr(wu.metadata, "aspect", None) is not None
     ]
-    assert len(aspects) == 1
-    return list(aspects[0].entityTypes)
+    present = [d for d in definitions if d is not None]
+    assert len(present) == 1
+    return list(present[0].entityTypes)
 
 
 def test_sp_entity_types_include_semantic_entities_when_capable():
