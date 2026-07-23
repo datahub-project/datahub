@@ -980,9 +980,6 @@ public class ESIndexBuilder {
           sourceIndex,
           destIndex);
 
-      // Do NOT call getTaskStatusWithFailures each poll tick — fragile ES, wasted cost.
-      // Failure details are fetched once below only when the poll times out / exhausts retries.
-
       Pair<Long, Long> latestCounts =
           getDocumentCounts(opContext, expectedCountSupplier, destIndex);
       long currentTime = System.currentTimeMillis();
@@ -1189,6 +1186,14 @@ public class ESIndexBuilder {
           s.getBulkRetries(),
           s.getSearchRetries());
     }
+        log.error(
+        "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
+        sourceIndex,
+        destIndex,
+        documentCounts.getSecond(),
+        documentCounts.getFirst(),
+        activeTaskId,
+        describeReindexTaskStatus(tryGetReindexTaskStatus(opContext, activeTaskId)));
     // Task info present but no BulkByScroll counters — surface action/description for operators.
     return String.format(
         "completed=%s action=%s description=%s runningTimeNanos=%d cancelled=%s",
@@ -1197,6 +1202,70 @@ public class ESIndexBuilder {
         info.getDescription(),
         info.getRunningTimeNanos(),
         info.isCancelled());
+    return new PollReindexResult(false, latestReindexInfo, documentCounts);
+  }
+
+  /**
+   * Best-effort fetch of the ES {@code _reindex} task status for diagnostics. Never throws: a
+   * blank/malformed task id (e.g. an empty id passed on resume) or any transport error yields
+   * {@link Optional#empty()}, so a status lookup can never break the polling loop it is meant to
+   * instrument.
+   */
+  private Optional<GetTaskResponse> tryGetReindexTaskStatus(
+      @Nonnull OperationContext opContext, @Nullable final String taskId) {
+    if (taskId == null || taskId.isBlank() || !taskId.contains(":")) {
+      return Optional.empty();
+    }
+    try {
+      return getTaskStatus(opContext, taskId);
+    } catch (Exception e) {
+      log.debug("Unable to fetch reindex task status for {}: {}", taskId, e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /** Renders an optional task status for logging, or {@code "status unavailable"} when absent. */
+  private static String describeReindexTaskStatus(Optional<GetTaskResponse> status) {
+    return status.map(ESIndexBuilder::describeReindexTaskStatus).orElse("status unavailable");
+  }
+
+  /**
+   * Renders the counters from a reindex task status response into a compact log string. {@code
+   * versionConflicts} together with {@code created} vs {@code total} are what reveal a reindex that
+   * finished (or stalled) while dropping documents — information the doc-count-only monitoring is
+   * blind to.
+   *
+   * <p>Note: per-document failure details ({@code failures[]}) live in the task <em>response</em>
+   * body, which {@code GetTaskResponse} does not expose (it parses only the task {@code status}
+   * counters). {@code versionConflicts} is the counter that surfaces the silent-drop case here; the
+   * exhaustive {@code failures[]} array can be retrieved out-of-band via the {@code
+   * /openapi/operations/elasticSearch/getTaskStatus} endpoint or a direct {@code GET
+   * _tasks/<taskId>} against the cluster.
+   */
+  // Package-private for direct unit testing of the counter formatting.
+  static String describeReindexTaskStatus(@Nonnull final GetTaskResponse response) {
+    final Task.Status status =
+        response.getTaskInfo() != null ? response.getTaskInfo().getStatus() : null;
+    if (status == null) {
+      return String.format("completed=%s, status=<unavailable>", response.isCompleted());
+    }
+    if (status instanceof BulkByScrollTask.Status) {
+      final BulkByScrollTask.Status s = (BulkByScrollTask.Status) status;
+      return String.format(
+          "completed=%s, total=%d, created=%d, updated=%d, deleted=%d, versionConflicts=%d, noops=%d, batches=%d, bulkRetries=%d, searchRetries=%d",
+          response.isCompleted(),
+          s.getTotal(),
+          s.getCreated(),
+          s.getUpdated(),
+          s.getDeleted(),
+          s.getVersionConflicts(),
+          s.getNoops(),
+          s.getBatches(),
+          s.getBulkRetries(),
+          s.getSearchRetries());
+    }
+    // Fallback for any non-reindex status type: Task.Status renders its counters via toString().
+    return String.format("completed=%s, status=%s", response.isCompleted(), status);
   }
 
   // --- Shared helper methods used by both legacy reindex() and incremental path ---
