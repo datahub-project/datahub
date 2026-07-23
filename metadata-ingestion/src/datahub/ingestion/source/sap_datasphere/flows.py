@@ -28,6 +28,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     RF_OBJECT_NAME,
     RF_SYSTEM_CONNECTION_ID,
     RF_SYSTEM_CONNECTION_TYPE,
+    RF_SYSTEM_CONTAINER,
     RF_TASK_SOURCE_OBJECT,
     RF_TASK_TARGET_OBJECT,
     RF_TASK_TRANSFORM,
@@ -209,22 +210,8 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
         target_name = _object_name(task.get(RF_TASK_TARGET_OBJECT))
         if not source_name or not target_name:
             continue
-        inputs.append(
-            FlowEndpoint(
-                object_name=source_name,
-                is_local=False,
-                connection=source_system.connection,
-                connection_type=source_system.connection_type,
-            )
-        )
-        outputs.append(
-            FlowEndpoint(
-                object_name=target_name,
-                is_local=False,
-                connection=target_system.connection,
-                connection_type=target_system.connection_type,
-            )
-        )
+        inputs.append(_replication_endpoint(source_name, source_system))
+        outputs.append(_replication_endpoint(target_name, target_system))
         transform = task.get(RF_TASK_TRANSFORM)
         if isinstance(transform, dict):
             for pair in _attribute_mappings(transform):
@@ -252,14 +239,31 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
 
 def _system_identity(system: object) -> SystemIdentity:
     # sourceSystem/targetSystem are single-element lists carrying the external
-    # connection id + type used to route the objects to a DataHub platform.
+    # connection id + type used to route the objects to a DataHub platform, plus
+    # the container (schema/dataset path) shared by every object on that side.
     if isinstance(system, list) and system and isinstance(system[0], dict):
         entry = system[0]
         return SystemIdentity(
             connection=entry.get(RF_SYSTEM_CONNECTION_ID),
             connection_type=entry.get(RF_SYSTEM_CONNECTION_TYPE),
+            container=entry.get(RF_SYSTEM_CONTAINER),
         )
     return SystemIdentity()
+
+
+def _replication_endpoint(name: str, system: SystemIdentity) -> FlowEndpoint:
+    # A replication task's source/target lives on its system's connection. The
+    # managed connection ($DWC, or an absent id) means a local Datasphere table
+    # emitted on the sap_datasphere platform; anything else is external and
+    # schema-qualified via the system container.
+    is_local = system.connection in (None, "", FLOW_LOCAL_CONNECTION_ID)
+    return FlowEndpoint(
+        object_name=name,
+        is_local=is_local,
+        connection=None if is_local else system.connection,
+        connection_type=None if is_local else system.connection_type,
+        container=None if is_local else system.container,
+    )
 
 
 def _object_name(obj: object) -> Optional[str]:

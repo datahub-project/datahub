@@ -22,6 +22,7 @@ from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    FlowEndpoint,
     ResolvedPlatform,
     UpstreamColRef,
 )
@@ -4817,3 +4818,69 @@ def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
     # Column edges from both flows survive the merge (one per source).
     assert lineage.fineGrainedLineages is not None
     assert len(lineage.fineGrainedLineages) == 2
+
+
+# ---------------------------------------------------------------------------
+# Flow endpoint URN qualification + per-platform casing
+# ---------------------------------------------------------------------------
+
+
+def _flow_source(cfg_overrides: Optional[Dict] = None) -> SapDatasphereSource:
+    cfg_dict: Dict = {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    cfg_dict.update(cfg_overrides or {})
+    cfg = SapDatasphereConfig.model_validate(cfg_dict)
+    source = SapDatasphereSource(PipelineContext(run_id="test-flow-urn"), cfg)
+    # Pre-seed the per-space resolver so no live connections call is made.
+    source._resolvers["SAP_BW"] = PlatformMappingResolver(cfg, connections_by_name={})
+    return source
+
+
+def test_resolve_flow_endpoint_urn_external_bigquery_qualified_and_case_preserved():
+    """An external BigQuery replication-flow target must be qualified as
+    `project.dataset.table` (project from the per-connection `database`, dataset
+    from the flow's container) and keep its source case so it stitches to the
+    BigQuery connector."""
+    source = _flow_source(
+        {
+            "connection_to_platform_map": {
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                }
+            }
+        }
+    )
+    endpoint = FlowEndpoint(
+        object_name="MY_TABLE",
+        is_local=False,
+        connection="BQ_CONN",
+        connection_type="BIGQUERY",
+        container="/staging",
+    )
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "my-gcp-project.staging.MY_TABLE,PROD)"
+    )
+
+
+def test_resolve_flow_endpoint_urn_local_target_routes_to_sap_datasphere():
+    """A $DWC (managed) endpoint is emitted on the sap-datasphere platform,
+    space-qualified and lowercased per the top-level flag — not treated as an
+    external HANA table."""
+    source = _flow_source()
+    endpoint = FlowEndpoint(object_name="MY_TABLE_CS", is_local=True)
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,sap_bw.my_table_cs,PROD)"
+    )
+
+
+def test_source_excludes_global_lowercase_processor():
+    """The connector applies casing per-platform, so the framework's global
+    AutoLowercaseUrnsProcessor (which would flatten every URN and defeat the
+    per-platform override) must be excluded."""
+    source = _flow_source()
+    excluded = source.get_excluded_workunit_processors()
+    assert source_module.AutoLowercaseUrnsProcessor in excluded

@@ -1,7 +1,7 @@
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Union
+from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Type, Union
 
 import requests
 
@@ -29,6 +29,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
     DatasetContainerSubTypes,
@@ -120,6 +121,9 @@ from datahub.ingestion.source.sap_datasphere.tags import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -241,6 +245,19 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
         config = SapDatasphereConfig.model_validate(config_dict)
         return cls(ctx, config)
+
+    def get_excluded_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
+        # This connector applies URN casing itself, per platform: managed assets
+        # follow the top-level convert_urns_to_lowercase flag, while external /
+        # flow-target URNs honor the per-connection override (see
+        # _maybe_lower_external) so e.g. BigQuery endpoints keep their source case
+        # and stitch to the BigQuery connector. The framework's global
+        # AutoLowercaseUrnsProcessor would re-lowercase every dataset URN
+        # unconditionally and silently defeat that per-platform override, so it is
+        # excluded here.
+        return [AutoLowercaseUrnsProcessor]
 
     def _safe_list_spaces(self) -> Iterator[Dict]:
         # Soften only transport errors. Auth/config failures raise ValueError and
@@ -671,7 +688,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             resolved = resolver.resolve_external(
                 endpoint.connection, endpoint.connection_type
             ).platform
-            name = self._maybe_lower_external(resolved, endpoint.object_name)
+            name = self._maybe_lower_external(
+                resolved,
+                self._qualify_external_name(
+                    resolved, endpoint.container, endpoint.object_name
+                ),
+            )
         if resolved is None:
             self.report.flow_endpoints_unresolved.append(
                 f"{space_name}.{endpoint.object_name} "
@@ -981,13 +1003,36 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> str:
         # External (federated / flow-target) URNs must match the case the sibling
         # native connector emits, which differs per platform (BigQuery preserves
-        # source case, HANA is lowercase, ...). A per-mapping override wins; None
-        # falls back to the top-level flag.
-        override = resolved.convert_urns_to_lowercase if resolved is not None else None
+        # source case, HANA-default is uppercase, ...). The per-platform casing on
+        # the resolved mapping decides this, independent of the top-level flag; the
+        # top-level flag is only a fallback for the unresolved-platform edge case.
         lowercase = (
-            override if override is not None else self.config.convert_urns_to_lowercase
+            resolved.convert_urns_to_lowercase
+            if resolved is not None
+            else self.config.convert_urns_to_lowercase
         )
         return name.lower() if lowercase else name
+
+    def _qualify_external_name(
+        self,
+        resolved: Optional[ResolvedPlatform],
+        container: Optional[str],
+        object_name: str,
+    ) -> str:
+        # A replication-flow endpoint object arrives bare (e.g. "C_PURCHASEORDERDEX");
+        # its schema/dataset lives on the system's container ("/CDS_EXTRACTION",
+        # "/staging"). Prepend an optional configured `database` (e.g. the BigQuery
+        # project the API omits), then the container schema, so the URN matches the
+        # sibling connector's `[database.]schema.table` naming. Segments the API
+        # can't supply are simply skipped.
+        parts: List[str] = []
+        if resolved is not None and resolved.database:
+            parts.append(resolved.database)
+        schema = (container or "").strip("/")
+        if schema:
+            parts.append(schema)
+        parts.append(object_name)
+        return ".".join(parts)
 
     def _space_key(self, space_name: str) -> SpaceContainerKey:
         return SpaceContainerKey(

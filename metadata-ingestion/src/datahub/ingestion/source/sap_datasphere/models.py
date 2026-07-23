@@ -72,9 +72,15 @@ class ResolvedPlatform(BaseModel):
     platform: str
     platform_instance: Optional[str]
     env: str
-    # Per-platform URN lowercasing override for external (federated / flow-target)
-    # URNs; None means fall back to the connector's top-level flag.
-    convert_urns_to_lowercase: Optional[bool] = None
+    # Per-platform casing for external (federated / flow-target) URNs, matching how
+    # the sibling native connector cases its URNs. Independent of the connector's
+    # top-level flag (which governs managed assets).
+    convert_urns_to_lowercase: bool = True
+    # Optional leading name segment for external URNs that the Datasphere API
+    # can't supply — chiefly the BigQuery GCP project, which is absent from the
+    # connections/flow payloads. When set, it is prepended ahead of the
+    # container-derived schema so the URN becomes `database.schema.table`.
+    database: Optional[str] = None
 
 
 class ResolveResult(BaseModel):
@@ -252,6 +258,12 @@ class FlowEndpoint(BaseModel):
     is_local: bool
     connection: Optional[str] = None
     connection_type: Optional[str] = None
+    # The source/target system's schema/dataset path (SAP calls it the
+    # "container", e.g. "/CDS_EXTRACTION", "/SAPTCH", "/staging"). Prepended to
+    # the bare object_name to build a fully-qualified external URN so it stitches
+    # to the sibling connector's schema.table naming. None for local objects
+    # (they are space-prefixed instead).
+    container: Optional[str] = None
 
 
 class FlowColumnMapping(BaseModel):
@@ -267,11 +279,13 @@ class FlowColumnMapping(BaseModel):
 
 class SystemIdentity(BaseModel):
     # The external connection id + type of a replication flow's source/target
-    # system, used to route its objects to a DataHub platform.
+    # system, used to route its objects to a DataHub platform. ``container`` is
+    # the system-wide schema/dataset path shared by every object on that side.
     model_config = ConfigDict(frozen=True)
 
     connection: Optional[str] = None
     connection_type: Optional[str] = None
+    container: Optional[str] = None
 
 
 class AttrMapping(BaseModel):

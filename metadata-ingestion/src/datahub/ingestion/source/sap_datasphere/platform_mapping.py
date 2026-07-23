@@ -77,6 +77,7 @@ class PlatformMappingResolver:
                 platform_instance=raw.platform_instance,
                 env=raw.env or self._config.env,
                 convert_urns_to_lowercase=raw.convert_urns_to_lowercase,
+                database=raw.database,
             ),
             skip_reason=None,
         )
@@ -102,6 +103,7 @@ class PlatformMappingResolver:
                         platform_instance=raw.platform_instance,
                         env=raw.env or self._config.env,
                         convert_urns_to_lowercase=raw.convert_urns_to_lowercase,
+                        database=raw.database,
                     ),
                     skip_reason=None,
                 )
@@ -114,6 +116,7 @@ class PlatformMappingResolver:
                         platform_instance=default.platform_instance,
                         env=default.env or self._config.env,
                         convert_urns_to_lowercase=default.convert_urns_to_lowercase,
+                        database=default.database,
                     ),
                     skip_reason=None,
                 )

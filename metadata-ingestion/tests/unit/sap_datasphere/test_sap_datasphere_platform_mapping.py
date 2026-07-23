@@ -368,6 +368,28 @@ def test_resolve_external_prefers_explicit_name_map_over_type():
     assert resolved.platform_instance == "a"
 
 
+def test_resolve_external_propagates_database_and_lowercase_override():
+    """A per-connection map entry can carry both a per-platform lowercase
+    override and an explicit `database` (e.g. the BigQuery GCP project the API
+    omits); both must reach the ResolvedPlatform so URNs stitch to the sibling
+    connector."""
+    cfg = _config_with(
+        map_overrides={
+            "BQ_CONN": {
+                "platform": "bigquery",
+                "convert_urns_to_lowercase": False,
+                "database": "my-gcp-project",
+            }
+        }
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved = resolver.resolve_external("BQ_CONN", "BIGQUERY").platform
+    assert resolved is not None
+    assert resolved.platform == "bigquery"
+    assert resolved.database == "my-gcp-project"
+    assert resolved.convert_urns_to_lowercase is False
+
+
 def test_resolve_external_unknown_type_and_name_returns_none():
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})

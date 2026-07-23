@@ -54,17 +54,33 @@ class ConnectionPlatformConfig(BaseModel):
             "`assets_skipped_disabled` in the ingestion report)."
         ),
     )
-    convert_urns_to_lowercase: Optional[bool] = Field(
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Whether to lowercase external URNs (federated Remote Tables and "
+            "replication-flow endpoints) routed to this platform. Defaults to True "
+            "to match the case-insensitive lineage convention Snowflake and most "
+            "DataHub sources follow. Set to False to preserve source case when the "
+            "sibling native connector does, so the URNs stitch — e.g. BigQuery "
+            "(`project.dataset.MyTable`) or a HANA connector left at its default "
+            "(uppercase catalog identifiers). Independent of the connector's "
+            "top-level `convert_urns_to_lowercase`, which governs managed "
+            "`sap-datasphere` assets."
+        ),
+    )
+    database: Optional[str] = Field(
         default=None,
         description=(
-            "Per-platform override for URN lowercasing of federated Remote Tables "
-            "and replication-flow endpoints routed here. When None (default), the "
-            "connector's top-level `convert_urns_to_lowercase` applies. Set this to "
-            "match how the sibling native connector cases its URNs so lineage "
-            "stitches: e.g. `false` for BigQuery (whose connector preserves source "
-            "case) so `project.dataset.MyTable` isn't flattened to `mytable`. Only "
-            "affects external URNs on this mapping — managed `sap-datasphere` "
-            "assets always follow the top-level flag."
+            "Optional leading name segment prepended to external URNs routed here, "
+            "ahead of the schema/dataset the Datasphere flow reports. Use it to "
+            "supply a qualifier the Datasphere API omits — chiefly the BigQuery GCP "
+            "project, which never appears in the connections/flow payloads. With "
+            "`database: my-gcp-project`, a replication-flow object in dataset "
+            "`staging` becomes `my-gcp-project.staging.<table>` so it stitches to "
+            "the BigQuery connector. Because different connections of the same type "
+            "can point at different projects, set this on a per-connection entry in "
+            "`connection_to_platform_map` (keyed by the Datasphere connection name) "
+            "rather than on a `platform_type_defaults` entry."
         ),
     )
 

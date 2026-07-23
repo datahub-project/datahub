@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.sap_datasphere.constants import (
@@ -120,17 +120,25 @@ def test_parse_transformation_flow_uses_process_reader():
     assert [e.object_name for e in parsed.outputs] == ["TGT_TABLE"]
 
 
-def _replication_flow_payload(name: str = "MY_REPL_FLOW") -> Dict:
+def _replication_flow_payload(
+    name: str = "MY_REPL_FLOW",
+    source_system: Optional[Dict] = None,
+    target_system: Optional[Dict] = None,
+) -> Dict:
+    source_system = source_system or {
+        "connectionId": "SRC_CONN",
+        "connectionType": "S3",
+    }
+    target_system = target_system or {
+        "connectionId": "TGT_CONN",
+        "connectionType": "HANA",
+    }
     return {
         OBJECT_TYPE_REPLICATION_FLOWS: {
             name: {
                 "contents": {
-                    "sourceSystem": [
-                        {"connectionId": "SRC_CONN", "connectionType": "S3"}
-                    ],
-                    "targetSystem": [
-                        {"connectionId": "TGT_CONN", "connectionType": "HANA"}
-                    ],
+                    "sourceSystem": [source_system],
+                    "targetSystem": [target_system],
                     "replicationTasks": [
                         {
                             "sourceObject": {"name": "SRC_OBJ"},
@@ -171,6 +179,48 @@ def test_parse_replication_flow_endpoints_and_column_lineage():
     mapping = parsed.column_mappings[0]
     assert (mapping.upstream_object, mapping.upstream_col) == ("SRC_OBJ", "S_COL")
     assert (mapping.downstream_object, mapping.downstream_col) == ("TGT_OBJ", "T_COL")
+
+
+def test_parse_replication_flow_dwc_target_is_local():
+    # A $DWC (managed) target system means the object lives in the tenant's own
+    # HANA Cloud and must be emitted on the sap_datasphere platform, not treated
+    # as an external HANA table.
+    parsed = parse_flow(
+        _replication_flow_payload(
+            target_system={"connectionId": "$DWC", "connectionType": "HANA"},
+        ),
+        OBJECT_TYPE_REPLICATION_FLOWS,
+        "MY_REPL_FLOW",
+    )
+    assert parsed is not None
+    tgt = parsed.outputs[0]
+    assert tgt.is_local is True
+    assert tgt.connection is None
+    assert tgt.container is None
+
+
+def test_parse_replication_flow_carries_system_container():
+    # The system container (schema/dataset path) is captured on each external
+    # endpoint so the URN can be schema-qualified downstream.
+    parsed = parse_flow(
+        _replication_flow_payload(
+            source_system={
+                "connectionId": "SRC_CONN",
+                "connectionType": "ABAP",
+                "container": "/CDS_EXTRACTION",
+            },
+            target_system={
+                "connectionId": "TGT_CONN",
+                "connectionType": "BIGQUERY",
+                "container": "/staging",
+            },
+        ),
+        OBJECT_TYPE_REPLICATION_FLOWS,
+        "MY_REPL_FLOW",
+    )
+    assert parsed is not None
+    assert parsed.inputs[0].container == "/CDS_EXTRACTION"
+    assert parsed.outputs[0].container == "/staging"
 
 
 def test_parse_task_chain_is_io_less_job():
