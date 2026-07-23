@@ -3,7 +3,6 @@ from types import SimpleNamespace
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 
 # The probe reuses the connector's own client factory, which lives in a module that
 # imports requests/tenacity at import time — skip when the flink extra is absent.
@@ -43,7 +42,7 @@ def test_list_jobs_reuses_job_name_pattern_verdict(monkeypatch):
     result = list_flink_children(_config(), [], 100)
     assert result.supported
     by_name = {n.name: n for n in result.nodes}
-    assert by_name["orders_pipeline"].kind == DataFlowSubTypes.KINESIS_FIREHOSE_STREAM
+    assert by_name["orders_pipeline"].kind == "Flink Job"
     assert by_name["orders_pipeline"].pattern_field == "job_name_pattern"
     assert by_name["orders_pipeline"].included is True
     # The connector's own job_name_pattern deny drops internal jobs — reused, not

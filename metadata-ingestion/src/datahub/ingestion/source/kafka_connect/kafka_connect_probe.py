@@ -2,7 +2,6 @@ from typing import Any, List, Sequence
 
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
-from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 
 
 def _connectors(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
@@ -12,18 +11,13 @@ def _connectors(client: Any, config: Any, parent_path: List[str]) -> Sequence[st
 
 
 # Kafka Connect is a flat connector namespace filtered by the connector's own
-# connector_patterns — one ProbeLevel, no bespoke code. Neither DataFlowSubTypes nor
-# DataJobSubTypes has a generic "connector" member: each connector is emitted as a
-# plain DataFlow with no subtype at all (see construct_flow_workunit). Of the existing
-# DataFlowSubTypes members, DLT_PIPELINE is reused as the least-wrong fit — both
-# represent one named, config-driven data-movement pipeline mapped 1:1 to a DataFlow
-# entity — rather than inventing a new "Kafka Connect Connector" member.
+# connector_patterns. A connector is emitted as a plain DataFlow with no subtype
+# (see construct_flow_workunit), and no shared-subtype member names the concept —
+# so the probe uses the plain, honest kind label "Connector" (ProbeNodeKind is open).
 KAFKA_CONNECT_PROBE = ClientProbe(
     client_factory=lambda config: config.get_connect_session(),
     close=lambda session: session.close(),
-    levels=[
-        ProbeLevel(DataFlowSubTypes.DLT_PIPELINE, "connector_patterns", _connectors)
-    ],
+    levels=[ProbeLevel("Connector", "connector_patterns", _connectors)],
 )
 
 KAFKA_CONNECT_PROBE_HIERARCHY: List[ProbeNodeKind] = KAFKA_CONNECT_PROBE.hierarchy()

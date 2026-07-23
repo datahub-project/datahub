@@ -72,16 +72,21 @@ def container_nodes(
     pattern_field: str,
     fqn_prefix: Optional[str] = None,
     classify: Optional[ContainerClassifier] = None,
+    kind_for: Optional[Callable[[str], ProbeNodeKind]] = None,
 ) -> Tuple[List[ProbeNode], bool]:
     # fqn_prefix carries the parent container for 3-level sources (Snowflake
     # database, BigQuery project), so a schema/dataset fqn is PARENT.CHILD — the
     # form its pattern matches under match_fully_qualified_names. For 2-level
-    # sources it stays bare.
+    # sources it stays bare. kind_for lets a single level carry per-node kinds
+    # (e.g. Salesforce custom vs standard objects distinguished by name).
     nodes: List[ProbeNode] = []
     for n in names[:limit]:
         node_fqn = fqn(fqn_prefix, n)
         included, excluded_by = classify(n, node_fqn) if classify else _INCLUDED
-        nodes.append(ProbeNode(n, kind, node_fqn, pattern_field, included, excluded_by))
+        node_kind = kind_for(n) if kind_for else kind
+        nodes.append(
+            ProbeNode(n, node_kind, node_fqn, pattern_field, included, excluded_by)
+        )
     return nodes, len(names) > limit
 
 
@@ -143,6 +148,14 @@ class ProbeLevel:
     # (column) level, which carries no filter.
     pattern_field: Optional[str]
     list_names: LevelLister
+    # Optional: derive the node kind per-name when a level mixes kinds (e.g.
+    # Salesforce custom vs standard objects). `kind` stays the nominal/structural
+    # kind reported by hierarchy().
+    kind_for: Optional[Callable[[str], ProbeNodeKind]] = None
+    # Some connectors filter on the fully-qualified name (PARENT.CHILD), not the
+    # bare child name (e.g. BigID's dataset_pattern). Set to test the pattern
+    # against the node fqn instead of its name.
+    classify_on_fqn: bool = False
 
 
 class ClientProbe:
@@ -178,9 +191,11 @@ class ClientProbe:
             else:
                 pattern = getattr(config, level.pattern_field)
                 field = level.pattern_field
+                on_fqn = level.classify_on_fqn
 
                 def classify(name: str, node_fqn: str) -> Verdict:
-                    return (True, None) if pattern.allowed(name) else (False, field)
+                    target = node_fqn if on_fqn else name
+                    return (True, None) if pattern.allowed(target) else (False, field)
 
                 nodes, truncated = container_nodes(
                     names,
@@ -189,6 +204,7 @@ class ClientProbe:
                     field,
                     fqn_prefix=prefix or None,
                     classify=classify,
+                    kind_for=level.kind_for,
                 )
             return ProbeResult(
                 source_type="",

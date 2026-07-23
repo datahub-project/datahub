@@ -44,7 +44,8 @@ def _config():
     return SimpleNamespace(
         get_client=lambda: client,
         connection_pattern=AllowDenyPattern(allow=[".*"], deny=["^mysql_.*"]),
-        dataset_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),
+        # dataset_pattern is matched against the full fqn (connection.object).
+        dataset_pattern=AllowDenyPattern(allow=[".*"], deny=[".*tmp_.*"]),
     )
 
 

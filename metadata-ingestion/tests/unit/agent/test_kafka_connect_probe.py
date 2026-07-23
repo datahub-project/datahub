@@ -1,7 +1,6 @@
 from types import SimpleNamespace
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
     list_kafka_connect_children,
 )
@@ -45,7 +44,7 @@ def test_list_connectors_reuses_connector_patterns_verdict():
     result = list_kafka_connect_children(config, [], 100)
     assert result.supported
     by_name = {n.name: n for n in result.nodes}
-    assert by_name["orders-sink"].kind == DataFlowSubTypes.DLT_PIPELINE
+    assert by_name["orders-sink"].kind == "Connector"
     assert by_name["orders-sink"].pattern_field == "connector_patterns"
     assert by_name["orders-sink"].included is True
     # The connector's own connector_patterns verdict is reused, not re-implemented.

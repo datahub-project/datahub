@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi_report_server.powerbi_report_server_probe import (
     list_powerbi_report_server_children,
 )
@@ -33,7 +33,7 @@ def _config():
 def test_powerbi_report_server_lists_reports_with_pattern_verdict():
     result = list_powerbi_report_server_children(_config(), [], 100)
     by_name = {n.name: n for n in result.nodes}
-    assert by_name["Sales"].kind == BIContainerSubTypes.GRAFANA_DASHBOARD
+    assert by_name["Sales"].kind == BIAssetSubTypes.REPORT
     assert by_name["Sales"].pattern_field == "report_pattern"
     assert by_name["Sales"].included is True
     # Reuses the connector's own report_pattern deny for the verdict.

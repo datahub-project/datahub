@@ -1,12 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.ingestion.source.common.subtypes import (
-    BIContainerSubTypes,
-    DataFlowSubTypes,
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-)
 from datahub.utilities.str_enum import StrEnum
 
 
@@ -22,15 +16,12 @@ class ProbeLeafKind(StrEnum):
     COLUMN = "Column"
 
 
-# A probe node's kind reuses DataHub's own subtype taxonomy so the probe speaks the same
-# vocabulary as ingestion. All members are StrEnum, so they serialize to their string value.
-ProbeNodeKind = Union[
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-    BIContainerSubTypes,
-    DataFlowSubTypes,
-    ProbeLeafKind,
-]
+# A probe node's kind SHOULD be a StrEnum member from DataHub's shared subtype
+# taxonomy (datahub.ingestion.source.common.subtypes) so probe output speaks the
+# same vocabulary as ingestion. The type stays open (StrEnum | str) so a connector
+# can name a kind that has no shared-subtype member yet without editing a central
+# union — prefer an existing subtype where one fits, else a plain descriptive string.
+ProbeNodeKind = Union[StrEnum, str]
 
 
 @dataclass
