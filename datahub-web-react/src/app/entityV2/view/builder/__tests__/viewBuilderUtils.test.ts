@@ -168,6 +168,24 @@ describe('View builder conversion utils', () => {
             expect(result.filters).toHaveLength(1);
             expect(result.filters[0].negated).toBe(true);
         });
+
+        it('should cancel negation when a NOT group wraps a not_equals row (double negation)', () => {
+            // A "None" group over a "does not equal" row is NOT(NOT x), which must
+            // collapse back to a plain equals — the group NOT and the per-row
+            // not_equals cancel via XOR rather than stacking.
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [{ type: 'property', property: 'tags', operator: 'not_equals', values: ['urn:li:tag:pii'] }],
+            };
+
+            const result = logicalPredicateToFilters(predicate);
+
+            expect(result.filters).toHaveLength(1);
+            expect(result.filters[0].field).toBe('tags');
+            expect(result.filters[0].condition).toBe(FilterOperator.Equal);
+            expect(result.filters[0].negated).toBeUndefined();
+        });
     });
 
     describe('filtersToSelectedUrns', () => {
@@ -495,6 +513,36 @@ describe('View builder conversion utils', () => {
             expect(savedTag?.condition).toBe(FilterOperator.Equal);
             expect(savedTag?.negated).toBe(true);
             expect(savedTag?.values).toEqual(['urn:li:tag:private']);
+        });
+
+        it('should preserve a mix of negated and non-negated filters across a load → save cycle', () => {
+            // The exact master regression: the old "wrap in NOT only if every
+            // filter is negated" heuristic dropped negation on load whenever the
+            // set was mixed, so re-saving lost the per-row negated flags.
+            const savedFilters = [
+                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal, negated: true },
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
+            ];
+
+            // Load: negation is carried per-row via not_equals, group stays AND.
+            const predicate = filtersToLogicalPredicate(LogicalOperator.And, savedFilters);
+            expect(predicate.operator).toBe(LogicalOperatorType.AND);
+            const domainRow = predicate.operands[0] as { property?: string; operator?: string };
+            const tagRow = predicate.operands[1] as { property?: string; operator?: string };
+            expect(domainRow.operator).toBe('not_equals');
+            expect(tagRow.operator).toBe('equals');
+
+            // Save: each row keeps its own negation independently.
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.filter?.filters).toHaveLength(2);
+            const domain = definition.filter?.filters?.find((f) => f.field === 'domains');
+            const tag = definition.filter?.filters?.find((f) => f.field === 'tags');
+            expect(domain?.condition).toBe(FilterOperator.Equal);
+            expect(domain?.negated).toBe(true);
+            expect(tag?.condition).toBe(FilterOperator.Equal);
+            expect(tag?.negated).toBeFalsy();
         });
 
         it('should round-trip boolean is_true/is_false operators correctly', () => {
