@@ -25,6 +25,28 @@ logger: logging.Logger = logging.getLogger(__name__)
 REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE = "-- partner: DataHub -v {version}\n"
 
 
+def unescape_stl_query_text(text: str) -> str:
+    """Convert Redshift STL literal escape sequences back to real characters.
+
+    Redshift's provisioned ``STL_QUERYTEXT.text`` stores query newlines/tabs/CRs
+    as literal two-character escape sequences (backslash + ``n``/``t``/``r``), not
+    real control bytes -- see
+    https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html . ``sqlglot``
+    cannot tokenize a bare ``\\n`` sitting between SQL tokens, so multi-line queries
+    fail to parse and are silently dropped by the aggregator, taking their lineage,
+    usage and Query entities with them. Every place that consumes reconstructed
+    STL_QUERYTEXT text must normalize it first; route all such call sites through
+    this single helper so they stay consistent (they previously handled only ``\\n``).
+
+    A literal ``\\n`` inside a string literal (e.g. ``WHERE x = 'a\\nb'``) is also
+    converted. This does not affect table/column lineage; the rare in-literal case
+    may alter the captured query text, which is acceptable here. On serverless
+    (``SYS_QUERY_TEXT``) and single-line queries there are no such escapes, so this
+    is a no-op there.
+    """
+    return text.replace("\\n", "\n").replace("\\t", "\t").replace("\\r", "\r")
+
+
 @dataclass
 class RedshiftColumn(BaseColumn):
     dist_key: bool = False
@@ -615,10 +637,8 @@ class RedshiftDataDictionary:
                         if "target_table" in field_names
                         else None
                     ),
-                    # See https://docs.aws.amazon.com/redshift/latest/dg/r_STL_QUERYTEXT.html
-                    # for why we need to remove the \\n.
                     ddl=(
-                        row[field_names.index("ddl")].replace("\\n", "\n")
+                        unescape_stl_query_text(row[field_names.index("ddl")])
                         if "ddl" in field_names
                         else None
                     ),

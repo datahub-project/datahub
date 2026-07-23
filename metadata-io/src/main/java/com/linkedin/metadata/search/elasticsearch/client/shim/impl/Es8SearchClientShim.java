@@ -92,6 +92,8 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8Sem
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -1469,7 +1471,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     ? new Time.Builder().time(request.getTimeout().getStringRep()).build()
                     : null)
             .build();
-    GetTasksResponse esTaskResponse = null;
+    GetTasksResponse esTaskResponse;
     try {
       esTaskResponse = withTransportOptions(options).tasks().get(esGetTaskRequest);
     } catch (ElasticsearchException ee) {
@@ -1489,6 +1491,39 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     X_CONTENT_REGISTRY,
                     LoggingDeprecationHandler.INSTANCE,
                     JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper))));
+  }
+
+  @Nonnull
+  @Override
+  public Optional<TaskResultWithFailures> getTaskWithFailures(
+      GetTaskRequest request, RequestOptions options) throws IOException {
+    String taskId = request.getNodeId() + ":" + request.getTaskId();
+    GetTasksRequest esGetTaskRequest =
+        new GetTasksRequest.Builder()
+            .taskId(taskId)
+            .waitForCompletion(request.getWaitForCompletion())
+            .timeout(
+                request.getTimeout() != null
+                    ? new Time.Builder().time(request.getTimeout().getStringRep()).build()
+                    : null)
+            .build();
+    GetTasksResponse esTaskResponse;
+    try {
+      esTaskResponse = withTransportOptions(options).tasks().get(esGetTaskRequest);
+    } catch (ElasticsearchException ee) {
+      if (ee.status() == HttpStatus.SC_NOT_FOUND) {
+        return Optional.empty();
+      }
+      throw ee;
+    }
+    String rawJson = JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper);
+    GetTaskResponse parsed =
+        GetTaskResponse.fromXContent(
+            XContentType.JSON
+                .xContent()
+                .createParser(
+                    X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
+    return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
   }
 
   // Metadata and introspection

@@ -11,6 +11,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -368,6 +369,23 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @Nonnull
   Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException;
+
+  /**
+   * Like {@link #getTask} but also returns document failures from raw task JSON ({@code
+   * response.failures[]}), which {@link GetTaskResponse} does not parse.
+   *
+   * <p>Default implementation has no raw JSON and returns an empty failure list. Engine-specific
+   * shims override to preserve and parse the raw response.
+   */
+  @OperationContextExempt(
+      reason =
+          "Cluster task status probe — pure introspection; no tenant routing, no actor relevance.")
+  @Nonnull
+  default Optional<TaskResultWithFailures> getTaskWithFailures(
+      GetTaskRequest request, RequestOptions options) throws IOException {
+    return getTask(request, options)
+        .map(r -> new TaskResultWithFailures(r, List.of()));
+  }
 
   // Metadata and introspection
   @OperationContextExempt(reason = "Local enum, no I/O.")

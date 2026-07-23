@@ -78,6 +78,7 @@ public class BuildIndicesIncrementalStepTest {
         .thenReturn(Set.of("datasetindex_v2_old"));
     when(indexBuilder.validateAndSwapAlias(any(OperationContext.class), anyString(), anyString()))
         .thenReturn(true);
+    when(indexBuilder.indexExists(any(OperationContext.class), anyString())).thenReturn(true);
 
     step =
         new BuildIndicesIncrementalStep(
@@ -110,7 +111,7 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),
@@ -211,7 +212,7 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L));
+    PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString()))
         .thenReturn(timedOut);
@@ -243,7 +244,7 @@ public class BuildIndicesIncrementalStepTest {
     when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),
@@ -268,6 +269,75 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), eq(NEXT_INDEX_NAME), any(ReindexConfig.class), anyMap());
     verify(indexBuilder)
         .validateAndSwapAlias(any(OperationContext.class), eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
+  }
+
+  @Test
+  public void testResumeRestartsFromScratchWhenTargetIndexMissing() throws Throwable {
+    // Simulate previous state with IN_PROGRESS, but the target index no longer exists in ES.
+    // This happens when an instance is paused for an extended period and ES cleanup removes
+    // the partially-populated target index. The step should fall through to the fresh-start
+    // path instead of throwing index_not_found_exception in pollReindexCompletion.
+    Map<String, String> previousState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            NEXT_INDEX_NAME,
+            "datasetindex_v2_old",
+            1679000000000L,
+            500L,
+            "task-abc",
+            true,
+            IncrementalReindexState.Status.IN_PROGRESS);
+
+    DataHubUpgradeResult upgradeResult = mock(DataHubUpgradeResult.class);
+    when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
+
+    // Target index is missing
+    when(indexBuilder.indexExists(any(OperationContext.class), eq(NEXT_INDEX_NAME)))
+        .thenReturn(false);
+
+    // Wire up the fresh-start path that the code should fall through to
+    String freshNextIndex = "datasetindex_v2_0_14_0-0_1679999999999";
+    IncrementalReindexResult freshResult =
+        new IncrementalReindexResult(
+            freshNextIndex, 1679999999999L, "task-fresh", false, 2, 500L, Map.of());
+    when(indexBuilder.buildIndexIncremental(
+            any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
+        .thenReturn(freshResult);
+
+    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(500L, 500L));
+    when(indexBuilder.pollReindexCompletion(
+            any(OperationContext.class),
+            eq(INDEX_NAME),
+            eq(freshNextIndex),
+            any(),
+            anyInt(),
+            anyMap(),
+            eq("task-fresh")))
+        .thenReturn(pollResult);
+    when(indexBuilder.validateAndSwapAlias(
+            any(OperationContext.class), eq(INDEX_NAME), eq(freshNextIndex)))
+        .thenReturn(true);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // Should NOT have attempted to resume polling on the missing index
+    verify(indexBuilder, never())
+        .pollReindexCompletion(
+            any(OperationContext.class),
+            any(),
+            eq(NEXT_INDEX_NAME),
+            any(),
+            anyInt(),
+            anyMap(),
+            anyString());
+    // Should have started fresh
+    verify(indexBuilder)
+        .buildIndexIncremental(any(OperationContext.class), any(), eq(UPGRADE_VERSION));
+    verify(indexBuilder)
+        .validateAndSwapAlias(any(OperationContext.class), eq(INDEX_NAME), eq(freshNextIndex));
   }
 
   @Test

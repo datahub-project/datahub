@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
+import com.google.common.base.Throwables;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -153,56 +155,66 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               && existingStatus.get() == IncrementalReindexState.Status.IN_PROGRESS
               && existingNextIndex.isPresent()
               && !existingNextIndex.get().isEmpty()) {
-            log.info("Resuming polling for index {} -> {}", config.name(), existingNextIndex.get());
-            int targetShards = ESIndexBuilder.extractTargetShards(config);
-            long persistedSourceDocCount =
-                IncrementalReindexState.get(
-                        upgradeState, config.name(), IncrementalReindexState.SOURCE_DOC_COUNT)
-                    .map(Long::parseLong)
-                    .orElse(0L);
-            String persistedTaskId =
-                IncrementalReindexState.get(
-                        upgradeState, config.name(), IncrementalReindexState.TASK_ID)
-                    .orElse("");
-            // On resume, reindexInfo from the original submission is not available — use empty map.
-            // Stall-retry will re-submit with fresh optimal settings if needed.
-            ESIndexBuilder.PollReindexResult pollResult =
-                indexBuilder.pollReindexCompletion(
-                    opContext,
-                    config.name(),
-                    existingNextIndex.get(),
-                    () -> persistedSourceDocCount,
-                    targetShards,
-                    new HashMap<>(),
-                    persistedTaskId);
-            upgradeState =
-                handlePollResult(
-                    context,
-                    upgradeState,
-                    config.name(),
-                    existingNextIndex.get(),
-                    indexBuilder,
-                    pollResult.completed());
-            if (!pollResult.completed()) {
-              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-            }
-            // Restore settings after successful resume
-            indexBuilder.undoReindexOptimalSettings(
-                opContext, existingNextIndex.get(), config, pollResult.latestReindexInfo());
 
-            // Swap alias to next index so new code reads from the updated schema
-            boolean swapped =
-                indexBuilder.validateAndSwapAlias(
-                    opContext, config.name(), existingNextIndex.get());
-            if (!swapped) {
-              log.error(
-                  "Alias swap failed for {} -> {} after resume: doc count mismatch",
-                  config.name(),
-                  existingNextIndex.get());
-              return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+            if (!indexBuilder.indexExists(opContext, existingNextIndex.get())) {
+              log.warn(
+                  "Target index {} for resume of {} no longer exists in Elasticsearch."
+                      + " Resetting state and restarting reindex from scratch.",
+                  existingNextIndex.get(),
+                  config.name());
+            } else {
+              log.info(
+                  "Resuming polling for index {} -> {}", config.name(), existingNextIndex.get());
+              int targetShards = ESIndexBuilder.extractTargetShards(config);
+              long persistedSourceDocCount =
+                  IncrementalReindexState.get(
+                          upgradeState, config.name(), IncrementalReindexState.SOURCE_DOC_COUNT)
+                      .map(Long::parseLong)
+                      .orElse(0L);
+              String persistedTaskId =
+                  IncrementalReindexState.get(
+                          upgradeState, config.name(), IncrementalReindexState.TASK_ID)
+                      .orElse("");
+              // On resume, reindexInfo from the original submission is not available — use empty
+              // map. Stall-retry will re-submit with fresh optimal settings if needed.
+              ESIndexBuilder.PollReindexResult pollResult =
+                  indexBuilder.pollReindexCompletion(
+                      opContext,
+                      config.name(),
+                      existingNextIndex.get(),
+                      () -> persistedSourceDocCount,
+                      targetShards,
+                      new HashMap<>(),
+                      persistedTaskId);
+              upgradeState =
+                  handlePollResult(
+                      context,
+                      upgradeState,
+                      config.name(),
+                      existingNextIndex.get(),
+                      indexBuilder,
+                      pollResult.completed());
+              if (!pollResult.completed()) {
+                return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+              }
+              // Restore settings after successful resume
+              indexBuilder.undoReindexOptimalSettings(
+                  opContext, existingNextIndex.get(), config, pollResult.latestReindexInfo());
+
+              // Swap alias to next index so new code reads from the updated schema
+              boolean swapped =
+                  indexBuilder.validateAndSwapAlias(
+                      opContext, config.name(), existingNextIndex.get());
+              if (!swapped) {
+                log.error(
+                    "Alias swap failed for {} -> {} after resume: doc count mismatch",
+                    config.name(),
+                    existingNextIndex.get());
+                return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+              }
+              log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
+              continue;
             }
-            log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
-            continue;
           }
 
           // Fresh start for this index
@@ -269,8 +281,37 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.nextIndexName(),
                   indexBuilder,
                   pollResult.completed());
+          TaskFailureParser.logFailures(
+              log,
+              "Incremental reindex document failures for " + config.name(),
+              pollResult.failures(),
+              pollResult.totalFailureCount());
           if (!pollResult.completed()) {
+            String formatted =
+                TaskFailureParser.formatForLog(
+                    pollResult.failures(), 5, pollResult.totalFailureCount());
+            context
+                .report()
+                .addLine(
+                    String.format(
+                        "%s failed: Incremental reindex timed out for index: %s%s",
+                        id(),
+                        config.name(),
+                        formatted.isEmpty() ? "" : " " + formatted));
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+          }
+          if (!pollResult.failures().isEmpty()) {
+            String formatted =
+                TaskFailureParser.formatForLog(
+                    pollResult.failures(), 5, pollResult.totalFailureCount());
+            if (!formatted.isEmpty()) {
+              context
+                  .report()
+                  .addLine(
+                      String.format(
+                          "%s: index %s reindexed with document failures: %s",
+                          id(), config.name(), formatted));
+            }
           }
           // Restore normal index settings after successful reindex
           indexBuilder.undoReindexOptimalSettings(
@@ -311,7 +352,19 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         checkpoint(context, upgradeState, DataHubUpgradeState.SUCCEEDED);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
-        log.error("BuildIndicesIncrementalStep failed", e);
+        Throwable root = Throwables.getRootCause(e);
+        log.error(
+            "{} failed. Root cause: [{}] {}",
+            id(),
+            root.getClass().getSimpleName(),
+            root.getMessage(),
+            e);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "%s failed. Root cause: [%s] %s",
+                    id(), root.getClass().getSimpleName(), root.getMessage()));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
@@ -375,6 +428,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     }
     return new HashMap<>();
   }
+
 
   private ESIndexBuilder findIndexBuilder(String indexName) {
     for (ElasticSearchIndexed service : indexedServices) {

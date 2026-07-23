@@ -3,6 +3,9 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.*;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParseResult;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import io.datahubproject.metadata.context.OperationContext;
 import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
@@ -51,6 +54,15 @@ public class ParallelReindexOrchestrator {
    * commands needed.
    */
   private final Set<String> failedCleanupIndices = Collections.synchronizedSet(new HashSet<>());
+
+  /**
+   * Document-level failures (from {@code response.failures[]} of the completed reindex task),
+   * keyed by index alias. Populated on failure paths in {@link #finalizeReindex} when a reindex completes but ES
+   * reports per-document failures (e.g. mapping conflicts), so the caller can surface which
+   * indices need attention even though the overall reindex succeeded.
+   */
+  private final ConcurrentHashMap<String, TaskFailureParseResult> documentFailuresByIndex =
+      new ConcurrentHashMap<>();
 
   /**
    * Thread pool for async finalization to prevent blocking monitoring loop. Allows multiple indices
@@ -564,6 +576,8 @@ public class ParallelReindexOrchestrator {
           });
     } catch (Exception e) {
       log.error("Doc count validation failed: {}", e.getMessage(), e);
+      // One ES _tasks GET only on failure path — never on happy-path finalize.
+      captureDocumentFailuresBestEffort(taskInfo);
       cleanupIndex(
           taskInfo.getIndexAlias(),
           taskInfo.getTempIndexName(),
@@ -666,7 +680,54 @@ public class ParallelReindexOrchestrator {
     }
 
     log.info("Successfully finalized reindex for {}", taskInfo.getIndexAlias());
+    // No getTaskStatusWithFailures here — happy path must not pay an extra ES _tasks call.
     return ReindexResult.REINDEXED;
+  }
+
+  /**
+   * Best-effort single {@code _tasks} failure fetch. Only call from failure paths (e.g. doc-count
+   * mismatch). Never throws — logging must not change the classified failure result.
+   */
+  private void captureDocumentFailuresBestEffort(@Nonnull ReindexTaskInfo taskInfo) {
+    try {
+      Optional<TaskResultWithFailures> taskResult =
+          indexBuilder.getTaskStatusWithFailures(opContext, taskInfo.getTaskId());
+      TaskFailureParseResult failureParse =
+          taskResult
+              .map(TaskResultWithFailures::failureParse)
+              .orElse(TaskFailureParseResult.EMPTY);
+      if (failureParse.isEmpty()) {
+        return;
+      }
+      documentFailuresByIndex.put(taskInfo.getIndexAlias(), failureParse);
+      String status =
+          taskResult
+              .map(r -> ESIndexBuilder.describeReindexTaskStatus(r.taskResponse()))
+              .orElse("");
+      String failurePart = TaskFailureParser.formatForLog(failureParse, 5);
+      log.error(
+          "Reindex for {} failed validation; ES document failures: {}{}",
+          taskInfo.getIndexAlias(),
+          status,
+          failurePart.isEmpty() ? "" : ", " + failurePart);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to fetch document failures for reindex task {} ({}): {}",
+          taskInfo.getTaskId(),
+          taskInfo.getIndexAlias(),
+          e.toString());
+    }
+  }
+
+  /**
+   * Returns per-index document failure parse results collected on failure paths (e.g. doc-count
+   * mismatch) via a single best-effort {@code _tasks} lookup.
+   *
+   * @return an unmodifiable snapshot of index alias to failure parse results
+   */
+  @Nonnull
+  public Map<String, TaskFailureParseResult> getDocumentFailuresByIndex() {
+    return Collections.unmodifiableMap(new HashMap<>(documentFailuresByIndex));
   }
 
   /**

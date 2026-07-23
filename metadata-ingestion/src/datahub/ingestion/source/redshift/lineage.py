@@ -29,6 +29,7 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
     RedshiftView,
     TempTableRow,
+    unescape_stl_query_text,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -443,9 +444,7 @@ class RedshiftSqlLineage(Closeable):
         for rename_row in RedshiftDataDictionary.get_alter_table_commands(
             connection, query
         ):
-            # Redshift's system table has some issues where it encodes newlines as \n instead a proper
-            # newline character. This can cause issues in our parser.
-            query_text = rename_row.query_text.replace("\\n", "\n")
+            query_text = unescape_stl_query_text(rename_row.query_text)
 
             try:
                 schema, prev_name, new_name = parse_alter_table_rename(
@@ -689,6 +688,10 @@ class RedshiftSqlLineage(Closeable):
                             text = row[idx_query_text]
                             if not text:
                                 continue
+                            # STL_QUERYTEXT stores newlines/tabs as literal escape
+                            # sequences; unescape so sqlglot can parse multi-line
+                            # queries instead of silently dropping them.
+                            text = unescape_stl_query_text(text)
                             observed.append(
                                 ObservedQuery(
                                     query=text,

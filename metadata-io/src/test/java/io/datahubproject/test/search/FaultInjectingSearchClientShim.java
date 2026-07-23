@@ -2,6 +2,7 @@ package io.datahubproject.test.search;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -391,6 +392,13 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException {
     return delegate.getTask(request, options);
+  }
+
+  @Override
+  @Nonnull
+  public Optional<TaskResultWithFailures> getTaskWithFailures(
+      GetTaskRequest request, RequestOptions options) throws IOException {
+    return delegate.getTaskWithFailures(request, options);
   }
 
   @Override

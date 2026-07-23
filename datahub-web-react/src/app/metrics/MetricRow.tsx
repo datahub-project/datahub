@@ -41,7 +41,7 @@ export function MetricRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData, metric.urn, isExpanded]);
+    }, [entityData?.urn, metric.urn]);
 
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'metric', parentMetricUrn: metric.urn },

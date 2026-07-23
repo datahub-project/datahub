@@ -60,15 +60,22 @@ public class DefaultUpgradeManager implements UpgradeManager {
     final List<UpgradeStep> steps = context.upgrade().steps();
     final List<UpgradeStepResult> stepResults = context.stepResults();
     final UpgradeReport upgradeReport = context.report();
+    final long startMs = System.currentTimeMillis();
+    final List<UpgradeSummaryFormatter.StepLine> stepLines = new ArrayList<>();
+    final int total = steps.size();
 
     for (int i = 0; i < steps.size(); i++) {
       final UpgradeStep step = steps.get(i);
+      final int stepIndex = i + 1;
 
       if (step.skip(context)) {
         upgradeReport.addLine(
             String.format(
                 String.format("Skipping Step %s/%s: %s...", i + 1, steps.size(), step.id()),
                 upgrade.id()));
+        stepLines.add(
+            new UpgradeSummaryFormatter.StepLine(
+                stepIndex, total, step.id(), "SKIPPED", 0, null));
         continue;
       }
 
@@ -86,16 +93,31 @@ public class DefaultUpgradeManager implements UpgradeManager {
             String.format(
                 "Step with id %s requested an abort of the in-progress update. Aborting the upgrade...",
                 step.id()));
-        return new DefaultUpgradeResult(DataHubUpgradeState.ABORTED, upgradeReport);
+        stepLines.add(
+            new UpgradeSummaryFormatter.StepLine(
+                stepIndex,
+                total,
+                step.id(),
+                "ABORTED",
+                step.retryCount(),
+                UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines())));
+        appendNotExecuted(stepLines, steps, i + 1);
+        return finishWithSummary(
+            upgrade, DataHubUpgradeState.ABORTED, upgradeReport, stepLines, startMs);
       }
 
       // Handle Results
       if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
+        String cause =
+            UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines());
         if (step.isOptional()) {
           upgradeReport.addLine(
               String.format(
                   "Failed Step %s/%s: %s. Step marked as optional. Proceeding with upgrade...",
                   i + 1, steps.size(), step.id()));
+          stepLines.add(
+              new UpgradeSummaryFormatter.StepLine(
+                  stepIndex, total, step.id(), "FAILED", step.retryCount(), cause));
           continue;
         }
 
@@ -105,16 +127,57 @@ public class DefaultUpgradeManager implements UpgradeManager {
                 "Failed Step %s/%s: %s. Failed after %s retries.",
                 i + 1, steps.size(), step.id(), step.retryCount()));
         upgradeReport.addLine(String.format("Exiting upgrade %s with failure.", upgrade.id()));
-        return new DefaultUpgradeResult(DataHubUpgradeState.FAILED, upgradeReport);
+        stepLines.add(
+            new UpgradeSummaryFormatter.StepLine(
+                stepIndex, total, step.id(), "FAILED", step.retryCount(), cause));
+        appendNotExecuted(stepLines, steps, i + 1);
+        return finishWithSummary(
+            upgrade, DataHubUpgradeState.FAILED, upgradeReport, stepLines, startMs);
       }
 
       upgradeReport.addLine(
           String.format("Completed Step %s/%s: %s successfully.", i + 1, steps.size(), step.id()));
+      stepLines.add(
+          new UpgradeSummaryFormatter.StepLine(
+              stepIndex,
+              total,
+              step.id(),
+              "SUCCEEDED",
+              step.retryCount(),
+              UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines())));
     }
 
     upgradeReport.addLine(
         String.format("Success! Completed upgrade with id %s successfully.", upgrade.id()));
-    return new DefaultUpgradeResult(DataHubUpgradeState.SUCCEEDED, upgradeReport);
+    return finishWithSummary(
+        upgrade, DataHubUpgradeState.SUCCEEDED, upgradeReport, stepLines, startMs);
+  }
+
+  private static void appendNotExecuted(
+      List<UpgradeSummaryFormatter.StepLine> stepLines, List<UpgradeStep> steps, int fromIndex) {
+    int total = steps.size();
+    for (int j = fromIndex; j < steps.size(); j++) {
+      stepLines.add(
+          new UpgradeSummaryFormatter.StepLine(
+              j + 1, total, steps.get(j).id(), "NOT_EXECUTED", 0, null));
+    }
+  }
+
+  private UpgradeResult finishWithSummary(
+      Upgrade upgrade,
+      DataHubUpgradeState overall,
+      UpgradeReport upgradeReport,
+      List<UpgradeSummaryFormatter.StepLine> stepLines,
+      long startMs) {
+    long durationMs = System.currentTimeMillis() - startMs;
+    String summary =
+        UpgradeSummaryFormatter.format(upgrade.id(), overall, stepLines, durationMs);
+    if (UpgradeSummaryFormatter.isFailureOrAbort(overall)) {
+      log.error(summary);
+    } else {
+      log.info(summary);
+    }
+    return new DefaultUpgradeResult(overall, upgradeReport);
   }
 
   private UpgradeStepResult executeStepInternal(UpgradeContext context, UpgradeStep step) {
