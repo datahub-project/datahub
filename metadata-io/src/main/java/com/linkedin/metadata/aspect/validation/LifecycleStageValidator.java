@@ -5,12 +5,13 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -52,8 +53,8 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
         continue;
       }
 
-      if (item instanceof PatchMCP) {
-        validatePatchItem((PatchMCP) item, operationContext, retrieverContext, exceptions);
+      if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+        validatePatchItem((MCPItem) item, operationContext, retrieverContext, exceptions);
         continue;
       }
 
@@ -76,7 +77,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
    * time.
    */
   private void validatePatchItem(
-      PatchMCP item,
+      MCPItem item,
       OperationFingerprint operationContext,
       RetrieverContext retrieverContext,
       ValidationExceptionCollection exceptions) {

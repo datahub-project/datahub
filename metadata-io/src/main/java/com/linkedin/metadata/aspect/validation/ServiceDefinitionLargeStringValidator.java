@@ -2,10 +2,11 @@ package com.linkedin.metadata.aspect.validation;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -44,8 +45,8 @@ public class ServiceDefinitionLargeStringValidator extends AspectPayloadValidato
 
     mcpItems.forEach(
         item -> {
-          if (item instanceof PatchMCP) {
-            validatePatchItem((PatchMCP) item, exceptions);
+          if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+            validatePatchItem((MCPItem) item, exceptions);
             return;
           }
           validateDefinition(item, item.getAspect(ServiceDefinition.class), exceptions);
@@ -59,7 +60,7 @@ public class ServiceDefinitionLargeStringValidator extends AspectPayloadValidato
    * operation (a value at {@code /rawSpec} becomes {@code {"rawSpec":<value>}}) and run the same
    * decode check. Unparseable values are left to schema validation at merge time.
    */
-  private void validatePatchItem(PatchMCP item, ValidationExceptionCollection exceptions) {
+  private void validatePatchItem(MCPItem item, ValidationExceptionCollection exceptions) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
             op ->

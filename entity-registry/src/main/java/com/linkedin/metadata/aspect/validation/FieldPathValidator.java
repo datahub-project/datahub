@@ -4,10 +4,11 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -55,8 +56,8 @@ public class FieldPathValidator extends AspectPayloadValidator {
 
     mcpItems.forEach(
         i -> {
-          if (i instanceof PatchMCP) {
-            processPatchItem((PatchMCP) i, exceptions);
+          if (ChangeType.PATCH.equals(i.getChangeType()) && i instanceof MCPItem) {
+            processPatchItem((MCPItem) i, exceptions);
           } else if (i.getAspectName().equals(SCHEMA_METADATA_ASPECT_NAME)) {
             processSchemaMetadata(i, i.getAspect(SchemaMetadata.class), exceptions);
           } else {
@@ -82,7 +83,7 @@ public class FieldPathValidator extends AspectPayloadValidator {
    * and deeper sub-field operations (e.g. a tag added under an existing field) do not modify the
    * field path at all. Unparseable values are left to schema validation at merge time.
    */
-  private static void processPatchItem(PatchMCP item, ValidationExceptionCollection exceptions) {
+  private static void processPatchItem(MCPItem item, ValidationExceptionCollection exceptions) {
     final boolean isSchemaMetadata = SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName());
     final String arrayPath = isSchemaMetadata ? SCHEMA_FIELDS_PATH : EDITABLE_FIELDS_PATH;
 
@@ -115,7 +116,7 @@ public class FieldPathValidator extends AspectPayloadValidator {
   }
 
   private static void processParsedAspect(
-      PatchMCP item,
+      MCPItem item,
       boolean isSchemaMetadata,
       String aspectJson,
       ValidationExceptionCollection exceptions) {
