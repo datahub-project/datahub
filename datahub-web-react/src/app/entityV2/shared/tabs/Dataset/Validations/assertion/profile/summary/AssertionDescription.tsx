@@ -17,8 +17,7 @@ type Props = {
 // Component useful for rendering descriptions of assertions.
 export const AssertionDescription = ({ assertion, options }: Props) => {
     const assertionInfo = assertion.info;
-    const monitorSchedule = null;
-    const { primaryLabel, secondaryLabel } = useBuildAssertionDescriptionLabels(assertionInfo, monitorSchedule, {
+    const { primaryLabel, secondaryLabel } = useBuildAssertionDescriptionLabels(assertionInfo, {
         showColumnTag: options?.showColumnTag,
     });
 
