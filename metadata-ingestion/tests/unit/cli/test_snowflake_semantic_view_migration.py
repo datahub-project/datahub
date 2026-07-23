@@ -2,7 +2,7 @@
 governance-aspect migration between legacy Snowflake datasets and the new
 semanticModel/metric entities. All tests mock the graph; no live GMS."""
 
-from typing import Optional
+from typing import Dict, List, Optional, Type
 from unittest.mock import MagicMock
 
 import pytest
@@ -59,6 +59,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    _Aspect,
 )
 
 _DB = "TEST_DB"
@@ -274,7 +275,7 @@ class TestAspectAllowlist:
 # --- migrate_entity / migrate_dataset_to_semantic_model / migrate_semantic_model_to_dataset ---
 
 
-def _graph_with_aspects(**stored) -> MagicMock:
+def _graph_with_aspects(**stored: Optional[_Aspect]) -> MagicMock:
     graph = MagicMock()
 
     def get_aspects(entity_urn, aspects, aspect_types):
@@ -497,7 +498,9 @@ class TestEditableDescriptionFallback:
     SRC = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.sales_analytics,PROD)"
 
     def test_folds_editable_description_when_no_documentation_present(self):
-        def get_aspects(entity_urn: str, aspects, aspect_types):
+        def get_aspects(
+            entity_urn: str, aspects: List[str], aspect_types: List[Type[_Aspect]]
+        ) -> Dict[str, Optional[_Aspect]]:
             if aspects == ["editableDatasetProperties"]:
                 return {
                     "editableDatasetProperties": EditableDatasetPropertiesClass(
@@ -533,7 +536,9 @@ class TestEditableDescriptionFallback:
         )
 
     def test_does_not_overwrite_existing_documentation_on_destination(self):
-        def get_aspects(entity_urn: str, aspects, aspect_types):
+        def get_aspects(
+            entity_urn: str, aspects: List[str], aspect_types: List[Type[_Aspect]]
+        ) -> Dict[str, Optional[_Aspect]]:
             if aspects == ["editableDatasetProperties"]:
                 return {
                     "editableDatasetProperties": EditableDatasetPropertiesClass(
@@ -572,7 +577,9 @@ class TestEditableDescriptionFallback:
             documentations=[DocumentationAssociationClass(documentation="explicit doc")]
         )
 
-        def get_aspects(entity_urn: str, aspects, aspect_types):
+        def get_aspects(
+            entity_urn: str, aspects: List[str], aspect_types: List[Type[_Aspect]]
+        ) -> Dict[str, Optional[_Aspect]]:
             if aspects == ["editableDatasetProperties"]:
                 return {
                     "editableDatasetProperties": EditableDatasetPropertiesClass(
@@ -909,12 +916,12 @@ class TestFieldGovernanceFanOut:
         assert set(by_name) == {"CUSTOMER_ID", "TOTAL_REVENUE"}
         assert by_name["CUSTOMER_ID"].is_metric is False
         assert by_name["TOTAL_REVENUE"].is_metric is True
-        assert [t.tag for t in by_name["CUSTOMER_ID"].global_tags.tags] == [
-            make_tag_urn("pii")
-        ]
-        assert [t.tag for t in by_name["TOTAL_REVENUE"].global_tags.tags] == [
-            make_tag_urn("finance")
-        ]
+        customer_tags = by_name["CUSTOMER_ID"].global_tags
+        revenue_tags = by_name["TOTAL_REVENUE"].global_tags
+        assert customer_tags is not None
+        assert revenue_tags is not None
+        assert [t.tag for t in customer_tags.tags] == [make_tag_urn("pii")]
+        assert [t.tag for t in revenue_tags.tags] == [make_tag_urn("finance")]
 
     def test_editable_schema_tags_union_with_schema_tags(self):
         schema = SchemaMetadataClass(
@@ -947,7 +954,9 @@ class TestFieldGovernanceFanOut:
         fields = collect_dataset_field_governance(graph, self.SRC)
         assert len(fields) == 1
         assert fields[0].is_metric is True
-        assert {t.tag for t in fields[0].global_tags.tags} == {
+        merged_tags = fields[0].global_tags
+        assert merged_tags is not None
+        assert {t.tag for t in merged_tags.tags} == {
             make_tag_urn("schema_tag"),
             make_tag_urn("customer_tag"),
         }
@@ -970,7 +979,9 @@ class TestFieldGovernanceFanOut:
         fields = collect_dataset_field_governance(graph, self.SRC)
         assert len(fields) == 1
         assert fields[0].is_metric is True
-        assert [t.tag for t in fields[0].global_tags.tags] == [make_tag_urn("finance")]
+        revenue_tags = fields[0].global_tags
+        assert revenue_tags is not None
+        assert [t.tag for t in revenue_tags.tags] == [make_tag_urn("finance")]
 
     def test_dataset_to_sm_emits_metric_and_schema_field_tags(self):
         schema = SchemaMetadataClass(
@@ -1129,7 +1140,7 @@ class TestMigrateSemanticModelFieldGovernance:
         )
 
         def get_aspects(entity_urn, aspects, aspect_types):
-            out = {}
+            out: Dict[str, Optional[_Aspect]] = {}
             for name in aspects:
                 if name == "editableSchemaMetadata" and entity_urn == self.DST:
                     out[name] = existing_editable
@@ -1170,7 +1181,9 @@ class TestMigrateSemanticModelFieldGovernance:
         assert len(editable_emits) == 1
         by_path = {fi.fieldPath: fi for fi in editable_emits[0].editableSchemaFieldInfo}
         assert by_path["OrderId"].description == "hand-written field description"
-        assert {t.tag for t in by_path["OrderId"].globalTags.tags} == {
+        order_id_tags = by_path["OrderId"].globalTags
+        assert order_id_tags is not None
+        assert {t.tag for t in order_id_tags.tags} == {
             make_tag_urn("keep_me"),
             make_tag_urn("from_sm"),
         }
@@ -1203,7 +1216,9 @@ class TestMigrateSemanticModelFieldGovernance:
         assert len(fields) == 1
         assert fields[0].is_metric is True
         assert fields[0].column_name == "total_revenue"
-        assert [t.tag for t in fields[0].global_tags.tags] == [make_tag_urn("finance")]
+        metric_tags = fields[0].global_tags
+        assert metric_tags is not None
+        assert [t.tag for t in metric_tags.tags] == [make_tag_urn("finance")]
 
     def test_sm_to_dataset_folds_documentation_into_editable_description(self):
         doc = DocumentationClass(

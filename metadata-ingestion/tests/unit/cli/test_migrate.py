@@ -1,5 +1,6 @@
 """Tests for datahub.cli.migrate — core migration orchestration logic."""
 
+from pathlib import Path
 from typing import List
 from unittest.mock import MagicMock, patch
 
@@ -422,7 +423,7 @@ class TestMakeUrnBuilderEdgeCases:
 
 
 class TestReadUrnsFromFile:
-    def test_skips_blank_lines_and_comments(self, tmp_path) -> None:
+    def test_skips_blank_lines_and_comments(self, tmp_path: Path) -> None:
         urn_file = tmp_path / "urns.txt"
         urn_file.write_text(
             "urn:li:dataset:(a,b,PROD)\n\n# a comment\nurn:li:dataset:(c,d,PROD)\n"
@@ -444,7 +445,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_force_skips_confirmation_prompt(
-        self, mock_get_graph, mock_filter, mock_run_migration
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
     ) -> None:
         mock_filter.return_value = ([self.SRC_URN], [])
         mock_run_migration.return_value = MagicMock()
@@ -461,7 +465,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_confirmation_prompt_aborts_on_no(
-        self, mock_get_graph, mock_filter, mock_run_migration
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
     ) -> None:
         mock_filter.return_value = ([self.SRC_URN], [])
 
@@ -478,7 +485,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_confirmation_prompt_proceeds_on_yes(
-        self, mock_get_graph, mock_filter, mock_run_migration
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
     ) -> None:
         mock_filter.return_value = ([self.SRC_URN], [])
         mock_run_migration.return_value = MagicMock()
@@ -496,7 +506,11 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_urn_file_is_read_and_combined_with_explicit_urns(
-        self, mock_get_graph, mock_filter, mock_run_migration, tmp_path
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+        tmp_path: Path,
     ) -> None:
         file_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.other_view,PROD)"
@@ -528,7 +542,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.discover_semantic_view_dataset_urns")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_no_entities_found_generic_message(
-        self, mock_get_graph, mock_discover_dataset, mock_discover_sm
+        self,
+        mock_get_graph: MagicMock,
+        mock_discover_dataset: MagicMock,
+        mock_discover_sm: MagicMock,
     ) -> None:
         mock_discover_dataset.return_value = []
 
@@ -543,7 +560,7 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.discover_semantic_view_dataset_urns")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_no_live_entities_hints_at_soft_deleted(
-        self, mock_get_graph, mock_discover_dataset
+        self, mock_get_graph: MagicMock, mock_discover_dataset: MagicMock
     ) -> None:
         # First call is the live discovery (empty); second is the
         # only_soft_deleted probe (finds some).
@@ -561,7 +578,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.filter_by_semantic_view_subtype")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_explicit_urns_all_lacking_subtype_shows_specific_message(
-        self, mock_get_graph, mock_filter, mock_run_migration
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
     ) -> None:
         mock_filter.return_value = ([], [self.SRC_URN])
 
@@ -579,7 +599,10 @@ class TestSnowflakeSemanticViewsCli:
     @patch("datahub.cli.migrate.discover_semantic_model_urns")
     @patch("datahub.cli.migrate.get_default_graph")
     def test_sm_to_dataset_direction_discovers_semantic_models(
-        self, mock_get_graph, mock_discover_sm, mock_run_migration
+        self,
+        mock_get_graph: MagicMock,
+        mock_discover_sm: MagicMock,
+        mock_run_migration: MagicMock,
     ) -> None:
         sm_urn = (
             "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,db.schema,my_view)"
