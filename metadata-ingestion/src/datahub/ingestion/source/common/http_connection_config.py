@@ -49,3 +49,20 @@ class HTTPConnectionConfig(ConfigModel):
                 "Both username and password are required for HTTP basic authentication."
             )
         return self
+
+    def to_request_kwargs(self) -> dict:
+        """Build the ``verify``/``headers``/``auth`` kwargs for a ``requests`` call.
+
+        Only bearer and basic auth are exposed (not arbitrary headers) because
+        ``requests`` strips the ``Authorization`` header on cross-host
+        redirects, so a bearer token / basic credentials are not leaked to a
+        redirected origin — a custom-header token would not get that protection.
+        """
+        kwargs: dict = {"verify": self.verify_ssl}
+        if self.token is not None:
+            kwargs["headers"] = {
+                "Authorization": f"Bearer {self.token.get_secret_value()}"
+            }
+        elif self.username is not None and self.password is not None:
+            kwargs["auth"] = (self.username, self.password.get_secret_value())
+        return kwargs

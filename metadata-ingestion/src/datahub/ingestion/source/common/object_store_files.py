@@ -73,26 +73,6 @@ def _read_object_store_body(
     return data
 
 
-def _http_request_kwargs(http_connection: Optional[HTTPConnectionConfig]) -> dict:
-    # requests strips the Authorization header on cross-host redirects, so a
-    # bearer token / basic auth is not leaked to a redirected origin. Custom
-    # header schemes would not get that protection, which is why we only expose
-    # bearer + basic here.
-    if http_connection is None:
-        return {}
-    kwargs: dict = {"verify": http_connection.verify_ssl}
-    if http_connection.token is not None:
-        kwargs["headers"] = {
-            "Authorization": f"Bearer {http_connection.token.get_secret_value()}"
-        }
-    elif http_connection.username is not None and http_connection.password is not None:
-        kwargs["auth"] = (
-            http_connection.username,
-            http_connection.password.get_secret_value(),
-        )
-    return kwargs
-
-
 def read_file_as_bytes(
     uri: str,
     aws_connection: Optional[AwsConnectionConfig] = None,
@@ -121,7 +101,7 @@ def read_file_as_bytes(
             uri,
             timeout=http_timeout_seconds,
             stream=True,
-            **_http_request_kwargs(http_connection),
+            **(http_connection.to_request_kwargs() if http_connection else {}),
         ) as resp:
             resp.raise_for_status()
             declared = resp.headers.get("Content-Length")
