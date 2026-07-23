@@ -42,6 +42,9 @@ First, provide the following details:
 
 1. **Name and Description:** Clearly describe the purpose and meaning of the Structured Property so users understand its role and context.
 2. **Property Type:** Choose a type that best fits the metadata you want to collect. Available types include **Text**, **Number**, **Date**, **DataHub Entity**, or **Rich Text**. Choosing any of the "List" options allows multiple entries for the Property.
+   :::note Value size limit
+   Each **Text**, **Rich Text**, **Date**, or **DataHub Entity** value may be at most **32,766 UTF-8 bytes** by default (Elasticsearch / OpenSearch keyword limit; configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH`). Longer values are rejected on write. See [Limitations](overview.md#value-size-for-text-and-rich-text-properties).
+   :::
 3. **Allowed Values (Optional):** For **Text**, **Number**, and **DataHub Entity** types, define a set of allowed values to ensure consistent input across assets.
 4. **Applies To:** Specify which DataHub asset types (e.g., Datasets, Dashboards, Pipelines) the Structured Property can be associated with, ensuring relevance and precision.
 
@@ -259,6 +262,10 @@ Once a Structured Property has been defined, only certain aspects can be modifie
 
 - Confirm you have the **Edit Properties** privilege.
 - Ensure the Structured Property has already been created and supports the type of Asset you're trying to modify.
+
+### Why was my Text or Rich Text property value rejected?
+
+- Each string-backed structured property value (Text, Rich Text, Date, or DataHub Entity) may be at most **32,766 UTF-8 bytes** by default (`STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH`). Values over that limit are rejected because they cannot be indexed as Elasticsearch / OpenSearch keywords. Shorten the value, or store large content as Asset documentation instead. See [Limitations](overview.md#value-size-for-text-and-rich-text-properties).
 
 ### API Tutorials
 

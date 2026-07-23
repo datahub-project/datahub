@@ -133,6 +133,7 @@ If you want to:
 - Find a dataset with a column name, **latitude**
 
   - `/q fieldPaths: latitude` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)
+  - `/q fieldPaths: *latitude` to include columns that may use V2 fieldPaths such as [version=2.0].[type=string].latitude
   - fieldPaths is the name of the attribute that holds the column name in Datasets.
 
 - Find a dataset with the term **latitude** in the field description

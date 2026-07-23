@@ -14,7 +14,7 @@ Usage:
 
 import os
 
-from langchain.agents import create_agent
+from langchain.agents import create_agent  # type: ignore[import-not-found]
 
 from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.langchain_tools import build_langchain_tools
@@ -31,8 +31,8 @@ tools = build_langchain_tools(client, include_mutations=False)
 
 
 # 3. Create agent using LangChain 1.x create_agent API with Bedrock
-import boto3
-from langchain_aws import ChatBedrock
+import boto3  # type: ignore[import-untyped]
+from langchain_aws import ChatBedrock  # type: ignore[import-not-found]
 
 bedrock_runtime = boto3.client(
     service_name="bedrock-runtime",

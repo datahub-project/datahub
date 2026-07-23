@@ -7311,6 +7311,54 @@ class TestSqlParsedUpstreams:
     @patch(
         "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
     )
+    def test_unresolved_columns_are_skipped(self, _mock_resolver, mock_parser):
+        """An upstream ColumnRef with an empty ``column`` (sqlglot
+        couldn't resolve it) is dropped instead of producing an
+        invalid schemaField URN; a downstream with an empty
+        ``column`` drops the whole entry."""
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        cl_with_unresolved_upstream = MagicMock()
+        cl_with_unresolved_upstream.downstream.column = "col_a"
+        cl_with_unresolved_upstream.upstreams = [
+            MagicMock(table=upstream_table_urn, column=""),
+            MagicMock(table=upstream_table_urn, column="src_a"),
+        ]
+        cl_with_empty_downstream = MagicMock()
+        cl_with_empty_downstream.downstream.column = ""
+        cl_with_empty_downstream.upstreams = [
+            MagicMock(table=upstream_table_urn, column="src_b")
+        ]
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[upstream_table_urn],
+            column_lineage=[cl_with_unresolved_upstream, cl_with_empty_downstream],
+        )
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT src_a AS col_a, src_b FROM prod.public.upstream",
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db="prod",
+                ),
+            )
+        )
+        upstream_wu = next(wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage")
+        agg = _aspect_as(upstream_wu, UpstreamLineageClass)
+        assert agg.fineGrainedLineages is not None
+        assert len(agg.fineGrainedLineages) == 1
+        edge = agg.fineGrainedLineages[0]
+        assert edge.upstreams == [f"urn:li:schemaField:({upstream_table_urn},src_a)"]
+        assert any("col_a" in d for d in edge.downstreams or [])
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
     def test_table_error_skips_parsed_lineage_increments_counter(
         self, _mock_resolver, mock_parser
     ):

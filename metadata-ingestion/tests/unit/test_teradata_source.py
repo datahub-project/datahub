@@ -19,6 +19,8 @@ from sqlalchemy.exc import (
     TimeoutError as PoolTimeoutError,
 )
 
+from datahub.emitter.mcp_builder import DatabaseKey
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
     MetadataChangeProposalWrapper,
@@ -59,6 +61,23 @@ def isolate_teradata_caches(monkeypatch):
     """
     monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
     monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
+
+
+class _RecordingCloseable(Closeable):
+    """A real Closeable whose close() is invoked by ExitStack teardown.
+
+    The source registers its file-backed resources on an ExitStack, which unwinds
+    them via __enter__/__exit__ (not a direct .close() call). A MagicMock's __exit__
+    does not delegate to close(), so we use this to assert the close path runs.
+    """
+
+    def __init__(self) -> None:
+        # aggregator exposes `.report`; harmless for the other resources.
+        self.report = MagicMock()
+        self.close_calls = 0
+
+    def close(self) -> None:
+        self.close_calls += 1
 
 
 def _base_config() -> Dict[str, Any]:
@@ -234,6 +253,85 @@ class TestTeradataConfig:
         config_dict = {**_base_config(), **override}
         config = TeradataConfig.model_validate(config_dict)
         assert config.extract_ownership is expected
+
+
+def _create_source_with_lowercase(convert_urns_to_lowercase: bool) -> TeradataSource:
+    """Build a TeradataSource with a chosen convert_urns_to_lowercase value."""
+    config = TeradataConfig.model_validate(
+        {**_base_config(), "convert_urns_to_lowercase": convert_urns_to_lowercase}
+    )
+    with patch("datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"):
+        with patch(
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            return TeradataSource(config, PipelineContext(run_id="test"))
+
+
+class TestConvertUrnsToLowercaseContainerConsistency:
+    """convert_urns_to_lowercase must keep the container key and the dataset
+    identifier on the same casing, otherwise datasets are emitted under a
+    container URN that does not match their own (lower-cased) name — the
+    duplicate/orphan 'invalid lowercase container' failure mode.
+
+    Casing is normalized only in the URN paths; get_db_name() (reused as a SQL
+    identifier) keeps source case so CASESPECIFIC installations are unaffected.
+    """
+
+    def _db_name_for(self, source: TeradataSource, raw_db: str) -> str:
+        inspector = MagicMock()
+        inspector._datahub_database = raw_db
+        return source.get_db_name(inspector)
+
+    def test_lowercase_enabled_container_matches_dataset_db_segment(self):
+        source = _create_source_with_lowercase(True)
+
+        db_name = self._db_name_for(source, "MyDb")
+        # get_db_name keeps source case (it is reused as a SQL identifier).
+        assert db_name == "MyDb"
+
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+        dataset_db_segment = dataset_identifier.split(".", 1)[0]
+
+        # The database segment of the (lower-cased) dataset name must equal the
+        # database the container key is built from.
+        assert dataset_db_segment == "mydb"
+        assert container_key.database == dataset_db_segment
+
+    def test_lowercase_disabled_preserves_source_case(self):
+        source = _create_source_with_lowercase(False)
+
+        db_name = self._db_name_for(source, "MyDb")
+        container_key = source.get_database_container_key(db_name, db_name)
+        assert isinstance(container_key, DatabaseKey)
+        dataset_identifier = source.get_identifier(
+            schema=db_name, entity="MyTable", inspector=MagicMock()
+        )
+
+        assert db_name == "MyDb"
+        assert dataset_identifier.split(".", 1)[0] == "MyDb"
+        assert container_key.database == "MyDb"
+
+    def test_creation_and_parenting_container_urns_agree(self):
+        """The container *entity* (gen_database_containers) and the key used to
+        parent datasets (get_database_container_key) must resolve to the same
+        URN under lower-casing — otherwise the dataset points at a container
+        that was never created."""
+        source = _create_source_with_lowercase(True)
+        db_name = self._db_name_for(source, "MyDb")
+
+        parenting_urn = source.get_database_container_key(db_name, db_name).as_urn()
+
+        created_urns = {
+            wu.get_urn()
+            for wu in source.gen_database_containers(database=db_name)
+            if wu.get_urn().startswith("urn:li:container:")
+        }
+
+        assert parenting_urn in created_urns
 
 
 class TestTeradataSource:
@@ -463,64 +561,181 @@ class TestTeradataSource:
                 mock_engine.dispose.assert_called_once()
 
     def test_close_cleanup(self):
-        """Test that close() properly cleans up resources."""
+        """close() must release every resource registered on the ExitStack and
+        clear the caches. The three file-backed resources are Closeable, so
+        ExitStack tears them down via __exit__ -> close(); the pooled engine and
+        the caches ride the same stack as callbacks.
+        """
         config = TeradataConfig.model_validate(_base_config())
 
         with patch(
-            "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
-        ) as mock_aggregator_class:
-            mock_aggregator = MagicMock()
-            mock_aggregator_class.return_value = mock_aggregator
+            "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+        ):
+            source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Mock cache_tables_and_views to prevent database connection during init
-            with patch(
-                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
-            ):
-                source = TeradataSource(config, PipelineContext(run_id="test"))
+        # Spy on each Closeable's close(); ExitStack's __exit__ delegates to it.
+        source.aggregator.close = MagicMock()  # type: ignore[method-assign]
+        source.schema_resolver.close = MagicMock()  # type: ignore[method-assign]
+        source._view_definitions.close = MagicMock()  # type: ignore[method-assign]
 
-            # Replace the aggregator with our mock after creation
-            source.aggregator = mock_aggregator
+        # A pooled engine only exists once queries run; simulate one so we can
+        # assert dispose() runs and the handle is dropped.
+        mock_engine = MagicMock()
+        source._pooled_engine = mock_engine
 
-            # Pre-populate class-level caches to verify they are cleared on close
-            source._tables_cache["db1"] = [
-                TeradataTable(
-                    database="db1",
-                    name="t1",
-                    description=None,
-                    object_type="Table",
-                    create_timestamp=datetime(2024, 1, 1),
-                    last_alter_name=None,
-                    last_alter_timestamp=None,
-                )
-            ]
-            source._table_creator_cache[("db1", "t1")] = "owner"
+        # Pre-populate the caches so we can prove close() empties them.
+        source._tables_cache["db1"] = [
+            TeradataTable(
+                database="db1",
+                name="t1",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        source._table_creator_cache[("db1", "t1")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "db1")
+        get_schema_pk_constraints(None, mock_conn, "db1")
+        get_schema_foreign_keys(None, mock_conn, "db1")
 
-            # Spy on the disk-backed view-definition store's close() so we can
-            # assert the temporary SQLite file is torn down promptly on close.
-            mock_view_definitions_close = MagicMock()
-            source._view_definitions.close = mock_view_definitions_close  # type: ignore[method-assign]
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
+        ) as mock_super_close:
+            source.close()
 
-            with patch(
-                "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.close"
-            ) as mock_super_close:
-                source.close()
+        # Every Closeable resource is released so its temp SQLite file is removed.
+        source.aggregator.close.assert_called_once()
+        source.schema_resolver.close.assert_called_once()
+        source._view_definitions.close.assert_called_once()
 
-                mock_aggregator.close.assert_called_once()
-                mock_super_close.assert_called_once()
+        # The pooled engine is disposed and the handle dropped.
+        mock_engine.dispose.assert_called_once()
+        assert source._pooled_engine is None
 
-                # Class-level caches must be emptied so memory is released between
-                # sequential recipe runs in the same process (OOM fix for #7602).
-                assert len(source._tables_cache) == 0
-                assert len(source._table_creator_cache) == 0
+        # Class-level and module-level caches are emptied so memory/schema data is
+        # released between sequential recipe runs in the same process.
+        assert len(source._tables_cache) == 0
+        assert len(source._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
 
-                # The disk-backed view-definition store must be closed so its
-                # temporary SQLite file is removed rather than leaking until GC.
-                mock_view_definitions_close.assert_called_once()
+        mock_super_close.assert_called_once()
 
-                # Module-level LRU caches must also be cleared between recipe runs.
-                assert get_schema_columns.cache_info().currsize == 0
-                assert get_schema_pk_constraints.cache_info().currsize == 0
-                assert get_schema_foreign_keys.cache_info().currsize == 0
+    def test_init_releases_resources_when_discovery_fails(self):
+        """If __init__ fails during table/view discovery, the ExitStack must still
+        release every resource built so far and the original error must propagate.
+
+        __init__ eagerly creates three temp-file-backed resources
+        (_view_definitions, schema_resolver, aggregator) and registers the pooled
+        engine + cache teardown on the ExitStack before discovery runs. The
+        pipeline only registers the source for close() once __init__ returns, so a
+        failure here would otherwise leak their temp files and cached schema data
+        across sequential recipe runs in the same process.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        view_definitions = _RecordingCloseable()
+        schema_resolver = _RecordingCloseable()
+        aggregator = _RecordingCloseable()
+
+        # Pre-populate the class-level and module-level caches so we can assert the
+        # failure path clears them (otherwise stale entries leak across recipe runs
+        # in the same process). isolate_teradata_caches resets the class caches.
+        TeradataSource._tables_cache["stale_db"] = [
+            TeradataTable(
+                database="stale_db",
+                name="stale_table",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+            )
+        ]
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+        get_schema_pk_constraints(None, mock_conn, "stale_db")
+        get_schema_foreign_keys(None, mock_conn, "stale_db")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                return_value=aggregator,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views",
+                side_effect=RuntimeError("connection failed"),
+            ),
+            pytest.raises(RuntimeError, match="connection failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+
+        assert aggregator.close_calls == 1
+        assert schema_resolver.close_calls == 1
+        assert view_definitions.close_calls == 1
+        assert len(TeradataSource._tables_cache) == 0
+        assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
+        assert get_schema_pk_constraints.cache_info().currsize == 0
+        assert get_schema_foreign_keys.cache_info().currsize == 0
+
+    def test_init_releases_resources_when_construction_fails(self):
+        """If a resource fails to construct in __init__ (before discovery), the
+        ExitStack must still release the resources registered before the failure.
+
+        The aggregator is built last of the three file-backed resources, so a
+        failure there must still close _view_definitions and schema_resolver and
+        clear the caches — those teardowns are registered on the ExitStack first,
+        so they run even though the aggregator never finished constructing.
+        """
+        config = TeradataConfig.model_validate(_base_config())
+
+        view_definitions = _RecordingCloseable()
+        schema_resolver = _RecordingCloseable()
+
+        # Stale cache state from a hypothetical prior run in the same process; the
+        # failure path must clear it so it can't bleed into the next run.
+        TeradataSource._table_creator_cache[("stale_db", "stale_table")] = "owner"
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = []
+        get_schema_columns(None, mock_conn, "columnsV", "stale_db")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.FileBackedDict",
+                return_value=view_definitions,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource._init_schema_resolver",
+                return_value=schema_resolver,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.SqlParsingAggregator",
+                side_effect=RuntimeError("aggregator init failed"),
+            ),
+            pytest.raises(RuntimeError, match="aggregator init failed"),
+        ):
+            TeradataSource(config, PipelineContext(run_id="test"))
+
+        assert view_definitions.close_calls == 1
+        assert schema_resolver.close_calls == 1
+        assert len(TeradataSource._table_creator_cache) == 0
+        assert get_schema_columns.cache_info().currsize == 0
 
     def test_make_lineage_queries_with_time_defaults(self):
         """Test that _make_lineage_queries works with automatic time defaults."""

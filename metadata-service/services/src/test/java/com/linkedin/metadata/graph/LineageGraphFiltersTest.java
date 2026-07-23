@@ -48,7 +48,13 @@ public class LineageGraphFiltersTest {
             "chart",
             "dashboard",
             "mlPrimaryKey",
-            "metric"));
+            "metric",
+            "semanticModel",
+            "aiAgent",
+            "application",
+            "service",
+            "api",
+            "repository"));
     assertNull(filters.getAllowedRelationshipTypes());
     assertTrue(filters.getEdgesPerEntityType().isEmpty());
 

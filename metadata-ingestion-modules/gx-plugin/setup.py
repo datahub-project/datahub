@@ -61,7 +61,7 @@ base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",

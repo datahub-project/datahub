@@ -37,5 +37,19 @@ public class UsageAggregationConfiguration {
      * #retryAttempts} &gt; 1.
      */
     private long retryInitialBackoffMillis = 100;
+
+    /**
+     * Calendar grid size for flush windows (seconds). Boundaries are UTC hour/day truncations. Zero
+     * disables alignment (process-relative windows).
+     */
+    private long alignmentPeriodSeconds;
+
+    /**
+     * Include the client {@code agent_name} (UAA AgentName) as an additive rollup dimension.
+     * Default false: agent_name is client-controlled and can be unbounded, so enabling it
+     * multiplies metric bucket cardinality. Enable only where finer client attribution is required
+     * (e.g. smoke probe isolation).
+     */
+    private boolean includeAgentNameDimension;
   }
 }

@@ -90,7 +90,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnRef,
+    column_refs_to_schema_field_urns,
+)
 
 VIEW_LANGUAGE_LOOKML: str = "lookml"
 VIEW_LANGUAGE_SQL: str = "sql"
@@ -364,10 +367,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             fine_grained_lineages.append(
                 FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(cll_ref.table, cll_ref.column)
-                        for cll_ref in field.upstream_fields
-                    ],
+                    upstreams=column_refs_to_schema_field_urns(field.upstream_fields),
                     downstreamType=FineGrainedLineageDownstreamType.FIELD,
                     downstreams=[
                         make_schema_field_urn(

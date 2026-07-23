@@ -38,7 +38,6 @@ export class DocumentPage extends BasePage {
   readonly getDeleteButton: () => Locator;
   readonly getDeleteConfirmDialog: () => Locator;
   readonly getParentBreadcrumb: (title: string) => Locator;
-  readonly getMoveSuccessMessage: () => Locator;
   readonly getMoveSearchResultByText: (text: string) => Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
@@ -76,7 +75,6 @@ export class DocumentPage extends BasePage {
     this.getDeleteButton = () => page.getByRole('button', { name: 'Delete' });
     this.getDeleteConfirmDialog = () => page.getByText('Delete Document');
     this.getParentBreadcrumb = (title: string) => page.getByTestId('parent-breadcrumb-link').filter({ hasText: title });
-    this.getMoveSuccessMessage = () => page.getByText(/moved successfully/i);
     this.getMoveSearchResultByText = (text: string) => this.movePopover.getByText(text, { exact: false });
   }
 
@@ -285,7 +283,7 @@ export class DocumentPage extends BasePage {
   }
 
   async expectMoveSuccessMessage(): Promise<void> {
-    await expect(this.getMoveSuccessMessage()).toBeVisible();
+    await this.toast.expectVisible(/moved successfully/i);
   }
 
   async clickActionsMenu(): Promise<void> {

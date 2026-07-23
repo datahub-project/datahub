@@ -35,6 +35,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -283,7 +284,7 @@ public class DashboardUsageStatsUtils {
               "Failed to convert user usage count from ES to int", e);
         }
       }
-      if (!row.get(2).equals(ES_NULL_VALUE) && row.get(5).equals(ES_NULL_VALUE)) {
+      if (!row.get(2).equals(ES_NULL_VALUE) && !row.get(5).equals(ES_NULL_VALUE)) {
         try {
           if (Integer.valueOf(row.get(5)) != 0) {
             userUsageCount.setViewsCount(Integer.valueOf(row.get(2)));
@@ -307,7 +308,10 @@ public class DashboardUsageStatsUtils {
     }
 
     // Sort in descending order
-    userUsageCounts.sort((a, b) -> (b.getUsageCount() - a.getUsageCount()));
+    userUsageCounts.sort(
+        (a, b) ->
+            (Objects.requireNonNullElse(b.getUsageCount(), 0)
+                - Objects.requireNonNullElse(a.getUsageCount(), 0)));
     return userUsageCounts;
   }
 
