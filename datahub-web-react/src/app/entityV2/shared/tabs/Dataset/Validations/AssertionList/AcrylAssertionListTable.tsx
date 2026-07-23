@@ -9,7 +9,7 @@ import {
     AssertionTable,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { DataContract } from '@src/types.generated';
