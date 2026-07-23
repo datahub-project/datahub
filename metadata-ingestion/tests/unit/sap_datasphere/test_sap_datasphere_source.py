@@ -9,6 +9,10 @@ import requests
 import requests_mock as rm
 from pydantic import ValidationError
 
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -20,6 +24,9 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineagePair,
     ResolvedPlatform,
     UpstreamColRef,
+)
+from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+    PlatformMappingResolver,
 )
 from datahub.ingestion.source.sap_datasphere.report import (
     ApiCallStats,
@@ -1908,6 +1915,75 @@ def test_federated_remote_table_still_emits_on_storage_platform(requests_mock):
             f"Federated asset must use the federated connection's "
             f"platform_instance 'snow_acct'; got: {urn}"
         )
+
+
+def test_remote_table_emits_one_to_one_column_lineage_with_case_preserved():
+    """A federated Remote Table mirrors its external source 1:1, so it must emit
+    a table-level COPY edge AND column-level FineGrainedLineage (one edge per
+    field). With a per-platform ``convert_urns_to_lowercase: false`` mapping
+    (BigQuery preserves source case), both the dataset name and the upstream
+    column names keep their case so they stitch to the native connector's URNs."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "connection_to_platform_map": {
+                "BQ": {"platform": "bigquery", "convert_urns_to_lowercase": False},
+            },
+        }
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="rt-cll"), cfg)
+    resolver = PlatformMappingResolver(
+        cfg,
+        connections_by_name={"BQ": {"name": "BQ", "typeId": "BIGQUERY"}},
+        report=source.report,
+    )
+    # \x7f is SAP's remote-entity path delimiter (REMOTE_ENTITY_DELIMITER).
+    definition = {
+        "kind": "entity",
+        "@DataWarehouse.remote.connection": "BQ",
+        "@DataWarehouse.remote.entity": "proj\x7fdataset\x7fMyTable",
+        "elements": {
+            "Id": {"type": "cds.String"},
+            "MixedCol": {"type": "cds.String"},
+        },
+    }
+    schema_fields = source._remote_table_schema("S1", "RT_MYTABLE", definition)
+    assert schema_fields is not None
+    downstream_urn = make_dataset_urn_with_platform_instance(
+        platform="sap-datasphere",
+        name="s1.rt_mytable",
+        platform_instance=None,
+        env="PROD",
+    )
+
+    aspect = source._remote_table_upstream(
+        "S1", "RT_MYTABLE", definition, resolver, schema_fields, downstream_urn
+    )
+    assert aspect is not None
+
+    # Table-level COPY edge to BigQuery, case preserved.
+    upstream_urn = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="proj.dataset.MyTable",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert [u.dataset for u in aspect.upstreams] == [upstream_urn]
+
+    # 1:1 column lineage, upstream column case preserved (BigQuery), one per field.
+    fgl = aspect.fineGrainedLineages or []
+    edges = {(tuple(f.upstreams or []), tuple(f.downstreams or [])) for f in fgl}
+    assert edges == {
+        (
+            (make_schema_field_urn(upstream_urn, "Id"),),
+            (make_schema_field_urn(downstream_urn, "Id"),),
+        ),
+        (
+            (make_schema_field_urn(upstream_urn, "MixedCol"),),
+            (make_schema_field_urn(downstream_urn, "MixedCol"),),
+        ),
+    }
 
 
 _EDMX_WITH_UNKNOWN_TYPE = """<?xml version="1.0" encoding="UTF-8"?>

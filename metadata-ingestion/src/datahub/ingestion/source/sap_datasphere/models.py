@@ -72,6 +72,9 @@ class ResolvedPlatform(BaseModel):
     platform: str
     platform_instance: Optional[str]
     env: str
+    # Per-platform URN lowercasing override for external (federated / flow-target)
+    # URNs; None means fall back to the connector's top-level flag.
+    convert_urns_to_lowercase: Optional[bool] = None
 
 
 class ResolveResult(BaseModel):

@@ -147,14 +147,25 @@ class CsnLineageExtractor:
                     selects.extend(self._iter_selects(arg))
         return selects
 
-    def extract_upstream_refs(self, csn_def: dict) -> List[str]:
+    def extract_upstream_refs(self, csn_def: dict) -> List[UpstreamRef]:
+        """Return the FROM-clause upstream entities of a view/query.
+
+        A dotted ref (e.g. ``SAP_BW.V_X`` or a built-in ``SAP.TIME.*``) is already
+        space-qualified and used as-is; a bare technical name is a same-space
+        sibling that the source layer prefixes with the asset's space. Setting
+        ``qualified`` here (rather than blindly in the source) is what keeps a
+        cross-space FROM ref from being double-prefixed into a phantom URN.
+        """
         query = csn_def.get(CSN_KEY_QUERY)
-        refs: List[str] = []
+        names: List[str] = []
         for select in self._iter_selects(query):
             from_clause = select.get(CSN_FROM)
             if from_clause is not None:
-                self._walk_from(from_clause, refs)
-        return dedup_preserving_order(refs)
+                self._walk_from(from_clause, names)
+        return [
+            UpstreamRef(name=name, qualified=self._is_qualified(name))
+            for name in dedup_preserving_order(names)
+        ]
 
     def _walk_from(self, node: object, out: List[str]) -> None:
         if not isinstance(node, dict):

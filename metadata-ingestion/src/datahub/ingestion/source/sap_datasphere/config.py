@@ -54,6 +54,19 @@ class ConnectionPlatformConfig(BaseModel):
             "`assets_skipped_disabled` in the ingestion report)."
         ),
     )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Per-platform override for URN lowercasing of federated Remote Tables "
+            "and replication-flow endpoints routed here. When None (default), the "
+            "connector's top-level `convert_urns_to_lowercase` applies. Set this to "
+            "match how the sibling native connector cases its URNs so lineage "
+            "stitches: e.g. `false` for BigQuery (whose connector preserves source "
+            "case) so `project.dataset.MyTable` isn't flattened to `mytable`. Only "
+            "affects external URNs on this mapping — managed `sap-datasphere` "
+            "assets always follow the top-level flag."
+        ),
+    )
 
     @field_validator("platform")
     @classmethod

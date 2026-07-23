@@ -17,6 +17,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
     UpstreamColRef,
+    UpstreamRef,
 )
 
 
@@ -39,7 +40,7 @@ def test_lineage_from_simple_select_extracts_one_upstream():
     }
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
-    assert upstreams == ["SAP.TIME.M_TIME_DIMENSION"]
+    assert upstreams == [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True)]
 
 
 def test_lineage_returns_empty_when_no_query():
@@ -75,8 +76,37 @@ def test_lineage_handles_join_with_two_refs():
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
     assert set(upstreams) == {
-        "SAP.TIME.M_TIME_DIMENSION",
-        "SAP.TIME.M_TIME_DIMENSION_TMONTH",
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True),
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION_TMONTH", qualified=True),
+    }
+
+
+def test_cross_space_from_ref_is_qualified_not_space_prefixed():
+    """A dotted FROM ref (``SPACE.OBJECT``) is already space-qualified and must be
+    flagged so the source layer uses it as-is; a bare sibling stays unqualified
+    and gets the asset's space prefixed. Regression: a cross-space ref like
+    ``SAP_BW.V_X`` was being double-prefixed into a phantom ``<space>.sap_bw.v_x``
+    URN, dropping the real lineage edge."""
+    csn_def = {
+        "kind": "entity",
+        "query": {
+            "SELECT": {
+                "from": {
+                    "join": "inner",
+                    "args": [
+                        {"ref": ["SAP_BW.V_VCOPSER03_N045"], "as": "B"},
+                        {"ref": ["LOCAL_DIM"], "as": "L"},
+                    ],
+                    "on": [{"ref": ["B", "K"]}, "=", {"ref": ["L", "K"]}],
+                },
+                "columns": [{"ref": ["B", "C"]}, {"ref": ["L", "D"]}],
+            }
+        },
+    }
+    refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
+    assert set(refs) == {
+        UpstreamRef(name="SAP_BW.V_VCOPSER03_N045", qualified=True),
+        UpstreamRef(name="LOCAL_DIM", qualified=False),
     }
 
 
@@ -105,7 +135,7 @@ def test_walk_from_handles_inline_subquery():
         "query": {"SELECT": {"from": {"SELECT": {"from": {"ref": ["INNER_TABLE"]}}}}},
     }
     refs = extractor.extract_upstream_refs(csn_def)
-    assert refs == ["INNER_TABLE"]
+    assert refs == [UpstreamRef(name="INNER_TABLE", qualified=False)]
 
 
 def test_walk_from_handles_doubly_nested_subquery():
@@ -119,7 +149,7 @@ def test_walk_from_handles_doubly_nested_subquery():
         },
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
-    assert refs == ["DEEP"]
+    assert refs == [UpstreamRef(name="DEEP", qualified=False)]
 
 
 def test_lineage_skips_non_string_ref_element():
@@ -140,8 +170,6 @@ def test_lineage_skips_non_string_ref_element():
     assert upstreams == [], (
         f"Expected non-string ref[0] to be skipped; got: {upstreams}"
     )
-    # Make sure nothing in the result is a dict (sanity check)
-    assert all(isinstance(u, str) for u in upstreams)
 
 
 def test_column_lineage_pair_carries_downstream_and_refs():
@@ -1232,7 +1260,10 @@ def test_union_collects_upstreams_from_all_branches():
         },
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
-    assert set(refs) == {"SALES_EU", "SALES_US"}
+    assert set(refs) == {
+        UpstreamRef(name="SALES_EU", qualified=False),
+        UpstreamRef(name="SALES_US", qualified=False),
+    }
 
 
 def test_union_merges_column_lineage_by_output_name():

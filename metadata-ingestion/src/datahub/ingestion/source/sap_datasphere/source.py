@@ -671,7 +671,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             resolved = resolver.resolve_external(
                 endpoint.connection, endpoint.connection_type
             ).platform
-            name = self._maybe_lower(endpoint.object_name)
+            name = self._maybe_lower_external(resolved, endpoint.object_name)
         if resolved is None:
             self.report.flow_endpoints_unresolved.append(
                 f"{space_name}.{endpoint.object_name} "
@@ -848,12 +848,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         schema_fields = None
         upstreams_aspect: Optional[UpstreamLineageClass] = None
+        downstream_urn = make_dataset_urn_with_platform_instance(
+            platform=local_resolved.platform,
+            name=self._build_dataset_name(space_name, technical_name),
+            platform_instance=local_resolved.platform_instance,
+            env=local_resolved.env,
+        )
         if isinstance(definition, dict):
             schema_fields = self._remote_table_schema(
                 space_name, technical_name, definition
             )
             upstreams_aspect = self._remote_table_upstream(
-                space_name, technical_name, definition, resolver
+                space_name,
+                technical_name,
+                definition,
+                resolver,
+                schema_fields,
+                downstream_urn,
             )
 
         dataset = Dataset(
@@ -899,6 +910,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         technical_name: str,
         definition: Dict,
         resolver: PlatformMappingResolver,
+        schema_fields: Optional[List[SchemaFieldClass]],
+        downstream_urn: str,
     ) -> Optional[UpstreamLineageClass]:
         remote = parse_remote_table_source(definition)
         if remote is None:
@@ -911,7 +924,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         upstream_urn = make_dataset_urn_with_platform_instance(
             platform=resolved.platform,
-            name=self._maybe_lower(remote.qualified_name),
+            name=self._maybe_lower_external(resolved, remote.qualified_name),
             platform_instance=resolved.platform_instance,
             env=resolved.env,
         )
@@ -921,11 +934,60 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.COPY,
                 )
-            ]
+            ],
+            fineGrainedLineages=self._remote_table_fine_grained(
+                resolved, upstream_urn, downstream_urn, schema_fields
+            )
+            or None,
         )
+
+    def _remote_table_fine_grained(
+        self,
+        resolved: ResolvedPlatform,
+        upstream_urn: str,
+        downstream_urn: str,
+        schema_fields: Optional[List[SchemaFieldClass]],
+    ) -> List[FineGrainedLineageClass]:
+        # A Remote Table is a straight federation mirror of the external table, so
+        # every column maps 1:1 by name (no transform). The upstream column takes
+        # the same per-platform casing as the dataset name so it stitches to the
+        # native connector's schema-field URNs (e.g. BigQuery preserves case).
+        if not schema_fields:
+            return []
+        fine_grained: List[FineGrainedLineageClass] = []
+        for field in schema_fields:
+            fine_grained.append(
+                FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(
+                            upstream_urn,
+                            self._maybe_lower_external(resolved, field.fieldPath),
+                        )
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[
+                        make_schema_field_urn(downstream_urn, field.fieldPath)
+                    ],
+                )
+            )
+        return fine_grained
 
     def _maybe_lower(self, name: str) -> str:
         return name.lower() if self.config.convert_urns_to_lowercase else name
+
+    def _maybe_lower_external(
+        self, resolved: Optional[ResolvedPlatform], name: str
+    ) -> str:
+        # External (federated / flow-target) URNs must match the case the sibling
+        # native connector emits, which differs per platform (BigQuery preserves
+        # source case, HANA is lowercase, ...). A per-mapping override wins; None
+        # falls back to the top-level flag.
+        override = resolved.convert_urns_to_lowercase if resolved is not None else None
+        lowercase = (
+            override if override is not None else self.config.convert_urns_to_lowercase
+        )
+        return name.lower() if lowercase else name
 
     def _space_key(self, space_name: str) -> SpaceContainerKey:
         return SpaceContainerKey(
@@ -1343,10 +1405,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstream_refs: List[UpstreamRef] = []
         column_pairs: List[ColumnLineagePair] = []
         try:
-            upstream_refs = [
-                UpstreamRef(name=ref, qualified=False)
-                for ref in self._lineage_extractor.extract_upstream_refs(csn_def)
-            ]
+            upstream_refs = self._lineage_extractor.extract_upstream_refs(csn_def)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract CSN lineage",
