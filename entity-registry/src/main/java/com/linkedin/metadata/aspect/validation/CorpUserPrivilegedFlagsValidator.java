@@ -6,16 +6,21 @@ import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -145,6 +150,28 @@ public class CorpUserPrivilegedFlagsValidator extends AspectPayloadValidator {
       RecordTemplate currentTemplate = current != null ? current : new CorpUserInfo();
       ChangeMCP patched = patchItem.applyPatch(currentTemplate, aspectRetriever);
       return patched.getAspect(CorpUserInfo.class);
+    }
+    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof MCPItem) {
+      // With alternate MCP validation (the quickstart/docker default) a patch arrives as a raw
+      // proposal item, not a PatchMCP; overlay the patch's add/replace values on the current
+      // aspect — sufficient for the top-level flags this check inspects.
+      CorpUserInfo merged =
+          new CorpUserInfo(current != null ? new DataMap(current.data()) : new DataMap());
+      PatchOperationUtils.addAndReplaceValues((MCPItem) item)
+          .forEach(
+              op ->
+                  PatchOperationUtils.nestValueAtObjectPath(op.getFirst(), op.getSecond())
+                      .ifPresent(
+                          nested -> {
+                            try {
+                              RecordUtils.toRecordTemplate(CorpUserInfo.class, nested.toString())
+                                  .data()
+                                  .forEach((k, v) -> merged.data().put(k, v));
+                            } catch (RuntimeException e) {
+                              // unparseable delta — schema validation rejects it at merge time
+                            }
+                          }));
+      return merged;
     }
     return item.getAspect(CorpUserInfo.class);
   }

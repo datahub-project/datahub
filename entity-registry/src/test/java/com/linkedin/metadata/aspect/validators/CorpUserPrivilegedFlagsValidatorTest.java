@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -230,6 +231,31 @@ public class CorpUserPrivilegedFlagsValidatorTest {
         validator
             .validateProposed(
                 operationContext(REGULAR_ACTOR_URN), Set.of(patchItem), mockRetrieverContext, null)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the escalation must still be detected from the patch's
+   * own add/replace values.
+   */
+  @Test
+  public void testPatchSystemEscalationRejectedViaProposedItemShape() {
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String serialized = "{\"patch\":[{\"op\":\"add\",\"path\":\"/system\",\"value\":true}]}";
+
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
             .count();
     assertEquals(violations, 1);
   }
