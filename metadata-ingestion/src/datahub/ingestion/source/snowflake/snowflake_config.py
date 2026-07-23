@@ -111,11 +111,13 @@ class SemanticViewsConfig(ConfigModel):
             "Tri-state control for emitting semantic views as semanticModel entities "
             "(with their metrics as metric entities) instead of legacy datasets "
             'subtyped "Semantic View". '
-            "`None` (default): auto-enable on DataHub Cloud >= 2.1.0 with Metrics "
-            "enabled; OSS, older Cloud, an explicit metricsEnabled kill-switch, and "
-            "connectionless runs (e.g. file sink) stay off. "
-            "`true`: request emission, honored only when the server supports it "
-            "(else warns and falls back to legacy datasets). "
+            "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
+            "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. "
+            "`true`: request emission - on Cloud it is honored unless the server is "
+            "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+            "datasets); on OSS it enables emission (the operator must run a server that "
+            "registers these entities). "
             "`false`: force legacy dataset behavior."
         ),
     )
