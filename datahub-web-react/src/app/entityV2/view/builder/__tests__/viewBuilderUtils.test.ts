@@ -520,7 +520,12 @@ describe('View builder conversion utils', () => {
             // filter is negated" heuristic dropped negation on load whenever the
             // set was mixed, so re-saving lost the per-row negated flags.
             const savedFilters = [
-                { field: 'domains', values: ['urn:li:domain:marketing'], condition: FilterOperator.Equal, negated: true },
+                {
+                    field: 'domains',
+                    values: ['urn:li:domain:marketing'],
+                    condition: FilterOperator.Equal,
+                    negated: true,
+                },
                 { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
             ];
 
