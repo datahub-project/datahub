@@ -142,6 +142,12 @@ class SnowflakeSemanticModelMapper:
             model_urn, semantic_view, schema_name, db_name
         )
 
+        # Emit the model's upstreamLineage (coarse upstreams + fineGrainedLineages)
+        # only when there are resolved table-level upstreams. An FGL-only
+        # upstreamLineage with empty upstreams has no table edge for the UI to
+        # anchor column lineage on and would be accepted-but-invisible, so gating on
+        # resolved_upstream_urns is intentional pending confirmation of FGL-only
+        # rendering - not an oversight.
         if semantic_view.resolved_upstream_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=model_urn,

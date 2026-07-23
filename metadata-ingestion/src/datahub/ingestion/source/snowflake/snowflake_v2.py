@@ -539,6 +539,7 @@ class SnowflakeV2Source(
         self.report.semantic_model_emission_reason = decision.reason
         self.report.semantic_model_emission_is_saas = decision.is_saas
         self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
+        self.report.semantic_model_entity_types_capable = decision.entity_types_capable
 
         logger.info(
             "Resolved semantic_views.emit_semantic_model_entities: effective=%s "
@@ -558,8 +559,7 @@ class SnowflakeV2Source(
                 title="semantic_views.emit_semantic_model_entities forced off",
                 message=(
                     "semantic_views.emit_semantic_model_entities was requested but "
-                    "the connected DataHub server does not support it; falling back "
-                    "to legacy dataset emission."
+                    "could not be enabled; falling back to legacy dataset emission."
                 ),
                 context=decision.reason,
             )

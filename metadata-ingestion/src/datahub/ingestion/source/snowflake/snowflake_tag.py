@@ -149,11 +149,14 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
             EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
         ]
-        if self.config.semantic_views.emit_semantic_model_entities:
-            # Only declared when semantic-model emission is active, so tag-derived
-            # structured properties can be applied to semanticModel (view-level tags)
-            # and metric (metric-column tags) entities. Keeping this behind the flag
-            # preserves the flag-off entityTypes output unchanged.
+        if self.report.semantic_model_entity_types_capable:
+            # Declared whenever the server can accept these entity types (SaaS:
+            # version >= min; OSS: recipe requested emission) - deliberately NOT
+            # gated on the emit decision or metricsEnabled. entityTypes is a
+            # permission list, so declaring types nothing currently uses is
+            # harmless; keying it on capability (stable for a given server) keeps
+            # this shared definition from flapping 5<->3 as recipes or the Metrics
+            # flag change.
             entity_types.append(
                 EntityTypeUrn(f"datahub.{SemanticModelUrn.ENTITY_TYPE}").urn()
             )
