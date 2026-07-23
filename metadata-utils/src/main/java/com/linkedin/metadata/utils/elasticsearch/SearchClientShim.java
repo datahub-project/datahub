@@ -383,8 +383,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
   @Nonnull
   default Optional<TaskResultWithFailures> getTaskWithFailures(
       GetTaskRequest request, RequestOptions options) throws IOException {
-    return getTask(request, options)
-        .map(r -> new TaskResultWithFailures(r, List.of()));
+    return getTask(request, options).map(r -> new TaskResultWithFailures(r, List.of()));
   }
 
   // Metadata and introspection

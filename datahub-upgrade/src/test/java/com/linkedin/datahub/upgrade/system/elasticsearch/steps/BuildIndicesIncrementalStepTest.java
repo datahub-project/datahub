@@ -111,7 +111,8 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
+    PollReindexResult pollResult =
+        new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),
@@ -212,7 +213,8 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), any(), eq(UPGRADE_VERSION)))
         .thenReturn(incrementalResult);
 
-    PollReindexResult timedOut = new PollReindexResult(false, Map.of(), Pair.of(100L, 50L), List.of());
+    PollReindexResult timedOut =
+        new PollReindexResult(false, Map.of(), Pair.of(100L, 50L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString()))
         .thenReturn(timedOut);
@@ -244,7 +246,8 @@ public class BuildIndicesIncrementalStepTest {
     when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
 
-    PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
+    PollReindexResult pollResult =
+        new PollReindexResult(true, Map.of(), Pair.of(100L, 100L), List.of());
     when(indexBuilder.pollReindexCompletion(
             any(OperationContext.class),
             eq(INDEX_NAME),

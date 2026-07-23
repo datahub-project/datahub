@@ -38,7 +38,9 @@ public record TaskResultWithFailures(
     this(taskResponse, failures, totalFailureCount, null);
   }
 
-  /** From {@link TaskFailureParser#parse(String)} so capped details / raw fallback are preserved. */
+  /**
+   * From {@link TaskFailureParser#parse(String)} so capped details / raw fallback are preserved.
+   */
   public TaskResultWithFailures(
       @Nonnull GetTaskResponse taskResponse, @Nullable TaskFailureParseResult parseResult) {
     this(

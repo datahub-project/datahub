@@ -27,8 +27,8 @@ public final class TaskFailureParser {
   /**
    * Parses document failures from raw task JSON. Details are capped at {@value
    * #MAX_FAILURES_TO_PARSE}; {@link TaskFailureParseResult#totalCount()} is the full array length.
-   * On malformed JSON or parse exceptions, returns empty details with truncated {@code
-   * rawFallback} — never throws.
+   * On malformed JSON or parse exceptions, returns empty details with truncated {@code rawFallback}
+   * — never throws.
    */
   @Nonnull
   public static TaskFailureParseResult parse(@Nullable String rawJson) {

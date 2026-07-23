@@ -8,8 +8,8 @@ import javax.annotation.Nullable;
  * Capped failure details plus the full {@code response.failures[]} array length from task JSON.
  * {@link #totalCount()} may exceed {@link #details()} size when parsing was capped.
  *
- * <p>When structured parse fails, {@link #rawFallback()} holds a truncated raw task JSON snippet
- * so on-call still has something to inspect.
+ * <p>When structured parse fails, {@link #rawFallback()} holds a truncated raw task JSON snippet so
+ * on-call still has something to inspect.
  */
 public record TaskFailureParseResult(
     @Nonnull List<TaskFailureDetail> details, int totalCount, @Nullable String rawFallback) {

@@ -213,19 +213,14 @@ public class BuildIndicesStep implements UpgradeStep {
                     .addLine(
                         String.format(
                             "%s failed: Failure index alias %s reason: %s%s",
-                            id(),
-                            key,
-                            value,
-                            formatted.isEmpty() ? "" : " " + formatted));
+                            id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
               } else if (value == ReindexResult.REINDEXED_WITH_FAILURES) {
                 context
                     .report()
                     .addLine(
                         String.format(
                             "%s: index %s reindexed with document failures%s",
-                            id(),
-                            key,
-                            formatted.isEmpty() ? "" : ": " + formatted));
+                            id(), key, formatted.isEmpty() ? "" : ": " + formatted));
                 log.warn("Index {} completed as REINDEXED_WITH_FAILURES (soft-pass)", key);
               }
             });

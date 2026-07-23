@@ -1521,8 +1521,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
         GetTaskResponse.fromXContent(
             XContentType.JSON
                 .xContent()
-                .createParser(
-                    X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
+                .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
     return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
   }
 

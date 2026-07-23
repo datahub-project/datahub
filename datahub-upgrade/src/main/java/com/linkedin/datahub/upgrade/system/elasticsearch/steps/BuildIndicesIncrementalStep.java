@@ -16,8 +16,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
-import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -295,9 +295,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                 .addLine(
                     String.format(
                         "%s failed: Incremental reindex timed out for index: %s%s",
-                        id(),
-                        config.name(),
-                        formatted.isEmpty() ? "" : " " + formatted));
+                        id(), config.name(), formatted.isEmpty() ? "" : " " + formatted));
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
           if (!pollResult.failures().isEmpty()) {
@@ -428,7 +426,6 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     }
     return new HashMap<>();
   }
-
 
   private ESIndexBuilder findIndexBuilder(String indexName) {
     for (ElasticSearchIndexed service : indexedServices) {

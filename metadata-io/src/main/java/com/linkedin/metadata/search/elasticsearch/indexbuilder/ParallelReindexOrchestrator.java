@@ -56,9 +56,9 @@ public class ParallelReindexOrchestrator {
   private final Set<String> failedCleanupIndices = Collections.synchronizedSet(new HashSet<>());
 
   /**
-   * Document-level failures (from {@code response.failures[]} of the completed reindex task),
-   * keyed by index alias. Populated on failure paths in {@link #finalizeReindex} when a reindex completes but ES
-   * reports per-document failures (e.g. mapping conflicts), so the caller can surface which
+   * Document-level failures (from {@code response.failures[]} of the completed reindex task), keyed
+   * by index alias. Populated on failure paths in {@link #finalizeReindex} when a reindex completes
+   * but ES reports per-document failures (e.g. mapping conflicts), so the caller can surface which
    * indices need attention even though the overall reindex succeeded.
    */
   private final ConcurrentHashMap<String, TaskFailureParseResult> documentFailuresByIndex =
@@ -693,9 +693,7 @@ public class ParallelReindexOrchestrator {
       Optional<TaskResultWithFailures> taskResult =
           indexBuilder.getTaskStatusWithFailures(opContext, taskInfo.getTaskId());
       TaskFailureParseResult failureParse =
-          taskResult
-              .map(TaskResultWithFailures::failureParse)
-              .orElse(TaskFailureParseResult.EMPTY);
+          taskResult.map(TaskResultWithFailures::failureParse).orElse(TaskFailureParseResult.EMPTY);
       if (failureParse.isEmpty()) {
         return;
       }

@@ -8,12 +8,13 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.metadata.utils.elasticsearch.TaskFailureDetail;
 import java.util.List;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.tasks.TaskInfo;
 import org.testng.annotations.Test;
 
 /**
- * Tests for {@link ESIndexBuilder#describeReindexTaskStatus} log-formatting helpers used to
- * surface reindex task progress and document failures in operator-facing logs.
+ * Tests for {@link ESIndexBuilder#describeReindexTaskStatus} log-formatting helpers used to surface
+ * reindex task progress and document failures in operator-facing logs.
  */
 public class ESIndexBuilderStatusFormatTest {
 
@@ -69,8 +70,12 @@ public class ESIndexBuilderStatusFormatTest {
 
     assertTrue(description.startsWith(ESIndexBuilder.describeReindexTaskStatus(response)));
     assertTrue(description.contains("documentFailures=2"));
-    assertTrue(description.contains("FAILED doc=doc1 index=dest cause=mapper_parsing_exception: bad field"));
-    assertTrue(description.contains("FAILED doc=doc2 index=dest cause=mapper_parsing_exception: bad field"));
+    assertTrue(
+        description.contains(
+            "FAILED doc=doc1 index=dest cause=mapper_parsing_exception: bad field"));
+    assertTrue(
+        description.contains(
+            "FAILED doc=doc2 index=dest cause=mapper_parsing_exception: bad field"));
   }
 
   @Test
@@ -126,21 +131,6 @@ public class ESIndexBuilderStatusFormatTest {
     assertTrue(description.contains("doc=doc1"));
   }
 
-import static org.testng.Assert.assertTrue;
-
-import org.opensearch.client.tasks.GetTaskResponse;
-import org.opensearch.index.reindex.BulkByScrollTask;
-import org.opensearch.tasks.TaskInfo;
-import org.testng.annotations.Test;
-
-public class ESIndexBuilderStatusFormatTest {
-
-  /**
-   * The reindex-task counters (especially {@code versionConflicts} and {@code created} vs {@code
-   * total}) are what make a dropped-document shortfall diagnosable, so verify each counter is
-   * rendered under the right label. Distinct values per counter mean a getter mix-up (e.g. swapping
-   * {@code created}/{@code updated}) fails the assertion.
-   */
   @Test
   public void testDescribeReindexTaskStatus_rendersBulkByScrollCountersUnderCorrectLabels() {
     BulkByScrollTask.Status status = mock(BulkByScrollTask.Status.class);

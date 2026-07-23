@@ -35,7 +35,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
-import org.apache.http.util.EntityUtils;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -56,6 +55,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.apache.http.util.EntityUtils;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -96,12 +96,10 @@ import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.GetAliasesResponse;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.client.ResponseException;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 import org.opensearch.client.RestHighLevelClient;
@@ -121,6 +119,8 @@ import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -618,8 +618,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
           GetTaskResponse.fromXContent(
               XContentType.JSON
                   .xContent()
-                  .createParser(
-                      X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
+                  .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
       return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
     } catch (ResponseException e) {
       if (e.getResponse().getStatusLine().getStatusCode() == 404) {

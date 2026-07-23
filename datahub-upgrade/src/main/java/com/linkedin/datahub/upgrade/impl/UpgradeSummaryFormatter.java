@@ -62,7 +62,11 @@ final class UpgradeSummaryFormatter {
         }
         sb.append('\n');
         if (start == end) {
-          sb.append("  Step ").append(start).append('/').append(step.total).append(": NOT EXECUTED");
+          sb.append("  Step ")
+              .append(start)
+              .append('/')
+              .append(step.total)
+              .append(": NOT EXECUTED");
         } else {
           sb.append("  Steps ").append(start).append('-').append(end).append(": NOT EXECUTED");
         }

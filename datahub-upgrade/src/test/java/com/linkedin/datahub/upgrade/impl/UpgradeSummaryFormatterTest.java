@@ -90,17 +90,17 @@ public class UpgradeSummaryFormatterTest {
         UpgradeSummaryFormatter.format("SystemUpdate", DataHubUpgradeState.SUCCEEDED, steps, 50L);
 
     assertTrue(summary.contains("Step 1/1: BuildIndicesStep - SUCCEEDED"));
-    assertTrue(summary.contains("    Note: index foo reindexed with document failures: documentFailures=2"));
+    assertTrue(
+        summary.contains(
+            "    Note: index foo reindexed with document failures: documentFailures=2"));
   }
 
   @Test
   public void testFindCauseForStepSoftDocumentFailures() {
     List<String> lines =
-        List.of(
-            "BuildIndicesStep: index foo reindexed with document failures: documentFailures=1");
+        List.of("BuildIndicesStep: index foo reindexed with document failures: documentFailures=1");
 
     String cause = UpgradeSummaryFormatter.findCauseForStep("BuildIndicesStep", lines);
     assertEquals(cause, "index foo reindexed with document failures: documentFailures=1");
   }
-
 }

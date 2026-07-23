@@ -74,8 +74,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
                 String.format("Skipping Step %s/%s: %s...", i + 1, steps.size(), step.id()),
                 upgrade.id()));
         stepLines.add(
-            new UpgradeSummaryFormatter.StepLine(
-                stepIndex, total, step.id(), "SKIPPED", 0, null));
+            new UpgradeSummaryFormatter.StepLine(stepIndex, total, step.id(), "SKIPPED", 0, null));
         continue;
       }
 
@@ -108,8 +107,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
       // Handle Results
       if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
-        String cause =
-            UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines());
+        String cause = UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines());
         if (step.isOptional()) {
           upgradeReport.addLine(
               String.format(
@@ -170,8 +168,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
       List<UpgradeSummaryFormatter.StepLine> stepLines,
       long startMs) {
     long durationMs = System.currentTimeMillis() - startMs;
-    String summary =
-        UpgradeSummaryFormatter.format(upgrade.id(), overall, stepLines, durationMs);
+    String summary = UpgradeSummaryFormatter.format(upgrade.id(), overall, stepLines, durationMs);
     if (UpgradeSummaryFormatter.isFailureOrAbort(overall)) {
       log.error(summary);
     } else {

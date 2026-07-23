@@ -1081,8 +1081,9 @@ public class ESIndexBuilder {
 
     log.warn("Reindex {} -> {} timed out or exhausted retries", sourceIndex, destIndex);
     // One best-effort _tasks failure fetch only on failure/timeout — not on happy-path complete.
+    // Use activeTaskId so a stall re-submit still looks up the live task.
     TaskFailureParseResult timeoutFailures =
-        fetchTaskFailuresBestEffort(opContext, taskId, sourceIndex, destIndex);
+        fetchTaskFailuresBestEffort(opContext, activeTaskId, sourceIndex, destIndex);
     failures = timeoutFailures.details();
     totalFailureCount = timeoutFailures.totalCount();
     return new PollReindexResult(
@@ -1107,10 +1108,7 @@ public class ESIndexBuilder {
       TaskFailureParseResult parseResult =
           taskResult.map(TaskResultWithFailures::failureParse).orElse(TaskFailureParseResult.EMPTY);
       if (!parseResult.isEmpty()) {
-        String status =
-            taskResult
-                .map(r -> describeReindexTaskStatus(r.taskResponse()))
-                .orElse("");
+        String status = taskResult.map(r -> describeReindexTaskStatus(r.taskResponse())).orElse("");
         String failurePart = TaskFailureParser.formatForLog(parseResult, 5);
         log.error(
             "Reindex task {} ({} -> {}) reported document failures: {}{}",
@@ -1130,15 +1128,6 @@ public class ESIndexBuilder {
           e.toString());
       return TaskFailureParseResult.EMPTY;
     }
-    log.error(
-        "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
-        sourceIndex,
-        destIndex,
-        documentCounts.getSecond(),
-        documentCounts.getFirst(),
-        activeTaskId,
-        describeReindexTaskStatus(tryGetReindexTaskStatus(opContext, activeTaskId)));
-    return new PollReindexResult(false, latestReindexInfo, documentCounts);
   }
 
   /**
@@ -1180,11 +1169,11 @@ public class ESIndexBuilder {
    */
   // Package-private for direct unit testing of the counter formatting.
   static String describeReindexTaskStatus(@Nonnull final GetTaskResponse response) {
-    final Task.Status status =
-        response.getTaskInfo() != null ? response.getTaskInfo().getStatus() : null;
-    if (status == null) {
-      return String.format("completed=%s, status=<unavailable>", response.isCompleted());
+    final TaskInfo info = response.getTaskInfo();
+    if (info == null) {
+      return String.format("completed=%s", response.isCompleted());
     }
+    final Task.Status status = info.getStatus();
     if (status instanceof BulkByScrollTask.Status) {
       final BulkByScrollTask.Status s = (BulkByScrollTask.Status) status;
       return String.format(
@@ -1200,8 +1189,14 @@ public class ESIndexBuilder {
           s.getBulkRetries(),
           s.getSearchRetries());
     }
-    // Fallback for any non-reindex status type: Task.Status renders its counters via toString().
-    return String.format("completed=%s, status=%s", response.isCompleted(), status);
+    // Task info present but no BulkByScroll counters — surface action/description for operators.
+    return String.format(
+        "completed=%s action=%s description=%s runningTimeNanos=%d cancelled=%s",
+        response.isCompleted(),
+        info.getAction(),
+        info.getDescription(),
+        info.getRunningTimeNanos(),
+        info.isCancelled());
   }
 
   // --- Shared helper methods used by both legacy reindex() and incremental path ---
@@ -2111,26 +2106,8 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Formats a {@link GetTaskResponse} for diagnostic logging (no document failures).
-   */
-  @VisibleForTesting
-  static String describeReindexTaskStatus(@Nonnull GetTaskResponse response) {
-    TaskInfo info = response.getTaskInfo();
-    if (info == null) {
-      return String.format("completed=%s", response.isCompleted());
-    }
-    return String.format(
-        "completed=%s action=%s description=%s runningTimeNanos=%d cancelled=%s",
-        response.isCompleted(),
-        info.getAction(),
-        info.getDescription(),
-        info.getRunningTimeNanos(),
-        info.isCancelled());
-  }
-
-  /**
-   * Formats a {@link GetTaskResponse} plus parsed document failures for diagnostic logging.
-   * Limits detail to the first 5 failures to keep log lines bounded.
+   * Formats a {@link GetTaskResponse} plus parsed document failures for diagnostic logging. Limits
+   * detail to the first 5 failures to keep log lines bounded.
    */
   @VisibleForTesting
   static String describeReindexTaskStatus(

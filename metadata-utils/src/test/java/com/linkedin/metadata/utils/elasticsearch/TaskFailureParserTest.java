@@ -144,8 +144,7 @@ public class TaskFailureParserTest {
   @Test
   public void testFormatForLogParseResultUsesTotalCount() {
     TaskFailureParseResult parsed =
-        new TaskFailureParseResult(
-            List.of(new TaskFailureDetail("i", "d0", "t", "r", 0)), 12);
+        new TaskFailureParseResult(List.of(new TaskFailureDetail("i", "d0", "t", "r", 0)), 12);
     String formatted = TaskFailureParser.formatForLog(parsed, 5);
     assertTrue(formatted.contains("documentFailures=12"));
     assertTrue(formatted.contains("doc=d0"));
