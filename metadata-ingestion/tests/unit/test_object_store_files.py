@@ -1,7 +1,9 @@
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 
+from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.common.object_store_files import (
     FileSizeExceededError,
     expand_local_glob,
@@ -255,6 +257,65 @@ def test_read_file_as_bytes_http_over_cap_without_content_length():
         mock_get.return_value = _mock_http_response([b"x" * 6, b"x" * 6])
         with pytest.raises(ValueError, match="over the configured max_bytes"):
             read_file_as_bytes("https://example.com/big.json", max_bytes=10)
+
+
+def test_read_file_as_bytes_http_bearer_token():
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([b"ok"])
+        read_file_as_bytes(
+            "https://example.com/contract.yaml",
+            http_connection=HTTPConnectionConfig(token="secret-token"),
+        )
+        kwargs = mock_get.call_args.kwargs
+        assert kwargs["headers"] == {"Authorization": "Bearer secret-token"}
+        assert kwargs["verify"] is True
+        assert "auth" not in kwargs
+
+
+def test_read_file_as_bytes_http_basic_auth_and_verify_off():
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([b"ok"])
+        read_file_as_bytes(
+            "https://example.com/contract.yaml",
+            http_connection=HTTPConnectionConfig(
+                username="user", password="pass", verify_ssl=False
+            ),
+        )
+        kwargs = mock_get.call_args.kwargs
+        assert kwargs["auth"] == ("user", "pass")
+        assert kwargs["verify"] is False
+        assert "headers" not in kwargs
+
+
+def test_http_connection_config_rejects_bearer_and_basic_together():
+    with pytest.raises(ValidationError):
+        HTTPConnectionConfig(token="t", username="u", password="p")
+
+
+def test_http_connection_config_requires_both_basic_parts():
+    with pytest.raises(ValidationError):
+        HTTPConnectionConfig(username="u")
+
+
+def test_http_connection_config_blank_strings_are_unset():
+    # Blank credentials must not send a "Bearer " header or an empty basic-auth
+    # tuple — they collapse to None (no auth).
+    cfg = HTTPConnectionConfig(token="", username="  ", password="")
+    assert cfg.token is None
+    assert cfg.username is None
+    assert cfg.password is None
+    with mock.patch(
+        "datahub.ingestion.source.common.object_store_files.requests.get"
+    ) as mock_get:
+        mock_get.return_value = _mock_http_response([b"ok"])
+        read_file_as_bytes("https://example.com/contract.yaml", http_connection=cfg)
+        kwargs = mock_get.call_args.kwargs
+        assert "auth" not in kwargs
+        assert "headers" not in kwargs
 
 
 def test_read_file_as_bytes_s3():

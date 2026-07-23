@@ -635,14 +635,14 @@ class RedashSource(StatefulIngestionSourceBase):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(title=report_type, message=message)
+                self.report.warning(title=report_type, message=message, log=False)
                 logger.warning(message)
 
         return chart_type
@@ -680,9 +680,10 @@ class RedashSource(StatefulIngestionSourceBase):
         if datasource_urns is None:
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
-            self.report.report_warning(
+            self.report.warning(
                 title="redash-chart-input-missing",
                 message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+                log=False,
             )
 
         chart_info = ChartInfoClass(

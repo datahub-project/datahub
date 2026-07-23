@@ -22,6 +22,9 @@ description: "Release notes and breaking change history for upgrading DataHub be
 
 ### Deprecations
 
+- **(Ingestion SDK)** `SourceReport.report_warning()` is deprecated in favor of `warning()`. Existing callers should migrate. The method will be removed in a future release.
+- **(Ingestion SDK)** `SourceReport.report_failure()` is deprecated in favor of `failure()`. Same timeline.
+
 ### Other Notable Changes
 
 - #13726: Removed dgraph from tests

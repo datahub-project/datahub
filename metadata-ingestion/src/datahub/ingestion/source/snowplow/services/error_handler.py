@@ -54,7 +54,7 @@ class ErrorHandler:
         if context:
             error_context += f" ({context})"
 
-        self.report.report_failure(
+        self.report.failure(
             title=f"API Error: {operation}",
             message=f"Failed to {operation}: {str(error)}",
             context=error_context,
@@ -87,7 +87,7 @@ class ErrorHandler:
         if field:
             error_context += f", field: {field}"
 
-        self.report.report_failure(
+        self.report.failure(
             title=f"Validation Error: {entity_type}",
             message=f"Validation failed for {entity_type} '{entity_id}': {str(error)}",
             context=error_context,
@@ -119,7 +119,7 @@ class ErrorHandler:
         """
         error_context = f"{operation} for {entity_type}: {entity_id}"
 
-        self.report.report_failure(
+        self.report.failure(
             title=f"Processing Error: {operation}",
             message=f"Failed to {operation} for {entity_type} '{entity_id}': {str(error)}",
             context=error_context,
@@ -152,7 +152,7 @@ class ErrorHandler:
         if suggestion:
             message += f". {suggestion}"
 
-        self.report.report_failure(
+        self.report.failure(
             title=f"Missing Dependency: {dependency}",
             message=message,
             context=f"operation={operation}",

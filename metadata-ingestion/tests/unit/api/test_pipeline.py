@@ -841,7 +841,7 @@ class FakeSource(Source):
 class FakeSourceWithWarnings(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_warning("test_warning", "warning_text")
+        self.source_report.warning("test_warning", "warning_text", log=False)
 
     def get_report(self) -> SourceReport:
         return self.source_report
@@ -851,7 +851,7 @@ class FakeSourceWithWarnings(FakeSource):
 class FakeSourceWithFailures(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_failure("test_failure", "failure_text")
+        self.source_report.failure("test_failure", "failure_text")
 
     def get_report(self) -> SourceReport:
         return self.source_report

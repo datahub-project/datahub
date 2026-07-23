@@ -697,9 +697,10 @@ class CSVEnricherSource(Source):
             and ownership_type != OwnershipTypeClass.CUSTOM
         ):
             resource_urn = row["resource"]
-            self.report.report_warning(
+            self.report.warning(
                 f"{resource_urn}-invalid-ownership-type",
                 "Ownership type URN is set but ownership type is not CUSTOM. Setting ownership_type to CUSTOM.",
+                log=False,
             )
             ownership_type = OwnershipTypeClass.CUSTOM
 

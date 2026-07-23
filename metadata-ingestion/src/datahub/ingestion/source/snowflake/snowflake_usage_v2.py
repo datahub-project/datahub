@@ -588,9 +588,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             )
         ):
             # Skip this run
-            self.report.report_warning(
+            self.report.warning(
                 "usage-extraction",
                 "Skip this run as there was already a run for current ingestion window.",
+                log=False,
             )
             return False
 

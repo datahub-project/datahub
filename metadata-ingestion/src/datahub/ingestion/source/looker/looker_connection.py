@@ -47,9 +47,10 @@ def get_connection_def_based_on_connection_string(
                 # Populate the cache (using the config map) to avoid calling looker again for this connection
                 source_config.connection_to_platform_map[connection] = connection_def
             except ConfigurationError:
-                reporter.report_warning(
+                reporter.warning(
                     f"connection-{connection}",
                     "Failed to load connection from Looker",
+                    log=False,
                 )
 
     return connection_def
