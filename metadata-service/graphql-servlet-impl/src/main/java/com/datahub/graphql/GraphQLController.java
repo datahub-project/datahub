@@ -341,14 +341,18 @@ public class GraphQLController {
                  * Execute GraphQL Query
                  */
                 ExecutionResult executionResult =
-                    _engine.execute(query, operationName, variables, context);
+                    usageSessionContext.withSpan(
+                        "graphql.execute",
+                        () -> _engine.execute(query, operationName, variables, context),
+                        "graphql.operation",
+                        queryName == null ? "unknown" : queryName);
 
                 executionSucceeded.set(executionResult.getErrors().isEmpty());
 
                 if (!executionSucceeded.get()) {
                   // There were GraphQL errors. Report in error logs.
                   log.error(
-                      "Errors while executing query: {}, result: {}, errors: {}",
+                      "Errors while execu" + "" + "ting query: {}, result: {}, errors: {}",
                       StringUtils.abbreviate(query, MAX_LOG_WIDTH),
                       executionResult.toSpecification(),
                       executionResult.getErrors());
