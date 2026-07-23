@@ -254,6 +254,19 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types above. Supported compression formats are `.gz`, `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is emitted and only the first is processed.
+- The inner file's extension determines how the content is parsed (for example `data.csv.zip` or a zip containing `data.csv` is treated as CSV).
+- Only the bytes needed (the central directory and the selected entry) are downloaded from S3 via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to treat compressed files as opaque and skip this handling.
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:

@@ -213,6 +213,28 @@ def test_gcs_path_spec_pattern_matching():
     assert pathlib.PurePath(normalized_uri).match(glob_pattern)
 
 
+def test_gcs_propagates_compression_path_spec_fields():
+    """GCS→S3 path-spec translation must carry compression settings, including the
+    zip-bomb guard, so a .zip recipe behaves the same on GCS as on S3."""
+    ctx = PipelineContext(run_id="test-gcs")
+    source = {
+        "path_specs": [
+            {
+                "include": "gs://test-bucket/data/{table}/*.csv.zip",
+                "enable_compression": True,
+                "max_zip_entry_size": 1234,
+            }
+        ],
+        "credential": {"hmac_access_id": "id", "hmac_access_secret": "secret"},
+    }
+
+    gcs_source = GCSSource.create(source, ctx)
+    s3_path_spec = gcs_source.s3_source.source_config.path_specs[0]
+
+    assert s3_path_spec.enable_compression is True
+    assert s3_path_spec.max_zip_entry_size == 1234
+
+
 def test_gcs_source_preserves_gs_uris():
     """Test that GCS source preserves gs:// URIs in the final output."""
     graph = mock.MagicMock(spec=DataHubGraph)
