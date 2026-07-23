@@ -1,6 +1,7 @@
 from typing import List
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
@@ -23,7 +24,7 @@ def test_column_lineage_pair_sentinel_with_no_upstream_refs_is_valid():
     """A sentinel downstream_col with empty upstream_refs satisfies the invariant."""
     pair = ColumnLineagePair(downstream_col=MALFORMED_COL_SENTINEL)
     assert pair.downstream_col == MALFORMED_COL_SENTINEL
-    assert pair.upstream_refs == ()
+    assert pair.upstream_refs == []
 
 
 def test_lineage_from_simple_select_extracts_one_upstream():
@@ -143,15 +144,15 @@ def test_lineage_skips_non_string_ref_element():
     assert all(isinstance(u, str) for u in upstreams)
 
 
-def test_column_lineage_pair_is_frozen_dataclass():
+def test_column_lineage_pair_carries_downstream_and_refs():
     """ColumnLineagePair carries the downstream column name + its upstream refs."""
     pair = ColumnLineagePair(
         downstream_col="total",
-        upstream_refs=(UpstreamColRef("BASE_TABLE", "AMOUNT"),),
+        upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="AMOUNT")],
         transform_op="AGGREGATE",
     )
     assert pair.downstream_col == "total"
-    assert pair.upstream_refs == (UpstreamColRef("BASE_TABLE", "AMOUNT"),)
+    assert pair.upstream_refs == [UpstreamColRef(qname="BASE_TABLE", col="AMOUNT")]
     assert pair.transform_op == "AGGREGATE"
 
 
@@ -209,7 +210,7 @@ def test_walk_expr_collects_unqualified_ref_via_single_source():
     out: List[UpstreamColRef] = []
     unresolved: List[str] = []
     extractor._walk_expr({"ref": ["AMOUNT"]}, alias_map, out, unresolved)
-    assert out == [("BASE", "AMOUNT")]
+    assert out == [UpstreamColRef(qname="BASE", col="AMOUNT")]
 
 
 def test_walk_expr_collects_qualified_ref_via_alias():
@@ -218,7 +219,7 @@ def test_walk_expr_collects_qualified_ref_via_alias():
     out: List[UpstreamColRef] = []
     unresolved: List[str] = []
     extractor._walk_expr({"ref": ["u", "ID"]}, alias_map, out, unresolved)
-    assert out == [("USERS", "ID")]
+    assert out == [UpstreamColRef(qname="USERS", col="ID")]
 
 
 def test_walk_expr_unqualified_ref_in_multi_source_skipped():
@@ -243,7 +244,7 @@ def test_walk_expr_collects_func_args_refs():
         out,
         unresolved,
     )
-    assert out == [("BASE", "AMOUNT")]
+    assert out == [UpstreamColRef(qname="BASE", col="AMOUNT")]
 
 
 def test_walk_expr_collects_xpr_multi_ref():
@@ -258,7 +259,10 @@ def test_walk_expr_collects_xpr_multi_ref():
         out,
         unresolved,
     )
-    assert out == [("BASE", "A"), ("BASE", "B")]
+    assert out == [
+        UpstreamColRef(qname="BASE", col="A"),
+        UpstreamColRef(qname="BASE", col="B"),
+    ]
 
 
 def test_walk_expr_ignores_literals():
@@ -289,7 +293,10 @@ def test_walk_expr_handles_nested_case():
         out,
         unresolved,
     )
-    assert out == [("BASE", "X"), ("BASE", "Y")]
+    assert out == [
+        UpstreamColRef(qname="BASE", col="X"),
+        UpstreamColRef(qname="BASE", col="Y"),
+    ]
 
 
 def test_walk_expr_scalar_subquery_resolves_against_inner_from():
@@ -310,7 +317,7 @@ def test_walk_expr_scalar_subquery_resolves_against_inner_from():
     }
     extractor._walk_expr(scalar_subquery, outer_alias_map, out, unresolved)
     # Ref resolves to SALES.amount (inner FROM), NOT to OUTER_BASE.amount
-    assert out == [("SALES", "amount")]
+    assert out == [UpstreamColRef(qname="SALES", col="amount")]
     assert unresolved == []
 
 
@@ -337,7 +344,10 @@ def test_walk_expr_scalar_subquery_with_join_in_inner_from():
         }
     }
     extractor._walk_expr(subq, outer_alias_map, out, unresolved)
-    assert out == [("USERS", "id"), ("ORDERS", "amount")]
+    assert out == [
+        UpstreamColRef(qname="USERS", col="id"),
+        UpstreamColRef(qname="ORDERS", col="amount"),
+    ]
 
 
 def test_walk_expr_subquery_without_from_records_unresolved_for_correlated_refs():
@@ -403,7 +413,7 @@ def test_extract_column_lineage_aliased_scalar_subquery():
     assert len(pairs) == 1
     pair = pairs[0]
     assert pair.downstream_col == "peak"
-    assert pair.upstream_refs == (UpstreamColRef(qname="SALES", col="amount"),)
+    assert pair.upstream_refs == [UpstreamColRef(qname="SALES", col="amount")]
 
 
 def test_resolve_output_name_uses_as_alias_when_present():
@@ -467,10 +477,20 @@ def test_extract_column_lineage_simple_select_all_columns_passthrough():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
-        ColumnLineagePair("ID", (UpstreamColRef("BASE_TABLE", "ID"),), "IDENTITY"),
-        ColumnLineagePair("NAME", (UpstreamColRef("BASE_TABLE", "NAME"),), "IDENTITY"),
         ColumnLineagePair(
-            "AMOUNT", (UpstreamColRef("BASE_TABLE", "AMOUNT"),), "IDENTITY"
+            downstream_col="ID",
+            upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="ID")],
+            transform_op="IDENTITY",
+        ),
+        ColumnLineagePair(
+            downstream_col="NAME",
+            upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="NAME")],
+            transform_op="IDENTITY",
+        ),
+        ColumnLineagePair(
+            downstream_col="AMOUNT",
+            upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="AMOUNT")],
+            transform_op="IDENTITY",
         ),
     ]
 
@@ -491,7 +511,9 @@ def test_extract_column_lineage_aggregate_with_alias():
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
         ColumnLineagePair(
-            "total", (UpstreamColRef("BASE_TABLE", "AMOUNT"),), "AGGREGATE"
+            downstream_col="total",
+            upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="AMOUNT")],
+            transform_op="AGGREGATE",
         ),
     ]
 
@@ -517,8 +539,16 @@ def test_extract_column_lineage_join_with_qualified_refs():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
-        ColumnLineagePair("ID", (UpstreamColRef("USERS", "ID"),), "IDENTITY"),
-        ColumnLineagePair("AMOUNT", (UpstreamColRef("ORDERS", "AMOUNT"),), "IDENTITY"),
+        ColumnLineagePair(
+            downstream_col="ID",
+            upstream_refs=[UpstreamColRef(qname="USERS", col="ID")],
+            transform_op="IDENTITY",
+        ),
+        ColumnLineagePair(
+            downstream_col="AMOUNT",
+            upstream_refs=[UpstreamColRef(qname="ORDERS", col="AMOUNT")],
+            transform_op="IDENTITY",
+        ),
     ]
 
 
@@ -537,9 +567,12 @@ def test_extract_column_lineage_xpr_multi_upstream():
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
         ColumnLineagePair(
-            "total",
-            (UpstreamColRef("BASE", "A"), UpstreamColRef("BASE", "B")),
-            "EXPRESSION",
+            downstream_col="total",
+            upstream_refs=[
+                UpstreamColRef(qname="BASE", col="A"),
+                UpstreamColRef(qname="BASE", col="B"),
+            ],
+            transform_op="EXPRESSION",
         ),
     ]
 
@@ -560,7 +593,9 @@ def test_extract_column_lineage_literal_column_skipped():
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
         ColumnLineagePair(
-            "REAL_COL", (UpstreamColRef("BASE", "REAL_COL"),), "IDENTITY"
+            downstream_col="REAL_COL",
+            upstream_refs=[UpstreamColRef(qname="BASE", col="REAL_COL")],
+            transform_op="IDENTITY",
         ),
     ]
 
@@ -683,7 +718,7 @@ def test_extract_column_lineage_records_walker_unresolved_per_pair():
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert len(pairs) == 1
     assert pairs[0].downstream_col == "combo"
-    assert pairs[0].upstream_refs == (UpstreamColRef("USERS", "ID"),)
+    assert pairs[0].upstream_refs == [UpstreamColRef(qname="USERS", col="ID")]
     assert len(pairs[0].unresolved_refs) == 1
     assert "x" in pairs[0].unresolved_refs[0]
 
@@ -702,7 +737,11 @@ def test_extract_column_lineage_deduplicates_repeated_upstreams():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
-        ColumnLineagePair("doubled", (UpstreamColRef("BASE", "A"),), "EXPRESSION"),
+        ColumnLineagePair(
+            downstream_col="doubled",
+            upstream_refs=[UpstreamColRef(qname="BASE", col="A")],
+            transform_op="EXPRESSION",
+        ),
     ]
 
 
@@ -722,31 +761,31 @@ def test_extract_column_lineage_skips_columns_with_no_resolvable_refs():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert pairs == [
-        ColumnLineagePair("*", (UpstreamColRef("BASE", "*"),), "IDENTITY"),
+        ColumnLineagePair(
+            downstream_col="*",
+            upstream_refs=[UpstreamColRef(qname="BASE", col="*")],
+            transform_op="IDENTITY",
+        ),
     ]
 
 
-def test_upstream_col_ref_is_a_named_tuple_that_unpacks_like_a_tuple():
-    """UpstreamColRef must remain tuple-compatible so existing call sites
-    that unpack ``for qname, col in pair.upstream_refs:`` continue to work."""
+def test_upstream_col_ref_exposes_named_fields():
+    """UpstreamColRef is a Pydantic model addressed by name (qname/col), not by
+    tuple position."""
     ref = UpstreamColRef(qname="BASE", col="AMOUNT")
-    qname, col = ref
-    assert qname == "BASE"
-    assert col == "AMOUNT"
-    # Equality with a plain tuple still holds.
-    assert ref == ("BASE", "AMOUNT")
+    assert ref.qname == "BASE"
+    assert ref.col == "AMOUNT"
+    assert ref == UpstreamColRef(qname="BASE", col="AMOUNT")
 
 
-def test_walk_expr_now_emits_upstream_col_ref_instances():
-    """``_walk_expr`` records ``UpstreamColRef`` instances; values are
-    tuple-equal to the prior 2-tuple shape for back-compat."""
+def test_walk_expr_emits_upstream_col_ref_instances():
+    """``_walk_expr`` records ``UpstreamColRef`` instances addressed by name."""
     extractor = CsnLineageExtractor()
     alias_map = {"u": "USERS"}
     out: List[UpstreamColRef] = []
     unresolved: List[str] = []
     extractor._walk_expr({"ref": ["u", "ID"]}, alias_map, out, unresolved)
-    assert out == [("USERS", "ID")]
-    assert isinstance(out[0], UpstreamColRef)
+    assert out == [UpstreamColRef(qname="USERS", col="ID")]
     assert out[0].qname == "USERS"
     assert out[0].col == "ID"
 
@@ -756,72 +795,72 @@ def test_column_lineage_context_bundles_pairs_with_downstream_urn():
     needed by ``_build_upstream_lineage`` so they can't be passed inconsistently."""
     pair = ColumnLineagePair(
         downstream_col="total",
-        upstream_refs=(UpstreamColRef("BASE", "AMOUNT"),),
+        upstream_refs=[UpstreamColRef(qname="BASE", col="AMOUNT")],
         transform_op="AGGREGATE",
     )
     ctx = ColumnLineageContext(
-        pairs=(pair,),
+        pairs=[pair],
         downstream_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:hana,S1.MID,PROD)",
     )
-    assert ctx.pairs == (pair,)
+    assert ctx.pairs == [pair]
     assert ctx.downstream_dataset_urn.startswith("urn:li:dataset:")
 
 
 def test_safe_select_returns_select_dict_for_well_formed_csn():
     extractor = CsnLineageExtractor()
     csn_def = {"query": {"SELECT": {"from": {"ref": ["X"]}, "columns": []}}}
-    select, malformed = extractor._safe_select(csn_def)
-    assert select == {"from": {"ref": ["X"]}, "columns": []}
-    assert malformed is None
+    envelope = extractor._safe_select(csn_def)
+    assert envelope.select == {"from": {"ref": ["X"]}, "columns": []}
+    assert envelope.malformed is None
 
 
 def test_safe_select_returns_malformed_pair_for_non_dict_query():
     extractor = CsnLineageExtractor()
-    select, malformed = extractor._safe_select({"query": "not-a-dict"})
-    assert select is None
-    assert malformed is not None
-    assert isinstance(malformed, ColumnLineagePair)
-    assert malformed.downstream_col == MALFORMED_COL_SENTINEL
+    envelope = extractor._safe_select({"query": "not-a-dict"})
+    assert envelope.select is None
+    assert envelope.malformed is not None
+    assert isinstance(envelope.malformed, ColumnLineagePair)
+    assert envelope.malformed.downstream_col == MALFORMED_COL_SENTINEL
 
 
 def test_safe_select_returns_malformed_pair_for_non_dict_select():
     extractor = CsnLineageExtractor()
-    select, malformed = extractor._safe_select({"query": {"SELECT": "not-a-dict"}})
-    assert select is None
-    assert malformed is not None
-    assert isinstance(malformed, ColumnLineagePair)
-    assert malformed.downstream_col == MALFORMED_COL_SENTINEL
+    envelope = extractor._safe_select({"query": {"SELECT": "not-a-dict"}})
+    assert envelope.select is None
+    assert envelope.malformed is not None
+    assert isinstance(envelope.malformed, ColumnLineagePair)
+    assert envelope.malformed.downstream_col == MALFORMED_COL_SENTINEL
 
 
-def test_safe_select_returns_none_none_for_legitimate_base_table():
+def test_safe_select_returns_empty_for_legitimate_base_table():
     extractor = CsnLineageExtractor()
-    select, malformed = extractor._safe_select({"kind": "entity"})  # no query
-    assert select is None
-    assert malformed is None
+    envelope = extractor._safe_select({"kind": "entity"})  # no query
+    assert envelope.select is None
+    assert envelope.malformed is None
 
 
-def test_safe_select_returns_none_none_for_select_without_select_key():
+def test_safe_select_returns_empty_for_select_without_select_key():
     """``query`` present but no ``SELECT`` is legitimate (e.g. INSERT/UPDATE
     CSN forms) — caller should return [] rather than emit malformed."""
     extractor = CsnLineageExtractor()
-    select, malformed = extractor._safe_select({"query": {"INSERT": {}}})
-    assert select is None
-    assert malformed is None
+    envelope = extractor._safe_select({"query": {"INSERT": {}}})
+    assert envelope.select is None
+    assert envelope.malformed is None
 
 
-def test_safe_select_returns_none_none_for_non_dict_csn():
+def test_safe_select_returns_empty_for_non_dict_csn():
     extractor = CsnLineageExtractor()
-    select, malformed = extractor._safe_select("not-a-dict")  # type: ignore[arg-type]
-    assert select is None
-    assert malformed is None
+    envelope = extractor._safe_select("not-a-dict")  # type: ignore[arg-type]
+    assert envelope.select is None
+    assert envelope.malformed is None
 
 
 def test_malformed_pair_carries_reason_in_unresolved_refs():
     extractor = CsnLineageExtractor()
     pair = extractor._malformed_pair("test reason")
     assert pair.downstream_col == MALFORMED_COL_SENTINEL
-    assert pair.upstream_refs == ()
-    assert pair.unresolved_refs == ("test reason",)
+    assert pair.upstream_refs == []
+    assert pair.unresolved_refs == ["test reason"]
 
 
 def test_column_lineage_pair_sentinel_with_upstream_refs_raises():
@@ -829,10 +868,10 @@ def test_column_lineage_pair_sentinel_with_upstream_refs_raises():
     # Must be a ValueError (not AssertionError): the invariant prevents a
     # malformed schemaField URN and must hold under ``python -O``, which strips
     # ``assert`` statements.
-    with pytest.raises(ValueError, match="Sentinel ColumnLineagePair"):
+    with pytest.raises(ValidationError, match="Sentinel ColumnLineagePair"):
         ColumnLineagePair(
             downstream_col=MALFORMED_COL_SENTINEL,
-            upstream_refs=(UpstreamColRef("X", "y"),),
+            upstream_refs=[UpstreamColRef(qname="X", col="y")],
         )
 
 
@@ -917,11 +956,11 @@ def test_projection_pseudo_alias_resolves_to_sibling_upstream():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     by_name = {p.downstream_col: p for p in pairs}
-    assert by_name["calc_measure"].upstream_refs == (
-        UpstreamColRef("BASE_SRC", "base_measure"),
-    )
+    assert by_name["calc_measure"].upstream_refs == [
+        UpstreamColRef(qname="BASE_SRC", col="base_measure"),
+    ]
     # The $projection ref must NOT surface as unresolved.
-    assert by_name["calc_measure"].unresolved_refs == ()
+    assert by_name["calc_measure"].unresolved_refs == []
 
 
 def test_projection_pseudo_alias_inside_expression_resolves():
@@ -944,7 +983,9 @@ def test_projection_pseudo_alias_inside_expression_resolves():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     by_name = {p.downstream_col: p for p in pairs}
-    assert by_name["qty_scaled"].upstream_refs == (UpstreamColRef("BASE_SRC", "qty"),)
+    assert by_name["qty_scaled"].upstream_refs == [
+        UpstreamColRef(qname="BASE_SRC", col="qty")
+    ]
     assert by_name["qty_scaled"].transform_op == "EXPRESSION"
 
 
@@ -966,8 +1007,8 @@ def test_projection_pseudo_alias_chained_resolves_transitively():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     by_name = {p.downstream_col: p for p in pairs}
-    assert by_name["c"].upstream_refs == (UpstreamColRef("BASE_SRC", "x"),)
-    assert by_name["c"].unresolved_refs == ()
+    assert by_name["c"].upstream_refs == [UpstreamColRef(qname="BASE_SRC", col="x")]
+    assert by_name["c"].unresolved_refs == []
 
 
 def test_projection_pseudo_alias_cycle_terminates_and_records_unresolved():
@@ -1007,7 +1048,7 @@ def test_projection_pseudo_alias_to_unknown_output_col_is_unresolved():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert len(pairs) == 1
-    assert pairs[0].upstream_refs == ()
+    assert pairs[0].upstream_refs == []
     assert any("unknown output col" in u for u in pairs[0].unresolved_refs)
 
 
@@ -1090,6 +1131,145 @@ def test_association_projection_skip_is_silent_not_unresolved():
 
 
 # ---------------------------------------------------------------------------
+# Association-based lineage (targets become upstream edges)
+# ---------------------------------------------------------------------------
+
+
+def test_used_association_target_becomes_table_upstream():
+    """An association the query references (here via a bare projection) turns its
+    target into a table-level upstream. A dotted target is flagged qualified so
+    the source layer emits it as-is rather than space-prefixing it."""
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "_DAY": {
+                "type": "cds.Association",
+                "target": "SAP.TIME.M_TIME_DIMENSION_TDAY",
+                "on": [{"ref": ["DAY"]}, "=", {"ref": ["_DAY", "ID"]}],
+            },
+            "DAY": {"type": "cds.String"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [{"ref": ["DAY"]}, {"ref": ["_DAY"]}],
+            }
+        },
+    }
+    targets = CsnLineageExtractor().extract_association_targets(csn_def)
+    assert [(t.name, t.qualified) for t in targets] == [
+        ("SAP.TIME.M_TIME_DIMENSION_TDAY", True)
+    ]
+
+
+def test_declared_but_unused_association_is_not_a_lineage_edge():
+    """An association declared in elements but never referenced by the query must
+    NOT produce an upstream edge (used-only semantics)."""
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "_UNUSED": {"type": "cds.Association", "target": "OTHER_ENTITY"},
+            "COL": {"type": "cds.String"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [{"ref": ["COL"]}],
+            }
+        },
+    }
+    assert CsnLineageExtractor().extract_association_targets(csn_def) == []
+
+
+def test_association_qualified_column_ref_resolves_to_target():
+    """A field projected through an association (``["_assoc", "col"]``) is
+    attributed to the association's target entity, not dropped as an unknown
+    alias, and the same-space (bare) target is not flagged qualified."""
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "_CUST": {"type": "cds.Association", "target": "CUSTOMERS"},
+            "AMOUNT": {"type": "cds.Decimal"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SALES"], "as": "SALES"},
+                "columns": [
+                    {"ref": ["AMOUNT"]},
+                    {"ref": ["_CUST", "NAME"], "as": "CUSTOMER_NAME"},
+                ],
+            }
+        },
+    }
+    extractor = CsnLineageExtractor()
+    pairs = extractor.extract_column_lineage(csn_def)
+    by_col = {p.downstream_col: p for p in pairs}
+    assert by_col["CUSTOMER_NAME"].upstream_refs == [
+        UpstreamColRef(qname="CUSTOMERS", col="NAME", qualified=False)
+    ]
+    # And the association target is a table-level upstream.
+    targets = extractor.extract_association_targets(csn_def)
+    assert [(t.name, t.qualified) for t in targets] == [("CUSTOMERS", False)]
+
+
+# ---------------------------------------------------------------------------
+# UNION / SET lineage
+# ---------------------------------------------------------------------------
+
+
+def test_union_collects_upstreams_from_all_branches():
+    csn_def = {
+        "kind": "entity",
+        "query": {
+            "SET": {
+                "op": "union",
+                "all": True,
+                "args": [
+                    {"SELECT": {"from": {"ref": ["SALES_EU"]}, "columns": []}},
+                    {"SELECT": {"from": {"ref": ["SALES_US"]}, "columns": []}},
+                ],
+            }
+        },
+    }
+    refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
+    assert set(refs) == {"SALES_EU", "SALES_US"}
+
+
+def test_union_merges_column_lineage_by_output_name():
+    """A UNION output column draws from the aligned column in every branch, so its
+    upstream refs are the union of both branches' contributions."""
+    csn_def = {
+        "kind": "entity",
+        "query": {
+            "SET": {
+                "op": "union",
+                "args": [
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["SALES_EU"], "as": "SALES_EU"},
+                            "columns": [{"ref": ["AMOUNT"], "as": "TOTAL"}],
+                        }
+                    },
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["SALES_US"], "as": "SALES_US"},
+                            "columns": [{"ref": ["AMOUNT"], "as": "TOTAL"}],
+                        }
+                    },
+                ],
+            }
+        },
+    }
+    pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
+    by_col = {p.downstream_col: p for p in pairs}
+    assert set(by_col) == {"TOTAL"}
+    assert set(by_col["TOTAL"].upstream_refs) == {
+        UpstreamColRef(qname="SALES_EU", col="AMOUNT"),
+        UpstreamColRef(qname="SALES_US", col="AMOUNT"),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Remote Table federation source parsing
 # ---------------------------------------------------------------------------
 
@@ -1104,7 +1284,7 @@ def test_parse_remote_table_source_extracts_connection_and_path():
     source = parse_remote_table_source(entity)
     assert source is not None
     assert source.connection == "MY_REMOTE_CONN"
-    assert source.path_parts == ("MY_DB", "MY_SCHEMA", "MY_TABLE")
+    assert source.path_parts == ["MY_DB", "MY_SCHEMA", "MY_TABLE"]
     assert source.qualified_name == "MY_DB.MY_SCHEMA.MY_TABLE"
 
 

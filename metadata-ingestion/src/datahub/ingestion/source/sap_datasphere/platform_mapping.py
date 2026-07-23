@@ -1,10 +1,7 @@
 import logging
-from typing import TYPE_CHECKING, Dict, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Set
 
-from datahub.ingestion.source.sap_datasphere.config import (
-    ConnectionPlatformConfig,
-    SapDatasphereConfig,
-)
+from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
 from datahub.ingestion.source.sap_datasphere.constants import (
     MANAGED_CONNECTION_KEY,
     PLATFORM,
@@ -14,6 +11,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ResolvedPlatform,
     ResolveResult,
     ResolveSkipReason,
+    TypeIdDefault,
 )
 
 if TYPE_CHECKING:
@@ -52,30 +50,34 @@ class PlatformMappingResolver:
         if connection_name == MANAGED_CONNECTION_KEY:
             user_override = self._config.connection_to_platform_map.get(connection_name)
             if user_override is not None and not user_override.enabled:
-                return ResolveResult(None, ResolveSkipReason.DISABLED)
+                return ResolveResult(
+                    platform=None, skip_reason=ResolveSkipReason.DISABLED
+                )
             return ResolveResult(
-                ResolvedPlatform(
+                platform=ResolvedPlatform(
                     platform=PLATFORM,
                     platform_instance=self._config.platform_instance,
                     env=self._config.env,
                 ),
-                None,
+                skip_reason=None,
             )
         raw = self._config.connection_to_platform_map.get(connection_name)
         fallback_reason: Optional[ResolveSkipReason] = None
         if raw is None:
-            raw, fallback_reason = self._typeid_default_for(connection_name)
+            td = self._typeid_default_for(connection_name)
+            raw = td.config
+            fallback_reason = td.skip_reason
         if raw is None:
-            return ResolveResult(None, fallback_reason)
+            return ResolveResult(platform=None, skip_reason=fallback_reason)
         if not raw.enabled:
-            return ResolveResult(None, ResolveSkipReason.DISABLED)
+            return ResolveResult(platform=None, skip_reason=ResolveSkipReason.DISABLED)
         return ResolveResult(
-            ResolvedPlatform(
+            platform=ResolvedPlatform(
                 platform=raw.platform,
                 platform_instance=raw.platform_instance,
                 env=raw.env or self._config.env,
             ),
-            None,
+            skip_reason=None,
         )
 
     def resolve_external(
@@ -90,33 +92,35 @@ class PlatformMappingResolver:
             raw = self._config.connection_to_platform_map.get(connection_name)
             if raw is not None:
                 if not raw.enabled:
-                    return ResolveResult(None, ResolveSkipReason.DISABLED)
+                    return ResolveResult(
+                        platform=None, skip_reason=ResolveSkipReason.DISABLED
+                    )
                 return ResolveResult(
-                    ResolvedPlatform(
+                    platform=ResolvedPlatform(
                         platform=raw.platform,
                         platform_instance=raw.platform_instance,
                         env=raw.env or self._config.env,
                     ),
-                    None,
+                    skip_reason=None,
                 )
         if connection_type:
             default = self._config.platform_type_defaults.get(connection_type)
             if default is not None and default.enabled:
                 return ResolveResult(
-                    ResolvedPlatform(
+                    platform=ResolvedPlatform(
                         platform=default.platform,
                         platform_instance=default.platform_instance,
                         env=default.env or self._config.env,
                     ),
-                    None,
+                    skip_reason=None,
                 )
         if connection_name:
             return self.resolve(connection_name)
-        return ResolveResult(None, ResolveSkipReason.UNKNOWN_CONNECTION)
+        return ResolveResult(
+            platform=None, skip_reason=ResolveSkipReason.UNKNOWN_CONNECTION
+        )
 
-    def _typeid_default_for(
-        self, connection_name: str
-    ) -> Tuple[Optional[ConnectionPlatformConfig], Optional[ResolveSkipReason]]:
+    def _typeid_default_for(self, connection_name: str) -> TypeIdDefault:
         # _managed has a hard-coded typeId of HANA (the tenant's own HANA Cloud).
         if connection_name == MANAGED_CONNECTION_KEY:
             typeid = "HANA"
@@ -140,7 +144,9 @@ class PlatformMappingResolver:
                             ),
                             context=connection_name,
                         )
-                return None, ResolveSkipReason.UNKNOWN_CONNECTION
+                return TypeIdDefault(
+                    config=None, skip_reason=ResolveSkipReason.UNKNOWN_CONNECTION
+                )
             # Literal key required: TypedDict.get only type-narrows with a literal.
             typeid = conn.get("typeId", "")
 
@@ -166,5 +172,7 @@ class PlatformMappingResolver:
                         ),
                         context=typeid,
                     )
-            return None, ResolveSkipReason.UNKNOWN_TYPEID
-        return default, None
+            return TypeIdDefault(
+                config=None, skip_reason=ResolveSkipReason.UNKNOWN_TYPEID
+            )
+        return TypeIdDefault(config=default, skip_reason=None)

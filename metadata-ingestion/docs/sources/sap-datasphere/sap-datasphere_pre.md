@@ -44,9 +44,9 @@ your recipe under `platform_type_defaults`.
 | `MSSQL`              | `mssql`          | SQL Server federation                                                 |
 | `S3`                 | `s3`             | S3 buckets federated as remote tables                                 |
 | `GCS`                | `gcs`            | Google Cloud Storage federation                                       |
-| `ABAP`               | `sap-abap`       | SAP ABAP system extraction                                            |
-| `SAPS4HANACLOUD`     | `sap-s4hana`     | SAP S/4HANA Cloud federation                                          |
-| `SAPBWMODELTRANSFER` | `sap-bw`         | SAP BW analytical model transfer                                      |
+| `ABAP`               | `abap`           | SAP ABAP system extraction                                            |
+| `SAPS4HANACLOUD`     | `s4hana`         | SAP S/4HANA Cloud federation                                          |
+| `SAPBWMODELTRANSFER` | `bw`             | SAP BW analytical model transfer (matches the SAC connector's `bw`)   |
 
 Other typeIds (Snowflake, BigQuery, Kafka, Salesforce, ...) default to
 `enabled: false` with a warning — opt in by adding them to

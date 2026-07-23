@@ -87,7 +87,9 @@ def test_resolver_managed_default_returns_sap_datasphere():
     platform — managed assets are Datasphere assets, not HANA assets."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve("_managed")
+    result = resolver.resolve("_managed")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is not None
     assert reason is None
     assert resolved.platform == "sap-datasphere"
@@ -105,7 +107,7 @@ def test_resolver_explicit_map_overrides_typeid_default():
         "SF_PROD": {"name": "SF_PROD", "typeId": "HANA"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "custom"
@@ -117,7 +119,7 @@ def test_resolver_named_connection_falls_back_to_typeid_default():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.platform == "s3"
 
@@ -131,7 +133,9 @@ def test_resolver_disabled_returns_none():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, reason = resolver.resolve("SF_PROD")
+    result = resolver.resolve("SF_PROD")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.DISABLED
 
@@ -142,7 +146,9 @@ def test_resolver_unknown_typeid_returns_none_and_records_warning():
         "X": {"name": "X", "typeId": "SNOWFLAKE"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, reason = resolver.resolve("X")
+    result = resolver.resolve("X")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_TYPEID
     assert "SNOWFLAKE" in "\n".join(resolver.unknown_typeids_seen)
@@ -152,7 +158,9 @@ def test_resolver_unknown_connection_name_returns_unknown_connection_reason():
     cfg = _config_with()
     # Empty connections list — the asset references "MYSTERY" which the API never reported.
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve("MYSTERY")
+    result = resolver.resolve("MYSTERY")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_CONNECTION
 
@@ -166,7 +174,7 @@ def test_resolver_env_falls_back_to_connector_env():
         }
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, _ = resolver.resolve("_managed")
+    resolved = resolver.resolve("_managed").platform
     assert resolved is not None
     assert resolved.env == "DEV"
 
@@ -188,7 +196,7 @@ def test_resolver_env_explicit_in_map_wins_over_connector_env():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.env == "PROD"
 
@@ -205,7 +213,9 @@ def test_resolver_unknown_typeid_emits_report_warning():
         cfg, connections_by_name=connections, report=report
     )
 
-    resolved, reason = resolver.resolve("X")
+    result = resolver.resolve("X")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_TYPEID
     # report.warnings is a list of StructuredLogEntry; each has a `.message` attribute.
@@ -230,9 +240,9 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
     )
     # All three resolve calls must return the UNKNOWN_TYPEID skip reason.
     for name in ("X1", "X2", "X3"):
-        resolved, reason = resolver.resolve(name)
-        assert resolved is None
-        assert reason == ResolveSkipReason.UNKNOWN_TYPEID
+        result = resolver.resolve(name)
+        assert result.platform is None
+        assert result.skip_reason == ResolveSkipReason.UNKNOWN_TYPEID
     # Only ONE report warning for BIGQUERY despite 3 calls
     bigquery_warnings = [w for w in report.warnings if "BIGQUERY" in w.message]
     assert len(bigquery_warnings) == 1, (
@@ -256,7 +266,9 @@ def test_managed_connection_resolves_to_sap_datasphere_regardless_of_config():
         },
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+    result = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = result.platform
+    reason = result.skip_reason
     assert reason is None
     assert resolved is not None
     assert resolved.platform == "sap-datasphere"
@@ -274,7 +286,7 @@ def test_managed_connection_inherits_top_level_platform_instance():
         connection_to_platform_map={},
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, _ = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = resolver.resolve(MANAGED_CONNECTION_KEY).platform
     assert resolved is not None
     assert resolved.platform_instance == "tenant_eu_prod"
 
@@ -292,7 +304,9 @@ def test_managed_can_be_disabled_via_explicit_override():
         },
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+    result = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.DISABLED
 
@@ -313,7 +327,7 @@ def test_federated_connection_unchanged():
         config,
         connections_by_name={"MY_SF": {"name": "MY_SF", "typeId": "SNOWFLAKE"}},
     )
-    resolved, _ = resolver.resolve("MY_SF")
+    resolved = resolver.resolve("MY_SF").platform
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "acct_xyz"
@@ -330,7 +344,9 @@ def test_resolve_external_uses_connection_type_when_name_absent():
     list; the endpoint's own connectionType resolves it via type defaults."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve_external("NOT_IN_LIST", "S3")
+    result = resolver.resolve_external("NOT_IN_LIST", "S3")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is not None
     assert reason is None
     assert resolved.platform == "s3"
@@ -342,7 +358,7 @@ def test_resolve_external_prefers_explicit_name_map_over_type():
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     # connectionType would map to S3, but the explicit name mapping wins.
-    resolved, _ = resolver.resolve_external("SRC_CONN", "S3")
+    resolved = resolver.resolve_external("SRC_CONN", "S3").platform
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "a"
@@ -351,7 +367,9 @@ def test_resolve_external_prefers_explicit_name_map_over_type():
 def test_resolve_external_unknown_type_and_name_returns_none():
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve_external("MYSTERY", "SNOWFLAKE")
+    result = resolver.resolve_external("MYSTERY", "SNOWFLAKE")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_CONNECTION
 
@@ -361,7 +379,7 @@ def test_resolve_external_disabled_type_default_returns_none():
         type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, _ = resolver.resolve_external(None, "S3")
+    resolved = resolver.resolve_external(None, "S3").platform
     # A disabled type default is not usable; with no name to fall back on the
     # endpoint is unresolved.
     assert resolved is None

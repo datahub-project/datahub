@@ -1362,6 +1362,94 @@ def test_table_lineage_emitted_from_csn_query_from_ref(requests_mock):
     )
 
 
+def test_association_lineage_emitted_from_csn_elements(requests_mock):
+    """A view referencing another entity through a CDS association (rather than a
+    SELECT FROM/join) surfaces the association target as an upstream edge, with a
+    fine-grained edge for the projected association field. Same-space bare targets
+    are space-prefixed under the resolved platform."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_lineage": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-assoc-lineage")
+
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "SALES_V",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/SALES_V",
+        json={
+            "definitions": {
+                "SALES_V": {
+                    "kind": "entity",
+                    "elements": {
+                        "AMOUNT": {"type": "cds.Decimal"},
+                        "_CUST": {"type": "cds.Association", "target": "CUSTOMERS"},
+                    },
+                    "query": {
+                        "SELECT": {
+                            "from": {"ref": ["SALES"], "as": "SALES"},
+                            "columns": [
+                                {"ref": ["AMOUNT"]},
+                                {"ref": ["_CUST", "NAME"], "as": "CUSTOMER_NAME"},
+                            ],
+                        }
+                    },
+                }
+            }
+        },
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    lineage_wus = [
+        wu
+        for wu in workunits
+        if aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(lineage_wus) >= 1
+    lineage = aspect_as(lineage_wus[0], UpstreamLineageClass)
+    upstream_urns = [u.dataset for u in lineage.upstreams]
+    # The association target is a table-level upstream alongside the FROM source.
+    assert any("s1.customers" in u for u in upstream_urns), (
+        f"Expected association target upstream sap-datasphere:S1.CUSTOMERS, "
+        f"got: {upstream_urns}"
+    )
+    # And a fine-grained edge attributes CUSTOMER_NAME to CUSTOMERS.NAME.
+    assert lineage.fineGrainedLineages
+    assert any(
+        any(
+            "s1.customers" in up and "name" in up.lower()
+            for up in (fgl.upstreams or [])
+        )
+        for fgl in lineage.fineGrainedLineages
+    ), "Expected fine-grained edge from CUSTOMERS.NAME"
+    assert source.report.association_upstreams_emitted >= 1
+
+
 def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
     """When both include_lineage and include_view_definitions are False, the CSN
     endpoint is never called."""
@@ -3072,32 +3160,32 @@ def test_build_fine_grained_lineages_reports_wildcard_missing_qname_and_unresolv
     }
 
     column_lineage = ColumnLineageContext(
-        pairs=(
+        pairs=[
             # Normal pair — should produce FineGrainedLineage entry
             ColumnLineagePair(
                 downstream_col="id",
-                upstream_refs=(UpstreamColRef("BASE", "ID"),),
+                upstream_refs=[UpstreamColRef(qname="BASE", col="ID")],
                 transform_op="IDENTITY",
             ),
             # Wildcard upstream — should report, no entry
             ColumnLineagePair(
                 downstream_col="all_data",
-                upstream_refs=(UpstreamColRef("BASE", "*"),),
+                upstream_refs=[UpstreamColRef(qname="BASE", col="*")],
                 transform_op="IDENTITY",
             ),
             # Missing upstream qname — should report, no entry
             ColumnLineagePair(
                 downstream_col="orphan",
-                upstream_refs=(UpstreamColRef("UNKNOWN_TABLE", "x"),),
+                upstream_refs=[UpstreamColRef(qname="UNKNOWN_TABLE", col="x")],
                 transform_op="IDENTITY",
             ),
             # Walker-unresolved — should report, no entry
             ColumnLineagePair(
                 downstream_col="weird",
-                upstream_refs=(),
-                unresolved_refs=("<some walker diagnostic>",),
+                upstream_refs=[],
+                unresolved_refs=["<some walker diagnostic>"],
             ),
-        ),
+        ],
         downstream_dataset_urn=(
             "urn:li:dataset:(urn:li:dataPlatform:hana,SCHEMA.VIEW,PROD)"
         ),
@@ -4437,3 +4525,219 @@ def test_schema_fields_from_csn_applies_column_pattern():
     assert fields is not None
     assert {f.fieldPath for f in fields} == {"keep_me"}
     assert src.report.columns_filtered == 1
+
+
+def test_data_flow_emits_downstream_lineage_without_status_materialization(
+    requests_mock,
+):
+    """A Data Flow must (1) emit a DataJob and (2) surface a dataset-to-dataset
+    UpstreamLineage on its target as a *secondary* edge (is_primary_source=False)
+    so AutoStatusAspectProcessor never synthesizes a Status(removed=false) for
+    the target — the target table is owned by another platform / not ingested
+    here, so materializing it would create a phantom entity."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-flow-downstream-lineage")
+
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "MY_DATA_FLOW"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/MY_DATA_FLOW",
+        json={
+            "dataflows": {
+                "MY_DATA_FLOW": {
+                    "contents": {
+                        "processes": {
+                            "p1": {
+                                "component": "com.sap.dataflow.table.consumer",
+                                "metadata": {
+                                    "config": {
+                                        "dwcEntity": "SRC_TABLE",
+                                        "hanaConnection": {"connectionID": "$DWC"},
+                                    }
+                                },
+                            },
+                            "p2": {
+                                "component": "com.sap.dataflow.table.producer",
+                                "metadata": {
+                                    "config": {
+                                        "dwcEntity": "TGT_TABLE",
+                                        "hanaConnection": {"connectionID": "$DWC"},
+                                        "attributeMappings": [
+                                            {
+                                                "target": "OUT_COL",
+                                                "expression": '"IN_COL"',
+                                            }
+                                        ],
+                                    }
+                                },
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_table,PROD)"
+
+    # (1) The flow itself is emitted as a DataJob with its IO.
+    assert any(
+        aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
+        for wu in workunits
+    ), "Expected a DataJobInputOutput aspect for the data flow"
+
+    # (2) A dataset-to-dataset UpstreamLineage lands on the flow target.
+    downstream_wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(downstream_wus) == 1, (
+        f"Expected exactly one UpstreamLineage on the flow target; "
+        f"got {len(downstream_wus)}"
+    )
+    lineage = aspect_as(downstream_wus[0], UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [src_urn]
+    assert lineage.fineGrainedLineages, "Expected column-level lineage on the target"
+
+    # It must be a secondary edge, or auto-Status would materialize the target.
+    assert downstream_wus[0].is_primary_source is False
+
+    # (3) No Status(removed=false) may be synthesized for the referenced target.
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "StatusClass"
+    ], "Flow target must not be materialized with a Status aspect"
+
+
+def _data_flow_payload(name: str, src_object: str) -> dict:
+    """A minimal data flow reading src_object -> TGT_TABLE with one column map."""
+    return {
+        "dataflows": {
+            name: {
+                "contents": {
+                    "processes": {
+                        "p1": {
+                            "component": "com.sap.dataflow.table.consumer",
+                            "metadata": {
+                                "config": {
+                                    "dwcEntity": src_object,
+                                    "hanaConnection": {"connectionID": "$DWC"},
+                                }
+                            },
+                        },
+                        "p2": {
+                            "component": "com.sap.dataflow.table.producer",
+                            "metadata": {
+                                "config": {
+                                    "dwcEntity": "TGT_TABLE",
+                                    "hanaConnection": {"connectionID": "$DWC"},
+                                    "attributeMappings": [
+                                        {
+                                            "target": "OUT_COL",
+                                            "expression": f'"{src_object}_COL"',
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+
+def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
+    """Two data flows writing to the same target must not clobber each other.
+
+    Each flow emits a *full* UpstreamLineage on the shared target, so without
+    aggregation the second flow's aspect would overwrite the first and drop its
+    edges. The source merges them into a single aspect carrying both upstreams.
+    """
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-flow-merge")
+
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "FLOW_A"}, {"technicalName": "FLOW_B"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/FLOW_A",
+        json=_data_flow_payload("FLOW_A", "SRC_A"),
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/FLOW_B",
+        json=_data_flow_payload("FLOW_B", "SRC_B"),
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
+    src_a = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_a,PROD)"
+    src_b = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_b,PROD)"
+
+    downstream_wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(downstream_wus) == 1, (
+        "Both flows must merge into a single UpstreamLineage on the shared target; "
+        f"got {len(downstream_wus)}"
+    )
+    lineage = aspect_as(downstream_wus[0], UpstreamLineageClass)
+    assert {u.dataset for u in lineage.upstreams} == {src_a, src_b}
+    assert downstream_wus[0].is_primary_source is False
+    # Column edges from both flows survive the merge (one per source).
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 2

@@ -121,6 +121,14 @@ CSN_CASE: Final[str] = "case"
 CSN_CAST: Final[str] = "cast"
 CSN_TYPE: Final[str] = "type"
 CSN_TYPE_ASSOCIATION: Final[str] = "cds.Association"
+# A Composition is a containment association (parent-owns-child); for lineage it
+# behaves exactly like an Association — it names a target entity.
+CSN_TYPE_COMPOSITION: Final[str] = "cds.Composition"
+# An association/composition element's target entity (the qualified or bare
+# technical name of the entity it navigates to).
+CSN_ASSOC_TARGET: Final[str] = "target"
+# UNION / INTERSECT / EXCEPT set operation: query.SET.args is a list of SELECTs.
+CSN_SET: Final[str] = "SET"
 CSN_REMOTE_SOURCE: Final[str] = "@remote.source"
 # SQL views store the modeler's raw SQL here; graphical views emit a CSN tree.
 CSN_KEY_SQL_EDITOR_QUERY: Final[str] = "@DataWarehouse.sqlEditor.query"

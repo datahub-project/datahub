@@ -1,8 +1,9 @@
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ARGS,
     CSN_AS,
+    CSN_ASSOC_TARGET,
     CSN_CASE,
     CSN_CAST,
     CSN_COLUMNS,
@@ -14,8 +15,10 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_REF,
     CSN_REMOTE_SOURCE,
     CSN_SELECT,
+    CSN_SET,
     CSN_TYPE,
     CSN_TYPE_ASSOCIATION,
+    CSN_TYPE_COMPOSITION,
     CSN_XPR,
     MALFORMED_COL_SENTINEL,
     PROJECTION_ALIAS,
@@ -26,11 +29,16 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineagePair,
+    CsnSelectEnvelope,
     RemoteTableSource,
     TransformOp,
     UpstreamColRef,
+    UpstreamRef,
     dedup_preserving_order,
 )
+
+# CDS navigation element types — both name a target entity for lineage purposes.
+_NAVIGATION_TYPES = frozenset({CSN_TYPE_ASSOCIATION, CSN_TYPE_COMPOSITION})
 
 
 def _sanitize_for_report(value: object) -> str:
@@ -64,35 +72,34 @@ class CsnLineageExtractor:
     def _malformed_pair(self, reason: str) -> "ColumnLineagePair":
         return ColumnLineagePair(
             downstream_col=MALFORMED_COL_SENTINEL,
-            upstream_refs=(),
-            transform_op=None,
-            unresolved_refs=(reason,),
+            unresolved_refs=[reason],
         )
 
-    def _safe_select(
-        self, csn_def: dict
-    ) -> Tuple[Optional[dict], Optional["ColumnLineagePair"]]:
-        """Validate the CSN envelope, returning one of:
-        ``(select_dict, None)`` proceed; ``(None, malformed_pair)`` broken CSN,
-        return ``[malformed_pair]``; ``(None, None)`` legitimate non-SELECT entity.
-        """
+    def _safe_select(self, csn_def: dict) -> CsnSelectEnvelope:
+        """Validate the CSN envelope: ``select`` set to proceed; ``malformed`` set
+        (broken CSN, caller returns ``[malformed]``); both None for a legitimate
+        non-SELECT entity."""
         if not isinstance(csn_def, dict):
-            return None, None
+            return CsnSelectEnvelope()
         query = csn_def.get(CSN_KEY_QUERY)
         if query is None:
-            return None, None
+            return CsnSelectEnvelope()
         if not isinstance(query, dict):
-            return None, self._malformed_pair(
-                f"query is {type(query).__name__}, expected dict"
+            return CsnSelectEnvelope(
+                malformed=self._malformed_pair(
+                    f"query is {type(query).__name__}, expected dict"
+                )
             )
         select = query.get(CSN_SELECT)
         if select is None:
-            return None, None
+            return CsnSelectEnvelope()
         if not isinstance(select, dict):
-            return None, self._malformed_pair(
-                f"SELECT is {type(select).__name__}, expected dict"
+            return CsnSelectEnvelope(
+                malformed=self._malformed_pair(
+                    f"SELECT is {type(select).__name__}, expected dict"
+                )
             )
-        return select, None
+        return CsnSelectEnvelope(select=select)
 
     def _resolve_output_name(self, col: dict) -> Optional[str]:
         # Prefer the `as` alias; fall back to the last `ref` segment. An unnamed
@@ -122,19 +129,32 @@ class CsnLineageExtractor:
             return "IDENTITY"
         return None
 
+    def _iter_selects(self, query: object) -> List[dict]:
+        """Return every SELECT dict in a query, flattening ``SET``
+        (UNION/INTERSECT/EXCEPT) args recursively. A plain SELECT query yields a
+        single-element list; a base table (no query) yields ``[]``."""
+        selects: List[dict] = []
+        if not isinstance(query, dict):
+            return selects
+        select = query.get(CSN_SELECT)
+        if isinstance(select, dict):
+            selects.append(select)
+        set_node = query.get(CSN_SET)
+        if isinstance(set_node, dict):
+            args = set_node.get(CSN_ARGS)
+            if isinstance(args, list):
+                for arg in args:
+                    selects.extend(self._iter_selects(arg))
+        return selects
+
     def extract_upstream_refs(self, csn_def: dict) -> List[str]:
         query = csn_def.get(CSN_KEY_QUERY)
-        if not isinstance(query, dict):
-            return []
-        select = query.get(CSN_SELECT)
-        if not isinstance(select, dict):
-            return []
-        from_clause = select.get(CSN_FROM)
-        if from_clause is None:
-            return []
         refs: List[str] = []
-        self._walk_from(from_clause, refs)
-        return refs
+        for select in self._iter_selects(query):
+            from_clause = select.get(CSN_FROM)
+            if from_clause is not None:
+                self._walk_from(from_clause, refs)
+        return dedup_preserving_order(refs)
 
     def _walk_from(self, node: object, out: List[str]) -> None:
         if not isinstance(node, dict):
@@ -202,6 +222,7 @@ class CsnLineageExtractor:
         unresolved: List[str],
         projection_map: Optional[Dict[str, dict]] = None,
         visited: Optional[Set[str]] = None,
+        association_map: Optional[Dict[str, str]] = None,
     ) -> None:
         """Walk a column expression, appending an ``UpstreamColRef`` per resolvable
         column reference and a diagnostic string per unresolvable one.
@@ -217,7 +238,13 @@ class CsnLineageExtractor:
         if isinstance(node, list):
             for item in node:
                 self._walk_expr(
-                    item, alias_map, out, unresolved, projection_map, visited
+                    item,
+                    alias_map,
+                    out,
+                    unresolved,
+                    projection_map,
+                    visited,
+                    association_map,
                 )
             return
         if not isinstance(node, dict):
@@ -236,7 +263,22 @@ class CsnLineageExtractor:
                 alias, col = segs
                 if alias == PROJECTION_ALIAS:
                     self._resolve_projection_ref(
-                        col, alias_map, out, unresolved, projection_map, visited
+                        col,
+                        alias_map,
+                        out,
+                        unresolved,
+                        projection_map,
+                        visited,
+                        association_map,
+                    )
+                elif association_map and alias in association_map:
+                    # A field projected through a CDS association navigates to the
+                    # association's target entity; attribute the column there.
+                    target = association_map[alias]
+                    out.append(
+                        UpstreamColRef(
+                            qname=target, col=col, qualified=self._is_qualified(target)
+                        )
                     )
                 elif alias in alias_map:
                     out.append(UpstreamColRef(qname=alias_map[alias], col=col))
@@ -267,8 +309,20 @@ class CsnLineageExtractor:
         for key in (CSN_ARGS, CSN_XPR, CSN_CASE, CSN_CAST):
             if key in node:
                 self._walk_expr(
-                    node[key], alias_map, out, unresolved, projection_map, visited
+                    node[key],
+                    alias_map,
+                    out,
+                    unresolved,
+                    projection_map,
+                    visited,
+                    association_map,
                 )
+
+    @staticmethod
+    def _is_qualified(name: str) -> bool:
+        # A dotted target is already space-qualified (cross-space or a built-in
+        # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
+        return "." in name
 
     def _resolve_projection_ref(
         self,
@@ -278,6 +332,7 @@ class CsnLineageExtractor:
         unresolved: List[str],
         projection_map: Optional[Dict[str, dict]],
         visited: Optional[Set[str]],
+        association_map: Optional[Dict[str, str]] = None,
     ) -> None:
         # Follow the sibling output column's expression down to its real upstream
         # refs; ``visited`` guards against reference cycles (a -> b -> a).
@@ -300,7 +355,15 @@ class CsnLineageExtractor:
             )
             return
         visited.add(col)
-        self._walk_expr(sibling, alias_map, out, unresolved, projection_map, visited)
+        self._walk_expr(
+            sibling,
+            alias_map,
+            out,
+            unresolved,
+            projection_map,
+            visited,
+            association_map,
+        )
 
     @staticmethod
     def _is_association_projection(col: dict, association_names: Set[str]) -> bool:
@@ -322,12 +385,15 @@ class CsnLineageExtractor:
         col: dict,
         alias_map: Dict[str, str],
         projection_map: Optional[Dict[str, dict]] = None,
+        association_map: Optional[Dict[str, str]] = None,
     ) -> Optional[ColumnLineagePair]:
         downstream_name = self._resolve_output_name(col)
         raw_refs: List[UpstreamColRef] = []
         unresolved: List[str] = []
         # Fresh visited set per column bounds ``$projection`` expansion.
-        self._walk_expr(col, alias_map, raw_refs, unresolved, projection_map, set())
+        self._walk_expr(
+            col, alias_map, raw_refs, unresolved, projection_map, set(), association_map
+        )
 
         if downstream_name is None:
             # Unnamed expression. If it has refs the user probably meant to alias
@@ -338,15 +404,11 @@ class CsnLineageExtractor:
             deduped_unresolved = dedup_preserving_order(unresolved)
             return ColumnLineagePair(
                 downstream_col=UNNAMED_COL_SENTINEL,
-                upstream_refs=(),
-                transform_op=None,
-                unresolved_refs=tuple(
-                    deduped_unresolved
-                    + [
-                        f"unnamed expression referencing {ref.qname}.{ref.col}"
-                        for ref in deduped_refs
-                    ]
-                ),
+                unresolved_refs=deduped_unresolved
+                + [
+                    f"unnamed expression referencing {ref.qname}.{ref.col}"
+                    for ref in deduped_refs
+                ],
             )
 
         if not raw_refs and not unresolved:
@@ -354,23 +416,30 @@ class CsnLineageExtractor:
 
         return ColumnLineagePair(
             downstream_col=downstream_name,
-            upstream_refs=tuple(dedup_preserving_order(raw_refs)),
+            upstream_refs=dedup_preserving_order(raw_refs),
             transform_op=self._infer_transform(col),
-            unresolved_refs=tuple(dedup_preserving_order(unresolved)),
+            unresolved_refs=dedup_preserving_order(unresolved),
         )
 
-    def extract_column_lineage(self, csn_def: dict) -> List[ColumnLineagePair]:
-        """Return one ``ColumnLineagePair`` per downstream column.
+    @staticmethod
+    def _association_map(elements: object) -> Dict[str, str]:
+        """Map association/composition element name -> its target entity.
 
-        Returns ``[]`` for legitimate non-SELECT entities, and a single
-        ``<malformed>`` pair (carrying a diagnostic) when the CSN is structurally
-        broken, so the caller can tell a corrupt CSN apart from a base table.
+        Elements without a string ``target`` are ignored (a navigation with no
+        resolvable destination can't become a lineage edge).
         """
-        select, malformed = self._safe_select(csn_def)
-        if malformed is not None:
-            return [malformed]
-        if select is None:
-            return []
+        result: Dict[str, str] = {}
+        if not isinstance(elements, dict):
+            return result
+        for name, el in elements.items():
+            if not isinstance(el, dict) or el.get(CSN_TYPE) not in _NAVIGATION_TYPES:
+                continue
+            target = el.get(CSN_ASSOC_TARGET)
+            if isinstance(target, str) and target:
+                result[name] = target
+        return result
+
+    def _pairs_for_select(self, select: dict, csn_def: dict) -> List[ColumnLineagePair]:
         from_clause = select.get(CSN_FROM)
         if from_clause is None:
             return []
@@ -385,14 +454,8 @@ class CsnLineageExtractor:
             ]
 
         alias_map = self._build_alias_map(from_clause)
-
-        # CDS association elements (leading-underscore navigations) can be
-        # projected directly; those are not scalar columns of the FROM table.
-        association_names = {
-            name
-            for name, el in (csn_def.get(CSN_KEY_ELEMENTS) or {}).items()
-            if isinstance(el, dict) and el.get(CSN_TYPE) == CSN_TYPE_ASSOCIATION
-        }
+        association_map = self._association_map(csn_def.get(CSN_KEY_ELEMENTS))
+        association_names = set(association_map)
 
         # output-column name -> its CSN column dict, so ``$projection`` refs can be
         # followed to real upstream refs. First definition wins.
@@ -408,12 +471,135 @@ class CsnLineageExtractor:
         for col in columns:
             if not isinstance(col, dict):
                 continue
+            # A bare {"ref": ["_assoc"]} projection is a whole-navigation, not a
+            # scalar column; its target still becomes a table-level upstream via
+            # extract_association_targets, but there is no column edge to emit.
             if self._is_association_projection(col, association_names):
                 continue
-            pair = self._pair_for_column(col, alias_map, projection_map)
+            pair = self._pair_for_column(
+                col, alias_map, projection_map, association_map
+            )
             if pair is not None:
                 pairs.append(pair)
         return pairs
+
+    def _merge_union_pairs(
+        self, branch_pairs: List[List[ColumnLineagePair]]
+    ) -> List[ColumnLineagePair]:
+        # UNION branches align by output column position/name; merge each output
+        # column's upstream refs across branches so a union view surfaces every
+        # branch's contribution. Sentinel (malformed/unnamed) pairs can't be
+        # merged and are passed through unchanged.
+        by_col: Dict[str, Dict[str, object]] = {}
+        order: List[str] = []
+        passthrough: List[ColumnLineagePair] = []
+        for pairs in branch_pairs:
+            for pair in pairs:
+                if pair.downstream_col in (
+                    MALFORMED_COL_SENTINEL,
+                    UNNAMED_COL_SENTINEL,
+                ):
+                    passthrough.append(pair)
+                    continue
+                slot = by_col.get(pair.downstream_col)
+                if slot is None:
+                    slot = {"refs": [], "unresolved": [], "op": pair.transform_op}
+                    by_col[pair.downstream_col] = slot
+                    order.append(pair.downstream_col)
+                refs = slot["refs"]
+                unresolved = slot["unresolved"]
+                assert isinstance(refs, list) and isinstance(unresolved, list)
+                refs.extend(pair.upstream_refs)
+                unresolved.extend(pair.unresolved_refs)
+        merged: List[ColumnLineagePair] = []
+        for col in order:
+            slot = by_col[col]
+            op = slot["op"]
+            merged.append(
+                ColumnLineagePair(
+                    downstream_col=col,
+                    upstream_refs=dedup_preserving_order(slot["refs"]),  # type: ignore[arg-type]
+                    transform_op=op if isinstance(op, str) else None,
+                    unresolved_refs=dedup_preserving_order(slot["unresolved"]),  # type: ignore[arg-type]
+                )
+            )
+        merged.extend(passthrough)
+        return merged
+
+    def extract_column_lineage(self, csn_def: dict) -> List[ColumnLineagePair]:
+        """Return one ``ColumnLineagePair`` per downstream column.
+
+        Returns ``[]`` for legitimate non-SELECT entities, and a single
+        ``<malformed>`` pair (carrying a diagnostic) when the CSN is structurally
+        broken, so the caller can tell a corrupt CSN apart from a base table.
+        A ``SET`` (UNION/INTERSECT/EXCEPT) query is handled by merging each
+        branch SELECT's column pairs by output-column name.
+        """
+        envelope = self._safe_select(csn_def)
+        if envelope.malformed is not None:
+            return [envelope.malformed]
+        if envelope.select is not None:
+            return self._pairs_for_select(envelope.select, csn_def)
+        # No top-level SELECT: either a base table (no query -> no selects) or a
+        # SET/union whose branch SELECTs carry the lineage.
+        selects = self._iter_selects(csn_def.get(CSN_KEY_QUERY))
+        if not selects:
+            return []
+        return self._merge_union_pairs(
+            [self._pairs_for_select(select, csn_def) for select in selects]
+        )
+
+    def _collect_used_associations(
+        self, node: object, association_map: Dict[str, str], out: List[str]
+    ) -> None:
+        # An association is "used" when its name appears as the leading segment of
+        # any ref anywhere in the query (a projected field, a join/on condition, a
+        # WHERE filter). Merely-declared associations that the query never touches
+        # are not turned into lineage edges.
+        if isinstance(node, list):
+            for item in node:
+                self._collect_used_associations(item, association_map, out)
+            return
+        if not isinstance(node, dict):
+            return
+        ref = node.get(CSN_REF)
+        if (
+            isinstance(ref, list)
+            and ref
+            and isinstance(ref[0], str)
+            and ref[0] in association_map
+        ):
+            out.append(ref[0])
+        for value in node.values():
+            self._collect_used_associations(value, association_map, out)
+
+    def extract_association_targets(self, csn_def: dict) -> List[UpstreamRef]:
+        """Return the target entities of associations the query actually uses.
+
+        These become table-level upstream edges (the association navigates to
+        another entity the model consumes). Targets are de-duplicated; a dotted
+        target is treated as already space-qualified, a bare one as a same-space
+        sibling.
+        """
+        association_map = self._association_map(csn_def.get(CSN_KEY_ELEMENTS))
+        if not association_map:
+            return []
+        query = csn_def.get(CSN_KEY_QUERY)
+        if not isinstance(query, dict):
+            return []
+        used: List[str] = []
+        self._collect_used_associations(query, association_map, used)
+        targets: List[UpstreamRef] = []
+        seen: Set[str] = set()
+        for name in used:
+            target = association_map[name]
+            if target in seen:
+                continue
+            seen.add(target)
+            targets.append(
+                UpstreamRef(name=target, qualified=self._is_qualified(target))
+            )
+        return targets
 
     def remote_source(self, csn_def: dict) -> Optional[str]:
         v = csn_def.get(CSN_REMOTE_SOURCE)
@@ -432,5 +618,5 @@ def parse_remote_table_source(csn_entity: dict) -> Optional[RemoteTableSource]:
         return None
     return RemoteTableSource(
         connection=connection,
-        path_parts=tuple(entity.split(REMOTE_ENTITY_DELIMITER)),
+        path_parts=entity.split(REMOTE_ENTITY_DELIMITER),
     )

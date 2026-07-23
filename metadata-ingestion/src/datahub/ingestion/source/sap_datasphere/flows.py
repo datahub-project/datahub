@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.sap_datasphere.constants import (
@@ -33,9 +33,12 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     RF_TASK_TRANSFORM,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
+    AttrMapping,
     FlowColumnMapping,
     FlowEndpoint,
     ParsedFlow,
+    ProducerColumns,
+    SystemIdentity,
 )
 
 _SUBTYPE_BY_OBJECT_TYPE: Dict[str, str] = {
@@ -66,7 +69,7 @@ def _column_from_expression(expression: object) -> Optional[str]:
     return match.group(1) if match else None
 
 
-def _dedup_endpoints(endpoints: List[FlowEndpoint]) -> Tuple[FlowEndpoint, ...]:
+def _dedup_endpoints(endpoints: List[FlowEndpoint]) -> List[FlowEndpoint]:
     seen: set = set()
     out: List[FlowEndpoint] = []
     for ep in endpoints:
@@ -74,7 +77,7 @@ def _dedup_endpoints(endpoints: List[FlowEndpoint]) -> Tuple[FlowEndpoint, ...]:
         if key not in seen:
             seen.add(key)
             out.append(ep)
-    return tuple(out)
+    return out
 
 
 def _process_endpoint(config: Dict) -> Optional[FlowEndpoint]:
@@ -95,19 +98,19 @@ def _process_endpoint(config: Dict) -> Optional[FlowEndpoint]:
     )
 
 
-def _attribute_mappings(config: Dict) -> List[Tuple[str, str]]:
-    # Returns (downstream_col, upstream_col) pairs for bare column expressions.
+def _attribute_mappings(config: Dict) -> List[AttrMapping]:
+    # (downstream_col, upstream_col) pairs for bare column expressions.
     mappings = config.get(FLOW_CONFIG_ATTR_MAPPINGS)
     if not isinstance(mappings, list):
         return []
-    pairs: List[Tuple[str, str]] = []
+    pairs: List[AttrMapping] = []
     for m in mappings:
         if not isinstance(m, dict):
             continue
         target = m.get(FLOW_ATTR_MAP_TARGET)
         upstream_col = _column_from_expression(m.get(FLOW_ATTR_MAP_EXPRESSION))
         if isinstance(target, str) and target and upstream_col:
-            pairs.append((target, upstream_col))
+            pairs.append(AttrMapping(downstream_col=target, upstream_col=upstream_col))
     return pairs
 
 
@@ -127,7 +130,7 @@ def _parse_process_flow(
 
     inputs: List[FlowEndpoint] = []
     outputs: List[FlowEndpoint] = []
-    producer_mappings: List[Tuple[str, List[Tuple[str, str]]]] = []
+    producer_mappings: List[ProducerColumns] = []
     for process in processes.values():
         if not isinstance(process, dict):
             continue
@@ -144,7 +147,10 @@ def _parse_process_flow(
         elif component.endswith(FLOW_COMPONENT_PRODUCER_SUFFIX):
             outputs.append(endpoint)
             producer_mappings.append(
-                (endpoint.object_name, _attribute_mappings(config))
+                ProducerColumns(
+                    object_name=endpoint.object_name,
+                    mappings=_attribute_mappings(config),
+                )
             )
 
     inputs_t = _dedup_endpoints(inputs)
@@ -155,14 +161,14 @@ def _parse_process_flow(
     column_mappings: List[FlowColumnMapping] = []
     if len(inputs_t) == 1:
         sole_input = inputs_t[0].object_name
-        for downstream_object, pairs in producer_mappings:
-            for downstream_col, upstream_col in pairs:
+        for producer in producer_mappings:
+            for pair in producer.mappings:
                 column_mappings.append(
                     FlowColumnMapping(
-                        downstream_object=downstream_object,
-                        downstream_col=downstream_col,
+                        downstream_object=producer.object_name,
+                        downstream_col=pair.downstream_col,
                         upstream_object=sole_input,
-                        upstream_col=upstream_col,
+                        upstream_col=pair.upstream_col,
                     )
                 )
 
@@ -173,7 +179,7 @@ def _parse_process_flow(
         subtype=_SUBTYPE_BY_OBJECT_TYPE[object_type],
         inputs=inputs_t,
         outputs=outputs_t,
-        column_mappings=tuple(column_mappings),
+        column_mappings=column_mappings,
     )
 
 
@@ -187,8 +193,8 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
     if not isinstance(contents, dict):
         return None
 
-    src_conn, src_type = _system_identity(contents.get(RF_KEY_SOURCE_SYSTEM))
-    tgt_conn, tgt_type = _system_identity(contents.get(RF_KEY_TARGET_SYSTEM))
+    source_system = _system_identity(contents.get(RF_KEY_SOURCE_SYSTEM))
+    target_system = _system_identity(contents.get(RF_KEY_TARGET_SYSTEM))
     tasks = contents.get(RF_KEY_TASKS)
     if not isinstance(tasks, list):
         return None
@@ -207,27 +213,27 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
             FlowEndpoint(
                 object_name=source_name,
                 is_local=False,
-                connection=src_conn,
-                connection_type=src_type,
+                connection=source_system.connection,
+                connection_type=source_system.connection_type,
             )
         )
         outputs.append(
             FlowEndpoint(
                 object_name=target_name,
                 is_local=False,
-                connection=tgt_conn,
-                connection_type=tgt_type,
+                connection=target_system.connection,
+                connection_type=target_system.connection_type,
             )
         )
         transform = task.get(RF_TASK_TRANSFORM)
         if isinstance(transform, dict):
-            for downstream_col, upstream_col in _attribute_mappings(transform):
+            for pair in _attribute_mappings(transform):
                 column_mappings.append(
                     FlowColumnMapping(
                         downstream_object=target_name,
-                        downstream_col=downstream_col,
+                        downstream_col=pair.downstream_col,
                         upstream_object=source_name,
-                        upstream_col=upstream_col,
+                        upstream_col=pair.upstream_col,
                     )
                 )
 
@@ -240,20 +246,20 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
         subtype=DataJobSubTypes.SAP_REPLICATION_FLOW,
         inputs=inputs_t,
         outputs=outputs_t,
-        column_mappings=tuple(column_mappings),
+        column_mappings=column_mappings,
     )
 
 
-def _system_identity(system: object) -> Tuple[Optional[str], Optional[str]]:
+def _system_identity(system: object) -> SystemIdentity:
     # sourceSystem/targetSystem are single-element lists carrying the external
     # connection id + type used to route the objects to a DataHub platform.
     if isinstance(system, list) and system and isinstance(system[0], dict):
         entry = system[0]
-        return (
-            entry.get(RF_SYSTEM_CONNECTION_ID),
-            entry.get(RF_SYSTEM_CONNECTION_TYPE),
+        return SystemIdentity(
+            connection=entry.get(RF_SYSTEM_CONNECTION_ID),
+            connection_type=entry.get(RF_SYSTEM_CONNECTION_TYPE),
         )
-    return None, None
+    return SystemIdentity()
 
 
 def _object_name(obj: object) -> Optional[str]:

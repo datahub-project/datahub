@@ -19,6 +19,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    get_fine_grained_lineage_key,
+)
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -94,11 +97,13 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineagePair,
     EdmxFetchReason,
     EdmxParseResult,
+    FlowColumnMapping,
     FlowEndpoint,
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
     UnknownColumnType,
+    UpstreamRef,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -224,6 +229,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self._datasets_emitted = 0
         self._builtin_defaults_warning_emitted_for: Dict[str, bool] = {}
         self._sap_tags_emitted = False
+        # Flow target -> merged UpstreamLineage. Accumulated across every flow in
+        # the run so that multiple flows writing to the same target (e.g. an
+        # initial-load flow plus a delta flow) don't clobber each other: each
+        # flow emits a *full* UpstreamLineage aspect, and without aggregation the
+        # last write would win and drop the earlier flow's edges. Emitted once
+        # per target at the end of the run (see _emit_flow_downstream_lineage).
+        self._flow_downstream_lineage: Dict[str, UpstreamLineageClass] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -307,6 +319,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
+        # Flow targets can be shared across flows (and spaces), so their lineage
+        # is accumulated during the space loop and emitted once here — merged —
+        # to avoid full-aspect overwrites between flows writing the same target.
+        yield from self._emit_flow_downstream_lineage()
+
     def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
         def _emit_asset_with_isolation(
             asset: Dict,
@@ -378,7 +395,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         # Local Tables always live in the tenant's own HANA Cloud (_managed).
         resolver = self._get_resolver(space_name)
-        resolved, skip_reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+        result = resolver.resolve(MANAGED_CONNECTION_KEY)
+        resolved = result.platform
+        skip_reason = result.skip_reason
         if resolved is None:
             self.report.warning(
                 title="Cannot emit Local Tables — _managed connection unresolvable",
@@ -419,11 +438,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     else None
                 )
                 if isinstance(elements, dict):
-                    schema_fields, unknown_cds_types = (
-                        parse_csn_elements_to_schema_fields(elements)
-                    )
+                    csn_schema = parse_csn_elements_to_schema_fields(elements)
+                    schema_fields = csn_schema.fields
                     self._report_unknown_cds_types(
-                        space_name, technical_name, unknown_cds_types
+                        space_name, technical_name, csn_schema.unknown_types
                     )
                 else:
                     # 200 OK but not a parseable CSN shape — record it so a parse
@@ -546,7 +564,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             display_name=space_name,
             description=f"SAP Datasphere flows in space {space_name}.",
-            subtype=DataFlowSubTypes.SAP_DATASPHERE,
+            subtype=DataFlowSubTypes.SAP_DATASPHERE_SPACE_FLOWS,
             parent_container=self._space_key(space_name),
         )
 
@@ -556,6 +574,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         urn_by_object: Dict[str, str] = {}
         inlets: List[Union[str, DatasetUrn]] = []
         outlets: List[Union[str, DatasetUrn]] = []
+        output_urn_by_object: Dict[str, str] = {}
         for endpoint in parsed.inputs:
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
@@ -565,6 +584,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
                 urn_by_object[endpoint.object_name] = urn
+                output_urn_by_object[endpoint.object_name] = urn
                 outlets.append(urn)
 
         fine_grained = self._build_flow_fine_grained(parsed, urn_by_object)
@@ -583,17 +603,74 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from job.as_workunits()
 
+        # Also surface the flow's lineage as a dataset-to-dataset edge on each
+        # target, so it shows on the downstream's Lineage tab (the DataJob IO
+        # aspect alone only drives the job's own lineage view). Accumulate rather
+        # than emit inline: several flows can share a target, and each edge is a
+        # *full* UpstreamLineage aspect, so we merge them and emit once per target
+        # at the end of the run (see _emit_flow_downstream_lineage).
+        for downstream_urn, lineage in self._build_flow_downstream_lineage(
+            parsed, urn_by_object, output_urn_by_object, inlets
+        ).items():
+            self._merge_flow_downstream_lineage(downstream_urn, lineage)
+
+    def _merge_flow_downstream_lineage(
+        self, downstream_urn: str, lineage: UpstreamLineageClass
+    ) -> None:
+        """Union a flow's downstream lineage into the per-target accumulator.
+
+        Upstream datasets are deduped by URN and fine-grained edges by their
+        (upstreams, downstreams, transformOperation) identity so two flows
+        contributing the same edge to a shared target don't double-count it.
+        """
+        existing = self._flow_downstream_lineage.get(downstream_urn)
+        if existing is None:
+            self._flow_downstream_lineage[downstream_urn] = lineage
+            return
+
+        seen_upstreams = {u.dataset for u in existing.upstreams}
+        for upstream in lineage.upstreams:
+            if upstream.dataset not in seen_upstreams:
+                existing.upstreams.append(upstream)
+                seen_upstreams.add(upstream.dataset)
+
+        incoming_fine_grained = lineage.fineGrainedLineages or []
+        if incoming_fine_grained:
+            merged = list(existing.fineGrainedLineages or [])
+            seen_keys = {get_fine_grained_lineage_key(f) for f in merged}
+            for fine_grained in incoming_fine_grained:
+                key = get_fine_grained_lineage_key(fine_grained)
+                if key not in seen_keys:
+                    merged.append(fine_grained)
+                    seen_keys.add(key)
+            existing.fineGrainedLineages = merged
+
+    def _emit_flow_downstream_lineage(self) -> Iterable[MetadataWorkUnit]:
+        """Emit the merged flow lineage once per target after all flows are seen.
+
+        is_primary_source=False keeps AutoStatusAspectProcessor from synthesizing
+        a Status(removed=false) for the target: a flow target is typically a
+        Local/Remote table owned by another platform (or not ingested here), and
+        materializing a phantom entity would pollute search and stale-entity
+        state. This mirrors the airbyte connector's downstream lineage emission.
+        """
+        for downstream_urn, lineage in self._flow_downstream_lineage.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=downstream_urn, aspect=lineage
+            ).as_workunit(is_primary_source=False)
+        self._flow_downstream_lineage.clear()
+
     def _resolve_flow_endpoint_urn(
         self, space_name: str, endpoint: FlowEndpoint
     ) -> Optional[str]:
         resolver = self._get_resolver(space_name)
         if endpoint.is_local:
-            resolved, _ = resolver.resolve(MANAGED_CONNECTION_KEY)
+            resolved = resolver.resolve(MANAGED_CONNECTION_KEY).platform
             name = self._build_dataset_name(space_name, endpoint.object_name)
         else:
-            resolved, _ = resolver.resolve_external(
+            resolved = resolver.resolve_external(
                 endpoint.connection, endpoint.connection_type
-            )
+            ).platform
             name = self._maybe_lower(endpoint.object_name)
         if resolved is None:
             self.report.flow_endpoints_unresolved.append(
@@ -635,6 +712,69 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
         return fine_grained
 
+    def _build_flow_downstream_lineage(
+        self,
+        parsed: ParsedFlow,
+        urn_by_object: Dict[str, str],
+        output_urn_by_object: Dict[str, str],
+        inlets: List[Union[str, DatasetUrn]],
+    ) -> Dict[str, UpstreamLineageClass]:
+        """Build one UpstreamLineage per flow target (keyed by its dataset URN).
+
+        Column edges are attributed to the specific target they land on from the
+        flow's column mappings. A target with no attributable column mapping
+        falls back to a coarse table-level edge from every resolved input (the
+        same set the DataJob carries as inlets), so multi-input flows still get a
+        dataset-to-dataset edge even when column attribution was suppressed.
+        """
+        mappings_by_downstream: Dict[str, List[FlowColumnMapping]] = {}
+        for mapping in parsed.column_mappings:
+            mappings_by_downstream.setdefault(mapping.downstream_object, []).append(
+                mapping
+            )
+
+        result: Dict[str, UpstreamLineageClass] = {}
+        for object_name, downstream_urn in output_urn_by_object.items():
+            upstream_urns: List[str] = []
+            fine_grained: List[FineGrainedLineageClass] = []
+            for mapping in mappings_by_downstream.get(object_name, []):
+                upstream_urn = urn_by_object.get(mapping.upstream_object)
+                if upstream_urn is None:
+                    continue
+                if upstream_urn not in upstream_urns:
+                    upstream_urns.append(upstream_urn)
+                fine_grained.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(upstream_urn, mapping.upstream_col)
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                downstream_urn, mapping.downstream_col
+                            )
+                        ],
+                    )
+                )
+            if not upstream_urns:
+                upstream_urns = [str(urn) for urn in inlets]
+            # Guard against a target that also appears as its own input.
+            upstream_urns = [urn for urn in upstream_urns if urn != downstream_urn]
+            if not upstream_urns:
+                continue
+            result[downstream_urn] = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=upstream_urn,
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    for upstream_urn in upstream_urns
+                ],
+                fineGrainedLineages=fine_grained or None,
+            )
+        return result
+
     def _emit_remote_tables_for_space(
         self, space_name: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -661,7 +801,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         resolver = self._get_resolver(space_name)
         # The remote-table proxy object itself lives in the tenant's managed HANA.
-        local_resolved, skip_reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+        result = resolver.resolve(MANAGED_CONNECTION_KEY)
+        local_resolved = result.platform
+        skip_reason = result.skip_reason
         if local_resolved is None:
             self.report.warning(
                 title="Cannot emit Remote Tables — _managed connection unresolvable",
@@ -740,10 +882,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         elements = definition.get(CSN_KEY_ELEMENTS)
         if not isinstance(elements, dict) or not elements:
             return None
-        fields, unknown_cds_types = parse_csn_elements_to_schema_fields(elements)
-        self._report_unknown_cds_types(space_name, technical_name, unknown_cds_types)
+        csn_schema = parse_csn_elements_to_schema_fields(elements)
+        self._report_unknown_cds_types(
+            space_name, technical_name, csn_schema.unknown_types
+        )
         filtered = [
-            f for f in fields if self.config.column_pattern.allowed(f.fieldPath)
+            f
+            for f in csn_schema.fields
+            if self.config.column_pattern.allowed(f.fieldPath)
         ]
         return filtered or None
 
@@ -757,7 +903,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         remote = parse_remote_table_source(definition)
         if remote is None:
             return None
-        resolved, _ = resolver.resolve_external(remote.connection, None)
+        resolved = resolver.resolve_external(remote.connection, None).platform
         if resolved is None:
             self.report.remote_table_source_unresolved.append(
                 f"{space_name}.{technical_name} (connection={remote.connection})"
@@ -901,7 +1047,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 connection_name = remote
 
         resolver = self._get_resolver(space_name)
-        resolved, skip_reason = resolver.resolve(connection_name)
+        result = resolver.resolve(connection_name)
+        resolved = result.platform
+        skip_reason = result.skip_reason
         if resolved is None:
             self._record_resolve_skip(
                 space_name, asset_name, connection_name, skip_reason
@@ -1192,10 +1340,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[UpstreamLineageClass]:
         # Each extractor is guarded independently so a parsing failure on one
         # side (table-level vs column-level) still allows the other to emit.
-        upstream_refs: List[str] = []
+        upstream_refs: List[UpstreamRef] = []
         column_pairs: List[ColumnLineagePair] = []
         try:
-            upstream_refs = self._lineage_extractor.extract_upstream_refs(csn_def)
+            upstream_refs = [
+                UpstreamRef(name=ref, qualified=False)
+                for ref in self._lineage_extractor.extract_upstream_refs(csn_def)
+            ]
         except Exception as e:
             self.report.warning(
                 title="Failed to extract CSN lineage",
@@ -1203,6 +1354,29 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     f"Could not parse upstream references from CSN for "
                     f"{space_name}.{asset_name}; the dataset will be emitted "
                     f"without upstreamLineage."
+                ),
+                context=f"{type(e).__name__}: {e}",
+            )
+        try:
+            association_targets = self._lineage_extractor.extract_association_targets(
+                csn_def
+            )
+            if association_targets:
+                self.report.association_upstreams_emitted += len(association_targets)
+                # A ref appearing in both FROM and an association resolves to the
+                # same URN key, so dedup by name (qualified refs win — they carry
+                # the correct URN-build flag).
+                existing = {ref.name for ref in upstream_refs}
+                upstream_refs.extend(
+                    ref for ref in association_targets if ref.name not in existing
+                )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to extract CSN association lineage",
+                message=(
+                    f"Could not parse association-based lineage from CSN for "
+                    f"{space_name}.{asset_name}; the dataset will be emitted "
+                    f"without association upstreams."
                 ),
                 context=f"{type(e).__name__}: {e}",
             )
@@ -1228,7 +1402,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         column_lineage = (
             ColumnLineageContext(
-                pairs=tuple(column_pairs),
+                pairs=column_pairs,
                 downstream_dataset_urn=downstream_dataset_urn,
             )
             if column_pairs
@@ -1245,7 +1419,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self,
         resolved: ResolvedPlatform,
         space_name: str,
-        upstream_refs: List[str],
+        upstream_refs: List[UpstreamRef],
         column_lineage: Optional[ColumnLineageContext] = None,
     ) -> Optional[UpstreamLineageClass]:
         # Intra-Datasphere lineage is emitted under the same resolved platform so
@@ -1253,14 +1427,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstreams: List[UpstreamClass] = []
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
-            upstream_name = self._maybe_lower(f"{space_name}.{ref}")
-            upstream_urn = make_dataset_urn_with_platform_instance(
-                platform=resolved.platform,
-                name=upstream_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-            )
-            upstream_urn_by_name[ref] = upstream_urn
+            if ref.qualified:
+                # Already space-qualified (cross-space or built-in association
+                # target): use as-is on the sap-datasphere platform, mirroring the
+                # business-layer upstream path.
+                upstream_urn = self._qualified_upstream_urn(ref.name)
+            else:
+                upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
+                upstream_urn = make_dataset_urn_with_platform_instance(
+                    platform=resolved.platform,
+                    name=upstream_name,
+                    platform_instance=resolved.platform_instance,
+                    env=resolved.env,
+                )
+            upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
                     dataset=upstream_urn,
@@ -1297,23 +1477,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     f"{downstream_dataset_urn}#{pair.downstream_col}: {unresolved_ref}"
                 )
             upstream_field_urns: List[str] = []
-            for upstream_qname, upstream_col in pair.upstream_refs:
-                if upstream_col == "*":
+            for ref in pair.upstream_refs:
+                if ref.col == "*":
                     self.report.column_lineage_unresolved.append(
                         f"{downstream_dataset_urn}#{pair.downstream_col}: "
-                        f"<wildcard upstream {upstream_qname}.*>"
+                        f"<wildcard upstream {ref.qname}.*>"
                     )
                     continue
-                resolved_upstream_urn = upstream_urn_by_name.get(upstream_qname)
+                resolved_upstream_urn = upstream_urn_by_name.get(ref.qname)
                 if resolved_upstream_urn is None:
                     self.report.column_lineage_unresolved.append(
                         f"{downstream_dataset_urn}#{pair.downstream_col}: "
-                        f"<missing upstream qname {upstream_qname!r} "
-                        f"for col {upstream_col!r}>"
+                        f"<missing upstream qname {ref.qname!r} "
+                        f"for col {ref.col!r}>"
                     )
                     continue
                 upstream_field_urns.append(
-                    make_schema_field_urn(resolved_upstream_urn, upstream_col)
+                    make_schema_field_urn(resolved_upstream_urn, ref.col)
                 )
             if not upstream_field_urns:
                 continue
@@ -1419,11 +1599,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         elements = csn_def.get(CSN_KEY_ELEMENTS)
         if not isinstance(elements, dict) or not elements:
             return None
-        fields, unknown_cds_types = parse_csn_elements_to_schema_fields(elements)
-        self._report_unknown_cds_types(space_name, asset_name, unknown_cds_types)
+        csn_schema = parse_csn_elements_to_schema_fields(elements)
+        self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
         column_pattern = self.config.column_pattern
         filtered = []
-        for f in fields:
+        for f in csn_schema.fields:
             if not column_pattern.allowed(f.fieldPath):
                 self.report.columns_filtered += 1
                 continue

@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ATTR_LABEL,
@@ -6,8 +6,13 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ATTR_PRECISION,
     CSN_ATTR_SCALE,
     CSN_TYPE,
+    CSN_TYPE_ASSOCIATION,
+    CSN_TYPE_COMPOSITION,
 )
-from datahub.ingestion.source.sap_datasphere.models import UnknownColumnType
+from datahub.ingestion.source.sap_datasphere.models import (
+    CsnSchemaResult,
+    UnknownColumnType,
+)
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -58,6 +63,12 @@ _TYPE_MAP = {
     "cds.hana.ST_GEOMETRY": (StringTypeClass, "ST_GEOMETRY"),
 }
 
+# Navigation elements — a relationship to another entity, not a scalar column.
+# They must never become schema fields (they carry no data type) and must not be
+# reported as "unknown CDS types"; the lineage extractor turns their targets into
+# upstream edges instead.
+_NAVIGATION_TYPES = frozenset({CSN_TYPE_ASSOCIATION, CSN_TYPE_COMPOSITION})
+
 
 def _native_type_string(root: str, element: Dict) -> str:
     if CSN_ATTR_LENGTH in element:
@@ -73,7 +84,7 @@ def _native_type_string(root: str, element: Dict) -> str:
 
 def parse_csn_elements_to_schema_fields(
     elements: Dict[str, Dict],
-) -> Tuple[List[SchemaFieldClass], List[UnknownColumnType]]:
+) -> CsnSchemaResult:
     """Convert a CSN ``elements`` map to DataHub schema fields.
 
     Consumes CSN directly (mirroring the EDMX path) so Local Table and analytic
@@ -86,13 +97,20 @@ def parse_csn_elements_to_schema_fields(
     """
     fields: List[SchemaFieldClass] = []
     unknown_types: List[UnknownColumnType] = []
+    navigation_elements: List[str] = []
     for col_name, element in elements.items():
         if not isinstance(element, dict):
             continue
         cds_type = element.get(CSN_TYPE, "")
+        # Associations/compositions are navigations, not columns: skip them from
+        # the scalar schema (the lineage extractor consumes their targets) and do
+        # not misreport them as unknown scalar types.
+        if cds_type in _NAVIGATION_TYPES:
+            navigation_elements.append(col_name)
+            continue
         # A missing type key is a structural concern, not an unknown type.
         if cds_type and cds_type not in _TYPE_MAP:
-            unknown_types.append(UnknownColumnType(cds_type, col_name))
+            unknown_types.append(UnknownColumnType(type=cds_type, column=col_name))
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (StringTypeClass, cds_type or "UNKNOWN")
         )
@@ -107,4 +125,8 @@ def parse_csn_elements_to_schema_fields(
                 nullable=True,
             )
         )
-    return fields, unknown_types
+    return CsnSchemaResult(
+        fields=fields,
+        unknown_types=unknown_types,
+        navigation_elements=navigation_elements,
+    )

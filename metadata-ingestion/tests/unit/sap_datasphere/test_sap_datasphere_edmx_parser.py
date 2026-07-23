@@ -1,6 +1,7 @@
 import logging
 
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
+from datahub.ingestion.source.sap_datasphere.models import UnknownColumnType
 
 _MINIMAL_EDMX = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
@@ -148,10 +149,13 @@ def test_parser_collects_unknown_edm_types_for_report():
     blob_field = next(f for f in result.fields if f.fieldPath == "BLOB_COL")
     # NullType is exposed as schemaFieldDataType.type with class name NullTypeClass
     assert type(blob_field.type.type).__name__ == "NullTypeClass"
-    # And the unknown_edm_types list MUST contain the (edm_type, name) tuple.
-    assert ("Edm.Stream", "BLOB_COL") in result.unknown_edm_types
+    # And the unknown_edm_types list MUST contain the unknown column entry.
+    assert (
+        UnknownColumnType(type="Edm.Stream", column="BLOB_COL")
+        in result.unknown_edm_types
+    )
     # OK_COL is a known String type so should not be flagged.
-    assert all(name != "OK_COL" for _, name in result.unknown_edm_types)
+    assert all(u.column != "OK_COL" for u in result.unknown_edm_types)
 
 
 def test_parser_empty_unknown_edm_types_on_clean_doc():

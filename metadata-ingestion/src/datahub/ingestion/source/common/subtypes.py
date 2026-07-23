@@ -205,8 +205,10 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
-    # SAP Datasphere — the per-space grouping of flow jobs.
-    SAP_DATASPHERE = "SAP Datasphere"
+    # SAP Datasphere — the per-space grouping of flow jobs. SAP has no product
+    # term for this grouping (the flows themselves are Data/Replication/etc.),
+    # so the label describes what the node is: a space's flows.
+    SAP_DATASPHERE_SPACE_FLOWS = "Space Flows"
 
 
 class DataJobSubTypes(StrEnum):

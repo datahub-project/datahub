@@ -100,7 +100,7 @@ def test_parse_data_flow_multiple_inputs_suppresses_column_lineage():
     parsed = parse_flow(payload, OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
     assert parsed is not None
     assert {e.object_name for e in parsed.inputs} == {"SRC_TABLE", "SECOND_SRC"}
-    assert parsed.column_mappings == ()
+    assert parsed.column_mappings == []
 
 
 def test_parse_data_flow_body_falls_back_to_sole_entry_on_name_mismatch():
@@ -178,9 +178,9 @@ def test_parse_task_chain_is_io_less_job():
     parsed = parse_flow(payload, OBJECT_TYPE_TASK_CHAINS, "MY_CHAIN")
     assert parsed is not None
     assert parsed.subtype == DataJobSubTypes.SAP_TASK_CHAIN
-    assert parsed.inputs == ()
-    assert parsed.outputs == ()
-    assert parsed.column_mappings == ()
+    assert parsed.inputs == []
+    assert parsed.outputs == []
+    assert parsed.column_mappings == []
 
 
 def test_parse_flow_unknown_object_type_returns_none():

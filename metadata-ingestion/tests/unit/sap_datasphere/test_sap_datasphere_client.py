@@ -45,9 +45,9 @@ def test_edmx_fetch_result_enforces_xml_iff_ok():
     ):
         assert EdmxFetchResult(xml=None, reason=reason).reason is reason
     # Illegal: OK without xml, and a non-OK reason carrying xml.
-    with pytest.raises(ValueError, match="xml must be set iff reason is OK"):
+    with pytest.raises(ValidationError, match="xml must be set iff reason is OK"):
         EdmxFetchResult(xml=None, reason=EdmxFetchReason.OK)
-    with pytest.raises(ValueError, match="xml must be set iff reason is OK"):
+    with pytest.raises(ValidationError, match="xml must be set iff reason is OK"):
         EdmxFetchResult(xml="<edmx/>", reason=EdmxFetchReason.NOT_FOUND)
 
 

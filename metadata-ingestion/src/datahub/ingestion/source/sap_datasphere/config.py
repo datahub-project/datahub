@@ -6,6 +6,9 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.sap_datasphere.constants import (
     PLATFORM_NAME_RE,
     XSUAA_URL_RE,
@@ -94,13 +97,19 @@ _BUILTIN_PLATFORM_TYPE_DEFAULTS: Dict[str, ConnectionPlatformConfig] = {
     # Keys are the canonical `typeId` values returned by
     # `/api/v1/datasphere/spaces/{space}/connections`.
     # Verified against a trial Datasphere tenant.
+    #
+    # SAP platform names deliberately match the sibling SAP connectors so lineage
+    # stitches to the same dataPlatform URN. The SAC connector emits the bare,
+    # lowercased system type (`hana`, `bw` — see sac.py `model.system_type.lower()`)
+    # and the HANA SQL connector registers `id="hana"`. Follow that convention here
+    # (no `sap-` prefix) for the whole SAP family.
     "HANA": ConnectionPlatformConfig(platform="hana"),
     "MSSQL": ConnectionPlatformConfig(platform="mssql"),
     "S3": ConnectionPlatformConfig(platform="s3"),
     "GCS": ConnectionPlatformConfig(platform="gcs"),
-    "ABAP": ConnectionPlatformConfig(platform="sap-abap"),
-    "SAPS4HANACLOUD": ConnectionPlatformConfig(platform="sap-s4hana"),
-    "SAPBWMODELTRANSFER": ConnectionPlatformConfig(platform="sap-bw"),
+    "ABAP": ConnectionPlatformConfig(platform="abap"),
+    "SAPS4HANACLOUD": ConnectionPlatformConfig(platform="s4hana"),
+    "SAPBWMODELTRANSFER": ConnectionPlatformConfig(platform="bw"),
     # Other typeIds we haven't observed in a live tenant (Snowflake, BigQuery, Kafka,
     # Salesforce, etc.) default to disabled with a warning. Users opt in by adding
     # them under `platform_type_defaults` in their recipe.
@@ -114,6 +123,7 @@ class SpaceContainerKey(ContainerKey):
 class SapDatasphereConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     base_url: str = Field(
         description="SAP Datasphere tenant URL, e.g. https://foo.eu10.hcs.cloud.sap"

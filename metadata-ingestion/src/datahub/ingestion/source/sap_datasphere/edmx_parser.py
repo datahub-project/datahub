@@ -158,7 +158,9 @@ class EdmxParser:
                     edm_type,
                     prop_name,
                 )
-                unknown_edm_types_local.append(UnknownColumnType(edm_type, prop_name))
+                unknown_edm_types_local.append(
+                    UnknownColumnType(type=edm_type, column=prop_name)
+                )
                 type_class = NullTypeClass
             native_type = edm_type
             if edm_type == "Edm.Decimal" and precision:

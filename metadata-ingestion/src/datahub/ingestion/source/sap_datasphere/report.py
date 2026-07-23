@@ -55,6 +55,9 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # distinguishes a parse miss from a genuine no-schema base table.
     assets_csn_unparseable: LossyList[str] = field(default_factory=LossyList)
     column_lineage_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # Table-level upstream edges derived from CDS association/composition targets
+    # the query actually uses (a lineage signal not present in the SELECT FROM).
+    association_upstreams_emitted: int = 0
 
     # Flow-based lineage (data / replication / transformation flows, task chains)
     # emitted as DataJobs under a per-space DataFlow.
