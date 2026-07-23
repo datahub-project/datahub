@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.FieldSpecUtils;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -106,7 +107,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   private final EntityIndexConfiguration entityIndexConfiguration;
 
   /** Base mapping configuration loaded from external resource if specified. */
-  private final Map<String, Object> mappingBaseConfiguration;
+  @Nullable private final Map<String, Object> mappingBaseConfiguration;
+
+  private final int keywordMaxLength;
 
   /**
    * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
@@ -122,8 +125,15 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
+    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public MultiEntityMappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
+      throws IOException {
 
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
     String mappingConfig = entityIndexConfiguration.getV3().getMappingConfig();
     if (mappingConfig != null && !mappingConfig.trim().isEmpty()) {
       this.mappingBaseConfiguration =
@@ -275,36 +285,42 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   @Override
   public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    return properties.stream()
-        .map(
-            urnProperty -> {
-              StructuredPropertyDefinition property = urnProperty.getSecond();
-              Map<String, Object> mappingForField = new HashMap<>();
-              LogicalValueType logicalType = getLogicalValueType(property.getValueType());
+    List<StructuredPropertyUtils.StructuredPropertyFieldMapping> entries =
+        properties.stream()
+            .map(
+                urnProperty -> {
+                  StructuredPropertyDefinition property = urnProperty.getSecond();
+                  Map<String, Object> mappingForField = new HashMap<>();
+                  LogicalValueType logicalType = getLogicalValueType(property.getValueType());
 
-              switch (logicalType) {
-                case STRING:
-                case RICH_TEXT:
-                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
-                  break;
-                case DATE:
-                  mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-                  break;
-                case URN:
-                  mappingForField = FieldTypeMapper.getMappingsForUrn();
-                  break;
-                case NUMBER:
-                  mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-                  break;
-                default:
-                  mappingForField = FieldTypeMapper.getMappingsForKeyword();
-                  break;
-              }
+                  switch (logicalType) {
+                    case STRING:
+                    case RICH_TEXT:
+                      mappingForField =
+                          FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+                      break;
+                    case DATE:
+                      mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                      break;
+                    case URN:
+                      mappingForField = FieldTypeMapper.getMappingsForUrn();
+                      break;
+                    case NUMBER:
+                      mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                      break;
+                    default:
+                      mappingForField =
+                          FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+                      break;
+                  }
 
-              return Map.entry(
-                  toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                  return new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                      toElasticsearchFieldName(urnProperty.getFirst(), property),
+                      urnProperty.getFirst(),
+                      mappingForField);
+                })
+            .collect(Collectors.toList());
+    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
   }
 
   /**

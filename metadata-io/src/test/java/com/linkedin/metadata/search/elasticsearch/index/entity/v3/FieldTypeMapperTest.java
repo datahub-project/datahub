@@ -38,10 +38,45 @@ public class FieldTypeMapperTest {
   }
 
   @Test
+  public void testGetMappingsForKeywordWithConfiguredIgnoreAbove() {
+    Map<String, Object> mapping = FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove(1024);
+    assertEquals(mapping.get("type"), "keyword");
+    // Configured value is UTF-8 bytes; ignore_above is character-based and byte-safe (/ 4).
+    assertEquals(mapping.get("ignore_above"), 256);
+  }
+
+  @Test
+  public void testStringLogicalValueTypeHonorsConfiguredKeywordMaxLength() {
+    Map<String, Object> mapping =
+        FieldTypeMapper.getMappingsForLogicalValueType(
+            com.linkedin.metadata.models.LogicalValueType.STRING, 2048);
+    assertEquals(mapping.get("type"), "keyword");
+    assertEquals(mapping.get("ignore_above"), 512);
+  }
+
+  @Test
   public void testGetMappingsForUrn() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForUrn();
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), 255);
+  }
+
+  @Test
+  public void testStringLogicalValueTypeUsesIgnoreAbove() {
+    Map<String, Object> mapping =
+        FieldTypeMapper.getMappingsForLogicalValueType(
+            com.linkedin.metadata.models.LogicalValueType.STRING);
+    assertEquals(mapping.get("type"), "keyword");
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+  }
+
+  @Test
+  public void testRichTextLogicalValueTypeUsesIgnoreAbove() {
+    Map<String, Object> mapping =
+        FieldTypeMapper.getMappingsForLogicalValueType(
+            com.linkedin.metadata.models.LogicalValueType.RICH_TEXT);
+    assertEquals(mapping.get("type"), "keyword");
+    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
   }
 
   @Test

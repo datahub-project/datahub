@@ -148,4 +148,91 @@ public class StructuredPropertyUtilsTest {
     assertFalse(StructuredPropertyUtils.entityTypeMatches(entityTypeUrn, "Dataset"));
     assertFalse(StructuredPropertyUtils.entityTypeMatches(entityTypeUrn, "DATASET"));
   }
+
+  @Test
+  public void testToElasticsearchFieldNameCollidingQualifiedNames() {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition().setQualifiedName("certification.status");
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition().setQualifiedName("certification_status");
+
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(urnDot, defDot),
+        StructuredPropertyUtils.toElasticsearchFieldName(urnUnderscore, defUnderscore));
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(urnDot, defDot), "certification_status");
+  }
+
+  @Test
+  public void testToElasticsearchFieldNameNestedDotVariantsCollide() {
+    Urn urn1 = UrnUtils.getUrn("urn:li:structuredProperty:a.b.c");
+    Urn urn2 = UrnUtils.getUrn("urn:li:structuredProperty:a_b.c");
+    Urn urn3 = UrnUtils.getUrn("urn:li:structuredProperty:a.b_c");
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(
+            urn1, new StructuredPropertyDefinition().setQualifiedName("a.b.c")),
+        "a_b_c");
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(
+            urn2, new StructuredPropertyDefinition().setQualifiedName("a_b.c")),
+        "a_b_c");
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(
+            urn3, new StructuredPropertyDefinition().setQualifiedName("a.b_c")),
+        "a_b_c");
+  }
+
+  @Test
+  public void testToElasticsearchFieldNameVersionedDoesNotCollideWithUnversioned() {
+    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    StructuredPropertyDefinition unversioned =
+        new StructuredPropertyDefinition().setQualifiedName("certification.status");
+    StructuredPropertyDefinition versioned =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("certification.status")
+            .setVersion("00000000000001")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"));
+
+    assertEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(urn, unversioned), "certification_status");
+    assertTrue(
+        StructuredPropertyUtils.toElasticsearchFieldName(urn, versioned)
+            .startsWith("_versioned.certification_status."));
+    assertNotEquals(
+        StructuredPropertyUtils.toElasticsearchFieldName(urn, unversioned),
+        StructuredPropertyUtils.toElasticsearchFieldName(urn, versioned));
+  }
+
+  @Test
+  public void testResolveStructuredPropertyMappingCollisionsSameTypeKeepsLowestUrn() {
+    Urn urnA = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnB = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    // urnA < urnB lexicographically (...status with dot vs underscore: '.' < '_')
+    Map<String, Object> mapping = Map.of("type", "keyword");
+    Map<String, Object> resolved =
+        StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(
+            List.of(
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnB, mapping),
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnA, mapping)));
+    assertEquals(resolved.size(), 1);
+    assertEquals(resolved.get("certification_status"), mapping);
+  }
+
+  @Test
+  public void testResolveStructuredPropertyMappingCollisionsDifferentTypeOmitsField() {
+    Urn urnA = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnB = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    Map<String, Object> resolved =
+        StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(
+            List.of(
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnA, Map.of("type", "keyword")),
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnB, Map.of("type", "double"))));
+    assertTrue(resolved.isEmpty());
+  }
 }
