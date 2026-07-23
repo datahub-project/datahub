@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
+    DataFlowSubTypes,
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
@@ -27,6 +28,7 @@ ProbeNodeKind = Union[
     DatasetContainerSubTypes,
     DatasetSubTypes,
     BIContainerSubTypes,
+    DataFlowSubTypes,
     ProbeLeafKind,
 ]
 

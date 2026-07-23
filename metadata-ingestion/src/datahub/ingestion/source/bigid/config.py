@@ -8,6 +8,8 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.source.bigid.bigid_api import BigIDClient
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -210,6 +212,29 @@ class BigIDSourceConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    def get_client(self) -> BigIDClient:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        return BigIDClient(
+            bigid_url=self.bigid_url,
+            user_token=self.user_token.get_secret_value() if self.user_token else None,
+            access_token=self.access_token.get_secret_value()
+            if self.access_token
+            else None,
+            timeout=self.timeout,
+            max_retries=self.max_retries,
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.bigid.bigid_probe import BIGID_PROBE_HIERARCHY
+
+        return BIGID_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.bigid.bigid_probe import list_bigid_children
+
+        return list_bigid_children(self, parent_path, limit)
 
     @model_validator(mode="after")
     def _require_some_token(self) -> "BigIDSourceConfig":

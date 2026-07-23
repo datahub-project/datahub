@@ -21,7 +21,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
-    CassandraAPI,
     CassandraColumn,
     CassandraEntities,
     CassandraKeyspace,
@@ -98,7 +97,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         self.platform = PLATFORM_NAME_IN_DATAHUB
         self.config = config
         self.report = CassandraSourceReport()
-        self.cassandra_api = CassandraAPI(config, self.report)
+        self.cassandra_api = config.get_client(self.report)
         self.cassandra_data = CassandraEntities()
         # For profiling
         self.profiler = CassandraProfiler(config, self.report, self.cassandra_api)

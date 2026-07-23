@@ -24,6 +24,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mcp_builder import NamespaceKey
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -161,6 +162,40 @@ class AerospikeConfig(
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    def get_client(self) -> aerospike.Client:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        hosts = [(x[0], int(x[1]), x[2] if len(x) > 2 else None) for x in self.hosts]
+        client_config: Dict[str, Any] = {"hosts": hosts}
+        if self.username is not None:
+            client_config["user"] = self.username
+        if self.password is not None:
+            client_config["password"] = self.password.get_secret_value()
+        if self.auth_mode is not None:
+            client_config["auth_mode"] = self.auth_mode.value
+        if self.login_timeout_ms is not None:
+            client_config["login_timeout_ms"] = self.login_timeout_ms
+        if self.tls_enabled:
+            client_config["tls"] = {}
+            client_config["tls"]["enable"] = self.tls_enabled
+            if self.tls_capath is not None:
+                client_config["tls"]["capath"] = self.tls_capath
+            if self.tls_cafile is not None:
+                client_config["tls"]["cafile"] = self.tls_cafile
+        return aerospike.client(client_config).connect()
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.aerospike_probe import (
+            AEROSPIKE_PROBE_HIERARCHY,
+        )
+
+        return AEROSPIKE_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.aerospike_probe import list_aerospike_children
+
+        return list_aerospike_children(self, parent_path, limit)
 
 
 @dataclass
@@ -330,28 +365,8 @@ class AerospikeSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = AerospikeSourceReport()
 
-        hosts = [
-            (x[0], int(x[1]), x[2] if len(x) > 2 else None) for x in self.config.hosts
-        ]
-        client_config: Dict[str, Any] = {"hosts": hosts}
-        if self.config.username is not None:
-            client_config["user"] = self.config.username
-        if self.config.password is not None:
-            client_config["password"] = self.config.password.get_secret_value()
-        if self.config.auth_mode is not None:
-            client_config["auth_mode"] = self.config.auth_mode.value
-        if self.config.login_timeout_ms is not None:
-            client_config["login_timeout_ms"] = self.config.login_timeout_ms
-        if self.config.tls_enabled:
-            client_config["tls"] = {}
-            client_config["tls"]["enable"] = self.config.tls_enabled
-            if self.config.tls_capath is not None:
-                client_config["tls"]["capath"] = self.config.tls_capath
-            if self.config.tls_cafile is not None:
-                client_config["tls"]["cafile"] = self.config.tls_cafile
-
         try:
-            self.aerospike_client = aerospike.client(client_config).connect()
+            self.aerospike_client = self.config.get_client()
         except Exception as e:
             self.report.failure(
                 message="Failed to connect to Aerospike",

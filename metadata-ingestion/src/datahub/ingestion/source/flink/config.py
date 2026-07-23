@@ -8,6 +8,7 @@ from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -208,6 +209,18 @@ class FlinkSourceConfig(
         default=None,
         description="Stateful ingestion for soft-deleting stale entities.",
     )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.flink.flink_probe import FLINK_PROBE_HIERARCHY
+
+        return FLINK_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.flink.flink_probe import list_flink_children
+
+        return list_flink_children(self, parent_path, limit)
 
     @field_validator("include_job_states")
     @classmethod

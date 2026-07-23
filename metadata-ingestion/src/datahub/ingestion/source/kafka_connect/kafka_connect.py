@@ -4,7 +4,6 @@ from typing import Dict, Iterable, List, Optional
 
 import jpype
 import jpype.imports
-import requests
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -28,6 +27,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+    create_json_session,
     get_platform_instance,
     transform_connector_config,
 )
@@ -61,27 +61,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = KafkaConnectSourceReport()
-        self.session = self._create_json_session()
+        logger.info(f"Connecting to {self.config.connect_uri} ...")
+        self.session = self.config.get_connect_session()
 
         # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
         # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
-        self.kafka_session = self._create_json_session()
-
-        # Test the connection using appropriate credentials
-        connect_username, connect_password = self.config.get_connect_credentials()
-        if connect_username is not None and connect_password is not None:
-            logger.info(
-                f"Connecting to {self.config.connect_uri} with Authentication..."
-            )
-            # Set up Basic Authentication for Connect API (requests handles the encoding automatically)
-            self.session.auth = (connect_username, connect_password)
-        else:
-            # For Confluent Cloud, authentication is required
-            if self.config.is_confluent_cloud():
-                raise ValueError(
-                    "Confluent Cloud detected but no Connect API credentials provided. "
-                    "Confluent Cloud requires authentication credentials for API access."
-                )
+        self.kafka_session = create_json_session()
 
         effective_uri = self.config.connect_uri
         test_response = self.session.get(f"{effective_uri}/connectors")
@@ -310,18 +295,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             return []
 
         return response.json()
-
-    @staticmethod
-    def _create_json_session() -> requests.Session:
-        """Create a requests session with standard JSON headers."""
-        session = requests.Session()
-        session.headers.update(
-            {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
-        )
-        return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
         """Get topics for a connector using environment-specific strategy.

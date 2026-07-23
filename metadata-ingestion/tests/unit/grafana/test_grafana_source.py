@@ -61,7 +61,7 @@ def test_source_initialization(mock_source):
     assert mock_source.platform_instance == "test-instance"
 
 
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+@patch("datahub.ingestion.source.grafana.grafana_config.GrafanaAPIClient")
 def test_process_folder(mock_api, mock_source, mock_folder):
     workunit_list = list(mock_source._process_folder(mock_folder))
 
@@ -69,7 +69,7 @@ def test_process_folder(mock_api, mock_source, mock_folder):
     assert all(isinstance(w, MetadataWorkUnit) for w in workunit_list)
 
 
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+@patch("datahub.ingestion.source.grafana.grafana_config.GrafanaAPIClient")
 def test_process_dashboard(mock_api, mock_source, mock_dashboard):
     workunit_list = list(mock_source._process_dashboard(mock_dashboard))
 
@@ -78,7 +78,7 @@ def test_process_dashboard(mock_api, mock_source, mock_dashboard):
     assert mock_source.report.charts_scanned == 1
 
 
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+@patch("datahub.ingestion.source.grafana.grafana_config.GrafanaAPIClient")
 def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
     workunit_list = list(mock_source._process_dashboard(mock_dashboard))
 
@@ -88,7 +88,7 @@ def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
     assert len(container_workunits) > 0
 
 
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+@patch("datahub.ingestion.source.grafana.grafana_config.GrafanaAPIClient")
 def test_source_get_workunits_internal(
     mock_api, mock_source, mock_folder, mock_dashboard
 ):
@@ -122,7 +122,7 @@ def test_source_get_report(mock_source):
     assert report.datasets_scanned == 0
 
 
-@patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
+@patch("datahub.ingestion.source.grafana.grafana_config.GrafanaAPIClient")
 def test_source_close(mock_api, mock_source):
     mock_source.close()
     # Verify any cleanup is performed correctly

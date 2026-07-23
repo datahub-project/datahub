@@ -124,7 +124,7 @@ class TestPineconeSource:
         assert source.config == config
         assert source.report is not None
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_get_workunits_with_no_indexes(self, mock_client_class):
         """Test workunit generation with no indexes."""
         # Setup mock
@@ -142,7 +142,7 @@ class TestPineconeSource:
         assert len(workunits) == 0
         assert source.report.indexes_scanned == 0
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_get_workunits_with_filtered_index(self, mock_client_class):
         """Test workunit generation with filtered indexes."""
         # Setup mock
@@ -173,7 +173,7 @@ class TestPineconeSource:
         assert source.report.indexes_filtered == 1
         assert source.report.indexes_scanned == 0
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_get_workunits_basic_flow(self, mock_client_class):
         """Test basic workunit generation flow."""
         # Setup mock
@@ -373,7 +373,7 @@ class TestMetadataSchemaInferrer:
 class TestPineconeSourceWithSchemaInference:
     """Test Pinecone source with schema inference."""
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_schema_inference_enabled(self, mock_client_class):
         """Test that schema inference is enabled by default."""
         config = PineconeConfig(api_key="test-key")
@@ -383,7 +383,7 @@ class TestPineconeSourceWithSchemaInference:
         assert source.schema_inferrer is not None
         assert config.enable_schema_inference is True
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_schema_inference_disabled(self, mock_client_class):
         """Test that schema inference can be disabled."""
         config = PineconeConfig(api_key="test-key", enable_schema_inference=False)
@@ -392,7 +392,7 @@ class TestPineconeSourceWithSchemaInference:
 
         assert source.schema_inferrer is None
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_get_workunits_with_schema_inference(self, mock_client_class):
         """Test workunit generation with schema inference."""
         # Setup mock
@@ -454,7 +454,7 @@ class TestPineconeSourceWithSchemaInference:
             limit=100,
         )
 
-    @patch("datahub.ingestion.source.pinecone.pinecone_source.PineconeClient")
+    @patch.object(PineconeConfig, "get_client")
     def test_schema_inference_no_metadata(self, mock_client_class):
         """Test schema inference when vectors have no metadata."""
         # Setup mock

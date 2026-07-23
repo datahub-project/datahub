@@ -23,7 +23,7 @@ from datahub.ingestion.source.flink.client import (
     FlinkClusterConfig,
     FlinkJobDetail,
     FlinkJobSummary,
-    FlinkRestClient,
+    get_flink_client,
 )
 from datahub.ingestion.source.flink.config import FlinkSourceConfig
 from datahub.ingestion.source.flink.entities import (
@@ -88,7 +88,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.report = FlinkSourceReport()
-        self.client = FlinkRestClient(config.connection)
+        self.client = get_flink_client(config)
         self.sql_gateway_client: Optional[FlinkSQLGatewayClient] = None
         if config.connection.sql_gateway_url:
             self.sql_gateway_client = FlinkSQLGatewayClient(config.connection)
@@ -391,7 +391,7 @@ class FlinkSource(StatefulIngestionSourceBase, TestableSource):
             )
             return test_report
 
-        client = FlinkRestClient(config.connection)
+        client = get_flink_client(config)
         try:
             try:
                 client.test_connectivity()

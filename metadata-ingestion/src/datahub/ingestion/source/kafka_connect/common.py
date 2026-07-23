@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional
 
+import requests
 from pydantic import model_validator
 from pydantic.fields import Field
 
@@ -19,6 +20,7 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
@@ -61,6 +63,19 @@ DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
 
 _QUOTED_IDENTIFIER_RE: Final = re.compile(r'"([^"]+)"')
 _VALID_TOPIC_NAME_RE: Final = re.compile(r'^[a-zA-Z0-9._\-"\s]+$')
+
+
+def create_json_session() -> requests.Session:
+    """Create a requests session with standard JSON headers."""
+    session = requests.Session()
+    session.headers.update(
+        {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+    )
+    return session
+
 
 # ================================
 # TRANSFORM TYPE CONSTANTS
@@ -466,6 +481,36 @@ class KafkaConnectSourceConfig(
             The URI to use for connecting to Kafka Connect
         """
         return self.connect_uri
+
+    def get_connect_session(self) -> requests.Session:
+        # Single home for the authenticated Connect API session, reused by ingestion
+        # and the recipe probe.
+        session = create_json_session()
+        username, password = self.get_connect_credentials()
+        if username is not None and password is not None:
+            session.auth = (username, password)
+        elif self.is_confluent_cloud():
+            raise ValueError(
+                "Confluent Cloud detected but no Connect API credentials provided. "
+                "Confluent Cloud requires authentication credentials for API access."
+            )
+        return session
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+            KAFKA_CONNECT_PROBE_HIERARCHY,
+        )
+
+        return KAFKA_CONNECT_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+            list_kafka_connect_children,
+        )
+
+        return list_kafka_connect_children(self, parent_path, limit)
 
 
 @dataclass

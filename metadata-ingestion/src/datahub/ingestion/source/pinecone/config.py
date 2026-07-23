@@ -1,6 +1,6 @@
 """Configuration model for Pinecone source."""
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, PositiveInt
 
@@ -9,6 +9,8 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.source.pinecone.pinecone_client import PineconeClient
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -94,3 +96,23 @@ class PineconeConfig(
         description="Stateful ingestion configuration for tracking processed entities "
         "and removing stale metadata.",
     )
+
+    def get_client(self) -> PineconeClient:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        return PineconeClient(self)
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.pinecone.pinecone_probe import (
+            PINECONE_PROBE_HIERARCHY,
+        )
+
+        return PINECONE_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.pinecone.pinecone_probe import (
+            list_pinecone_children,
+        )
+
+        return list_pinecone_children(self, parent_path, limit)

@@ -4,13 +4,28 @@ import logging
 import time
 from dataclasses import dataclass
 from functools import lru_cache, wraps
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
 from pinecone import Pinecone
 
-from datahub.ingestion.source.pinecone.config import PineconeConfig
+from datahub.configuration.common import TransparentSecretStr
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class PineconeClientConfig(Protocol):
+    """The slice of PineconeConfig the client needs.
+
+    A structural type instead of importing PineconeConfig directly, since
+    PineconeConfig.get_client() constructs this client — a direct import here
+    would create an import cycle between config.py and this module.
+    """
+
+    api_key: TransparentSecretStr
+    environment: Optional[str]
+    index_host_mapping: Optional[Dict[str, str]]
+
 
 # Default namespace constant to avoid empty string URN issues
 DEFAULT_NAMESPACE = "__default__"
@@ -100,7 +115,7 @@ class PineconeClient:
     Handles both serverless and pod-based indexes.
     """
 
-    def __init__(self, config: PineconeConfig):
+    def __init__(self, config: PineconeClientConfig):
         """
         Initialize Pinecone client.
 

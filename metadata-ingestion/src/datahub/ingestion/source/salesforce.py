@@ -23,6 +23,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -178,6 +179,31 @@ class SalesforceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    def get_client(
+        self, report: Optional["SalesforceSourceReport"] = None
+    ) -> "SalesforceApi":
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        sf = SalesforceApi.create_salesforce_client(self)
+        return SalesforceApi(
+            sf, self, report if report is not None else SalesforceSourceReport()
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.salesforce_probe import (
+            SALESFORCE_PROBE_HIERARCHY,
+        )
+
+        return SALESFORCE_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.salesforce_probe import (
+            list_salesforce_children,
+        )
+
+        return list_salesforce_children(self, parent_path, limit)
 
 
 @dataclass
@@ -592,7 +618,7 @@ class SalesforceSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
-            sf = SalesforceApi.create_salesforce_client(self.config)
+            self.sf_api = self.config.get_client(self.report)
         except SalesforceAuthenticationFailed as e:
             if "API_CURRENTLY_DISABLED" in str(e):
                 # https://help.salesforce.com/s/articleView?id=001473830&type=1
@@ -606,8 +632,6 @@ class SalesforceSource(StatefulIngestionSourceBase):
                     error += "Please set `is_sandbox: True` in recipe if this is sandbox account."
             self.report.failure(title="Salesforce login failed", message=error, exc=e)
             return
-
-        self.sf_api = SalesforceApi(sf, self.config, self.report)
 
         try:
             sObjects = self.sf_api.list_objects()

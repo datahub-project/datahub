@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, List, Optional
 
 from pydantic import Field
 
@@ -11,6 +11,8 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -133,3 +135,29 @@ class CassandraSourceConfig(
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
+
+    def get_client(self, report: Optional[SourceReport] = None) -> Any:
+        # Single home for client construction, reused by ingestion and the recipe
+        # probe. Untyped Any return: cassandra_api imports this config module, so
+        # importing CassandraAPI at module level here would create a cycle.
+        from datahub.ingestion.source.cassandra.cassandra_api import CassandraAPI
+        from datahub.ingestion.source.cassandra.cassandra_utils import (
+            CassandraSourceReport,
+        )
+
+        return CassandraAPI(self, report or CassandraSourceReport())
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.cassandra.cassandra_probe import (
+            CASSANDRA_PROBE_HIERARCHY,
+        )
+
+        return CASSANDRA_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.cassandra.cassandra_probe import (
+            list_cassandra_children,
+        )
+
+        return list_cassandra_children(self, parent_path, limit)

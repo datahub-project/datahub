@@ -12,7 +12,10 @@ from tenacity import (
     wait_exponential,
 )
 
-from datahub.ingestion.source.flink.config import FlinkConnectionConfig
+from datahub.ingestion.source.flink.config import (
+    FlinkConnectionConfig,
+    FlinkSourceConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,3 +191,8 @@ class FlinkRestClient:
 
     def close(self) -> None:
         self.session.close()
+
+
+def get_flink_client(config: FlinkSourceConfig) -> FlinkRestClient:
+    # Single home for client construction, reused by ingestion and the recipe probe.
+    return FlinkRestClient(config.connection)

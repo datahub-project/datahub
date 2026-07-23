@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, SecretStr, field_validator
 
@@ -8,6 +8,9 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
+from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -120,3 +123,32 @@ class GrafanaSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
+
+    def get_client(
+        self, report: Optional[GrafanaSourceReport] = None
+    ) -> GrafanaAPIClient:
+        # Single home for client construction, reused by ingestion and the recipe probe.
+        return GrafanaAPIClient(
+            base_url=self.url,
+            token=self.service_account_token,
+            verify_ssl=self.verify_ssl,
+            page_size=self.page_size,
+            report=report if report is not None else GrafanaSourceReport(),
+            skip_text_panels=self.skip_text_panels,
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        # Structural only — must not connect (see ProbeCapableConfig).
+        from datahub.ingestion.source.grafana.grafana_probe import (
+            GRAFANA_PROBE_HIERARCHY,
+        )
+
+        return GRAFANA_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.grafana.grafana_probe import (
+            list_grafana_children,
+        )
+
+        return list_grafana_children(self, parent_path, limit)
