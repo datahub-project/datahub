@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -52,6 +53,7 @@ public class BuildIndicesIncrementalStepTest {
   @Mock private ESIndexBuilder indexBuilder;
   @Mock private ElasticSearchIndexed indexedService;
   @Mock private UpgradeContext upgradeContext;
+  @Mock private UpgradeReport upgradeReport;
   @Mock private Upgrade upgrade;
 
   private OperationContext opContext;
@@ -65,6 +67,7 @@ public class BuildIndicesIncrementalStepTest {
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
+    when(upgradeContext.report()).thenReturn(upgradeReport);
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
     when(entityService.getLatestEnvelopedAspect(any(), any(), any(), any())).thenReturn(null);
     when(entityService.ingestProposal(any(), any(), any(), anyBoolean()))

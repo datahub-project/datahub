@@ -9,6 +9,11 @@ import javax.annotation.Nullable;
 /** Formats a human-grepable multi-line upgrade completion summary for on-call triage. */
 final class UpgradeSummaryFormatter {
 
+  /** Step completed; soft document-failure warnings present in the report. */
+  static final String SUCCEEDED_WITH_WARNINGS = "SUCCEEDED_WITH_WARNINGS";
+
+  private static final String SOFT_DOC_FAILURES_PHRASE = "reindexed with document failures";
+
   private UpgradeSummaryFormatter() {}
 
   /** One step line in the upgrade summary. */
@@ -87,8 +92,15 @@ final class UpgradeSummaryFormatter {
         sb.append(" (").append(step.retryCount).append(" retries)");
       }
       if (step.cause != null && !step.cause.isBlank()) {
-        // FAILED: root cause; SUCCEEDED soft-pass: document-failure note (still greppable).
-        String label = "FAILED".equals(step.status) ? "Cause" : "Note";
+        // FAILED → Cause; soft-pass SUCCEEDED_WITH_WARNINGS → Warning; other → Note.
+        String label;
+        if ("FAILED".equals(step.status)) {
+          label = "Cause";
+        } else if (SUCCEEDED_WITH_WARNINGS.equals(step.status)) {
+          label = "Warning";
+        } else {
+          label = "Note";
+        }
         sb.append('\n').append("    ").append(label).append(": ").append(step.cause);
       }
       i++;
@@ -101,14 +113,14 @@ final class UpgradeSummaryFormatter {
   /**
    * Best-effort extraction of a failure cause for a step from upgrade report lines.
    *
-   * <p>Looks for step-authored root-cause lines and manager-caught exception lines.
+   * <p>Looks for step-authored root-cause lines and manager-caught exception lines. Soft document
+   * failure notes are handled by {@link #findSoftPassNoteForStep} on succeeded steps.
    */
   @Nullable
   static String findCauseForStep(@Nonnull String stepId, @Nonnull List<String> reportLines) {
     String best = null;
     String rootCausePrefix = stepId + " failed. Root cause:";
     String failurePrefix = stepId + " failed:";
-    String softDocFailuresMarker = stepId + ":";
     String caughtMarker = "Step with id " + stepId + ":";
 
     for (String line : reportLines) {
@@ -116,14 +128,32 @@ final class UpgradeSummaryFormatter {
         continue;
       }
       if (line.contains(rootCausePrefix)) {
+        // Highest priority — stop scanning.
         best = extractAfter(line, rootCausePrefix);
+        break;
       } else if (line.contains(failurePrefix)) {
         best = extractAfter(line, failurePrefix);
-      } else if (line.contains(softDocFailuresMarker)
-          && line.contains("reindexed with document failures")) {
-        best = extractAfter(line, softDocFailuresMarker);
       } else if (line.contains("Caught exception") && line.contains(caughtMarker)) {
         best = extractAfter(line, caughtMarker);
+      }
+    }
+    return best != null && !best.isBlank() ? best.trim() : null;
+  }
+
+  /**
+   * Soft-pass document-failure note for a succeeded step. Scans only the soft-pass marker — not
+   * failure/exception lines.
+   */
+  @Nullable
+  static String findSoftPassNoteForStep(@Nonnull String stepId, @Nonnull List<String> reportLines) {
+    String softDocFailuresMarker = stepId + ":";
+    String best = null;
+    for (String line : reportLines) {
+      if (line == null) {
+        continue;
+      }
+      if (line.contains(softDocFailuresMarker) && line.contains(SOFT_DOC_FAILURES_PHRASE)) {
+        best = extractAfter(line, softDocFailuresMarker);
       }
     }
     return best != null && !best.isBlank() ? best.trim() : null;

@@ -1408,11 +1408,7 @@ public class ESIndexBuilder {
         requestOptionsLong);
     log.info("Finished setting up {}", indexState.name());
     if (!documentFailures.isEmpty()) {
-      TaskFailureParser.logFailures(
-          log,
-          "Document failures for index " + indexState.name(),
-          documentFailures,
-          documentFailureTotal);
+      // Details already logged in fetchTaskFailuresBestEffort on the timeout path.
       return ReindexResult.REINDEXED_WITH_FAILURES;
     }
     return result;

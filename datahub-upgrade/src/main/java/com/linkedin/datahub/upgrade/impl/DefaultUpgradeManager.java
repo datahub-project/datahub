@@ -135,14 +135,15 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
       upgradeReport.addLine(
           String.format("Completed Step %s/%s: %s successfully.", i + 1, steps.size(), step.id()));
+      // Soft-pass note only (not full findCauseForStep) — avoids O(steps × lines) on clean
+      // succeeds.
+      String softPassNote =
+          UpgradeSummaryFormatter.findSoftPassNoteForStep(step.id(), upgradeReport.lines());
+      String status =
+          softPassNote != null ? UpgradeSummaryFormatter.SUCCEEDED_WITH_WARNINGS : "SUCCEEDED";
       stepLines.add(
           new UpgradeSummaryFormatter.StepLine(
-              stepIndex,
-              total,
-              step.id(),
-              "SUCCEEDED",
-              step.retryCount(),
-              UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines())));
+              stepIndex, total, step.id(), status, step.retryCount(), softPassNote));
     }
 
     upgradeReport.addLine(

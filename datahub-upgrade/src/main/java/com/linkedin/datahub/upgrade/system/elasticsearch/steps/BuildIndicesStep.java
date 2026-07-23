@@ -195,19 +195,27 @@ public class BuildIndicesStep implements UpgradeStep {
                           || entry.getValue() == ReindexResult.REINDEXED_WITH_FAILURES)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       if (!failures.isEmpty()) {
-        log.error(
-            "Parallel reindex completed with {} failures out of {} indices",
-            failures.size(),
-            results.size());
+        boolean hardFailure = failures.values().stream().anyMatch(ReindexResult::isFailure);
+        // Soft-pass (REINDEXED_WITH_FAILURES only) is warn; hard failures stay error.
+        // Per-doc details already logged at capture time — report lines only here.
+        if (hardFailure) {
+          log.error(
+              "Parallel reindex completed with {} failures out of {} indices",
+              failures.size(),
+              results.size());
+        } else {
+          log.warn(
+              "Parallel reindex completed with {} soft-pass (REINDEXED_WITH_FAILURES) of {} indices",
+              failures.size(),
+              results.size());
+        }
         failures.forEach(
             (key, value) -> {
               TaskFailureParseResult indexFailures =
                   documentFailures.getOrDefault(key, TaskFailureParseResult.EMPTY);
-              log.error("Failure index alias {} reason :{}", key, value);
-              TaskFailureParser.logFailures(
-                  log, "Document failures for index " + key, indexFailures);
               String formatted = TaskFailureParser.formatForLog(indexFailures, 5);
               if (value.isFailure()) {
+                log.error("Failure index alias {} reason :{}", key, value);
                 context
                     .report()
                     .addLine(
@@ -215,16 +223,15 @@ public class BuildIndicesStep implements UpgradeStep {
                             "%s failed: Failure index alias %s reason: %s%s",
                             id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
               } else if (value == ReindexResult.REINDEXED_WITH_FAILURES) {
+                log.warn("Index {} completed as REINDEXED_WITH_FAILURES (soft-pass)", key);
                 context
                     .report()
                     .addLine(
                         String.format(
                             "%s: index %s reindexed with document failures%s",
                             id(), key, formatted.isEmpty() ? "" : ": " + formatted));
-                log.warn("Index {} completed as REINDEXED_WITH_FAILURES (soft-pass)", key);
               }
             });
-        boolean hardFailure = failures.values().stream().anyMatch(ReindexResult::isFailure);
         if (hardFailure) {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }

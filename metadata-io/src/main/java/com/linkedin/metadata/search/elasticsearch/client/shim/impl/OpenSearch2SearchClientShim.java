@@ -608,6 +608,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     if (request.getTimeout() != null) {
       lowLevelReq.addParameter("timeout", request.getTimeout().getStringRep());
     }
+    if (options != null) {
+      lowLevelReq.setOptions(options);
+    }
     try {
       Response response = client.getLowLevelClient().performRequest(lowLevelReq);
       if (response.getEntity() == null) {

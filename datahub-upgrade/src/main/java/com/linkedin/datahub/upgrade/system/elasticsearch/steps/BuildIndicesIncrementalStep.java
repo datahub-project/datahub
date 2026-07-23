@@ -281,11 +281,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.nextIndexName(),
                   indexBuilder,
                   pollResult.completed());
-          TaskFailureParser.logFailures(
-              log,
-              "Incremental reindex document failures for " + config.name(),
-              pollResult.failures(),
-              pollResult.totalFailureCount());
+          // Per-doc details already logged in poll timeout path (fetchTaskFailuresBestEffort).
           if (!pollResult.completed()) {
             String formatted =
                 TaskFailureParser.formatForLog(

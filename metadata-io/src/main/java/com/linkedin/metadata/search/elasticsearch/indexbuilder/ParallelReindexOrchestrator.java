@@ -142,6 +142,7 @@ public class ParallelReindexOrchestrator {
     log.info("Starting parallel reindex for {} indices", toReindex.size());
 
     failedCleanupIndices.clear();
+    documentFailuresByIndex.clear();
 
     Map<IndexCostEstimator.CostTier, List<ReindexConfig>> tieredConfigs =
         classifyIndicesByCost(toReindex);
