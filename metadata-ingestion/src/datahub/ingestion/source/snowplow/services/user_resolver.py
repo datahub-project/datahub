@@ -82,16 +82,17 @@ class UserResolver:
                 f"Ownership tracking will use initiator names directly."
             )
             if self.report:
-                self.report.report_warning(
+                self.report.warning(
                     "user_loading",
                     f"Could not load users from BDP API: {e}. "
                     "Ownership will use initiator names instead of emails.",
+                    log=False,
                 )
         except Exception as e:
             # Unexpected error - indicates a bug
             logger.error(f"Unexpected error loading users: {e}", exc_info=True)
             if self.report:
-                self.report.report_failure(
+                self.report.failure(
                     "user_loading",
                     f"Unexpected error loading users: {e}. This may indicate a bug.",
                 )

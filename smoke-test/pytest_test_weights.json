@@ -28,7 +28,7 @@
     "duration": "89.511s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentSearchAndHistory::test_search_documents_with_filters",
+    "testId": "tests.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_search_documents_with_filters",
     "duration": "89.416s"
   },
   {
@@ -48,11 +48,11 @@
     "duration": "83.373s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentHierarchyAndSettings::test_parent_documents_hierarchy",
+    "testId": "tests.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_parent_documents_hierarchy",
     "duration": "80.416s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_update_related_entities",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_related_entities",
     "duration": "80.313s"
   },
   {
@@ -68,7 +68,7 @@
     "duration": "72.107s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_move_document",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_move_document",
     "duration": "70.212s"
   },
   {
@@ -76,7 +76,7 @@
     "duration": "70.194s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentSearchAndHistory::test_change_history",
+    "testId": "tests.knowledge.test_document_search_history.TestDocumentSearchAndHistory::test_change_history",
     "duration": "70.084s"
   },
   {
@@ -84,11 +84,11 @@
     "duration": "70.034s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentHierarchyAndSettings::test_document_settings",
+    "testId": "tests.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_document_settings",
     "duration": "70.017s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentHierarchyAndSettings::test_search_ownership_filtering",
+    "testId": "tests.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_search_ownership_filtering",
     "duration": "70.003s"
   },
   {
@@ -196,7 +196,7 @@
     "duration": "49.829s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentHierarchyAndSettings::test_context_documents_for_dataset",
+    "testId": "tests.knowledge.test_document_hierarchy_settings.TestDocumentHierarchyAndSettings::test_context_documents_for_dataset",
     "duration": "49.620s"
   },
   {
@@ -276,7 +276,7 @@
     "duration": "40.643s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_update_document_status",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_status",
     "duration": "40.564s"
   },
   {
@@ -304,11 +304,11 @@
     "duration": "39.728s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_update_document_contents",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_contents",
     "duration": "39.661s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_update_document_subtype",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_update_document_subtype",
     "duration": "39.627s"
   },
   {
@@ -424,7 +424,7 @@
     "duration": "30.529s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_search_documents",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_search_documents",
     "duration": "30.432s"
   },
   {
@@ -608,7 +608,7 @@
     "duration": "20.352s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_get_document",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_get_document",
     "duration": "20.340s"
   },
   {
@@ -728,7 +728,7 @@
     "duration": "19.313s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_create_document_with_owners",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document_with_owners",
     "duration": "19.309s"
   },
   {
@@ -776,7 +776,7 @@
     "duration": "16.358s"
   },
   {
-    "testId": "tests.knowledge.document_test.TestDocumentCrudAndMutations::test_create_document",
+    "testId": "tests.knowledge.test_document_crud.TestDocumentCrudAndMutations::test_create_document",
     "duration": "16.303s"
   },
   {

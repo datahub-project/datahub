@@ -523,11 +523,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Cardinality",
                 message="The cardinality for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -611,11 +612,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Min",
                 message="The min for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -631,11 +633,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Max",
                 message="The max for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -651,11 +654,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Mean",
                 message="The mean for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -698,11 +702,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Medians",
                 message="The medians for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -717,11 +722,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Standard Deviation",
                 message="The standard deviation for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -761,11 +767,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Quantiles",
                 message="The quantiles for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -801,11 +808,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Distinct Value Frequencies",
                 message="Distinct value frequencies for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -838,11 +846,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Histogram",
                 message="The histogram for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -873,11 +882,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Sample Values",
                 message="The sample values for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
@@ -1577,9 +1587,10 @@ def create_athena_temp_table(
         if not instance.config.catch_exceptions:
             raise e
         logger.exception(f"Encountered exception while profiling {table_pretty_name}")
-        instance.report.report_warning(
+        instance.report.warning(
             table_pretty_name,
             f"Profiling exception {e} when running custom sql {sql}",
+            log=False,
         )
         return None
     finally:
@@ -1610,9 +1621,10 @@ def create_bigquery_temp_table(
             logger.exception(
                 f"Encountered exception while profiling {table_pretty_name}"
             )
-            instance.report.report_warning(
+            instance.report.warning(
                 table_pretty_name,
                 f"Profiling exception {e} when running custom sql {bq_sql}",
+                log=False,
             )
             return None
 

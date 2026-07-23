@@ -1,8 +1,10 @@
 """
-Integration test to validate s3-slim installation works without PySpark.
+Integration test to validate s3/s3-slim installation works without PySpark.
 
-This test ensures that the s3-slim pip extra can be installed and used
-without PySpark dependencies, which is critical for lightweight deployments.
+S3 profiling no longer depends on PySpark/Deequ at all (see FileProfiler), so
+neither the "slim" nor the "full" `s3` extra installs PySpark anymore. This
+test ensures profiling works even when PySpark/Deequ are absent, and that
+neither extra pulls them in.
 
 """
 
@@ -73,28 +75,32 @@ class TestS3SlimNoPySpark:
         assert config is not None
         assert config.profiling.enabled is False
 
-    def test_s3_source_creation_fails_with_profiling_no_pyspark(self):
+    def test_s3_source_creation_succeeds_with_profiling_and_no_pyspark(
+        self, tmp_path: Path
+    ) -> None:
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
+
+        test_file = tmp_path / "test.csv"
+        test_file.write_text("id,name,value\n1,test,100\n2,sample,200\n")
 
         config_dict = {
             "path_specs": [
                 {
-                    "include": "s3://test-bucket/data/*.csv",
+                    "include": f"{tmp_path}/*.csv",
                 }
             ],
             "profiling": {"enabled": True},
         }
 
-        ctx = PipelineContext(run_id="test-s3-slim")
+        ctx = PipelineContext(run_id="test-s3-slim-profiling")
 
-        with pytest.raises(RuntimeError) as exc_info:
-            S3Source.create(config_dict, ctx)
-
-        error_msg = str(exc_info.value)
-        assert "PySpark is not installed" in error_msg
-        assert "S3 profiling" in error_msg
-        assert "acryl-datahub[data-lake-profiling]" in error_msg
+        # FileProfiler (pyarrow/fastavro/datasketches) replaced the old
+        # Spark+Deequ profiler, so this must succeed even with pyspark/pydeequ
+        # mocked missing.
+        source = S3Source.create(config_dict, ctx)
+        workunits = list(source.get_workunits())
+        assert len(workunits) > 0
 
     def test_s3_source_works_without_profiling(self, tmp_path: Path) -> None:
         from datahub.ingestion.api.common import PipelineContext
@@ -189,10 +195,12 @@ class TestS3SlimInstallation:
             assert result.returncode == 0, f"S3 source failed to load: {result.stderr}"
             assert "SUCCESS" in result.stdout
 
-    def test_s3_full_install_includes_pyspark(self):
-        """Test that installing acryl-datahub[s3] DOES install PySpark.
+    def test_s3_full_install_excludes_pyspark(self):
+        """Test that installing acryl-datahub[s3] does NOT install PySpark.
 
-        Standard s3 extra includes PySpark.
+        The `s3` extra (with profiling) used to require PySpark/Deequ; it now
+        uses FileProfiler (pyarrow/fastavro/datasketches) instead, so PySpark
+        should not be pulled in even by the full (non-slim) extra.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             venv_path = Path(tmpdir) / "test_venv"
@@ -205,7 +213,7 @@ class TestS3SlimInstallation:
             )
             assert result.returncode == 0
 
-            # Install s3 (full, with PySpark)
+            # Install s3 (full, with profiling)
             pip_path = venv_path / "bin" / "pip"
             metadata_ingestion_path = Path(__file__).parent.parent.parent.parent
 
@@ -222,16 +230,33 @@ class TestS3SlimInstallation:
             )
             assert result.returncode == 0
 
-            # Verify PySpark IS installed
+            # Verify PySpark is NOT installed
             python_path = venv_path / "bin" / "python"
             result = subprocess.run(
                 [
                     str(python_path),
                     "-c",
-                    "import pyspark; print('SUCCESS: pyspark found')",
+                    "import pyspark; print('FAIL: pyspark found')",
                 ],
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, "PySpark should be installed with s3 extra"
+            assert result.returncode != 0, (
+                "PySpark should NOT be installed with the s3 extra anymore. "
+                f"Output: {result.stdout}"
+            )
+
+            # Verify profiling dependencies (datasketches) ARE installed
+            result = subprocess.run(
+                [
+                    str(python_path),
+                    "-c",
+                    "import datasketches; print('SUCCESS: datasketches found')",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, (
+                f"datasketches should be installed with s3 extra: {result.stderr}"
+            )
             assert "SUCCESS" in result.stdout

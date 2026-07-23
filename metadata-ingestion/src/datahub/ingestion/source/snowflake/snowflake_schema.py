@@ -17,6 +17,9 @@ from typing import (
     Tuple,
 )
 
+import sqlglot
+from sqlglot.tokens import Token, TokenType
+
 from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -51,6 +54,14 @@ class SnowflakeTaskState(StrEnum):
 logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
+
+# CREATE SEMANTIC VIEW is not part of sqlglot's grammar (parse_one raises, and
+# lenient mode returns an opaque Command with no tables), so the DDL fallback parser
+# below tokenizes the statement and walks the TABLES ( ... ) clause structurally. We
+# still rely on sqlglot's tokenizer for the error-prone parts - quoted identifiers,
+# doubled-quote escapes, string literals and nested parens - which a regex gets wrong.
+_SEMANTIC_VIEW_TABLES_KEYWORD = "TABLES"
+_SNOWFLAKE_DIALECT = sqlglot.Dialect.get_or_raise("snowflake")
 
 
 @dataclass
@@ -1357,6 +1368,173 @@ class SnowflakeDataDictionary(SupportsAsObj):
             logger.warning(
                 f"Failed to fetch semantic tables for database {db_name}: {e}"
             )
+
+        # Fallback: for any semantic view that received no rows from
+        # INFORMATION_SCHEMA.SEMANTIC_TABLES (e.g. the ingestion role lacks REFERENCES
+        # on cross-database base tables), parse the TABLES clause from the DDL directly.
+        # The DDL is already fetched during ingestion and contains fully-qualified base
+        # table names, so no additional Snowflake privileges are required.
+        for views in semantic_views.values():
+            for semantic_view in views:
+                if not semantic_view.base_tables and isinstance(
+                    semantic_view.view_definition, str
+                ):
+                    parsed = self._parse_base_tables_from_ddl(
+                        semantic_view.view_definition
+                    )
+                    for logical_alias_upper, (db, schema, table) in parsed.items():
+                        base_table_id = SnowflakeTableIdentifier(
+                            database=db, schema=schema, table=table
+                        )
+                        semantic_view.base_tables.append(base_table_id)
+                        semantic_view.logical_to_physical_table[logical_alias_upper] = (
+                            base_table_id.as_tuple()
+                        )
+                    if parsed:
+                        logger.debug(
+                            f"Populated {len(parsed)} base tables for "
+                            f"{semantic_view.name} from DDL fallback "
+                            f"(INFORMATION_SCHEMA.SEMANTIC_TABLES returned no rows)"
+                        )
+
+    @staticmethod
+    def _parse_base_tables_from_ddl(
+        view_definition: str,
+    ) -> Dict[str, Tuple[str, str, str]]:
+        """
+        Recover the logical-table -> physical-table mapping from a semantic
+        view's GET_DDL, as a fallback when INFORMATION_SCHEMA.SEMANTIC_TABLES
+        returns no rows (the ingestion role has USAGE but not REFERENCES on a
+        cross-database base table).
+
+        sqlglot has no grammar for CREATE SEMANTIC VIEW, so we tokenize the DDL
+        and walk the ``TABLES ( ... )`` clause. Each entry is ``[ <alias> AS ]
+        <db>.<schema>.<table>`` followed by optional clauses (PRIMARY KEY /
+        UNIQUE / CONSTRAINT / WITH SYNONYMS / WITH TAG / COMMENT), e.g.
+        ``orders AS DB.SCH.T PRIMARY KEY (id)`` or just ``DB.SCH.T COMMENT='x'``.
+
+        Keyed by the logical alias (or table name when no alias is given),
+        because per-column references (``column_table_mappings``, from
+        SEMANTIC_DIMENSIONS/FACTS/METRICS.TABLE_NAME) use the alias, not the
+        physical name. SQL-query logical tables (``alias AS (SELECT ...)``) have
+        no single base table and are skipped.
+
+        Returns {LOGICAL_NAME_UPPER: (database, schema, table)}.
+        """
+        result: Dict[str, Tuple[str, str, str]] = {}
+        for alias, parts in SnowflakeDataDictionary._semantic_view_table_entries(
+            view_definition
+        ):
+            # Only a fully-qualified name yields a cross-database URN; skip
+            # partially-qualified names and SQL-query logical tables (empty parts).
+            if len(parts) != 3:
+                continue
+            db, schema, table = parts
+            logical_name = (alias if alias else table).upper()
+            result[logical_name] = (db, schema, table)
+        return result
+
+    @staticmethod
+    def _semantic_view_table_entries(
+        view_definition: str,
+    ) -> List[Tuple[Optional[str], List[str]]]:
+        """Tokenize the semantic-view DDL and return one ``(alias, name_parts)``
+        pair per entry in the ``TABLES ( ... )`` clause. ``alias`` is the logical
+        alias when the entry is ``alias AS <table>`` (else None); ``name_parts``
+        are the dotted identifier components of the referenced table.
+
+        Splitting is done on the token stream, so string comments, doubled-quote
+        escapes and nested parens in PRIMARY KEY (...) / WITH SYNONYMS (...) /
+        subqueries need no special handling."""
+        try:
+            tokens = _SNOWFLAKE_DIALECT.tokenize(view_definition)
+        except Exception:
+            return []
+
+        # Locate the `TABLES (` that opens the base-table clause.
+        block_start = None
+        for idx in range(len(tokens) - 1):
+            if (
+                tokens[idx].token_type == TokenType.VAR
+                and tokens[idx].text.upper() == _SEMANTIC_VIEW_TABLES_KEYWORD
+                and tokens[idx + 1].token_type == TokenType.L_PAREN
+            ):
+                block_start = idx + 2
+                break
+        if block_start is None:
+            return []
+
+        # Split the clause into comma-separated entries, tracking paren depth so
+        # commas inside PRIMARY KEY (...) / WITH SYNONYMS (...) / subqueries are not
+        # mistaken for separators, and stopping at the paren that closes TABLES(
+        # (before the RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses).
+        entries: List[List[Token]] = []
+        current: List[Token] = []
+        depth = 1
+        for token in tokens[block_start:]:
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+                if depth == 0:
+                    break
+            if depth == 1 and token.token_type == TokenType.COMMA:
+                entries.append(current)
+                current = []
+            else:
+                current.append(token)
+        if current:
+            entries.append(current)
+
+        return [
+            SnowflakeDataDictionary._entry_alias_and_name(entry) for entry in entries
+        ]
+
+    @staticmethod
+    def _entry_alias_and_name(
+        entry_tokens: List[Token],
+    ) -> Tuple[Optional[str], List[str]]:
+        """Split one TABLES-clause entry into its optional alias and the dotted
+        components of the referenced table: ``alias AS db.sch.tab`` -> (alias,
+        [db, sch, tab]); ``db.sch.tab`` -> (None, [db, sch, tab])."""
+        alias: Optional[str] = None
+        ref_tokens = entry_tokens
+        # A top-level `AS` separates the alias from the table reference.
+        depth = 0
+        for idx, token in enumerate(entry_tokens):
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+            elif depth == 0 and token.token_type == TokenType.ALIAS:
+                alias_parts = SnowflakeDataDictionary._leading_identifier(
+                    entry_tokens[:idx]
+                )
+                alias = alias_parts[-1] if alias_parts else None
+                ref_tokens = entry_tokens[idx + 1 :]
+                break
+        return alias, SnowflakeDataDictionary._leading_identifier(ref_tokens)
+
+    @staticmethod
+    def _leading_identifier(tokens: List[Token]) -> List[str]:
+        """Collect the leading ``a.b.c`` identifier from a token run, stopping at
+        the first token that is not part of a dotted name (a keyword such as
+        PRIMARY KEY / COMMENT, or an opening paren for a subquery). Quoted
+        identifiers arrive already unquoted from the tokenizer."""
+        parts: List[str] = []
+        want_identifier = True
+        for token in tokens:
+            if want_identifier:
+                if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
+                    parts.append(token.text)
+                    want_identifier = False
+                else:
+                    break
+            elif token.token_type == TokenType.DOT:
+                want_identifier = True
+            else:
+                break
+        return parts
 
     def _fetch_semantic_columns(
         self,

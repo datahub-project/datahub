@@ -393,63 +393,42 @@ describe('SchemaAssertionDescription', () => {
 describe('FreshnessAssertionDescription', () => {
     const cron = { cron: '0 0 * * *', timezone: 'UTC' } as any;
 
-    const cases: Array<[string, FreshnessAssertionType, any, any, string]> = [
+    const cases: Array<[string, FreshnessAssertionType, any, string]> = [
         [
-            'datasetChange fixedInterval no monitor',
+            'datasetChange fixedInterval',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            undefined,
             'Table was updated in the past 5 hours',
-        ],
-        [
-            'datasetChange fixedInterval with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 5, unit: 'HOUR' } },
-            cron,
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
         ],
         [
             'datasetChange cron',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Table was updated between cron windows scheduled at 12:00 am (UTC)',
         ],
         [
-            'datasetChange sinceLastCheck no monitor',
+            'datasetChange sinceLastCheck',
             FreshnessAssertionType.DatasetChange,
             { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            undefined,
             'Table was updated since the previous check.',
         ],
         [
-            'datasetChange sinceLastCheck with monitor',
-            FreshnessAssertionType.DatasetChange,
-            { type: FreshnessAssertionScheduleType.SinceTheLastCheck },
-            cron,
-            'Table was updated since the previous check, as of 12:00 am (UTC).',
-        ],
-        [
-            'dataJobRun fixedInterval no monitor',
+            'dataJobRun fixedInterval',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.FixedInterval, fixedInterval: { multiple: 1, unit: 'DAY' } },
-            undefined,
             'Data Task is run successfully in the past 1 days',
         ],
         [
             'dataJobRun cron',
             FreshnessAssertionType.DataJobRun,
             { type: FreshnessAssertionScheduleType.Cron, cron },
-            undefined,
             'Data Task is run successfully between cron windows scheduled at 12:00 am (UTC)',
         ],
     ];
 
-    it.each(cases)('%s', (_name, type, schedule, monitorSchedule, expected) => {
+    it.each(cases)('%s', (_name, type, schedule, expected) => {
         const info = { type, schedule } as any;
-        expect(
-            renderText(<FreshnessAssertionDescription assertionInfo={info} monitorSchedule={monitorSchedule} />),
-        ).toBe(expected);
+        expect(renderText(<FreshnessAssertionDescription assertionInfo={info} />)).toBe(expected);
     });
 });
 
@@ -678,9 +657,7 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info, { cron: '0 0 * * *', timezone: 'UTC' } as any)).toBe(
-            'Table was updated in the past 5 hours, as of 12:00 am (UTC)',
-        );
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table was updated in the past 5 hours');
     });
 });
 

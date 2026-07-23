@@ -361,38 +361,41 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.schema_pattern is not None
             and self.config.schema_pattern != AllowDenyPattern.allow_all()
         ):
-            self.report.report_warning(
+            self.report.warning(
                 message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
                 "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
                 "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
                 context="Config option deprecation warning",
                 title="Config option deprecation warning",
+                log=False,
             )
 
         if (
             self.config.include_column_usage_stats
             and not self.config.include_usage_statistics
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_column_usage_stats` is enabled but "
                 "`include_usage_statistics` is disabled, so no usage statistics "
                 "(column-level or otherwise) will be produced. Enable "
                 "`include_usage_statistics` to get column-level usage.",
                 context="include_column_usage_stats",
+                log=False,
             )
 
         if (
             self.config.include_query_usage_statistics
             and not self.config.include_usage_statistics
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_query_usage_statistics` is enabled but "
                 "`include_usage_statistics` is disabled, so no query usage "
                 "statistics will be produced. Enable `include_usage_statistics` "
                 "to get per-query popularity stats.",
                 context="include_query_usage_statistics",
+                log=False,
             )
 
         if (
@@ -400,13 +403,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.include_query_usage_statistics
             and not self.config.lineage_generate_queries
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Config option has no effect",
                 message="`include_query_usage_statistics` is enabled but "
                 "`lineage_generate_queries` is disabled, so no Query entities are "
                 "emitted for the query usage statistics to attach to. Enable "
                 "`lineage_generate_queries` to get per-query popularity stats.",
                 context="include_query_usage_statistics",
+                log=False,
             )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
@@ -1107,9 +1111,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
         ):
             # Skip this run
-            self.report.report_warning(
+            self.report.warning(
                 "lineage-extraction",
                 "Skip this run as there was already a run for current ingestion window.",
+                log=False,
             )
             return False
 
@@ -1136,31 +1141,31 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         except redshift_connector.Error as e:
             error_message = str(e).lower()
             if "password authentication failed" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Invalid credentials",
                     message="Failed to connect to Redshift. Please verify your username, password, and database.",
                     exc=e,
                 )
             elif "timeout" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify your host name and port number.",
                     exc=e,
                 )
             elif "communication error" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify that the host name is valid and reachable.",
                     exc=e,
                 )
             elif "database" in error_message and "does not exist" in error_message:
-                self.report.report_failure(
+                self.report.failure(
                     title="Database does not exist",
                     message="Failed to connect to Redshift. Please verify that the provided database exists and the provided user has access to it.",
                     exc=e,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to connect",
                     message="Failed to connect to Redshift. Please verify your connection details.",
                     exc=e,

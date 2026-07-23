@@ -39,7 +39,7 @@ export function SemanticModelRow({
             onToggle();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entityData, model.urn, isExpanded]);
+    }, [entityData?.urn, entityData?.semanticModel?.urn, model.urn]);
 
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'model', modelUrn: model.urn },
