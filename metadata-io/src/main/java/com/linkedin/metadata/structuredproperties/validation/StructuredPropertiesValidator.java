@@ -10,6 +10,8 @@ import static com.linkedin.metadata.structuredproperties.validation.PropertyDefi
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -25,6 +27,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -115,12 +118,15 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
             .collect(Collectors.toList());
 
     // PATCH has no record template until applyPatch (inside the DB tx). Validate ADD ops here at
-    // request time by inspecting the patch payload — ignore REMOVE (no values to check).
+    // request time by inspecting the patch payload — ignore REMOVE (no values to check). Route on
+    // the change type, not the item class: with alternate MCP validation (the quickstart/docker
+    // default, ALTERNATE_MCP_VALIDATION=true) a patch arrives as a ProposedItem carrying the raw
+    // proposal rather than a PatchItemImpl.
     List<BatchItem> patchAddItems =
         mcpItems.stream()
             .filter(i -> ChangeType.PATCH.equals(i.getChangeType()))
-            .filter(i -> i instanceof PatchItemImpl)
-            .map(i -> (PatchItemImpl) i)
+            .filter(i -> i instanceof MCPItem)
+            .map(i -> (MCPItem) i)
             .map(patchItem -> materializePatchAddUpsert(patchItem, aspectRetriever, objectMapper))
             .flatMap(Optional::stream)
             .collect(Collectors.toList());
@@ -160,7 +166,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    * from PATCH {@code add} ops, for request-time value validation.
    */
   private static Optional<BatchItem> materializePatchAddUpsert(
-      @Nonnull PatchItemImpl patchItem,
+      @Nonnull MCPItem patchItem,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull ObjectMapper objectMapper) {
     List<StructuredPropertyValueAssignment> adds =
@@ -187,8 +193,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Nonnull
   public static List<StructuredPropertyValueAssignment> extractPatchAddAssignments(
-      @Nonnull PatchItemImpl patchItem, @Nonnull ObjectMapper objectMapper) {
-    GenericJsonPatch genericJsonPatch = patchItem.getGenericJsonPatch();
+      @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
+    GenericJsonPatch genericJsonPatch = resolveGenericJsonPatch(patchItem, objectMapper);
     if (genericJsonPatch == null || genericJsonPatch.getPatch() == null) {
       return List.of();
     }
@@ -212,6 +218,47 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       }
     }
     return assignments;
+  }
+
+  /**
+   * The patch, regardless of how the item was constructed: a {@link PatchItemImpl} carries it
+   * parsed, while under alternate MCP validation the item is a raw proposal whose aspect payload is
+   * the serialized {@link GenericJsonPatch} (or a bare json-patch ops array).
+   */
+  @Nullable
+  private static GenericJsonPatch resolveGenericJsonPatch(
+      @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
+    if (patchItem instanceof PatchItemImpl) {
+      return ((PatchItemImpl) patchItem).getGenericJsonPatch();
+    }
+    if (patchItem.getMetadataChangeProposal() == null
+        || !patchItem.getMetadataChangeProposal().hasAspect()) {
+      return null;
+    }
+    String payload =
+        patchItem
+            .getMetadataChangeProposal()
+            .getAspect()
+            .getValue()
+            .asString(StandardCharsets.UTF_8);
+    try {
+      JsonNode parsed = objectMapper.readTree(payload);
+      if (parsed.isObject()) {
+        return objectMapper.treeToValue(parsed, GenericJsonPatch.class);
+      }
+      if (parsed.isArray()) {
+        List<GenericJsonPatch.PatchOp> ops =
+            objectMapper.convertValue(
+                parsed, new TypeReference<List<GenericJsonPatch.PatchOp>>() {});
+        return GenericJsonPatch.builder().patch(ops).build();
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Skipping unparseable structured property PATCH payload on {}: {}",
+          patchItem.getUrn(),
+          e.toString());
+    }
+    return null;
   }
 
   @Nonnull
