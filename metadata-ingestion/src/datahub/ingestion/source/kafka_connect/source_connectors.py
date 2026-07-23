@@ -1892,7 +1892,7 @@ class SnowflakeSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
+                self.report.failure(
                     f"datahub_connection_{self.connector_manifest.name}", str(e)
                 )
             return []
@@ -3428,7 +3428,7 @@ class DebeziumSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
+                self.report.failure(
                     f"datahub_connection_{self.connector_manifest.name}", str(e)
                 )
             return []

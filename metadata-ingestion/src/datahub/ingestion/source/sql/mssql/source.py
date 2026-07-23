@@ -1331,8 +1331,11 @@ class SQLServerSource(SQLAlchemySource):
                             logger.warning(
                                 f"Error logging in to database {db['name']}: {e}"
                             )
-                            self.report.report_warning(
-                                "Error logging in to database", db["name"], exc=e
+                            self.report.warning(
+                                "Error logging in to database",
+                                db["name"],
+                                exc=e,
+                                log=False,
                             )
                             continue
                         raise
@@ -1409,7 +1412,7 @@ class SQLServerSource(SQLAlchemySource):
                         db_name,
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
                             f"Query lineage extraction failed for database '{db_name}' "
                             f"with unexpected error: {e}. "

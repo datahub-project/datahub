@@ -284,7 +284,7 @@ class OktaSource(StatefulIngestionSourceBase):
                 if datahub_corp_group_urn is None:
                     error_str = f"Failed to extract DataHub Group Name from Okta Group: Invalid regex pattern provided or missing profile attribute for group named {okta_group.profile.name}. Skipping..."
                     logger.error(error_str)
-                    self.report.report_failure("okta_group_mapping", error_str)
+                    self.report.failure("okta_group_mapping", error_str)
                     continue
 
                 # Extract and map users for each group.
@@ -296,7 +296,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     if datahub_corp_user_urn is None:
                         error_str = f"Failed to extract DataHub Username from Okta User: Invalid regex pattern provided or missing profile attribute for User with login {okta_user.profile.login}. Skipping..."
                         logger.error(error_str)
-                        self.report.report_failure("okta_user_mapping", error_str)
+                        self.report.failure("okta_user_mapping", error_str)
                         continue
 
                     if self.config.ingest_groups_users:
@@ -384,12 +384,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 self.okta_client.list_groups(query_parameters)
             )
         except OktaAPIException as api_err:
-            self.report.report_failure(
+            self.report.failure(
                 "okta_groups", f"Failed to fetch Groups from Okta API: {api_err}"
             )
         while True:
             if err:
-                self.report.report_failure(
+                self.report.failure(
                     "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
                 )
             if groups:
@@ -399,7 +399,7 @@ class OktaSource(StatefulIngestionSourceBase):
                 try:
                     groups, err = event_loop.run_until_complete(resp.next())
                 except OktaAPIException as api_err:
-                    self.report.report_failure(
+                    self.report.failure(
                         "okta_groups",
                         f"Failed to fetch Groups from Okta API: {api_err}",
                     )
@@ -420,13 +420,13 @@ class OktaSource(StatefulIngestionSourceBase):
                 self.okta_client.list_group_users(group.id, query_parameters)
             )
         except OktaAPIException as api_err:
-            self.report.report_failure(
+            self.report.failure(
                 "okta_group_users",
                 f"Failed to fetch Users of Group {group.profile.name} from Okta API: {api_err}",
             )
         while True:
             if err:
-                self.report.report_failure(
+                self.report.failure(
                     "okta_group_users",
                     f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
                 )
@@ -437,7 +437,7 @@ class OktaSource(StatefulIngestionSourceBase):
                 try:
                     users, err = event_loop.run_until_complete(resp.next())
                 except OktaAPIException as api_err:
-                    self.report.report_failure(
+                    self.report.failure(
                         "okta_group_users",
                         f"Failed to fetch Users of Group {group.profile.name} from Okta API: {api_err}",
                     )
@@ -459,12 +459,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 self.okta_client.list_users(query_parameters)
             )
         except OktaAPIException as api_err:
-            self.report.report_failure(
+            self.report.failure(
                 "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
             )
         while True:
             if err:
-                self.report.report_failure(
+                self.report.failure(
                     "okta_users", f"Failed to fetch Users from Okta API: {err}"
                 )
             if users:
@@ -474,7 +474,7 @@ class OktaSource(StatefulIngestionSourceBase):
                 try:
                     users, err = event_loop.run_until_complete(resp.next())
                 except OktaAPIException as api_err:
-                    self.report.report_failure(
+                    self.report.failure(
                         "okta_users", f"Failed to fetch Users from Okta API: {api_err}"
                     )
             else:
@@ -501,7 +501,7 @@ class OktaSource(StatefulIngestionSourceBase):
             if corp_group_urn is None:
                 error_str = f"Failed to extract DataHub Group Name from Okta Group: Invalid regex pattern provided or missing profile attribute for group named {okta_group.profile.name}. Skipping..."
                 logger.error(error_str)
-                self.report.report_failure("okta_group_mapping", error_str)
+                self.report.failure("okta_group_mapping", error_str)
                 continue
             corp_group_snapshot = CorpGroupSnapshot(
                 urn=corp_group_urn,
@@ -552,7 +552,7 @@ class OktaSource(StatefulIngestionSourceBase):
             if corp_user_urn is None:
                 error_str = f"Failed to extract DataHub Username from Okta User: Invalid regex pattern provided or missing profile attribute for User with login {okta_user.profile.login}. Skipping..."
                 logger.error(error_str)
-                self.report.report_failure("okta_user_mapping", error_str)
+                self.report.failure("okta_user_mapping", error_str)
                 continue
             corp_user_snapshot = CorpUserSnapshot(
                 urn=corp_user_urn,

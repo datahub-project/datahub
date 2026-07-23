@@ -81,10 +81,11 @@ class KafkaSchemaResolver:
         # OSError means the registry was unreachable — operators must see that, not lose it.
         if isinstance(error, OSError) and self.report is not None:
             self.report.schema_registry_connectivity_failures += 1
-            self.report.report_warning(
+            self.report.warning(
                 "schema-registry",
                 f"Schema registry was unreachable while resolving subject "
                 f"{subject_name}: {error}",
+                log=False,
             )
 
     def resolve_schemas_batch(

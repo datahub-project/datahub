@@ -340,14 +340,16 @@ class S3Source(StatefulIngestionSourceBase):
                 fields = inferrer.infer_schema(file)
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     table_data.full_path,
                     f"could not infer schema for file {table_data.full_path}: {e}",
+                    log=False,
                 )
         else:
-            self.report.report_warning(
+            self.report.warning(
                 table_data.full_path,
                 f"file {table_data.full_path} has unsupported extension",
+                log=False,
             )
         file.close()
 
@@ -539,11 +541,12 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
                     context=f"dataset={table_data.display_name}, file={table_data.full_path}",
                     exc=e,
+                    log=False,
                 )
         else:
             logger.info(
@@ -1067,9 +1070,10 @@ class S3Source(StatefulIngestionSourceBase):
 
         except Exception as e:
             if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
-                self.get_report().report_warning(
+                self.get_report().warning(
                     "Missing bucket",
                     f"No bucket found {e.response['Error'].get('BucketName')}",
+                    log=False,
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
