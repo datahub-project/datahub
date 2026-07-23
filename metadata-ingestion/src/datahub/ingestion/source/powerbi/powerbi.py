@@ -1978,7 +1978,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
                 logger.exception(message, e)
-                self.reporter.report_warning(dashboard.id, message)
+                self.reporter.warning(dashboard.id, message, log=False)
             # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
             for workunit in workunits:

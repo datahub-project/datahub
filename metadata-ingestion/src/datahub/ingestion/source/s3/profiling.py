@@ -635,9 +635,10 @@ class SparkProfiler:
             try:
                 df = self.spark.read.format("avro").load(file)
             except AnalysisException as e:
-                self.report.report_warning(
+                self.report.warning(
                     file,
                     f"Avro file reading failed with exception. The error was: {e}",
+                    log=False,
                 )
                 return None
 
@@ -645,7 +646,9 @@ class SparkProfiler:
         # elif file.endswith(".orc"):
         # df = self.spark.read.orc(file)
         else:
-            self.report.report_warning(file, f"file {file} has unsupported extension")
+            self.report.warning(
+                file, f"file {file} has unsupported extension", log=False
+            )
             return None
         # NB: no df.count() debug log here. Counting forces a full scan of the whole
         # table; the row count is already computed once later in _SingleTableProfiler.
@@ -685,9 +688,10 @@ class SparkProfiler:
 
         # if table is not readable, skip
         if table is None:
-            self.report.report_warning(
+            self.report.warning(
                 table_data.display_name,
                 f"unable to read table {table_data.display_name} from file {table_data.full_path}",
+                log=False,
             )
             return
 

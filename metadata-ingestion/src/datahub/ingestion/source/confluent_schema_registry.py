@@ -273,13 +273,14 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
                 schema = registered_schema.schema
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to get subject schema from schema registry",
                     message=f"Failed to get {kafka_entity} {schema_type_str or ''} schema from schema registry",
                     context=(
                         f"{topic}: {topic_subject}" if not is_subject else topic_subject
                     ),
                     exc=e,
+                    log=False,
                 )
         else:
             logger.debug(
@@ -431,9 +432,10 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
             )
         elif not self.source_config.ignore_warnings_on_schema_type:
-            self.report.report_warning(
+            self.report.warning(
                 topic,
                 f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
+                log=False,
             )
         return fields
 
