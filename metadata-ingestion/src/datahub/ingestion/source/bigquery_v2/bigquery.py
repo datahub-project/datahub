@@ -240,7 +240,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will proceed with an empty schema resolver.",
-                        context=str(e),
                         exc=e,
                         log=False,
                     )

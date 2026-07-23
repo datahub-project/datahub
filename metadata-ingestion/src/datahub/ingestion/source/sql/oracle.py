@@ -1101,7 +1101,7 @@ class OracleInspectorObjectWrapper:
             self.report.warning(
                 title="Failed to Process Primary Keys",
                 message=(
-                    f"Unable to process primary key constraints for {schema}.{table_name}. "
+                    "Unable to process primary key constraints. "
                     "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS."
                 ),
                 context=f"{schema}.{table_name}",
@@ -1169,12 +1169,12 @@ class OracleInspectorObjectWrapper:
                     self.report.warning(
                         title="Missing Table Permissions",
                         message=(
-                            f"Unable to query table_name from dba_cons_columns{dblink}. "
+                            "Unable to query table_name from dba_cons_columns. "
                             "This usually indicates insufficient permissions on the target table. "
-                            f"Foreign key relationships will not be detected for {schema}.{table_name}. "
+                            "Foreign key relationships will not be detected. "
                             "Please ensure the user has SELECT privileges on dba_cons_columns."
                         ),
-                        context=f"{schema}.{table_name}",
+                        context=f"{schema}.{table_name} (dblink={dblink})",
                     )
 
                 rec = fkeys[cons_name]
@@ -1628,7 +1628,7 @@ class OracleSource(SQLAlchemySource):
         except Exception as e:
             self.report.warning(
                 title="Failed to emit stored procedure",
-                message=f"Failed to process stored procedure {schema}.{procedure.name}",
+                message="Failed to process stored procedure",
                 context=f"{db_name}.{schema}.{procedure.name}",
                 exc=e,
             )
@@ -2181,8 +2181,9 @@ class OracleSource(SQLAlchemySource):
         except sqlalchemy.exc.DatabaseError as e:
             logger.error(f"Failed to extract queries from V$SQL: {e}", exc_info=True)
             self.report.failure(
-                message=str(e),
+                message="Failed to extract queries from V$SQL",
                 context="query_extraction_from_vsql_failed",
+                exc=e,
             )
 
     def _populate_aggregator_from_queries(self) -> None:
