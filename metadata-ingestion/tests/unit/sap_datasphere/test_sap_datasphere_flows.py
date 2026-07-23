@@ -223,6 +223,79 @@ def test_parse_replication_flow_carries_system_container():
     assert parsed.outputs[0].container == "/staging"
 
 
+def _multi_task_replication_payload(name: str = "MY_REPL_FLOW") -> Dict:
+    # Two independent 1:1 copy tasks (src1->tgt1, src2->tgt2), no transforms.
+    return {
+        OBJECT_TYPE_REPLICATION_FLOWS: {
+            name: {
+                "contents": {
+                    "sourceSystem": [
+                        {"connectionId": "SRC_CONN", "connectionType": "ABAP"}
+                    ],
+                    "targetSystem": [
+                        {"connectionId": "TGT_CONN", "connectionType": "BIGQUERY"}
+                    ],
+                    "replicationTasks": [
+                        {
+                            "sourceObject": {"name": "SRC1"},
+                            "targetObject": {"name": "TGT1"},
+                        },
+                        {
+                            "sourceObject": {"name": "SRC2"},
+                            "targetObject": {"name": "TGT2"},
+                        },
+                    ],
+                }
+            }
+        }
+    }
+
+
+def test_parse_replication_flow_pairs_each_task_source_to_its_own_target():
+    """Pure-copy tasks carry no column mapping, so per-task table_mappings are the
+    only thing that keeps a target attributed to its own source instead of the
+    flow-wide cross-product."""
+    parsed = parse_flow(
+        _multi_task_replication_payload(),
+        OBJECT_TYPE_REPLICATION_FLOWS,
+        "MY_REPL_FLOW",
+    )
+    assert parsed is not None
+    assert parsed.column_mappings == []
+    pairs = {(m.upstream_object, m.downstream_object) for m in parsed.table_mappings}
+    assert pairs == {("SRC1", "TGT1"), ("SRC2", "TGT2")}
+
+
+def test_parse_data_flow_leaves_table_mappings_empty():
+    # A connected process graph relies on the source layer's all-inputs fallback,
+    # so it must not populate per-task pairings.
+    parsed = parse_flow(_data_flow_payload(), OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
+    assert parsed is not None
+    assert parsed.table_mappings == []
+
+
+def test_parse_data_flow_flags_suppressed_column_lineage_on_multi_input():
+    payload = _data_flow_payload()
+    payload[OBJECT_TYPE_DATA_FLOWS]["MY_DATA_FLOW"]["contents"]["processes"]["p3"] = (
+        _process(
+            "com.sap.dataflow.table.consumer",
+            {
+                "dwcEntity": "SECOND_SRC",
+                "hanaConnection": {"connectionID": "$DWC"},
+            },
+        )
+    )
+    parsed = parse_flow(payload, OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
+    assert parsed is not None
+    assert parsed.cll_suppressed_multi_input is True
+
+
+def test_parse_data_flow_single_input_does_not_flag_suppression():
+    parsed = parse_flow(_data_flow_payload(), OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
+    assert parsed is not None
+    assert parsed.cll_suppressed_multi_input is False
+
+
 def test_parse_task_chain_is_io_less_job():
     payload = {OBJECT_TYPE_TASK_CHAINS: {"MY_CHAIN": {"kind": "sap.dis.taskchain"}}}
     parsed = parse_flow(payload, OBJECT_TYPE_TASK_CHAINS, "MY_CHAIN")

@@ -32,6 +32,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     CsnSelectEnvelope,
     RemoteTableSource,
     TransformOp,
+    UnionMergeSlot,
     UpstreamColRef,
     UpstreamRef,
     dedup_preserving_order,
@@ -501,7 +502,7 @@ class CsnLineageExtractor:
         # column's upstream refs across branches so a union view surfaces every
         # branch's contribution. Sentinel (malformed/unnamed) pairs can't be
         # merged and are passed through unchanged.
-        by_col: Dict[str, Dict[str, object]] = {}
+        by_col: Dict[str, UnionMergeSlot] = {}
         order: List[str] = []
         passthrough: List[ColumnLineagePair] = []
         for pairs in branch_pairs:
@@ -514,24 +515,20 @@ class CsnLineageExtractor:
                     continue
                 slot = by_col.get(pair.downstream_col)
                 if slot is None:
-                    slot = {"refs": [], "unresolved": [], "op": pair.transform_op}
+                    slot = UnionMergeSlot(op=pair.transform_op)
                     by_col[pair.downstream_col] = slot
                     order.append(pair.downstream_col)
-                refs = slot["refs"]
-                unresolved = slot["unresolved"]
-                assert isinstance(refs, list) and isinstance(unresolved, list)
-                refs.extend(pair.upstream_refs)
-                unresolved.extend(pair.unresolved_refs)
+                slot.refs.extend(pair.upstream_refs)
+                slot.unresolved.extend(pair.unresolved_refs)
         merged: List[ColumnLineagePair] = []
         for col in order:
             slot = by_col[col]
-            op = slot["op"]
             merged.append(
                 ColumnLineagePair(
                     downstream_col=col,
-                    upstream_refs=dedup_preserving_order(slot["refs"]),  # type: ignore[arg-type]
-                    transform_op=op if isinstance(op, str) else None,
-                    unresolved_refs=dedup_preserving_order(slot["unresolved"]),  # type: ignore[arg-type]
+                    upstream_refs=dedup_preserving_order(slot.refs),
+                    transform_op=slot.op,
+                    unresolved_refs=dedup_preserving_order(slot.unresolved),
                 )
             )
         merged.extend(passthrough)

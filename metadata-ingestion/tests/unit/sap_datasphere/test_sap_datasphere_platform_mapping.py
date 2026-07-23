@@ -405,7 +405,22 @@ def test_resolve_external_disabled_type_default_returns_none():
         type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved = resolver.resolve_external(None, "S3").platform
+    result = resolver.resolve_external(None, "S3")
     # A disabled type default is not usable; with no name to fall back on the
-    # endpoint is unresolved.
-    assert resolved is None
+    # endpoint is unresolved, and the reason must be the explicit DISABLED (not
+    # UNKNOWN_CONNECTION).
+    assert result.platform is None
+    assert result.skip_reason == ResolveSkipReason.DISABLED
+
+
+def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
+    """Regression: a disabled type default with a connection name that isn't in
+    the connections list must report DISABLED, not fall through to resolve() and
+    mis-report UNKNOWN_CONNECTION."""
+    cfg = _config_with(
+        type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    result = resolver.resolve_external("NOT_IN_LIST", "S3")
+    assert result.platform is None
+    assert result.skip_reason == ResolveSkipReason.DISABLED

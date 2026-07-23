@@ -75,6 +75,9 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # A flow endpoint (source/target object) whose connection could not be mapped
     # to a DataHub platform, so its lineage edge was skipped.
     flow_endpoints_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # Flows where producer column mappings were dropped to table-level because the
+    # flow has multiple inputs (column attribution would be ambiguous).
+    flow_column_lineage_suppressed_multi_input: int = 0
 
     # Federated Remote Tables and their external upstream lineage.
     remote_tables_scanned: int = 0

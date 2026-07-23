@@ -1,9 +1,11 @@
 from typing import (
+    Any,
     Dict,
     Iterable,
     List,
     Literal,
     Optional,
+    Set,
     TypedDict,
     TypeVar,
 )
@@ -13,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datahub.ingestion.source.sap_datasphere.config import ConnectionPlatformConfig
 from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
+    REMOTE_NULL_SEGMENT,
     UNNAMED_COL_SENTINEL,
 )
 from datahub.metadata.schema_classes import SchemaFieldClass
@@ -22,7 +25,7 @@ _T = TypeVar("_T")
 
 
 def dedup_preserving_order(items: Iterable[_T]) -> List[_T]:
-    seen: set = set()
+    seen: Set[_T] = set()
     out: List[_T] = []
     for item in items:
         if item not in seen:
@@ -91,6 +94,16 @@ class ResolveResult(BaseModel):
     platform: Optional[ResolvedPlatform]
     skip_reason: Optional[ResolveSkipReason]
 
+    @model_validator(mode="after")
+    def _check_invariant(self) -> "ResolveResult":
+        if (self.platform is None) == (self.skip_reason is None):
+            raise ValueError(
+                "ResolveResult must carry exactly one of platform/skip_reason "
+                f"(platform_is_none={self.platform is None}, "
+                f"skip_reason={self.skip_reason})"
+            )
+        return self
+
 
 class TypeIdDefault(BaseModel):
     # Result of mapping a connection's typeId to its platform default: the raw
@@ -99,6 +112,16 @@ class TypeIdDefault(BaseModel):
 
     config: Optional[ConnectionPlatformConfig]
     skip_reason: Optional[ResolveSkipReason]
+
+    @model_validator(mode="after")
+    def _check_invariant(self) -> "TypeIdDefault":
+        if (self.config is None) == (self.skip_reason is None):
+            raise ValueError(
+                "TypeIdDefault must carry exactly one of config/skip_reason "
+                f"(config_is_none={self.config is None}, "
+                f"skip_reason={self.skip_reason})"
+            )
+        return self
 
 
 class EdmxFetchReason(StrEnum):
@@ -227,10 +250,16 @@ class CsnSelectEnvelope(BaseModel):
     # Tri-state result of validating a CSN query envelope: ``select`` set to
     # proceed, ``malformed`` set (with a diagnostic pair) for broken CSN, or both
     # None for a legitimate non-SELECT entity.
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(frozen=True)
 
-    select: Optional[Dict] = None
+    select: Optional[Dict[str, Any]] = None
     malformed: Optional["ColumnLineagePair"] = None
+
+    @model_validator(mode="after")
+    def _check_tristate(self) -> "CsnSelectEnvelope":
+        if self.select is not None and self.malformed is not None:
+            raise ValueError("CsnSelectEnvelope cannot set both select and malformed")
+        return self
 
 
 class ColumnLineageContext(BaseModel):
@@ -244,26 +273,29 @@ class ColumnLineageContext(BaseModel):
 
 
 class FlowEndpoint(BaseModel):
-    """One input or output object of a flow, resolved to a routable location.
-
-    ``connection is None`` (or ``is_local``) means the object lives in the
-    tenant's own managed HANA Cloud and is emitted on the sap_datasphere
-    platform in ``space``. Otherwise it is external and ``connection`` /
-    ``connection_type`` drive platform mapping.
-    """
-
+    # One input/output object of a flow. is_local (connection is None) means it
+    # lives in the tenant's own managed HANA Cloud and is emitted space-prefixed
+    # on sap_datasphere; otherwise connection/connection_type drive platform
+    # mapping and container (the source/target system's schema/dataset path, e.g.
+    # "/CDS_EXTRACTION") schema-qualifies the external URN.
     model_config = ConfigDict(frozen=True)
 
     object_name: str
     is_local: bool
     connection: Optional[str] = None
     connection_type: Optional[str] = None
-    # The source/target system's schema/dataset path (SAP calls it the
-    # "container", e.g. "/CDS_EXTRACTION", "/SAPTCH", "/staging"). Prepended to
-    # the bare object_name to build a fully-qualified external URN so it stitches
-    # to the sibling connector's schema.table naming. None for local objects
-    # (they are space-prefixed instead).
     container: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _check_local_connection(self) -> "FlowEndpoint":
+        # Local iff no connection: the two are derived from the same source id, so
+        # a mismatch means the parser mis-classified the endpoint.
+        if self.is_local != (self.connection is None):
+            raise ValueError(
+                "FlowEndpoint.is_local must match connection being None "
+                f"(is_local={self.is_local}, connection={self.connection!r})"
+            )
+        return self
 
 
 class FlowColumnMapping(BaseModel):
@@ -275,6 +307,16 @@ class FlowColumnMapping(BaseModel):
     downstream_col: str
     upstream_object: str
     upstream_col: str
+
+
+class FlowTableMapping(BaseModel):
+    # A single (upstream_object -> downstream_object) task pairing. Replication
+    # flows carry independent tasks, so the source layer must attribute each
+    # target's upstreams to its own paired source rather than to every flow input.
+    model_config = ConfigDict(frozen=True)
+
+    upstream_object: str
+    downstream_object: str
 
 
 class SystemIdentity(BaseModel):
@@ -307,10 +349,12 @@ class ProducerColumns(BaseModel):
 
 
 class ParsedFlow(BaseModel):
-    """A flow object reduced to what DataHub needs: its IO datasets and the
-    column mappings between them. Platform/URN resolution is the source layer's
-    job (it owns the per-space connection resolver)."""
-
+    # A flow reduced to what DataHub needs; platform/URN resolution is the source
+    # layer's job. table_mappings preserves per-task source->target pairing
+    # (populated for replication flows) so an independent task's target isn't
+    # given a cross-product of every flow input as its upstreams. Empty
+    # table_mappings signals a connected-graph flow (data/transformation), where
+    # every input legitimately feeds every output.
     model_config = ConfigDict(frozen=True)
 
     technical_name: str
@@ -318,6 +362,11 @@ class ParsedFlow(BaseModel):
     inputs: List[FlowEndpoint] = Field(default_factory=list)
     outputs: List[FlowEndpoint] = Field(default_factory=list)
     column_mappings: List[FlowColumnMapping] = Field(default_factory=list)
+    table_mappings: List[FlowTableMapping] = Field(default_factory=list)
+    # True when column mappings existed but were dropped because the flow has
+    # multiple inputs (column attribution would be ambiguous); surfaced as a
+    # report counter so operators see the coarsening.
+    cll_suppressed_multi_input: bool = False
 
 
 class RemoteTableSource(BaseModel):
@@ -331,7 +380,15 @@ class RemoteTableSource(BaseModel):
 
     @property
     def qualified_name(self) -> str:
-        # SAP encodes an absent database segment as the literal "<NULL>"; drop it
-        # (and any empties) so the external URN name is "schema.table".
-        meaningful = [p for p in self.path_parts if p and p != "<NULL>"]
+        # Drop the "<NULL>" database sentinel (and empties) so the external URN
+        # name is "schema.table".
+        meaningful = [p for p in self.path_parts if p and p != REMOTE_NULL_SEGMENT]
         return ".".join(meaningful)
+
+
+class UnionMergeSlot(BaseModel):
+    # Accumulator for merging one UNION output column's upstream refs across the
+    # branch SELECTs (mutated during the merge, so not frozen).
+    refs: List[UpstreamColRef] = Field(default_factory=list)
+    unresolved: List[str] = Field(default_factory=list)
+    op: Optional[TransformOp] = None

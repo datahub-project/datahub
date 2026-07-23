@@ -55,6 +55,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_KEY_QUERY,
     CSN_KEY_SQL_EDITOR_QUERY,
     FIELD_TECHNICAL_NAME,
+    GENERIC_SCHEME_PLATFORMS,
     MANAGED_CONNECTION_KEY,
     OBJECT_TYPE_ANALYTIC_MODELS,
     OBJECT_TYPE_DATA_FLOWS,
@@ -103,6 +104,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
+    TransformOp,
     UnknownColumnType,
     UpstreamRef,
 )
@@ -432,80 +434,92 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         for entry in local_tables:
             if not isinstance(entry, dict):
                 continue
-            technical_name = entry.get("technicalName")
+            technical_name = entry.get(FIELD_TECHNICAL_NAME)
             if not isinstance(technical_name, str) or not technical_name:
                 continue
-
             if not self.config.asset_pattern.allowed(technical_name):
                 continue
-
-            dataset_name = self._build_dataset_name(space_name, technical_name)
-
-            # Schema fields on both sides (View + Local Table) let the UI draw
-            # column-level lineage edges between them.
-            schema_fields = None
-            csn_obj = self._client.fetch_object_definition(
-                space_name, OBJECT_TYPE_LOCAL_TABLES, technical_name
+            yield from self._isolate(
+                f"{space_name}.{OBJECT_TYPE_LOCAL_TABLES}.{technical_name}",
+                self._emit_one_local_table(
+                    space_name, technical_name, resolved, space_key
+                ),
             )
-            if csn_obj is not None:
-                definition = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
-                elements = (
-                    definition.get(CSN_KEY_ELEMENTS)
-                    if isinstance(definition, dict)
-                    else None
-                )
-                if isinstance(elements, dict):
-                    csn_schema = parse_csn_elements_to_schema_fields(elements)
-                    schema_fields = csn_schema.fields
-                    self._report_unknown_cds_types(
-                        space_name, technical_name, csn_schema.unknown_types
-                    )
-                else:
-                    # 200 OK but not a parseable CSN shape — record it so a parse
-                    # miss isn't mistaken for a genuine no-schema base table.
-                    self.report.assets_csn_unparseable.append(
-                        f"{space_name}.{technical_name}"
-                    )
-                    self.report.warning(
-                        title="Unparseable Local Table CSN",
-                        message=(
-                            "Fetched the Local Table definition but it did not "
-                            "contain a parseable elements map; emitting the table "
-                            "without column schema."
-                        ),
-                        context=f"{space_name}.{technical_name}",
-                    )
 
-            if schema_fields:
-                description = f"Local Table from SAP Datasphere space {space_name}."
+    def _emit_one_local_table(
+        self,
+        space_name: str,
+        technical_name: str,
+        resolved: ResolvedPlatform,
+        space_key: SpaceContainerKey,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_name = self._build_dataset_name(space_name, technical_name)
+
+        # Schema fields on both sides (View + Local Table) let the UI draw
+        # column-level lineage edges between them.
+        schema_fields = None
+        csn_obj = self._client.fetch_object_definition(
+            space_name, OBJECT_TYPE_LOCAL_TABLES, technical_name
+        )
+        if csn_obj is not None:
+            definition = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
+            elements = (
+                definition.get(CSN_KEY_ELEMENTS)
+                if isinstance(definition, dict)
+                else None
+            )
+            if isinstance(elements, dict):
+                csn_schema = parse_csn_elements_to_schema_fields(elements)
+                schema_fields = csn_schema.fields
+                self._report_unknown_cds_types(
+                    space_name, technical_name, csn_schema.unknown_types
+                )
             else:
-                description = (
-                    f"Local Table from SAP Datasphere space {space_name}. "
-                    f"This is a base table not exposed via the OData Consumption "
-                    f"API — schema details are unavailable. Emitted to close "
-                    f"phantom-lineage gaps from views referencing this table."
+                # 200 OK but not a parseable CSN shape — record it so a parse
+                # miss isn't mistaken for a genuine no-schema base table.
+                self.report.assets_csn_unparseable.append(
+                    f"{space_name}.{technical_name}"
+                )
+                self.report.warning(
+                    title="Unparseable Local Table CSN",
+                    message=(
+                        "Fetched the Local Table definition but it did not "
+                        "contain a parseable elements map; emitting the table "
+                        "without column schema."
+                    ),
+                    context=f"{space_name}.{technical_name}",
                 )
 
-            dataset = Dataset(
-                platform=resolved.platform,
-                name=dataset_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-                display_name=technical_name,
-                description=description,
-                subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
-                parent_container=space_key,
-                custom_properties={
-                    PROP_SPACE_NAME: space_name,
-                    PROP_SAP_DATASPHERE_SPACE: space_name,
-                    PROP_SAP_DATASPHERE_ASSET: technical_name,
-                    PROP_EXPOSED_FOR_CONSUMPTION: PROP_VALUE_FALSE,
-                    PROP_LOCAL_TABLE: PROP_VALUE_TRUE,
-                },
-                schema=schema_fields,
+        if schema_fields:
+            description = f"Local Table from SAP Datasphere space {space_name}."
+        else:
+            description = (
+                f"Local Table from SAP Datasphere space {space_name}. "
+                f"This is a base table not exposed via the OData Consumption "
+                f"API — schema details are unavailable. Emitted to close "
+                f"phantom-lineage gaps from views referencing this table."
             )
-            yield from dataset.as_workunits()
-            self.report.local_tables_emitted += 1
+
+        dataset = Dataset(
+            platform=resolved.platform,
+            name=dataset_name,
+            platform_instance=resolved.platform_instance,
+            env=resolved.env,
+            display_name=technical_name,
+            description=description,
+            subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
+            parent_container=space_key,
+            custom_properties={
+                PROP_SPACE_NAME: space_name,
+                PROP_SAP_DATASPHERE_SPACE: space_name,
+                PROP_SAP_DATASPHERE_ASSET: technical_name,
+                PROP_EXPOSED_FOR_CONSUMPTION: PROP_VALUE_FALSE,
+                PROP_LOCAL_TABLE: PROP_VALUE_TRUE,
+            },
+            schema=schema_fields,
+        )
+        yield from dataset.as_workunits()
+        self.report.local_tables_emitted += 1
 
     def _enabled_flow_types(self) -> List[str]:
         types: List[str] = []
@@ -564,10 +578,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                         f"{space_name}.{object_type}.{technical_name}"
                     )
                     continue
+                if parsed.cll_suppressed_multi_input:
+                    self.report.flow_column_lineage_suppressed_multi_input += 1
                 if dataflow is None:
                     dataflow = self._build_space_dataflow(space_name)
                     yield from dataflow.as_workunits()
-                yield from self._emit_flow_job(space_name, dataflow, parsed)
+                yield from self._isolate(
+                    f"{space_name}.{object_type}.{technical_name}",
+                    self._emit_flow_job(space_name, dataflow, parsed),
+                )
                 self._bump_report(_FLOW_EMITTED_ATTR[object_type])
 
     def _bump_report(self, attr: str) -> None:
@@ -683,7 +702,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         resolver = self._get_resolver(space_name)
         if endpoint.is_local:
             resolved = resolver.resolve(MANAGED_CONNECTION_KEY).platform
-            name = self._build_dataset_name(space_name, endpoint.object_name)
+            # A local endpoint's object_name is usually the bare technical name,
+            # but a qualifiedName-derived one may already be "SPACE.OBJECT";
+            # don't prefix the space twice.
+            prefix = f"{space_name}."
+            if endpoint.object_name.startswith(prefix):
+                name = self._maybe_lower(endpoint.object_name)
+            else:
+                name = self._build_dataset_name(space_name, endpoint.object_name)
         else:
             resolved = resolver.resolve_external(
                 endpoint.connection, endpoint.connection_type
@@ -700,12 +726,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"(connection={endpoint.connection}, type={endpoint.connection_type})"
             )
             return None
-        return make_dataset_urn_with_platform_instance(
-            platform=resolved.platform,
-            name=name,
-            platform_instance=resolved.platform_instance,
-            env=resolved.env,
-        )
+        return self._dataset_urn(resolved, name)
 
     def _build_flow_fine_grained(
         self, parsed: ParsedFlow, urn_by_object: Dict[str, str]
@@ -717,19 +738,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_dataset_urn is None or downstream_dataset_urn is None:
                 continue
             fine_grained.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(
-                            upstream_dataset_urn, mapping.upstream_col
-                        )
-                    ],
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[
-                        make_schema_field_urn(
-                            downstream_dataset_urn, mapping.downstream_col
-                        )
-                    ],
+                self._field_edge(
+                    upstream_dataset_urn,
+                    mapping.upstream_col,
+                    downstream_dataset_urn,
+                    mapping.downstream_col,
                 )
             )
         return fine_grained
@@ -743,17 +756,32 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Dict[str, UpstreamLineageClass]:
         """Build one UpstreamLineage per flow target (keyed by its dataset URN).
 
-        Column edges are attributed to the specific target they land on from the
-        flow's column mappings. A target with no attributable column mapping
-        falls back to a coarse table-level edge from every resolved input (the
-        same set the DataJob carries as inlets), so multi-input flows still get a
-        dataset-to-dataset edge even when column attribution was suppressed.
+        Column edges are attributed to the specific target they land on. A target
+        with no attributable column mapping falls back to a table-level edge: for a
+        replication flow (independent 1:1 tasks) that is only the target's paired
+        sources; for a connected-graph data flow it is every resolved input.
         """
         mappings_by_downstream: Dict[str, List[FlowColumnMapping]] = {}
         for mapping in parsed.column_mappings:
             mappings_by_downstream.setdefault(mapping.downstream_object, []).append(
                 mapping
             )
+
+        # Per-target source pairing (replication flows only) so a pure-copy task's
+        # target is never attributed to sibling tasks' sources.
+        paired_upstreams_by_downstream: Dict[str, List[str]] = {}
+        for table_mapping in parsed.table_mappings:
+            upstream_urn = urn_by_object.get(table_mapping.upstream_object)
+            paired_downstream_urn = output_urn_by_object.get(
+                table_mapping.downstream_object
+            )
+            if upstream_urn is None or paired_downstream_urn is None:
+                continue
+            bucket = paired_upstreams_by_downstream.setdefault(
+                paired_downstream_urn, []
+            )
+            if upstream_urn not in bucket:
+                bucket.append(upstream_urn)
 
         result: Dict[str, UpstreamLineageClass] = {}
         for object_name, downstream_urn in output_urn_by_object.items():
@@ -766,21 +794,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 if upstream_urn not in upstream_urns:
                     upstream_urns.append(upstream_urn)
                 fine_grained.append(
-                    FineGrainedLineageClass(
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=[
-                            make_schema_field_urn(upstream_urn, mapping.upstream_col)
-                        ],
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[
-                            make_schema_field_urn(
-                                downstream_urn, mapping.downstream_col
-                            )
-                        ],
+                    self._field_edge(
+                        upstream_urn,
+                        mapping.upstream_col,
+                        downstream_urn,
+                        mapping.downstream_col,
                     )
                 )
             if not upstream_urns:
-                upstream_urns = [str(urn) for urn in inlets]
+                if parsed.table_mappings:
+                    upstream_urns = list(
+                        paired_upstreams_by_downstream.get(downstream_urn, [])
+                    )
+                else:
+                    upstream_urns = [str(urn) for urn in inlets]
             # Guard against a target that also appears as its own input.
             upstream_urns = [urn for urn in upstream_urns if urn != downstream_urn]
             if not upstream_urns:
@@ -847,8 +874,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.asset_pattern.allowed(technical_name):
                 continue
             self.report.remote_tables_scanned += 1
-            yield from self._emit_one_remote_table(
-                space_name, technical_name, local_resolved, resolver, space_key
+            yield from self._isolate(
+                f"{space_name}.{OBJECT_TYPE_REMOTE_TABLES}.{technical_name}",
+                self._emit_one_remote_table(
+                    space_name, technical_name, local_resolved, resolver, space_key
+                ),
             )
 
     def _emit_one_remote_table(
@@ -870,11 +900,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         schema_fields = None
         upstreams_aspect: Optional[UpstreamLineageClass] = None
-        downstream_urn = make_dataset_urn_with_platform_instance(
-            platform=local_resolved.platform,
-            name=self._build_dataset_name(space_name, technical_name),
-            platform_instance=local_resolved.platform_instance,
-            env=local_resolved.env,
+        downstream_urn = self._dataset_urn(
+            local_resolved, self._build_dataset_name(space_name, technical_name)
         )
         if isinstance(definition, dict):
             schema_fields = self._remote_table_schema(
@@ -944,11 +971,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"{space_name}.{technical_name} (connection={remote.connection})"
             )
             return None
-        upstream_urn = make_dataset_urn_with_platform_instance(
-            platform=resolved.platform,
-            name=self._maybe_lower_external(resolved, remote.qualified_name),
-            platform_instance=resolved.platform_instance,
-            env=resolved.env,
+        upstream_urn = self._dataset_urn(
+            resolved, self._maybe_lower_external(resolved, remote.qualified_name)
         )
         return UpstreamLineageClass(
             upstreams=[
@@ -979,18 +1003,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         fine_grained: List[FineGrainedLineageClass] = []
         for field in schema_fields:
             fine_grained.append(
-                FineGrainedLineageClass(
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(
-                            upstream_urn,
-                            self._maybe_lower_external(resolved, field.fieldPath),
-                        )
-                    ],
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[
-                        make_schema_field_urn(downstream_urn, field.fieldPath)
-                    ],
+                self._field_edge(
+                    upstream_urn,
+                    self._maybe_lower_external(resolved, field.fieldPath),
+                    downstream_urn,
+                    field.fieldPath,
                 )
             )
         return fine_grained
@@ -1033,6 +1050,53 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             parts.append(schema)
         parts.append(object_name)
         return ".".join(parts)
+
+    @staticmethod
+    def _dataset_urn(resolved: ResolvedPlatform, name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=resolved.platform,
+            name=name,
+            platform_instance=resolved.platform_instance,
+            env=resolved.env,
+        )
+
+    @staticmethod
+    def _field_edge(
+        upstream_urn: str,
+        upstream_col: str,
+        downstream_urn: str,
+        downstream_col: str,
+        transform_op: Optional[TransformOp] = None,
+    ) -> FineGrainedLineageClass:
+        # A 1:1 (single upstream field -> single downstream field) edge.
+        return FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[make_schema_field_urn(upstream_urn, upstream_col)],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[make_schema_field_urn(downstream_urn, downstream_col)],
+            transformOperation=transform_op,
+        )
+
+    def _isolate(
+        self, label: str, workunits: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        # Per-item guard mirroring _emit_asset_with_isolation: one bad object
+        # (URN/aspect error) is reported and skipped so the rest of the space
+        # still emits, instead of one failure aborting the whole space.
+        try:
+            yield from workunits
+        except requests.RequestException as e:
+            self.report.warning(
+                title="Failed to emit object",
+                message=f"Skipped {label} due to network error",
+                context=str(e),
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit object",
+                message=f"Skipped {label} due to unexpected error",
+                context=f"{type(e).__name__}: {e}",
+            )
 
     def _space_key(self, space_name: str) -> SpaceContainerKey:
         return SpaceContainerKey(
@@ -1260,12 +1324,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from dataset.as_workunits()
         if view_properties is not None:
-            view_dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=resolved.platform,
-                name=dataset_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-            )
+            view_dataset_urn = self._dataset_urn(resolved, dataset_name)
             yield MetadataChangeProposalWrapper(
                 entityUrn=view_dataset_urn,
                 aspect=view_properties,
@@ -1498,12 +1557,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
         if not upstream_refs and not column_pairs:
             return None
-        downstream_dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=resolved.platform,
-            name=dataset_name,
-            platform_instance=resolved.platform_instance,
-            env=resolved.env,
-        )
+        downstream_dataset_urn = self._dataset_urn(resolved, dataset_name)
         column_lineage = (
             ColumnLineageContext(
                 pairs=column_pairs,
@@ -1538,12 +1592,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = self._qualified_upstream_urn(ref.name)
             else:
                 upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
-                upstream_urn = make_dataset_urn_with_platform_instance(
-                    platform=resolved.platform,
-                    name=upstream_name,
-                    platform_instance=resolved.platform_instance,
-                    env=resolved.env,
-                )
+                upstream_urn = self._dataset_urn(resolved, upstream_name)
             upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
@@ -1787,7 +1836,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # S3/GCS connector; warn once so they can override the mapping.
         if resolved.platform_instance is not None:
             return
-        if resolved.platform not in {"s3", "gcs"}:
+        if resolved.platform not in GENERIC_SCHEME_PLATFORMS:
             return
         if self._builtin_defaults_warning_emitted_for.get(resolved.platform):
             return

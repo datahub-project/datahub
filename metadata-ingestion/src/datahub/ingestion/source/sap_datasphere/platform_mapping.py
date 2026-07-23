@@ -1,9 +1,13 @@
 import logging
-from typing import TYPE_CHECKING, Dict, Optional, Set
+from typing import Dict, Optional, Set
 
-from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
+from datahub.ingestion.source.sap_datasphere.config import (
+    ConnectionPlatformConfig,
+    SapDatasphereConfig,
+)
 from datahub.ingestion.source.sap_datasphere.constants import (
     MANAGED_CONNECTION_KEY,
+    MANAGED_CONNECTION_TYPEID,
     PLATFORM,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
@@ -13,9 +17,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ResolveSkipReason,
     TypeIdDefault,
 )
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
+from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +37,25 @@ class PlatformMappingResolver:
         self,
         config: SapDatasphereConfig,
         connections_by_name: Dict[str, ConnectionRecord],
-        report: Optional["SapDatasphereReport"] = None,
+        report: Optional[SapDatasphereReport] = None,
     ) -> None:
         self._config = config
         self._connections_by_name = connections_by_name
         self._report = report
         self.unknown_typeids_seen: Set[str] = set()
         self.unknown_connection_names_seen: Set[str] = set()
+
+    def _result_from_config(self, cfg: ConnectionPlatformConfig) -> ResolveResult:
+        return ResolveResult(
+            platform=ResolvedPlatform(
+                platform=cfg.platform,
+                platform_instance=cfg.platform_instance,
+                env=cfg.env or self._config.env,
+                convert_urns_to_lowercase=cfg.convert_urns_to_lowercase,
+                database=cfg.database,
+            ),
+            skip_reason=None,
+        )
 
     def resolve(self, connection_name: str) -> ResolveResult:
         # The synthetic _managed connection is always the Datasphere platform:
@@ -71,16 +85,7 @@ class PlatformMappingResolver:
             return ResolveResult(platform=None, skip_reason=fallback_reason)
         if not raw.enabled:
             return ResolveResult(platform=None, skip_reason=ResolveSkipReason.DISABLED)
-        return ResolveResult(
-            platform=ResolvedPlatform(
-                platform=raw.platform,
-                platform_instance=raw.platform_instance,
-                env=raw.env or self._config.env,
-                convert_urns_to_lowercase=raw.convert_urns_to_lowercase,
-                database=raw.database,
-            ),
-            skip_reason=None,
-        )
+        return self._result_from_config(raw)
 
     def resolve_external(
         self, connection_name: Optional[str], connection_type: Optional[str]
@@ -97,29 +102,18 @@ class PlatformMappingResolver:
                     return ResolveResult(
                         platform=None, skip_reason=ResolveSkipReason.DISABLED
                     )
-                return ResolveResult(
-                    platform=ResolvedPlatform(
-                        platform=raw.platform,
-                        platform_instance=raw.platform_instance,
-                        env=raw.env or self._config.env,
-                        convert_urns_to_lowercase=raw.convert_urns_to_lowercase,
-                        database=raw.database,
-                    ),
-                    skip_reason=None,
-                )
+                return self._result_from_config(raw)
         if connection_type:
             default = self._config.platform_type_defaults.get(connection_type)
-            if default is not None and default.enabled:
-                return ResolveResult(
-                    platform=ResolvedPlatform(
-                        platform=default.platform,
-                        platform_instance=default.platform_instance,
-                        env=default.env or self._config.env,
-                        convert_urns_to_lowercase=default.convert_urns_to_lowercase,
-                        database=default.database,
-                    ),
-                    skip_reason=None,
-                )
+            if default is not None:
+                # A disabled type-default is an explicit "skip", not an unknown
+                # connection — report it as such instead of falling through to
+                # resolve() (which would mis-report UNKNOWN_CONNECTION).
+                if not default.enabled:
+                    return ResolveResult(
+                        platform=None, skip_reason=ResolveSkipReason.DISABLED
+                    )
+                return self._result_from_config(default)
         if connection_name:
             return self.resolve(connection_name)
         return ResolveResult(
@@ -129,7 +123,7 @@ class PlatformMappingResolver:
     def _typeid_default_for(self, connection_name: str) -> TypeIdDefault:
         # _managed has a hard-coded typeId of HANA (the tenant's own HANA Cloud).
         if connection_name == MANAGED_CONNECTION_KEY:
-            typeid = "HANA"
+            typeid = MANAGED_CONNECTION_TYPEID
         else:
             conn = self._connections_by_name.get(connection_name)
             if conn is None:

@@ -37,6 +37,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     AttrMapping,
     FlowColumnMapping,
     FlowEndpoint,
+    FlowTableMapping,
     ParsedFlow,
     ProducerColumns,
     SystemIdentity,
@@ -118,9 +119,8 @@ def _attribute_mappings(config: Dict) -> List[AttrMapping]:
 def _parse_process_flow(
     payload: Dict, object_type: str, technical_name: str
 ) -> Optional[ParsedFlow]:
-    """Parse a data flow / transformation flow: a process graph whose
-    ``*.consumer`` nodes are inputs and ``*.producer`` nodes are outputs, with
-    the producer's attributeMappings giving column-level lineage."""
+    # Process graph: ``*.consumer`` nodes are inputs, ``*.producer`` nodes are
+    # outputs, and a producer's attributeMappings give column-level lineage.
     body = _flow_body(payload, object_type, technical_name)
     if body is None:
         return None
@@ -160,7 +160,8 @@ def _parse_process_flow(
     # Column lineage is only unambiguous when there is a single input to attribute
     # the producer's source columns to; multi-input flows keep table-level only.
     column_mappings: List[FlowColumnMapping] = []
-    if len(inputs_t) == 1:
+    single_input = len(inputs_t) == 1
+    if single_input:
         sole_input = inputs_t[0].object_name
         for producer in producer_mappings:
             for pair in producer.mappings:
@@ -172,15 +173,20 @@ def _parse_process_flow(
                         upstream_col=pair.upstream_col,
                     )
                 )
+    cll_suppressed = not single_input and any(p.mappings for p in producer_mappings)
 
     if not inputs_t and not outputs_t:
         return None
+    # A process graph is a connected DAG — every input can feed every output — so
+    # table_mappings is left empty (the source layer's all-inputs fallback is
+    # correct here); replication flows below populate it per task instead.
     return ParsedFlow(
         technical_name=technical_name,
         subtype=_SUBTYPE_BY_OBJECT_TYPE[object_type],
         inputs=inputs_t,
         outputs=outputs_t,
         column_mappings=column_mappings,
+        cll_suppressed_multi_input=cll_suppressed,
     )
 
 
@@ -203,6 +209,7 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
     inputs: List[FlowEndpoint] = []
     outputs: List[FlowEndpoint] = []
     column_mappings: List[FlowColumnMapping] = []
+    table_mappings: List[FlowTableMapping] = []
     for task in tasks:
         if not isinstance(task, dict):
             continue
@@ -212,6 +219,12 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
             continue
         inputs.append(_replication_endpoint(source_name, source_system))
         outputs.append(_replication_endpoint(target_name, target_system))
+        # Per-task pairing so a target is attributed only to its own source, not
+        # to every source in the flow (a replication flow's tasks are independent
+        # 1:1 pipes and pure copies carry no column mapping to disambiguate them).
+        table_mappings.append(
+            FlowTableMapping(upstream_object=source_name, downstream_object=target_name)
+        )
         transform = task.get(RF_TASK_TRANSFORM)
         if isinstance(transform, dict):
             for pair in _attribute_mappings(transform):
@@ -234,6 +247,7 @@ def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[Pars
         inputs=inputs_t,
         outputs=outputs_t,
         column_mappings=column_mappings,
+        table_mappings=table_mappings,
     )
 
 

@@ -8,6 +8,14 @@ PLATFORM: Final[str] = "sap-datasphere"
 # federated remote source.
 MANAGED_CONNECTION_KEY: Final[str] = "_managed"
 
+# typeId of the _managed connection: the tenant's own HANA Cloud storage.
+MANAGED_CONNECTION_TYPEID: Final[str] = "HANA"
+
+# Platforms whose built-in default mapping emits a generic scheme URN (s3://,
+# gs://) that only merges with a dedicated connector's URNs once a
+# platform_instance is set; warned about once per platform.
+GENERIC_SCHEME_PLATFORMS: Final[frozenset] = frozenset({"s3", "gcs"})
+
 # SAP-supported catalog service. The legacy /api/v1/dwc/catalog/ prefix is
 # documented as deprecated in favour of this one.
 CATALOG_BASE: Final[str] = "/api/v1/datasphere/consumption/catalog"
@@ -223,6 +231,9 @@ RF_OBJECT_NAME: Final[str] = "name"
 REMOTE_CONNECTION_KEY: Final[str] = "@DataWarehouse.remote.connection"
 REMOTE_ENTITY_KEY: Final[str] = "@DataWarehouse.remote.entity"
 REMOTE_ENTITY_DELIMITER: Final[str] = "\x7f"
+# SAP encodes an absent database segment in the remote-entity locator as this
+# literal; it is dropped when assembling the external URN name.
+REMOTE_NULL_SEGMENT: Final[str] = "<NULL>"
 
 # Kind discriminators seen at flow[<name>]["kind"]; used only for defensive
 # validation / logging, not routing (the object_type path segment routes).
