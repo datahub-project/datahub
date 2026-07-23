@@ -4,6 +4,7 @@ import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import auth.sso.oidc.OidcCallbackLogic;
+import auth.sso.oidc.OidcProvider;
 import auth.sso.oidc.RequiredGroupsException;
 import client.AuthServiceClient;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -13,6 +14,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import javax.annotation.Nonnull;
@@ -85,6 +87,23 @@ public class SsoCallbackController extends CallbackController {
             authVerboseLogging);
   }
 
+  /**
+   * Resolve the access-denied message shown when a user is rejected for missing required groups.
+   * Prefers the value configured on the active (dynamic / UI-managed) OIDC provider, falling back
+   * to the static {@code auth.oidc.accessDeniedMessage} env config captured at construction time.
+   */
+  private String resolveAccessDeniedMessage() {
+    final SsoProvider<?> provider = ssoManager.getSsoProvider();
+    if (provider instanceof OidcProvider) {
+      final Optional<String> dynamicMessage =
+          ((OidcProvider) provider).configs().getAccessDeniedMessage();
+      if (dynamicMessage.isPresent() && !dynamicMessage.get().isEmpty()) {
+        return dynamicMessage.get();
+      }
+    }
+    return accessDeniedMessage;
+  }
+
   @Override
   public CompletionStage<Result> callback(Http.Request request) {
     FrameworkAdapter.INSTANCE.applyDefaultSettingsIfUndefined(this.config);
@@ -117,9 +136,10 @@ public class SsoCallbackController extends CallbackController {
                   String message;
                   if (e.getCause() instanceof RequiredGroupsException) {
                     log.warn("User missing required groups.");
+                    final String resolvedMessage = resolveAccessDeniedMessage();
                     message =
-                        (accessDeniedMessage != null && !accessDeniedMessage.isEmpty())
-                            ? accessDeniedMessage
+                        (resolvedMessage != null && !resolvedMessage.isEmpty())
+                            ? resolvedMessage
                             : "Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.";
                   } else {
                     message =

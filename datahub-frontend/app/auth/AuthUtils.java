@@ -80,6 +80,9 @@ public class AuthUtils {
   // Retained for backwards compatibility
   public static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
   public static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
+  public static final String REQUIRED_GROUPS = "requiredGroups";
+  public static final String ACCESS_DENIED_MESSAGE = "accessDeniedMessage";
+  public static final String ACCESS_DENIED_REDIRECT_URL = "accessDeniedRedirectUrl";
 
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
