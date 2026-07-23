@@ -1076,7 +1076,8 @@ public class ESIndexBuilder {
       Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
     }
 
-    // Timeout: ONE getTaskWithFailures (not getTask + WithFailures). Counters + failures[] logged inside.
+    // Timeout: ONE getTaskWithFailures (not getTask + WithFailures). Counters + failures[] logged
+    // inside.
     TaskFailureParseResult timeoutFailures =
         fetchTaskFailuresBestEffort(opContext, activeTaskId, sourceIndex, destIndex);
     failures = timeoutFailures.details();
