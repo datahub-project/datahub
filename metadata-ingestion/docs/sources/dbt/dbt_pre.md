@@ -275,43 +275,39 @@ To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.c
 
 The artifacts used by this source are:
 
-- [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
-  - This file contains model, source, tests and lineage data.
-  - Core metadata: project name, dbt version, schema version, adapter type
-  - DataHub Entities and Aspects:
-    - Dataset Entity for each model, source, seed, and snapshot with:
-      - DatasetProperties Aspect: name, identifier, alias, description, tags, meta
-      - Ownership Aspect: owner information from meta/config
-      - UpstreamLineage Aspect: dependencies between nodes
-        - Direct dependencies from manifest's `depends_on.nodes`
-        - Column-level lineage from parsed SQL (when available)
-      - SubTypes Aspect: materialization type (table/view)
-      - GlobalTags Aspect: dbt tags
-      - BrowsePaths Aspect: database/schema structure
-      - Raw and compiled SQL code
-      - File paths and package names
-- [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
-  - This file contains schema data.
-  - DataHub Entities and Aspects:
-    - SchemaMetadata Aspect: column names, types, comments, descriptions
-    - DatasetProperties Aspect: table/view types and table comments
-  - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
-  - Note: The catalog file is optional. If not provided, we will fall back to using basic column information from the manifest file or DataHub itself (in case there is any sibling from a warehouse _eg_ Snowflake, BigQuery, etc)
-- [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
-  - This file contains metadata for sources with freshness checks.
-  - DataHub Entities and Aspects:
-    - DatasetProperties Aspect: last modified timestamp (`max_loaded_at`)
-  - We transfer dbt's freshness checks to DataHub's last-modified fields.
-  - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
-- [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
-  - This file contains metadata from the result of a dbt run, e.g. dbt test
-  - DataHub Entities and Aspects:
-    - Assertion Entity for each test with:
-      - AssertionInfo Aspect: test definition and parameters
-      - AssertionRunEvent Aspect: test status, execution timestamps, failure messages, number of failures
-    - DatasetProperties Aspect: model performance metrics (execution status, start/end times, run ID)
-  - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
-  - Note: Tests that are disabled in the manifest file (via `enabled: false` or `--exclude` flag) will not be included in DataHub, even if they appear in run_results.json. This is because the manifest file is the source of truth for which tests are active in your dbt project.
+- [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json) — **required**
+  - Models, sources, seeds, snapshots, tests, exposures, semantic models, and lineage.
+  - The manifest is the source of truth for which nodes and tests are active. Tests disabled in the manifest (via `enabled: false` or the `--exclude` flag) are excluded from DataHub even if they appear in `run_results.json`.
+- [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json) — optional but recommended
+  - Column schemas and table statistics. Generate it with `dbt docs generate`.
+  - dbt does not record schema data for ephemeral models, so DataHub shows ephemeral models in lineage but without an associated schema.
+  - If not provided, DataHub falls back to basic column information from the manifest, or from a warehouse sibling already in DataHub (e.g. Snowflake, BigQuery).
+- [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json) — optional
+  - Source freshness results.
+  - If not provided, last-modified fields are not populated (there is no ingestion-time fallback).
+- [dbt run_results file(s)](https://docs.getdbt.com/reference/artifacts/run-results-json) — optional
+  - Outcomes of a dbt run, e.g. `dbt test` results and model execution timing.
+  - Multiple files and glob patterns are supported. If not provided, test results and model performance are not populated.
+
+The table below summarizes the DataHub entities and aspects produced from each artifact. Several of these outputs have dedicated sections on this page (dataset statistics, query entities, exposures, semantic models, and `meta_mapping`).
+
+| Artifact           | DataHub entity · aspect                                                       | What it captures                                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`    | Dataset · DatasetProperties                                                   | Name, description, and dbt metadata (materialization, package, file path, unique id, dbt version, adapter) as custom properties |
+|                    | Dataset · SubTypes                                                            | dbt resource type: `Model`, `Source`, `Seed`, or `Snapshot`                                                                     |
+|                    | Dataset · UpstreamLineage                                                     | Table lineage from `depends_on.nodes`; column-level lineage from parsed SQL when available                                      |
+|                    | Dataset · ViewProperties                                                      | Raw and compiled SQL                                                                                                            |
+|                    | Dataset · Ownership, GlobalTags, GlossaryTerms, Domains, StructuredProperties | Owners and tags from `meta`/`config`; terms, domains, and structured properties via `meta_mapping`/`column_meta_mapping`        |
+|                    | Assertion · AssertionInfo                                                     | Test definitions and parameters                                                                                                 |
+|                    | Dashboard                                                                     | dbt exposures (dashboards, notebooks, ML models, applications) with upstream lineage                                            |
+|                    | Dataset (Semantic Model)                                                      | dbt semantic models (dbt 1.6+): entities, dimensions, and measures                                                              |
+|                    | Query                                                                         | Queries defined in a model's `meta.queries`                                                                                     |
+| `catalog.json`     | Dataset · SchemaMetadata                                                      | Column names, types, comments, and descriptions                                                                                 |
+|                    | Dataset · DatasetProfile                                                      | Table statistics: row count, size, and column count                                                                             |
+| `sources.json`     | Dataset · SchemaMetadata (`lastModified`)                                     | Source freshness timestamp (`max_loaded_at`)                                                                                    |
+|                    | Assertion                                                                     | Source freshness checks, as freshness assertions                                                                                |
+| `run_results.json` | Assertion · AssertionRunEvent                                                 | Test run status, timing, failure count, and failure messages                                                                    |
+|                    | DataProcessInstance                                                           | Model run performance: status, start/end times, and run id (dbt Core only)                                                      |
 
 **Recommended workflow for dbt build and DataHub ingestion:**
 
