@@ -22,7 +22,9 @@ import uuid
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
+import tenacity
 
+from datahub.configuration.common import OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     ApplicationsClass,
@@ -56,6 +58,26 @@ from tests.utils import execute_graphql
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.no_cypress_suite1
+
+
+def _is_transient_sp_error(exc: BaseException) -> bool:
+    """Return True for transient SP-creation errors caused by ES mapping lookups."""
+    if not isinstance(exc, OperationalError):
+        return False
+    msg = str(exc)
+    return "Retry the request" in msg or "mapping lookup failed" in msg
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(_is_transient_sp_error),
+    wait=tenacity.wait_exponential(multiplier=1, min=1, max=8),
+    stop=tenacity.stop_after_attempt(5),
+    reraise=True,
+)
+def _emit_sp_definition(graph_client: Any, mcp: MetadataChangeProposalWrapper) -> None:
+    """Emit a structured property definition MCP, retrying on transient ES errors."""
+    graph_client.emit_mcp(mcp)
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -201,9 +223,11 @@ def setup_entities(graph_client):
         description="Property for timeline smoke tests",
         immutable=False,
     )
-    graph_client.emit_mcp(
-        MetadataChangeProposalWrapper(entityUrn=SP_URN, aspect=sp_def)
+    _emit_sp_definition(
+        graph_client,
+        MetadataChangeProposalWrapper(entityUrn=SP_URN, aspect=sp_def),
     )
+    wait_for_writes_to_sync()
 
     # --- Dataset ---
     graph_client.emit_mcp(
