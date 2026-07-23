@@ -1,15 +1,10 @@
 package com.linkedin.metadata.aspect.patch;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
+import com.linkedin.metadata.utils.JacksonStreamConstraints;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import jakarta.json.Json;
@@ -38,25 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class PatchOperationUtils {
   /** Jackson mapper for patch payloads (ingestion stream-constraint env overrides). */
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  static {
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    int maxNameLength =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
-    OBJECT_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(
-            StreamReadConstraints.builder()
-                .maxStringLength(maxSize)
-                .maxNameLength(maxNameLength)
-                .build());
-  }
+  private static final ObjectMapper OBJECT_MAPPER = JacksonStreamConstraints.createObjectMapper();
 
   private PatchOperationUtils() {}
 
