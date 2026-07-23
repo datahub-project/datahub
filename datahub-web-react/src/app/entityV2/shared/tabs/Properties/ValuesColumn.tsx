@@ -35,21 +35,24 @@ export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMa
     const isRichText = propertyRow.dataType?.info?.type === StdDataType.RichText;
 
     return (
-        <ValuesContainerFlex renderType={renderType}>
-            {values ? (
-                values.map((v) => (
-                    <ValueContainer>
-                        <StructuredPropertyValue
-                            value={v}
-                            isRichText={isRichText}
-                            filterText={filterText}
-                            hydratedEntityMap={hydratedEntityMap}
-                        />
-                    </ValueContainer>
-                ))
-            ) : (
-                <span />
-            )}
-        </ValuesContainerFlex>
+        <>
+            <ValuesContainerFlex renderType={renderType}>
+                {values ? (
+                    values.map((v) => (
+                        <ValueContainer>
+                            <StructuredPropertyValue
+                                value={v}
+                                isRichText={isRichText}
+                                filterText={filterText}
+                                hydratedEntityMap={hydratedEntityMap}
+                                attribution={propertyRow.attribution}
+                            />
+                        </ValueContainer>
+                    ))
+                ) : (
+                    <span />
+                )}
+            </ValuesContainerFlex>
+        </>
     );
 }

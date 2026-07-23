@@ -1,14 +1,30 @@
 import { Modal, Steps, Typography } from 'antd';
+import i18next from 'i18next';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { CreateScheduleStep } from '@app/ingest/source/builder/CreateScheduleStep';
 import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
 import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingest/source/builder/SelectTemplateStep';
 import sourcesJson from '@app/ingest/source/builder/sources.json';
-import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';
+
+import { IngestionSource } from '@types';
+
+function resolveSource(source: SourceConfig): SourceConfig {
+    const key = source.name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    const ns = 'ingest.sources';
+    return {
+        ...source,
+        // displayName intentionally NOT translated — source/connector display names are proper
+        // nouns (Athena, BigQuery, Confluence, …) and must stay identical across all languages.
+        description: source.description
+            ? i18next.t(`sources.${key}.description`, { ns, defaultValue: source.description })
+            : source.description,
+    };
+}
 
 const StyledModal = styled(Modal)`
     && .ant-modal-content {
@@ -33,7 +49,7 @@ const StepsContainer = styled.div`
 /**
  * Mapping from the step type to the title for the step
  */
-export enum IngestionSourceBuilderStepTitles {
+enum IngestionSourceBuilderStepTitles {
     SELECT_TEMPLATE = 'Choose Data Source',
     DEFINE_RECIPE = 'Configure Connection',
     CREATE_SCHEDULE = 'Sync Schedule',
@@ -43,7 +59,7 @@ export enum IngestionSourceBuilderStepTitles {
 /**
  * Mapping from the step type to the component implementing that step.
  */
-export const IngestionSourceBuilderStepComponent = {
+const IngestionSourceBuilderStepComponent = {
     SELECT_TEMPLATE: SelectTemplateStep,
     DEFINE_RECIPE: DefineRecipeStep,
     CREATE_SCHEDULE: CreateScheduleStep,
@@ -53,23 +69,31 @@ export const IngestionSourceBuilderStepComponent = {
 /**
  * Steps of the Ingestion Source Builder flow.
  */
-export enum IngestionSourceBuilderStep {
+enum IngestionSourceBuilderStep {
     SELECT_TEMPLATE = 'SELECT_TEMPLATE',
     DEFINE_RECIPE = 'DEFINE_RECIPE',
     CREATE_SCHEDULE = 'CREATE_SCHEDULE',
     NAME_SOURCE = 'NAME_SOURCE',
 }
 
-const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6F6' };
-
 type Props = {
     initialState?: SourceBuilderState;
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+}: Props) => {
+    const theme = useTheme();
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -83,7 +107,8 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
         },
     });
 
-    const ingestionSources = JSON.parse(JSON.stringify(sourcesJson)); // TODO: replace with call to server once we have access to dynamic list of sources
+    // TODO: replace with call to server once we have access to dynamic list of sources
+    const ingestionSources = (JSON.parse(JSON.stringify(sourcesJson)) as SourceConfig[]).map(resolveSource);
 
     // Reset the ingestion builder modal state when the modal is re-opened.
     const prevInitialState = useRef(initialState);
@@ -139,7 +164,7 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 </TitleContainer>
             }
             style={{ top: 40 }}
-            bodyStyle={modalBodyStyle}
+            bodyStyle={{ padding: '16px 24px 16px 24px', backgroundColor: theme.colors.bgSurface }}
             open={open}
             onCancel={onCancel}
         >
@@ -161,6 +186,8 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
+                sourceRefetch={sourceRefetch}
+                selectedSource={selectedSource}
             />
         </StyledModal>
     );

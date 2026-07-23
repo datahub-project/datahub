@@ -59,7 +59,10 @@ public class GlossaryTermType
           DOMAINS_ASPECT_NAME,
           DEPRECATION_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          DISPLAY_PROPERTIES_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -119,7 +122,7 @@ public class GlossaryTermType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -139,7 +142,7 @@ public class GlossaryTermType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -153,7 +156,7 @@ public class GlossaryTermType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

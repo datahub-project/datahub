@@ -14,16 +14,18 @@ const addGlossaryTermToDataset = () => {
   cy.visit(urn);
   cy.waitTextVisible(datasetName);
   cy.get("body").click();
-  cy.contains(".ant-collapse-header-text", "Terms")
-    .parent()
-    .find('[data-testid="AddRoundedIcon"]')
-    .click();
+  cy.get('[id="entity-profile-glossary-terms"]').within(() => {
+    cy.clickOptionWithTestId("add-terms-button");
+  });
   cy.selectOptionInTagTermModal(glossaryTerm);
   cy.contains(glossaryTerm);
 };
 
 const deleteGlossary = (message) => {
-  cy.get(".anticon-edit").should("be.visible");
+  // The inline-edit pencil is rendered by antd Typography.Text's editable wrapper;
+  // its outer class (`.ant-typography-edit`) is stable across icon swaps, while the
+  // inner icon was migrated from antd's `.anticon-edit` to a phosphor `<PencilSimple>`.
+  cy.get(".ant-typography-edit").should("be.visible");
   cy.get('[data-testid="MoreVertOutlinedIcon"]').should("be.visible").click();
   cy.clickOptionWithText("Delete");
   cy.clickOptionWithText("Yes");
@@ -31,29 +33,38 @@ const deleteGlossary = (message) => {
   cy.ensureTextNotPresent(message);
 };
 
-describe("glossary", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("glossary", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    Cypress.on("uncaught:exception", (err, runnable) => false);
   });
   it("go to glossary page, create terms, term group", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
     nevigateGlossaryPage();
     cy.clickOptionWithTestId("add-term-group-button-v2");
-    cy.addViaModal(
+    // Modal was migrated to alchemy `<Input>`, which no longer renders antd's
+    // `.ant-input-affix-wrapper`. Drive it via stable data-testids, matching the
+    // pattern used by v2_glossary_navigation.js and v2_glossaryTerm.js.
+    cy.waitTextVisible("Create Glossary");
+    cy.enterTextInTestId(
+      "create-glossary-entity-modal-name",
       glossaryTermGroup,
-      "Create Glossary",
-      glossaryTermGroup,
-      "glossary-entity-modal-create-button",
     );
+    cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+    cy.contains(glossaryTermGroup)
+      .filter(":visible")
+      .first()
+      .should("be.visible");
+    cy.wait(2000);
+    nevigateGlossaryPage();
     cy.clickOptionWithText(glossaryTermGroup);
+    cy.clickOptionWithTestId("Contents-entity-tab-header");
     cy.clickOptionWithTestId("add-term-button");
-    cy.addViaModal(
-      glossaryTerm,
-      "Create Glossary Term",
-      glossaryTerm,
-      "glossary-entity-modal-create-button",
-    );
+    cy.waitTextVisible("Create Glossary Term");
+    cy.enterTextInTestId("create-glossary-entity-modal-name", glossaryTerm);
+    cy.clickOptionWithTestId("glossary-entity-modal-create-button");
+    cy.contains(glossaryTerm).filter(":visible").first().should("be.visible");
     addGlossaryTermToDataset();
     cy.waitTextVisible(glossaryTerm);
     nevigateGlossaryPage();

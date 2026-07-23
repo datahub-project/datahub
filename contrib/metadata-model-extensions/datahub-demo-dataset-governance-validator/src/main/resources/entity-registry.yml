@@ -1,0 +1,15 @@
+# Custom Model Plugin Entity Registry
+# This registry extends the base DataHub registry with our custom validator
+
+id: "dataset-governance-validator"
+
+plugins:
+  aspectPayloadValidators:
+    - className: "com.linkedin.metadata.aspect.plugins.validation.DatasetGovernanceValidator"
+      enabled: true
+      supportedOperations: ["UPSERT"]
+      supportedEntityAspectNames:
+        - entityName: "dataset"
+          aspectName: "*"
+
+entities: []

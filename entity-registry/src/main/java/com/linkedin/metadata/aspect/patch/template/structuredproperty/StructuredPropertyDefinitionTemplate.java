@@ -5,16 +5,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
 public class StructuredPropertyDefinitionTemplate
-    extends CompoundKeyTemplate<StructuredPropertyDefinition> {
+    implements ArrayMergingTemplate<StructuredPropertyDefinition> {
 
   private static final String ENTITY_TYPES_FIELD_NAME = "entityTypes";
   private static final String ALLOWED_VALUES_FIELD_NAME = "allowedValues";
+  private static final String ALLOWED_PLATFORMS_FIELD_NAME = "allowedPlatforms";
   private static final String VALUE_FIELD_NAME = "value";
   private static final String UNIT_SEPARATOR_DELIMITER = "␟";
 
@@ -49,6 +50,11 @@ public class StructuredPropertyDefinitionTemplate
     JsonNode transformedNode =
         arrayFieldToMap(baseNode, ENTITY_TYPES_FIELD_NAME, Collections.emptyList());
 
+    if (transformedNode.get(ALLOWED_PLATFORMS_FIELD_NAME) != null) {
+      transformedNode =
+          arrayFieldToMap(transformedNode, ALLOWED_PLATFORMS_FIELD_NAME, Collections.emptyList());
+    }
+
     if (transformedNode.get(ALLOWED_VALUES_FIELD_NAME) == null) {
       return transformedNode;
     }
@@ -76,6 +82,11 @@ public class StructuredPropertyDefinitionTemplate
   public JsonNode rebaseFields(JsonNode patched) {
     JsonNode patchedNode =
         transformedMapToArray(patched, ENTITY_TYPES_FIELD_NAME, Collections.emptyList());
+
+    if (patchedNode.get(ALLOWED_PLATFORMS_FIELD_NAME) != null) {
+      patchedNode =
+          transformedMapToArray(patchedNode, ALLOWED_PLATFORMS_FIELD_NAME, Collections.emptyList());
+    }
 
     if (patchedNode.get(ALLOWED_VALUES_FIELD_NAME) == null) {
       return patchedNode;

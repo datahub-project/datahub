@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { CardContainer } from '@components/components/Card/components';
@@ -38,19 +39,27 @@ export function GraphCard({
     isEmpty,
     emptyContent,
     moreInfoModalContent,
+    showHeader = true,
+    showEmptyMessageHeader = true,
+    emptyMessage = undefined,
+    dataTestId,
 }: GraphCardProps) {
+    const { t } = useTranslation('alchemy');
     const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
+    const resolvedEmptyMessage = emptyMessage ?? t('graphCard.noStats');
 
     const handleModalClose = () => {
         setShowInfoModal(false);
     };
 
     return (
-        <CardContainer maxWidth={width}>
-            <GraphCardHeader>
-                <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
-                <ControlsContainer>{renderControls?.()}</ControlsContainer>
-            </GraphCardHeader>
+        <CardContainer maxWidth={width} data-testid={dataTestId}>
+            {showHeader && (
+                <GraphCardHeader>
+                    <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
+                    <ControlsContainer>{renderControls?.()}</ControlsContainer>
+                </GraphCardHeader>
+            )}
 
             {loading && (
                 <LoaderContainer $height={graphHeight}>
@@ -60,20 +69,26 @@ export function GraphCard({
 
             {!loading && (
                 <GraphCardBody>
-                    <GraphContainer $height={graphHeight} $isEmpty={isEmpty}>
+                    <GraphContainer
+                        $height={graphHeight}
+                        $isEmpty={isEmpty}
+                        data-testid={isEmpty ? `${dataTestId}-chart-empty` : `${dataTestId}-chart`}
+                    >
                         {renderGraph()}
                     </GraphContainer>
                     {isEmpty &&
                         (emptyContent || (
                             <EmptyMessageContainer>
                                 <EmptyMessageWrapper>
-                                    <Text size="2xl" weight="bold" color="gray">
-                                        No Data
-                                    </Text>
-                                    <Text color="gray">No stats collected for this asset at the moment.</Text>
+                                    {showEmptyMessageHeader && (
+                                        <Text size="2xl" weight="bold">
+                                            {t('noData')}
+                                        </Text>
+                                    )}
+                                    <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="violet" onClick={() => setShowInfoModal(true)}>
-                                            More info
+                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
+                                            {t('graphCard.moreInfo')}
                                         </LinkText>
                                     )}
                                 </EmptyMessageWrapper>

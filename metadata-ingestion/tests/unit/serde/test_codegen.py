@@ -1,4 +1,3 @@
-import os
 import pathlib
 import typing
 from typing import List, Type
@@ -6,6 +5,7 @@ from typing import List, Type
 import pytest
 import typing_inspect
 
+from datahub.configuration.env_vars import get_update_entity_registry
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
@@ -19,7 +19,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns._urn_base import URN_TYPES
 
-_UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
+_UPDATE_ENTITY_REGISTRY = get_update_entity_registry().lower() == "true"
 ENTITY_REGISTRY_PATH = pathlib.Path(
     "../metadata-models/src/main/resources/entity-registry.yml"
 )

@@ -1,3 +1,7 @@
+---
+description: "Introduction to DataHub's metadata service authentication architecture, including tokens, sessions, and identity propagation."
+---
+
 # Metadata Service Authentication
 
 ## Introduction
@@ -56,6 +60,10 @@ OR
 - change the Metadata Service `application.yaml` configuration file to set `authentication.enabled` to "true" AND
 - change the Frontend Proxy Service `application.config` configuration file to set `metadataService.auth.enabled` to "true"
 
+:::note
+It is recommended that users provide their own values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` by updating `application.yaml` in Metadata Service or setting the corresponding environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT`
+:::
+
 After setting the configuration flag, simply restart the Metadata Service to start enforcing Authentication.
 
 Once enabled, all requests to the Metadata Service will need to be authenticated; if you're using the default Authenticators
@@ -105,7 +113,7 @@ These changes represent the first milestone in Metadata Service Authentication. 
 1. **Dynamic Authenticator Plugins**: Configure + register custom Authenticator implementations, without forking DataHub.
 2. **Service Accounts**: Create service accounts and generate Access tokens on their behalf.
 3. **Kafka Ingestion Authentication**: Authenticate ingestion requests coming from the Kafka ingestion sink inside the Metadata Service.
-4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens inlcude no server side state, and thus cannot be revoked once granted)
+4. **Access Token Management**: Ability to view, manage, and revoke access tokens that have been generated. (Currently, access tokens include no server side state, and thus cannot be revoked once granted)
 
 ...and more! To advocate for these features or others, reach out on [Slack](https://datahubspace.slack.com/join/shared_invite/zt-nx7i0dj7-I3IJYC551vpnvvjIaNRRGw#/shared-invite/email).
 

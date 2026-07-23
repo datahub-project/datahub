@@ -1,16 +1,21 @@
 import functools
 import os
 import pathlib
-from datetime import datetime, timezone
-from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn
+from datahub.metadata.schema_classes import (
+    OperationClass,
+    QueryUsageStatisticsClass,
+)
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -27,6 +32,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.testing import mce_helpers
+from datahub.utilities.file_backed_collections import FileBackedCounter
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -61,7 +67,7 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     return aggregator
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = make_basic_aggregator()
     mcps = list(aggregator.gen_metadata())
@@ -72,7 +78,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     # Validates the query log storage + extraction functionality.
     aggregator = make_basic_aggregator(store=True)
@@ -93,7 +99,7 @@ def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_overlapping_inserts() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -127,7 +133,7 @@ def test_overlapping_inserts() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -185,7 +191,7 @@ def test_temp_table() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_multistep_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -246,7 +252,7 @@ def test_multistep_temp_table() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_overlapping_inserts_from_temp_tables() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -321,7 +327,7 @@ def test_overlapping_inserts_from_temp_tables() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -369,7 +375,7 @@ def test_aggregate_operations() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_view_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -406,7 +412,7 @@ def test_view_lineage() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_known_lineage_mapping() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -436,7 +442,7 @@ def test_known_lineage_mapping() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_column_lineage_deduplication() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -473,7 +479,7 @@ def test_column_lineage_deduplication() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_add_known_query_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -517,7 +523,7 @@ def test_add_known_query_lineage() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_rename() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -574,7 +580,7 @@ def test_table_rename() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_rename_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -633,7 +639,7 @@ def test_table_rename_with_temp() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_swap() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -719,7 +725,7 @@ def test_table_swap() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_swap_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -888,7 +894,7 @@ def test_table_swap_with_temp() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_create_table_query_mcps() -> None:
     aggregator = SqlParsingAggregator(
         platform="bigquery",
@@ -914,7 +920,7 @@ def test_create_table_query_mcps() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_lineage_via_temp_table_disordered_add() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -947,7 +953,7 @@ def test_table_lineage_via_temp_table_disordered_add() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_basic_usage() -> None:
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
@@ -994,6 +1000,152 @@ def test_basic_usage() -> None:
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_query_usage_stats_attributed_to_temp_table_composite_query() -> None:
+    # Query usage counts are recorded per raw-statement fingerprint, but a query
+    # fed by temp tables is emitted as a Query entity under a *composite*
+    # fingerprint. The usage must land on that composite Query URN (the one the
+    # lineage edges reference), otherwise per-query popularity is silently dropped
+    # for every temp-table-fed target - the common ELT/dbt shape.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create temp table staging as select a, b from source_table",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="insert into prod_target select a, b from staging",
+            default_db="dev",
+            default_schema="public",
+            session_id="session1",
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    # The temp-table session collapsed into exactly one composite query.
+    composite_ids = list(aggregator.report.queries_with_temp_upstreams.keys())
+    assert len(composite_ids) == 1
+    composite_query_urn = QueryUrn(composite_ids[0]).urn()
+
+    usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+
+    # Usage lands on the composite Query - and only there. The raw component
+    # statements must not surface as separate (orphan) Query entities carrying a
+    # duplicate of the same usage.
+    assert {mcp.entityUrn for mcp in usage_mcps} == {composite_query_urn}
+    # The pipeline ran once, so the count reflects the base statement (not the sum
+    # of the merged component statements, which would be > 1).
+    usage_aspect = usage_mcps[0].aspect
+    assert isinstance(usage_aspect, QueryUsageStatisticsClass)
+    assert usage_aspect.queryCount == 1
+    assert aggregator.report.num_query_usage_stats_generated == 1
+
+    # The composite is the only Query entity emitted - the raw component statements
+    # are subsumed, not emitted as separate (orphan) Query entities.
+    query_entity_urns = {
+        mcp.entityUrn
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    }
+    assert query_entity_urns == {composite_query_urn}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_temp_table_composite_query_operations_and_repeated_execution() -> None:
+    # With generate_operations=True, the operation aspect must reference the same
+    # composite Query as lineage (not a raw component that is never emitted). And
+    # when the base statement runs multiple times, queryCount reflects the base
+    # execution count, not the sum of all merged component statements.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_query_usage_statistics=True,
+        generate_operations=True,
+        generate_usage_statistics=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    # The same create-temp + insert pipeline runs in two sessions, so the base
+    # insert executes twice while the merged statements also each run twice.
+    for session in ("session1", "session2"):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="create temp table staging as select a, b from source_table",
+                default_db="dev",
+                default_schema="public",
+                session_id=session,
+                timestamp=frozen_timestamp,
+                user=CorpUserUrn("user1"),
+            )
+        )
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="insert into prod_target select a, b from staging",
+                default_db="dev",
+                default_schema="public",
+                session_id=session,
+                timestamp=frozen_timestamp,
+                user=CorpUserUrn("user1"),
+            )
+        )
+
+    mcps = list(aggregator.gen_metadata())
+
+    composite_ids = list(aggregator.report.queries_with_temp_upstreams.keys())
+    assert len(composite_ids) == 1
+    composite_query_urn = QueryUrn(composite_ids[0]).urn()
+
+    # The operation on prod_target references the composite Query (matching
+    # lineage), so the reference resolves to an emitted entity.
+    prod_urn = DatasetUrn("redshift", "dev.public.prod_target").urn()
+    op_queries = [
+        mcp.aspect.queries
+        for mcp in mcps
+        if mcp.entityUrn == prod_urn and isinstance(mcp.aspect, OperationClass)
+    ]
+    assert op_queries
+    assert all(queries == [composite_query_urn] for queries in op_queries)
+
+    # queryCount reflects the base statement executed twice - not the sum of the
+    # base plus the merged temp-loading statement (which would be 4).
+    usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+    assert {mcp.entityUrn for mcp in usage_mcps} == {composite_query_urn}
+    usage_aspect = usage_mcps[0].aspect
+    assert isinstance(usage_aspect, QueryUsageStatisticsClass)
+    assert usage_aspect.queryCount == 2
+
+
 def test_table_swap_id() -> None:
     assert (
         TableSwap(
@@ -1025,3 +1177,653 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         aggregator.close()
         assert len(os.listdir(tmp_path)) == 0
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_override_dialect_passed_to_sqlglot_lineage() -> None:
+    """Test that override_dialect is correctly passed to sqlglot_lineage"""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    base_query = ObservedQuery(
+        query="create table foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.sqlglot_lineage"
+    ) as mock_sqlglot_lineage:
+        mock_sqlglot_lineage.return_value = MagicMock()
+
+        # Test with override_dialect set
+
+        base_query.override_dialect = "snowflake"
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] == "snowflake"
+
+        # Reset mock
+        mock_sqlglot_lineage.reset_mock()
+
+        # Test without override_dialect (should be None)
+
+        base_query.override_dialect = None
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] is None
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: (
+            x.lower()
+            in [
+                "dummy_test.diamond_problem.t1",
+                "dummy_test.diamond_problem.t2",
+                "dummy_test.diamond_problem.t3",
+                "dummy_test.diamond_problem.t4",
+            ]
+        ),
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dummy_test.diamond_problem.diamond_source1").urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn(
+            "snowflake",
+            "dummy_test.diamond_problem.diamond_destination",
+        ).urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    # Diamond query pattern: source1 -> t1 -> {t2, t3} -> t4 -> destination
+    queries = [
+        "CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+        "CREATE TEMPORARY TABLE t2 as select * from t1;",
+        "CREATE TEMPORARY TABLE t3 as select * from t1;",
+        "CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+        "CREATE TABLE diamond_destination as select * from t4;",
+    ]
+
+    base_timestamp = datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc)
+
+    for i, query in enumerate(queries):
+        aggregator.add(
+            ObservedQuery(
+                query=query,
+                default_db="dummy_test",
+                default_schema="diamond_problem",
+                session_id="14774700499701726",
+                timestamp=base_timestamp + timedelta(seconds=i),
+            )
+        )
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        pytestconfig.rootpath
+        / "tests/unit/sql_parsing/aggregator_goldens/test_diamond_problem_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_empty_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty string column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (col_a, col_b, col_c) select col_a, col_b, col_c from source_table",
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_a"),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_b"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column="col_b"),
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="col_c"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn, column=""),
+                ],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with empty downstream column names doesn't cause errors.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.source_table").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table target_table as select $1 as "", $2 as "   " from source_table',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="   "),
+                upstreams=[ColumnRef(table=upstream_urn, column="col_b")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_partial_empty_downstream_column_in_snowflake_lineage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that column lineage with mix of empty and valid downstream columns works correctly.
+
+    Note: Uses KnownQueryLineageInfo instead of ObservedQuery since empty column names from
+    external systems would require mocking _run_sql_parser().
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.empty_downstream").urn()
+    upstream_urn = DatasetUrn("snowflake", "dev.public.empty_upstream").urn()
+
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text='create table empty_downstream as select $1 as "", $2 as "TITLE_DOWNSTREAM" from empty_upstream',
+        downstream=downstream_urn,
+        upstreams=[upstream_urn],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="name")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=downstream_urn, column="TITLE_DOWNSTREAM"
+                ),
+                upstreams=[ColumnRef(table=upstream_urn, column="title")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.CREATE_TABLE_AS_SELECT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_partial_empty_downstream_column_in_snowflake_lineage_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_empty_column_in_query_subjects(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty column names doesn't create invalid URNs.
+
+    This simulates a scenario where Snowflake's access_history may contain empty
+    column names, which should not result in invalid schemaField URNs.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+    )
+
+    downstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart"
+    ).urn()
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dca_core.snowplow_user_engagement_mart__dbt_tmp"
+    ).urn()
+
+    # Simulate a query where Snowflake's access_history contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-delete-query",
+        query_text=(
+            "delete from PRODUCTION.DCA_CORE.snowplow_user_engagement_mart "
+            "as DBT_INTERNAL_DEST where (unique_key_input) in ("
+            "select distinct unique_key_input from "
+            "PRODUCTION.DCA_CORE.snowplow_user_engagement_mart__dbt_tmp "
+            "as DBT_INTERNAL_SOURCE)"
+        ),
+        upstreams=[upstream_urn],
+        downstream=downstream_urn,
+        column_lineage=[
+            # This simulates a case where an empty column name might be present in the audit log.
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column=""),
+                upstreams=[ColumnRef(table=upstream_urn, column="unique_key_input")],
+            ),
+        ],
+        column_usage={
+            upstream_urn: {"unique_key_input", ""},  # Empty column from Snowflake
+        },
+        query_type=QueryType.DELETE,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR / "test_empty_column_in_query_subjects_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_empty_column_in_query_subjects_only_column_usage(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """Test that QuerySubjects with empty columns ONLY in column_usage doesn't create invalid URNs.
+
+    This simulates the exact customer scenario where:
+    - Snowflake returns empty columns in direct_objects_accessed (column_usage)
+    - But NO empty columns in objects_modified (column_lineage is empty or valid)
+
+    This is the scenario that would send invalid URNs to GMS rather than crash in Python,
+    matching the customer's error: "Provided urn urn:li:schemaField:(...,) is invalid"
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_queries=True,
+        generate_query_subject_fields=True,
+        generate_query_usage_statistics=True,
+        usage_config=BaseUsageConfig(
+            bucket_duration=BucketDuration.DAY,
+            start_time=parse_user_datetime("2024-02-06T00:00:00Z"),
+            end_time=parse_user_datetime("2024-02-07T00:00:00Z"),
+        ),
+    )
+
+    # Simulate table name from user: production.dsd_digital_private.gsheets_legacy_views
+    upstream_urn = DatasetUrn(
+        "snowflake", "production.dsd_digital_private.gsheets_legacy_views"
+    ).urn()
+
+    # Simulate a SELECT query (no downstream) where the audit log contains empty column names.
+    preparsed_query = PreparsedQuery(
+        query_id="test-select-gsheets-view",
+        query_text="SELECT * FROM production.dsd_digital_private.gsheets_legacy_views WHERE id = 123",
+        upstreams=[upstream_urn],
+        downstream=None,  # SELECT query has no downstream
+        column_lineage=[],  # No column lineage because no downstream
+        column_usage={
+            # Simulate a case where an empty column name is present in the audit log.
+            upstream_urn: {"id", "name", ""},  # Empty column from Snowflake!
+        },
+        query_type=QueryType.SELECT,
+        timestamp=_ts(20),
+    )
+
+    aggregator.add_preparsed_query(preparsed_query)
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    query_mcpws = [
+        mcpw
+        for mcpw in mcpws
+        if mcpw.entityUrn and mcpw.entityUrn.startswith("urn:li:query:")
+    ]
+
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, query_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        RESOURCE_DIR
+        / "test_empty_column_in_query_subjects_only_column_usage_golden.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lineage_consistency_fix_tables_added_from_column_lineage() -> None:
+    """Test that tables present in column lineage but missing from table lineage are automatically added.
+
+    This tests the consistency fix where:
+    - Column lineage references upstream tables
+    - Table lineage is missing some of those upstream tables
+    - The fix should automatically add the missing tables to table lineage
+    - Metrics should be tracked for monitoring
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+    upstream_urn_3 = DatasetUrn("snowflake", "dev.public.source_table_3").urn()
+
+    # Simulate inconsistent lineage: column lineage has 3 tables, but table lineage only has 2
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b, c) select t1.a, t2.b, t3.c from source_table_1 t1, source_table_2 t2, source_table_3 t3",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            upstream_urn_2,
+            # upstream_urn_3 is MISSING from table lineage (simulating Snowflake metadata issue)
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="c"),
+                upstreams=[
+                    ColumnRef(table=upstream_urn_3, column="c")
+                ],  # This table is missing from upstreams
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify the fix worked: all 3 tables should appear in upstreamLineage
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    # All 3 tables should be present after the fix
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns
+    assert upstream_urn_3 in upstream_urns  # This was added by the fix
+
+    # Verify metrics were tracked
+    assert aggregator.report.num_tables_added_from_column_lineage == 1
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lineage_consistency_no_fix_needed() -> None:
+    """Test that no fix is applied when lineage is already consistent.
+
+    This tests that:
+    - When table lineage already contains all tables from column lineage
+    - No tables are added
+    - Metrics remain at zero
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+
+    # Both table and column lineage are consistent
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b) select t1.a, t2.b from source_table_1 t1, source_table_2 t2",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            upstream_urn_2,  # Both tables present
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify no fix was needed
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    assert len(upstream_urns) == 2
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns
+
+    # Verify metrics show no inconsistencies
+    assert aggregator.report.num_tables_added_from_column_lineage == 0
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 0
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lineage_consistency_multiple_missing_tables() -> None:
+    """Test that multiple missing tables are all added correctly.
+
+    This tests the fix when:
+    - Multiple tables are missing from table lineage
+    - All of them are present in column lineage
+    - All should be added and metrics should reflect the count
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+
+    downstream_urn = DatasetUrn("snowflake", "dev.public.target_table").urn()
+    upstream_urn_1 = DatasetUrn("snowflake", "dev.public.source_table_1").urn()
+    upstream_urn_2 = DatasetUrn("snowflake", "dev.public.source_table_2").urn()
+    upstream_urn_3 = DatasetUrn("snowflake", "dev.public.source_table_3").urn()
+    upstream_urn_4 = DatasetUrn("snowflake", "dev.public.source_table_4").urn()
+
+    # Only 1 table in table lineage, but 4 in column lineage
+    known_query_lineage = KnownQueryLineageInfo(
+        query_text="insert into target_table (a, b, c, d) select t1.a, t2.b, t3.c, t4.d from source_table_1 t1, source_table_2 t2, source_table_3 t3, source_table_4 t4",
+        downstream=downstream_urn,
+        upstreams=[
+            upstream_urn_1,
+            # upstream_urn_2, upstream_urn_3, upstream_urn_4 are all MISSING
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="a"),
+                upstreams=[ColumnRef(table=upstream_urn_1, column="a")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="b"),
+                upstreams=[ColumnRef(table=upstream_urn_2, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="c"),
+                upstreams=[ColumnRef(table=upstream_urn_3, column="c")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=downstream_urn, column="d"),
+                upstreams=[ColumnRef(table=upstream_urn_4, column="d")],
+            ),
+        ],
+        timestamp=_ts(20),
+        query_type=QueryType.INSERT,
+    )
+
+    aggregator.add_known_query_lineage(known_query_lineage)
+
+    mcps = list(aggregator.gen_metadata())
+
+    # Verify all 4 tables are now present
+    lineage_mcps = [mcp for mcp in mcps if mcp.aspectName == "upstreamLineage"]
+    assert len(lineage_mcps) == 1
+
+    lineage_aspect = lineage_mcps[0].aspect
+    assert lineage_aspect is not None
+    assert hasattr(lineage_aspect, "upstreams")
+    upstream_urns = {u.dataset for u in lineage_aspect.upstreams}
+
+    assert len(upstream_urns) == 4
+    assert upstream_urn_1 in upstream_urns
+    assert upstream_urn_2 in upstream_urns  # Added by fix
+    assert upstream_urn_3 in upstream_urns  # Added by fix
+    assert upstream_urn_4 in upstream_urns  # Added by fix
+
+    # Verify metrics: 3 tables were added (2, 3, 4)
+    assert aggregator.report.num_tables_added_from_column_lineage == 3
+    assert aggregator.report.num_queries_with_lineage_inconsistencies_fixed == 1
+
+
+def test_usage_aggregator_uses_shared_connection() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(),
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    try:
+        assert aggregator._usage_aggregator is not None
+        assert aggregator._shared_connection is not None
+        # Usage store reuses the shared connection, not a second DB. The default
+        # counter backend is a FileBackedCounter; narrow the protocol type to reach _conn.
+        counts = aggregator._usage_aggregator._counts
+        assert isinstance(counts, FileBackedCounter)
+        assert counts._conn is aggregator._shared_connection
+        assert (
+            aggregator._usage_aggregator._resources._conn
+            is aggregator._shared_connection
+        )
+    finally:
+        aggregator.close()

@@ -7,6 +7,12 @@ source:
     username: "admin"
     password: "password"
 
+    # SSL Configuration (optional)
+    #ssl_ca_certs: "/path/to/ca-certificate.pem"
+    #ssl_certfile: "/path/to/client-certificate.pem"
+    #ssl_keyfile: "/path/to/client-private-key.pem"
+    #ssl_version: "TLS_CLIENT"  # Options: TLS_CLIENT, TLSv1, TLSv1_1, TLSv1_2, TLSv1_3
+
     # Or
     # Credentials Astra Cloud
     #cloud_config:

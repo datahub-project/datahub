@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -63,9 +64,30 @@ public class QueryType
               new HashSet<>(viewUrns),
               ASPECTS_TO_FETCH);
 
+      final Set<Urn> viewableQueryUrns;
+      if (context
+              .getOperationContext()
+              .getOperationContextConfig()
+              .getViewAuthorizationConfiguration()
+              .isEnabled()
+          && !context.getOperationContext().isSystemAuth()) {
+        viewableQueryUrns =
+            EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+                context.getOperationContext(),
+                context.getOperationContext(),
+                context.getOperationContext().getAspectRetriever(),
+                viewUrns);
+      } else {
+        viewableQueryUrns = new HashSet<>(viewUrns);
+      }
+
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : viewUrns) {
-        gmsResults.add(entities.getOrDefault(urn, null));
+        if (!viewableQueryUrns.contains(urn)) {
+          gmsResults.add(null);
+        } else {
+          gmsResults.add(entities.getOrDefault(urn, null));
+        }
       }
       return gmsResults.stream()
           .map(

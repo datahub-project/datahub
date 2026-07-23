@@ -17,6 +17,8 @@ record EditableDatasetProperties includes ChangeAuditStamps {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "searchTier": 2,
+    "sanitizeRichText": true
   }
   description: optional string
 

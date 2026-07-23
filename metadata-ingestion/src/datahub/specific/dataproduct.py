@@ -8,7 +8,14 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
+from datahub.specific.aspect_helpers.institutional_memory import (
+    HasInstitutionalMemoryPatch,
+)
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.aspect_helpers.terms import HasTermsPatch
 
@@ -16,8 +23,11 @@ from datahub.specific.aspect_helpers.terms import HasTermsPatch
 class DataProductPatchBuilder(
     HasOwnershipPatch,
     HasCustomPropertiesPatch,
+    HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
+    HasInstitutionalMemoryPatch,
     MetadataPatchProposal,
 ):
     def __init__(

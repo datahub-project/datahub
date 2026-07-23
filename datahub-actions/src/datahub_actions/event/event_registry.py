@@ -18,6 +18,7 @@ from datahub.ingestion.api.registry import PluginRegistry
 from datahub.metadata.schema_classes import (
     EntityChangeEventClass,
     MetadataChangeLogClass,
+    RelationshipChangeEventClass,
 )
 from datahub_actions.event.event import Event
 
@@ -80,10 +81,35 @@ class EntityChangeEvent(EntityChangeEventClass, Event):
             json_obj["parameters"] = self._inner_dict["__parameters_json"]
         return json.dumps(json_obj)
 
+    @property
+    def safe_parameters(self) -> dict:
+        return self.parameters or self.get("__parameters_json") or {}  # type: ignore
+
+
+class RelationshipChangeEvent(RelationshipChangeEventClass, Event):
+    @classmethod
+    def from_class(
+        cls, clazz: RelationshipChangeEventClass
+    ) -> "RelationshipChangeEvent":
+        instance = cls._construct({})
+        instance._restore_defaults()
+        # Shallow map inner dictionaries.
+        instance._inner_dict = clazz._inner_dict
+        return instance
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Event":
+        json_obj = json.loads(json_str)
+        return cls.from_class(cls.from_obj(json_obj))
+
+    def as_json(self) -> str:
+        return json.dumps(self.to_obj())
+
 
 # Standard Event Types for easy reference.
 ENTITY_CHANGE_EVENT_V1_TYPE = "EntityChangeEvent_v1"
 METADATA_CHANGE_LOG_EVENT_V1_TYPE = "MetadataChangeLogEvent_v1"
+RELATIONSHIP_CHANGE_EVENT_V1_TYPE = "RelationshipChangeEvent_v1"
 
 # Lightweight Event Registry
 event_registry = PluginRegistry[Event]()
@@ -91,3 +117,4 @@ event_registry = PluginRegistry[Event]()
 # Register standard event library. Each type can be considered a separate "stream" / "topic"
 event_registry.register(METADATA_CHANGE_LOG_EVENT_V1_TYPE, MetadataChangeLogEvent)
 event_registry.register(ENTITY_CHANGE_EVENT_V1_TYPE, EntityChangeEvent)
+event_registry.register(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, RelationshipChangeEvent)

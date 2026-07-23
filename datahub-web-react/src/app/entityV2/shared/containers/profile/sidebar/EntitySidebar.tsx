@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -7,30 +6,29 @@ import { EntitySidebarSection, TabContextType, TabRenderType } from '@app/entity
 import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 
 const Container = styled.div`
-    padding: 0 12px 0 12px;
+    padding: 0;
 `;
 
 const Content = styled.div`
     position: relative;
 
     & > div {
-        padding-top: 12px;
-
-        padding-bottom: 12px;
+        padding-top: 8px;
+        padding-bottom: 8px;
         &:not(:last-child) {
             border-bottom: 1px solid;
-            border-color: ${colors.gray[100]};
+            border-color: ${(props) => props.theme.colors.border};
             border-radius: 0px;
         }
     }
     &::-webkit-scrollbar {
         height: 12px;
         width: 2px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        background: ${(props) => props.theme.colors.scrollbarThumb};
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 

@@ -1,12 +1,12 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -25,7 +25,7 @@ import {
 } from '@types';
 
 const StatText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export const Preview = ({
@@ -75,11 +75,12 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2;
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataJob, urn)}
@@ -105,8 +106,8 @@ export const Preview = ({
             subHeader={
                 (lastRunTimeMs && [
                     <StatText>
-                        <ClockCircleOutlined style={{ paddingRight: 8 }} />
-                        Last run {toRelativeTimeString(lastRunTimeMs)}
+                        <Clock size={14} color="currentColor" style={{ paddingRight: 8 }} />
+                        {t('dataJob.lastRun', { time: toRelativeTimeString(lastRunTimeMs) })}
                     </StatText>,
                 ]) ||
                 undefined

@@ -1,6 +1,31 @@
 require("dotenv").config();
 const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
+// Archived documentation for legacy versions is hosted separately at
+// archive.docs.datahub.com (see the version dropdown below). Cross-site links
+// open in a new tab; within-site version switching stays in the same tab.
+const ARCHIVE_BASE = "https://archive.docs.datahub.com/docs";
+const EXTERNAL_LINK_ICON =
+  '<svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>';
+// [version label, path under /docs/<version>/]. Every version links to its
+// /features page EXCEPT 0.13.1, which has no features page in the archive and
+// so points to its version home instead.
+const ARCHIVED_VERSIONS = [
+  ["1.5.0", "1.5.0/features"],
+  ["1.3.0", "1.3.0/features"],
+  ["1.1.0", "1.1.0/features"],
+  ["1.0.0", "1.0.0/features"],
+  ["0.15.0", "0.15.0/features"],
+  ["0.14.1", "0.14.1/features"],
+  ["0.14.0", "0.14.0/features"],
+  ["0.13.1", "0.13.1/"],
+  ["0.13.0", "0.13.0/features"],
+  ["0.12.1", "0.12.1/features"],
+  ["0.12.0", "0.12.0/features"],
+  ["0.11.0", "0.11.0/features"],
+  ["0.10.5", "0.10.5/features"],
+];
+
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "The #1 Open Source Metadata Platform",
@@ -98,13 +123,14 @@ module.exports = {
     //   },
     // }),
     announcementBar: {
-      id: "announcement-3",
+      id: "announcement-4",
       content:
-        '<div class="shimmer-banner"><p>DataHub now supports the Model Context Protocol (MCP)</p><a href="https://pages.acryl.io/datahub-mcp-server?utm_source=docs-website&utm_medium=announcement_banner&utm_campaign=mcp_announcement" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><span>Build with DataHub: The Agent Hackathon is live</span><a href="https://datahub.devpost.com/" target="_blank" class="button"><div>Learn More<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
     },
+
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',
@@ -132,156 +158,24 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
-        // {
-        //   type: "dropdown",
-        //   activeBasePath: "learn",
-        //   label: "Learn",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       to: "https://pages.acryl.io/webinar-governance-ai-5",
-        //       label: "Weekly Demo",
-        //     },
-        //     {
-        //       to: "/learn",
-        //       label: "Use Cases",
-        //     },
-        //     {
-        //       to: "/adoption-stories",
-        //       label: "Adoption Stories",
-        //     },
-        //     {
-        //       href: "https://medium.com/datahub-project",
-        //       label: "Blog",
-        //     },
-        //     {
-        //       href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-        //       label: "YouTube",
-        //     },
-        //   ],
-        // },
-        // {
-        //   type: "dropdown",
-        //   label: "Community",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
-        //       label: "Join Slack",
-        //     },
-        //     {
-        //       to: "/events",
-        //       label: "Events",
-        //     },
-        //     {
-        //       to: "/champions",
-        //       label: "Champions",
-        //     },
-        //     {
-        //       label: "Share Your Journey",
-        //       href: "/customer-stories-survey",
-        //     },
-        //   ],
-        // },
-        {
-          href: "https://datahub.com/products/why-datahub-cloud/",
-          html: `
-            <style>
-              .cloud-cta {
-                color: var(--ifm-menu-color-active);
-                font-weight: 600;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                transition: background-image 0.3s ease;
-              }
-              .cloud-cta:hover {
-                color: transparent;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                animation: gradientShift 3s ease infinite;
-              }
-              @keyframes gradientShift {
-                0%, 100% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-              }
-            </style>
-            <div class='cloud-cta'>Get Cloud</div>
-          `,
-          position: "right",
-        },
         {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
           dropdownItemsAfter: [
             {
-              type: 'html',
+              type: "html",
               value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
             },
             {
-              type: 'html',
+              type: "html",
               value: '<div class="dropdown__link"><b>Archived versions</b></div>',
             },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features">0.14.1
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
+            // Cross-site links to the standalone archive open in a new tab.
+            ...ARCHIVED_VERSIONS.map(([label, path]) => ({
               type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features">0.14.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
-            {
-              value: `
-                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
-                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                   </a>
-                   `,
-              type: "html",
-            },
+              value: `<a class="dropdown__link" target="_blank" rel="noopener noreferrer" href="${ARCHIVE_BASE}/${path}">${label}${EXTERNAL_LINK_ICON}</a>`,
+            })),
           ],
         },
         {
@@ -293,6 +187,18 @@ module.exports = {
               }
             </style>
             <img class='slack-logo' src='https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
+          `,
+          position: "right",
+        },
+        {
+          href: "https://github.com/datahub-project/datahub",
+          html: `
+            <style>
+              .github-logo:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <img class='github-logo' src='https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
           `,
           position: "right",
         },
@@ -334,8 +240,8 @@ module.exports = {
               to: "docs/townhalls",
             },
             {
-              label: "Adoption",
-              href: "https://datahub.com/adoption-stories/",
+              label: "Customer Stories",
+              href: "https://datahub.com/resources/?2004611554=dh-stories",
             },
           ],
         },
@@ -345,6 +251,10 @@ module.exports = {
             {
               label: "Demo",
               to: "https://demo.datahub.com/",
+            },
+            {
+              label: "Free Trial",
+              href: "https://datahub.com/free-trial/",
             },
             {
               label: "Roadmap",
@@ -382,6 +292,10 @@ module.exports = {
       contextualSearch: true,
       // debug: true,
     },
+    tableOfContents: {
+      minHeadingLevel: 2,
+      maxHeadingLevel: 4,
+    },
   },
   presets: [
     [
@@ -391,19 +305,39 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "Next",
+              label: "1.6.0",
               banner: 'none',
             },
           },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
-            editUrl: "https://github.com/datahub-project/datahub/blob/master/",
+            editUrl: ({ versionDocsDirPath, docPath }) => {
+              // Hide the edit button for docs generated by plugins (Sphinx, GraphQL)
+              if (docPath.startsWith('python-sdk/') || docPath.startsWith('graphql/')) {
+                return undefined;
+              }
+              // Note: This fallback URL relies on generateDocsDir.ts pre-injecting `custom_edit_url` 
+              // for manual docs. If that script's behavior changes, this mapping to 'genDocs' 
+              // could result in 404s, as genDocs is git-ignored.
+              return `https://github.com/datahub-project/datahub/blob/master/${versionDocsDirPath}/${docPath}`;
+            },
           }),
           numberPrefixParser: false,
           // TODO: make these work correctly with the doc generation
           showLastUpdateAuthor: false,
           showLastUpdateTime: false,
+          // Exclude internal files from public docs
+          // Note: We must include Docusaurus defaults since providing exclude overrides them
+          exclude: [
+            // Docusaurus defaults
+            '**/_*.{js,jsx,ts,tsx,md,mdx}',
+            '**/_*/**',
+            '**/*.test.{js,jsx,ts,tsx}',
+            '**/__tests__/**',
+            // Our additions
+            'metadata-ingestion/**/CLAUDE.md',
+          ],
         },
         blog: {
           blogTitle: "DataHub Learn",
@@ -430,7 +364,7 @@ module.exports = {
           containerId: 'GTM-5M8T9HNN',
         },
         gtag: {
-          trackingID: "G-PKGVLETT4C",
+          trackingID: "G-H5QDNJNMHY",
         },
       },
     ],
@@ -456,9 +390,92 @@ module.exports = {
             from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
             to: '/docs/managed-datahub/remote-executor/about',
           },
+          {
+            from: '/docs/managed-datahub/observe/smart-assertions',
+            to: '/docs/managed-datahub/observe/anomaly-detection',
+          },
         ],
       },
     ],
+    // Hotfix release notes live as appended sections in the base release page
+    // (not standalone .md files). We can't use @docusaurus/plugin-client-redirects
+    // because its PathnameSchema rejects hash fragments in `to`. Instead, write
+    // meta-refresh stub files directly in postBuild — same mechanism the redirect
+    // plugin uses internally, but with anchor support.
+    function hotfixReleaseNoteRedirects() {
+      const RELEASE_NOTES_BASE = '/docs/managed-datahub/release-notes';
+      const HOTFIX_REDIRECTS = [
+        ['v_1_0_1',    'v_1_0_0',  'v101'],
+        ['v_1_0_2',    'v_1_0_0',  'v102'],
+        ['v_0_3_17_1', 'v_0_3_17', 'v03171'],
+        ['v_0_3_17_2', 'v_0_3_17', 'v03172'],
+        ['v_0_3_17_3', 'v_0_3_17', 'v03173'],
+        ['v_0_3_17_4', 'v_0_3_17', 'v03174'],
+        ['v_0_3_17_5', 'v_0_3_17', 'v03175'],
+        ['v_0_3_16_1', 'v_0_3_16', 'v03161-acryl'],
+        ['v_0_3_16_2', 'v_0_3_16', 'v03162-acryl'],
+        ['v_0_3_16_3', 'v_0_3_16', 'v03163-acryl'],
+        ['v_0_3_16_4', 'v_0_3_16', 'v03164-acryl'],
+        ['v_0_3_16_5', 'v_0_3_16', 'v03165-acryl'],
+        ['v_0_3_16_6', 'v_0_3_16', 'v03166-acryl'],
+        ['v_0_3_16_7', 'v_0_3_16', 'v03167-acryl'],
+        ['v_0_3_15_4', 'v_0_3_15', 'v03154-acryl'],
+        ['v_0_3_15_5', 'v_0_3_15', 'v03155-acryl'],
+        ['v_0_3_15_6', 'v_0_3_15', 'v03156-acryl'],
+        ['v_0_3_14_1', 'v_0_3_14', 'v03141-acryl'],
+        ['v_0_3_13_1', 'v_0_3_13', 'v03131-acryl'],
+        ['v_0_3_13_2', 'v_0_3_13', 'v03132-acryl'],
+        ['v_0_3_13_3', 'v_0_3_13', 'v03133-acryl'],
+        ['v_0_3_12_1', 'v_0_3_12', 'v03121'],
+        ['v_0_3_12_2', 'v_0_3_12', 'v03122'],
+        ['v_0_3_12_3', 'v_0_3_12', 'v03123'],
+        ['v_0_3_12_4', 'v_0_3_12', 'v03124'],
+        ['v_0_3_11_1', 'v_0_3_11', 'v03111'],
+        ['v_0_3_10_1', 'v_0_3_10', 'v03101'],
+        ['v_0_3_10_2', 'v_0_3_10', 'v03102'],
+        ['v_0_3_10_3', 'v_0_3_10', 'v03103'],
+        ['v_0_3_10_4', 'v_0_3_10', 'v03104'],
+        ['v_0_3_9_2',  'v_0_3_9',  'v0392'],
+        ['v_0_3_8_2',  'v_0_3_8',  'v0382'],
+        ['v_0_3_7_3',  'v_0_3_7',  'v0373'],
+        ['v_0_3_7_4',  'v_0_3_7',  'v0374'],
+        ['v_0_3_7_5',  'v_0_3_7',  'v0375'],
+        ['v_0_3_7_6',  'v_0_3_7',  'v0376'],
+        ['v_0_3_7_7',  'v_0_3_7',  'v0377'],
+        ['v_0_3_7_8',  'v_0_3_7',  'v0378'],
+      ];
+      return {
+        name: 'hotfix-release-note-redirects',
+        async postBuild({ outDir, baseUrl }) {
+          const fs = require('fs-extra');
+          const path = require('path');
+          const joinUrl = (...parts) =>
+            ('/' + parts.join('/')).replace(/\/+/g, '/');
+          for (const [fromSlug, toSlug, anchor] of HOTFIX_REDIRECTS) {
+            const fromPath = joinUrl(baseUrl, RELEASE_NOTES_BASE, fromSlug);
+            const toUrl =
+              joinUrl(baseUrl, RELEASE_NOTES_BASE, toSlug) + '/#' + anchor;
+            const filePath = path.join(outDir, fromPath, 'index.html');
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redirecting…</title>
+<link rel="canonical" href="${toUrl}">
+<meta name="robots" content="noindex">
+<meta http-equiv="refresh" content="0; url=${toUrl}">
+</head>
+<body>
+<p><a href="${toUrl}">Click here if you are not redirected.</a></p>
+<script>window.location.replace(${JSON.stringify(toUrl)} + window.location.search);</script>
+</body>
+</html>
+`;
+            await fs.outputFile(filePath, html);
+          }
+        },
+      };
+    },
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [

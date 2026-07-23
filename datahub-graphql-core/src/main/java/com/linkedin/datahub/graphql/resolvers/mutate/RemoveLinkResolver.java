@@ -32,6 +32,7 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
         bindArgument(environment.getArgument("input"), RemoveLinkInput.class);
 
     String linkUrl = input.getLinkUrl();
+    String label = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
@@ -49,7 +50,7 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
 
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LinkUtils.removeLink(
-                context.getOperationContext(), linkUrl, targetUrn, actor, _entityService);
+                context.getOperationContext(), linkUrl, label, targetUrn, actor, _entityService);
             return true;
           } catch (Exception e) {
             log.error(

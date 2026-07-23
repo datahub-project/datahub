@@ -11,14 +11,14 @@ import { Tooltip } from '@components';
 import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ColumnsLineageSelect from '@app/entityV2/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
@@ -62,7 +62,7 @@ const StyledCaretDown = styled(CaretDownFilled)`
 
 const StyledSelect = styled(Select)`
     &:hover {
-        background-color: ${ANTD_GRAY[2]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -80,9 +80,12 @@ interface Props {
 }
 
 export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
     const { urn, entityType, entityData } = useEntityData();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -114,14 +117,10 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
     const directionOptions = [
         {
             label: (
-                <Tooltip
-                    placement="right"
-                    title={`View the data assets that depend on ${entityName}`}
-                    showArrow={false}
-                >
+                <Tooltip placement="right" title={t('direction.downstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-downstream">
                         <ArrowDownOutlined style={{ marginRight: 4 }} />
-                        <b>Downstreams</b>
+                        <b>{t('direction.downstreams')}</b>
                     </span>
                 </Tooltip>
             ),
@@ -129,14 +128,10 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
         },
         {
             label: (
-                <Tooltip
-                    placement="right"
-                    title={`View the data assets that ${entityName} depends on`}
-                    showArrow={false}
-                >
+                <Tooltip placement="right" title={t('direction.upstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-upstream">
                         <ArrowUpOutlined style={{ marginRight: 4 }} />
-                        <b>Upstreams</b>
+                        <b>{t('direction.upstreams')}</b>
                     </span>
                 </Tooltip>
             ),
@@ -153,7 +148,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDownOutlined style={{ color: 'black' }} />}
+                        suffixIcon={<CaretDownOutlined style={{ color: theme.colors.text }} />}
                         data-testid="lineage-tab-direction-select"
                     />
                 </LeftButtonsWrapper>
@@ -164,7 +159,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                             <Button type="text">
                                 <ManageLineageIcon />
                                 <Typography.Text>
-                                    <b>Edit</b>
+                                    <b>{tcAction('edit')}</b>
                                 </Typography.Text>
                                 <StyledCaretDown />
                             </Button>
@@ -182,11 +177,11 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         />
                     )}
                     <LineageTabTimeSelector />
-                    <Tooltip title={isLoading ? 'Refreshing data' : 'Refresh lineage'} showArrow={false}>
+                    <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
                             {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
                             <Typography.Text>
-                                <b>Refresh</b>
+                                <b>{tcAction('refresh')}</b>
                             </Typography.Text>
                         </RefreshCacheButton>
                     </Tooltip>

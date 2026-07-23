@@ -30,11 +30,14 @@ export default class EntityRegistry {
 
     pathNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
 
+    graphNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
     register(entity: Entity<any>) {
         this.entities.push(entity);
         this.entityTypeToEntity.set(entity.type, entity);
         this.collectionNameToEntityType.set(entity.getCollectionName(), entity.type);
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
+        this.graphNameToEntityType.set(entity.getGraphName(), entity.type);
     }
 
     getEntity(type: EntityType): Entity<any> {
@@ -263,7 +266,31 @@ export default class EntityRegistry {
         return entity.getCustomCardUrlPath?.() as string | undefined;
     }
 
+    getTypeFromGraphName(name: string): EntityType | undefined {
+        return this.graphNameToEntityType.get(name);
+    }
+
     getGraphNameFromType(type: EntityType): string {
         return validatedGet(type, this.entityTypeToEntity).getGraphName();
+    }
+
+    /**
+     * Converts an EntityType enum value to camelCase string representation.
+     * e.g. EntityType.DataPlatform (DATA_PLATFORM) -> 'dataPlatform'
+     */
+    getEntityTypeAsCamelCase(type: EntityType): string {
+        return type
+            .toLowerCase()
+            .split('_')
+            .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+            .join('');
+    }
+
+    /**
+     * Gets all search entity types converted to camelCase strings.
+     * Useful for comparing with backend data that uses camelCase entity names.
+     */
+    getSearchEntityTypesAsCamelCase(): Array<string> {
+        return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
     }
 }

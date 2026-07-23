@@ -32,6 +32,18 @@ import org.apache.avro.specific.SpecificRecord;
 
 public class EventUtils {
 
+  // Schema name constants
+  public static final String METADATA_CHANGE_PROPOSAL_SCHEMA_NAME = "MetadataChangeProposal";
+  public static final String METADATA_CHANGE_LOG_SCHEMA_NAME = "MetadataChangeLog";
+  public static final String METADATA_CHANGE_EVENT_SCHEMA_NAME = "MetadataChangeEvent";
+  public static final String FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME = "FailedMetadataChangeEvent";
+  public static final String FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME =
+      "FailedMetadataChangeProposal";
+  public static final String METADATA_AUDIT_EVENT_SCHEMA_NAME = "MetadataAuditEvent";
+  public static final String PLATFORM_EVENT_SCHEMA_NAME = "PlatformEvent";
+  public static final String DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME =
+      "DataHubUpgradeHistoryEvent";
+
   private static final RecordDataSchema MCE_PEGASUS_SCHEMA = new MetadataChangeEvent().schema();
 
   private static final RecordDataSchema MAE_PEGASUS_SCHEMA = new MetadataAuditEvent().schema();
@@ -49,40 +61,42 @@ public class EventUtils {
       new DataHubUpgradeHistoryEvent().schema();
 
   private static final Schema ORIGINAL_MCE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeEvent.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + METADATA_CHANGE_EVENT_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_MAE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataAuditEvent.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + METADATA_AUDIT_EVENT_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_FAILED_MCE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/FailedMetadataChangeEvent.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_MCP_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeProposal.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + METADATA_CHANGE_PROPOSAL_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_MCL_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeLog.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + METADATA_CHANGE_LOG_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_FMCP_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/FailedMetadataChangeProposal.avsc");
+      getAvroSchemaFromResource(
+          "avro/com/linkedin/mxe/" + FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME + ".avsc");
 
   private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/PlatformEvent.avsc");
+      getAvroSchemaFromResource("avro/com/linkedin/mxe/" + PLATFORM_EVENT_SCHEMA_NAME + ".avsc");
 
-  public static final Schema ORIGINAL_DUHE_AVRO_SCHEMA =
-      getAvroSchemaFromResource("avro/com/linkedin/mxe/DataHubUpgradeHistoryEvent.avsc");
-
-  private static final Schema RENAMED_MCE_AVRO_SCHEMA =
+  static final Schema RENAMED_MCE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;
 
-  private static final Schema RENAMED_MAE_AVRO_SCHEMA =
+  static final Schema RENAMED_MAE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataAuditEvent.SCHEMA$;
 
-  private static final Schema RENAMED_FAILED_MCE_AVRO_SCHEMA =
+  static final Schema RENAMED_FAILED_MCE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent.SCHEMA$;
 
-  private static final Schema RENAMED_PE_AVRO_SCHEMA =
-      com.linkedin.pegasus2avro.mxe.PlatformEvent.SCHEMA$;
+  static final Schema RENAMED_PE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.PlatformEvent.SCHEMA$;
 
   public static final Schema RENAMED_MCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataChangeProposal.SCHEMA$;
@@ -90,10 +104,10 @@ public class EventUtils {
   public static final Schema RENAMED_MCL_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataChangeLog.SCHEMA$;
 
-  private static final Schema RENAMED_FMCP_AVRO_SCHEMA =
+  static final Schema RENAMED_FMCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal.SCHEMA$;
 
-  private static final Schema RENAMED_DUHE_AVRO_SCHEMA =
+  public static final Schema RENAMED_DUHE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.DataHubUpgradeHistoryEvent.SCHEMA$;
 
   private EventUtils() {
@@ -223,9 +237,9 @@ public class EventUtils {
       throws IOException {
     return new DataHubUpgradeHistoryEvent(
         DataTranslator.genericRecordToDataMap(
-            renameSchemaNamespace(record, RENAMED_DUHE_AVRO_SCHEMA, ORIGINAL_DUHE_AVRO_SCHEMA),
+            renameSchemaNamespace(record, RENAMED_DUHE_AVRO_SCHEMA),
             DUHE_PEGASUS_SCHEMA,
-            ORIGINAL_DUHE_AVRO_SCHEMA));
+            RENAMED_DUHE_AVRO_SCHEMA));
   }
 
   /**
@@ -375,7 +389,7 @@ public class EventUtils {
       throws IOException {
     GenericRecord original =
         DataTranslator.dataMapToGenericRecord(
-            event.data(), event.schema(), ORIGINAL_DUHE_AVRO_SCHEMA);
+            event.data(), event.schema(), RENAMED_DUHE_AVRO_SCHEMA);
     return renameSchemaNamespace(original, RENAMED_DUHE_AVRO_SCHEMA);
   }
 

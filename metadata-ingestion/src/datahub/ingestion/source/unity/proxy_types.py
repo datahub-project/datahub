@@ -33,6 +33,14 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# TableType.METRIC_VIEW is absent on older databricks-sdk versions.
+_TABLE_TYPE_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None)
+
+
+def metric_view_supported() -> bool:
+    return _TABLE_TYPE_METRIC_VIEW is not None
+
+
 # TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
@@ -71,7 +79,27 @@ OPERATION_STATEMENT_TYPES = {
     QueryStatementType.DROP: OperationTypeClass.DROP,
     QueryStatementType.OTHER: OperationTypeClass.UNKNOWN,
 }
-ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+ALLOWED_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType.SELECT}
+)
+
+USAGE_READ_STATEMENT_TYPES: FrozenSet[QueryStatementType] = frozenset(
+    {QueryStatementType.SELECT}
+)
+
+
+def usage_statement_types(
+    include_operational_stats: bool,
+) -> FrozenSet[QueryStatementType]:
+    """Statement types to fetch for usage aggregation.
+
+    When operational stats are disabled, only SELECT queries are fetched
+    (BigQuery-style). DML/DDL statements are omitted from the history fetch
+    since they do not contribute to read-side usage statistics.
+    """
+    if include_operational_stats:
+        return ALLOWED_STATEMENT_TYPES
+    return USAGE_READ_STATEMENT_TYPES
 
 
 NotebookId = int
@@ -109,6 +137,12 @@ class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
     type: Optional[Union[CatalogType, CustomCatalogType]]
+    connection_name: Optional[str] = None
+    options: Optional[Dict[str, str]] = None
+
+    @property
+    def is_foreign_catalog(self) -> bool:
+        return self.type == CatalogType.FOREIGN_CATALOG
 
 
 @dataclass
@@ -126,6 +160,7 @@ class Column(CommonProperty):
     position: Optional[int]
     nullable: Optional[bool]
     comment: Optional[str]
+    partition_index: Optional[int] = None
 
 
 @dataclass
@@ -148,6 +183,7 @@ class TableReference:
     catalog: str
     schema: str
     table: str
+    last_updated: Optional[datetime] = None
 
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
@@ -172,6 +208,7 @@ class TableReference:
                 d["catalog_name"],
                 d["schema_name"],
                 d.get("table_name", d["name"]),  # column vs table query output
+                last_updated=d.get("last_updated"),
             )
         except Exception as e:
             logger.warning(f"Failed to create TableReference from {d}: {e}")
@@ -199,6 +236,7 @@ class ExternalTableReference:
     name: Optional[str]
     type: Optional[SecurableType]
     storage_location: Optional[str]
+    last_updated: Optional[datetime] = None
 
     @classmethod
     def create_from_lineage(cls, d: dict) -> Optional["ExternalTableReference"]:
@@ -215,10 +253,17 @@ class ExternalTableReference:
                 name=d.get("securable_name"),
                 type=securable_type,
                 storage_location=d.get("storage_location"),
+                last_updated=d.get("last_updated"),
             )
         except Exception as e:
             logger.warning(f"Failed to create ExternalTableReference from {d}: {e}")
             return None
+
+
+@dataclass(frozen=True, order=True)
+class NotebookReference:
+    id: int
+    last_updated: Optional[datetime] = None
 
 
 @dataclass
@@ -239,8 +284,8 @@ class Table(CommonProperty):
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
     external_upstreams: Set[ExternalTableReference] = field(default_factory=set)
-    upstream_notebooks: Set[NotebookId] = field(default_factory=set)
-    downstream_notebooks: Set[NotebookId] = field(default_factory=set)
+    upstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
+    downstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
 
     ref: TableReference = field(init=False)
 
@@ -251,6 +296,10 @@ class Table(CommonProperty):
             TableType.MATERIALIZED_VIEW,
             HiveTableType.HIVE_VIEW,
         ]
+        self.is_metric_view = (
+            _TABLE_TYPE_METRIC_VIEW is not None
+            and self.table_type == _TABLE_TYPE_METRIC_VIEW
+        )
 
 
 @dataclass
@@ -258,14 +307,21 @@ class Query:
     query_id: Optional[str]
     query_text: str
     statement_type: Optional[QueryStatementType]
-    start_time: datetime
-    end_time: datetime
+    start_time: Optional[datetime]
+    end_time: datetime  # guaranteed non-null by the SQL filter (execution_status='FINISHED' AND end_time <= ...)
     # User who ran the query
     user_id: Optional[int]
     user_name: Optional[str]  # Email or username
     # User whose credentials were used to run the query
     executed_as_user_id: Optional[int]
     executed_as_user_name: Optional[str]
+    # Pre-resolved table refs from system.access.table_lineage (system-tables usage path).
+    source_table_full_names: List[str] = field(default_factory=list)
+    target_table_full_names: List[str] = field(default_factory=list)
+
+    @property
+    def has_system_table_lineage(self) -> bool:
+        return bool(self.source_table_full_names or self.target_table_full_names)
 
 
 @dataclass
@@ -327,3 +383,118 @@ class Notebook:
                 "upstreams": frozenset([*notebook.upstreams, upstream]),
             }
         )
+
+
+@dataclass
+class ModelSignature:
+    """
+    Represents the model signature with input and output schemas extracted from MLflow.
+
+    In Unity Catalog, model signatures define the expected input/output formats for ML models.
+    Model signature is stored in the MLmodel YAML file.
+
+    Attributes:
+        inputs: List of input schema specifications, each containing name, type, dtype, shape
+        outputs: List of output schema specifications, each containing name, type, dtype, shape
+        parameters: List of model parameters
+    """
+
+    inputs: Optional[List[Dict[str, str]]]
+    outputs: Optional[List[Dict[str, str]]]
+    parameters: Optional[List[Dict[str, str]]]
+
+
+@dataclass
+class ModelRunDetails:
+    """
+    Represents comprehensive details from an MLflow run associated with a Unity Catalog model version.
+
+    In Unity Catalog, each model version is linked to an MLflow run via run_id. This dataclass
+    contains all the metadata extracted from that MLflow run, including metrics, parameters,
+    and tags.
+
+    Attributes:
+        run_id: MLflow run ID
+        experiment_id: MLflow experiment ID
+        status: Run status (e.g., "FINISHED", "RUNNING")
+        start_time: Run start timestamp (milliseconds since epoch)
+        end_time: Run end timestamp (milliseconds since epoch)
+        user_id: User who initiated the run
+        metrics: Training metrics (e.g., accuracy, loss)
+        parameters: Hyperparameters used for training
+        tags: Run tags/metadata
+    """
+
+    run_id: str
+    experiment_id: str
+    status: Optional[str]
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    user_id: Optional[str]
+    metrics: Optional[Dict[str, str]]
+    parameters: Optional[Dict[str, str]]
+    tags: Optional[Dict[str, str]]
+
+
+@dataclass
+class Model:
+    """
+    Represents a Unity Catalog registered ML model (model group).
+
+    In Unity Catalog, a registered model is a collection of model versions.
+    This dataclass corresponds to a Unity Catalog RegisteredModelInfo.
+
+    Attributes:
+        id: Full qualified name (e.g., "catalog.schema.model_name")
+        name: Model name without catalog/schema prefix
+        schema_name: Schema name containing the model
+        catalog_name: Catalog name containing the model
+        description: Model description/comment
+        created_at: Model creation timestamp
+        updated_at: Last update timestamp
+    """
+
+    id: str
+    name: str
+    schema_name: str
+    catalog_name: str
+    description: Optional[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+
+@dataclass
+class ModelVersion:
+    """
+    Represents a specific version of a Unity Catalog registered ML model.
+
+    In Unity Catalog, each model version is linked to an MLflow run (via run_id).
+    This dataclass corresponds to a Unity Catalog ModelVersionInfo.
+
+    Attributes:
+        id: Unique identifier combining model ID and version (e.g., "catalog.schema.model_1")
+        name: Versioned model name
+        model: Reference to the parent Model (model group)
+        version: Version number as string
+        aliases: List of aliases (e.g., ["prod", "latest"])
+        description: Version description/comment
+        created_at: Version creation timestamp
+        updated_at: Last update timestamp
+        created_by: User who created this version
+        run_details: Comprehensive MLflow run details (metrics, parameters, tags)
+                     extracted from the MLflow run linked to this model version.
+        signature: Model signature extracted from the MLmodel file via Files API.
+                   Contains input/output schema specifications and parameters.
+    """
+
+    id: str
+    name: str
+    model: Model
+    version: str
+    aliases: Optional[List[str]]
+    description: Optional[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    created_by: Optional[str]
+    run_details: Optional["ModelRunDetails"]
+    signature: Optional["ModelSignature"]

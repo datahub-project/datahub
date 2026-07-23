@@ -19,12 +19,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -202,38 +201,31 @@ class SlackSourceConfig(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email`, `users.profile:read`, and `team:read` scopes.",
     )
     enrich_user_metadata: bool = Field(
-        type=bool,
-        default=True,
+        True,
         description="When enabled, will enrich provisioned DataHub users' metadata with information from Slack.",
     )
     ingest_users: bool = Field(
-        type=bool,
-        default=True,
+        True,
         description="Whether to ingest users. When set to true, will ingest all users in the Slack workspace (as platform resources) to simplify user enrichment after they are provisioned on DataHub.",
     )
     api_requests_per_min: int = Field(
-        type=int,
-        default=10,
+        10,
         description="Number of API requests per minute. Low-level config. Do not tweak unless you are facing any issues.",
     )
     ingest_public_channels: bool = Field(
-        type=bool,
-        default=False,
+        False,
         description="Whether to ingest public channels. If set to true needs `channels:read` scope.",
     )
     channels_iteration_limit: int = Field(
-        type=int,
-        default=200,
+        200,
         description="Limit the number of channels to be ingested in a iteration. Low-level config. Do not tweak unless you are facing any issues.",
     )
     channel_min_members: int = Field(
-        type=int,
-        default=2,
+        2,
         description="Ingest channels with at least this many members.",
     )
     should_ingest_archived_channels: bool = Field(
-        type=bool,
-        default=False,
+        False,
         description="Whether to ingest archived channels.",
     )
 
@@ -251,7 +243,7 @@ DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.CERTIFIED)
 class SlackSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         super().__init__(config, ctx)
@@ -266,7 +258,7 @@ class SlackSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = SlackSourceConfig.parse_obj(config_dict)
+        config = SlackSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_slack_client(self) -> WebClient:
@@ -303,14 +295,6 @@ class SlackSource(StatefulIngestionSourceBase):
             lastUpdatedSeconds=user.get("updated"),
         )
         return SlackUserDetails(slack_user_info=user_info)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(
         self,
@@ -352,7 +336,7 @@ class SlackSource(StatefulIngestionSourceBase):
                 yield mcp.as_workunit()
         else:
             logger.error("Failed to fetch team information")
-            self.report.report_failure(
+            self.report.failure(
                 "team_info", "Failed to fetch team information for users"
             )
 
@@ -369,7 +353,7 @@ class SlackSource(StatefulIngestionSourceBase):
                 response = self.get_slack_client().users_list(cursor=cursor)
             assert isinstance(response.data, dict)
             if not response.data["ok"]:
-                self.report.report_failure("users", "Failed to fetch users")
+                self.report.failure("users", "Failed to fetch users")
                 return
 
             assert self.ctx.graph is not None
@@ -437,9 +421,7 @@ class SlackSource(StatefulIngestionSourceBase):
             )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
-            self.report.report_failure(
-                "public_channel", "Failed to fetch public channels"
-            )
+            self.report.failure("public_channel", "Failed to fetch public channels")
             return result_channels, None
         for channel in response.data["channels"]:
             num_members = channel["num_members"]
@@ -493,7 +475,7 @@ class SlackSource(StatefulIngestionSourceBase):
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=urn_channel,
                         aspect=SubTypesClass(
-                            typeNames=["Slack Channel"],
+                            typeNames=[DatasetSubTypes.SLACK_CHANNEL],
                         ),
                     ),
                 )

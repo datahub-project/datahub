@@ -71,6 +71,31 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        lastRun: runs(start: 0, count: 1) {
+            count
+            start
+            total
+            runs {
+                urn
+                type
+                properties {
+                    created {
+                        time
+                        actor
+                    }
+                }
+                state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
+                    status
+                    attempt
+                    result {
+                        resultType
+                        nativeResultType
+                    }
+                    timestampMillis
+                    durationMillis
+                }
+            }
+        }
     }
     ... on DataFlow {
         exists
@@ -103,6 +128,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...entityDataProduct
         status {
             removed
+        }
+        deprecation {
+            ...deprecationFields
         }
         health {
             ...entityHealth
@@ -215,6 +243,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         subTypes {
             typeNames
+        }
+        deprecation {
+            ...deprecationFields
         }
         health {
             ...entityHealth
@@ -385,6 +416,108 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
+    ... on Metric {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on SemanticModel {
+        exists
+        path
+        id
+        info {
+            name
+            description
+            externalUrl
+        }
+        platform {
+            ...platformFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        fineGrainedLineages {
+            upstreams {
+                urn
+                path
+            }
+            downstreams {
+                urn
+                path
+            }
+            query
+            transformOperation
+        }
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -429,7 +562,7 @@ fragment lineageFields on EntityWithRelationships {
                 ...lineageNodeProperties
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -555,7 +688,7 @@ fragment entityLineage on Entity {
                 ...lineageNodeProperties
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -638,7 +771,7 @@ fragment entityLineageV2 on Entity {
                 ...lineageSchemaField
             }
         }
-        siblingsSearch(input: { query: "*", count: 1 }) {
+        siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {
@@ -738,40 +871,15 @@ fragment entityLineageV2 on Entity {
         displayProperties {
             ...displayPropertiesFields
         }
-        dataProducts: entities(
-            input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-        ) {
-            total
-            searchResults {
-                entity {
-                    ... on DataProduct {
-                        urn
-                        type
-                        properties {
-                            name
-                            description
-                        }
-                        domain {
-                            ...entityDomain
-                        }
-                        entities(input: { start: 0, count: 0, query: "*" }) {
-                            total
-                        }
-                    }
-                }
-            }
-        }
     }
     ... on DataProduct {
+        exists
         properties {
             name
             description
         }
         domain {
             ...entityDomain
-        }
-        entities(input: { start: 0, count: 0, query: "*" }) {
-            total
         }
     }
 }
@@ -784,24 +892,10 @@ query getEntityLineage(
     $endTimeMillis: Long
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
+    $skipSiblingsSearch: Boolean = false
 ) {
     entity(urn: $urn) {
         ...entityLineage
-    }
-}
-
-query getEntityLineageV2(
-    $urn: String!
-    $separateSiblings: Boolean
-    $showColumns: Boolean!
-    $startTimeMillis: Long
-    $endTimeMillis: Long
-    $excludeUpstream: Boolean = false
-    $excludeDownstream: Boolean = false
-    $includeGhostEntities: Boolean = false
-) {
-    entity(urn: $urn) {
-        ...entityLineageV2
     }
 }
 
@@ -814,6 +908,7 @@ query getBulkEntityLineageV2(
     $excludeUpstream: Boolean = false
     $excludeDownstream: Boolean = false
     $includeGhostEntities: Boolean = false
+    $skipSiblingsSearch: Boolean = false
 ) {
     entities(urns: $urns) {
         ...entityLineageV2
@@ -900,8 +995,8 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
-            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            count: 2000
+            orFilters: [{ and: [{ field: "degree", values: ["1"] }] }]
             direction: UPSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }
@@ -918,8 +1013,8 @@ query getSearchAcrossLineageCounts(
             urn: $urn
             query: "*"
             start: 0
-            count: 10000
-            filters: [{ field: "degree", value: "1", values: ["1"] }]
+            count: 2000
+            orFilters: [{ and: [{ field: "degree", values: ["1"] }] }]
             direction: DOWNSTREAM
             lineageFlags: { startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis }
         }
@@ -943,6 +1038,37 @@ query searchAcrossLineageNames($input: SearchAcrossLineageInput!) {
                 urn
                 type
                 ...entityDisplayNameFields
+            }
+        }
+    }
+}
+
+query getBulkEntityDataProducts($urns: [String!]!) {
+    bulkEntityDataProducts(input: { urns: $urns }) {
+        entities {
+            urn
+            dataProductAssociations {
+                isOutputPort
+                dataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                    }
+                    domain {
+                        domain {
+                            urn
+                            type
+                            properties {
+                                name
+                            }
+                            displayProperties {
+                                colorHex
+                            }
+                        }
+                    }
+                }
             }
         }
     }

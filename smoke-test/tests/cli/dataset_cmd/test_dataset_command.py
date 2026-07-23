@@ -12,7 +12,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
+from tests.utils import delete_urns, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 start_index = randint(10, 10000)
 dataset_id = f"test_dataset_sync_{start_index}"
 dataset_urn = make_dataset_urn("snowflake", dataset_id)
-
-sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module")

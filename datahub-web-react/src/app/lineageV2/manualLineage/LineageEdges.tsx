@@ -1,8 +1,8 @@
 import { Empty } from 'antd';
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LineageNodesContext, getEdgeId, setDifference } from '@app/lineageV2/common';
 import EntityEdge from '@app/lineageV2/manualLineage/EntityEdge';
 
@@ -18,7 +18,7 @@ const EmptyWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 95%;
-    background-color: ${ANTD_GRAY[3]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     margin-top: 10px;
 `;
 
@@ -31,6 +31,7 @@ interface Props {
 }
 
 export default function LineageEdges({ parentUrn, direction, entitiesToAdd, entitiesToRemove, onRemoveEntity }: Props) {
+    const { t } = useTranslation('lineage');
     const { nodes, edges, adjacencyList } = useContext(LineageNodesContext);
 
     const children = adjacencyList[direction].get(parentUrn) || new Set();
@@ -44,7 +45,13 @@ export default function LineageEdges({ parentUrn, direction, entitiesToAdd, enti
         <LineageEdgesWrapper>
             {!filteredChildren?.length && !entitiesToAdd.length && (
                 <EmptyWrapper data-testid="empty-lineage">
-                    <Empty description={`No ${direction.toLocaleLowerCase()} entities`} />
+                    <Empty
+                        description={
+                            direction === LineageDirection.Upstream
+                                ? t('edges.noUpstreamEntities')
+                                : t('edges.noDownstreamEntities')
+                        }
+                    />
                 </EmptyWrapper>
             )}
             {filteredChildren?.map((childUrn) => {

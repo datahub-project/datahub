@@ -1,14 +1,22 @@
-import { ShareAltOutlined } from '@ant-design/icons';
-import { FileText, ListBullets, Share, WarningCircle } from '@phosphor-icons/react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Share } from '@phosphor-icons/react/dist/csr/Share';
+import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
+import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -21,17 +29,16 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataFlowJobsTab } from '@app/entityV2/shared/tabs/Entity/DataFlowJobsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
+import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
+import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -44,23 +51,12 @@ export class DataFlowEntity implements Entity<DataFlow> {
     type: EntityType = EntityType.DataFlow;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <ShareAltOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#d6246c' }} />
-            );
-        }
-
         return (
-            <ShareAltOutlined
+            <ShareNetwork
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -77,9 +73,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getPathName = () => 'pipelines';
 
-    getEntityName = () => 'Pipeline';
+    getEntityName = () => i18next.t('entity.types:dataFlow.name');
 
-    getCollectionName = () => 'Pipelines';
+    getCollectionName = () => i18next.t('entity.types:dataFlow.namePlural');
 
     useEntityQuery = useGetDataFlowQuery;
 
@@ -93,12 +89,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Tasks',
+                    name: i18next.t('entity.types:tab.lineage'),
+                    component: DAGTab,
+                    icon: TreeStructure,
+                    supportsFullsize: true,
+                },
+                {
+                    name: i18next.t('entity.types:dataJob.namePlural'),
                     component: DataFlowJobsTab,
                     icon: Share,
                     properties: {
@@ -106,18 +108,26 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
-                    name: 'Incidents',
+                    name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, dataFlow, loading) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataFlow) => {
+                        return dataFlow?.dataFlow?.activeIncidents?.total;
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: i18next.t('entity.types:tab.runs'),
+                    component: RunsTab,
+                    icon: ArrowsClockwise,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataFlow: GetDataFlowQuery) => (dataFlow?.dataFlow?.runs?.total || 0) !== 0,
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -142,6 +152,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -160,9 +173,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -191,8 +204,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -218,8 +229,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 externalUrl={data.properties?.externalUrl}
                 jobCount={(data as any).childJobs?.total}
                 deprecation={data.deprecation}
@@ -229,8 +238,18 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
                 subTypes={genericProperties?.subTypes}
+                previewType={PreviewType.SEARCH}
             />
         );
+    };
+
+    getLineageVizConfig = (entity: DataFlow) => {
+        return {
+            urn: entity?.urn,
+            type: EntityType.DataFlow,
+            name: this.displayName(entity),
+            icon: entity?.platform?.properties?.logoUrl || undefined,
+        };
     };
 
     displayName = (data: DataFlow) => {
@@ -257,6 +276,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 }

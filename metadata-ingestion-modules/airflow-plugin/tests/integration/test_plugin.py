@@ -5,29 +5,37 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import random
 import signal
 import subprocess
+import sys
 import textwrap
 import time
 from typing import Any, Iterator, Optional, Sequence
 
-import packaging.version
 import pytest
 import requests
 import tenacity
-from airflow.models.connection import Connection
+from airflow.sdk import Connection
 
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
-from datahub_airflow_plugin._airflow_shims import (
-    AIRFLOW_VERSION,
-    HAS_AIRFLOW_DAG_LISTENER_API,
-    HAS_AIRFLOW_LISTENER_API,
-    HAS_AIRFLOW_STANDALONE_CMD,
-)
 
 pytestmark = pytest.mark.integration
+
+# Note: Airflow 3.0 tests on macOS may experience SIGSEGV crashes due to an upstream issue
+# with gunicorn workers. See https://github.com/apache/airflow/issues/55838 — unrelated to
+# the DataHub plugin.
+
+
+def _make_api_request(
+    session: requests.Session, url: str, timeout: int = 30
+) -> requests.Response:
+    res = session.get(url, timeout=timeout)
+    res.raise_for_status()
+    return res
+
 
 logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
@@ -46,6 +54,7 @@ class AirflowInstance:
     airflow_port: int
     pid: int
     env_vars: dict
+    airflow_executable: pathlib.Path
 
     username: str
     password: str
@@ -60,7 +69,16 @@ class AirflowInstance:
     @functools.cached_property
     def session(self) -> requests.Session:
         session = requests.Session()
-        session.auth = (self.username, self.password)
+        # Airflow 3.x uses JWT tokens issued by SimpleAuthManager.
+        login_url = f"{self.airflow_url}/auth/token"
+        response = requests.post(
+            login_url,
+            json={"username": self.username, "password": self.password},
+            timeout=10,
+        )
+        response.raise_for_status()
+        token = response.json()["access_token"]
+        session.headers["Authorization"] = f"Bearer {token}"
         return session
 
 
@@ -74,8 +92,22 @@ class AirflowInstance:
 )
 def _wait_for_airflow_healthy(airflow_port: int) -> None:
     print("Checking if Airflow is ready...")
-    res = requests.get(f"http://localhost:{airflow_port}/health", timeout=5)
-    res.raise_for_status()
+
+    # Try Airflow 3 endpoint first, fall back to /health if 404.
+    health_endpoints = ["/api/v2/monitor/health", "/health"]
+    res = None
+    for endpoint in health_endpoints:
+        try:
+            res = requests.get(f"http://localhost:{airflow_port}{endpoint}", timeout=30)
+            res.raise_for_status()
+            break
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404 and endpoint != health_endpoints[-1]:
+                continue
+            raise
+
+    if res is None:
+        raise RuntimeError("No working health endpoint found")
 
     airflow_health = res.json()
     assert airflow_health["metadatabase"]["status"] == "healthy"
@@ -96,61 +128,120 @@ def _wait_for_dag_finish(
     airflow_instance: AirflowInstance, dag_id: str, require_success: bool
 ) -> None:
     print("Checking if DAG is finished")
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns",
     )
-    res.raise_for_status()
 
     dag_runs = res.json()["dag_runs"]
     if not dag_runs:
         raise NotReadyError("No DAG runs found")
 
     dag_run = dag_runs[0]
-    if dag_run["state"] == "failed":
-        if require_success:
-            raise ValueError("DAG failed")
-        # else - success is not required, so we're done.
+    state = dag_run["state"]
 
-    elif dag_run["state"] != "success":
-        raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
+    if state == "success":
+        return
+
+    if state == "failed":
+        if not require_success:
+            # success is not required, so we're done.
+            return
+
+        # On Airflow 3 the scheduler runs tasks out-of-process and learns their
+        # final state asynchronously via the execution API. Under load this opens
+        # a window where it finalizes the DagRun as "failed" even though every
+        # task instance actually succeeded (the harness's own task dump shows all
+        # tasks "success" while the DagRun is "failed"). Before trusting the
+        # DagRun-level "failed", inspect the individual task instances:
+        #   - if a task genuinely failed, it's a real failure -> raise;
+        #   - if any task is still settling (non-terminal), the run hasn't really
+        #     finished, so retry instead of declaring a spurious success;
+        #   - only when every task is terminal and none failed do we treat the
+        #     DagRun-level "failed" as the spurious scheduler race it is.
+        # Airflow 3.0 scheduler/execution-API state-mismatch (does not occur on
+        # Airflow 2's in-process execution):
+        # https://github.com/apache/airflow/issues/53797
+        # https://github.com/apache/airflow/discussions/52813
+        task_instances = _get_task_instances(
+            airflow_instance, dag_id, dag_run["dag_run_id"]
+        )
+        failed_tasks = [
+            ti["task_id"] for ti in task_instances if ti["state"] in _FAILED_TASK_STATES
+        ]
+        if failed_tasks:
+            raise ValueError(f"DAG failed; failed tasks: {failed_tasks}")
+
+        unfinished_tasks = [
+            ti["task_id"]
+            for ti in task_instances
+            if ti["state"] not in _TERMINAL_TASK_STATES
+        ]
+        if unfinished_tasks:
+            raise NotReadyError(
+                f"DAG reported state=failed but tasks have not settled yet: "
+                f"{unfinished_tasks}"
+            )
+
+        logger.warning(
+            "DAG %s reported state=failed but every task instance is terminal "
+            "and none failed; treating as success (spurious Airflow 3 "
+            "DagRun-state race).",
+            dag_id,
+        )
+        return
+
+    raise NotReadyError(f"DAG has not finished yet: {state}")
+
+
+# Airflow task-instance states. A task in a terminal state will not transition
+# again on its own; the rest are still settling and warrant a retry.
+_FAILED_TASK_STATES = frozenset({"failed", "upstream_failed"})
+_TERMINAL_TASK_STATES = frozenset(
+    {"success", "failed", "upstream_failed", "skipped", "removed"}
+)
+
+
+def _get_task_instances(
+    airflow_instance: AirflowInstance, dag_id: str, dag_run_id: str
+) -> list[dict[str, Any]]:
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+    )
+    return res.json()["task_instances"]
 
 
 @tenacity.retry(
     reraise=True,
     wait=tenacity.wait_fixed(1),
-    stop=tenacity.stop_after_delay(90),
+    stop=tenacity.stop_after_delay(180),
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
     print(f"Checking if DAG {dag_id} was loaded")
-    res = airflow_instance.session.get(
-        url=f"{airflow_instance.airflow_url}/api/v1/dags",
-        timeout=5,
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags",
     )
-    res.raise_for_status()
 
     if len(list(filter(lambda x: x["dag_id"] == dag_id, res.json()["dags"]))) == 0:
         raise NotReadyError("DAG was not loaded yet")
 
 
 def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
-    # Get the dag run info
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns",
     )
-    res.raise_for_status()
     dag_run = res.json()["dag_runs"][0]
     dag_run_id = dag_run["dag_run_id"]
 
-    # List the tasks in the dag run
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
-        timeout=5,
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
     )
-    res.raise_for_status()
     task_instances = res.json()["task_instances"]
-
-    # Sort tasks by start_date to maintain execution order
     task_instances.sort(key=lambda x: x["start_date"] or "")
 
     print(f"\nTask execution order for DAG {dag_id}:")
@@ -161,10 +252,9 @@ def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
 
         task_header = f"Task: {task_id} (State: {state}; Try: {try_number})"
 
-        # Get logs for the task's latest try number
         try:
             res = airflow_instance.session.get(
-                f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}"
+                f"{airflow_instance.airflow_url}/api/v2/dags/{dag_id}/dagRuns/{dag_run_id}"
                 f"/taskInstances/{task_id}/logs/{try_number}",
                 params={"full_content": "true"},
                 timeout=5,
@@ -176,13 +266,13 @@ def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
 
 
 @contextlib.contextmanager
-def _run_airflow(
+def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     tmp_path: pathlib.Path,
     dags_folder: pathlib.Path,
-    is_v1: bool,
     multiple_connections: bool,
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
+    cluster: Optional[str] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -198,73 +288,119 @@ def _run_airflow(
     meta_file = tmp_path / "datahub_metadata.json"
     meta_file2 = tmp_path / "datahub_metadata_2.json"
 
+    python_executable = pathlib.Path(sys.executable)
+
     environment = {
-        **os.environ,
+        "PATH": str(python_executable.parent) + os.pathsep + os.environ.get("PATH", ""),
         "AIRFLOW_HOME": str(airflow_home),
-        "AIRFLOW__WEBSERVER__WEB_SERVER_PORT": str(airflow_port),
-        "AIRFLOW__WEBSERVER__BASE_URL": "http://airflow.example.com",
-        # Point airflow to the DAGs folder.
+        # macOS: disable proxy detection to avoid SIGSEGV crashes after fork().
+        # See https://github.com/python/cpython/issues/58037.
+        "no_proxy": "*",
+        "PYTHONFAULTHANDLER": "1",
+        "PYTHONPATH": "/tmp"
+        + (
+            os.pathsep + os.environ.get("PYTHONPATH", "")
+            if os.environ.get("PYTHONPATH")
+            else ""
+        ),
+        "AIRFLOW__API__PORT": str(airflow_port),
+        "AIRFLOW__API__BASE_URL": "http://airflow.example.com",
         "AIRFLOW__CORE__LOAD_EXAMPLES": "False",
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
-        # Have the Airflow API use username/password authentication.
-        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
-        # Configure the datahub plugin and have it write the MCPs to a file.
-        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
-        "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
-        if multiple_connections
-        else datahub_connection_name,
+        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "True",
+        "AIRFLOW__DATAHUB__CONN_ID": (
+            f"{datahub_connection_name}, {datahub_connection_name_2}"
+            if multiple_connections
+            else datahub_connection_name
+        ),
         "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
             host=str(meta_file),
         ).get_uri(),
-        # Configure fake credentials for the Snowflake connection.
         "AIRFLOW_CONN_MY_SNOWFLAKE": Connection(
             conn_id="my_snowflake",
             conn_type="snowflake",
             login="fake_username",
             password="fake_password",
             schema="DATAHUB_TEST_SCHEMA",
-            extra={
-                "account": "fake_account",
-                "database": "DATAHUB_TEST_DATABASE",
-                "warehouse": "fake_warehouse",
-                "role": "fake_role",
-                "insecure_mode": "true",
-            },
+            extra=json.dumps(
+                {
+                    "account": "fake_account",
+                    "database": "DATAHUB_TEST_DATABASE",
+                    "warehouse": "fake_warehouse",
+                    "role": "fake_role",
+                    "insecure_mode": "true",
+                }
+            ),
         ).get_uri(),
         "AIRFLOW_CONN_MY_AWS": Connection(
             conn_id="my_aws",
             conn_type="aws",
-            extra={
-                "region_name": "us-east-1",
-                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
-                "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            },
+            extra=json.dumps(
+                {
+                    "region_name": "us-east-1",
+                    "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                    "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                }
+            ),
+        ).get_uri(),
+        "AIRFLOW_CONN_MY_BIGQUERY": Connection(
+            conn_id="my_bigquery",
+            conn_type="google_cloud_platform",
+            extra=json.dumps({"project": "test_project", "key_path": "/dev/null"}),
         ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
             conn_id="my_sqlite",
             conn_type="sqlite",
             host=str(tmp_path / "my_sqlite.db"),
         ).get_uri(),
-        # Ensure that the plugin waits for metadata to be written.
-        # Note that we could also disable the RUN_IN_THREAD entirely,
-        # but I want to minimize the difference between CI and prod.
+        "AIRFLOW_CONN_MY_TERADATA": Connection(
+            conn_id="my_teradata",
+            conn_type="teradata",
+            host="fake_teradata_host",
+            login="fake_username",
+            password="fake_password",
+            extra=json.dumps({"tmode": "ANSI"}),
+        ).get_uri(),
+        # Ensure the plugin waits for metadata to be written before the task exits.
+        # We could disable RUN_IN_THREAD entirely, but we want CI to mirror prod
+        # (where the listener runs in a thread).
         "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
-        "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN": "true" if is_v1 else "false",
-        # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
-        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": "true"
-        if enable_datajob_lineage
-        else "false",
+        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": (
+            "true" if enable_datajob_lineage else "false"
+        ),
+        # macOS: run the setproctitle/gunicorn patch before any process forks so the
+        # Airflow subprocess inherits it even when the venv has no .pth (e.g. under tox).
+        **(
+            {
+                "PYTHONSTARTUP": str(
+                    pathlib.Path(__file__).resolve().parent
+                    / "_airflow_gunicorn_patch.py"
+                ),
+            }
+            if platform.system() == "Darwin"
+            else {}
+        ),
+        # Airflow 3.x: anonymous auth for tests.
+        "AIRFLOW__API__AUTH_BACKENDS": "airflow.api.auth.backend.anonymous",
+        # OpenLineage ConsoleTransport so SQLParser fires without sending events anywhere.
+        "AIRFLOW__OPENLINEAGE__TRANSPORT": '{"type": "console"}',
+        # Internal execution API JWT settings.
+        "AIRFLOW__EXECUTION_API__JWT_EXPIRATION_TIME": "300",
+        "AIRFLOW__API_AUTH__JWT_SECRET": "test-secret-key-for-jwt-signing-in-tests",
     }
 
     if platform_instance:
         environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
+
+    if cluster:
+        environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -273,67 +409,180 @@ def _run_airflow(
             host=str(meta_file2),
         ).get_uri()
 
-    if not HAS_AIRFLOW_STANDALONE_CMD:
-        raise pytest.skip("Airflow standalone command is not available")
+    airflow_executable = pathlib.Path(sys.executable).parent / "airflow"
 
-    # Start airflow in a background subprocess.
-    airflow_process = subprocess.Popen(
-        ["airflow", "standalone"],
+    print(f"[DEBUG] Using Python: {sys.executable}")
+    print(f"[DEBUG] Using Airflow: {airflow_executable}")
+
+    try:
+        import greenlet
+
+        print(f"[DEBUG] Greenlet version in test environment: {greenlet.__version__}")
+    except ImportError:
+        print("[DEBUG] Greenlet not installed in test environment")
+
+    print("[DEBUG] Initializing Airflow database...")
+    subprocess.check_call(
+        [str(airflow_executable), "db", "migrate"],
         env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
+
+    # execution_api_server_url must point at the random test port.
+    import configparser
+
+    config_file = airflow_home / "airflow.cfg"
+    if config_file.exists():
+        config = configparser.ConfigParser()
+        config.read(config_file)
+
+        execution_api_url = f"http://localhost:{airflow_port}/execution/"
+        if "core" not in config:
+            config.add_section("core")
+        config.set("core", "execution_api_server_url", execution_api_url)
+
+        with open(config_file, "w") as f:
+            config.write(f)
+
+        print(f"[DEBUG] Set execution_api_server_url = {execution_api_url}")
+
+    logs_dir = airflow_home / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    standalone_log = logs_dir / "standalone.log"
+    standalone_log_file = open(standalone_log, "w")
+
+    print(f"[DEBUG] Starting airflow standalone, logging to {standalone_log}")
+
+    airflow_process = subprocess.Popen(
+        [str(airflow_executable), "standalone"],
+        env=environment,
+        stdout=standalone_log_file,
+        stderr=subprocess.STDOUT,
+    )
+    airflow_processes = [airflow_process]
 
     try:
         _wait_for_airflow_healthy(airflow_port)
         print("Airflow is ready!")
 
-        # Sleep for a few seconds to make sure the other Airflow processes are ready.
         time.sleep(3)
 
-        # Create an extra "airflow" user for easy testing.
-        if IS_LOCAL:
-            print("Creating an extra test user...")
-            subprocess.check_call(
-                [
-                    # fmt: off
-                    "airflow",
-                    "users",
-                    "create",
-                    "--username",
-                    "airflow",
-                    "--password",
-                    "airflow",
-                    "--firstname",
-                    "admin",
-                    "--lastname",
-                    "admin",
-                    "--role",
-                    "Admin",
-                    "--email",
-                    "airflow@example.com",
-                    # fmt: on
-                ],
-                env=environment,
-            )
+        if standalone_log.exists():
+            log_content = standalone_log.read_text()
+            if "Broken DAG" in log_content or "Failed to import" in log_content:
+                print("[DEBUG] Found DAG parsing errors in standalone.log:")
+                error_lines = [
+                    line
+                    for line in log_content.split("\n")
+                    if "Broken DAG" in line
+                    or "Failed to import" in line
+                    or "sqlite_operator" in line.lower()
+                ]
+                for line in error_lines[:10]:
+                    print(f"[DEBUG] {line}")
 
-        # Sanity check that the plugin got loaded.
-        if not is_v1:
-            print("[debug] Listing loaded plugins")
-            subprocess.check_call(
-                ["airflow", "plugins", "-v"],
-                env=environment,
-            )
+        print("[debug] Listing loaded plugins")
+        subprocess.check_call(
+            [str(airflow_executable), "plugins", "-v"],
+            env=environment,
+        )
 
-        # Load the admin user's password. This is generated by the
-        # `airflow standalone` command, and is different from the
-        # airflow user that we create when running locally.
+        # Load the admin user's password. Standalone auto-generates one in Airflow 3.
+        password_files = [
+            airflow_home / "standalone_admin_password.txt",
+            airflow_home / "simple_auth_manager_passwords.json.generated",
+        ]
+
+        print(f"[DEBUG] Looking for password files in: {airflow_home}")
+        if airflow_home.exists():
+            print(f"[DEBUG] Contents of airflow home: {list(airflow_home.iterdir())}")
+
         airflow_username = "admin"
-        airflow_password = (airflow_home / "standalone_admin_password.txt").read_text()
+        airflow_password = None
+        password_source = None
+
+        for password_file in password_files:
+            if password_file.exists():
+                print(f"[DEBUG] Found password file: {password_file.name}")
+                try:
+                    if password_file.name.endswith(".json.generated"):
+                        content = json.loads(password_file.read_text())
+                        if "admin" in content:
+                            airflow_password = content["admin"]
+                            password_source = password_file.name
+                        else:
+                            print(f"[DEBUG] JSON file structure: {content}")
+                            for key, value in content.items():
+                                if isinstance(value, str) and len(value) > 5:
+                                    airflow_password = value
+                                    password_source = (
+                                        f"{password_file.name} (key: {key})"
+                                    )
+                                    break
+                    else:
+                        airflow_password = password_file.read_text().strip()
+                        password_source = password_file.name
+
+                    if airflow_password:
+                        print(
+                            f"[DEBUG] Using admin credentials from {password_source}, password_length={len(airflow_password)}"
+                        )
+                        break
+                except Exception as e:
+                    print(f"[DEBUG] Error reading {password_file.name}: {e}")
+                    continue
+
+        if not airflow_password:
+            print("[DEBUG] No password files found, waiting for file creation...")
+            time.sleep(2)
+            for password_file in password_files:
+                if password_file.exists():
+                    try:
+                        if password_file.name.endswith(".json.generated"):
+                            content = json.loads(password_file.read_text())
+                            if "admin" in content:
+                                airflow_password = content["admin"]
+                                password_source = password_file.name
+                            else:
+                                for key, value in content.items():
+                                    if isinstance(value, str) and len(value) > 5:
+                                        airflow_password = value
+                                        password_source = (
+                                            f"{password_file.name} (key: {key})"
+                                        )
+                                        break
+                        else:
+                            airflow_password = password_file.read_text().strip()
+                            password_source = password_file.name
+
+                        if airflow_password:
+                            print(
+                                f"[DEBUG] Found admin credentials after waiting: {password_source}, password_length={len(airflow_password)}"
+                            )
+                            break
+                    except Exception as e:
+                        print(
+                            f"[DEBUG] Error reading {password_file.name} after wait: {e}"
+                        )
+                        continue
+
+        if not airflow_password:
+            print(
+                "[DEBUG] No password files found after waiting, using fallback credentials"
+            )
+            airflow_password = "admin"
+
+        print(
+            f"[DEBUG] Final credentials: username={airflow_username}, password_length={len(airflow_password)}"
+        )
 
         airflow_instance = AirflowInstance(
             airflow_home=airflow_home,
             airflow_port=airflow_port,
             pid=airflow_process.pid,
             env_vars=environment,
+            airflow_executable=airflow_executable,
             username=airflow_username,
             password=airflow_password,
             metadata_file=meta_file,
@@ -342,16 +591,23 @@ def _run_airflow(
 
         yield airflow_instance
     finally:
-        try:
-            # Attempt a graceful shutdown.
-            print("Shutting down airflow...")
-            airflow_process.send_signal(signal.SIGINT)
-            airflow_process.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            # If the graceful shutdown failed, kill the process.
-            print("Hard shutting down airflow...")
-            airflow_process.kill()
-            airflow_process.wait(timeout=3)
+        print("Shutting down airflow...")
+        for proc in airflow_processes:
+            try:
+                proc.send_signal(signal.SIGINT)
+            except Exception as e:
+                print(f"Error sending SIGINT to process {proc.pid}: {e}")
+
+        for proc in airflow_processes:
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                print(f"Hard shutting down process {proc.pid}...")
+                try:
+                    proc.kill()
+                    proc.wait(timeout=3)
+                except Exception as e:
+                    print(f"Error killing process {proc.pid}: {e}")
 
 
 def check_golden_file(
@@ -372,10 +628,10 @@ class DagTestCase:
     dag_id: str
     success: bool = True
 
-    v2_only: bool = False
     multiple_connections: bool = False
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
+    cluster: Optional[str] = None
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
@@ -397,72 +653,45 @@ test_cases = [
         test_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
-    DagTestCase("dag_to_skip", v2_only=True, platform_instance=PLATFORM_INSTANCE),
-    DagTestCase("snowflake_operator", success=False, v2_only=True),
-    DagTestCase("sqlite_operator", v2_only=True, platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("decorated_asset_producer", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("decorated_asset_with_file", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("consume_decorated_assets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("snowflake_operator", success=False),
+    DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_dag", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_sql_parsing"),
+    DagTestCase("datahub_emitter_operator_jinja_template_dag"),
+    DagTestCase("athena_operator"),
+    DagTestCase("bigquery_insert_job_operator"),
     DagTestCase(
-        "custom_operator_dag", v2_only=True, platform_instance=PLATFORM_INSTANCE
+        "bigquery_insert_job_operator", cluster="DEV", test_variant="_dev_cluster"
     ),
-    DagTestCase("custom_operator_sql_parsing", v2_only=True),
-    DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
-    DagTestCase("athena_operator", v2_only=True),
+    DagTestCase("teradata_operator"),
+    DagTestCase("athena_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase("teradata_operator", cluster="DEV", test_variant="_dev_cluster"),
+    DagTestCase(
+        "snowflake_operator", cluster="DEV", test_variant="_dev_cluster", success=False
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    ["golden_filename", "test_case", "is_v1"],
+    ["golden_filename", "test_case"],
     [
-        *[
-            pytest.param(
-                f"v1_{test_case.dag_test_id}",
-                test_case,
-                True,
-                id=f"v1_{test_case.dag_test_id}",
-                marks=pytest.mark.skipif(
-                    AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
-                    reason="We only test the v1 plugin on Airflow 2.3",
-                ),
-            )
-            for test_case in test_cases
-            if not test_case.v2_only
-        ],
-        *[
-            pytest.param(
-                # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
-                (
-                    f"v2_{test_case.dag_test_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
-                ),
-                test_case,
-                False,
-                id=(
-                    f"v2_{test_case.dag_test_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_test_id}_no_dag_listener"
-                ),
-                marks=[
-                    pytest.mark.skipif(
-                        not HAS_AIRFLOW_LISTENER_API,
-                        reason="Cannot test plugin v2 without the Airflow plugin listener API",
-                    ),
-                    pytest.mark.skipif(
-                        AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
-                        reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
-                        "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
-                        "soon anyways, it's not worth the effort.",
-                    ),
-                ],
-            )
-            for test_case in test_cases
-        ],
+        pytest.param(
+            f"v2_{test_case.dag_test_id}",
+            test_case,
+            id=f"v2_{test_case.dag_test_id}",
+        )
+        for test_case in test_cases
     ],
 )
 def test_airflow_plugin(
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,
-    is_v1: bool,
 ) -> None:
     # This test:
     # - Configures the plugin.
@@ -471,50 +700,94 @@ def test_airflow_plugin(
     # - Waits for the DAG to complete.
     # - Validates the metadata generated against a golden file.
 
-    if not is_v1 and not test_case.success and not HAS_AIRFLOW_DAG_LISTENER_API:
-        # Saw a number of issues in CI where this would fail to emit the last events
-        # due to an error in the SQLAlchemy listener. This never happened locally for me.
-        pytest.skip("Cannot test failure cases without the Airflow DAG listener API")
-
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
+
     dag_id = test_case.dag_id
 
-    with _run_airflow(
-        tmp_path,
-        dags_folder=DAGS_FOLDER,
-        is_v1=is_v1,
-        multiple_connections=test_case.multiple_connections,
-        platform_instance=test_case.platform_instance,
-        enable_datajob_lineage=test_case.enable_datajob_lineage,
-    ) as airflow_instance:
-        print(f"Running DAG {dag_id}...")
-        _wait_for_dag_to_load(airflow_instance, dag_id)
-        subprocess.check_call(
-            [
-                "airflow",
-                "dags",
-                "trigger",
-                "--exec-date",
-                "2023-09-27T21:34:38+00:00",
-                "-r",
-                "manual_run_test",
-                dag_id,
-            ],
-            env=airflow_instance.env_vars,
-        )
-
-        print("Waiting for DAG to finish...")
-        _wait_for_dag_finish(
-            airflow_instance, dag_id, require_success=test_case.success
-        )
-
-        print("Sleeping for a few seconds to let the plugin finish...")
-        time.sleep(10)
-
+    # On Airflow 3.0 the scheduler learns task state out-of-process via the
+    # execution API, and under CI load it sometimes records a task instance that
+    # actually ran to completion as "failed" (apache/airflow#53797,
+    # apache/airflow#52813) -- the very same DAG then succeeds on an immediate
+    # re-run. For DAGs that are expected to succeed, run the whole thing in a
+    # fresh Airflow instance up to a few times so a spurious task-state failure
+    # does not fail the test; a genuine failure recurs on every attempt and is
+    # still surfaced. DAGs that are expected to fail are run exactly once.
+    max_attempts = 3 if test_case.success else 1
+    airflow_instance: Optional[AirflowInstance] = None
+    for attempt in range(1, max_attempts + 1):
+        # Fresh home (and thus fresh metadata DB) per attempt. Reusing the DB would
+        # make the trigger below fail with DagRunAlreadyExists on retry, since the
+        # run_id is fixed ("manual_run_test" is baked into the golden's URNs).
+        attempt_home = tmp_path / f"attempt_{attempt}"
         try:
-            _dump_dag_logs(airflow_instance, dag_id)
-        except Exception as e:
-            print(f"Failed to dump DAG logs: {e}")
+            with _run_airflow(
+                attempt_home,
+                dags_folder=DAGS_FOLDER,
+                multiple_connections=test_case.multiple_connections,
+                platform_instance=test_case.platform_instance,
+                enable_datajob_lineage=test_case.enable_datajob_lineage,
+                cluster=test_case.cluster,
+            ) as airflow_instance:
+                print(f"Running DAG {dag_id} (attempt {attempt}/{max_attempts})...")
+                _wait_for_dag_to_load(airflow_instance, dag_id)
+
+                # Clear any metadata emitted by a previous (failed) attempt so
+                # the golden comparison only sees this attempt's output.
+                airflow_instance.metadata_file.unlink(missing_ok=True)
+                airflow_instance.metadata_file2.unlink(missing_ok=True)
+
+                trigger_cmd = [
+                    str(airflow_instance.airflow_executable),
+                    "dags",
+                    "trigger",
+                    "--logical-date",
+                    "2023-09-27T21:34:38+00:00",
+                    "-r",
+                    "manual_run_test",
+                    dag_id,
+                ]
+
+                # Capture output so a trigger failure is diagnosable rather than an
+                # opaque "returned non-zero exit status 1", and retriable below.
+                trigger_result = subprocess.run(
+                    trigger_cmd,
+                    env=airflow_instance.env_vars,
+                    capture_output=True,
+                    text=True,
+                )
+                if trigger_result.returncode != 0:
+                    print(f"[trigger stdout]\n{trigger_result.stdout}")
+                    print(f"[trigger stderr]\n{trigger_result.stderr}")
+                    raise subprocess.CalledProcessError(
+                        trigger_result.returncode,
+                        trigger_cmd,
+                        output=trigger_result.stdout,
+                        stderr=trigger_result.stderr,
+                    )
+
+                print("Waiting for DAG to finish...")
+                _wait_for_dag_finish(
+                    airflow_instance, dag_id, require_success=test_case.success
+                )
+
+                print("Sleeping for a few seconds to let the plugin finish...")
+                time.sleep(10)
+
+                try:
+                    _dump_dag_logs(airflow_instance, dag_id)
+                except Exception as e:
+                    print(f"Failed to dump DAG logs: {e}")
+            break
+        except (ValueError, NotReadyError, subprocess.CalledProcessError) as e:
+            if attempt >= max_attempts:
+                raise
+            print(
+                f"DAG {dag_id} attempt {attempt}/{max_attempts} failed ({e}); "
+                "retrying with a fresh Airflow instance "
+                "(suspected Airflow 3 task-state race)."
+            )
+
+    assert airflow_instance is not None
 
     if dag_id == DAG_TO_SKIP_INGESTION:
         # Verify that no MCPs were generated.
@@ -590,10 +863,10 @@ if __name__ == "__main__":
     with _run_airflow(
         tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
         dags_folder=DAGS_FOLDER,
-        is_v1=not HAS_AIRFLOW_LISTENER_API,
         multiple_connections=False,
         platform_instance=None,
         enable_datajob_lineage=True,
+        cluster=None,
     ) as airflow_instance:
         # input("Press enter to exit...")
         print("quitting airflow")

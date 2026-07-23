@@ -4,15 +4,14 @@ import styled from 'styled-components';
 import { AppliedFieldFilterUpdater, FieldToAppliedFieldFiltersMap } from '@app/searchV2/filtersV2/types';
 import AutocompleteFooter from '@app/searchV2/searchBarV2/components/AutocompleteFooter';
 import Filters from '@app/searchV2/searchBarV2/components/Filters';
-import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { colors, radius } from '@src/alchemy-components';
+import { radius } from '@src/alchemy-components';
 import { FacetMetadata } from '@src/types.generated';
 
 const DropdownContainer = styled.div`
     overflow: auto;
-    box-shadow: ${BOX_SHADOW};
+    box-shadow: ${(props) => props.theme.colors.shadowXl};
     border-radius: ${radius.lg};
-    background: ${colors.white};
+    background: ${(props) => props.theme.colors.bg};
 `;
 
 interface Props {
@@ -26,7 +25,7 @@ interface Props {
 
 export default function SearchBarDropdown({ menu, query, filters, updateFilters, facets, isSearching }: Props) {
     return (
-        <DropdownContainer>
+        <DropdownContainer data-testid="search-bar-dropdown">
             {isSearching && (
                 <Filters
                     query={query ?? ''}

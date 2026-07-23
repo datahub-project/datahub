@@ -1,12 +1,9 @@
-import Editor, { loader } from '@monaco-editor/react';
+import Editor from '@monaco-editor/react';
 import React from 'react';
 
-const baseUrl = import.meta.env.BASE_URL;
-loader.config({
-    paths: {
-        vs: `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}node_modules/monaco-editor/min/vs`,
-    },
-});
+import '@conf/monaco';
+
+const EDITOR_LANGUAGE = 'yaml';
 
 type Props = {
     initialText: string;
@@ -24,7 +21,7 @@ export const YamlEditor = ({ initialText, onChange }: Props) => {
                 },
             }}
             height="55vh"
-            defaultLanguage="yaml"
+            defaultLanguage={EDITOR_LANGUAGE}
             value={initialText}
             onChange={onChange}
         />

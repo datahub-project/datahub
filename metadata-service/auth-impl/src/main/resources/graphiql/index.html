@@ -39,8 +39,11 @@
         integrity="sha384-naAA3pYPARITlxC7GwToGuWsRdWfcCBgwIRLMDY6t7YKpjASnzW27h0gm4PIW06W"></script>
 
 <script>
+    // Extract base path from current location
+    const basePath = location.pathname.replace('/api/graphiql', '');
+    
     const fetcher = GraphiQL.createFetcher({
-      url: `${location.protocol}//${location.host}/api/graphql`,
+      url: `${location.protocol}//${location.host}${basePath}/api/graphql`,
     });
 
     const root = ReactDOM.createRoot(document.getElementById('graphiql'));

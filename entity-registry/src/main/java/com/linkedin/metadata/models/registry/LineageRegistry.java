@@ -105,6 +105,15 @@ public class LineageRegistry {
                     sourceEntity, destEntity, annotation.getName(), annotation.isUpstream()));
   }
 
+  public Map<String, LineageSpec> getLineageSpecs() {
+    return _lineageSpecMap.entrySet().stream()
+        .filter(
+            e ->
+                !e.getValue().getDownstreamEdges().isEmpty()
+                    || !e.getValue().getUpstreamEdges().isEmpty())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
   public LineageSpec getLineageSpec(String entityName) {
     return _lineageSpecMap.get(entityName.toLowerCase());
   }

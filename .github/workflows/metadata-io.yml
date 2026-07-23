@@ -3,11 +3,13 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - "**/*.gradle"
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - "metadata-service/configuration/**"
       - ".github/workflows/metadata-io.yml"
   pull_request:
     branches:
@@ -17,6 +19,7 @@ on:
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - "metadata-service/configuration/**"
       - ".github/workflows/metadata-io.yml"
   release:
     types: [published]
@@ -26,9 +29,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest-2' || 'ubuntu-latest' }}
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name == 'release' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name == 'release' }}
@@ -37,70 +43,191 @@ jobs:
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
-      mysql_setup_change: ${{ steps.ci-optimize.outputs.mysql-setup-change == 'true' }}
-      postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
-      elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
-  build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  # Compile metadata-io (+ upstream modules) ONCE and warm the Gradle build cache the test-matrix
+  # legs restore — otherwise each of the 6 legs recompiles the whole dependency graph from cold.
+  # Also gates codegen freshness here (a whole-module property, no need to repeat it per suite).
+  metadata-io-seed:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 40
     needs: setup
     steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
-        run: |
-          sudo apt-get remove 'dotnet-*' azure-cli || true
-          sudo rm -rf /usr/local/lib/android/ || true
-          sudo docker image prune -a -f || true
-      - name: Disk Check
-        run: df -h . && docker images
-      - uses: acryldata/sane-checkout-action@v3
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: ./.github/actions/free-disk-space
+        with:
+          aggressive: "false"
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Gradle build (and test)
-        run: |
-          ./gradlew :metadata-io:test
-      - uses: actions/upload-artifact@v4
-        if: always()
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         with:
-          name: Test Results (metadata-io)
-          path: |
-            **/build/reports/tests/test/**
-            **/build/test-results/test/**
-            **/junit.*.xml
+          # build-cache-1 is managed explicitly below with a run-scoped key so the legs restore
+          # exactly this run's compiled output.
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Cache Gradle build cache (seed writes; run-scoped key)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-metadata-io-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-metadata-io-build-cache-
+      - name: Compile metadata-io test classes once (no tests)
+        run: ./gradlew :metadata-io:testClasses --build-cache
+
+  build-metadata-io:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 40
+    needs: [setup, metadata-io-seed]
+    strategy:
+      # One runner per TestNG sub-suite (aggregated by testng.xml), replacing the single ~17m
+      # serial `:metadata-io:test`. One suite per leg = one fork = one testcontainer stack, which
+      # is why maxParallelForks stays 1 (ES/OpenSearch/Cassandra/Neo4j/Postgres — parallel forks OOM).
+      fail-fast: false
+      matrix:
+        suite:
+          - { name: other, task: testOther }
+          - { name: opensearch, task: testOpenSearch }
+          - { name: es8, task: testEs8 }
+          - { name: es7-cassandra-neo4j, task: testEs7CassandraNeo4j }
+          - { name: postgresql, task: testPostgresql }
+          - { name: sql-opt, task: testSqlOpt }
+    steps:
+      - name: Disk Check
+        run: df -h . && docker images
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          # Runs Java tests only (no Docker image builds). Skip the slow apt/docker-prune path.
+          aggressive: "false"
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          # Legs read the seed's build cache; only the seed writes. Avoids matrix write races.
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (seed's output, this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-metadata-io-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-metadata-io-build-cache-
+      - name: Gradle test (${{ matrix.suite.name }} suite)
+        run: |
+          ./gradlew :metadata-io:${{ matrix.suite.task }} --build-cache
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (metadata-io ${{ matrix.suite.name }})
+          test-results-paths: |
+            **/build/reports/tests/${{ matrix.suite.task }}/**
+            **/build/test-results/${{ matrix.suite.task }}/**
             !**/binary/**
-      - name: Ensure codegen is updated
-        uses: ./.github/actions/ensure-codegen-updated
+          junit-file-globs: |
+            **/build/test-results/${{ matrix.suite.task }}/**/*.xml
+      - name: Send failed test metrics to PostHog
+        if: failure()
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          TEMP_DIR=$(mktemp -d)
+          mkdir -p "$TEMP_DIR/test-results"
+          find . -name "*.xml" -path "*/build/test-results/*" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+          find . -name "junit.*.xml" -exec cp {} "$TEMP_DIR/test-results/" \; 2>/dev/null || true
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir "$TEMP_DIR/test-results" \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "${{ github.repository }}" \
+            --workflow-name "${{ github.workflow }}" \
+            --branch "${GH_HEAD_REF}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --command "metadata-io-${{ matrix.suite.name }}"
+
+          rm -rf "$TEMP_DIR"
       - name: Upload coverage to Codecov
         if: ${{ always()}}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          # Each leg emits jacoco-<task>.xml here; all legs share the metadata-io flag, which
+          # Codecov merges into one report (same pattern as the backend test shards).
           directory: ./build/coverage-reports/metadata-io/
           fail_ci_if_error: false
           flags: metadata-io
-          name: metadata-io-test
+          name: metadata-io-${{ matrix.suite.name }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
+
+  # Codegen freshness (whole-module property) — its own job, decoupled from the compile-seed.
+  # ensure-codegen-updated is just `git status`, so codegen must actually run first: restore the
+  # seed's build cache and compile FROM-CACHE (fast) to materialize generated sources, then diff.
+  codegen-check:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    needs: [setup, metadata-io-seed]
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          aggressive: "false"
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: true
+          gradle-home-cache-excludes: caches/build-cache-1
+      - name: Restore Gradle build cache (seed's output, this run)
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.gradle/caches/build-cache-1
+          key: gradle-metadata-io-build-cache-${{ github.run_id }}
+          restore-keys: |
+            gradle-metadata-io-build-cache-
+      - name: Materialize generated sources (FROM-CACHE)
+        run: ./gradlew :metadata-io:testClasses --build-cache
+      - name: Ensure codegen is updated
+        uses: ./.github/actions/ensure-codegen-updated
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: Event File
           path: ${{ github.event_path }}

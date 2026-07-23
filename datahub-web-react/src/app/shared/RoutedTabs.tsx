@@ -23,6 +23,7 @@ interface Props extends TabsProps {
 const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: auto;
 `;
 
@@ -51,7 +52,12 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
             >
                 {tabs.map((tab) => {
                     return (
-                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                        <TabPane
+                            tab={tab.name}
+                            key={tab.path.replace('/', '')}
+                            disabled={!tab.display?.enabled()}
+                            data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
+                        />
                     );
                 })}
             </Tabs>

@@ -1,9 +1,11 @@
 
 x-datahub-frontend-service: &datahub-frontend-service
   hostname: datahub-frontend-react
-  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+  image: ${DATAHUB_FRONTEND_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-frontend-react}:${DATAHUB_VERSION:-quickstart}
   ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+  expose:
+    - 4319
   env_file:
     - datahub-frontend/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
@@ -11,7 +13,14 @@ x-datahub-frontend-service: &datahub-frontend-service
   environment: &datahub-frontend-service-env
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     DATAHUB_GMS_HOST: ${DATAHUB_GMS_HOST:-datahub-gms}
+    # Play 3 maps this to play.http.secret.key; HS256 requires >=256 bits (see ApplicationSecret).
+    # Overrides env_file when unset on host; use a long random value in production.
+    DATAHUB_SECRET: ${DATAHUB_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
+    PLAY_HTTP_CONTEXT: ${DATAHUB_BASE_PATH:-/}
+    DATAHUB_BASE_PATH: ${DATAHUB_BASE_PATH:-/}
+    DATAHUB_GMS_BASE_PATH: ${DATAHUB_GMS_BASE_PATH:-/}
+    LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
@@ -27,7 +36,10 @@ x-datahub-frontend-service-dev: &datahub-frontend-service-dev
     DATAHUB_ANALYTICS_ENABLED: ${DATAHUB_ANALYTICS_ENABLED:-true}
   volumes:
     - ../../datahub-frontend/build/stage/main:/datahub-frontend
-    - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
+    # Removed nested mount - causes virtiofs mountpoint error in Docker Desktop >= 4.42.0
+    # The file is already in the Docker image, so this mount isn't needed.
+    # If you need to override it for development, copy it to the build directory instead.
+    # - ./monitoring/client-prometheus-config.yaml:/datahub-frontend/client-prometheus-config.yaml
 
 services:
   frontend-quickstart:
@@ -52,6 +64,13 @@ services:
     depends_on:
       system-update-quickstart-postgres:
         condition: service_completed_successfully
+  frontend-quickstart-postgres-consumers:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-consumers
+    depends_on:
+      system-update-quickstart-postgres-consumers:
+        condition: service_completed_successfully
   frontend-quickstart-consumers:
     <<: *datahub-frontend-service
     profiles:
@@ -59,12 +78,33 @@ services:
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
+  frontend-quickstart-consumers-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      system-update-quickstart-cdc:
+        condition: service_completed_successfully
+  frontend-quickstart-postgres-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-postgres-cdc
+    depends_on:
+      system-update-quickstart-postgres-cdc:
+        condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
     profiles:
       - debug
     depends_on:
       system-update-debug:
+        condition: service_completed_successfully
+  frontend-debug-aws:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-aws
+    depends_on:
+      system-update-debug-aws:
         condition: service_completed_successfully
   frontend-debug-min:
     <<: *datahub-frontend-service-dev
@@ -78,11 +118,7 @@ services:
     profiles:
       - debug-frontend
     depends_on:
-      mysql-setup-dev:
-        condition: service_completed_successfully
-      opensearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
+      system-update-debug:
         condition: service_completed_successfully
   frontend-debug-postgres:
     <<: *datahub-frontend-service-dev
@@ -90,6 +126,13 @@ services:
       - debug-postgres
     depends_on:
       system-update-debug-postgres:
+        condition: service_completed_successfully
+  frontend-debug-postgres-consumers:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-consumers
+    depends_on:
+      system-update-debug-postgres-consumers:
         condition: service_completed_successfully
   frontend-debug-cassandra:
     <<: *datahub-frontend-service-dev
@@ -105,6 +148,21 @@ services:
     depends_on:
       system-update-debug-consumers:
         condition: service_completed_successfully
+  frontend-debug-consumers-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      system-update-debug-consumers-cdc:
+        condition: service_completed_successfully
+  frontend-debug-posgres-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-postgres-cdc
+    depends_on:
+      system-update-debug-postgres-cdc:
+        condition: service_completed_successfully
+
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
     profiles:

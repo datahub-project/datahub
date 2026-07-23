@@ -1,8 +1,8 @@
-import { Table } from 'antd';
+import { Table, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
@@ -10,16 +10,16 @@ import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Va
 import { DataContractAssertionStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
-import { Assertion, DataQualityContract, DatasetAssertionInfo } from '@types';
+import { Assertion, AssertionType, DataQualityContract, DatasetAssertionInfo } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;
 
 const ColumnHeader = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Container = styled.div`
@@ -35,7 +35,7 @@ const SummaryContainer = styled.div`
 const StyledTable = styled(Table)`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 type Props = {
@@ -44,11 +44,13 @@ type Props = {
 };
 
 export const DataQualityContractSummary = ({ contracts, showAction = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     const assertions: Assertion[] = contracts?.map((contract) => contract.assertion);
 
     const columns = [
         {
-            title: () => <ColumnHeader>Assertion</ColumnHeader>,
+            title: () => <ColumnHeader>{t('contractColumn.assertion')}</ColumnHeader>,
             render: (assertion: Assertion) => (
                 <>
                     {assertion.info?.datasetAssertion && (
@@ -63,11 +65,18 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                         <FieldAssertionDescription assertionInfo={assertion.info?.fieldAssertion} />
                     )}
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
+                    {assertion.info?.type === AssertionType.Custom && (
+                        <Typography.Text>
+                            {assertion.info?.description || assertion.info?.customAssertion?.type}
+                        </Typography.Text>
+                    )}
                 </>
             ),
         },
         {
-            title: () => <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>Status</ColumnHeader>,
+            title: () => (
+                <ColumnHeader style={{ display: 'flex', justifyContent: 'center' }}>{tl('status')}</ColumnHeader>
+            ),
             render: (assertion: Assertion) => <DataContractAssertionStatus assertion={assertion} />,
         },
     ];
@@ -79,7 +88,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
 
     return (
         <Container>
-            <TitleText>DATA QUALITY</TitleText>
+            <TitleText>{t('contractSection.dataQuality')}</TitleText>
             <SummaryContainer>
                 <StyledTable
                     pagination={false}
@@ -88,10 +97,10 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                     footer={() => (
                         <DataContractSummaryFooter
                             assertions={assertions}
-                            passingText="Meeting data quality contract"
-                            failingText="Violating data quality contract"
-                            errorText="Data quality contract assertions are completing with errors"
-                            actionText="view data quality assertions"
+                            passingText={t('contractStatus.passingText.dataQuality')}
+                            failingText={t('contractStatus.failingText.dataQuality')}
+                            errorText={t('contractStatus.errorText.dataQuality')}
+                            actionText={t('contractStatus.action.viewDataQuality')}
                             showAction={showAction}
                         />
                     )}

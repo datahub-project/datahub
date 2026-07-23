@@ -11,8 +11,29 @@
                 <exclude name="com.linkedin.metadata.entity.cassandra.*" />
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
                 <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
-                <exclude name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest"/>
             </package>
+            <package name="io.datahubproject.test.aspect.*"/>
         </packages>
+
+        <!-- Explicitly exclude the specific test class -->
+        <classes>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.embedding.LocalEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
+        </classes>
+    </test>
+
+    <!-- Additional test execution for EbeanEntityServiceTest with CDC mode -->
+    <test name="ebean-entity-service-cdc">
+        <parameter name="cdcMode" value="true"/>
+        <classes>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
+        </classes>
     </test>
 </suite>

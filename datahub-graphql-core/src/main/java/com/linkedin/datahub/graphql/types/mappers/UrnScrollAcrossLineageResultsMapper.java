@@ -39,6 +39,10 @@ public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E ext
             .map(f -> mapFacet(context, f))
             .collect(Collectors.toList()));
 
+    if (input.hasIsPartial()) {
+      result.setIsPartial(input.isIsPartial());
+    }
+
     return result;
   }
 

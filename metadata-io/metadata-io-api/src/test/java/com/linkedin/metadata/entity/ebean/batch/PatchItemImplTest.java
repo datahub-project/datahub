@@ -3,13 +3,16 @@ package com.linkedin.metadata.entity.ebean.batch;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -214,25 +217,28 @@ public class PatchItemImplTest {
             .setCustomProperties(new StringMap()));
   }
 
-  @Test(expectedExceptions = UnsupportedOperationException.class)
-  public void testApplyPatchWithNoExistingOrDefaultTemplate() {
-    // Create a JSON patch
-    JsonPatch patch =
-        Json.createPatch(
-            Json.createReader(
-                    new StringReader("[{\"op\":\"add\",\"path\":\"/removed\",\"value\":false}]"))
-                .readArray());
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testApplyPatchWithGenericJsonPatchAndNoExistingOrDefaultTemplate() {
+    // Create a GenericJsonPatch that will force generic patching
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/removed");
+    patchOp.setValue(false);
 
-    // Build a PatchItemImpl
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder().patch(ImmutableList.of(patchOp)).forceGenericPatch(true).build();
+
+    // Build a PatchItemImpl with GenericJsonPatch
     PatchItemImpl patchItem =
         PatchItemImpl.builder()
             .urn(urn)
             .aspectName(STATUS_ASPECT_NAME)
             .auditStamp(auditStamp)
-            .patch(patch)
+            .genericJsonPatch(genericJsonPatch)
             .build(entityRegistry);
 
-    // This should throw UnsupportedOperationException
+    // This should throw RuntimeException when trying to apply patch
+    // because there's no existing aspect and no default template
     patchItem.applyPatch(null, aspectRetriever);
   }
 
@@ -380,7 +386,7 @@ public class PatchItemImplTest {
     assertNotEquals(patchItem1.hashCode(), differentPatchItem.hashCode());
   }
 
-  @Test(expectedExceptions = UnsupportedOperationException.class)
+  @Test
   public void testBuildWithUnsupportedChangeType() {
     // Create a JSON patch
     JsonPatch patch =
@@ -390,14 +396,17 @@ public class PatchItemImplTest {
                         "[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"Test description\"}]"))
                 .readArray());
 
-    // This should throw UnsupportedOperationException
-    PatchItemImpl.builder()
-        .urn(urn)
-        .aspectName(STATUS_ASPECT_NAME)
-        .auditStamp(auditStamp)
-        .patch(patch)
-        .aspectSpec(entityRegistry.getAspectSpecs().get(STATUS_ASPECT_NAME))
-        .build(entityRegistry);
+    // STATUS_ASPECT_NAME supports patch operations now
+    PatchItemImpl patchItem =
+        PatchItemImpl.builder()
+            .urn(urn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .auditStamp(auditStamp)
+            .patch(patch)
+            .build(entityRegistry);
+
+    assertNotNull(patchItem);
+    assertEquals(patchItem.getAspectName(), STATUS_ASPECT_NAME);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -407,7 +416,7 @@ public class PatchItemImplTest {
         .urn(urn)
         .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
         .auditStamp(auditStamp)
-        .patch(null)
+        .patch((JsonPatch) null)
         .build(entityRegistry);
   }
 
@@ -580,5 +589,214 @@ public class PatchItemImplTest {
 
     // Verify the template engine was called (indicating template patch was used)
     verify(mockTemplateEngine).applyPatch(any(), any(), any());
+  }
+
+  /**
+   * Regression test for the bug where {@code applyGenericPatch} used a bare constructor ({@code new
+   * GlossaryTerms()}) as the default aspect instead of the registered template's default ({@code
+   * GlossaryTermsTemplate.getDefault()}). The bare constructor produces an object without the
+   * required {@code auditStamp} field, which causes validation to fail with:
+   *
+   * <pre>ERROR :: /auditStamp :: field is required but not found and has no default value</pre>
+   *
+   * <p>The scenario: a compound-key {@code GenericJsonPatch} arrives for {@code glossaryTerms} on
+   * an entity that has no pre-existing aspect value (brand-new dataset).
+   */
+  @Test
+  public void testGenericPatchForAspectWithRequiredFieldsUsesRegisteredDefault() throws Exception {
+    // Build a compound-key GenericJsonPatch that adds a glossary term (no attribution source).
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/terms//urn:li:glossaryTerm:CustomerData");
+    addOp.setValue(
+        objectMapper.convertValue(
+            Map.of("urn", "urn:li:glossaryTerm:CustomerData"), JsonNode.class));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(ImmutableList.of(addOp))
+            .arrayPrimaryKeys(Map.of("terms", ImmutableList.of("attribution\u241fsource", "urn")))
+            .build();
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setAspectName(GLOSSARY_TERMS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+
+    // Apply with null currentValue — simulates a brand-new entity with no existing aspect.
+    // Before the fix this threw a ValidationException because auditStamp was missing.
+    ChangeItemImpl result = patchItem.applyPatch(null, aspectRetriever);
+
+    assertNotNull(result, "Patch should produce a result");
+    GlossaryTerms patched = (GlossaryTerms) result.getRecordTemplate();
+    assertNotNull(
+        patched.getAuditStamp(),
+        "auditStamp must be present — injected by the registered template default");
+    assertFalse(patched.getTerms().isEmpty(), "The added term must be present");
+    assertEquals(patched.getTerms().get(0).getUrn().toString(), "urn:li:glossaryTerm:CustomerData");
+  }
+
+  // ---------------------------------------------------------------------------
+  // findOversizedContent: diagnostic scan for over-long JSON names / string values.
+  // Uses small thresholds + tiny inputs so the cases are fast and explicit.
+  // ---------------------------------------------------------------------------
+
+  private static JsonPatch patchOf(String json) {
+    return Json.createPatch(Json.createReader(new StringReader(json)).readArray());
+  }
+
+  @Test
+  public void testFindOversizedContent_normalPatch_noFindings() {
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"short\"}]"), 100, 100);
+    assertTrue(found.isEmpty(), "Short keys and values must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedKey() {
+    String longKey = "k".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/"
+                    + longKey
+                    + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertEquals(found.get(0).length(), 60);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedTopLevelStringValue() {
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"" + longVal + "\"}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+    assertEquals(found.get(0).length(), 60);
+    assertEquals(found.get(0).path(), "/description");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInObject() {
+    // Recurse into an object value (e.g. queryProperties statement: { value, language }).
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/statement\",\"value\":{\"value\":\""
+                    + longVal
+                    + "\",\"language\":\"SQL\"}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInArray() {
+    // Recurse into an array value; only the long element is flagged.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/tags\",\"value\":[\"ok\",\"" + longVal + "\"]}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_nonStringValueIgnored() {
+    // Only string values are length-checked; a large number must not be flagged.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/count\",\"value\":123456789012345}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_opWithoutValueDoesNotThrow() {
+    // A remove op carries no "value" — must not NPE or produce a value finding.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"remove\",\"path\":\"/description\"}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_multipleOpsMixed() {
+    String longKey = "k".repeat(60);
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a/"
+                    + longKey
+                    + "\",\"value\":\"v\"},"
+                    + "{\"op\":\"add\",\"path\":\"/b\",\"value\":\""
+                    + longVal
+                    + "\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 2);
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.NAME));
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.VALUE));
+  }
+
+  @Test
+  public void testFindOversizedContent_keyAtThresholdNotFlagged() {
+    // Boundary: a key exactly at the threshold is not flagged (the check is strictly greater-than).
+    String key = "k".repeat(50);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertTrue(found.isEmpty(), "A key exactly at the threshold must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_jsonPointerEscapedKeyDecodedInSample() {
+    // JSON-Pointer escapes (~1 => '/', ~0 => '~') are decoded in the reported sample. The raw
+    // segment "a~1b" x20 = 80 chars contains no real '/', so it stays one segment over the limit.
+    String key = "a~1b".repeat(20);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertTrue(
+        found.get(0).sample().contains("/"), "~1 should be decoded to '/' in the reported sample");
+  }
+
+  @Test
+  public void testFindOversizedContent_deeplyNestedValueFound() {
+    // A string buried in object -> array -> object is still found by the recursive value scan.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a\",\"value\":{\"b\":[{\"c\":\""
+                    + longVal
+                    + "\"}]}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
   }
 }

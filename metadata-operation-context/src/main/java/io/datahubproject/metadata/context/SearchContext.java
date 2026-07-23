@@ -1,13 +1,19 @@
 package io.datahubproject.metadata.context;
 
 import com.linkedin.common.UrnArray;
+import com.linkedin.data.schema.PathSpec;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.util.Pair;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -23,7 +29,11 @@ import lombok.Getter;
 public class SearchContext implements ContextInterface {
 
   public static SearchContext EMPTY =
-      SearchContext.builder().indexConvention(IndexConventionImpl.noPrefix("")).build();
+      SearchContext.builder()
+          .indexConvention(IndexConventionImpl.noPrefix("", new EntityIndexConfiguration()))
+          .searchableFieldTypes(Collections.emptyMap())
+          .searchableFieldPaths(Collections.emptyMap())
+          .build();
 
   public static SearchContext withFlagDefaults(
       @Nonnull SearchContext searchContext,
@@ -54,6 +64,8 @@ public class SearchContext implements ContextInterface {
   @Nonnull private final IndexConvention indexConvention;
   @Nonnull private final SearchFlags searchFlags;
   @Nonnull private final LineageFlags lineageFlags;
+  @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
+  @Nullable private final Map<PathSpec, String> searchableFieldPaths;
 
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
@@ -158,7 +170,12 @@ public class SearchContext implements ContextInterface {
       if (this.lineageFlags == null) {
         lineageFlags(buildDefaultLineageFlags());
       }
-      return new SearchContext(this.indexConvention, this.searchFlags, this.lineageFlags);
+      return new SearchContext(
+          this.indexConvention,
+          this.searchFlags,
+          this.lineageFlags,
+          this.searchableFieldTypes,
+          this.searchableFieldPaths);
     }
   }
 

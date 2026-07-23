@@ -1,13 +1,17 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -39,10 +43,12 @@ public class RestliUtils {
       if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
         finalException = badRequestException(throwable.getMessage());
+      } else if (throwable instanceof ActorAccessException) {
+        finalException = forbidden(throwable.getMessage());
       } else if (throwable.getCause() instanceof ActorAccessException) {
-          finalException = forbidden(throwable.getCause().getMessage());
-      } else if (throwable instanceof APIThrottleException) {
-        finalException = apiThrottled(throwable.getMessage());
+        finalException = forbidden(throwable.getCause().getMessage());
+      } else if (throwable instanceof APIThrottleException apiThrottleException) {
+        finalException = apiThrottled(apiThrottleException);
       } else if (throwable instanceof RestLiServiceException) {
         finalException = (RestLiServiceException) throwable;
       } else {
@@ -61,13 +67,41 @@ public class RestliUtils {
               .transform(
                       orig -> {
                         if (orig.isFailed()) {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "failed")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "failed"),1 ));
                         } else {
-                          MetricUtils.counter(MetricRegistry.name(metricName, "success")).inc();
+                          opContext.getMetricUtils().ifPresent(metricUtils -> metricUtils.increment(MetricRegistry.name(metricName, "success"),1 ));
                         }
                         return orig;
                       });
     }, MetricUtils.DROPWIZARD_METRIC, "true");
+  }
+
+  /**
+   * Builds a request-scoped session {@link OperationContext} at the Rest.li resource boundary and
+   * maps {@link ActorAccessException} (inactive/denied actor) to a 403, matching the HTTP semantics
+   * that {@link #toTask(Supplier)} already applies for exceptions thrown inside the supplier.
+   *
+   * <p>Call on the Rest.li request thread (typically before {@link #toTask}). The 403 is thrown
+   * directly on the calling thread so Rest.li maps it to the response; it is not wrapped as a failed
+   * Task.
+   */
+  @Nonnull
+  public static OperationContext asSession(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull RequestContext.RequestContextBuilder requestContext,
+      @Nonnull Authorizer authorizer,
+      @Nonnull Authentication sessionAuthentication,
+      boolean allowSystemAuthentication) {
+    try {
+      return OperationContext.asSession(
+          systemOperationContext,
+          requestContext,
+          authorizer,
+          sessionAuthentication,
+          allowSystemAuthentication);
+    } catch (ActorAccessException e) {
+      throw forbidden(e.getMessage());
+    }
   }
 
   /**
@@ -106,6 +140,11 @@ public class RestliUtils {
   @Nonnull
   public static RestLiServiceException invalidArgumentsException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
+  }
+
+  @Nonnull
+  public static RestLiServiceException apiThrottled(@Nonnull APIThrottleException throttleException) {
+    return new ThrottledRestLiServiceException(throttleException);
   }
 
   @Nonnull

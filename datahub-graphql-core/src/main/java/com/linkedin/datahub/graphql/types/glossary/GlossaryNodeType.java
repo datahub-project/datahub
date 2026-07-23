@@ -1,11 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
-import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -48,7 +43,12 @@ public class GlossaryNodeType
           GLOSSARY_NODE_INFO_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          DOMAINS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME,
+          DISPLAY_PROPERTIES_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -108,7 +108,7 @@ public class GlossaryNodeType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters =
@@ -129,7 +129,7 @@ public class GlossaryNodeType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =

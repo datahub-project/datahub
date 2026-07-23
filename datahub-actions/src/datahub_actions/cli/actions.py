@@ -143,6 +143,14 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
         try:
             # Now load the full config with variable expansion
             pipeline_config_dict = load_config_file(pipeline_config_file)
+
+            # double check whether config is enabled with variable expansion
+            if not is_pipeline_enabled(pipeline_config_dict):
+                logger.warning(
+                    f"Skipping pipeline {pipeline_config_dict.get('name') or pipeline_config_file} as it is not enabled"
+                )
+                continue
+
             pipelines.append(pipeline_config_to_pipeline(pipeline_config_dict))
         except UnboundVariable as e:
             if len(valid_configs) == 1:

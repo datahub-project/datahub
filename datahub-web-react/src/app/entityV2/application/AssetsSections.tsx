@@ -1,0 +1,104 @@
+import { AppstoreOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
+import {
+    getContentsSummary,
+    getDomainEntitiesFilterUrl,
+    navigateToDomainEntities,
+} from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
+import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
+import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+
+const AssetsSectionWrapper = styled.div`
+    flex: 1;
+    min-width: 100px;
+`;
+
+const StyledHeaderWrapper = styled(SummaryTabHeaderWrapper)`
+    margin-bottom: 8px;
+`;
+
+export const AssetsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const history = useHistory();
+    const entityRegistry = useEntityRegistry();
+    const { urn, entityType } = useEntityData();
+
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
+        skip: !urn,
+        variables: {
+            input: {
+                types: [],
+                query: '',
+                orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
+                count: 1000,
+            },
+        },
+        fetchPolicy: 'cache-first',
+    });
+
+    const contentsSummary = data?.searchAcrossEntities && getContentsSummary(data.searchAcrossEntities);
+    const contentsCount = contentsSummary?.total || 0;
+    const hasContents = contentsCount > 0;
+
+    if (!hasContents) {
+        return null;
+    }
+
+    return (
+        <AssetsSectionWrapper>
+            <StyledHeaderWrapper>
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
+                <Button type="link" onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
+                    {tc('viewAll')}
+                </Button>
+            </StyledHeaderWrapper>
+            {loading && <ContentSectionLoading />}
+
+            <HorizontalList>
+                {!loading &&
+                    contentsSummary?.types?.map((summary) => {
+                        const { type, count, entityType: summaryEntityType } = summary;
+                        const typeName = (
+                            type ||
+                            entityRegistry.getEntityName(summaryEntityType) ||
+                            summaryEntityType
+                        ).toLocaleLowerCase();
+                        const link = getDomainEntitiesFilterUrl(
+                            urn,
+                            entityType,
+                            entityRegistry,
+                            [summary.entityType],
+                            summary.type ? [summary.type] : undefined,
+                        );
+                        return (
+                            <EntityCountCard
+                                key={typeName}
+                                type={typeName}
+                                name={typeName}
+                                count={summary.count}
+                                icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
+                                link={link}
+                            />
+                        );
+                    })}
+            </HorizontalList>
+        </AssetsSectionWrapper>
+    );
+};

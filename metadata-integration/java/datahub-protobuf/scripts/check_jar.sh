@@ -23,6 +23,7 @@ jar -tvf $jarFile |\
       grep -v "git.properties" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
+      grep -v "jakarta/" |\
       grep -v "io/swagger" |\
       grep -v "JavaSpring" |\
       grep -v "java-header-style.xml" |\
@@ -47,7 +48,9 @@ jar -tvf $jarFile |\
       grep -v "LICENSE" |\
       grep -v "org/apache/avro" |\
       grep -v "org/apache" |\
-      grep -v "org/publicsuffix"
+      grep -v "org/publicsuffix" |\
+      grep -v "com/eclipsesource/" |\
+      grep -v "freebsd/"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

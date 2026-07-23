@@ -1,0 +1,17 @@
+namespace com.linkedin.role
+
+import com.linkedin.common.Urn
+/**
+ * Provisioned groups of a role
+ */
+record RoleGroup {
+
+    /**
+     * Link provisioned corp group for a role
+     */
+    @Relationship = {
+      "name": "Has",
+      "entityTypes": [ "corpGroup" ]
+    }
+    group: Urn
+} 

@@ -1,0 +1,189 @@
+:root {
+  --datahub-primary: #18A3FF;
+  --datahub-secondary: #EFB300;
+  --datahub-dark: #16171C;
+  --datahub-dark-gray: #373A47;
+  --datahub-medium-gray: #484C5C;
+  --datahub-light-gray: #D9DBE4;
+  --datahub-light-blue: #E8F4FF;
+  --datahub-light-yellow: #FDF4D9;
+  --datahub-error: #DD3163;
+  --datahub-success: #079159;
+  --datahub-white: #FFFFFF;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.error-404 {
+  background: linear-gradient(135deg, var(--datahub-primary) 0%, var(--datahub-dark) 100%);
+}
+
+body.error-500 {
+  background: linear-gradient(135deg, var(--datahub-error) 0%, var(--datahub-dark-gray) 100%);
+}
+
+.container {
+  text-align: center;
+  color: var(--datahub-white);
+  max-width: 600px;
+  padding: 2rem;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.error-code {
+  font-size: 8rem;
+  font-weight: 700;
+  margin: 0;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.error-message {
+  font-size: 1.75rem;
+  font-weight: 500;
+  margin: 1rem 0;
+  opacity: 0.95;
+}
+
+.error-description {
+  font-size: 1.125rem;
+  opacity: 0.85;
+  margin: 2rem 0;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.request-info,
+.error-details {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 1.25rem;
+  border-radius: 12px;
+  margin: 2rem 0;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+  font-size: 0.875rem;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.request-info {
+  word-break: break-all;
+}
+
+.error-details {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.error-details::-webkit-scrollbar {
+  width: 8px;
+}
+
+.error-details::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.error-details::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.error-details::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.home-link {
+  display: inline-block;
+  padding: 0.875rem 2.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--datahub-white);
+  text-decoration: none;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 2rem;
+  backdrop-filter: blur(10px);
+}
+
+.home-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.home-link:active {
+  transform: translateY(0);
+}
+
+.datahub-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-top: 3rem;
+  letter-spacing: -0.02em;
+}
+
+.datahub-logo::before {
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--datahub-primary), var(--datahub-secondary));
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .error-code {
+    font-size: 5rem;
+  }
+
+  .error-message {
+    font-size: 1.5rem;
+  }
+
+  .error-description {
+    font-size: 1rem;
+  }
+
+  .container {
+    padding: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

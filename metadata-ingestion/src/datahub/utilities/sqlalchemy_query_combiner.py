@@ -18,6 +18,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 from datahub.ingestion.api.report import Report
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -41,7 +42,12 @@ _sa_execute_underlying_method = sqlalchemy.engine.Connection.execute
 class _RowProxyFake(collections.OrderedDict):
     def __getitem__(self, k):  # type: ignore
         if isinstance(k, int):
-            k = list(self.keys())[k]
+            keys = list(self.keys())
+            if k >= len(keys):
+                raise IndexError(
+                    f"Row has {len(keys)} columns, cannot access index {k}"
+                )
+            k = keys[k]
         return super().__getitem__(k)
 
 
@@ -81,6 +87,9 @@ class _ResultProxyFake:
     def scalar(self) -> Any:
         if len(self._result) == 1:
             row = self._result[0]
+            if len(row) == 0:
+                # Row exists but has no columns (empty result)
+                return None
             return row[0]
         elif self._result:
             raise MultipleResultsFound(
@@ -172,6 +181,11 @@ class SQLAlchemyQueryCombiner:
         # The value of k=16 should be more than enough to ensure uniqueness.
         # Adapted from https://stackoverflow.com/a/30779367/5004662.
         return "".join(random.choices(string.ascii_lowercase, k=16))
+
+    @staticmethod
+    def _generate_query_id() -> str:
+        # Short 5-character ID for correlating query execution logs.
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
 
     def _get_main_greenlet(self) -> greenlet.greenlet:
         let = greenlet.getcurrent()
@@ -272,8 +286,11 @@ class SQLAlchemyQueryCombiner:
                     self.report.uncombined_queries_issued += 1
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
-        with _sa_execute_method_patching_lock, unittest.mock.patch(
-            "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+        with (
+            _sa_execute_method_patching_lock,
+            unittest.mock.patch(
+                "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+            ),
         ):
             yield self
 
@@ -328,9 +345,18 @@ class SQLAlchemyQueryCombiner:
             for cte in ctes.values():
                 combined_query.append_from(cte)
 
-            logger.debug(f"Executing combined query: {str(combined_query)}")
+            query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.combined_queries_issued += 1
-            sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+            logger.info(
+                f"[{query_id}] Executing combined query ({len(pending_queue)} queries combined)"
+            )
+            logger.debug(f"[{query_id}] SQL: {str(combined_query)}")
+            with PerfTimer() as timer:
+                sa_res = _sa_execute_underlying_method(queue_item.conn, combined_query)
+
+            logger.info(
+                f"[{query_id}] Combined query executed in {timer.elapsed_seconds():.3f}s"
+            )
 
             # Fetch the results and ensure that exactly one row is returned.
             results = sa_res.fetchall()
@@ -366,24 +392,37 @@ class SQLAlchemyQueryCombiner:
             if query_future.done:
                 continue
 
-            logger.debug(f"Executing query via fallback: {str(query_future.query)}")
+            query_id = SQLAlchemyQueryCombiner._generate_query_id()
             self.report.uncombined_queries_issued += 1
-            try:
-                res = _sa_execute_underlying_method(
-                    query_future.conn,
-                    query_future.query,
-                    *query_future.multiparams,
-                    **query_future.params,
-                )
 
-                # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
-                # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
-                # by _ResultProxyFake.
-                query_future.res = cast(_ResultProxyFake, res)
-            except Exception as e:
-                query_future.exc = e
-            finally:
-                query_future.done = True
+            logger.info(f"[{query_id}] Executing fallback query")
+            logger.debug(f"[{query_id}] SQL: {str(query_future.query)}")
+
+            with PerfTimer() as timer:
+                try:
+                    res = _sa_execute_underlying_method(
+                        query_future.conn,
+                        query_future.query,
+                        *query_future.multiparams,
+                        **query_future.params,
+                    )
+
+                    # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
+                    # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
+                    # by _ResultProxyFake.
+                    query_future.res = cast(_ResultProxyFake, res)
+
+                    logger.info(
+                        f"[{query_id}] Fallback query executed in {timer.elapsed_seconds():.3f}s"
+                    )
+                except Exception as e:
+                    query_future.exc = e
+                    logger.warning(
+                        f"[{query_id}] Fallback query failed in {timer.elapsed_seconds():.3f}s "
+                        f"({type(e).__name__})"
+                    )
+                finally:
+                    query_future.done = True
 
     def flush(self) -> None:
         """Executes until the queue and pool are empty."""

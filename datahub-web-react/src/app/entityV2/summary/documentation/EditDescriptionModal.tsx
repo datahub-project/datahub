@@ -1,0 +1,103 @@
+import { Editor, Modal } from '@components';
+import { message } from 'antd';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import useFileUpload from '@app/shared/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+
+import { UploadDownloadScenario } from '@types';
+
+const StyledEditor = styled(Editor)`
+    border: none;
+    &&& {
+        .remirror-editor {
+            padding: 0;
+            min-height: 350px;
+            max-height: calc(100vh - 300px);
+            overflow: auto;
+        }
+    }
+`;
+
+const toolbarStyles = {
+    marginLeft: '-8px',
+    marginBottom: '16px',
+    width: '100%',
+    justifyContent: 'flex-start',
+    marginTop: '-24px',
+};
+
+interface Props {
+    updatedDescription: string;
+    setUpdatedDescription: React.Dispatch<React.SetStateAction<string>>;
+    handleDescriptionUpdate: () => Promise<void>;
+    emptyDescriptionText: string;
+    closeModal: () => void;
+}
+
+export default function EditDescriptionModal({
+    updatedDescription,
+    setUpdatedDescription,
+    handleDescriptionUpdate,
+    emptyDescriptionText,
+    closeModal,
+}: Props) {
+    const { t } = useTranslation('entity.profile.summary');
+    const { t: tc } = useTranslation('common.actions');
+    const canEditDescription = useDocumentationPermission();
+    const { urn: assetUrn } = useEntityData();
+    const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
+        scenario: UploadDownloadScenario.AssetDocumentation,
+        assetUrn,
+    });
+    const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
+    return (
+        <Modal
+            title={t('documentation.editTitle')}
+            onCancel={closeModal}
+            width="80vw"
+            style={{ maxWidth: '1200px' }}
+            maskClosable={false}
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: () => closeModal(),
+                    buttonDataTestId: 'cancel-button',
+                },
+                {
+                    text: tc('publish'),
+                    onClick: () => {
+                        handleDescriptionUpdate().catch((e) => {
+                            message.destroy();
+                            message.error({
+                                content: t('documentation.updateError', { error: e.message || '' }),
+                                duration: 3,
+                            });
+                        });
+                        closeModal();
+                    },
+                    disabled: !canEditDescription,
+                    buttonDataTestId: 'publish-button',
+                },
+            ]}
+        >
+            <StyledEditor
+                content={updatedDescription}
+                placeholder={emptyDescriptionText}
+                hideHighlightToolbar
+                onChange={(description) => setUpdatedDescription(description)}
+                toolbarStyles={toolbarStyles}
+                dataTestId="description-editor"
+                uploadFileProps={{
+                    onFileUpload: uploadFile,
+                    ...uploadFileAnalyticsCallbacks,
+                }}
+            />
+        </Modal>
+    );
+}

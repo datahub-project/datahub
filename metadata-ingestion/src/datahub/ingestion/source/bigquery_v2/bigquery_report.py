@@ -9,7 +9,6 @@ import pydantic
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
@@ -26,6 +25,7 @@ class BigQuerySchemaApiPerfReport(Report):
     num_list_projects_api_requests: int = 0
     num_list_datasets_api_requests: int = 0
     num_get_columns_for_dataset_api_requests: int = 0
+    num_list_policy_tags_api_requests: int = 0
     num_get_tables_for_dataset_api_requests: int = 0
     num_list_tables_api_requests: int = 0
     num_get_views_for_dataset_api_requests: int = 0
@@ -35,8 +35,10 @@ class BigQuerySchemaApiPerfReport(Report):
     list_projects_timer: PerfTimer = field(default_factory=PerfTimer)
     list_projects_with_labels_timer: PerfTimer = field(default_factory=PerfTimer)
     list_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
+    enrich_datasets_timer: PerfTimer = field(default_factory=PerfTimer)
 
     get_columns_for_dataset_sec: float = 0
+    list_policy_tags_sec: float = 0
     get_tables_for_dataset_sec: float = 0
     get_table_constraints_for_dataset_sec: float = 0
     list_tables_sec: float = 0
@@ -67,6 +69,7 @@ class BigQueryQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
     num_queries_by_project: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_queries_by_region: TopKDict[str, int] = field(default_factory=int_top_k_dict)
 
     num_total_queries: int = 0
     num_unique_queries: int = 0
@@ -74,11 +77,15 @@ class BigQueryQueriesExtractorReport(Report):
     num_discovered_tables: Optional[int] = None
     inferred_temp_tables: LossySet[str] = field(default_factory=LossySet)
 
+    region_qualifiers_configured: List[str] = field(default_factory=list)
+    region_qualifiers_auto_discovered: List[str] = field(default_factory=list)
+    region_qualifiers_used: List[str] = field(default_factory=list)
+    discovered_locations_unparseable: LossyList[str] = field(default_factory=LossyList)
+
 
 @dataclass
 class BigQueryV2Report(
     SQLSourceReport,
-    IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
 ):
@@ -160,6 +167,8 @@ class BigQueryV2Report(
     num_lineage_dropped_gcs_path: int = 0
 
     snapshots_scanned: int = 0
+    num_sharded_tables_scanned: int = 0
+    num_sharded_tables_deduped: int = 0
 
     # view lineage
     sql_aggregator: Optional[SqlAggregatorReport] = None
@@ -188,5 +197,6 @@ class BigQueryV2Report(
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
     num_skipped_external_table_lineage: int = 0
+    num_biglake_datasets_skipped_for_region_autodetect: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None

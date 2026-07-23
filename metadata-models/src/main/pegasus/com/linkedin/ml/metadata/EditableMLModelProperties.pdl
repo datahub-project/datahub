@@ -13,6 +13,7 @@ record EditableMLModelProperties {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
+    "searchTier": 2
   }
   description: optional string
 }

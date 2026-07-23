@@ -1,6 +1,9 @@
-describe("home", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("home", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags((res) => {
+      res.body.data.appConfig.featureFlags.showHomePageRedesign = false;
+    });
     cy.skipIntroducePage();
     cy.on("uncaught:exception", (err, runnable) => false);
   });

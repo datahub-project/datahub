@@ -1,9 +1,8 @@
-import { Tooltip } from '@components';
-import { Switch } from 'antd';
+import { Switch, Tooltip } from '@components';
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LineageNodesContext, isTransformational } from '@app/lineageV2/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
@@ -21,21 +20,23 @@ const ToggleLabel = styled.span`
     display: flex;
     align-items: center;
     gap: 4px;
-    color: ${ANTD_GRAY[9]};
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledInfoPopover = styled(InfoPopover)`
     position: relative;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PopoverWrapper = styled.div`
     max-width: 200px;
 `;
 
-const StyledSwitch = styled(Switch)``;
-
 export default function LineageSearchFilters() {
+    const { t } = useTranslation('lineage');
     const {
         nodes,
         rootUrn,
@@ -54,59 +55,52 @@ export default function LineageSearchFilters() {
     );
     return (
         <ControlPanel>
-            <ControlPanelTitle>Filters</ControlPanelTitle>
-            <ControlPanelSubtext>Hide or show assets on the graph.</ControlPanelSubtext>
+            <ControlPanelTitle>{t('controls.filters.title')}</ControlPanelTitle>
+            <ControlPanelSubtext>{t('controls.filters.description')}</ControlPanelSubtext>
             <ToggleWrapper>
-                <span>
-                    <ToggleLabel>
-                        Hide Transformations
-                        <StyledInfoPopover
-                            content={
-                                <PopoverWrapper>
-                                    Hide queries and transforms (circular nodes). Will not hide home node.
-                                </PopoverWrapper>
-                            }
-                        />
-                    </ToggleLabel>
-                </span>
-                <Tooltip title={hasTransformations ? undefined : 'No transformations to hide'}>
-                    <StyledSwitch
-                        disabled={!hasTransformations}
-                        size="small"
-                        checked={hideTransformations}
-                        onChange={setHideTransformations}
+                <ToggleLabel>
+                    {t('controls.filters.hideTransformations.label')}
+                    <StyledInfoPopover
+                        content={<PopoverWrapper>{t('controls.filters.hideTransformations.tooltip')}</PopoverWrapper>}
+                    />
+                </ToggleLabel>
+                <Tooltip title={hasTransformations ? undefined : t('controls.filters.noTransformationsToHide.tooltip')}>
+                    <Switch
+                        label=""
+                        labelStyle={{ display: 'none' }}
+                        isDisabled={!hasTransformations}
+                        isChecked={hideTransformations}
+                        onChange={() => setHideTransformations(!hideTransformations)}
                     />
                 </Tooltip>
             </ToggleWrapper>
             <ToggleWrapper>
-                <span>
-                    <ToggleLabel>
-                        Hide Process Instances
-                        <StyledInfoPopover
-                            content={<PopoverWrapper>Hide task runs. Will not hide home node.</PopoverWrapper>}
-                        />
-                    </ToggleLabel>
-                </span>
-                <StyledSwitch
-                    size="small"
-                    checked={!showDataProcessInstances}
+                <ToggleLabel>
+                    {t('controls.filters.hideProcessInstances.label')}
+                    <StyledInfoPopover
+                        content={<PopoverWrapper>{t('controls.filters.hideProcessInstances.tooltip')}</PopoverWrapper>}
+                    />
+                </ToggleLabel>
+                <Switch
+                    label=""
+                    labelStyle={{ display: 'none' }}
+                    isChecked={!showDataProcessInstances}
                     onChange={() => setShowDataProcessInstances(!showDataProcessInstances)}
                 />
             </ToggleWrapper>
             <ToggleWrapper>
-                <span>
-                    <ToggleLabel>
-                        Show Hidden Edges
-                        <StyledInfoPopover
-                            content={
-                                <PopoverWrapper>
-                                    Show assets that have been deleted or do not exist in DataHub
-                                </PopoverWrapper>
-                            }
-                        />
-                    </ToggleLabel>
-                </span>
-                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
+                <ToggleLabel>
+                    {t('controls.filters.showHiddenEdges.label')}
+                    <StyledInfoPopover
+                        content={<PopoverWrapper>{t('controls.filters.showHiddenEdges.tooltip')}</PopoverWrapper>}
+                    />
+                </ToggleLabel>
+                <Switch
+                    label=""
+                    labelStyle={{ display: 'none' }}
+                    isChecked={showGhostEntities}
+                    onChange={() => setShowGhostEntities(!showGhostEntities)}
+                />
             </ToggleWrapper>
         </ControlPanel>
     );

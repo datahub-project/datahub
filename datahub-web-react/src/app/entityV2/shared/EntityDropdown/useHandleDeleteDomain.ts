@@ -1,8 +1,7 @@
-import { useApolloClient } from '@apollo/client';
-
-import { useDomainsContext } from '@app/domain/DomainsContext';
-import { removeFromListDomainsCache } from '@app/domain/utils';
+import { UpdatedDomain, useDomainsContext } from '@app/domainV2/DomainsContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+
+import { EntityType } from '@types';
 
 interface DeleteDomainProps {
     entityData: GenericEntityProperties;
@@ -10,18 +9,17 @@ interface DeleteDomainProps {
 }
 
 export function useHandleDeleteDomain({ entityData, urn }: DeleteDomainProps) {
-    const client = useApolloClient();
-    const { parentDomainsToUpdate, setParentDomainsToUpdate } = useDomainsContext();
+    const { setDeletedDomain } = useDomainsContext();
 
     const handleDeleteDomain = () => {
-        if (entityData.parentDomains && entityData.parentDomains.domains.length > 0) {
-            const parentDomainUrn = entityData.parentDomains.domains[0].urn;
-
-            removeFromListDomainsCache(client, urn, 1, 1000, parentDomainUrn);
-            setParentDomainsToUpdate([...parentDomainsToUpdate, parentDomainUrn]);
-        } else {
-            removeFromListDomainsCache(client, urn, 1, 1000);
-        }
+        const parentDomainUrn = entityData?.parentDomains?.domains?.[0]?.urn || undefined;
+        const deletedDomain: UpdatedDomain = {
+            urn,
+            type: EntityType.Domain,
+            id: urn,
+            parentDomain: parentDomainUrn,
+        };
+        setDeletedDomain(deletedDomain);
     };
 
     return { handleDeleteDomain };

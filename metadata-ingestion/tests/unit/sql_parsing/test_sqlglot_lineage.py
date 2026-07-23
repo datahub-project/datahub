@@ -2,6 +2,8 @@ import pathlib
 
 import pytest
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -41,6 +43,14 @@ FROM mytable
 
 def test_select_max_with_schema() -> None:
     # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
+
+    # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
+    # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
+    # Sqlglot confirmed this is intentional - v28 is more conservative with type inference when any argument is UNKNOWN.
+    # See https://github.com/tobymao/sqlglot/issues/6983
+    # The impact is that we miss type information for the max_col column when queries reference unresolved columns.
+    # That doesn't happen with the test_select_max_with_schema_all_resolved test because all columns are resolved.
+
     assert_sql_result(
         """
 SELECT max(`col1`, COL2, `this_will_not_resolve`) as max_col
@@ -54,6 +64,23 @@ FROM mytable
             },
         },
         expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
+    )
+
+
+def test_select_max_with_schema_all_resolved() -> None:
+    assert_sql_result(
+        """
+SELECT max(`col1`, COL2) as max_col
+FROM mytable
+""",
+        dialect="mysql",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mytable,PROD)": {
+                "col1": "NUMBER",
+                "col2": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema_all_resolved.json",
     )
 
 
@@ -151,6 +178,102 @@ AS
     )
 
 
+def test_snowflake_create_view_with_tag() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_db.my_schema.my_view
+WITH TAG (cost_center = 'engineering', classification = 'internal')
+AS
+SELECT id, name FROM my_db.my_schema.my_table
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_create_view_with_tag.json",
+    )
+
+
+def test_create_view_as_block_statement() -> None:
+    """Test Block with multiple statements where only 1 is not None.
+
+    Sqlglot v29 parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
+    Block([Create, None]), where None represents the empty statement between semicolons.
+
+    This pattern was observed in Redshift integration tests where view definitions had
+    double semicolons, causing column lineage extraction to fail.
+
+    This test ensures we correctly filter out None expressions and extract column lineage.
+    Regression test for sqlglot v29 upgrade.
+    """
+    # Double semicolon pattern that creates Block([Create, None])
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS (SELECT id, name, age FROM base_table);
+        ;
+""",
+        dialect="redshift",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.base_table,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+                "age": "INTEGER",
+            }
+        },
+        default_db="dev",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_create_view_as_block_statement.json",
+    )
+
+
+def test_block_with_all_none_expressions() -> None:
+    """Test Block with all None expressions returns error in SqlParsingResult.
+
+    Sqlglot raises ParseError when parsing SQL with only semicolons
+    since there's no valid SQL statement.
+    """
+    result = sqlglot_lineage(
+        ";\n;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "No expression was parsed" in str(result.debug_info.table_error)
+
+
+def test_block_with_multiple_statements() -> None:
+    """Test Block with multiple non-None statements returns error.
+
+    parse_statement expects a single statement. Multiple statements should use
+    parse_statements_and_pick() instead.
+    """
+    result = sqlglot_lineage(
+        "CREATE VIEW v1 AS SELECT * FROM t1; CREATE VIEW v2 AS SELECT * FROM t2;",
+        schema_resolver=SchemaResolver(
+            platform="redshift",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is not None
+    assert "Block contains 2 statements" in str(result.debug_info.table_error)
+    assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
+
+
+def test_snowflake_create_table_as_select_with_tag() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE TABLE my_db.my_schema.target_table
+WITH TAG (cost_center = 'engineering')
+AS
+SELECT id, name FROM my_db.my_schema.source_table
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_table_as_select_with_tag.json",
+    )
+
+
 def test_insert_as_select() -> None:
     # Note: this also tests lineage with case statements.
     # The join extraction on this is going to be poor quality because
@@ -199,6 +322,35 @@ insert into downstream (a, c) select a, c from upstream2
     )
 
 
+def test_insert_with_cte() -> None:
+    assert_sql_result(
+        """
+WITH temp_cte AS (
+    SELECT id, name, value
+    FROM db.schema.source_table
+)
+INSERT INTO db.schema.target_table (id, name, value)
+SELECT id, name, value FROM temp_cte
+""",
+        dialect="tsql",
+        expected_file=RESOURCE_DIR / "test_insert_with_cte.json",
+    )
+
+
+def test_mssql_insert_column_name_mapping() -> None:
+    # MSSQL-specific: INSERT column names differ from SELECT column names
+    # Tests that column mapping works correctly (INSERT cols != SELECT cols)
+    assert_sql_result(
+        """
+INSERT INTO target_db.dbo.target_table (target_col_a, target_col_b)
+SELECT source_col_x, source_col_y
+FROM source_db.dbo.source_table
+""",
+        dialect="tsql",
+        expected_file=RESOURCE_DIR / "test_mssql_insert_column_name_mapping.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
@@ -242,6 +394,101 @@ WHERE post_id LIKE '%12345%'
             },
         },
         expected_file=RESOURCE_DIR / "test_select_from_struct_subfields.json",
+    )
+
+
+def test_select_struct_subfields_from_cte() -> None:
+    # The struct subfield access happens inside the CTE, so the leaf's immediate
+    # parent is the CTE's select expression -- the outer select doesn't mention
+    # `widget` at all. This guards subfield reconstruction across nesting levels.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT
+        post_id,
+        widget.asset.id AS asset_id,
+        min(widget.metric.metricA, widget.metric.metric_b) AS min_metric
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, asset_id, min_metric
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+                "widget.metric.metricA": "int",
+                "widget.metric.metric_b": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_struct_subfields_from_cte.json",
+    )
+
+
+def test_select_struct_subfield_through_cte_passthrough() -> None:
+    # Here the CTE selects the bare `widget` struct and the subfield access
+    # (`widget.asset.id`) happens in the *outer* query. The leaf's immediate
+    # parent is the CTE projection `widget AS widget`, which no longer carries
+    # the subfield, so reconstruction can only recover the base column. Lineage
+    # correctly coarsens to `widget` rather than inventing a subfield. This is a
+    # known limitation: subfield access does not propagate across scope boundaries.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT post_id, widget
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, widget.asset.id AS asset_id
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_select_struct_subfield_through_cte_passthrough.json",
+    )
+
+
+def test_join_struct_subfields_shared_base_name() -> None:
+    # Two joined tables both expose a struct column named `widget`, each accessed
+    # with a different subfield. sqlglot inserts an intermediate projection per
+    # joined table (`widget AS widget`), so the subfield access in the root select
+    # is one scope above each leaf and lineage coarsens to the base column. The
+    # important guarantee: each base column still resolves to the *correct* table
+    # (a_color -> table_a.widget, b_size -> table_b.widget) -- the shared base name
+    # never causes a subfield to attach to the wrong table.
+    assert_sql_result(
+        """
+SELECT
+    a.widget.color AS a_color,
+    b.widget.size AS b_size
+FROM my_schema.table_a a
+JOIN my_schema.table_b b ON a.id = b.a_id
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)": {
+                "id": "int",
+                "widget": "struct",
+                "widget.color": "string",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)": {
+                "a_id": "int",
+                "widget": "struct",
+                "widget.size": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_join_struct_subfields_shared_base_name.json",
     )
 
 
@@ -408,6 +655,83 @@ FROM snowflake_sample_data.tpch_sf1.orders o
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_ctas_column_normalization.json",
+    )
+
+
+def test_snowflake_case_sensitive_quoted_column_lineage() -> None:
+    # Regression guard for the case-sensitive column lineage fix.
+    #
+    # The output column is handed to sqlglot.lineage.lineage() with its identifier
+    # marked case_sensitive so sqlglot's normalize_identifiers leaves the casing
+    # alone. If that marker is dropped, Snowflake (UPPERCASE strategy) case-folds
+    # "CustomerName" to CUSTOMERNAME, the column can no longer be found in the query,
+    # and the upstream edge is silently dropped -- i.e. this assertion would see an
+    # empty column_lineage. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+SELECT "CustomerName" AS "FullName"
+FROM db.sch.tbl
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_quoted_column_lineage.json",
+    )
+
+
+def test_snowflake_case_sensitive_column_through_cte() -> None:
+    # Regression guard for the case-sensitive column lineage fix, this time with
+    # the quoted column "CustomerName" flowing through a CTE, exercising scope
+    # resolution across the CTE -> outer SELECT hop. As with the non-CTE case,
+    # dropping the case_sensitive marker lets Snowflake case-fold the projection
+    # lookup so the upstream edge is silently dropped.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+WITH staged AS (
+    SELECT "CustomerName" FROM db.sch.tbl
+)
+SELECT "CustomerName" AS "FullName"
+FROM staged
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_column_through_cte.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Regression guard for case-insensitive dialects (Databricks/Spark/Hive/Redshift/
+    # Trino/...). Unlike Snowflake, these fold identifiers *even when quoted*. A
+    # SELECT * over a schema with mixed-case columns expands to the columns' real
+    # casing (betStatusId), so the lineage lookup must not be re-folded. Passing the
+    # lookup column as quoted=True alone is not enough here -- it case-folds
+    # "betStatusId" to "betstatusid", the column is no longer found, and the upstream
+    # edge is silently dropped. Marking the identifier case_sensitive keeps it
+    # verbatim. This mirrors the Unity Catalog view-lineage path. See
+    # https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM hive_metastore.bronze_kambi.bet",
+        dialect="databricks",
+        default_db="hive_metastore",
+        default_schema="bronze_kambi",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)": {
+                "betStatusId": "BIGINT",
+                "channelId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_case_sensitive_column_lineage.json",
     )
 
 
@@ -816,6 +1140,47 @@ JOIN cte_alias ON users.id = cte_alias.user_id
     )
 
 
+def test_snowflake_cte_chain_join_tables() -> None:
+    # When CTE2 references CTE1, and the outer query joins on a column that
+    # traces through the CTE chain, the join metadata should correctly resolve
+    # the physical tables involved. This validates that scope-based table
+    # resolution follows CTE-to-CTE references (not just direct table sources).
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT t1.id, t1.name
+    FROM my_db.my_schema.t1
+),
+cte2 AS (
+    SELECT cte1.id, t2.value
+    FROM cte1
+    JOIN my_db.my_schema.t2 ON cte1.id = t2.id
+)
+SELECT users.col, cte2.value
+FROM my_db.my_schema.users
+JOIN cte2 ON users.id = cte2.id
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.t1,PROD)": {
+                "ID": "NUMBER",
+                "NAME": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.t2,PROD)": {
+                "ID": "NUMBER",
+                "VALUE": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users,PROD)": {
+                "ID": "NUMBER",
+                "COL": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_cte_chain_join_tables.json",
+    )
+
+
 def test_snowflake_full_table_name_col_reference() -> None:
     assert_sql_result(
         """
@@ -842,7 +1207,7 @@ FROM my_db.my_schema.my_table
 # TODO: Add a test for setting platform_instance or env
 
 
-def test_teradata_default_normalization() -> None:
+def test_default_schema_normalization() -> None:
     assert_sql_result(
         """
 create table demo_user.test_lineage2 as
@@ -880,12 +1245,12 @@ create table demo_user.test_lineage2 as
                 "PatientId": "INTEGER()",
             },
         },
-        expected_file=RESOURCE_DIR / "test_teradata_default_normalization.json",
+        expected_file=RESOURCE_DIR / "test_default_schema_normalization.json",
     )
 
 
-def test_teradata_strange_operators() -> None:
-    # This is a test for the following operators:
+def test_dialect_specific_operators() -> None:
+    # This is a test for the following Teradata-specific operators:
     # - `SEL` (select)
     # - `EQ` (equals)
     # - `MINUS` (except)
@@ -898,7 +1263,7 @@ select col1, col2 from dbc.table2
 """,
         dialect="teradata",
         default_schema="dbc",
-        expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+        expected_file=RESOURCE_DIR / "test_dialect_specific_operators.json",
     )
 
 
@@ -1233,6 +1598,17 @@ INSERT INTO my_table (id, month, total_cost, area)
     )
 
 
+def test_teradata_insert_into_values() -> None:
+    # Test INSERT VALUES with complex values including strings and timestamps
+    assert_sql_result(
+        """\
+INSERT INTO operations_temp.loss_backup (val_name, amount_type, field_number, amount_status, col_status, duration, time_code) 
+VALUES (9, '2011-04-17', 42, 42.34, '1980-12-29 15:11:17', '1994-08-19 21:28:09', 'garden')""",
+        dialect="teradata",
+        expected_file=RESOURCE_DIR / "test_insert_into_values.json",
+    )
+
+
 def test_bigquery_information_schema_query() -> None:
     # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
     # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
@@ -1558,4 +1934,222 @@ NATURAL JOIN my_table2 t2
             },
         },
         expected_file=RESOURCE_DIR / "test_natural_join.json",
+    )
+
+
+def test_dremio_quoted_identifiers() -> None:
+    # Test that Dremio SQL with quoted identifiers parses correctly.
+    # This is a regression test for the issue where Dremio was mapped to the
+    # "drill" dialect, which didn't support quoted identifiers properly.
+    assert_sql_result(
+        """\
+WITH "cte_orders" AS (
+    SELECT * FROM "MySource"."sales"."orders"
+    WHERE "status" = 'completed'
+)
+SELECT "cte_orders"."order_id", "customers"."customer_name"
+FROM "cte_orders"
+JOIN "MySource"."sales"."customers" ON "cte_orders"."customer_id" = "customers"."customer_id"
+""",
+        dialect="dremio",
+        expected_file=RESOURCE_DIR / "test_dremio_quoted_identifiers.json",
+    )
+
+
+def test_snowflake_semantic_view_query() -> None:
+    # Regression test: a dbt model that queries a Snowflake semantic view using
+    # semantic_view(...) table function. Sqlglot has an infinite loop parsing this
+    # (https://github.com/tobymao/sqlglot/issues/6287).
+    assert_sql_result(
+        """SELECT a FROM SEMANTIC_VIEW(b FACTS c)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_query.json",
+    )
+
+
+def test_snowflake_semantic_view_query_with_metrics() -> None:
+    # Reported by user as causing an infinite loop in sqlglot v27.
+    # Fixed in v28, but v28 could not parse aliases in dimensions clause.
+    # Fixed in v29.0.1 (https://github.com/tobymao/sqlglot/issues/6993).
+    assert_sql_result(
+        """\
+select
+    organization_id,
+    month,
+    active_users
+from semantic_view(
+    product_metrics.semantic.sv_board_opens
+    metrics active_users
+    dimensions organization_id, date_trunc('month', time) as month
+)
+order by organization_id, month desc
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_query_with_metrics.json",
+    )
+
+
+def test_snowflake_semantic_view_qualified_table() -> None:
+    # Test semantic view with fully qualified table name (db.schema.table)
+    assert_sql_result(
+        """SELECT col1, col2 FROM SEMANTIC_VIEW(mydb.myschema.mytable FACTS fact_col)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_qualified_table.json",
+    )
+
+
+def test_snowflake_semantic_view_with_metrics_only() -> None:
+    # Test semantic view with metrics clause only (no dimensions)
+    assert_sql_result(
+        """SELECT total_revenue FROM SEMANTIC_VIEW(sales_data METRICS total_revenue)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_metrics_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_dimensions_only() -> None:
+    # Test semantic view with dimensions clause only (no metrics)
+    assert_sql_result(
+        """SELECT region, product FROM SEMANTIC_VIEW(sales_data DIMENSIONS region, product)""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_semantic_view_with_dimensions_only.json",
+    )
+
+
+def test_snowflake_semantic_view_with_where() -> None:
+    # Test semantic view with WHERE clause in the outer query
+    assert_sql_result(
+        """SELECT user_id, activity FROM SEMANTIC_VIEW(events FACTS activity) WHERE user_id > 100""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_semantic_view_with_where.json",
+    )
+
+
+def test_clickhouse_dictget_lineage() -> None:
+    """dictGet dictionary references should appear in upstream lineage.
+
+    Expected lineage:
+        db1.events    default.my_dict
+                \\           /
+                 \\         /
+                  v       v
+                  [output]
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(default.my_dict, 'type', col_id) AS dict_type,
+    DICTGET(default.my_dict, 'domain', col_id) AS dict_domain
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget.json",
+    )
+
+
+def test_clickhouse_dictget_with_multiple_tables() -> None:
+    """dictGet references are included alongside real table joins.
+
+    Expected lineage:
+        db1.events    db1.users    default.my_dict
+                \\         |          /
+                 \\        |         /
+                  v       v        v
+                      [output]
+    """
+    assert_sql_result(
+        """\
+SELECT
+    e.event_id,
+    u.user_name,
+    DICTGETORDEFAULT(default.my_dict, 'name', e.category_id, 'Unknown') AS dict_name
+FROM db1.events e
+JOIN db1.users u ON e.user_id = u.id
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_with_joins.json",
+    )
+
+
+def test_clickhouse_dictget_string_literal() -> None:
+    """Test dictGet with string literal dictionary name.
+
+    dictGet('schema.dict_name', ...) is parsed as a Literal node, not a Column.
+    The extraction should handle both forms.
+    """
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET('default.my_dict', 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_string_literal.json",
+    )
+
+
+def test_clickhouse_dictget_unqualified() -> None:
+    # dictGet with bare dictionary name (no database prefix).
+    assert_sql_result(
+        """\
+SELECT
+    col_id,
+    DICTGET(my_dict, 'type', col_id) AS dict_type
+FROM db1.events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_dictget_unqualified.json",
+    )
+
+
+def test_clickhouse_dictget_in_materialized_view() -> None:
+    # dictGet table in in_tables, TO table in out_tables (not in_tables).
+    # Guards against operator precedence bug where `- modified` doesn't
+    # subtract from the full union including dictGet tables.
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW db1.mv_enriched TO db1.events_enriched
+AS SELECT
+    event_id,
+    DICTGET(default.my_dict, 'name', category_id) AS category_name
+FROM db1.raw_events
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dictget_in_materialized_view.json",
+    )
+
+
+def test_clickhouse_materialized_view_to_table() -> None:
+    """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
+
+    The TO table is the storage target (downstream), not a data source (upstream).
+    The MV acts as a trigger that inserts into the target table.
+
+    Expected lineage:
+        analytics.events
+              |
+              v
+        analytics.agg_daily_stats  (target table from TO clause)
+
+    The MV name (analytics.mv_daily_stats) is NOT the downstream - the TO table is.
+    """
+    assert_sql_result(
+        """\
+CREATE MATERIALIZED VIEW analytics.mv_daily_stats TO analytics.agg_daily_stats
+(date Date, total_events UInt64)
+AS SELECT
+    toDate(timestamp) AS date,
+    count(*) AS total_events
+FROM analytics.events
+GROUP BY date
+""",
+        dialect="clickhouse",
+        expected_file=RESOURCE_DIR / "test_clickhouse_materialized_view_to.json",
     )

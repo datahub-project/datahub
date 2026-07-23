@@ -1,10 +1,11 @@
 package com.linkedin.metadata.entity.versioning.sideeffects;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
@@ -31,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -80,9 +82,11 @@ public class VersionPropertiesSideEffectTest {
   private MockAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private VersionPropertiesSideEffect sideEffect;
+  private OperationFingerprint mockOpContext;
 
   @BeforeMethod
   public void setup() {
+    mockOpContext = mock(OperationFingerprint.class);
     VersionProperties previousLatestVersionProperties =
         new VersionProperties()
             .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
@@ -144,12 +148,12 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
-    // Verify results
-    assert properties.isIsLatest();
-    assertEquals(sideEffectResults.size(), 2, "Expected two mcps: key and set properties");
+    // Verify results: key, set properties, and isLatest=true write for the entity
+    assertEquals(sideEffectResults.size(), 3, "Expected three mcps: key, set properties, isLatest");
 
     MCPItem keyMCP = sideEffectResults.get(0);
     assertEquals(keyMCP.getUrn(), NON_EXISTENT_VERSION_SET_URN);
@@ -165,6 +169,14 @@ public class VersionPropertiesSideEffectTest {
     assertNotNull(versionSetProperties);
     assertEquals(versionSetProperties.getLatest(), ENTITY_URN);
     assertEquals(versionSetProperties.getVersioningScheme(), VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    // isLatest=true is written as a separate ChangeItemImpl targeting the entity, not via
+    // in-place mutation of the incoming recordTemplate.
+    MCPItem setIsLatestMCP = sideEffectResults.get(2);
+    assertEquals(setIsLatestMCP.getUrn(), ENTITY_URN);
+    VersionProperties entityVersionProperties = setIsLatestMCP.getAspect(VersionProperties.class);
+    assertNotNull(entityVersionProperties);
+    assertTrue(entityVersionProperties.isIsLatest());
   }
 
   @Test
@@ -192,15 +204,15 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
-    // Verify results
-    assert properties.isIsLatest();
+    // Verify results: set properties, old-latest patch, and isLatest=true write for new entity
     assertEquals(
         sideEffectResults.size(),
-        2,
-        "Expected two mcps: set properties and old latest version properties");
+        3,
+        "Expected three mcps: set properties, old latest patch, and isLatest write");
 
     MCPItem setPropertiesMCP = sideEffectResults.get(0);
     assertEquals(setPropertiesMCP.getUrn(), HAS_SET_PROPERTIES_VERSION_SET_URN);
@@ -215,6 +227,12 @@ public class VersionPropertiesSideEffectTest {
     VersionProperties oldLatestVersionProperties = oldLatestMCP.getAspect(VersionProperties.class);
     assertNotNull(oldLatestVersionProperties);
     assertFalse(oldLatestVersionProperties.isIsLatest());
+
+    MCPItem setIsLatestMCP = sideEffectResults.get(2);
+    assertEquals(setIsLatestMCP.getUrn(), ENTITY_URN);
+    VersionProperties entityVersionProperties = setIsLatestMCP.getAspect(VersionProperties.class);
+    assertNotNull(entityVersionProperties);
+    assertTrue(entityVersionProperties.isIsLatest());
   }
 
   @Test
@@ -242,11 +260,12 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
-    assert !properties.isIsLatest();
+    assertFalse(properties.hasIsLatest(), "Incoming recordTemplate must not be mutated");
     assertEquals(sideEffectResults.size(), 0, "Expected no operations");
   }
 
@@ -275,12 +294,12 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
-    // Verify results
-    assert properties.isIsLatest();
-    assertEquals(sideEffectResults.size(), 2, "Expected two mcps: key and set properties");
+    // Verify results: key, set properties, and isLatest=true write for the entity
+    assertEquals(sideEffectResults.size(), 3, "Expected three mcps: key, set properties, isLatest");
 
     MCPItem keyMCP = sideEffectResults.get(0);
     assertEquals(keyMCP.getUrn(), MISSING_SET_PROPERTIES_VERSION_SET_URN);
@@ -296,6 +315,12 @@ public class VersionPropertiesSideEffectTest {
     assertNotNull(versionSetProperties);
     assertEquals(versionSetProperties.getLatest(), ML_MODEL_URN);
     assertEquals(versionSetProperties.getVersioningScheme(), VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    MCPItem setIsLatestMCP = sideEffectResults.get(2);
+    assertEquals(setIsLatestMCP.getUrn(), ML_MODEL_URN);
+    VersionProperties entityVersionProperties = setIsLatestMCP.getAspect(VersionProperties.class);
+    assertNotNull(entityVersionProperties);
+    assertTrue(entityVersionProperties.isIsLatest());
   }
 
   @Test
@@ -323,12 +348,12 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
-    // Verify results
-    assert properties.isIsLatest();
-    assertEquals(sideEffectResults.size(), 1, "Expected one mcps: set properties");
+    // Verify results: set properties and isLatest=true write for the entity
+    assertEquals(sideEffectResults.size(), 2, "Expected two mcps: set properties and isLatest");
 
     MCPItem setPropertiesMCP = sideEffectResults.get(0);
     assertEquals(setPropertiesMCP.getUrn(), INVALID_VERSION_SET_URN);
@@ -336,6 +361,12 @@ public class VersionPropertiesSideEffectTest {
         setPropertiesMCP.getAspect(VersionSetProperties.class);
     assertEquals(versionSetProperties.getLatest(), ENTITY_URN);
     assertEquals(versionSetProperties.getVersioningScheme(), VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    MCPItem setIsLatestMCP = sideEffectResults.get(1);
+    assertEquals(setIsLatestMCP.getUrn(), ENTITY_URN);
+    VersionProperties entityVersionProperties = setIsLatestMCP.getAspect(VersionProperties.class);
+    assertNotNull(entityVersionProperties);
+    assertTrue(entityVersionProperties.isIsLatest());
   }
 
   @Test
@@ -358,11 +389,104 @@ public class VersionPropertiesSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .postMCPSideEffect(mockOpContext, Collections.singletonList(mclItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects
     assertEquals(
         sideEffectResults.size(), 0, "Expected no changes for non-version set properties aspect");
+  }
+
+  @Test
+  public void testOriginalRecordTemplateNotMutatedOnCreateVersionSet() {
+    VersionProperties properties =
+        new VersionProperties()
+            .setVersionSet(NON_EXISTENT_VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setSortId("abc");
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_URN)
+            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(properties)
+            .previousSystemAspect(mock(SystemAspect.class))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    // First pass (initial transaction attempt)
+    sideEffect
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
+        .collect(Collectors.toList());
+
+    // The incoming recordTemplate must not have isLatest set — if it were mutated here,
+    // validateProposedAspects on a retry would reject it with "IsLatest should not be specified".
+    assertFalse(
+        properties.hasIsLatest(),
+        "Side effect must not mutate the incoming VersionProperties DataMap");
+
+    // Second pass (simulated transaction retry) — must produce the same result without error
+    List<MCPItem> retryResults =
+        sideEffect
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");
+
+    // isLatest=true must still be communicated via the returned ChangeItemImpl, not via mutation
+    Optional<MCPItem> setIsLatestMCP =
+        retryResults.stream().filter(item -> item.getUrn().equals(ENTITY_URN)).findFirst();
+    assertTrue(setIsLatestMCP.isPresent());
+    assertTrue(setIsLatestMCP.get().getAspect(VersionProperties.class).isIsLatest());
+  }
+
+  @Test
+  public void testOriginalRecordTemplateNotMutatedOnUpdateLatest() {
+    VersionProperties properties =
+        new VersionProperties()
+            .setVersionSet(HAS_SET_PROPERTIES_VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("bbb");
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_URN)
+            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(properties)
+            .previousSystemAspect(mock(SystemAspect.class))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    // First pass
+    sideEffect
+        .applyMCPSideEffect(mockOpContext, Collections.singletonList(changeItem), retrieverContext)
+        .collect(Collectors.toList());
+
+    assertFalse(
+        properties.hasIsLatest(),
+        "Side effect must not mutate the incoming VersionProperties DataMap");
+
+    // Second pass (simulated retry) — must succeed without error
+    List<MCPItem> retryResults =
+        sideEffect
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(retryResults.size(), 3, "Retry must produce the same three MCPs");
+
+    Optional<MCPItem> setIsLatestMCP =
+        retryResults.stream().filter(item -> item.getUrn().equals(ENTITY_URN)).findFirst();
+    assertTrue(setIsLatestMCP.isPresent());
+    assertTrue(setIsLatestMCP.get().getAspect(VersionProperties.class).isIsLatest());
   }
 }

@@ -1,0 +1,262 @@
+name: Update Test Weights
+
+on:
+  schedule:
+    # Run every Sunday at 2am UTC
+    - cron: "0 2 * * 0"
+
+  workflow_dispatch:
+    inputs:
+      run_count:
+        description: "Number of recent CI runs to analyze (default: 3)"
+        required: false
+        default: "3"
+        type: string
+
+permissions:
+  contents: write # To create branches and commits
+  actions: read # To fetch workflow runs and artifacts
+  pull-requests: write # To create pull requests
+
+jobs:
+  update-weights:
+    if: github.repository == 'datahub-project/datahub'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+
+      - name: Download smoke test artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Downloading smoke test artifacts from recent successful CI runs..."
+          bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-smoke \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow docker-unified.yml \
+            --repository ${{ github.repository }}
+
+          echo "Downloading Gradle JUnit artifacts from recent build & test runs..."
+          # Backend JUnit artifacts are named build-and-test-* (build-except when sharding is
+          # off, backend-shard* when on) — NOT the smoke-test default prefix.
+          bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-gradle \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow build-and-test.yml \
+            --artifact-prefix "build-and-test" \
+            --repository ${{ github.repository }}
+      - name: Download ingestion test artifacts
+        id: download-ingestion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Downloading ingestion test artifacts from recent CI runs..."
+          DOWNLOAD_OUTPUT=$(bash .github/scripts/download_test_artifacts.sh \
+            --output-dir ./test-artifacts-ingestion \
+            --run-count ${{ github.event.inputs.run_count || '3' }} \
+            --workflow metadata-ingestion.yml \
+            --repository ${{ github.repository }} \
+            --artifact-prefix "metadata-ingestion-test-results" \
+            --allow-failed \
+            --no-fail-on-empty)
+          echo "$DOWNLOAD_OUTPUT"
+          if grep -q '^NO_DATA=true$' <<<"$DOWNLOAD_OUTPUT"; then
+            echo "no_data=true" >> "$GITHUB_OUTPUT"
+            echo "No harvestable ingestion CI artifacts found this run."
+          else
+            echo "no_data=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Backup existing weights
+        run: |
+          mkdir -p ./weights-backup
+          cp smoke-test/pytest_test_weights.json ./weights-backup/pytest_weights.json || echo "No existing Pytest weights"
+          cp metadata-ingestion/tests/integration_test_weights.json \
+            ./weights-backup/integration_test_weights.json || echo "No existing integration weights"
+          cp .github/backend_test_weights.json ./weights-backup/gradle_weights.json || echo "No existing Gradle weights"
+
+      - name: Generate smoke test weights
+        run: |
+          echo "Generating smoke test weights from downloaded artifacts..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-smoke \
+            --pytest-output smoke-test/pytest_test_weights.json
+
+      - name: Generate ingestion test weights
+        if: steps.download-ingestion.outputs.no_data != 'true'
+        run: |
+          echo "Generating ingestion test weights from downloaded artifacts..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-ingestion \
+            --pytest-output metadata-ingestion/tests/integration_test_weights.json
+
+      - name: Generate gradle test weights
+        run: |
+          echo "Generating Gradle backend weights (keyed by FQCN)..."
+          python .github/scripts/generate_test_weights.py \
+            --input-dir ./test-artifacts-gradle \
+            --gradle-output .github/backend_test_weights.json
+
+      - name: Compare smoke weights
+        id: compare-smoke
+        run: |
+          echo "Comparing old and new smoke weights..."
+          python .github/scripts/compare_test_weights.py \
+            --old-pytest ./weights-backup/pytest_weights.json \
+            --new-pytest smoke-test/pytest_test_weights.json \
+            --output ./pr-body-smoke.md \
+            --threshold 5.0 \
+            --title "🤖 Smoke test weight update"
+
+          # Check if PR body was generated (non-empty file means changes exceed threshold)
+          if [ -s ./pr-body-smoke.md ]; then
+            echo "create_pr_smoke=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Smoke changes exceed 5% threshold. Will create PR."
+          else
+            echo "create_pr_smoke=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Smoke changes below 5% threshold. No PR needed."
+          fi
+
+      - name: Compare ingestion weights
+        id: compare-ingestion
+        if: steps.download-ingestion.outputs.no_data != 'true'
+        run: |
+          echo "Comparing old and new ingestion weights..."
+          python .github/scripts/compare_test_weights.py \
+            --old-pytest ./weights-backup/integration_test_weights.json \
+            --new-pytest metadata-ingestion/tests/integration_test_weights.json \
+            --output ./pr-body-ingestion.md \
+            --threshold 5.0 \
+            --title "🤖 Ingestion test weight update"
+
+          # Non-empty PR body means changes exceed the 5% threshold.
+          if [ -s ./pr-body-ingestion.md ]; then
+            echo "create_pr_ingestion=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Ingestion changes exceed 5% threshold. Will create PR."
+          else
+            echo "create_pr_ingestion=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Ingestion changes below 5% threshold. No PR needed."
+          fi
+
+      - name: Compare gradle weights
+        id: compare-gradle
+        run: |
+          # Gradle weights are keyed by FQCN and aren't diffed by compare_test_weights.py
+          # (pytest-only). Trigger a PR whenever the file changed at all, so its refresh isn't
+          # gated on the pytest 5% threshold.
+          if ! cmp -s ./weights-backup/gradle_weights.json .github/backend_test_weights.json; then
+            echo "create_pr_gradle=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Gradle backend weights changed. Will create PR."
+            {
+              echo ""
+              echo "- Gradle backend test weights (\`.github/backend_test_weights.json\`) refreshed."
+            } > ./pr-body-gradle.md
+          else
+            echo "create_pr_gradle=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Gradle backend weights unchanged. No PR needed."
+          fi
+
+      - name: Decide PR creation
+        id: decide
+        run: |
+          if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ] || [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ] || [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
+            echo "create_pr=true" >> "$GITHUB_OUTPUT"
+            echo "✓ At least one suite exceeded the 5% threshold. Will create PR."
+          else
+            echo "create_pr=false" >> "$GITHUB_OUTPUT"
+            echo "✓ No suite exceeded the 5% threshold. No PR needed."
+          fi
+
+      - name: Create branch and commit changes
+        if: steps.decide.outputs.create_pr == 'true'
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create branch with date
+          BRANCH_NAME="auto/update-test-weights-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+
+          # Add and commit changes for all suites
+          git add smoke-test/pytest_test_weights.json
+          git add metadata-ingestion/tests/integration_test_weights.json
+          git add .github/backend_test_weights.json
+
+          git commit -m "chore(test): update test weights from recent CI runs
+
+          Automated update of smoke and ingestion test weights based on analysis of recent CI runs.
+          This improves batch balancing and reduces overall CI execution time.
+
+          Generated by: ${{ github.workflow }} workflow
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Push branch
+          git push origin "$BRANCH_NAME"
+
+          # Save branch name for PR creation
+          echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
+
+      - name: Create pull request
+        if: steps.decide.outputs.create_pr == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Concatenate whichever PR body sections were generated (empty files contribute nothing)
+          PR_BODY=$(cat ./pr-body-smoke.md ./pr-body-ingestion.md ./pr-body-gradle.md 2>/dev/null)
+
+          # Create PR
+          gh pr create \
+            --title "chore(test): Update test weights from CI runs ($(date +%Y-%m-%d))" \
+            --body "$PR_BODY" \
+            --head "$BRANCH_NAME" \
+            --base master
+
+          echo "✓ Pull request created successfully"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Test Weight Update Summary"
+            echo ""
+
+            if [ "${{ steps.decide.outputs.create_pr }}" == "true" ]; then
+              echo "✅ **PR Created**: Changes exceeded 5% threshold"
+              echo ""
+              echo "Branch: \`$BRANCH_NAME\`"
+              echo ""
+              echo "Suites triggering the PR:"
+              if [ "${{ steps.compare-smoke.outputs.create_pr_smoke }}" == "true" ]; then
+                echo "- smoke"
+              fi
+              if [ "${{ steps.compare-ingestion.outputs.create_pr_ingestion }}" == "true" ]; then
+                echo "- ingestion"
+              fi
+              if [ "${{ steps.compare-gradle.outputs.create_pr_gradle }}" == "true" ]; then
+                echo "- gradle (backend)"
+              fi
+            else
+              echo "ℹ️ **No PR Created**: Changes below 5% threshold"
+              echo ""
+              echo "Test weights were updated but the changes were too small to warrant a PR."
+            fi
+
+            echo ""
+            if [ "${{ steps.download-ingestion.outputs.no_data }}" == "true" ]; then
+              echo "⏭️ ingestion: no harvestable artifacts"
+            fi
+
+            echo ""
+            echo "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"

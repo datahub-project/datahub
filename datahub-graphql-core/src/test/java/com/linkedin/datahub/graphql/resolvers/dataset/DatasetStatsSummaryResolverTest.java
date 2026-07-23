@@ -1,14 +1,17 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationResult;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
@@ -17,6 +20,9 @@ import com.linkedin.usage.UserUsageCounts;
 import com.linkedin.usage.UserUsageCountsArray;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -58,21 +64,15 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenReturn(testResult);
 
     // Execute resolver
     DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
-
-    AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
-    Mockito.when(mockContext.getOperationContext().authorize(any(), any()))
-        .thenReturn(mockAuthorizerResult);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
@@ -94,8 +94,89 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenReturn(newResult);
+  }
+
+  @Test
+  public void testBatchLoadEnabledDelegatesToDataLoader() throws Exception {
+    // With the flag on, the resolver must enqueue into the batch DataLoader and NOT call the
+    // usage client directly (auth + fetching move into the loader).
+    final UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
+
+    final DatasetStatsSummary expected = new DatasetStatsSummary();
+    expected.setQueryCountLast30Days(42);
+
+    @SuppressWarnings("unchecked")
+    final DataLoader<Urn, DatasetStatsSummary> mockLoader = Mockito.mock(DataLoader.class);
+    Mockito.when(mockLoader.load(UrnUtils.getUrn(TEST_DATASET_URN)))
+        .thenReturn(CompletableFuture.completedFuture(expected));
+    final DataLoaderRegistry registry = Mockito.mock(DataLoaderRegistry.class);
+    // doReturn avoids generic-inference issues on the generic getDataLoader(String) signature.
+    Mockito.doReturn(mockLoader)
+        .when(registry)
+        .getDataLoader(DatasetStatsSummaryBatchLoader.LOADER_NAME);
+
+    final FeatureFlags flags = new FeatureFlags();
+    flags.setDatasetStatsSummaryBatchLoadEnabled(true);
+    final DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient, flags);
+
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(Mockito.mock(QueryContext.class));
+    Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(registry);
+
+    final DatasetStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getQueryCountLast30Days(), 42);
+    Mockito.verify(mockLoader).load(UrnUtils.getUrn(TEST_DATASET_URN));
+    Mockito.verifyNoInteractions(mockClient); // did not fall back to the per-URN path
+  }
+
+  @Test
+  public void testBatchLoadDisabledUsesPerUrnPath() throws Exception {
+    // With the flag explicitly off, the resolver must take the per-URN path (call the usage client
+    // directly) and must never touch the batch DataLoader registry. This guards the safety-valve:
+    // disabling DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED reverts to the legacy behavior.
+    UsageQueryResult testResult = new UsageQueryResult();
+    testResult.setAggregations(
+        new UsageQueryResultAggregations().setUniqueUserCount(3).setTotalSqlQueries(7));
+
+    final UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
+    Mockito.when(
+            mockClient.getUsageStats(
+                any(OperationContext.class),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
+        .thenReturn(testResult);
+
+    final FeatureFlags flags = new FeatureFlags();
+    flags.setDatasetStatsSummaryBatchLoadEnabled(false);
+    final DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient, flags);
+
+    final QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    final DatasetStatsSummary result = resolver.get(mockEnv).get();
+
+    Assert.assertEquals((int) result.getQueryCountLast30Days(), 7);
+    Assert.assertEquals((int) result.getUniqueUserCountLast30Days(), 3);
+    Mockito.verify(mockClient)
+        .getUsageStats(
+            any(OperationContext.class),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(UsageTimeRange.MONTH),
+            Mockito.eq(null),
+            Mockito.eq(null));
+    // The batch DataLoader registry must never be consulted when the flag is off.
+    Mockito.verify(mockEnv, Mockito.never()).getDataLoaderRegistry();
   }
 
   @Test
@@ -123,7 +204,9 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver

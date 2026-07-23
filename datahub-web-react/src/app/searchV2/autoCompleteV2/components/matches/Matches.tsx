@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
+
 import Match from '@app/searchV2/autoCompleteV2/components/matches/components/Match';
 import MoreMatches from '@app/searchV2/autoCompleteV2/components/matches/components/MoreMatches';
 import { getMatchesPrioritized, shouldShowInMatchedFieldList } from '@app/searchV2/matches/utils';
@@ -12,6 +14,8 @@ interface Props {
     query?: string;
     displayName?: string;
     matchedFields?: MatchedField[];
+    color?: FontColorOptions;
+    colorLevel?: FontColorLevelOptions;
 }
 
 const MatchedFieldsContainer = styled.div`
@@ -22,7 +26,7 @@ const MatchedFieldsContainer = styled.div`
     word-wrap: wrap;
 `;
 
-export default function Matches({ entity, query, displayName, matchedFields }: Props) {
+export default function Matches({ entity, query, displayName, matchedFields, color, colorLevel }: Props) {
     const isQueryMatchDisplayName = useMemo(
         () => displayName && query && displayName.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
         [query, displayName],
@@ -39,9 +43,18 @@ export default function Matches({ entity, query, displayName, matchedFields }: P
     const items = useMemo(() => {
         return groupedMatchedFields.map((match) => ({
             key: match.fieldName,
-            node: <Match query={query ?? ''} entityType={entity.type} entity={entity} match={match} />,
+            node: (
+                <Match
+                    query={query ?? ''}
+                    entityType={entity.type}
+                    entity={entity}
+                    match={match}
+                    color={color}
+                    colorLevel={colorLevel}
+                />
+            ),
         }));
-    }, [groupedMatchedFields, query, entity]);
+    }, [groupedMatchedFields, query, entity, color, colorLevel]);
 
     // do not show matched fields if query has matches with display name of entity
     if (isQueryMatchDisplayName) return null;
@@ -55,7 +68,9 @@ export default function Matches({ entity, query, displayName, matchedFields }: P
                 gap={8}
                 justifyContent="start"
                 alignItems="center"
-                renderHiddenItems={(hiddenItems) => <MoreMatches items={hiddenItems} />}
+                renderHiddenItems={(hiddenItems) => (
+                    <MoreMatches items={hiddenItems} color={color} colorLevel={colorLevel} />
+                )}
             />
         </MatchedFieldsContainer>
     );

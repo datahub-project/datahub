@@ -1,10 +1,10 @@
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingestV2/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
@@ -14,7 +14,9 @@ import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { Button } from '@src/alchemy-components';
 
-export const ControlsContainer = styled.div`
+import { IngestionSource } from '@types';
+
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
@@ -24,16 +26,16 @@ const BorderedSection = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 16px;
-    border: solid ${ANTD_GRAY[4]} 0.5px;
+    border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: #1890ff;
+        color: ${props.theme.colors.hyperlinks};
         &:focus {
-            color: #1890ff;
+            color: ${props.theme.colors.hyperlinks};
         }    
     `}
 `;
@@ -61,13 +63,25 @@ interface Props {
     isEditing: boolean;
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
+    selectedSource?: IngestionSource;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeBuilder(props: Props) {
-    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const {
+        state,
+        isEditing,
+        displayRecipe,
+        sourceConfigs,
+        setStagedRecipe,
+        onClickNext,
+        goToPrevious,
+        selectedSource,
+    } = props;
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
@@ -78,9 +92,9 @@ function RecipeBuilder(props: Props) {
             setIsViewingForm(isFormView);
         } catch (e) {
             const messageText = (e as any).parsedLine
-                ? `Fix line ${(e as any).parsedLine} in your recipe`
-                : 'Please fix your recipe';
-            message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
+                ? t('recipeBuilder.fixLine', { line: (e as any).parsedLine })
+                : t('recipeBuilder.fixRecipe');
+            message.warn(t('recipeBuilder.invalidYaml', { messageText }));
         }
     }
 
@@ -93,7 +107,7 @@ function RecipeBuilder(props: Props) {
             {type === CSV && <CSVInfo />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
-                    {sourceConfigs?.displayName} Details
+                    {t('recipeBuilder.detailsTitle', { displayName: sourceConfigs?.displayName ?? '' })}
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
@@ -103,7 +117,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> Form
+                        <FormOutlined /> {t('recipeBuilder.formView')}
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -112,13 +126,14 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> YAML
+                        <CodeOutlined /> {t('recipeBuilder.yamlView')}
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>
             {isViewingForm && (
                 <RecipeForm
                     state={state}
+                    selectedSource={selectedSource}
                     isEditing={isEditing}
                     displayRecipe={displayRecipe}
                     sourceConfigs={sourceConfigs}
@@ -134,10 +149,10 @@ function RecipeBuilder(props: Props) {
                     </BorderedSection>
                     <ControlsContainer>
                         <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
-                            Previous
+                            {tc('previous')}
                         </Button>
                         <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
-                            Next
+                            {tc('next')}
                         </Button>
                     </ControlsContainer>
                 </>

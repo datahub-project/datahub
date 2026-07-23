@@ -8,13 +8,82 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StatusClass
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urn
-
-restli_default_headers = {
-    "X-RestLi-Protocol-Version": "2.0.0",
-}
+from tests.utils import delete_urn, with_test_retry
 
 TEST_DATASET_URN = make_dataset_urn(platform="postgres", name="foo_custom")
+
+DATASET_ASSERTIONS_QUERY = """
+    query dataset($datasetUrn: String!) {
+        dataset(urn: $datasetUrn) {
+            assertions(start: 0, count: 1000) {
+                start
+                count
+                total
+                assertions {
+                    urn
+                    # Fetch the last run of each associated assertion.
+                    runEvents(status: COMPLETE, limit: 3) {
+                        total
+                        failed
+                        succeeded
+                        runEvents {
+                            timestampMillis
+                            status
+                            result {
+                                type
+                                externalUrl
+                                nativeResults {
+                                    key
+                                    value
+                                }
+                            }
+                        }
+                    }
+                    info {
+                        type
+                        description
+                        externalUrl
+                        lastUpdated {
+                            time
+                            actor
+                        }
+                        customAssertion {
+                            type
+                            entityUrn
+                            field {
+                                path
+                            }
+                            logic
+                        }
+                        source {
+                            type
+                            created {
+                                time
+                                actor
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+"""
+
+
+def _get_dataset_assertions(graph_client: DataHubGraph, dataset_urn: str) -> list:
+    dataset_assertions = graph_client.execute_graphql(
+        query=DATASET_ASSERTIONS_QUERY,
+        variables={"datasetUrn": dataset_urn},
+    )
+    return dataset_assertions["dataset"]["assertions"]["assertions"]
+
+
+@with_test_retry(max_attempts=15)
+def _assert_dataset_has_no_assertions(
+    graph_client: DataHubGraph, dataset_urn: str
+) -> None:
+    assertions = _get_dataset_assertions(graph_client, dataset_urn)
+    assert not assertions
 
 
 @pytest.fixture(scope="module")
@@ -85,69 +154,7 @@ def test_create_update_delete_dataset_custom_assertion(
 
     wait_for_writes_to_sync()
 
-    graphql_query_retrive_assertion = """
-        query dataset($datasetUrn: String!) {
-            dataset(urn: $datasetUrn) {
-                assertions(start: 0, count: 1000) {
-                    start
-                    count
-                    total
-                    assertions {
-                        urn
-                        # Fetch the last run of each associated assertion. 
-                        runEvents(status: COMPLETE, limit: 3) {
-                            total
-                            failed
-                            succeeded
-                            runEvents {
-                                timestampMillis
-                                status
-                                result {
-                                    type
-                                    externalUrl
-                                    nativeResults {
-                                        key
-                                        value
-                                    }
-                                }
-                            }
-                        }
-                        info {
-                            type
-                            description
-                            externalUrl
-                            lastUpdated {
-                                time
-                                actor
-                            }
-                            customAssertion {
-                                type
-                                entityUrn
-                                field {
-                                    path
-                                }
-                                logic
-                            }
-                            source {
-                                type
-                                created {
-                                    time
-                                    actor
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    """
-
-    dataset_assertions = graph_client.execute_graphql(
-        query=graphql_query_retrive_assertion,
-        variables={"datasetUrn": TEST_DATASET_URN},
-    )
-
-    assertions = dataset_assertions["dataset"]["assertions"]["assertions"]
+    assertions = _get_dataset_assertions(graph_client, TEST_DATASET_URN)
     assert assertions
     assert assertions[0]["urn"] == assertion_urn
     assert assertions[0]["info"]
@@ -167,10 +174,5 @@ def test_create_update_delete_dataset_custom_assertion(
     assert assertions[0]["runEvents"]["runEvents"][0]["result"]["externalUrl"]
 
     graph_client.delete_entity(assertion_urn, True)
-
-    dataset_assertions = graph_client.execute_graphql(
-        query=graphql_query_retrive_assertion,
-        variables={"datasetUrn": TEST_DATASET_URN},
-    )
-    assertions = dataset_assertions["dataset"]["assertions"]["assertions"]
-    assert not assertions
+    wait_for_writes_to_sync()
+    _assert_dataset_has_no_assertions(graph_client, TEST_DATASET_URN)

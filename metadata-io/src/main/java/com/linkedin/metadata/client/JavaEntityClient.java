@@ -99,6 +99,7 @@ public class JavaEntityClient implements EntityClient {
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
   private final EntityClientConfig entityClientConfig;
+  private final MetricUtils metricUtils;
 
   @Override
   @Nullable
@@ -212,7 +213,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
@@ -235,7 +236,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     return cachingEntitySearchService.autoComplete(
         opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
@@ -258,7 +259,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     return ValidationUtils.validateBrowseResult(
         opContext,
@@ -286,7 +287,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     // TODO: cache browseV2 results
     return entitySearchService.browseV2(opContext, entityName, path, filter, input, start, count);
   }
@@ -310,7 +311,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     // TODO: cache browseV2 results
     return entitySearchService.browseV2(opContext, entityNames, path, filter, input, start, count);
   }
@@ -347,10 +348,6 @@ public class JavaEntityClient implements EntityClient {
     auditStamp.setTime(Clock.systemUTC().millis());
 
     entityService.ingestEntity(opContext, entity, auditStamp, systemMetadata);
-    tryIndexRunId(
-        opContext,
-        com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()),
-        systemMetadata);
   }
 
   @SneakyThrows
@@ -383,7 +380,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -417,7 +414,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateListResult(
         opContext,
@@ -451,7 +448,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
@@ -480,7 +477,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nonnull List<String> facets)
       throws RemoteInvocationException {
@@ -509,7 +506,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer count,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
 
@@ -539,7 +536,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateLineageSearchResult(
         opContext,
@@ -570,7 +567,7 @@ public class JavaEntityClient implements EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateLineageScrollResult(
@@ -628,7 +625,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return entityService.listUrns(opContext, entityName, start, count);
   }
@@ -655,7 +652,7 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     return ValidationUtils.validateSearchResult(
         opContext,
@@ -680,6 +677,13 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Boolean includeSoftDelete)
       throws RemoteInvocationException {
     return entityService.exists(opContext, urn, includeSoftDelete);
+  }
+
+  @Override
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    return entityService.exists(opContext, urns, true);
   }
 
   @SneakyThrows
@@ -774,11 +778,10 @@ public class JavaEntityClient implements EntityClient {
                           auditStamp,
                           opContext.getRetrieverContext(),
                           opContext.getValidationContext().isAlternateValidation())
-                      .build();
+                      .build(opContext);
 
               List<IngestResult> results =
                   entityService.ingestProposal(opContext, aspectsBatch, async);
-              entitySearchService.appendRunId(opContext, results);
 
               Map<Pair<Urn, String>, List<IngestResult>> resultMap =
                   results.stream()
@@ -805,11 +808,6 @@ public class JavaEntityClient implements EntityClient {
                                     .filter(Objects::nonNull)
                                     .distinct()
                                     .collect(Collectors.toList());
-
-                            // Update runIds
-                            urnsForRequest.forEach(
-                                urn ->
-                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
 
                             return urnsForRequest.isEmpty()
                                 ? null
@@ -870,7 +868,7 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String key,
       @Nonnull PlatformEvent event)
       throws Exception {
-    eventProducer.producePlatformEvent(name, key, event);
+    eventProducer.producePlatformEvent(opContext, name, key, event);
   }
 
   @Override
@@ -878,13 +876,6 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull Authorizer authorizer)
       throws Exception {
     rollbackService.rollbackIngestion(opContext, runId, false, true, authorizer);
-  }
-
-  private void tryIndexRunId(
-      @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
-    if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
-    }
   }
 
   protected <T> T withRetry(@Nonnull final Supplier<T> block, @Nullable String counterPrefix) {
@@ -895,7 +886,8 @@ public class JavaEntityClient implements EntityClient {
       try {
         return block.get();
       } catch (Throwable ex) {
-        MetricUtils.counter(this.getClass(), buildMetricName(ex, counterPrefix)).inc();
+        if (metricUtils != null)
+          metricUtils.increment(this.getClass(), buildMetricName(ex, counterPrefix), 1);
 
         final boolean skipRetry =
             NON_RETRYABLE.contains(ex.getClass().getCanonicalName())

@@ -4,18 +4,20 @@ import logging
 import os
 import tempfile
 import unittest
-import urllib.request
 from dataclasses import dataclass
+from enum import auto
 from os.path import basename, dirname
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Union
 from urllib.parse import urlparse
 
 import jsonref
-from pydantic import AnyHttpUrl, DirectoryPath, FilePath, validator
+import requests
+from pydantic import AnyHttpUrl, DirectoryPath, FilePath, field_validator
 from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
@@ -31,7 +33,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.json_ref_patch import title_swapping_callback
 from datahub.ingestion.extractor.json_schema_util import (
@@ -41,7 +43,6 @@ from datahub.ingestion.extractor.json_schema_util import (
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -73,6 +74,19 @@ class URIReplacePattern(ConfigModel):
     )
 
 
+class DatasetNameStrategy(ConfigEnum):
+    """Controls how the display name for ingested JSON schema datasets is computed."""
+
+    BASENAME = auto()
+    """Default. Uses the last path segment of the schema type (e.g. '1.0' from '.../domain/1.0')."""
+
+    SCHEMA_ID = auto()
+    """Uses the full $id URI as the display name. Falls back to BASENAME if no $id is present."""
+
+    TITLE = auto()
+    """Uses the 'title' field from the JSON schema. Falls back to BASENAME if no title is present."""
+
+
 class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     path: Union[FilePath, DirectoryPath, AnyHttpUrl] = Field(
         description="Set this to a single file-path or a directory-path (for recursive traversal) or a remote url. e.g. https://json.schemastore.org/petstore-v1.0.json"
@@ -89,21 +103,38 @@ class JsonSchemaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMix
         default=None,
         description="Use this if URI-s need to be modified during reference resolution. Simple string match - replace capabilities are supported.",
     )
+    dataset_name_strategy: DatasetNameStrategy = Field(
+        default=DatasetNameStrategy.BASENAME,
+        description="Controls how the display name for datasets is computed. "
+        "BASENAME (default) uses the last path segment. "
+        "SCHEMA_ID uses the full $id URI. "
+        "TITLE uses the 'title' field from the schema.",
+    )
+    dataset_name_replace_pattern: Optional[URIReplacePattern] = Field(
+        default=None,
+        description="Apply a string match-replace on the computed display name. "
+        "Runs after dataset_name_strategy is applied.",
+    )
+    http_headers: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="HTTP headers to include when fetching remote schemas "
+        "(e.g. for authentication). Applied to $ref resolution and "
+        "remote URL downloads.",
+    )
 
-    @validator("path")
-    def download_http_url_to_temp_file(v):
+    @field_validator("path", mode="after")
+    def download_http_url_to_temp_file(cls, v):
         if isinstance(v, AnyHttpUrl):
             try:
-                with urllib.request.urlopen(v) as response:
-                    schema_dict = json.load(response)
-                    if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
-                        schema_dict["$id"] = str(v)
-                    with tempfile.NamedTemporaryFile(
-                        mode="w", delete=False
-                    ) as tmp_file:
-                        tmp_file.write(json.dumps(schema_dict))
-                        tmp_file.flush()
-                        return tmp_file.name
+                response = requests.get(str(v))
+                response.raise_for_status()
+                schema_dict = response.json()
+                if not JsonSchemaTranslator._get_id_from_any_schema(schema_dict):
+                    schema_dict["$id"] = str(v)
+                with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file:
+                    tmp_file.write(json.dumps(schema_dict))
+                    tmp_file.flush()
+                    return tmp_file.name
             except Exception as e:
                 logger.error(
                     f"Failed to localize url {v} due to {e}. Run with --debug to get full stacktrace"
@@ -150,13 +181,20 @@ class JsonSchemaCheckpointState(GenericCheckpointState):
 @dataclass
 class JsonSchemaSource(StatefulIngestionSourceBase):
     """
-    This source extracts metadata from a single JSON Schema or multiple JSON Schemas rooted at a particular path.
-    It performs reference resolution based on the `$ref` keyword.
+    Source that extracts metadata from JSON Schema files with reference resolution.
 
-    Metadata mapping:
-    - Schemas are mapped to Datasets with sub-type Schema
-    - The name of the Schema (Dataset) is inferred from the `$id` property and if that is missing, the file name.
-    - Browse paths are minted based on the path
+    Implementation notes:
+    - Uses jsonref library for $ref resolution
+    - Supports file paths, directories (recursive), and HTTP URLs
+    - Uses JsonSchemaTranslator to convert JSON Schema to DataHub SchemaMetadata
+    - Dataset names inferred from $id field or file name
+    - Implements stateful ingestion for stale entity removal
+
+    Display name control:
+    - dataset_name_strategy: BASENAME (default, last path segment), SCHEMA_ID (full $id URI),
+      or TITLE (schema's title field)
+    - dataset_name_replace_pattern: simple string match-replace on the computed display name
+    - These only affect the display name (DatasetProperties.name), not the URN
     """
 
     @staticmethod
@@ -232,7 +270,13 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
             return (resolved_dict, json.dumps(schema_dict))
 
     @staticmethod
-    def stringreplaceloader(match_string, replace_string, uri, **kwargs):
+    def stringreplaceloader(
+        match_string: str,
+        replace_string: str,
+        uri: str,
+        headers: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> Any:
         """
         Provides a callable which takes a URI, and returns the loaded JSON referred
         to by that URI. Uses :mod:`requests` if available for HTTP URIs, and falls
@@ -240,12 +284,75 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
         """
         uri = uri.replace(match_string, replace_string)
         logger.debug(f"Resolving ref to file {uri}")
-        return jsonref.jsonloader(uri, **kwargs)
+        return JsonSchemaSource._jsonloader_with_headers(uri, headers=headers, **kwargs)
+
+    @staticmethod
+    def _jsonloader_with_headers(
+        uri: str, headers: Optional[Dict[str, str]] = None, **kwargs: Any
+    ) -> Any:
+        """Like jsonref.jsonloader but supports custom HTTP headers."""
+        from urllib.parse import urlsplit
+        from urllib.request import urlopen
+
+        scheme = urlsplit(uri).scheme
+        if scheme in ("http", "https"):
+            resp = requests.get(uri, headers=headers or {})
+            resp.raise_for_status()
+            try:
+                return resp.json(**kwargs)
+            except TypeError:
+                return resp.json()
+        else:
+            with urlopen(uri) as content:
+                return json.loads(content.read().decode("utf-8"), **kwargs)
 
     def __init__(self, ctx: PipelineContext, config: JsonSchemaSourceConfig):
         super().__init__(ctx=ctx, config=config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
+
+    def _compute_display_name(self, schema_dict: dict, schema_type: str) -> str:
+        """Compute the display name based on the configured strategy."""
+        strategy = self.config.dataset_name_strategy
+        fallback = basename(schema_type)
+
+        if strategy == DatasetNameStrategy.SCHEMA_ID:
+            schema_id = JsonSchemaTranslator._get_id_from_any_schema(schema_dict)
+            if schema_id:
+                name = schema_id
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no $id field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
+        elif strategy == DatasetNameStrategy.TITLE:
+            title = schema_dict.get("title")
+            if title:
+                name = title
+            else:
+                name = fallback
+                logger.debug(
+                    f"Schema {schema_type} has no title field; "
+                    f"falling back to basename '{fallback}' for display name"
+                )
+        else:
+            name = fallback
+
+        if self.config.dataset_name_replace_pattern:
+            replaced = name.replace(
+                self.config.dataset_name_replace_pattern.match,
+                self.config.dataset_name_replace_pattern.replace,
+            )
+            if replaced.strip():
+                name = replaced
+            else:
+                logger.warning(
+                    f"dataset_name_replace_pattern produced empty display name "
+                    f"for schema {schema_type}; keeping original name '{name}'"
+                )
+
+        return name
 
     def _load_one_file(
         self, ref_loader: Any, browse_prefix: str, root_dir: Path, file_name: str
@@ -268,7 +375,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 schema_type = schema_type[: -len(".json")]
 
             browse_path = browse_prefix + dirname(schema_type)
-            dataset_simple_name = basename(schema_type)
+            dataset_simple_name = self._compute_display_name(schema_dict, schema_type)
 
             dataset_name = schema_type
 
@@ -332,28 +439,24 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                     ),
                 ).as_workunit()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.uri_replace_pattern:
             ref_loader = functools.partial(
                 self.stringreplaceloader,
                 self.config.uri_replace_pattern.match,
                 self.config.uri_replace_pattern.replace,
+                headers=self.config.http_headers,
             )
         else:
-            ref_loader = jsonref.jsonloader
+            ref_loader = functools.partial(
+                self._jsonloader_with_headers,
+                headers=self.config.http_headers,
+            )
         browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}"
         if self.config.platform_instance:
             browse_prefix = f"/{self.config.env.lower()}/{self.config.platform}/{self.config.platform_instance}"
 
-        if os.path.isdir(self.config.path):
+        if isinstance(self.config.path, Path) and self.config.path.is_dir():
             for root, _, files in os.walk(self.config.path, topdown=False):
                 for file_name in [f for f in files if f.endswith(".json")]:
                     try:
@@ -364,7 +467,7 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                             file_name=file_name,
                         )
                     except Exception as e:
-                        self.report.report_failure(
+                        self.report.failure(
                             f"{root}/{file_name}", f"Failed to process due to {e}"
                         )
                         logger.error(
@@ -373,14 +476,15 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
 
         else:
             try:
+                assert isinstance(self.config.path, Path)
                 yield from self._load_one_file(
                     ref_loader,
                     browse_prefix=browse_prefix,
-                    root_dir=Path(os.path.dirname(Path(self.config.path))),
+                    root_dir=self.config.path.parent,
                     file_name=str(self.config.path),
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     str(self.config.path), f"Failed to process due to {e}"
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)

@@ -1,0 +1,1382 @@
+"""Tests for bump_schema_versions.py"""
+
+import subprocess
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import bump_schema_versions as bsv
+
+
+# ---------------------------------------------------------------------------
+# PDL fixture helpers
+# ---------------------------------------------------------------------------
+
+
+def write_pdl(root: Path, rel_path: str, content: str) -> Path:
+    """Write content to root/rel_path, creating parent dirs. Returns the Path."""
+    p = root / rel_path
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(content, encoding="utf-8")
+    return p
+
+
+def aspect_pdl(name: str, includes: str = "", schema_version: int | None = None) -> str:
+    fields = [f'"name": "{name}"']
+    if schema_version is not None:
+        fields.append(f'"schemaVersion": {schema_version}')
+    annotation = "{\n" + ",\n".join(f"  {f}" for f in fields) + "\n}"
+    includes_clause = f" includes {includes}" if includes else ""
+    return f"@Aspect = {annotation}\nrecord {name.title()}{includes_clause} {{ field: string }}"
+
+
+def record_pdl(namespace: str, name: str, imports: list[str] | None = None, includes: str = "") -> str:
+    lines = [f"namespace {namespace}"]
+    for imp in imports or []:
+        lines.append(f"import {imp}")
+    includes_clause = f" includes {includes}" if includes else ""
+    lines.append(f"record {name}{includes_clause} {{ field: string }}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# parse_pdl_header
+# ---------------------------------------------------------------------------
+
+
+def test_parse_pdl_header_extracts_namespace():
+    ns, imports = bsv.parse_pdl_header("namespace com.linkedin.dataset\n\nrecord Foo {}")
+    assert ns == "com.linkedin.dataset"
+    assert imports == {}
+
+
+def test_parse_pdl_header_extracts_imports():
+    content = (
+        "namespace com.linkedin.dataset\n"
+        "import com.linkedin.timeseries.TimeseriesAspectBase\n"
+        "import com.linkedin.common.Ownership\n"
+        "\nrecord Foo {}"
+    )
+    ns, imports = bsv.parse_pdl_header(content)
+    assert imports["TimeseriesAspectBase"] == "com.linkedin.timeseries.TimeseriesAspectBase"
+    assert imports["Ownership"] == "com.linkedin.common.Ownership"
+
+
+def test_parse_pdl_header_no_namespace_or_imports():
+    ns, imports = bsv.parse_pdl_header("record Foo {}")
+    assert ns == ""
+    assert imports == {}
+
+
+# ---------------------------------------------------------------------------
+# parse_includes
+# ---------------------------------------------------------------------------
+
+
+def test_parse_includes_single_name():
+    assert bsv.parse_includes("record Foo includes Bar { field: string }") == ["Bar"]
+
+
+def test_parse_includes_multiple_names():
+    result = bsv.parse_includes("record Foo includes Bar, Baz, Qux { field: string }")
+    assert result == ["Bar", "Baz", "Qux"]
+
+
+def test_parse_includes_multiple_record_definitions():
+    # Regression for review comment #3 — re.search only caught the first clause
+    content = (
+        "record Foo includes Bar { f: string }\n"
+        "record Boo includes Zap { g: string }\n"
+    )
+    result = bsv.parse_includes(content)
+    assert "Bar" in result
+    assert "Zap" in result
+    assert len(result) == 2
+
+
+def test_parse_includes_no_includes():
+    assert bsv.parse_includes("record Foo { field: string }") == []
+
+
+# ---------------------------------------------------------------------------
+# resolve_includes
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_includes_via_import():
+    content = (
+        "namespace com.linkedin.dataset\n"
+        "import com.linkedin.timeseries.TimeseriesAspectBase\n"
+        "\nrecord Foo includes TimeseriesAspectBase { field: string }"
+    )
+    assert bsv.resolve_includes(content) == ["com.linkedin.timeseries.TimeseriesAspectBase"]
+
+
+def test_resolve_includes_via_namespace_fallback():
+    content = (
+        "namespace com.linkedin.dataset\n"
+        "\nrecord Foo includes LocalRecord { field: string }"
+    )
+    assert bsv.resolve_includes(content) == ["com.linkedin.dataset.LocalRecord"]
+
+
+def test_resolve_includes_mixed():
+    content = (
+        "namespace com.linkedin.dataset\n"
+        "import com.linkedin.common.Ownership\n"
+        "\nrecord Foo includes Ownership, LocalRecord { field: string }"
+    )
+    result = bsv.resolve_includes(content)
+    assert "com.linkedin.common.Ownership" in result
+    assert "com.linkedin.dataset.LocalRecord" in result
+
+
+def test_resolve_includes_unknown_name_omitted():
+    # No namespace, no imports — unresolvable name is dropped
+    assert bsv.resolve_includes("record Foo includes Unknown { field: string }") == []
+
+
+# ---------------------------------------------------------------------------
+# find_aspect_annotation_bounds
+# ---------------------------------------------------------------------------
+
+
+def test_find_aspect_annotation_bounds_basic():
+    content = '@Aspect = {\n  "name": "foo"\n}\nrecord Foo {}'
+    bounds = bsv.find_aspect_annotation_bounds(content)
+    assert bounds is not None
+    extracted = content[bounds[0] : bounds[1]]
+    assert extracted.startswith("{") and extracted.endswith("}")
+
+
+def test_find_aspect_annotation_bounds_nested_braces():
+    content = '@Aspect = {\n  "name": "foo",\n  "nested": {"key": "val"}\n}\nrecord Foo {}'
+    bounds = bsv.find_aspect_annotation_bounds(content)
+    assert bounds is not None
+    assert '"nested"' in content[bounds[0] : bounds[1]]
+
+
+def test_find_aspect_annotation_bounds_absent():
+    assert bsv.find_aspect_annotation_bounds("record Foo { field: string }") is None
+
+
+# ---------------------------------------------------------------------------
+# parse_annotation
+# ---------------------------------------------------------------------------
+
+
+def test_parse_annotation_valid():
+    result = bsv.parse_annotation('{"name": "foo", "schemaVersion": 3}')
+    assert result == {"name": "foo", "schemaVersion": 3}
+
+
+def test_parse_annotation_trailing_comma():
+    result = bsv.parse_annotation('{"name": "foo", "schemaVersion": 3,}')
+    assert result["schemaVersion"] == 3
+
+
+def test_parse_annotation_malformed_raises():
+    with pytest.raises(ValueError):
+        bsv.parse_annotation("{not valid json")
+
+
+# ---------------------------------------------------------------------------
+# get_schema_version
+# ---------------------------------------------------------------------------
+
+
+def test_get_schema_version_explicit():
+    content = '@Aspect = {\n  "name": "foo",\n  "schemaVersion": 5\n}\nrecord Foo {}'
+    assert bsv.get_schema_version(content) == 5
+
+
+def test_get_schema_version_absent_defaults_to_1():
+    content = '@Aspect = {\n  "name": "foo"\n}\nrecord Foo {}'
+    assert bsv.get_schema_version(content) == 1
+
+
+def test_get_schema_version_no_aspect_defaults_to_1():
+    assert bsv.get_schema_version("record Foo { field: string }") == 1
+
+
+# ---------------------------------------------------------------------------
+# is_aspect
+# ---------------------------------------------------------------------------
+
+
+def test_is_aspect_true():
+    assert bsv.is_aspect('@Aspect = {\n  "name": "foo"\n}\nrecord Foo {}') is True
+
+
+def test_is_aspect_false():
+    assert bsv.is_aspect("record Foo { field: string }") is False
+
+
+# ---------------------------------------------------------------------------
+# update_schema_version
+# ---------------------------------------------------------------------------
+
+
+def test_update_schema_version_replaces_existing():
+    content = '@Aspect = {\n  "name": "foo",\n  "schemaVersion": 1\n}\nrecord Foo {}'
+    result = bsv.update_schema_version(content, 2)
+    assert '"schemaVersion": 2' in result
+    assert '"schemaVersion": 1' not in result
+
+
+def test_update_schema_version_inserts_when_absent():
+    content = '@Aspect = {\n  "name": "foo"\n}\nrecord Foo {}'
+    result = bsv.update_schema_version(content, 2)
+    assert bsv.get_schema_version(result) == 2
+
+
+def test_update_schema_version_no_aspect_unchanged():
+    content = "record Foo { field: string }"
+    assert bsv.update_schema_version(content, 2) == content
+
+
+def test_update_schema_version_trailing_comma_style():
+    # Timeseries aspects use trailing commas before the closing brace
+    content = '@Aspect = {\n  "name": "timeseries",\n  "type": "timeseries",\n}\nrecord Foo {}'
+    result = bsv.update_schema_version(content, 2)
+    assert bsv.get_schema_version(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# build_reverse_include_graph
+# ---------------------------------------------------------------------------
+
+
+def test_build_reverse_include_graph_basic(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    base = write_pdl(tmp_path, "com/linkedin/common/Base.pdl",
+                     record_pdl("com.linkedin.common", "Base"))
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       "namespace com.linkedin.dataset\n"
+                       "import com.linkedin.common.Base\n"
+                       + aspect_pdl("myAspect", includes="Base"))
+
+    graph = bsv.build_reverse_include_graph([base, aspect])
+    assert str(aspect) in graph["com.linkedin.common.Base"]
+
+
+def test_build_reverse_include_graph_two_files_same_include(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    base = write_pdl(tmp_path, "com/linkedin/common/Base.pdl",
+                     record_pdl("com.linkedin.common", "Base"))
+    a1 = write_pdl(tmp_path, "com/linkedin/dataset/A1.pdl",
+                   "namespace com.linkedin.dataset\nimport com.linkedin.common.Base\n"
+                   + aspect_pdl("a1", includes="Base"))
+    a2 = write_pdl(tmp_path, "com/linkedin/dataset/A2.pdl",
+                   "namespace com.linkedin.dataset\nimport com.linkedin.common.Base\n"
+                   + aspect_pdl("a2", includes="Base"))
+
+    graph = bsv.build_reverse_include_graph([base, a1, a2])
+    assert str(a1) in graph["com.linkedin.common.Base"]
+    assert str(a2) in graph["com.linkedin.common.Base"]
+
+
+def test_build_reverse_include_graph_no_includes(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    solo = write_pdl(tmp_path, "com/linkedin/common/Solo.pdl",
+                     record_pdl("com.linkedin.common", "Solo"))
+    graph = bsv.build_reverse_include_graph([solo])
+    assert len(graph) == 0
+
+
+# ---------------------------------------------------------------------------
+# find_transitively_affected_aspects
+# ---------------------------------------------------------------------------
+
+
+def test_directly_changed_aspect_included(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       aspect_pdl("myAspect"))
+
+    graph = bsv.build_reverse_include_graph([aspect])
+    result = bsv.find_transitively_affected_aspects([str(aspect)], graph, [aspect])
+    assert str(aspect) in result
+
+
+def test_changed_non_aspect_bumps_including_aspect(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    base = write_pdl(tmp_path, "com/linkedin/common/Base.pdl",
+                     record_pdl("com.linkedin.common", "Base"))
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       "namespace com.linkedin.dataset\nimport com.linkedin.common.Base\n"
+                       + aspect_pdl("myAspect", includes="Base"))
+
+    graph = bsv.build_reverse_include_graph([base, aspect])
+    result = bsv.find_transitively_affected_aspects([str(base)], graph, [base, aspect])
+    assert str(aspect) in result
+    assert str(base) not in result  # base is not an aspect
+
+
+def test_multi_hop_transitive_chain(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    a = write_pdl(tmp_path, "com/linkedin/common/A.pdl",
+                  record_pdl("com.linkedin.common", "A"))
+    b = write_pdl(tmp_path, "com/linkedin/common/B.pdl",
+                  record_pdl("com.linkedin.common", "B",
+                              imports=["com.linkedin.common.A"], includes="A"))
+    c = write_pdl(tmp_path, "com/linkedin/dataset/C.pdl",
+                  "namespace com.linkedin.dataset\nimport com.linkedin.common.B\n"
+                  + aspect_pdl("cAspect", includes="B"))
+
+    graph = bsv.build_reverse_include_graph([a, b, c])
+    result = bsv.find_transitively_affected_aspects([str(a)], graph, [a, b, c])
+    assert str(c) in result
+
+
+def test_only_including_aspects_are_affected(tmp_path, monkeypatch):
+    # base changes; aspect_a includes it (affected); aspect_b does not (unaffected)
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    base = write_pdl(tmp_path, "com/linkedin/common/Base.pdl",
+                     record_pdl("com.linkedin.common", "Base"))
+    aspect_a = write_pdl(tmp_path, "com/linkedin/dataset/AspectA.pdl",
+                         "namespace com.linkedin.dataset\nimport com.linkedin.common.Base\n"
+                         + aspect_pdl("aspectA", includes="Base"))
+    aspect_b = write_pdl(tmp_path, "com/linkedin/dataset/AspectB.pdl",
+                         aspect_pdl("aspectB"))  # no includes — unrelated
+
+    graph = bsv.build_reverse_include_graph([base, aspect_a, aspect_b])
+    result = bsv.find_transitively_affected_aspects([str(base)], graph, [base, aspect_a, aspect_b])
+
+    assert str(aspect_a) in result
+    assert str(aspect_b) not in result
+
+
+def test_changed_file_with_no_dependents_not_in_result_if_not_aspect(tmp_path, monkeypatch):
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    solo = write_pdl(tmp_path, "com/linkedin/common/Solo.pdl",
+                     record_pdl("com.linkedin.common", "Solo"))
+
+    graph = bsv.build_reverse_include_graph([solo])
+    result = bsv.find_transitively_affected_aspects([str(solo)], graph, [solo])
+    assert str(solo) not in result
+
+
+# ---------------------------------------------------------------------------
+# parse_field_types  /  resolve_dependencies
+# ---------------------------------------------------------------------------
+
+
+def test_parse_field_types_picks_up_short_name():
+    content = (
+        "namespace com.linkedin.ingestion\n"
+        "record Foo { schedule: optional Bar }"
+    )
+    # Both the record's own name and the referenced type are PascalCase tokens
+    assert "Bar" in bsv.parse_field_types(content)
+
+
+def test_parse_field_types_handles_generic_params():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo {\n"
+        "  arr: array[Bar]\n"
+        "  m: map[string, Baz]\n"
+        "  u: union[Qux, Quux]\n"
+        "}"
+    )
+    tokens = bsv.parse_field_types(content)
+    for name in ("Bar", "Baz", "Qux", "Quux"):
+        assert name in tokens
+
+
+def test_parse_field_types_strips_annotation_blocks():
+    # Field type `realRef` should be picked up, but identifier `Searchable`
+    # inside `@Searchable = { ... }` must not.
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo {\n"
+        '  @Searchable = { "fieldType": "TEXT" }\n'
+        "  realRef: SomeRecord\n"
+        "}"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "SomeRecord" in tokens
+    assert "Searchable" not in tokens
+
+
+def test_parse_field_types_strips_doc_comments():
+    content = (
+        "namespace com.linkedin.x\n"
+        "/** This refers to BogusType in prose */\n"
+        "record Foo { field: RealType }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "RealType" in tokens
+    assert "BogusType" not in tokens
+
+
+def test_parse_field_types_strips_import_lines():
+    # Identifiers from `import` lines should not be treated as field references
+    content = (
+        "namespace com.linkedin.x\n"
+        "import com.linkedin.common.OnlyImported\n"
+        "record Foo { used: ActuallyUsed }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "ActuallyUsed" in tokens
+    assert "OnlyImported" not in tokens
+    assert "com.linkedin.common.OnlyImported" not in tokens
+
+
+def test_parse_field_types_captures_inline_fqn_ref():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo { field: com.linkedin.common.Bar }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "com.linkedin.common.Bar" in tokens
+
+
+def test_resolve_dependencies_same_namespace_field_ref():
+    # The original bug: schedule field uses a record in the SAME namespace,
+    # with no import. Must still resolve to the right FQN via namespace fallback.
+    content = (
+        "namespace com.linkedin.ingestion\n"
+        "import com.linkedin.common.Urn\n"
+        "@Aspect = { \"name\": \"info\" }\n"
+        "record DataHubIngestionSourceInfo {\n"
+        "  platform: optional Urn\n"
+        "  schedule: optional DataHubIngestionSourceSchedule\n"
+        "}"
+    )
+    deps = bsv.resolve_dependencies(content)
+    assert "com.linkedin.ingestion.DataHubIngestionSourceSchedule" in deps
+    assert "com.linkedin.common.Urn" in deps
+
+
+def test_resolve_dependencies_inline_fqn_is_passed_through():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo { field: com.linkedin.common.Bar }"
+    )
+    assert "com.linkedin.common.Bar" in bsv.resolve_dependencies(content)
+
+
+def test_resolve_dependencies_unresolved_short_name_dropped():
+    # No namespace, no imports — bare PascalCase token can't be resolved
+    content = "record Foo { field: Unknown }"
+    assert bsv.resolve_dependencies(content) == []
+
+
+# ---------------------------------------------------------------------------
+# field-type propagation end-to-end (the user's reported bug)
+# ---------------------------------------------------------------------------
+
+
+def test_changed_non_aspect_field_type_bumps_using_aspect(tmp_path, monkeypatch):
+    """
+    Replicates the DataHubIngestionSourceInfo / DataHubIngestionSourceSchedule case:
+    a non-aspect record is referenced as a field type (not via `includes`) inside
+    an aspect, and lives in the SAME namespace (no import).
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    schedule = write_pdl(
+        tmp_path,
+        "com/linkedin/ingestion/DataHubIngestionSourceSchedule.pdl",
+        record_pdl("com.linkedin.ingestion", "DataHubIngestionSourceSchedule"),
+    )
+    info = write_pdl(
+        tmp_path,
+        "com/linkedin/ingestion/DataHubIngestionSourceInfo.pdl",
+        "namespace com.linkedin.ingestion\n"
+        '@Aspect = { "name": "dataHubIngestionSourceInfo" }\n'
+        "record DataHubIngestionSourceInfo {\n"
+        "  schedule: optional DataHubIngestionSourceSchedule\n"
+        "}",
+    )
+
+    graph = bsv.build_reverse_include_graph([schedule, info])
+    assert str(info) in graph["com.linkedin.ingestion.DataHubIngestionSourceSchedule"]
+
+    result = bsv.find_transitively_affected_aspects(
+        [str(schedule)], graph, [schedule, info]
+    )
+    assert str(info) in result          # aspect that uses it gets bumped
+    assert str(schedule) not in result  # non-aspect itself is never bumped
+
+
+def test_changed_enum_field_type_bumps_using_aspect(tmp_path, monkeypatch):
+    """
+    Mirrors the AssertionAssignmentRuleInfo case where the field type is an
+    enum in the same namespace (e.g. `mode: AssertionAssignmentRuleMode`).
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    mode = write_pdl(
+        tmp_path,
+        "com/linkedin/a/Mode.pdl",
+        "namespace com.linkedin.a\nenum Mode { ENABLED, DISABLED }",
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/a/RuleInfo.pdl",
+        "namespace com.linkedin.a\n"
+        '@Aspect = { "name": "ruleInfo" }\n'
+        'record RuleInfo { mode: Mode = "ENABLED" }',
+    )
+
+    graph = bsv.build_reverse_include_graph([mode, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(mode)], graph, [mode, aspect]
+    )
+    assert str(aspect) in result
+
+
+def test_field_type_propagates_through_non_aspect_chain(tmp_path, monkeypatch):
+    """
+    Multi-hop chain via field types only (no `includes` at any step):
+       leaf (non-aspect)  ←  middle (non-aspect)  ←  aspect
+    Changing the leaf must bump the aspect.
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    leaf = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Leaf.pdl",
+        record_pdl("com.linkedin.x", "Leaf"),
+    )
+    middle = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Middle.pdl",
+        "namespace com.linkedin.x\nrecord Middle { l: Leaf }",
+    )
+    top = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Top.pdl",
+        "namespace com.linkedin.x\n"
+        '@Aspect = { "name": "top" }\n'
+        "record Top { m: Middle }",
+    )
+
+    graph = bsv.build_reverse_include_graph([leaf, middle, top])
+    result = bsv.find_transitively_affected_aspects(
+        [str(leaf)], graph, [leaf, middle, top]
+    )
+    assert str(top) in result
+    assert str(middle) not in result  # not an aspect
+    assert str(leaf) not in result    # not an aspect
+
+
+def test_field_type_imported_cross_namespace(tmp_path, monkeypatch):
+    """A changed record referenced via `import` from another namespace must
+    bump the using aspect."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    audit = write_pdl(
+        tmp_path,
+        "com/linkedin/common/AuditStamp.pdl",
+        record_pdl("com.linkedin.common", "AuditStamp"),
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Info.pdl",
+        "namespace com.linkedin.x\n"
+        "import com.linkedin.common.AuditStamp\n"
+        '@Aspect = { "name": "info" }\n'
+        "record Info { created: optional AuditStamp }",
+    )
+
+    graph = bsv.build_reverse_include_graph([audit, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(audit)], graph, [audit, aspect]
+    )
+    assert str(aspect) in result
+
+
+def test_unrelated_same_namespace_record_is_not_a_dependency(tmp_path, monkeypatch):
+    """Two records in the same namespace that don't reference each other must
+    NOT trigger a bump — this is what makes the field-type scan worth doing
+    over the simpler 'any same-namespace file is a dep' heuristic."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    unrelated = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Unrelated.pdl",
+        record_pdl("com.linkedin.x", "Unrelated"),
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Other.pdl",
+        "namespace com.linkedin.x\n"
+        '@Aspect = { "name": "other" }\n'
+        "record Other { field: string }",
+    )
+
+    graph = bsv.build_reverse_include_graph([unrelated, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(unrelated)], graph, [unrelated, aspect]
+    )
+    assert str(aspect) not in result
+
+
+# ---------------------------------------------------------------------------
+# strip_pdl_comments / normalize_pdl_for_compare
+# ---------------------------------------------------------------------------
+
+
+def test_strip_pdl_comments_removes_block_and_line_comments():
+    content = (
+        "record Foo {\n"
+        "  /** doc comment */\n"
+        "  field: string  // trailing note\n"
+        "}"
+    )
+    stripped = bsv.strip_pdl_comments(content)
+    assert "doc comment" not in stripped
+    assert "trailing note" not in stripped
+    assert "field: string" in stripped
+
+
+def test_strip_pdl_comments_preserves_string_literals():
+    # Comment markers inside a string literal must survive — they are data,
+    # not comments. (This is what distinguishes it from _strip_strings_and_comments.)
+    content = 'record Foo { @x = { "v": "a // b /* c */ d" } }'
+    stripped = bsv.strip_pdl_comments(content)
+    assert "a // b /* c */ d" in stripped
+
+
+def test_normalize_pdl_collapses_whitespace_and_comments():
+    a = '@Aspect = {\n  "name": "foo"\n}\nrecord Foo { f: string }'
+    b = '/** added doc */\n@Aspect = {\n    "name":   "foo"\n}\n\nrecord Foo { f: string }'
+    assert bsv.normalize_pdl_for_compare(a) == bsv.normalize_pdl_for_compare(b)
+
+
+def test_normalize_pdl_detects_real_schema_change():
+    a = '@Aspect = { "name": "foo" }\nrecord Foo { f: string }'
+    b = '@Aspect = { "name": "foo" }\nrecord Foo { f: string, g: int }'
+    assert bsv.normalize_pdl_for_compare(a) != bsv.normalize_pdl_for_compare(b)
+
+
+def test_normalize_pdl_detects_string_value_change():
+    # A changed annotation value is a real change, even though it's a string.
+    a = '@Aspect = { "name": "foo" }\nrecord Foo { f: string }'
+    b = '@Aspect = { "name": "bar" }\nrecord Foo { f: string }'
+    assert bsv.normalize_pdl_for_compare(a) != bsv.normalize_pdl_for_compare(b)
+
+
+# ---------------------------------------------------------------------------
+# is_comment_only_change
+# ---------------------------------------------------------------------------
+
+
+def test_is_comment_only_change_true_for_doc_edit(tmp_path, monkeypatch):
+    base = 'enum Op {\n  /** old */\n  A\n}'
+    current = 'enum Op {\n  /** a much longer clarified doc comment */\n  A\n}'
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is True
+
+
+def test_is_comment_only_change_false_for_real_edit(tmp_path, monkeypatch):
+    base = "enum Op {\n  A\n}"
+    current = "enum Op {\n  A\n  B\n}"  # new enum value — real change
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+def test_is_comment_only_change_false_for_new_file(tmp_path, monkeypatch):
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", "enum Op { A }")
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: None)  # absent on base
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+def test_is_comment_only_change_false_for_mixed_edit(tmp_path, monkeypatch):
+    # A real schema change accompanied by a doc-comment edit must NOT be skipped —
+    # the structural change still has to bump. This is the key safety property.
+    base = "record Foo {\n  /** old */\n  a: string\n}"
+    current = "record Foo {\n  /** new clarified doc */\n  a: string\n  b: int\n}"  # added field
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+# ---------------------------------------------------------------------------
+# parse_top_level_defs
+# ---------------------------------------------------------------------------
+
+
+def test_parse_top_level_defs_record_fields_and_includes():
+    content = (
+        "namespace com.linkedin.x\n"
+        "import com.linkedin.common.CustomProperties\n"
+        '@Aspect = { "name": "foo" }\n'
+        "record Foo includes CustomProperties {\n"
+        "  active: boolean\n"
+        '  @Searchable = { "fieldType": "KEYWORD" }\n'
+        "  name: optional string\n"
+        "  flag: optional boolean = false\n"
+        "}"
+    )
+    defs = bsv.parse_top_level_defs(content)
+    assert set(defs) == {"Foo"}
+    foo = defs["Foo"]
+    assert foo["kind"] == "record"
+    assert foo["includes"] == {"CustomProperties"}
+    assert set(foo["fields"]) == {"active", "name", "flag"}
+    assert foo["fields"]["active"][1] is False
+    assert foo["fields"]["name"][1] is True
+    assert foo["fields"]["flag"][1] is True
+    assert foo["fields"]["active"][2] == {}
+    assert foo["fields"]["name"][2] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
+
+
+def test_parse_top_level_defs_enum_symbols():
+    content = "namespace com.linkedin.a\nenum Mode {\n  ENABLED\n  DISABLED\n}"
+    defs = bsv.parse_top_level_defs(content)
+    assert defs["Mode"]["kind"] == "enum"
+    assert defs["Mode"]["symbols"] == {"ENABLED", "DISABLED"}
+
+
+def test_parse_top_level_defs_typeref_bails():
+    # typeref is unsupported by the conservative parser → None → treated as bump-worthy
+    assert bsv.parse_top_level_defs("namespace x\ntyperef Urn = string") is None
+
+
+def test_parse_record_fields_nested_annotation_braces_do_not_split():
+    # A field annotation with nested objects/arrays must not be mistaken for a
+    # field boundary.
+    body = (
+        '@Searchable = { "w": { "true": 2.0 }, "aliases": [ "_x" ] }\n'
+        "a: boolean\n"
+        "b: optional string\n"
+    )
+    fields = bsv.parse_record_fields(body)
+    assert set(fields) == {"a", "b"}
+    assert fields["b"][1] is True
+    # The @Searchable annotation attaches to the field that follows it (a),
+    # and is captured (whitelisted) rather than merely skipped over.
+    assert fields["a"][2] == {
+        "Searchable": '{ "w": { "true": 2.0 }, "aliases": [ "_x" ] }'
+    }
+    assert fields["b"][2] == {}
+
+
+# ---------------------------------------------------------------------------
+# _defs_backward_compatible
+# ---------------------------------------------------------------------------
+
+
+def _record_defs(*field_lines: str, includes: str = "", name: str = "Foo") -> dict:
+    body = "\n".join(field_lines)
+    inc = f" includes {includes}" if includes else ""
+    return bsv.parse_top_level_defs(
+        f"namespace x\nrecord {name}{inc} {{\n{body}\n}}"
+    )
+
+
+def test_bc_added_optional_field_is_compatible():
+    base = _record_defs("a: boolean")
+    cur = _record_defs("a: boolean", "b: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_required_field_is_incompatible():
+    base = _record_defs("a: boolean")
+    cur = _record_defs("a: boolean", "b: string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_removed_field_is_incompatible():
+    base = _record_defs("a: boolean", "b: optional string")
+    cur = _record_defs("a: boolean")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_changed_field_type_is_incompatible():
+    base = _record_defs("a: optional long")
+    cur = _record_defs("a: optional int")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_changed_searchable_annotation_is_incompatible():
+    # @Searchable drives Elasticsearch index mapping, so changing its value on
+    # an existing field requires a reindex — not a no-op, backward-compatible
+    # change — even though nothing about the field's own type/optionality moved.
+    base = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
+    cur = _record_defs('@Searchable = { "fieldType": "TEXT" }', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_added_searchable_annotation_is_incompatible():
+    # A field with no annotation in base gaining @Searchable in current is
+    # exactly as bump-worthy as changing an existing one's value.
+    base = _record_defs("a: optional string")
+    cur = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_changed_non_whitelisted_annotation_is_compatible():
+    # @deprecated is not reindex-relevant, so it stays ignored — same as
+    # before this change — even though its value differs.
+    base = _record_defs('@deprecated = "old reason"', "a: optional string")
+    cur = _record_defs('@deprecated = "new reason"', "a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_changed_field_default_is_compatible():
+    # Defaults are ignored by the report tool's fields() comparison.
+    base = _record_defs("a: optional boolean = false")
+    cur = _record_defs("a: optional boolean = true")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_required_to_optional_is_incompatible():
+    # Matches the report: required→optional is noisy but still bump-required.
+    base = _record_defs("a: string")
+    cur = _record_defs("a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_optional_to_required_is_incompatible():
+    base = _record_defs("a: optional string")
+    cur = _record_defs("a: string")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_changed_includes_is_incompatible():
+    base = _record_defs("a: boolean", includes="Base")
+    cur = _record_defs("a: boolean", includes="Other")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_added_enum_symbol_is_compatible():
+    base = bsv.parse_top_level_defs("namespace x\nenum E { A, B }")
+    cur = bsv.parse_top_level_defs("namespace x\nenum E { A, B, C }")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_removed_enum_symbol_is_incompatible():
+    base = bsv.parse_top_level_defs("namespace x\nenum E { A, B }")
+    cur = bsv.parse_top_level_defs("namespace x\nenum E { A }")
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+# ---------------------------------------------------------------------------
+# is_backward_compatible_change
+# ---------------------------------------------------------------------------
+
+
+def test_is_bc_change_added_optional_field(tmp_path, monkeypatch):
+    base = 'namespace x\n@Aspect = { "name": "foo" }\nrecord Foo { a: boolean }'
+    current = (
+        "namespace x\n"
+        '@Aspect = { "name": "foo" }\n'
+        "record Foo { a: boolean\n  b: optional string }"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_schema_version_removal_only(tmp_path, monkeypatch):
+    # The corpUserInfo case: schemaVersion removed, schema content unchanged.
+    base = (
+        'namespace x\n@Aspect = { "name": "foo", "schemaVersion": 2 }\n'
+        "record Foo { a: boolean\n  b: optional string }"
+    )
+    current = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo { a: boolean\n  b: optional string }"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_aspect_name_change_is_incompatible(tmp_path, monkeypatch):
+    # A change to @Aspect beyond schemaVersion must not be waved through.
+    base = 'namespace x\n@Aspect = { "name": "foo" }\nrecord Foo { a: boolean }'
+    current = (
+        'namespace x\n@Aspect = { "name": "renamed" }\n'
+        "record Foo { a: boolean\n  b: optional string }"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is False
+
+
+def test_is_bc_change_new_file_is_not_compatible(tmp_path, monkeypatch):
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl",
+                  'namespace x\n@Aspect = { "name": "foo" }\nrecord Foo { a: boolean }')
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: None)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is False
+
+
+# ---------------------------------------------------------------------------
+# main() — backward-compatible changes are neither bumped nor cascaded
+# ---------------------------------------------------------------------------
+
+
+def _optional_field_added(content: str) -> str:
+    return content.replace("{ field: string }", "{ field: string, added: optional int }")
+
+
+def test_backward_compatible_change_is_not_bumped(tmp_path, monkeypatch):
+    # Adding an optional field to an aspect must NOT bump its schemaVersion.
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _optional_field_added(base_content))
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 3  # unchanged
+
+
+def test_backward_compatible_change_does_not_cascade(tmp_path, monkeypatch):
+    # A shared non-aspect record gains an optional field; the aspect that
+    # includes it must NOT be bumped.
+    base_include = record_pdl("com.linkedin.common", "Base")
+    include = write_pdl(tmp_path, "com/linkedin/common/Base.pdl",
+                        base_include.replace("{ field: string }",
+                                             "{ field: string, added: optional int }"))
+    aspect_content = ("namespace com.linkedin.dataset\nimport com.linkedin.common.Base\n"
+                      + aspect_pdl("myAspect", includes="Base", schema_version=3))
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", aspect_content)
+
+    rc = _run_main(tmp_path, monkeypatch, [include],
+                   {str(include): base_include, str(aspect): aspect_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 3  # no cascade
+
+
+def test_check_mode_passes_for_backward_compatible_change(tmp_path, monkeypatch):
+    # --check must not fail a purely additive optional-field change.
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _optional_field_added(base_content))
+
+    rc = _run_check(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+
+
+def test_incompatible_change_still_bumps(tmp_path, monkeypatch):
+    # Guard the safety property: a non-optional added field still bumps.
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))  # adds required `added: int`
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 4  # bumped
+
+
+# ---------------------------------------------------------------------------
+# detect_default_branch / get_merge_base / get_base_pdl_changes
+# ---------------------------------------------------------------------------
+
+
+def _make_proc(returncode: int, stdout: str = "", stderr: str = "") -> MagicMock:
+    m = MagicMock()
+    m.returncode = returncode
+    m.stdout = stdout
+    m.stderr = stderr
+    return m
+
+
+def test_detect_default_branch_from_symbolic_ref(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(0, "refs/remotes/origin/custom-main\n"))
+    assert bsv.detect_default_branch() == "custom-main"
+
+
+def test_detect_default_branch_from_env_var(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(1))
+    monkeypatch.setenv("MAIN_BRANCH", "custom-main")
+    assert bsv.detect_default_branch() == "custom-main"
+
+
+def test_detect_default_branch_fallback_to_master(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(1))
+    monkeypatch.delenv("MAIN_BRANCH", raising=False)
+    assert bsv.detect_default_branch() == "master"
+
+
+# ---------------------------------------------------------------------------
+# is_release_or_hotfix_branch
+# ---------------------------------------------------------------------------
+
+
+def test_is_release_or_hotfix_branch_bare_names():
+    assert bsv.is_release_or_hotfix_branch("releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch("hotfixes/v0.3.12.1") is True
+
+
+def test_is_release_or_hotfix_branch_strips_remote_prefixes():
+    assert bsv.is_release_or_hotfix_branch("origin/releases/v0.3.12") is True
+    assert bsv.is_release_or_hotfix_branch(
+        "refs/remotes/origin/hotfixes/v0.3.12.1"
+    ) is True
+
+
+def test_is_release_or_hotfix_branch_rejects_non_release():
+    assert bsv.is_release_or_hotfix_branch("acryl-main") is False
+    assert bsv.is_release_or_hotfix_branch("master") is False
+    # Substring, not prefix — must be rejected.
+    assert bsv.is_release_or_hotfix_branch("feature/releases-thing") is False
+
+
+# ---------------------------------------------------------------------------
+# _merge_base_distance
+# ---------------------------------------------------------------------------
+
+
+def test_merge_base_distance_returns_count(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(0, "3\n"))
+    assert bsv._merge_base_distance("origin/releases/x") == 3
+
+
+def test_merge_base_distance_none_on_failure(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _make_proc(1))
+    assert bsv._merge_base_distance("origin/releases/x") is None
+
+
+# ---------------------------------------------------------------------------
+# find_nearest_ancestor_release_branch
+# ---------------------------------------------------------------------------
+
+
+def test_nearest_ancestor_no_candidates_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs", lambda: [])
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_release_branch_wins(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    # release branch 2 commits back, default branch 10 commits back
+    dist = {"origin/releases/v0.3.12": 2,
+            "refs/remotes/origin/acryl-main": 10, "acryl-main": 10}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert (bsv.find_nearest_ancestor_release_branch("acryl-main")
+            == "origin/releases/v0.3.12")
+
+
+def test_nearest_ancestor_default_nearer_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 10,
+            "refs/remotes/origin/acryl-main": 2, "acryl-main": 2}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_tie_prefers_default(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/hotfixes/v0.3.12.1"])
+    dist = {"origin/hotfixes/v0.3.12.1": 5,
+            "refs/remotes/origin/acryl-main": 5, "acryl-main": 5}
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    # A tie means HEAD shares the same fork point with both — that's a trunk
+    # branch, so the default branch wins and the check must run.
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_nearest_ancestor_unresolvable_default_returns_none(monkeypatch):
+    monkeypatch.setattr(bsv, "_list_release_hotfix_refs",
+                        lambda: ["origin/releases/v0.3.12"])
+    dist = {"origin/releases/v0.3.12": 2}  # default branch unresolvable → None
+    monkeypatch.setattr(bsv, "_merge_base_distance", lambda ref: dist.get(ref))
+    assert bsv.find_nearest_ancestor_release_branch("acryl-main") is None
+
+
+def test_get_merge_base_returns_sha(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(0, "abc123def456\n"))
+    assert bsv.get_merge_base("refs/remotes/origin/acryl-main") == "abc123def456"
+
+
+def test_get_merge_base_failure_exits(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(1, stderr="not a git repo"))
+    with pytest.raises(SystemExit):
+        bsv.get_merge_base("refs/remotes/origin/acryl-main")
+
+
+def test_get_base_pdl_changes_returns_files(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(0, "a/Foo.pdl\nb/Bar.pdl\n"))
+    result = bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
+    assert result == ["a/Foo.pdl", "b/Bar.pdl"]
+
+
+def test_get_base_pdl_changes_failure_exits(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: (_ for _ in ()).throw(
+                            subprocess.CalledProcessError(1, "git", stderr="err")))
+    with pytest.raises(SystemExit):
+        bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
+
+
+# ---------------------------------------------------------------------------
+# Version bump scenarios (via main())
+#
+# These tests exercise the version calculation logic in main():
+#   base_version = get_schema_version(base_content) if base_content else 0
+#   new_version  = base_version + 1
+#   skip if current_version >= new_version
+# ---------------------------------------------------------------------------
+
+
+def _run_main(tmp_path, monkeypatch, changed_files, base_content_by_path, *,
+              base_pdl_changes=None):
+    """
+    Run main() with filesystem and git calls mocked out.
+
+    changed_files        — list of Path objects treated as "changed" on this branch
+    base_content_by_path — dict mapping str(path) → content string on base branch,
+                           or None to simulate a new file not present on base
+    base_pdl_changes     — list of str paths changed on the base branch since
+                           divergence (default: empty — no conflict)
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py", "--base-branch", "master"])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes",
+                        lambda _base, _ref: base_pdl_changes or [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [str(f) for f in changed_files])
+    monkeypatch.setattr(bsv, "get_file_at_branch",
+                        lambda path, _branch: base_content_by_path.get(path))
+    return bsv.main()
+
+
+def _with_added_field(content: str) -> str:
+    """Return a real (non-comment) schema change of an aspect_pdl() body."""
+    return content.replace("{ field: string }", "{ field: string, added: int }")
+
+
+def test_version_bump_existing_aspect_no_schema_version(tmp_path, monkeypatch):
+    # Base has @Aspect with no schemaVersion (defaults to 1) → should bump to 2
+    base_content = aspect_pdl("myAspect")  # no schemaVersion
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 2
+
+
+def test_version_bump_existing_aspect_with_schema_version(tmp_path, monkeypatch):
+    # Base has schemaVersion=3 → should bump to 4
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 4
+
+
+def test_version_bump_skips_if_already_at_target(tmp_path, monkeypatch):
+    # Base has schemaVersion=1 → new_version=2; current file already at 2 → skip
+    base_content = aspect_pdl("myAspect", schema_version=1)
+    current_content = aspect_pdl("myAspect", schema_version=2)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", current_content)
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 2  # unchanged
+
+
+def test_version_bump_new_file_stays_at_1(tmp_path, monkeypatch):
+    # File not on base branch (base_content=None) → base_version=0, new_version=1
+    # Default schemaVersion is already 1 → skip (already at target)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/NewAspect.pdl",
+                       aspect_pdl("newAspect"))  # no schemaVersion → defaults to 1
+
+    rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): None})
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 1
+
+
+def test_conflicting_pdl_on_base_branch_exits_with_error(tmp_path, monkeypatch):
+    # Base ref is current AND the same PDL changed on both branches → block at stage 2
+    base_content = aspect_pdl("myAspect")
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+
+    rc = _run_main(
+        tmp_path, monkeypatch,
+        changed_files=[aspect],
+        base_content_by_path={str(aspect): base_content},
+        base_pdl_changes=[str(aspect)],  # same file changed on base
+    )
+
+    assert rc == 1
+    assert bsv.get_schema_version(aspect.read_text()) == 1  # untouched
+
+
+def test_unrelated_base_pdl_changes_do_not_block(tmp_path, monkeypatch):
+    # A different PDL changed on the base branch — should not block this branch's bump
+    base_content = aspect_pdl("myAspect")
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+
+    rc = _run_main(
+        tmp_path, monkeypatch,
+        changed_files=[aspect],
+        base_content_by_path={str(aspect): base_content},
+        base_pdl_changes=["com/linkedin/other/Unrelated.pdl"],  # different file on base
+    )
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 2  # bumped normally
+
+
+def test_comment_only_change_does_not_bump_or_cascade(tmp_path, monkeypatch):
+    # Mirrors the reported case: an enum's doc comment changes, and an aspect
+    # references that enum as a field type. The doc-only edit must NOT bump the
+    # aspect. The enum file on disk differs from base only by a comment.
+    enum_base = "namespace com.linkedin.a\nenum Op {\n  /** old */\n  A\n}"
+    enum_current = "namespace com.linkedin.a\nenum Op {\n  /** clarified longer doc */\n  A\n}"
+    enum_file = write_pdl(tmp_path, "com/linkedin/a/Op.pdl", enum_current)
+
+    aspect_content = (
+        "namespace com.linkedin.a\n"
+        + aspect_pdl("ruleInfo", schema_version=3).replace(
+            "{ field: string }", '{ op: Op = "A" }'
+        )
+    )
+    aspect = write_pdl(tmp_path, "com/linkedin/a/RuleInfo.pdl", aspect_content)
+
+    rc = _run_main(
+        tmp_path,
+        monkeypatch,
+        changed_files=[enum_file],
+        base_content_by_path={str(enum_file): enum_base, str(aspect): aspect_content},
+    )
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 3  # unchanged, no cascade
+
+
+def test_version_bump_dry_run_does_not_write(tmp_path, monkeypatch):
+    base_content = aspect_pdl("myAspect")
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+    original = aspect.read_text()
+
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py", "--base-branch", "master", "--dry-run"])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes", lambda _base, _ref: [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [str(aspect)])
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda path, _branch: base_content)
+
+    rc = bsv.main()
+
+    assert rc == 0
+    assert aspect.read_text() == original  # file untouched
+
+
+def _run_check(tmp_path, monkeypatch, changed_files, base_content_by_path):
+    """Run main() in --check mode with git/filesystem calls mocked out."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+    monkeypatch.setattr(sys, "argv",
+                        ["bump_schema_versions.py", "--base-branch", "master", "--check"])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes", lambda _base, _ref: [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files",
+                        lambda _ref: [str(f) for f in changed_files])
+    monkeypatch.setattr(bsv, "get_file_at_branch",
+                        lambda path, _branch: base_content_by_path.get(path))
+    return bsv.main()
+
+
+def test_check_mode_fails_when_bump_missing(tmp_path, monkeypatch):
+    # Aspect changed but schemaVersion left at base value → CI should fail (rc=1)
+    # and the file must not be modified.
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+    original = aspect.read_text()
+
+    rc = _run_check(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 1
+    assert aspect.read_text() == original  # check mode writes nothing
+
+
+def test_check_mode_passes_when_bump_present(tmp_path, monkeypatch):
+    # Aspect changed AND already bumped to base+1 → CI should pass (rc=0).
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    current_content = _with_added_field(aspect_pdl("myAspect", schema_version=4))
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", current_content)
+
+    rc = _run_check(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+
+
+def test_check_mode_passes_for_comment_only_change(tmp_path, monkeypatch):
+    # A doc-only edit needs no bump, so --check must not fail it.
+    enum_base = "namespace com.linkedin.a\nenum Op {\n  /** old */\n  A\n}"
+    enum_current = "namespace com.linkedin.a\nenum Op {\n  /** clarified */\n  A\n}"
+    enum_file = write_pdl(tmp_path, "com/linkedin/a/Op.pdl", enum_current)
+
+    rc = _run_check(tmp_path, monkeypatch, [enum_file], {str(enum_file): enum_base})
+
+    assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# main() release/hotfix skip
+# ---------------------------------------------------------------------------
+
+
+def test_main_skips_on_explicit_release_base(monkeypatch):
+    monkeypatch.setattr(
+        sys, "argv",
+        ["bump_schema_versions.py", "--check", "--base-branch", "releases/v0.3.12"],
+    )
+    # If the skip fails, main() would call get_merge_base — make that explode.
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_skips_when_nearest_ancestor_is_release(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: "origin/releases/v0.3.12")
+    monkeypatch.setattr(bsv, "get_merge_base",
+                        lambda _ref: pytest.fail("must skip before git"))
+    assert bsv.main() == 0
+
+
+def test_main_local_no_release_ancestor_proceeds(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py"])
+    monkeypatch.setattr(bsv, "detect_default_branch", lambda: "acryl-main")
+    monkeypatch.setattr(bsv, "find_nearest_ancestor_release_branch",
+                        lambda _default: None)
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [])
+    # No changed PDL files → main() returns 0 after resolving the default base.
+    assert bsv.main() == 0

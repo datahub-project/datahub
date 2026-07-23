@@ -1,5 +1,6 @@
 import merge from 'deepmerge';
-import { keyBy, unionBy, values } from 'lodash';
+import i18next from 'i18next';
+import { keyBy, unionBy, uniqWith, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
@@ -38,7 +39,7 @@ function cleanHelper(obj, visited) {
         if (v && typeof v === 'object') {
             cleanHelper(v, visited);
         }
-        if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
+        if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined) {
             if (Array.isArray(object)) {
                 // do nothing
             } else if (Object.getOwnPropertyDescriptor(object, k)?.configurable) {
@@ -126,7 +127,12 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
 };
 
 const mergeOwners = (destinationArray, sourceArray, _options) => {
-    return unionBy(destinationArray, sourceArray, 'owner.urn');
+    return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
+        if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
+            return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.type === ownerB.type;
+        }
+        return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.ownershipType?.urn === ownerB.ownershipType?.urn;
+    });
 };
 
 const mergeFields = (destinationArray, sourceArray, _options) => {
@@ -176,32 +182,32 @@ const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus):
     if (mergedStatus === HealthStatus.Fail) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'See failing assertions →';
+                return i18next.t('shared.health:failAssertions');
             case HealthStatusType.Incidents:
-                return 'See active incidents →';
+                return i18next.t('shared.health:failIncidents');
             default:
-                return 'See failed checks →';
+                return i18next.t('shared.health:failChecks');
         }
     }
     if (mergedStatus === HealthStatus.Warn) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'Some assertions have problems.';
+                return i18next.t('shared.health:warnAssertions');
             default:
-                return 'Some checks have problems.';
+                return i18next.t('shared.health:warnChecks');
         }
     }
     if (mergedStatus === HealthStatus.Pass) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'All assertions are passing';
+                return i18next.t('shared.health:passAssertions');
             case HealthStatusType.Incidents:
-                return 'No active incidents';
+                return i18next.t('shared.health:passIncidents');
             default:
-                return 'All checks are passing';
+                return i18next.t('shared.health:passChecks');
         }
     }
-    return 'All checks are passing';
+    return i18next.t('shared.health:passChecks');
 };
 
 // Merge entity health across siblings.
@@ -364,17 +370,6 @@ function customMerge(isPrimary, key) {
     };
 }
 
-export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
-    if (!baseEntity) {
-        return null;
-    }
-    const baseEntityKey = Object.keys(baseEntity)[0];
-    const extractedBaseEntity = baseEntity[baseEntityKey];
-
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    return extractedBaseEntity?.['siblings'];
-};
-
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {
     siblings?: SiblingProperties | null;
@@ -431,16 +426,6 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     return combinedBaseEntity;
 };
 
-export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
-    if (!entityValue) return siblingValue;
-    if (!siblingValue) return entityValue;
-
-    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
-        arrayMerge: combineMerge,
-        customMerge: customMerge.bind({}, isPrimary),
-    });
-}
-
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -471,7 +456,7 @@ type CombinedEntityResult =
           combinedEntity: CombinedEntity;
       };
 
-export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
+function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
     if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
     const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };

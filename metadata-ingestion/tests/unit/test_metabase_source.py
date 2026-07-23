@@ -52,7 +52,7 @@ def test_get_platform_instance():
 def test_set_display_uri():
     display_uri = "some_host:1234"
 
-    config = MetabaseConfig.parse_obj({"display_uri": display_uri})
+    config = MetabaseConfig.model_validate({"display_uri": display_uri})
 
     assert config.connect_uri == "localhost:3000"
     assert config.display_uri == display_uri
@@ -134,4 +134,4 @@ def test_fail_session_delete(mock_post, mock_get, mock_delete):
     metabase_source.report = mock_report
     metabase_source.close()
 
-    mock_report.report_failure.assert_called_once()
+    mock_report.failure.assert_called_once()

@@ -1,12 +1,14 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PageRoutes } from '@conf/Global';
 
+import { useDeleteApplicationMutation } from '@graphql/application.generated';
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
 import { useDeleteDomainMutation } from '@graphql/domain.generated';
 import { useDeleteGlossaryEntityMutation } from '@graphql/glossary.generated';
 import { useRemoveGroupMutation } from '@graphql/group.generated';
+import { useBatchUpdateSoftDeletedMutation } from '@graphql/mutations.generated';
 import { useDeleteTagMutation } from '@graphql/tag.generated';
 import { useRemoveUserMutation } from '@graphql/user.generated';
 import { EntityType } from '@types';
@@ -21,8 +23,11 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
     switch (type) {
         case EntityType.CorpGroup:
         case EntityType.CorpUser:
+        case EntityType.Application:
         case EntityType.Tag:
-            // Return Home.
+        case EntityType.Dataset:
+            // Return Home. A dataset is only deletable from its profile when it's a logical model;
+            // sending the user Home avoids leaving them on the now-deleted entity page.
             return '/';
         case EntityType.Domain:
             return `${PageRoutes.DOMAINS}`;
@@ -50,8 +55,22 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
  *
  * @param type the entity type being deleted
  */
+/**
+ * Adapter exposing the generic soft-delete (Status.removed) with the `{ variables: { urn } }`
+ * shape that the per-entity delete mutations use. Used for entities without a dedicated delete
+ * mutation — e.g. datasets / logical models.
+ */
+const useSoftDeleteByUrnMutation = () => {
+    const [batchUpdateSoftDeleted, result] = useBatchUpdateSoftDeletedMutation();
+    const softDelete = (options: { variables: { urn: string } }) =>
+        batchUpdateSoftDeleted({ variables: { input: { urns: [options.variables.urn], deleted: true } } });
+    return [softDelete, result] as const;
+};
+
 export const getDeleteEntityMutation = (type: EntityType) => {
     switch (type) {
+        case EntityType.Dataset:
+            return useSoftDeleteByUrnMutation;
         case EntityType.CorpGroup:
             return useRemoveGroupMutation;
         case EntityType.CorpUser:
@@ -69,6 +88,8 @@ export const getDeleteEntityMutation = (type: EntityType) => {
             return useDeleteDataProductMutation;
         case EntityType.BusinessAttribute:
             return useDeleteBusinessAttributeMutation;
+        case EntityType.Application:
+            return useDeleteApplicationMutation;
         default:
             return () => undefined;
     }

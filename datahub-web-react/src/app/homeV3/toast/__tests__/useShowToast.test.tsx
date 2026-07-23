@@ -1,0 +1,121 @@
+import { act, renderHook } from '@testing-library/react-hooks';
+import { notification } from 'antd';
+import React from 'react';
+import { ThemeProvider } from 'styled-components';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import useShowToast from '@app/homeV3/toast/useShowToast';
+import themeV2 from '@conf/theme/themeV2';
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <ThemeProvider theme={themeV2}>{children}</ThemeProvider>
+);
+
+interface NotificationArgsProps {
+    message?: React.ReactNode;
+    description?: React.ReactNode;
+    placement?: string;
+    duration?: number;
+    icon?: React.ReactNode;
+    closeIcon?: React.ReactNode;
+    style?: React.CSSProperties;
+}
+
+describe('useShowToast', () => {
+    let notificationOpenSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        notificationOpenSpy = vi.spyOn(notification, 'open').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('should return a showToast function', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+        expect(typeof result.current.showToast).toBe('function');
+    });
+
+    it('should call notification.open with correct config on showToast call', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+
+        const sampleTitle = 'Test Title';
+        const sampleDescription = 'Sample description text';
+
+        act(() => {
+            result.current.showToast(sampleTitle, sampleDescription);
+        });
+
+        expect(notificationOpenSpy).toHaveBeenCalledTimes(1);
+
+        const config = notificationOpenSpy.mock.calls[0][0] as NotificationArgsProps;
+
+        expect(config.placement).toBe('bottomRight');
+        expect(config.duration).toBe(0);
+
+        expect(config.style).toMatchObject({
+            backgroundColor: expect.any(String),
+            borderRadius: expect.any(Number),
+            width: expect.any(String),
+            padding: expect.any(String),
+            right: expect.any(Number),
+            bottom: expect.any(Number),
+        });
+
+        expect(React.isValidElement(config.icon)).toBe(true);
+        expect(React.isValidElement(config.closeIcon)).toBe(true);
+
+        expect(React.isValidElement(config.message)).toBe(true);
+        expect(React.isValidElement(config.description)).toBe(true);
+
+        if (React.isValidElement(config.message)) {
+            const messageEl = (config.message.props as { children: React.ReactElement }).children;
+            expect(React.isValidElement(messageEl)).toBe(true);
+            const messageProps = (messageEl as React.ReactElement).props;
+            expect(messageProps.children).toBe(sampleTitle);
+            expect(messageProps.color).toBe('blue');
+            expect(messageProps.colorLevel).toBe(1000);
+            expect(messageProps.weight).toBe('semiBold');
+            expect(messageProps.lineHeight).toBe('sm');
+        } else {
+            throw new Error('config.message is not a valid React element');
+        }
+
+        if (React.isValidElement(config.description)) {
+            const descriptionEl = (config.description.props as { children: React.ReactElement }).children;
+            expect(React.isValidElement(descriptionEl)).toBe(true);
+            const descriptionProps = (descriptionEl as React.ReactElement).props;
+            expect(descriptionProps.children).toBe(sampleDescription);
+            expect(descriptionProps.color).toBe('blue');
+            expect(descriptionProps.colorLevel).toBe(1000);
+            expect(descriptionProps.lineHeight).toBe('sm');
+        } else {
+            throw new Error('config.description is not a valid React element');
+        }
+    });
+
+    it('should handle missing description gracefully', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+
+        const sampleTitle = 'Only Title';
+
+        act(() => {
+            result.current.showToast(sampleTitle);
+        });
+
+        expect(notificationOpenSpy).toHaveBeenCalledTimes(1);
+
+        const config = notificationOpenSpy.mock.calls[0][0] as NotificationArgsProps;
+
+        expect(React.isValidElement(config.message)).toBe(true);
+
+        if (React.isValidElement(config.description)) {
+            const descriptionEl = (config.description.props as { children: React.ReactElement }).children;
+            const descriptionProps = (descriptionEl as React.ReactElement).props;
+            expect(descriptionProps.children).toBeUndefined();
+        } else {
+            expect(config.description).toBeUndefined();
+        }
+    });
+});

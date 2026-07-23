@@ -1,13 +1,16 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
 
 import SchemaSearchInput from '@app/entityV2/dataset/profile/schema/components/SchemaSearchInput';
 import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
+import AddLogicalModelColumnButton from '@app/entityV2/shared/logicalModels/AddLogicalModelColumnButton';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 
 import { SemanticVersionStruct } from '@types';
@@ -85,7 +88,7 @@ type Props = {
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     showSchemaTimeline: boolean;
-    setShowSchemaTimeline: any;
+    setShowSchemaTimeline: (show: boolean) => void;
     filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;
@@ -94,6 +97,7 @@ type Props = {
     highlightedMatchIndex: number | null;
     setHighlightedMatchIndex: (val: number | null) => void;
     matches: { path: string; index: number }[];
+    showAddLogicalModelColumnButton?: boolean;
 };
 
 export default function SchemaHeader({
@@ -115,10 +119,12 @@ export default function SchemaHeader({
     matches,
     highlightedMatchIndex,
     setHighlightedMatchIndex,
+    showAddLogicalModelColumnButton,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const [schemaFilterSelectOpen, setSchemaFilterSelectOpen] = useState(false);
 
-    const schemaAuditToggleText = showSchemaTimeline ? 'Close change history' : 'View change history';
+    const schemaAuditToggleText = showSchemaTimeline ? t('dataset.closeChangeHistory') : t('dataset.viewChangeHistory');
 
     const [searchInput, setSearchInput] = useState(filterText);
     useDebounce(() => setFilterText(searchInput), 100, [searchInput]);
@@ -128,16 +134,20 @@ export default function SchemaHeader({
             <SchemaHeaderContainer>
                 <LeftButtonsGroup>
                     {hasRaw && (
-                        <RawButton type="text" onClick={() => setShowRaw(!showRaw)}>
+                        <RawButton
+                            type="text"
+                            data-testid="schema-raw-view-button"
+                            onClick={() => setShowRaw(!showRaw)}
+                        >
                             {showRaw ? (
                                 <RawButtonTitleContainer>
                                     <TableOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Tabular</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.tabularView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             ) : (
                                 <RawButtonTitleContainer>
                                     <FileTextOutlined style={{ padding: 0, margin: 0 }} />
-                                    <RawButtonTitle>Raw</RawButtonTitle>
+                                    <RawButtonTitle>{t('dataset.rawView')}</RawButtonTitle>
                                 </RawButtonTitleContainer>
                             )}
                         </RawButton>
@@ -145,10 +155,10 @@ export default function SchemaHeader({
                     {hasKeySchema && (
                         <KeyValueButtonGroup>
                             <KeyButton $highlighted={showKeySchema} onClick={() => setShowKeySchema(true)}>
-                                Key
+                                {t('dataset.keyToggle')}
                             </KeyButton>
                             <ValueButton $highlighted={!showKeySchema} onClick={() => setShowKeySchema(false)}>
-                                Value
+                                {t('dataset.valueToggle')}
                             </ValueButton>
                         </KeyValueButtonGroup>
                     )}
@@ -166,6 +176,7 @@ export default function SchemaHeader({
                             numRows={numRows}
                         />
                     )}
+                    {showAddLogicalModelColumnButton && <AddLogicalModelColumnButton />}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
                     {versionList.length > 1 && (
@@ -181,7 +192,7 @@ export default function SchemaHeader({
                             variant="text"
                             data-testid="schema-blame-button"
                             color={showSchemaTimeline ? 'violet' : 'gray'}
-                            icon={{ icon: 'ClockCounterClockwise', source: 'phosphor', size: '2xl' }}
+                            icon={{ icon: ClockCounterClockwise, size: '2xl' }}
                             onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
                         />
                     </Tooltip>

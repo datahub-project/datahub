@@ -6,7 +6,7 @@ from pydantic.fields import Field
 from pydruid.db.sqlalchemy import DruidDialect
 from sqlalchemy.exc import ResourceClosedError
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -34,7 +34,7 @@ DruidDialect.get_table_names = get_table_names
 
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme: str = "druid"
+    scheme: HiddenFromDocs[str] = "druid"
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["^(lookup|sysgit|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",
@@ -64,12 +64,13 @@ class DruidConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class DruidSource(SQLAlchemySource):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, and tables
-    - Column types associated with each table
-    - Table, row, and column statistics via optional SQL profiling.
+    Source that extracts metadata from Apache Druid via SQLAlchemy.
 
-    **Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
+    Implementation notes:
+    - Uses pydruid SQLAlchemy dialect for database connectivity
+    - Overrides get_identifier to skip schema name in URNs (Druid table names are already fully qualified)
+    - Patches DruidDialect.get_table_names to handle ResourceClosedError for empty schemas
+    - Default schema pattern denies internal databases (lookup, sysgit, view)
     """
 
     def __init__(self, config, ctx):
@@ -77,5 +78,5 @@ class DruidSource(SQLAlchemySource):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DruidConfig.parse_obj(config_dict)
+        config = DruidConfig.model_validate(config_dict)
         return cls(config, ctx)

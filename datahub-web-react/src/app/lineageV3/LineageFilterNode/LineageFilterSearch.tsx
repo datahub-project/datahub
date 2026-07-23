@@ -1,0 +1,133 @@
+import { LoadingOutlined } from '@ant-design/icons';
+import { Input, Text } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Spin } from 'antd';
+import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { usePrevious } from 'react-js-cron/dist/cjs/utils';
+import { useDebounce } from 'react-use';
+import styled from 'styled-components';
+
+import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters';
+import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+
+import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
+import { EntityType } from '@types';
+
+const SearchWrapper = styled.div`
+    margin-top: 6px;
+    width: 100%;
+`;
+
+const SearchLine = styled.div`
+    position: relative;
+    width: 100%;
+`;
+
+const LoadingWrapper = styled.div`
+    pointer-events: none;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+`;
+
+const SearchMatchesText = styled(Text)``;
+
+interface Props {
+    data: LineageFilter;
+    numMatches: number;
+    setNumMatches: (numMatches: number) => void;
+    /** If false, keeps the current viewport in place when search results change,
+     * rather than zooming to the filter node. Defaults to true. */
+    zoomToNode?: boolean;
+}
+
+export default function LineageFilterSearch({ data, numMatches, setNumMatches, zoomToNode = true }: Props) {
+    const { t } = useTranslation('lineage');
+    const { id, direction, parent, limit } = data;
+
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const { nodes, setDisplayVersion, rootType, showGhostEntities } = useContext(LineageNodesContext);
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+
+    const [inputValue, setInputValue] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const oldSearchQuery = usePrevious(searchQuery);
+
+    useDebounce(() => setSearchQuery(inputValue), 300, [inputValue]);
+    useEffect(() => {
+        const filters = nodes.get(parent)?.filters[direction];
+        if (filters && searchQuery.length < 3 && oldSearchQuery?.length >= 3) {
+            filters.searchUrns = undefined;
+            setNumMatches(0);
+            setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
+        }
+    }, [searchQuery, oldSearchQuery, id, parent, direction, nodes, setNumMatches, setDisplayVersion, zoomToNode]);
+
+    const orFilters = computeOrFilters([{ field: DEGREE_FILTER_NAME, values: ['1'] }]);
+    const { loading } = useSearchAcrossLineageNamesQuery({
+        skip: searchQuery.length < 3,
+        variables: {
+            input: {
+                query: searchQuery,
+                urn: parent,
+                direction,
+                count: searchQuery ? limit : 0,
+                orFilters,
+                lineageFlags: {
+                    startTimeMillis,
+                    endTimeMillis,
+                    ignoreAsHops: [
+                        {
+                            entityType: EntityType.Dataset,
+                            platforms: [DBT_URN],
+                        },
+                        { entityType: EntityType.DataJob },
+                    ],
+                },
+                searchFlags: {
+                    includeSoftDeleted:
+                        showGhostEntities || (rootType === EntityType.SchemaField && ignoreSchemaFieldStatus),
+                },
+            },
+        },
+        onCompleted: (queryData) => {
+            setNumMatches(queryData.searchAcrossLineage?.total || 0);
+            const filters = nodes.get(parent)?.filters[direction];
+            if (filters) {
+                filters.searchUrns = new Set(
+                    queryData.searchAcrossLineage?.searchResults?.map((result) => result.entity.urn),
+                );
+                // Keeping the previous zoom node list leaves the viewport in place
+                setDisplayVersion(([prev, n]) => [prev + 1, zoomToNode ? [id] : n]);
+            }
+        },
+    });
+
+    return (
+        <SearchWrapper>
+            <SearchLine>
+                <Input
+                    label=""
+                    placeholder={t('filter.search.placeholder')}
+                    icon={{ icon: MagnifyingGlass, weight: 'regular', color: 'icon' }}
+                    error={!!inputValue && inputValue.length < 3 ? t('filter.search.minCharsError') : undefined}
+                    errorOnHover
+                    value={inputValue}
+                    setValue={setInputValue}
+                    inputTestId="search-input"
+                />
+                <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
+            </SearchLine>
+            <SearchMatchesText type="div" size="xs" color="textTertiary" data-testid="matches">
+                {searchQuery.length >= 3 &&
+                    (!loading || !!numMatches) &&
+                    t('filter.search.matchCount', { count: numMatches })}
+            </SearchMatchesText>
+        </SearchWrapper>
+    );
+}

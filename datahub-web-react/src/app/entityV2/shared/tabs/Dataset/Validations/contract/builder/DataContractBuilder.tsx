@@ -1,9 +1,9 @@
 import { Button, message } from 'antd';
 import lodash from 'lodash';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
@@ -21,20 +21,34 @@ import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, AssertionType, DataContract } from '@types';
 
+const BuilderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    height: 70vh;
+    overflow: hidden;
+`;
+
 const AssertionsSection = styled.div`
-    border: 0.5px solid ${ANTD_GRAY[4]};
+    border: 0.5px solid ${(props) => props.theme.colors.bgHover};
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
 `;
 
 const HeaderText = styled.div`
     padding: 16px 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 16px;
 `;
 
 const ActionContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    margin-top: 16px;
+    flex-shrink: 0;
+    padding: 16px 20px;
+    border-top: 1px solid ${(props) => props.theme.colors.bgHover};
+    margin-top: 0;
 `;
 
 const CancelButton = styled(Button)`
@@ -42,7 +56,7 @@ const CancelButton = styled(Button)`
 `;
 
 const SaveButton = styled(Button)`
-    margin-right: 20px;
+    margin-right: 0;
 `;
 
 type Props = {
@@ -58,6 +72,8 @@ type Props = {
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
 export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tc } = useTranslation('common.actions');
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -87,7 +103,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             .then(({ data, errors }) => {
                 if (!errors) {
                     message.success({
-                        content: isEdit ? `Edited Data Contract` : `Created Data Contract!`,
+                        content: isEdit ? t('contractBuilder.editedSuccess') : t('contractBuilder.createdSuccess'),
                         duration: 3,
                     });
                     onSubmit?.(data?.upsertDataContract as DataContract);
@@ -95,7 +111,7 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to create Data Contract! An unexpected error occurred' });
+                message.error({ content: t('contractBuilder.failedCreate') });
             });
     };
 
@@ -150,9 +166,9 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
     const hasAssertions = freshnessAssertions.length || schemaAssertions.length || dataQualityAssertions.length;
 
     return (
-        <>
-            {(hasAssertions && <HeaderText>Select the assertions that will make up your contract.</HeaderText>) || (
-                <HeaderText>Add a few assertions on this entity to create a data contract out of them.</HeaderText>
+        <BuilderContainer>
+            {(hasAssertions && <HeaderText>{t('contractBuilder.selectAssertionsHeader')}</HeaderText>) || (
+                <HeaderText>{t('contractBuilder.addAssertionsHeader')}</HeaderText>
             )}
             <AssertionsSection>
                 {(freshnessAssertions.length && (
@@ -188,13 +204,13 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
                     undefined}
             </AssertionsSection>
             <ActionContainer>
-                <CancelButton onClick={onCancel}>Cancel</CancelButton>
+                <CancelButton onClick={onCancel}>{tc('cancel')}</CancelButton>
                 <div>
                     <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
-                        Save
+                        {tc('save')}
                     </SaveButton>
                 </div>
             </ActionContainer>
-        </>
+        </BuilderContainer>
     );
 };

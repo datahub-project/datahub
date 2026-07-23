@@ -1,13 +1,12 @@
-import { colors } from '@components';
 import { Pagination } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
@@ -85,19 +84,19 @@ const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolea
 
 const LeftControlsContainer = styled.div`
     display: flex;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     gap: 4px;
 `;
 
 const StyledTabToolbar = styled.div`
-    background-color: #fff;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
     margin: 4px 16px 4px 8px;
     padding: 12px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1.5px solid ${ANTD_GRAY[4]};
+    border: 1.5px solid ${(props) => props.theme.colors.border};
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -169,12 +168,12 @@ export const SearchResults = ({
     previewType,
     onCardClick,
 }: Props) => {
+    const { t } = useTranslation('search');
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
-    const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
-    const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+    const lastResultIndex = pageStart + numResultsPerPage > totalResults ? totalResults : pageStart + numResultsPerPage;
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
@@ -197,8 +196,14 @@ export const SearchResults = ({
         }
     }, []);
 
-    function handlePageChange(p: number) {
-        onChangePage(p);
+    function handlePageChange(newPage: number, newPageSize: number) {
+        const didPageSizeChange = numResultsPerPage !== newPageSize;
+        if (didPageSizeChange) {
+            onChangePage(1);
+            setNumResultsPerPage(newPageSize);
+        } else {
+            onChangePage(newPage);
+        }
         setAreAllEntitiesSelected?.(false);
     }
 
@@ -245,18 +250,22 @@ export const SearchResults = ({
                                             )}
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>
-                                                    Showing{' '}
-                                                    <b>
-                                                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} -{' '}
-                                                        {lastResultIndex}
-                                                    </b>{' '}
-                                                    of{' '}
-                                                    <b>
-                                                        {totalResults >= 10000
-                                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                                            : formatNumberWithoutAbbreviation(totalResults)}
-                                                    </b>{' '}
-                                                    results
+                                                    <Trans
+                                                        t={t}
+                                                        i18nKey="results.showingCount"
+                                                        values={{
+                                                            start:
+                                                                lastResultIndex > 0
+                                                                    ? (page - 1) * numResultsPerPage + 1
+                                                                    : 0,
+                                                            end: lastResultIndex,
+                                                            total:
+                                                                totalResults >= 10000
+                                                                    ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                                    : formatNumberWithoutAbbreviation(totalResults),
+                                                        }}
+                                                        components={{ bold: <b /> }}
+                                                    />
                                                 </LeftControlsContainer>
                                             </PaginationInfoContainer>
                                             <SearchResultList
@@ -284,10 +293,7 @@ export const SearchResults = ({
                                                         showLessItems
                                                         onChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                                        onShowSizeChange={(_currNum, newNum) =>
-                                                            setNumResultsPerPage(newNum)
-                                                        }
-                                                        pageSizeOptions={['10', '20', '50', '100']}
+                                                        pageSizeOptions={['10', '20', '30']}
                                                     />
                                                 </PaginationControlContainer>
                                             )}

@@ -9,11 +9,14 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import pydantic
 import requests
-from pydantic import Field, root_validator, validator
+from pydantic import Field, field_validator, model_validator
 from requests.models import HTTPError
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import DatasetLineageProviderConfigBase
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -23,10 +26,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -49,6 +51,7 @@ from datahub.metadata.schema_classes import (
     ChartQueryTypeClass,
     ChartTypeClass,
     DashboardInfoClass,
+    EdgeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -61,7 +64,11 @@ logger = logging.getLogger(__name__)
 DATASOURCE_URN_RECURSION_LIMIT = 5
 
 
-class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBase):
+class MetabaseConfig(
+    DatasetLineageProviderConfigBase,
+    StatefulIngestionConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
+):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
@@ -107,16 +114,16 @@ class MetabaseConfig(DatasetLineageProviderConfigBase, StatefulIngestionConfigBa
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    @validator("connect_uri", "display_uri")
+    @field_validator("connect_uri", "display_uri", mode="after")
+    @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
-    @root_validator(skip_on_failure=True)
-    def default_display_uri_to_connect_uri(cls, values):
-        base = values.get("display_uri")
-        if base is None:
-            values["display_uri"] = values.get("connect_uri")
-        return values
+    @model_validator(mode="after")
+    def default_display_uri_to_connect_uri(self) -> "MetabaseConfig":
+        if self.display_uri is None:
+            self.display_uri = self.connect_uri
+        return self
 
 
 @dataclass
@@ -131,46 +138,13 @@ class MetabaseReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class MetabaseSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
-    on PostgreSQL and H2 database.
+    Source that extracts dashboards, charts, and collections from Metabase via REST API.
 
-    ### Collection
-
-    [/api/collection](https://www.metabase.com/docs/latest/api/collection) endpoint is used to
-    retrieve the available collections.
-
-    [/api/collection/<COLLECTION_ID>/items?models=dashboard](https://www.metabase.com/docs/latest/api/collection#get-apicollectioniditems) endpoint is used to retrieve a given collection and list their dashboards.
-
-     ### Dashboard
-
-    [/api/dashboard/<DASHBOARD_ID>](https://www.metabase.com/docs/latest/api/dashboard) endpoint is used to retrieve a given Dashboard and grab its information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the dashboard in Metabase
-    - Associated charts
-
-    ### Chart
-
-    [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
-    retrieve the following information.
-
-    - Title and description
-    - Last edited by
-    - Owner
-    - Link to the chart in Metabase
-    - Datasource and lineage
-
-    The following properties for a chart are ingested in DataHub.
-
-    | Name          | Description                                     |
-    | ------------- | ----------------------------------------------- |
-    | `Dimensions`  | Column names                                    |
-    | `Filters`     | Any filters applied to the chart                |
-    | `Metrics`     | All columns that are being used for aggregation |
-
-
+    Implementation notes:
+    - Uses Metabase API for metadata extraction
+    - Parses native SQL queries for lineage extraction
+    - Maps Metabase database engines to DataHub platforms via engine_platform_map
+    - Only tested with PostgreSQL and H2; other databases may work but are not validated
     """
 
     config: MetabaseConfig
@@ -230,7 +204,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
             )
             test_response.raise_for_status()
         except HTTPError as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Unable to Retrieve Current User",
                 message=f"Unable to retrieve user {self.config.username} information. %s"
                 % str(e),
@@ -244,7 +218,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 headers={"X-Metabase-Session": self.access_token},
             )
             if response.status_code not in (200, 204):
-                self.report.report_failure(
+                self.report.failure(
                     title="Unable to Log User Out",
                     message=f"Unable to logout for user {self.config.username}",
                 )
@@ -278,7 +252,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                         yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.failure(
                 title="Unable to Retrieve Dashboards",
                 message="Request to retrieve dashboards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
@@ -305,10 +279,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dashboard_response.raise_for_status()
             dashboard_details = dashboard_response.json()
         except HTTPError as http_error:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Retrieve Dashboard",
                 message="Request to retrieve dashboards from Metabase failed.",
                 context=f"Dashboard ID: {dashboard_id}, Error: {str(http_error)}",
+                log=False,
             )
             return None
 
@@ -331,19 +306,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        chart_urns = []
+        # Convert chart URNs to chart edges (instead of deprecated charts field)
+        chart_edges = []
         cards_data = dashboard_details.get("dashcards", {})
         for card_info in cards_data:
             card_id = card_info.get("card").get("id", "")
             if not card_id:
                 continue  # most likely a virtual card without an id (text or heading), not relevant.
             chart_urn = builder.make_chart_urn(self.platform, str(card_id))
-            chart_urns.append(chart_urn)
+            chart_edges.append(
+                EdgeClass(
+                    destinationUrn=chart_urn,
+                    lastModified=last_modified.lastModified,
+                )
+            )
 
         dashboard_info_class = DashboardInfoClass(
             description=description,
             title=title,
-            charts=chart_urns,
+            chartEdges=chart_edges,
             lastModified=last_modified,
             dashboardUrl=f"{self.config.display_uri}/dashboard/{dashboard_id}",
             customProperties={},
@@ -369,17 +350,19 @@ class MetabaseSource(StatefulIngestionSourceBase):
                 http_error.response is not None
                 and http_error.response.status_code == 404
             ):
-                self.report.report_warning(
+                self.report.warning(
                     title="Cannot find user",
                     message="User is blocked in Metabase or missing",
                     context=f"Creator ID: {creator_id}",
+                    log=False,
                 )
                 return None
             # For cases when the error is not 404 but something else
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve user",
                 message="Request to Metabase Failed",
                 context=f"Creator ID: {creator_id}, Error: {str(http_error)}",
+                log=False,
             )
             return None
 
@@ -410,7 +393,7 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
         except HTTPError as http_error:
-            self.report.report_failure(
+            self.report.failure(
                 title="Unable to Retrieve Cards",
                 message="Request to retrieve cards from Metabase failed.",
                 context=f"Error: {str(http_error)}",
@@ -429,33 +412,38 @@ class MetabaseSource(StatefulIngestionSourceBase):
         """
         card_url = f"{self.config.connect_uri}/api/card/{card_id}"
         try:
-            card_response = self.session.get(card_url)
+            # Use legacy-mbql=true to get MBQL 4 format for compatibility.
+            # Metabase 0.57+ returns MBQL 5 by default which has a different structure.
+            card_response = self.session.get(card_url, params={"legacy-mbql": "true"})
             card_response.raise_for_status()
             return card_response.json()
         except HTTPError as http_error:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Retrieve Card",
                 message="Request to retrieve Card from Metabase failed.",
                 context=f"Card ID: {card_id}, Error: {str(http_error)}",
+                log=False,
             )
             return {}
 
     def construct_card_from_api_data(self, card_data: dict) -> Optional[ChartSnapshot]:
         card_id = card_data.get("id")
         if card_id is None:
-            self.report.report_warning(
+            self.report.warning(
                 title="Card is missing 'id'",
                 message="Unable to get field id from card data.",
                 context=f"Card Details: {str(card_data)}",
+                log=False,
             )
             return None
 
         card_details = self.get_card_details_by_id(card_id)
         if not card_details:
-            self.report.report_warning(
+            self.report.warning(
                 title="Missing Card Details",
                 message="Unable to construct Card due to empty card details",
                 context=f"Card ID: {card_id}",
+                log=False,
             )
             return None
 
@@ -481,13 +469,25 @@ class MetabaseSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn(card_details)
         custom_properties = self.construct_card_custom_properties(card_details)
 
+        input_edges = (
+            [
+                EdgeClass(
+                    destinationUrn=urn,
+                    lastModified=last_modified.lastModified,
+                )
+                for urn in datasource_urn
+            ]
+            if datasource_urn
+            else None
+        )
+
         chart_info = ChartInfoClass(
             type=chart_type,
             description=description,
             title=title,
             lastModified=last_modified,
             chartUrl=f"{self.config.display_uri}/card/{card_id}",
-            inputs=datasource_urn,
+            inputEdges=input_edges,
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
@@ -529,19 +529,21 @@ class MetabaseSource(StatefulIngestionSourceBase):
             "map": None,
         }
         if not display_type:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Card Type",
                 message=f"Unrecognized card type {display_type} found. Setting to None",
                 context=f"Card ID: {card_id}",
+                log=False,
             )
             return None
         try:
             chart_type = type_mapping[display_type]
         except KeyError:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Chart Type",
                 message=f"Unrecognized chart type {display_type} found. Setting to None",
                 context=f"Card ID: {card_id}",
+                log=False,
             )
             chart_type = None
 
@@ -574,10 +576,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         self, card_details: dict, recursion_depth: int = 0
     ) -> Optional[List]:
         if recursion_depth > DATASOURCE_URN_RECURSION_LIMIT:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Retrieve Card Info",
                 message="Unable to retrieve Card info. Source table recursion depth exceeded.",
                 context=f"Card Details: {card_details}",
+                log=False,
             )
             return None
 
@@ -589,10 +592,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             platform_instance,
         ) = self.get_datasource_from_id(datasource_id)
         if not platform:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to find Data Platform",
                 message="Unable to detect Data Platform for database id",
                 context=f"Data Source ID: {datasource_id}",
+                log=False,
             )
             return None
 
@@ -646,10 +650,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
                     f"Failed to parse lineage from query {raw_query_stripped}: "
                     f"{result.debug_info.table_error}"
                 )
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to Extract Lineage",
                     message="Unable to retrieve lineage from query",
                     context=f"Query: {raw_query_stripped}",
+                    log=False,
                 )
             return result.in_tables
 
@@ -688,10 +693,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             return schema, name
 
         except HTTPError as http_error:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Retrieve Source Table",
                 message="Request to retrieve source table from Metadabase failed",
                 context=f"Table ID: {table_id}, Error: {str(http_error)}",
+                log=False,
             )
 
         return None, None
@@ -737,10 +743,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
             dataset_response.raise_for_status()
             dataset_json = dataset_response.json()
         except HTTPError as http_error:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Retrieve Data Source",
                 message="Request to retrieve data source from Metabase failed.",
                 context=f"Data Source ID: {datasource_id}, Error: {str(http_error)}",
+                log=False,
             )
             # returning empty string as `platform` because
             # `make_dataset_urn_with_platform_instance()` only accepts `str`
@@ -766,10 +773,11 @@ class MetabaseSource(StatefulIngestionSourceBase):
         else:
             platform = engine
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Data Platform found",
                 message="Data Platform was not found. Using platform name as is",
                 context=f"Platform: {platform}",
+                log=False,
             )
 
         platform_instance = self.get_platform_instance(
@@ -803,21 +811,14 @@ class MetabaseSource(StatefulIngestionSourceBase):
         ):
             dbname = self.config.database_alias_map[platform]
         else:
-            self.report.report_warning(
+            self.report.warning(
                 title="Cannot resolve Database Name",
                 message="Cannot determine database name for platform",
                 context=f"Platform: {platform}",
+                log=False,
             )
 
         return platform, dbname, schema, platform_instance
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()

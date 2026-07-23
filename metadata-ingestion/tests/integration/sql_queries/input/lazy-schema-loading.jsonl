@@ -1,0 +1,6 @@
+{"query": "SELECT user_id, session_id FROM snowflake.db.sessions WHERE created_at > '2021-01-01'", "timestamp": 1609459200, "user": "etl_job", "operation_type": "SELECT"}
+{"query": "INSERT INTO snowflake.db.audit_log SELECT user_id, 'login' as action, NOW() as timestamp FROM snowflake.db.sessions WHERE user_id IS NOT NULL", "timestamp": 1609459260, "user": "etl_job", "operation_type": "INSERT"}
+{"query": "CREATE TEMPORARY TABLE temp_user_sessions AS SELECT user_id, COUNT(*) as session_count FROM snowflake.db.sessions GROUP BY user_id", "timestamp": 1609459320, "user": "analyst", "operation_type": "CREATE"}
+{"query": "SELECT * FROM temp_user_sessions WHERE session_count > 5", "timestamp": 1609459380, "user": "analyst", "operation_type": "SELECT"}
+{"query": "DROP TABLE temp_user_sessions", "timestamp": 1609459440, "user": "analyst", "operation_type": "DROP"}
+

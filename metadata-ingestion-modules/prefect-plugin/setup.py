@@ -24,11 +24,10 @@ _self_pin = (
 rest_common = {"requests", "requests_file"}
 
 base_requirements = {
-    # For python 3.7 and importlib-metadata>=5.0.0, build failed with attribute error
-    "importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'",
     # Actual dependencies.
-    # Temporary pinning to 2.0.0 until we can upgrade to 3.0.0
-    "prefect >= 2.0.0,<3.0.0",
+    "prefect >= 3.0.0,<4.0.0",
+    # Pin asyncpg to a version compatible with Python 3.13
+    "asyncpg>=0.30.0",
     *rest_common,
     f"acryl-datahub[datahub-rest]{_self_pin}",
 }
@@ -56,11 +55,9 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.11.7",
-    "mypy==1.14.1",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10",
+    "ruff==0.15.22",
+    "mypy==1.17.1",
+    "pydantic>=2.0.0",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
@@ -75,7 +72,7 @@ dev_requirements = {
 }
 
 entry_points = {
-    "prefect.block": "prefect-datahub = prefect_datahub.prefect_datahub:DatahubEmitter"
+    "prefect.collections": "prefect-datahub = prefect_datahub.datahub_emitter"
 }
 
 
@@ -83,14 +80,15 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
-    license="Apache License 2.0",
-    description="Datahub prefect block to capture executions and send to Datahub",
+    license="Apache-2.0",
+    description="DataHub Prefect plugin — automatically capture flow lineage and run metadata from Prefect workflows into your DataHub catalog",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -98,11 +96,11 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",
@@ -111,7 +109,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,

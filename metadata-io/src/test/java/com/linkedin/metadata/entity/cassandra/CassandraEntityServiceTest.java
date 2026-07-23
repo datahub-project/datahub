@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.EntityServiceTest;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -30,9 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.cassandra.CassandraContainer;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -49,6 +51,7 @@ public class CassandraEntityServiceTest
     extends EntityServiceTest<CassandraAspectDao, CassandraRetentionService> {
 
   private CassandraContainer _cassandraContainer;
+  private CqlSession _currentSession;
 
   public CassandraEntityServiceTest() throws EntityRegistryException {}
 
@@ -57,6 +60,12 @@ public class CassandraEntityServiceTest
     _cassandraContainer = CassandraTestUtils.setupContainer();
     _mockProducer = mock(EventProducer.class);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    CassandraTestUtils.closeSession(_currentSession);
+    _currentSession = null;
   }
 
   @AfterClass
@@ -74,8 +83,10 @@ public class CassandraEntityServiceTest
     reset(_mockProducer);
     reset(_mockUpdateIndicesService);
 
-    CqlSession session = CassandraTestUtils.createTestSession(_cassandraContainer);
-    _aspectDao = new CassandraAspectDao(session);
+    _currentSession = CassandraTestUtils.createTestSession(_cassandraContainer);
+    _aspectDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(_currentSession), List.of(), null);
     _aspectDao.setConnectionValidated(true);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
@@ -83,7 +94,12 @@ public class CassandraEntityServiceTest
     _entityServiceImpl =
         new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
+    CassandraRetentionService realRetentionService =
+        new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
+    _retentionService = (CassandraRetentionService) spy(realRetentionService);
+    doReturn(20)
+        .when(_retentionService)
+        .getMaxVersionsToKeepForWrite(any(), anyString(), anyString());
     _entityServiceImpl.setRetentionService(_retentionService);
 
     opContext =

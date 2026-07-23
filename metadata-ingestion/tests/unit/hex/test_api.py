@@ -1,42 +1,34 @@
-import json
-import os
-import unittest
+import time
 from datetime import datetime, timezone
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
-from pydantic import ValidationError
 
 from datahub.ingestion.source.hex.api import (
     HexApi,
+    HexApiConnection,
     HexApiProjectApiResource,
     HexApiProjectsListResponse,
     HexApiReport,
+    _extract_connection_defaults,
+    _RateLimiter,
 )
 from datahub.ingestion.source.hex.model import (
     Component,
     Project,
 )
+from tests.unit.hex.conftest import load_json_data
 
 
-# Helper to load test data from JSON files
-def load_json_data(filename):
-    test_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-    file_path = test_dir / "test_data" / filename
-    with open(file_path, "r") as f:
-        return json.load(f)
+class TestHexAPI:
+    token = "test-token"
+    base_url = "https://test.hex.tech/api/v1"
+    page_size = 8  # Small page size to test pagination
 
-
-class TestHexAPI(unittest.TestCase):
-    def setUp(self):
-        self.token = "test-token"
+    def setup_method(self) -> None:
         self.report = HexApiReport()
-        self.base_url = "https://test.hex.tech/api/v1"
-        self.page_size = 8  # Small page size to test pagination
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_fetch_projects_pagination(self, mock_get):
+    def test_fetch_projects_pagination(self):
         page1_data = load_json_data("hex_projects_page1.json")
         page2_data = load_json_data("hex_projects_page2.json")
 
@@ -45,8 +37,6 @@ class TestHexAPI(unittest.TestCase):
         mock_response2 = MagicMock()
         mock_response2.json.return_value = page2_data
 
-        mock_get.side_effect = [mock_response1, mock_response2]
-
         hex_api = HexApi(
             token=self.token,
             report=self.report,
@@ -54,13 +44,18 @@ class TestHexAPI(unittest.TestCase):
             page_size=self.page_size,
         )
 
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(
+            hex_api.session,
+            "get",
+            side_effect=[mock_response1, mock_response2],
+        ) as mock_get:
+            results = list(hex_api.fetch_projects())
 
         # check pagination
-
         assert mock_get.call_count == 2
-        assert self.report.fetch_projects_page_calls == 2
-        assert self.report.fetch_projects_page_items == len(
+        assert self.report.api_calls.get("list_projects.pages", 0) == 2
+        assert self.report.api_projects_items == len(
             mock_response1.json()["values"]
         ) + len(mock_response2.json()["values"])
 
@@ -89,8 +84,7 @@ class TestHexAPI(unittest.TestCase):
             ("4759f33c-1ab9-403d-92e8-9bef48de00c4", "Cancelled Orders"),
         }
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_map_data_project(self, mock_get):
+    def test_map_data_project(self):
         # Test mapping of a project
         project_data = {
             "id": "project1",
@@ -121,7 +115,7 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        hex_api_project = HexApiProjectApiResource.parse_obj(project_data)
+        hex_api_project = HexApiProjectApiResource.model_validate(project_data)
         result = hex_api._map_data_from_model(hex_api_project)
 
         # Verify the result
@@ -153,8 +147,7 @@ class TestHexAPI(unittest.TestCase):
             == datetime(2022, 1, 3, 12, 0, 0, tzinfo=timezone.utc)
         )
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_map_data_component(self, mock_get):
+    def test_map_data_component(self):
         # Test mapping of a component
         component_data = {
             "id": "component1",
@@ -185,7 +178,7 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        hex_api_component = HexApiProjectApiResource.parse_obj(component_data)
+        hex_api_component = HexApiProjectApiResource.model_validate(component_data)
         result = hex_api._map_data_from_model(hex_api_component)
 
         # Verify the result
@@ -217,13 +210,11 @@ class TestHexAPI(unittest.TestCase):
             == datetime(2022, 2, 3, 12, 0, 0, tzinfo=timezone.utc)
         )
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    def test_fetch_projects_failure_http_error(self, mock_get):
+    def test_fetch_projects_failure_http_error(self):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "500 Server Error: Internal Server Error"
         )
-        mock_get.return_value = mock_response
 
         hex_api = HexApi(
             token=self.token,
@@ -231,12 +222,14 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # No exception should be raised; gracefully finish with no results and proper error reporting
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_response):
+            # No exception should be raised; gracefully finish with no results and proper error reporting
+            results = list(hex_api.fetch_projects())
 
         # Verify results are empty and error was reported
         assert len(results) == 0
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
         assert (
@@ -250,15 +243,15 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
-    def test_fetch_projects_failure_response_validation(self, mock_parse_obj, mock_get):
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.model_validate")
+    def test_fetch_projects_failure_response_validation(self, mock_parse_obj):
         # Create a dummy http response
         mock_response = MagicMock()
         mock_response.json.return_value = {"whatever": "json"}
-        mock_get.return_value = mock_response
         # and simulate ValidationError when parsing the response
-        mock_parse_obj.side_effect = ValidationError([], model=HexApiProjectApiResource)
+        mock_parse_obj.side_effect = lambda _: HexApiProjectApiResource.model_validate(
+            {}
+        )  # will raise ValidationError
 
         hex_api = HexApi(
             token=self.token,
@@ -266,12 +259,14 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # No exception should be raised; gracefully finish with no results and proper error reporting
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_response):
+            # No exception should be raised; gracefully finish with no results and proper error reporting
+            results = list(hex_api.fetch_projects())
 
         # Verify results are empty and error was reported
         assert len(results) == 0
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         failures = list(self.report.failures)
         assert len(failures) == 1
         assert (
@@ -286,16 +281,14 @@ class TestHexAPI(unittest.TestCase):
         )
         assert failures[0].context
 
-    @patch("datahub.ingestion.source.hex.api.requests.get")
-    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.parse_obj")
+    @patch("datahub.ingestion.source.hex.api.HexApiProjectsListResponse.model_validate")
     @patch("datahub.ingestion.source.hex.api.HexApi._map_data_from_model")
     def test_fetch_projects_warning_model_mapping(
-        self, mock_map_data_from_model, mock_parse_obj, mock_get
+        self, mock_map_data_from_model, mock_parse_obj
     ):
         # Create a dummy http response
         mock_get_response = MagicMock()
         mock_get_response.json.return_value = {"values": [{"whatever": "json"}]}
-        mock_get.return_value = mock_get_response
         # create a couple of dummy project items
         mock_parse_obj.return_value = HexApiProjectsListResponse(
             values=[
@@ -337,14 +330,16 @@ class TestHexAPI(unittest.TestCase):
             base_url=self.base_url,
         )
 
-        # Should not raise exception, but log warning
-        results = list(hex_api.fetch_projects())
+        # Mock the session.get method after the session is created
+        with patch.object(hex_api.session, "get", return_value=mock_get_response):
+            # Should not raise exception, but log warning
+            results = list(hex_api.fetch_projects())
 
         # We should still get the valid item but skip the problematic one
         assert len(results) == 1
         assert results[0].id == "valid_item"
 
-        assert self.report.fetch_projects_page_calls == 1
+        assert self.report.api_calls.get("list_projects.pages", 0) == 1
         warnings = list(self.report.warnings)
         assert len(warnings) == 1
         assert warnings[0].title and warnings[0].title == "Incomplete metadata"
@@ -354,3 +349,151 @@ class TestHexAPI(unittest.TestCase):
             == "Incomplete metadata because of error mapping item"
         )
         assert warnings[0].context
+
+
+class TestRateLimiter:
+    def test_allows_calls_within_limit(self):
+        limiter = _RateLimiter(max_calls=5, period=60.0)
+        start = time.monotonic()
+        for _ in range(5):
+            limiter.acquire()
+        # 5 calls within limit should be near-instant
+        assert time.monotonic() - start < 1.0
+
+    def test_sleeps_when_limit_exceeded(self):
+        # 3 calls in 0.2s window — 4th should sleep
+        limiter = _RateLimiter(max_calls=3, period=0.2)
+        for _ in range(3):
+            limiter.acquire()
+        start = time.monotonic()
+        limiter.acquire()  # this one should sleep ~0.2s
+        elapsed = time.monotonic() - start
+        assert elapsed >= 0.1  # at least waited some time
+
+
+class TestExtractConnectionDefaults:
+    """`_extract_connection_defaults` translates Hex's per-type
+    `connectionDetails` into (default_database, default_schema) for sqlglot.
+    Each test covers a distinct rule, not a distinct platform.
+    """
+
+    def test_extracts_db_with_non_database_key(self):
+        # Happy path + non-obvious key: BigQuery uses `projectId`, not
+        # `database`. Guards against a CONNECTION_TYPE_DEFAULTS row being
+        # mis-keyed.
+        db, schema = _extract_connection_defaults(
+            "bigquery", {"projectId": "my-gcp-project"}
+        )
+        assert db == "my-gcp-project"
+        assert schema is None
+
+    def test_schema_fallback_applies_when_db_resolved(self):
+        db, schema = _extract_connection_defaults("postgres", {"database": "warehouse"})
+        assert db == "warehouse"
+        assert schema == "public"
+
+    def test_schema_fallback_suppressed_when_db_missing(self):
+        # without a db, applying schema=public would yield an incomplete `.public.t` URN. Skip the fallback.
+        db, schema = _extract_connection_defaults("postgres", {})
+        assert db is None
+        assert schema is None
+
+    def test_two_part_platform_database_maps_to_schema_slot(self):
+        # MySQL/MariaDB/Clickhouse: Hex's `database` field is the schema slot,
+        # not the catalog slot. db MUST stay None to avoid a wrong 3-part URN.
+        db, schema = _extract_connection_defaults("mysql", {"database": "app_db"})
+        assert db is None
+        assert schema == "app_db"
+
+    def test_unknown_type_returns_nones(self):
+        db, schema = _extract_connection_defaults("vertica", {"database": "x"})
+        assert db is None
+        assert schema is None
+
+
+class TestFetchConnectionsParsing:
+    """End-to-end: HTTP response → HexApiConnection. Verifies that
+    `connectionDetails.<type>` is correctly unpacked into the API connection's
+    default_database / default_schema fields.
+    """
+
+    def _hex_api(self) -> HexApi:
+        return HexApi(
+            token="t",
+            report=HexApiReport(),
+            base_url="https://test.hex.tech/api/v1",
+            page_size=10,
+        )
+
+    def _mock_response(self, payload: dict) -> MagicMock:
+        resp = MagicMock()
+        resp.json.return_value = payload
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    def test_extracts_defaults_from_connection_details(self):
+        api = self._hex_api()
+        payload = {
+            "values": [
+                {
+                    "id": "conn-sf",
+                    "name": "Analytics",
+                    "type": "snowflake",
+                    "connectionDetails": {
+                        "snowflake": {"database": "ANALYTICS", "schema": "PUBLIC"}
+                    },
+                },
+                {
+                    "id": "conn-bq",
+                    "name": "BQ",
+                    "type": "bigquery",
+                    "connectionDetails": {"bigquery": {"projectId": "my-proj"}},
+                },
+            ]
+        }
+        with patch.object(
+            api.session, "get", return_value=self._mock_response(payload)
+        ):
+            result = api.fetch_connections()
+
+        sf = result["conn-sf"]
+        assert isinstance(sf, HexApiConnection)
+        assert sf.name == "Analytics"
+        assert sf.type == "snowflake"
+        assert sf.default_database == "ANALYTICS"
+        assert sf.default_schema == "PUBLIC"
+
+        bq = result["conn-bq"]
+        assert bq.default_database == "my-proj"
+        assert bq.default_schema is None
+
+    def test_missing_connection_details_yields_none_defaults(self):
+        api = self._hex_api()
+        payload = {"values": [{"id": "conn-sf", "name": "A", "type": "snowflake"}]}
+        with patch.object(
+            api.session, "get", return_value=self._mock_response(payload)
+        ):
+            result = api.fetch_connections()
+        assert result["conn-sf"].default_database is None
+        assert result["conn-sf"].default_schema is None
+
+    def test_unknown_type_yields_none_defaults_even_with_details(self):
+        api = self._hex_api()
+        payload = {
+            "values": [
+                {
+                    "id": "conn-vt",
+                    "name": "Vertica",
+                    "type": "vertica",
+                    "connectionDetails": {"vertica": {"database": "x"}},
+                }
+            ]
+        }
+        with patch.object(
+            api.session, "get", return_value=self._mock_response(payload)
+        ):
+            result = api.fetch_connections()
+        # Type not in CONNECTION_TYPE_DEFAULTS → no extraction even though
+        # details exist. User must supply defaults via connection override.
+        assert result["conn-vt"].default_database is None
+        assert result["conn-vt"].default_schema is None

@@ -4,6 +4,9 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
+import analytics, { EventType } from '@src/app/analytics';
 
 import DatahubCoreLogo from '@images/datahub_core.svg?react';
 
@@ -15,7 +18,6 @@ const Container = styled.div`
     align-items: center;
     gap: 8px;
     margin-left: -3px;
-    transition: padding 250ms ease-in-out;
 `;
 
 const Logotype = styled.div`
@@ -52,12 +54,21 @@ type Props = {
 };
 
 export default function NavBarHeader({ logotype }: Props) {
-    const { isCollapsed } = useNavBarContext();
+    const { toggle, isCollapsed } = useNavBarContext();
+    const showHomepageRedesign = useShowHomePageRedesign();
+    const isHomePage = useIsHomePage();
+
+    function handleLogoClick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+        analytics.event({ type: EventType.NavBarItemClick, label: 'Home' });
+    }
 
     return (
         <Container>
-            <StyledLink to="/">
-                <Logotype>{logotype}</Logotype>
+            <StyledLink to="/" onClick={handleLogoClick} data-testid="nav-bar-home-logo">
+                <Logotype data-testid="datahub-logo-svg">{logotype}</Logotype>
                 {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}

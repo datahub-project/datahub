@@ -280,7 +280,7 @@ export const IconGalleryWithSearch = ({ icons }: Props) => {
                 {filteredIcons.map((icon) => (
                     <IconGridItem>
                         <IconDisplayBlock key={icon} title={icon}>
-                            <Icon icon={icon} variant={variant as any} size="2xl" />
+                            <Icon icon={icon as any} size="2xl" />
                         </IconDisplayBlock>
                         <span>{icon}</span>
                     </IconGridItem>

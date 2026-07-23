@@ -1,124 +1,108 @@
-// Styles for Sphinx Python SDK generated docs
-$borderRadius: 5px;
+.sphinx-api-docs {
+  font-size: 15px;
+  color: var(--ifm-font-color-base);
 
-dl.py {
-  margin-bottom: calc(var(--ifm-spacing-vertical) * 2);
-  font-size: 14px;
-  border: 1px solid var(--ifm-hr-border-color);
-  border-radius: $borderRadius;
-
-  code {
-    border: none;
-    background: none;
-  }
-
-  p {
-    margin-bottom: 0;
-  }
-
-  dl {
-    margin-bottom: var(--ifm-spacing-vertical);
-  }
-
-  // The parameter name:
-  em.sig-param > span:first-child {
-    font-weight: bold;
-  }
-
-  > dd:not(:empty) {
-    padding-bottom: var(--ifm-spacing-vertical);
-  }
-
-  dt.sig {
-    box-sizing: border-box;
-    font-size: 0.9rem;
-    padding: var(--ifm-spacing-vertical);
-    border-radius: $borderRadius;
-    font-family: var(--ifm-font-family-monospace);
-    background-color: var(--ifm-background-surface-color);
-  }
-
-  > dd {
-    &:not(:empty) {
-      padding-top: calc(var(--ifm-spacing-vertical) / 2);
-      margin-top: 0;
-      margin-left: var(--ifm-spacing-horizontal);
-      margin-right: var(--ifm-spacing-horizontal);
+  .anchor {
+    .visually-hidden {
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      height: 10px;
+      width: 3rem;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 0;
+      margin: 0;
     }
+    .hash-link { display: none; }
   }
 
-  // e.g. `class`, or `def`
-  em.property {
-    color: var(--ifm-font-color-base);
-    font-weight: bold;
-  }
+  .h3-block {
+    border: 1px solid var(--ifm-hr-border-color);
+    border-radius: 8px;
+    overflow: hidden;
 
-  // e.g. `MyClass`
-  span.sig-name {
-    color: #2774b3;
-    font-weight: bold;
-  }
-
-  // e.g classmethod
-  em.property {
-    color: #66b327;
-  }
-
-  em.sig-param {
-    span.default_value {
-      color: #66b327;
-    }
-  }
-
-  span.sig-return {
-    span.sig-return-typehint {
-      color: var(--ifm-font-color-base);
-
-      pre {
-        color: var(--ifm-font-color-base);
-      }
-    }
-  }
-
-  dl.field-list {
-    padding-top: calc(var(--ifm-spacing-vertical) / 2);
-    display: grid;
-    grid-template-columns: fit-content(30%) auto;
-    &:not(:first-child) {
-      border-top: 1px solid var(--ifm-hr-border-color);
-    }
-
-    dt {
-      margin-right: 0.5em;
-    }
-
-    dd {
+    .section-heading {
+      background-color: var(--ifm-color-primary-opaque);
       font-family: var(--ifm-font-family-monospace);
+      padding: 1rem 1.5rem;
+      font-weight: 700;
+      font-size: 1rem;
+      border-bottom: 1px solid var(--ifm-hr-border-color);
+
+      .class-text { color: #aaa; margin-right: 0.3rem; }
+      .class-owner { color: var(--ifm-font-color-secondary); }
+      .class-name { color: var(--ifm-color-primary); font-weight: 700; }
+      .arg-name { color: var(--ifm-font-color-base); font-weight: 600; }
+      .arg-type { color: gray; }
+      .arg-default { color: #999; font-weight: 600; }
     }
 
-    dt,
-    dd {
-      margin-left: 0;
-      padding-left: 0;
+    p {
+      padding: 1rem 1.5rem;
+    }
 
-      &:not(:first-of-type) {
-        border-top: 1px solid var(--ifm-hr-border-color);
-        padding-top: var(--ifm-spacing-vertical);
+    h4 {
+      background: #FAFAFA;
+      font-family: var(--ifm-font-family-monospace);
+      padding: 1rem 1.5rem;
+      margin: 0;
+      font-weight: 600;
+      border-top: 1px solid var(--ifm-hr-border-color);
+      border-bottom: 1px solid var(--ifm-hr-border-color);
+      color: #444;  
+    
+      em {
+        color: gray;
+        font-style: normal; 
       }
-      &:not(:last-of-type) {
-        padding-bottom: var(--ifm-spacing-vertical);
-      }
+    }
+    
 
-      ul {
-        list-style-type: none;
-        padding-left: 0;
-        li {
-          p {
-            margin: 0;
-            padding: 0;
-          }
+    ul {
+      margin: 0;
+      padding: 1rem 2rem;
+      background: #FDFDFD;
+
+      li {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+
+        .param-name {
+          min-width: 160px;
+          font-weight: 600;
+          color: var(--ifm-color-primary-darker);
+        }
+
+        .param-type {
+          font-family: var(--ifm-font-family-monospace);
+          font-weight: 400;
+          color: #444;
+          background: #F5F5F5;
+          padding: 0.15rem 0.4rem;
+          border-radius: 4px;
+          margin-left: 0.5rem;
         }
       }
+    }
+
+    // pre code block (full examples)
+    pre code, pre code * {
+      color: var(--ifm-font-color-secondary);
+      padding: 1rem;
+      margin: 0;
+      font-size: 0.9rem;
+      overflow-x: auto;
+    }
+
+    code {
+      background-color: #F5F5F5;
+      padding: 0.1rem 0.4rem;
+      margin: auto 0.2rem;
+      font-size: 0.9em;
+      border: none;
+      line-height: 1.3;
+      border-radius: 6px;
     }
   }
 }

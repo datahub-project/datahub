@@ -4,10 +4,10 @@ import logging
 from typing import ClassVar, Dict, List, Set
 
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_constant import NAME
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
-    NAME,
     LookMLSourceConfig,
     LookMLSourceReport,
 )

@@ -15,7 +15,9 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -58,7 +60,7 @@ AggregatedDataset = GenericAggregatedDataset[TrinoTableRef]
 
 class TrinoConnectorInfo(BaseModel):
     partitionIds: List[str]
-    truncated: Optional[bool]
+    truncated: Optional[bool] = None
 
 
 class TrinoAccessedMetadata(BaseModel):
@@ -78,7 +80,7 @@ class TrinoJoinedAccessEvent(BaseModel):
     table: Optional[str] = None
     accessed_metadata: List[TrinoAccessedMetadata]
     starttime: datetime = Field(alias="create_time")
-    endtime: Optional[datetime] = Field(alias="end_time")
+    endtime: Optional[datetime] = Field(None, alias="end_time")
 
 
 class EnvBasedSourceBaseConfig:
@@ -109,20 +111,21 @@ class TrinoUsageReport(SourceReport):
     num_joined_access_events_skipped: int = 0
 
 
-@platform_name("Trino")
+@platform_name("Trino", id="trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """
-    If you are using Starburst Trino you can collect usage stats the following way.
+    Source that extracts usage statistics from Starburst Trino via Event Logger audit logs.
 
-    #### Prerequsities
-    1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
-
-    2. Install starbust-trino-usage plugin
-    Run pip install 'acryl-datahub[starburst-trino-usage]'.
-
+    Implementation notes:
+    - Queries completed_queries table from Starburst Event Logger
+    - Uses SQLAlchemy to connect to audit PostgreSQL database
+    - Parses accessed_metadata JSON to extract table and column access
+    - Aggregates usage by time bucket using BaseUsageConfig
+    - Only processes SELECT queries with FINISHED state
     """
 
     config: TrinoUsageConfig
@@ -130,7 +133,7 @@ class TrinoUsageSource(Source):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoUsageConfig.parse_obj(config_dict)
+        config = TrinoUsageConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:

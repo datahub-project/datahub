@@ -16,15 +16,17 @@ import com.linkedin.dataproduct.DataProductKey;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -42,10 +44,11 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class DataProductService {
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final GraphClient _graphClient;
 
-  public DataProductService(@Nonnull EntityClient entityClient, @Nonnull GraphClient graphClient) {
+  public DataProductService(
+      @Nonnull SystemEntityClient entityClient, @Nonnull GraphClient graphClient) {
     _entityClient = entityClient;
     _graphClient = graphClient;
   }
@@ -188,17 +191,19 @@ public class DataProductService {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
-      final EntityResponse response =
-          _entityClient.getV2(
+      // Bypass entity client cache: setDomain may have cached a negative domains entry before
+      // ingest, and authorization reads must see the latest aspect (see SettingsService pattern).
+      final Map<Urn, EntityResponse> batchResponse =
+          _entityClient.batchGetV2NoCache(
               opContext,
               Constants.DATA_PRODUCT_ENTITY_NAME,
-              dataProductUrn,
+              ImmutableSet.of(dataProductUrn),
               ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
+      final EntityResponse response = batchResponse.get(dataProductUrn);
       if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
         return new Domains(
             response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
       }
-      // No aspect found
       return null;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -309,15 +314,13 @@ public class DataProductService {
    * <p>Note that this method does not do authorization validation. It is assumed that users of this
    * class have already authorized the operation
    *
-   * @param dataProductUrn the urn of the Data Product to set - null if removing Data Product
+   * @param dataProductUrn the urn of the Data Product to set
    * @param resourceUrns the urns of the entities to add the Data Product to
-   * @param authentication the current authentication
    */
   public void batchSetDataProduct(
       @Nonnull OperationContext opContext,
       @Nonnull Urn dataProductUrn,
-      @Nonnull List<Urn> resourceUrns,
-      @Nonnull Urn actorUrn) {
+      @Nonnull List<Urn> resourceUrns) {
     try {
       DataProductProperties dataProductProperties =
           getDataProductProperties(opContext, dataProductUrn);
@@ -341,7 +344,9 @@ public class DataProductService {
               .collect(Collectors.toList());
 
       AuditStamp nowAuditStamp =
-          new AuditStamp().setTime(System.currentTimeMillis()).setActor(actorUrn);
+          new AuditStamp()
+              .setTime(System.currentTimeMillis())
+              .setActor(opContext.getActorContext().getActorUrn());
       for (Urn resourceUrn : newResourceUrns) {
         DataProductAssociation association = new DataProductAssociation();
         association.setDestinationUrn(resourceUrn);
@@ -351,14 +356,86 @@ public class DataProductService {
       }
 
       dataProductProperties.setAssets(dataProductAssociations);
-      _entityClient.ingestProposal(
-          opContext,
+
+      // Create metadata change proposal
+      MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
-              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false);
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      _entityClient.ingestProposal(opContext, mcp, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update assets for %s", dataProductUrn), e);
+    }
+  }
+
+  /**
+   * Adds multiple assets to a single data product without removing them from other data products.
+   * This is an additive operation that preserves existing data product memberships.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param opContext the operation context
+   * @param dataProductUrn the urn of the data product to add assets to
+   * @param resourceUrns the urns of the entities to add to the data product
+   */
+  public void batchAddToDataProduct(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn dataProductUrn,
+      @Nonnull final List<Urn> resourceUrns) {
+    // Delegate to existing batchSetDataProduct which already does additive operations
+    batchSetDataProduct(opContext, dataProductUrn, resourceUrns);
+  }
+
+  /**
+   * Removes multiple assets from a single data product without affecting their membership in other
+   * data products.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param opContext the operation context
+   * @param dataProductUrn the urn of the data product to remove assets from
+   * @param resourceUrns the urns of the entities to remove from the data product
+   */
+  public void batchRemoveFromDataProduct(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn dataProductUrn,
+      @Nonnull final List<Urn> resourceUrns) {
+    try {
+      final DataProductProperties dataProductProperties =
+          getDataProductProperties(opContext, dataProductUrn);
+      if (dataProductProperties == null) {
+        throw new RuntimeException(
+            "Failed to batch remove from data product as data product does not exist");
+      }
+
+      DataProductAssociationArray dataProductAssociations = new DataProductAssociationArray();
+      if (dataProductProperties.hasAssets()) {
+        dataProductAssociations = dataProductProperties.getAssets();
+      }
+
+      // Create a set of URNs to remove for efficient lookup
+      final Set<Urn> urnsToRemove = resourceUrns.stream().collect(Collectors.toSet());
+
+      // Filter out associations for the resources being removed
+      final DataProductAssociationArray finalAssociations =
+          dataProductAssociations.stream()
+              .filter(association -> !urnsToRemove.contains(association.getDestinationUrn()))
+              .collect(Collectors.toCollection(DataProductAssociationArray::new));
+
+      dataProductProperties.setAssets(finalAssociations);
+
+      // Create metadata change proposal
+      final MetadataChangeProposal mcp =
+          AspectUtils.buildMetadataChangeProposal(
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      _entityClient.ingestProposal(opContext, mcp, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to batch remove assets from %s", dataProductUrn), e);
     }
   }
 
@@ -369,7 +446,7 @@ public class DataProductService {
    * class have already authorized the operation
    *
    * @param resourceUrn the urn of the entity to remove the Data Product from
-   * @param authentication the current authentication
+   * @param actorUrn the current actor
    */
   public void unsetDataProduct(
       @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nonnull Urn actorUrn) {
@@ -399,6 +476,32 @@ public class DataProductService {
     }
   }
 
+  /**
+   * Batch unsets Data Products for a given list of entities. Remove these entities from their data
+   * product(s).
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation
+   *
+   * @param resourceUrns the urns of the resources to change
+   */
+  public void batchUnsetDataProduct(
+      @Nonnull OperationContext opContext, @Nonnull List<Urn> resourceUrns) {
+    if (resourceUrns.isEmpty()) return;
+
+    try {
+      // Process each entity to unset its data product
+      for (Urn resourceUrn : resourceUrns) {
+        unsetDataProduct(opContext, resourceUrn, opContext.getActorContext().getActorUrn());
+      }
+      log.info("Successfully unset data products for {} entities", resourceUrns.size());
+    } catch (Exception e) {
+      log.error("Failed to batch unset data products for entities: {}", e.getMessage(), e);
+      throw new RuntimeException(
+          String.format("Failed to batch unset data products for entities %s", resourceUrns), e);
+    }
+  }
+
   private void removeEntityFromDataProduct(
       @Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn, @Nonnull Urn resourceUrn) {
     try {
@@ -422,11 +525,13 @@ public class DataProductService {
       }
 
       dataProductProperties.setAssets(finalAssociations);
-      _entityClient.ingestProposal(
-          opContext,
+
+      // Create metadata change proposal
+      MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
-              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false);
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      _entityClient.ingestProposal(opContext, mcp, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to unset data product for %s", resourceUrn), e);

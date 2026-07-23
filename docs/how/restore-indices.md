@@ -1,3 +1,7 @@
+---
+description: "Rebuild DataHub's Elasticsearch, OpenSearch, or Neo4j indices from the metadata_aspect_v2 table when search or graph services drift."
+---
+
 # Search and Graph Reindexing
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
@@ -52,10 +56,10 @@ When running the `RestoreIndices` job, you can pass additional arguments to cust
 
 ### 🧱 Other Options
 
-| Argument               | Description                                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica. |
-| `clean`                | **Deletes existing index documents before restoring.** Use with caution.                                    |
+| Argument               | Description                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica.                                                                                                   |
+| `clean`                | **Deletes existing index documents before restoring.** Use with caution. Note, it will clean the entire index before running the reindex step, thus ignoring any filters based on urn and aspect for reindex. |
 
 ---
 
@@ -177,6 +181,10 @@ All Aspects:
 
 For Rest.li, see [Restore Indices API](../api/restli/restore-indices.md).
 
+### CLI
+
+The [datahub CLI](../cli.md) also supports a utility command for restoring indices.
+
 ## Best Practices
 
 In general, this process is not required to run unless there has been a disruption of storage services or infrastructure,
@@ -275,7 +283,9 @@ Implementing these expanded best practices should help ensure a smoother, more e
 minimizing impact on your DataHub environment.
 
 This operation can be I/O intensive from the read-side from SQL and on the Elasticsearch write side. If you're able to leverage
-provisioned I/O. or throughput, you might want to monitor your infrastructure for a possible.
+provisioned I/O or throughput, you might want to monitor your infrastructure for a possible bottleneck.
+
+> 💡 **Performance Tip**: For bulk loading scenarios during initial deployment or major data migrations, consider using [LoadIndices](./load-indices.md) instead, which is optimized for high throughput rather than precise event replay.
 
 #### Elasticsearch/Opensearch Optimization
 
@@ -288,7 +298,7 @@ Run the system update job with the following environment variable `ELASTICSEARCH
 
 :::caution
 Remember to reset this after restoration completes!
-:::caution
+:::
 
 ##### Bulk Processing Improvements:
 
@@ -307,6 +317,8 @@ Remember to reset this after restoration completes!
 
 Consider using a read replica as the source of the job's data. If you configure a read-only replica
 you must also provide the parameter `createDefaultAspects=false`.
+
+For **GMS** serving live traffic, you can optionally enable the entity-aspect [read pool](../deploy/primary-storage-read-pool.md) (`EBEAN_READ_POOL_*` or `CASSANDRA_READ_POOL_*`) so non-locking reads use a replica or a dedicated read connection pool. Restore/load jobs and upgrade tooling still use the primary pool only.
 
 #### Kafka & Consumers
 

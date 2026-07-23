@@ -107,7 +107,7 @@ class RestServiceConfig:
         if version_str is None:
             version_str = self.service_version
 
-        if not version_str:
+        if not version_str or version_str.lower() == "null":
             return (0, 0, 0, 0)
 
         # Remove 'v' prefix if present
@@ -184,6 +184,14 @@ class RestServiceConfig:
         return managed_ingestion.get("enabled", False)
 
     @property
+    def default_cli_version(self) -> Optional[str]:
+        """
+        Get the default CLI version.
+        """
+        managed_ingestion = self.raw_config.get("managedIngestion") or {}
+        return managed_ingestion.get("defaultCliVersion")
+
+    @property
     def is_datahub_cloud(self) -> bool:
         """
         Check if DataHub Cloud is enabled.
@@ -214,18 +222,15 @@ class RestServiceConfig:
         # Special handling for features that rely on config flags
         config_based_features = {
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
-            ServiceFeature.STATEFUL_INGESTION: lambda: self.raw_config.get(
-                "statefulIngestionCapable", False
-            )
-            is True,
-            ServiceFeature.IMPACT_ANALYSIS: lambda: self.raw_config.get(
-                "supportsImpactAnalysis", False
-            )
-            is True,
-            ServiceFeature.PATCH_CAPABLE: lambda: self.raw_config.get(
-                "patchCapable", False
-            )
-            is True,
+            ServiceFeature.STATEFUL_INGESTION: lambda: (
+                self.raw_config.get("statefulIngestionCapable", False) is True
+            ),
+            ServiceFeature.IMPACT_ANALYSIS: lambda: (
+                self.raw_config.get("supportsImpactAnalysis", False) is True
+            ),
+            ServiceFeature.PATCH_CAPABLE: lambda: (
+                self.raw_config.get("patchCapable", False) is True
+            ),
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.raw_config.get("telemetry") or {}
             ).get("enabledCli", None),
@@ -234,7 +239,8 @@ class RestServiceConfig:
 
         # Check if this is a config-based feature
         if feature in config_based_features:
-            return config_based_features[feature]()
+            result = config_based_features[feature]()
+            return bool(result) if result is not None else False
 
         # For environment-based features, determine requirements based on cloud vs. non-cloud
         deployment_type = "cloud" if self.is_datahub_cloud else "core"

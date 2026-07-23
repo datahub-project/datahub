@@ -20,6 +20,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -58,7 +59,7 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
 
 @config_class(SnowflakeSummaryConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSummarySource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeSummaryConfig):
         super().__init__(ctx)
@@ -81,6 +82,11 @@ class SnowflakeSummarySource(Source):
             profiler=None,
             aggregator=None,
             snowsight_url_builder=None,
+            filters=SnowflakeFilter(
+                filter_config=self.config,
+                structured_reporter=self.report,
+            ),
+            fetch_views_from_information_schema=False,  # we haven't enabled this config for SnowflakeSummarySource
         )
 
         # Databases.

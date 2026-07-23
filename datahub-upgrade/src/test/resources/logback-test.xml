@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Suppress Kafka client info logs -->
+  <logger name="org.apache.kafka" level="WARN"/>
+  
+  <!-- Suppress application info logs for the kafka package -->
+  <logger name="com.linkedin.datahub.upgrade.system.kafka" level="WARN"/>
+  
+  <!-- Set root logger to WARN to suppress most info logs during tests -->
+  <root level="WARN">
+    <appender-ref ref="STDOUT"/>
+  </root>
+  
+  <!-- Console appender for test output -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+</configuration>

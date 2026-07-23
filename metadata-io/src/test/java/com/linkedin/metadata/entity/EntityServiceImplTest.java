@@ -1,15 +1,16 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -27,6 +28,7 @@ import com.codahale.metrics.Counter;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -36,10 +38,12 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -51,14 +55,24 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
+import io.opentelemetry.api.trace.Tracer;
 import jakarta.persistence.EntityNotFoundException;
+import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,12 +80,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -88,15 +99,24 @@ public class EntityServiceImplTest {
   private Status newAspect;
   private EntityServiceImpl entityService;
   private MetadataChangeProposal testMCP;
+  private AspectDao mockAspectDao;
 
   @BeforeMethod
   public void setup() throws Exception {
     mockEventProducer = mock(EventProducer.class);
+    mockAspectDao = mock(AspectDao.class);
 
     // Initialize common test objects
     entityService =
         new EntityServiceImpl(
-            mock(AspectDao.class), mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mock(AspectDao.class),
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -156,7 +176,9 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
 
     // Verify metadata was updated but content remained same
     assertEquals(changeMCP.getNextAspectVersion(), 1, "1 which is then incremented back to 2");
@@ -212,7 +234,9 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // Apply upsert
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
 
     // Verify both metadata and content were updated
     assertEquals(changeMCP.getNextAspectVersion(), 2, "Expected acceptance of proposed version");
@@ -255,7 +279,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result = EntityServiceImpl.applyUpsert(changeMCP, null);
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, null, Collections.emptyList(), null, opContext);
 
     // Verify new aspect was created correctly
     assertNotNull(result);
@@ -295,7 +320,8 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     // No existing aspect
-    SystemAspect result1 = EntityServiceImpl.applyUpsert(changeMCP1, null);
+    SystemAspect result1 =
+        EntityServiceImpl.applyUpsert(changeMCP1, null, Collections.emptyList(), null, opContext);
 
     // Change 1
     assertNotNull(result1);
@@ -320,7 +346,12 @@ public class EntityServiceImplTest {
             .build(opContext.getAspectRetriever());
 
     SystemAspect result2 =
-        EntityServiceImpl.applyUpsert(changeMCP2, result1); // pass previous as latest
+        EntityServiceImpl.applyUpsert(
+            changeMCP2,
+            result1,
+            Collections.emptyList(),
+            null,
+            opContext); // pass previous as latest
 
     // Change 2
     assertNotNull(result2);
@@ -371,7 +402,9 @@ public class EntityServiceImplTest {
             .nextAspectVersion(1L)
             .build(opContext.getAspectRetriever());
 
-    SystemAspect upsert = EntityServiceImpl.applyUpsert(changeMCP, latestAspect);
+    SystemAspect upsert =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
     assertEquals(upsert.getSystemMetadataVersion(), Optional.of(1L));
     assertEquals(upsert.getVersion(), 0);
     assertEquals(changeMCP.getNextAspectVersion(), 1);
@@ -385,24 +418,31 @@ public class EntityServiceImplTest {
     SystemMetadataUtils.setNoOp(systemMetadata, true); // Makes it a no-op
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            oldAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             newAspect,
             systemMetadata,
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            oldAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertFalse(result.isPresent(), "Should not produce MCL when system metadata is no-op");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -411,24 +451,31 @@ public class EntityServiceImplTest {
     RecordTemplate sameAspect = newAspect;
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            sameAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             sameAspect,
             SystemMetadataUtils.createDefaultSystemMetadata(),
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            sameAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertFalse(result.isPresent(), "Should not produce MCL when aspects are equal");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -438,23 +485,29 @@ public class EntityServiceImplTest {
     SystemMetadataUtils.setNoOp(systemMetadata, false); // Makes it not a no-op
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
-        entityService.conditionallyProduceMCLAsync(
-            opContext,
-            oldAspect,
-            null, // oldSystemMetadata
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
             newAspect,
             systemMetadata,
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
+            oldAspect,
+            null);
+
+    MCLEmitResult result =
+        entityService.conditionallyProduceMCLAsync(
+            opContext,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
-    assertTrue(result.isPresent(), "Should produce MCL when changes exist");
+    assertTrue(result.isEmitted(), "Should produce MCL when changes exist");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
@@ -467,31 +520,39 @@ public class EntityServiceImplTest {
             mock(AspectDao.class),
             mockEventProducer,
             true, // alwaysEmitChangeLog set to true
+            false, // cdcModeChangeLog set to false
             mock(PreProcessHooks.class),
             0,
-            true);
+            true,
+            null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            testMCP,
+            PegasusUtils.urnToEntityName(TEST_URN),
+            TEST_URN,
+            STATUS_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
+            sameAspect,
+            SystemMetadataUtils.createDefaultSystemMetadata(),
+            sameAspect,
+            null);
+
+    MCLEmitResult result =
         entityService.conditionallyProduceMCLAsync(
             opContext,
-            sameAspect,
-            null, // oldSystemMetadata
-            sameAspect, // Same aspect
-            SystemMetadataUtils.createDefaultSystemMetadata(),
-            testMCP,
-            TEST_URN,
-            TEST_AUDIT_STAMP,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(TEST_URN.getEntityType())
-                .getAspectSpec(STATUS_ASPECT_NAME));
+                .getAspectSpec(STATUS_ASPECT_NAME),
+            mcl);
 
     // Assert
     assertTrue(
-        result.isPresent(),
+        result.isEmitted(),
         "Should produce MCL when alwaysEmitChangeLog is true, regardless of no-op status");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
@@ -512,24 +573,30 @@ public class EntityServiceImplTest {
             .setAspect(GenericRecordUtils.serializeAspect(sameLineageAspect));
 
     // Act
-    Optional<Pair<Future<?>, Boolean>> result =
+    MetadataChangeLog mcl =
+        PegasusUtils.constructMCL(
+            datasetMCP,
+            PegasusUtils.urnToEntityName(datasetUrn),
+            datasetUrn,
+            UPSTREAM_LINEAGE_ASPECT_NAME,
+            TEST_AUDIT_STAMP,
+            sameLineageAspect,
+            SystemMetadataUtils.createDefaultSystemMetadata(),
+            sameLineageAspect,
+            null);
+
+    MCLEmitResult result =
         entityService.conditionallyProduceMCLAsync(
             opContext,
-            sameLineageAspect,
-            null, // oldSystemMetadata
-            sameLineageAspect, // Same aspect
-            SystemMetadataUtils.createDefaultSystemMetadata(),
-            datasetMCP,
-            datasetUrn,
-            TEST_AUDIT_STAMP,
             opContext
                 .getEntityRegistry()
                 .getEntitySpec(datasetUrn.getEntityType())
-                .getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME));
+                .getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME),
+            mcl);
 
     // Assert
     assertTrue(
-        result.isPresent(),
+        result.isEmitted(),
         "Should produce MCL when aspect has lineage relationship, regardless of no-op status");
     verify(mockEventProducer, times(1))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
@@ -567,7 +634,7 @@ public class EntityServiceImplTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     // Test case 1: async = true path
     // Arrange
@@ -625,7 +692,7 @@ public class EntityServiceImplTest {
                         .aspectName(DATASET_PROFILE_ASPECT_NAME)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     try {
       entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
@@ -663,7 +730,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -744,7 +811,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -856,7 +923,7 @@ public class EntityServiceImplTest {
                 // Third batch with another success aspect
                 Stream.of(anotherSuccessAspect)));
 
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -873,7 +940,14 @@ public class EntityServiceImplTest {
     // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -914,7 +988,14 @@ public class EntityServiceImplTest {
     // Create entity service with mocked components
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
@@ -925,8 +1006,10 @@ public class EntityServiceImplTest {
     // the function that's passed to it, so the getLatestAspect call inside it will throw
     doAnswer(
             invocation -> {
+              // New signature: runInTransactionWithRetry(OperationContext, Function, int).
+              // Function is at index 1, not 0.
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(0);
+                  invocation.getArgument(1);
               TransactionContext txContext = TransactionContext.empty(3);
 
               // Before calling the function, set up the mock that will throw inside it
@@ -949,30 +1032,93 @@ public class EntityServiceImplTest {
               }
             })
         .when(mockAspectDao)
-        .runInTransactionWithRetry(any(), anyInt());
+        .runInTransactionWithRetry(any(), any(), anyInt());
 
     // Create a counter mock
     Counter mockCounter = mock(Counter.class);
 
-    // Mock the static method
-    try (MockedStatic<MetricUtils> metricUtilsMock = Mockito.mockStatic(MetricUtils.class)) {
-      metricUtilsMock
-          .when(() -> MetricUtils.counter(eq(EntityServiceImpl.class), eq("delete_nonexisting")))
-          .thenReturn(mockCounter);
+    // Mock the metricUtils
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .metricUtils(metricUtils)
+                    .tracer(mock(Tracer.class))
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
 
-      // Execute the method
-      RollbackResult result =
-          entityService.deleteAspectWithoutMCL(
-              opContext, testUrn.toString(), aspectName, conditions, true);
+    // Execute the method
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            testContext, testUrn.toString(), aspectName, conditions, true);
 
-      // Verify result is null
-      assertNull(result, "Result should be null when EntityNotFoundException is caught");
+    // Verify result is null
+    assertNull(result, "Result should be null when EntityNotFoundException is caught");
 
-      // Verify metric was incremented
-      metricUtilsMock.verify(
-          () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
-      verify(mockCounter).inc();
-    }
+    // Verify metric was incremented
+    verify(metricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("delete_nonexisting"), eq(1d));
+  }
+
+  @Test
+  public void testDeleteAspectWithoutMCL_EmptyVersionRangeRollsBack() throws URISyntaxException {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
+
+    Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
+    String aspectName = STATUS_ASPECT_NAME;
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    EbeanAspectV2 statusRow =
+        new EbeanAspectV2(
+            testUrn.toString(),
+            aspectName,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestStatus =
+        EbeanSystemAspect.builder().forUpdate(statusRow, testEntityRegistry);
+
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), eq(false)))
+        .thenReturn(latestStatus);
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName)))
+        .thenReturn(Pair.of(-1L, -1L));
+
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            opContext, testUrn.toString(), aspectName, Collections.emptyMap(), false);
+
+    assertNull(result);
+    verify(mockAspectDao)
+        .getVersionRange(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName));
+    verify(mockAspectDao, never())
+        .deleteUrn(any(OperationContext.class), any(), eq(testUrn.toString()));
+    verify(mockAspectDao, never())
+        .getAspect(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), anyLong());
   }
 
   @Test
@@ -1004,7 +1150,7 @@ public class EntityServiceImplTest {
 
     // Setup mock stream
     when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
-    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+    when(mockAspectDao.streamAspectBatches(any(), any())).thenReturn(mockStream);
 
     // Setup mock EventProducer
     EventProducer mockEventProducer = mock(EventProducer.class);
@@ -1035,5 +1181,420 @@ public class EntityServiceImplTest {
     assertNotNull(results);
     assertEquals(1, results.size());
     assertEquals(1, results.get(0).rowsMigrated);
+  }
+
+  @Test
+  public void testMapAspectToUsageEvent() {
+    // Test cases for create/update operations
+
+    // Test ACCESS_TOKEN_KEY_ASPECT_NAME
+    AttributeKey<String> eventTypeAttrKey = AttributeKey.stringKey(EVENT_TYPE_ATTR);
+    AttributesBuilder attributesBuilder = Attributes.builder();
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setAspectName(ACCESS_TOKEN_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_ACCESS_TOKEN_EVENT.getType());
+
+    // Test INGESTION_SOURCE_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(INGESTION_SOURCE_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.CREATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_INGESTION_SOURCE_EVENT.getType());
+
+    // Test INGESTION_INFO_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(INGESTION_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPDATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_INGESTION_SOURCE_EVENT.getType());
+
+    // Test DATAHUB_POLICY_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.CREATE_ENTITY);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_POLICY_EVENT.getType());
+
+    // Test DATAHUB_POLICY_INFO_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.PATCH);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_POLICY_EVENT.getType());
+
+    // Test CORP_USER_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(CORP_USER_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_USER_EVENT.getType());
+
+    // Test CORP_USER_INFO_ASPECT_NAME (should map to UPDATE_USER_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(CORP_USER_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_USER_EVENT.getType());
+
+    // Test GROUP_MEMBERSHIP_ASPECT_NAME (should map to UPDATE_USER_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_USER_EVENT.getType());
+
+    // Test default case for create/update
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("unknownAspect");
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_ASPECT_EVENT.getType());
+
+    // Test DELETE operations
+
+    // Test ACCESS_TOKEN_KEY_ASPECT_NAME delete
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(ACCESS_TOKEN_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.REVOKE_ACCESS_TOKEN_EVENT.getType());
+
+    // Test DATAHUB_POLICY_KEY_ASPECT_NAME delete
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.DELETE_POLICY_EVENT.getType());
+
+    // Test default delete case
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("unknownAspect");
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.DELETE_ENTITY_EVENT.getType());
+
+    // Test other change types (should default to ENTITY_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("someAspect");
+    mcl.setChangeType(ChangeType.RESTATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.ENTITY_EVENT.getType());
+  }
+
+  @Test
+  public void testIngestAspectsWithDuplicates() throws Exception {
+    // Create duplicate aspects
+    // Create a batch with duplicate aspects (same urn and aspect name)
+    SystemMetadata metadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    List<ChangeItemImpl> items =
+        List.of(
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(false))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()),
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(true))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()),
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(false))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()));
+
+    AspectsBatchImpl aspectsBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(items)
+            .build(opContext);
+    assertTrue(aspectsBatch.containsDuplicateAspects(), "Expected duplicates.");
+
+    // Mock metric utils to verify the increment call
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .tracer(SystemTelemetryContext.TEST.getTracer())
+                    .metricUtils(mockMetricUtils)
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
+
+    // Mock the transaction to return an empty result
+    when(mockAspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
+        .thenReturn(
+            Optional.of(
+                IngestAspectsResult.builder()
+                    .updateAspectResults(List.of(UpdateAspectResult.builder().build()))
+                    .build()));
+
+    // Execute
+    entityService.ingestAspects(testContext, aspectsBatch, true, true);
+
+    // Verify the metric was incremented
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("batch_with_duplicate"), eq(1.0d));
+  }
+
+  @Test
+  public void testProcessPendingDeletions() throws Exception {
+    // Test the private processPendingDeletions method via reflection
+    // This verifies DELETE remediation flow: pending deletions are executed through EntityService
+
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EventProducer mockEventProducer = mock(EventProducer.class);
+
+    // Create spy to verify deleteAspect calls
+    EntityServiceImpl entityService =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao,
+                mockEventProducer,
+                false,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                null));
+
+    // Create test data
+    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+    com.linkedin.metadata.entity.validation.AspectDeletionRequest deletion1 =
+        com.linkedin.metadata.entity.validation.AspectDeletionRequest.builder()
+            .urn(testUrn)
+            .aspectName("datasetProperties")
+            .validationPoint("POST_DB_PATCH")
+            .aspectSize(2000000L)
+            .threshold(1500000L)
+            .build();
+
+    com.linkedin.metadata.entity.validation.AspectDeletionRequest deletion2 =
+        com.linkedin.metadata.entity.validation.AspectDeletionRequest.builder()
+            .urn(testUrn)
+            .aspectName("status")
+            .validationPoint("PRE_DB_PATCH")
+            .aspectSize(3000000L)
+            .threshold(1500000L)
+            .build();
+
+    java.util.List<com.linkedin.metadata.entity.validation.AspectDeletionRequest> deletions =
+        java.util.Arrays.asList(deletion1, deletion2);
+
+    // Mock deleteAspect to do nothing (just track the call)
+    doReturn(null)
+        .when(entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            any(String.class),
+            any(java.util.Map.class),
+            eq(false));
+
+    // Use reflection to access private processPendingDeletions method
+    java.lang.reflect.Method method =
+        EntityServiceImpl.class.getDeclaredMethod(
+            "processPendingDeletions", OperationContext.class, java.util.List.class);
+    method.setAccessible(true);
+
+    // Invoke the method - use real opContext from test setup
+    method.invoke(entityService, opContext, deletions);
+
+    // Verify deleteAspect was called for both deletions
+    verify(entityService, times(1))
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            eq("datasetProperties"),
+            any(java.util.Map.class),
+            eq(false));
+
+    verify(entityService, times(1))
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(testUrn.toString()),
+            eq("status"),
+            any(java.util.Map.class),
+            eq(false));
+  }
+
+  @Test
+  public void testHardDeleteStructuredPropertyKeyCapturesDefinitionBeforeDeleteUrn()
+      throws URISyntaxException {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao,
+                mock(EventProducer.class),
+                false,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                null));
+    doReturn(Stream.empty())
+        .when(service)
+        .ingestProposalAsync(any(OperationContext.class), any(AspectsBatch.class));
+
+    Urn propertyUrn = Urn.createFromString("urn:li:structuredProperty:io.acryl.test.prop");
+    StructuredPropertyKey key = new StructuredPropertyKey().setId("io.acryl.test.prop");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("io.acryl.test.prop")
+            .setValueType(UrnUtils.getUrn("urn:li:type:datahub.string"))
+            .setEntityTypes(
+                new UrnArray(List.of(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    EbeanAspectV2 keyRow =
+        new EbeanAspectV2(
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(key),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestKey = EbeanSystemAspect.builder().forUpdate(keyRow, testEntityRegistry);
+
+    EbeanAspectV2 definitionRow =
+        new EbeanAspectV2(
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(definition),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestDefinition =
+        EbeanSystemAspect.builder().forUpdate(definitionRow, testEntityRegistry);
+
+    EntityAspect keyAspectAtVersionOne =
+        EntityAspect.builder()
+            .urn(propertyUrn.toString())
+            .aspect(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+            .metadata(RecordUtils.toJsonString(key))
+            .version(1L)
+            .createdOn(new Timestamp(System.currentTimeMillis()))
+            .createdBy(TEST_AUDIT_STAMP.getActor().toString())
+            .systemMetadata(RecordUtils.toJsonString(systemMetadata))
+            .build();
+
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(latestKey);
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false)))
+        .thenReturn(latestDefinition);
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)))
+        .thenReturn(Pair.of(0L, 1L));
+    when(mockAspectDao.getAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(1L)))
+        .thenReturn(keyAspectAtVersionOne);
+    when(mockAspectDao.deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString())))
+        .thenReturn(2);
+
+    doAnswer(
+            invocation -> {
+              // runInTransactionWithRetry(OperationContext, Function, int) — Function at index 1.
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    RollbackResult result =
+        service.deleteAspectWithoutMCL(
+            opContext,
+            propertyUrn.toString(),
+            STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+            Collections.emptyMap(),
+            true);
+
+    assertNotNull(result);
+    assertEquals(result.getAspectName(), STRUCTURED_PROPERTY_KEY_ASPECT_NAME);
+
+    var inOrder = inOrder(mockAspectDao);
+    inOrder
+        .verify(mockAspectDao)
+        .getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_KEY_ASPECT_NAME),
+            eq(false));
+    inOrder
+        .verify(mockAspectDao)
+        .getLatestAspect(
+            any(OperationContext.class),
+            eq(propertyUrn.toString()),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
+            eq(false));
+    inOrder
+        .verify(mockAspectDao)
+        .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
   }
 }

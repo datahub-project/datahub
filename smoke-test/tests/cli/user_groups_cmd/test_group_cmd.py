@@ -7,11 +7,7 @@ import yaml
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.ingestion.graph.client import DataHubGraph
-from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
-
-
-def sync_elastic() -> None:
-    wait_for_writes_to_sync()
+from tests.utils import run_datahub_cmd, sync_elastic
 
 
 def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:
@@ -109,10 +105,14 @@ def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
             "corpGroupKey": {"name": f"group_{i}"},
             "ownership": {
                 "lastModified": {"actor": "urn:li:corpuser:unknown", "time": 0},
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__technical_owner": [
+                        "urn:li:corpuser:user1"
+                    ],
+                },
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
-                "ownerTypes": {},
             },
             "status": {"removed": False},
         }

@@ -1,0 +1,49 @@
+extend type Mutation {
+  patchEntity(input: PatchEntityInput!): PatchEntityResult!
+  patchEntities(input: [PatchEntityInput!]!): [PatchEntityResult!]!
+}
+
+input PatchEntityInput {
+  urn: String
+  entityType: String
+  aspectName: String!
+  patch: [PatchOperationInput!]!
+  arrayPrimaryKeys: [ArrayPrimaryKeyInput!]
+  forceGenericPatch: Boolean
+  systemMetadata: SystemMetadataInput
+  headers: [StringMapEntryInput!]
+}
+
+input PatchOperationInput {
+  op: PatchOperationType!
+  path: String!
+  value: String
+  from: String
+}
+
+enum PatchOperationType {
+  ADD
+  REMOVE
+  REPLACE
+  MOVE
+  COPY
+  TEST
+}
+
+input SystemMetadataInput {
+  lastObserved: Long
+  runId: String
+  properties: [StringMapEntryInput!]
+}
+
+input ArrayPrimaryKeyInput {
+  arrayField: String!
+  keys: [String!]!
+}
+
+type PatchEntityResult {
+  urn: String!
+  name: String
+  success: Boolean!
+  error: String
+}

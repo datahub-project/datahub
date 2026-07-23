@@ -6,7 +6,7 @@ apply from: '../../gradle/coverage/java-coverage.gradle'
 dependencies {
   api project(':metadata-io')
   api project(':metadata-utils')
-  implementation project(':metadata-service:auth-impl')
+  api project(':metadata-service:auth-impl')
   api project(':metadata-service:auth-config')
   api project(':metadata-service:plugin')
   api project(':metadata-service:configuration')
@@ -17,11 +17,13 @@ dependencies {
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:rate-limit')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
   }
   implementation externalDependency.elasticSearchRest
+  implementation externalDependency.elasticsearch8Client
   implementation externalDependency.httpClient
   implementation externalDependency.gson
   implementation (externalDependency.hazelcast) {
@@ -32,6 +34,7 @@ dependencies {
   implementation externalDependency.kafkaAvroSerde
   compileOnly externalDependency.lombok
   implementation externalDependency.servletApi
+  implementation externalDependency.graphqlJava
   api externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springBootStarterCache
@@ -40,8 +43,25 @@ dependencies {
   api externalDependency.springKafka
   api externalDependency.springWeb
   api externalDependency.httpClient
+  implementation externalDependency.springActuator
+  implementation externalDependency.javaxInject  // jakarta.inject-api (renamed in build.gradle)
+  // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+  implementation externalDependency.springBootKafka
+  implementation externalDependency.springBootMicrometerMetrics
+  implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+
+  // AWS SDK for S3 file serving
+  implementation platform(externalDependency.awsSdk2Bom)
+  implementation 'software.amazon.awssdk:regions'
+  implementation 'software.amazon.awssdk:sts'
+  implementation 'software.amazon.awssdk:s3'
+  // AWS SDK for Bedrock (semantic search embeddings)
+  implementation 'software.amazon.awssdk:bedrockruntime'
+  // Google Auth library for Vertex AI embedding provider
+  implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.0'
+  implementation 'com.google.cloud:google-cloud-storage:2.46.0'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -64,6 +84,14 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
   testImplementation externalDependency.javatuples
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersCassandra
+  testImplementation testFixtures(project(':metadata-io'))
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 
 
   constraints {

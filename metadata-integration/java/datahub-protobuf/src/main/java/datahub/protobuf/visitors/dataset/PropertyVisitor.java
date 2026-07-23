@@ -1,19 +1,20 @@
 package datahub.protobuf.visitors.dataset;
 
 import static datahub.protobuf.ProtobufUtils.getMessageOptions;
-import static datahub.protobuf.visitors.ProtobufExtensionUtil.getProperties;
 
 import com.google.gson.Gson;
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.util.Pair;
 import datahub.protobuf.visitors.ProtobufExtensionUtil;
 import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.VisitContext;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class PropertyVisitor implements ProtobufModelVisitor<DatasetProperties> {
@@ -21,35 +22,28 @@ public class PropertyVisitor implements ProtobufModelVisitor<DatasetProperties> 
 
   @Override
   public Stream<DatasetProperties> visitGraph(VisitContext context) {
-    Map<String, String> properties =
+    Map<String, String> properties = new HashMap<>();
+
+    List<Pair<Descriptors.FieldDescriptor, Object>> propertyOptions =
         ProtobufExtensionUtil.filterByDataHubType(
-                getMessageOptions(context.root().messageProto()),
-                context.getGraph().getRegistry(),
-                ProtobufExtensionUtil.DataHubMetadataType.PROPERTY)
-            .stream()
-            .flatMap(
-                fd -> {
-                  if (fd.getKey().getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                    if (fd.getKey().isRepeated()) {
-                      return Stream.of(
-                          Map.entry(
-                              fd.getKey().getName(),
-                              GSON.toJson(
-                                  ((Collection<?>) fd.getValue())
-                                      .stream()
-                                          .map(Object::toString)
-                                          .collect(Collectors.toList()))));
-                    } else {
-                      return Stream.of(Map.entry(fd.getKey().getName(), fd.getValue().toString()));
-                    }
-                  } else {
-                    Descriptors.FieldDescriptor field = fd.getKey();
-                    DescriptorProtos.DescriptorProto value =
-                        (DescriptorProtos.DescriptorProto) fd.getValue();
-                    return getProperties(field, value);
-                  }
-                })
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            getMessageOptions(context.root().messageProto()),
+            context.getGraph().getRegistry(),
+            ProtobufExtensionUtil.DataHubMetadataType.PROPERTY);
+
+    for (Pair<Descriptors.FieldDescriptor, Object> fd : propertyOptions) {
+      var fieldDescriptor = fd.getKey();
+      if (fieldDescriptor.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+        if (fieldDescriptor.isRepeated()) {
+          List<String> stringValues = new ArrayList<>();
+          for (Object item : (Collection<?>) fd.getValue()) {
+            stringValues.add(item.toString());
+          }
+          properties.put(fieldDescriptor.getName(), GSON.toJson(stringValues));
+        } else {
+          properties.put(fieldDescriptor.getName(), fd.getValue().toString());
+        }
+      }
+    }
 
     return Stream.of(new DatasetProperties().setCustomProperties(new StringMap(properties)));
   }

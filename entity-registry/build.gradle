@@ -6,6 +6,10 @@ plugins {
 
 apply from: "../gradle/coverage/java-coverage.gradle"
 
+// Pin Java 17 bytecode: bundled into the acryl-spark-lineage agent shadow jar, which must run on
+// managed Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17).
+ext.javaClassVersionOverride = 17
+
 dependencies {
   implementation spec.product.pegasus.data
   compileOnly spec.product.pegasus.generator
@@ -15,6 +19,7 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
@@ -39,7 +44,7 @@ dependencies {
   testImplementation project(':metadata-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
-  testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.assertJ
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
   testImplementation externalDependency.classGraph
@@ -55,4 +60,3 @@ dependencies {
   testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
-

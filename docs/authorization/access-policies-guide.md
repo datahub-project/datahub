@@ -4,6 +4,10 @@
 
 Access Policies define who can do what to which resources. In conjunction with [Roles](./roles.md), Access Policies determine what users are allowed to do on DataHub.
 
+:::note View-based access control
+If you are creating policies to **restrict what users can view or discover** (not just edit), read [Designing policies for view-based access control](./policies.md#designing-policies-for-view-based-access-control) in the Policies Guide before creating policies.
+:::
+
 ## Policy Types
 
 There are 2 types of Access Policy within DataHub:
@@ -256,10 +260,10 @@ Policies only affect REST APIs when the environment variable `REST_API_AUTHORIZA
 
 ### GraphQL
 
-- [listPolicies](../../graphql/queries.md#listPolicies)
-- [createPolicy](../../graphql/mutations.md#createPolicy)
-- [updatePolicy](../../graphql/mutations.md#updatePolicy)
-- [deletePolicy](../../graphql/mutations.md#deletePolicy)
+- [listPolicies](../../graphql/queries.md#listpolicies)
+- [createPolicy](../../graphql/mutations.md#createpolicy)
+- [updatePolicy](../../graphql/mutations.md#updatepolicy)
+- [deletePolicy](../../graphql/mutations.md#deletepolicy)
 
 ## FAQ and Troubleshooting
 

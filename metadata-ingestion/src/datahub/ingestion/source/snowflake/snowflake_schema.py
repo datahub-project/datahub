@@ -1,27 +1,67 @@
+import json
 import logging
-import os
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    MutableMapping,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+)
 
+import sqlglot
+from sqlglot.tokens import Token, TokenType
+
+from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SemanticViewColumnSubtype,
+    SnowflakeObjectDomain,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
-    SHOW_VIEWS_MAX_PAGE_SIZE,
+    SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
+from datahub.utilities.str_enum import StrEnum
+
+
+class SnowflakeStageType(StrEnum):
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+
+
+class SnowflakeTaskState(StrEnum):
+    STARTED = "STARTED"
+    SUSPENDED = "SUSPENDED"
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-SCHEMA_PARALLELISM = int(os.getenv("DATAHUB_SNOWFLAKE_SCHEMA_PARALLELISM", 20))
+SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
+
+# CREATE SEMANTIC VIEW is not part of sqlglot's grammar (parse_one raises, and
+# lenient mode returns an opaque Command with no tables), so the DDL fallback parser
+# below tokenizes the statement and walks the TABLES ( ... ) clause structurally. We
+# still rely on sqlglot's tokenizer for the error-prone parts - quoted identifiers,
+# doubled-quote escapes, string literals and nested parens - which a regex gets wrong.
+_SEMANTIC_VIEW_TABLES_KEYWORD = "TABLES"
+_SNOWFLAKE_DIALECT = sqlglot.Dialect.get_or_raise("snowflake")
 
 
 @dataclass
@@ -41,11 +81,43 @@ class SnowflakeFK:
 
 
 @dataclass
+class SnowflakeTableIdentifier:
+    """Identifier for a Snowflake table, view, or semantic view."""
+
+    database: str
+    schema: str
+    table: str
+
+    def __str__(self) -> str:
+        return f"{self.database}.{self.schema}.{self.table}"
+
+    @classmethod
+    def from_tuple(
+        cls, table_tuple: Tuple[str, str, str]
+    ) -> "SnowflakeTableIdentifier":
+        """Create identifier from (database, schema, table) tuple."""
+        return cls(database=table_tuple[0], schema=table_tuple[1], table=table_tuple[2])
+
+    def as_tuple(self) -> Tuple[str, str, str]:
+        """Convert to (database, schema, table) tuple for backward compatibility."""
+        return (self.database, self.schema, self.table)
+
+
+@dataclass
 class SnowflakeTag:
     database: str
     schema: str
     name: str
     value: str
+    inherited_from: Optional[SnowflakeObjectDomain] = None
+
+    @property
+    def is_inherited(self) -> bool:
+        return self.inherited_from is not None
+
+    def as_inherited(self, level: SnowflakeObjectDomain) -> "SnowflakeTag":
+        """Return a copy marked as inherited from a parent object *level*."""
+        return replace(self, inherited_from=level)
 
     def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
@@ -61,10 +133,52 @@ class SnowflakeTag:
 
 
 @dataclass
+class SemanticViewColumnMetadata:
+    """Metadata for a single occurrence of a semantic view column (dimension/fact/metric)."""
+
+    name: str
+    data_type: str
+    comment: Optional[str]
+    subtype: SemanticViewColumnSubtype
+    table_name: Optional[str]
+    synonyms: List[str]
+    expression: Optional[str]
+
+
+@dataclass
+class SemanticViewColumnCollection:
+    """Collection of column metadata for a semantic view, organized by column name."""
+
+    # Maps uppercase column name to list of metadata occurrences
+    columns: Dict[str, List[SemanticViewColumnMetadata]] = field(default_factory=dict)
+
+    def add_column(self, metadata: SemanticViewColumnMetadata) -> None:
+        """Add a column metadata occurrence."""
+        col_name_upper = metadata.name.upper()
+        if col_name_upper not in self.columns:
+            self.columns[col_name_upper] = []
+        self.columns[col_name_upper].append(metadata)
+
+    def get_occurrences(self, col_name_upper: str) -> List[SemanticViewColumnMetadata]:
+        """Get all occurrences of a column by its uppercase name."""
+        return self.columns.get(col_name_upper, [])
+
+    def has_duplicates(self, col_name_upper: str) -> bool:
+        """Check if a column has multiple occurrences."""
+        return len(self.columns.get(col_name_upper, [])) > 1
+
+    def get_duplicate_count(self, col_name_upper: str) -> int:
+        """Get the number of duplicate occurrences for a column."""
+        occurrences = self.columns.get(col_name_upper, [])
+        return max(0, len(occurrences) - 1)
+
+
+@dataclass
 class SnowflakeColumn(BaseColumn):
     character_maximum_length: Optional[int]
     numeric_precision: Optional[int]
     numeric_scale: Optional[int]
+    expression: Optional[str] = None  # SQL expression for derived columns
 
     def get_precise_native_type(self):
         precise_native_type = self.data_type
@@ -98,9 +212,28 @@ class SnowflakeTable(BaseTable):
     is_dynamic: bool = False
     is_iceberg: bool = False
     is_hybrid: bool = False
+    retention_time: Optional[int] = None  # number of days
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
+
+
+class SnowflakeDynamicTableInput(NamedTuple):
+    name: str
+    kind: str
+
+
+@dataclass
+class SnowflakeDynamicTable(SnowflakeTable):
+    definition: Optional[str] = (
+        None  # SQL query that defines the dynamic table's content
+    )
+    target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
+    # Fully-qualified upstream entries from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS.
+    upstream_tables: List[SnowflakeDynamicTableInput] = field(default_factory=list)
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.DYNAMIC_TABLE
 
 
 @dataclass
@@ -116,6 +249,93 @@ class SnowflakeView(BaseView):
 
 
 @dataclass
+class SnowflakeSemanticView(BaseView):
+    """Represents a Snowflake Semantic View with dimensions, facts, and metrics."""
+
+    columns: List[SnowflakeColumn] = field(default_factory=list)
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    # Base tables that this semantic view is built on (for lineage)
+    base_tables: List[SnowflakeTableIdentifier] = field(default_factory=list)
+    # Column subtypes mapping: column_name -> "DIMENSION" | "FACT" | "METRIC"
+    column_subtypes: Dict[str, str] = field(default_factory=dict)
+    # Column to logical table mappings: column_name -> [list of logical table names]
+    # Used for column-level lineage generation
+    column_table_mappings: Dict[str, List[str]] = field(default_factory=dict)
+    # Column synonyms: column_name -> [list of alternative names]
+    column_synonyms: Dict[str, List[str]] = field(default_factory=dict)
+    # Primary key columns: Set of column names that are part of the primary key
+    primary_key_columns: set = field(default_factory=set)
+    # Table-level synonyms: logical_table_name -> [list of alternative names]
+    # These are alternative names for logical tables within the semantic view
+    table_synonyms: Dict[str, List[str]] = field(default_factory=dict)
+    # Logical to physical table mapping: logical_table_name -> (db, schema, table)
+    # Used for column-level lineage generation
+    logical_to_physical_table: Dict[str, Tuple[str, str, str]] = field(
+        default_factory=dict
+    )
+    # Pre-computed upstream dataset URNs for column lineage generation
+    resolved_upstream_urns: List[str] = field(default_factory=list)
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.SEMANTIC_VIEW
+
+
+@dataclass
+class UserQueryCount:
+    """User query count for usage statistics."""
+
+    user_name: str
+    query_count: int
+
+
+@dataclass
+class SemanticViewUsageRecord:
+    """Aggregated usage statistics for a semantic view within a time bucket."""
+
+    semantic_view_name: str
+    bucket_start_time: datetime
+    total_queries: int
+    unique_users: int
+    direct_sql_queries: int
+    cortex_analyst_queries: int
+    avg_execution_time_ms: float
+    total_rows_produced: int
+    user_counts: List[UserQueryCount] = field(default_factory=list)
+    top_sql_queries: List[str] = field(default_factory=list)
+
+
+@dataclass
+class SemanticViewQuery:
+    """Individual query against a semantic view."""
+
+    query_id: str
+    query_text: str
+    semantic_view_name: str
+    user_name: str
+    role_name: str
+    warehouse_name: str
+    start_time: datetime
+    total_elapsed_time: int
+    rows_produced: int
+    query_source: str  # 'DIRECT_SQL' or 'CORTEX_ANALYST'
+
+
+@dataclass
+class SemanticViewProfileCounts:
+    """Profile counts for a semantic view (dimensions, facts, metrics)."""
+
+    semantic_view_catalog: str
+    semantic_view_schema: str
+    semantic_view_name: str
+    dimension_count: int
+    fact_count: int
+    metric_count: int
+    table_count: int
+    total_column_count: int
+
+
+@dataclass
 class SnowflakeSchema:
     name: str
     created: Optional[datetime]
@@ -123,6 +343,7 @@ class SnowflakeSchema:
     comment: Optional[str]
     tables: List[str] = field(default_factory=list)
     views: List[str] = field(default_factory=list)
+    semantic_views: List[str] = field(default_factory=list)
     streams: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
@@ -163,6 +384,132 @@ class SnowflakeStream:
         return DatasetSubTypes.SNOWFLAKE_STREAM
 
 
+@dataclass
+class SnowflakeMarketplaceListing:
+    """Represents an available internal marketplace listing from SHOW AVAILABLE LISTINGS"""
+
+    name: str  # listing name
+    listing_global_name: str
+    title: str  # display name
+    category: Optional[str]
+    description: Optional[str]
+    created_on: Optional[datetime]
+    organization_profile_name: str  # Organization providing the listing
+
+
+@dataclass
+class SnowflakeShare:
+    """Represents a Snowflake share"""
+
+    name: str
+    kind: str  # INBOUND or OUTBOUND
+    database_name: Optional[str]  # Database provided by the share
+    owner: Optional[str]
+    comment: Optional[str]
+    listing_global_name: Optional[str]  # For shares from marketplace listings
+
+
+@dataclass
+class SnowflakeMarketplacePurchase:
+    """Represents a database created from an internal marketplace listing"""
+
+    database_name: str
+    purchase_date: datetime
+    owner: str
+    comment: Optional[str]
+
+
+@dataclass
+class SnowflakeProviderShare:
+    """Represents an OUTBOUND share for provider mode marketplace tracking"""
+
+    share_name: str
+    source_database: str
+    listing_global_name: Optional[str]  # Links to marketplace listing
+    created_on: Optional[datetime]
+    owner: Optional[str]
+    comment: Optional[str]
+
+
+@dataclass
+class SnowflakeStreamlitApp:
+    """
+    Represents a Snowflake Streamlit application.
+    Streamlit apps in Snowflake are interactive data applications built with Python
+    that are deployed and hosted within Snowflake. These apps are ingested as
+    dashboard entities in DataHub to provide visibility into data applications
+    alongside traditional dashboards and reports.
+    Attributes:
+        name: The Snowflake object name of the Streamlit app
+        created: Timestamp when the app was created
+        owner: The owner role of the app
+        database_name: The database containing the app
+        schema_name: The schema containing the app
+        title: Human-readable title of the app (displayed in Snowflake UI)
+        comment: Optional description/comment for the app
+        url_id: Unique identifier used in the Snowflake app URL
+        owner_role_type: Type of the owner (typically "ROLE")
+    """
+
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    title: str
+    comment: Optional[str]
+    url_id: str
+    owner_role_type: str
+
+
+@dataclass
+class SnowflakeStage:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    comment: Optional[str]
+    stage_type: SnowflakeStageType
+    url: Optional[str] = None  # For external stages only
+    cloud: Optional[str] = None
+    region: Optional[str] = None
+    storage_integration: Optional[str] = None
+    owner_role_type: str = "ROLE"
+
+
+@dataclass
+class SnowflakeTask:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # SQL body
+    state: SnowflakeTaskState
+    owner_role_type: str
+    comment: Optional[str] = None
+    warehouse: Optional[str] = None
+    schedule: Optional[str] = None
+    predecessors: List[str] = field(default_factory=list)
+    condition: Optional[str] = None  # WHEN clause
+    allow_overlapping_execution: bool = False
+
+
+@dataclass
+class SnowflakePipe:
+    name: str
+    created: datetime
+    owner: str
+    database_name: str
+    schema_name: str
+    definition: str  # COPY INTO statement
+    comment: Optional[str] = None
+    auto_ingest: bool = False
+    notification_channel: Optional[str] = None
+    owner_role_type: str = "ROLE"
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -189,7 +536,7 @@ class _SnowflakeTagCache:
         self._database_tags[db_name].append(tag)
 
     def get_database_tags(self, db_name: str) -> List[SnowflakeTag]:
-        return self._database_tags[db_name]
+        return self._database_tags.get(db_name, [])
 
     def add_schema_tag(self, schema_name: str, db_name: str, tag: SnowflakeTag) -> None:
         self._schema_tags[db_name][schema_name].append(tag)
@@ -205,7 +552,9 @@ class _SnowflakeTagCache:
     def get_table_tags(
         self, table_name: str, schema_name: str, db_name: str
     ) -> List[SnowflakeTag]:
-        return self._table_tags[db_name][schema_name][table_name]
+        return (
+            self._table_tags.get(db_name, {}).get(schema_name, {}).get(table_name, [])
+        )
 
     def add_column_tag(
         self,
@@ -224,12 +573,112 @@ class _SnowflakeTagCache:
             self._column_tags.get(db_name, {}).get(schema_name, {}).get(table_name, {})
         )
 
+    # --- Inheritance-aware methods ---
+    # These emulate Snowflake's tag inheritance: a tag set on a database is
+    # inherited by its schemas, tables, and columns.  A more-specific
+    # assignment (e.g. directly on the table) overrides the inherited value.
+
+    @staticmethod
+    def _deduplicate_tags(tags: List[SnowflakeTag]) -> List[SnowflakeTag]:
+        """Deduplicate tags by (database, schema, name), preferring direct over inherited."""
+        best: Dict[tuple, SnowflakeTag] = {}
+        for tag in tags:
+            key = (tag.database, tag.schema, tag.name)
+            existing = best.get(key)
+            if existing is None or (existing.is_inherited and not tag.is_inherited):
+                best[key] = tag
+        return list(best.values())
+
+    @staticmethod
+    def _mark_inherited(
+        tags: List[SnowflakeTag], level: SnowflakeObjectDomain
+    ) -> List[SnowflakeTag]:
+        return [t.as_inherited(level) for t in tags]
+
+    def get_schema_tags_with_inheritance(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_schema_tags(schema_name, db_name)
+        inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + inherited)
+
+    def get_table_tags_with_inheritance(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> List[SnowflakeTag]:
+        direct = self.get_table_tags(table_name, schema_name, db_name)
+        schema_inherited = self._mark_inherited(
+            self.get_schema_tags(schema_name, db_name),
+            SnowflakeObjectDomain.SCHEMA,
+        )
+        db_inherited = self._mark_inherited(
+            self.get_database_tags(db_name), SnowflakeObjectDomain.DATABASE
+        )
+        return self._deduplicate_tags(direct + schema_inherited + db_inherited)
+
+    def get_column_tags_for_table_with_inheritance(
+        self,
+        table_name: str,
+        schema_name: str,
+        db_name: str,
+        column_names: Optional[List[str]] = None,
+    ) -> Dict[str, List[SnowflakeTag]]:
+        """Return column tags with inheritance from table, schema, and database levels.
+
+        Args:
+            column_names: All column names in the table. When provided,
+                inherited parent tags are applied to every column, not just
+                those with direct column tags.
+        """
+        direct_column_tags = self.get_column_tags_for_table(
+            table_name, schema_name, db_name
+        )
+
+        # Tags inherited by every column in this table
+        parent_tags = (
+            self._mark_inherited(
+                self.get_table_tags(table_name, schema_name, db_name),
+                SnowflakeObjectDomain.TABLE,
+            )
+            + self._mark_inherited(
+                self.get_schema_tags(schema_name, db_name),
+                SnowflakeObjectDomain.SCHEMA,
+            )
+            + self._mark_inherited(
+                self.get_database_tags(db_name),
+                SnowflakeObjectDomain.DATABASE,
+            )
+        )
+
+        if not parent_tags:
+            return dict(direct_column_tags)
+
+        # Apply parent tags to all known columns, merging with direct tags
+        all_columns = (
+            column_names
+            if column_names is not None
+            else list(direct_column_tags.keys())
+        )
+        result: Dict[str, List[SnowflakeTag]] = {}
+        for col_name in all_columns:
+            col_tags = list(direct_column_tags.get(col_name, []))
+            result[col_name] = self._deduplicate_tags(col_tags + parent_tags)
+        return result
+
 
 class SnowflakeDataDictionary(SupportsAsObj):
-    def __init__(self, connection: SnowflakeConnection) -> None:
+    def __init__(
+        self,
+        connection: SnowflakeConnection,
+        report: SnowflakeV2Report,
+        fetch_views_from_information_schema: bool = False,
+    ) -> None:
         self.connection = connection
+        self.report = report
+        self._fetch_views_from_information_schema = fetch_views_from_information_schema
 
-    def as_obj(self) -> Dict[str, Dict[str, int]]:
+    def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
 
         # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
@@ -239,13 +688,16 @@ class SnowflakeDataDictionary(SupportsAsObj):
         lru_cache_functions: List[Callable] = [
             self.get_tables_for_database,
             self.get_views_for_database,
+            self.get_semantic_views_for_database,
             self.get_columns_for_schema,
             self.get_streams_for_database,
             self.get_pk_constraints_for_schema,
             self.get_fk_constraints_for_schema,
         ]
 
-        report = {}
+        report: Dict[str, Any] = {
+            "fetch_views_from_information_schema": self._fetch_views_from_information_schema,
+        }
         for func in lru_cache_functions:
             report[func.__name__] = func.cache_info()._asdict()  # type: ignore
         return report
@@ -267,11 +719,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_databases(self, db_name: str) -> List[SnowflakeDatabase]:
+    def get_databases(
+        self, db_name: str, database_filter: str = ""
+    ) -> List[SnowflakeDatabase]:
         databases: List[SnowflakeDatabase] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.get_databases(db_name),
+            SnowflakeQuery.get_databases(db_name, database_filter),
         )
 
         for database in cur:
@@ -285,11 +739,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         return databases
 
-    def get_schemas_for_database(self, db_name: str) -> List[SnowflakeSchema]:
+    def get_schemas_for_database(
+        self, db_name: str, schema_filter: str = ""
+    ) -> List[SnowflakeSchema]:
         snowflake_schemas = []
 
         cur = self.connection.query(
-            SnowflakeQuery.schemas_for_database(db_name),
+            SnowflakeQuery.schemas_for_database(db_name, schema_filter),
         )
 
         for schema in cur:
@@ -337,12 +793,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
-        self, db_name: str
+        self,
+        db_name: str,
+        table_types: FrozenSet[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
         tables: Dict[str, List[SnowflakeTable]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.tables_for_database(db_name),
+                SnowflakeQuery.tables_for_database(
+                    db_name,
+                    table_types=table_types,
+                    table_filter=table_filter,
+                    exclude_dynamic_tables=exclude_dynamic_tables,
+                ),
             )
         except Exception as e:
             logger.debug(
@@ -355,8 +820,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
 
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables[table["TABLE_SCHEMA"]].append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -365,25 +833,45 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
+
+        # Populate dynamic table definitions only if dynamic tables are not excluded
+        if not exclude_dynamic_tables:
+            self.populate_dynamic_table_definitions(tables, db_name)
+
         return tables
 
     def get_tables_for_schema(
-        self, schema_name: str, db_name: str
+        self,
+        schema_name: str,
+        db_name: str,
+        table_types: Set[str],
+        table_filter: str = "",
+        exclude_dynamic_tables: bool = False,
     ) -> List[SnowflakeTable]:
         tables: List[SnowflakeTable] = []
 
         cur = self.connection.query(
-            SnowflakeQuery.tables_for_schema(schema_name, db_name),
+            SnowflakeQuery.tables_for_schema(
+                schema_name,
+                db_name,
+                table_types=table_types,
+                table_filter=table_filter,
+                exclude_dynamic_tables=exclude_dynamic_tables,
+            ),
         )
 
         for table in cur:
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables.append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -392,16 +880,35 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
+                    retention_time=table.get("RETENTION_TIME"),
                 )
             )
+
+        # Populate dynamic table definitions for just this schema (only if dynamic tables are not excluded)
+        if not exclude_dynamic_tables:
+            schema_tables = {schema_name: tables}
+            self.populate_dynamic_table_definitions(schema_tables, db_name)
+
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+    def get_views_for_database(
+        self, db_name: str, view_filter: str = ""
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        if self._fetch_views_from_information_schema:
+            return self._get_views_for_database_using_information_schema(
+                db_name, view_filter
+            )
+        else:
+            return self._get_views_for_database_using_show(db_name)
+
+    def _get_views_for_database_using_show(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeView]]:
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
 
@@ -431,10 +938,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     SnowflakeView(
                         name=view_name,
                         created=view["created_on"],
-                        # last_altered=table["last_altered"],
                         comment=view["comment"],
                         view_definition=view["text"],
-                        last_altered=view["created_on"],
+                        last_altered=view["created_on"],  # TODO: This is not correct.
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
@@ -443,13 +949,839 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
 
             if result_set_size >= page_limit:
-                # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
                     f"Fetching next page of views for {db_name} - after {view_name}"
                 )
                 view_pagination_marker = view_name
 
+        # Because this is in a cached function, this will only log once per database.
+        view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
+        logger.info(
+            f"Finished fetching views in {db_name}; counts by schema {view_counts}"
+        )
         return views
+
+    def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
+        schema_name = row["VIEW_SCHEMA"]
+        view_definition = row.get("VIEW_DEFINITION")
+        fragment_view_definition = (
+            view_definition[:50].strip() if view_definition else None
+        )
+        logger.info(
+            f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']} with view definition: {fragment_view_definition}..."
+        )
+
+        return schema_name, SnowflakeView(
+            name=row["VIEW_NAME"],
+            created=row["CREATED"],
+            comment=row["COMMENT"],
+            view_definition=view_definition,
+            last_altered=row["LAST_ALTERED"],
+            is_secure=(row.get("IS_SECURE", "false").lower() == "true"),
+            # TODO: This doesn't work for materialized views.
+            materialized=False,
+        )
+
+    def _maybe_populate_empty_view_definitions(
+        self,
+        db_name: str,
+        schema_name: str,
+        views_with_empty_definition: List[SnowflakeView],
+    ) -> List[SnowflakeView]:
+        if not views_with_empty_definition:
+            return []
+
+        # Max view names per prefix group; bounds the rows returned by
+        # each SHOW VIEWS LIKE 'prefix%' query.
+        _SHOW_VIEWS_MAX_BATCH_SIZE = 1000
+        # One prefix per batch: we issue one SHOW VIEWS query per group.
+        _SHOW_VIEWS_MAX_GROUPS_IN_BATCH = 1
+
+        view_names = [view.name for view in views_with_empty_definition]
+        # build_prefix_batches packs multiple PrefixGroups per batch; we issue one
+        # SHOW VIEWS query per prefix, so flatten and iterate over every group.
+        prefix_groups = [
+            group
+            for batch in build_prefix_batches(
+                view_names,
+                max_batch_size=_SHOW_VIEWS_MAX_BATCH_SIZE,
+                max_groups_in_batch=_SHOW_VIEWS_MAX_GROUPS_IN_BATCH,
+            )
+            for group in batch
+        ]
+
+        view_map: Dict[str, SnowflakeView] = {
+            view.name: view for view in views_with_empty_definition
+        }
+        views_found_count = 0
+
+        logger.info(
+            f"Fetching definitions for {len(view_map)} views in {db_name}.{schema_name} "
+            f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(prefix_groups)} batch(es)."
+        )
+
+        for batch_index, prefix_group in enumerate(prefix_groups):
+            query = f'SHOW VIEWS LIKE \'{prefix_group.prefix}%\' IN SCHEMA "{db_name}"."{schema_name}"'
+            logger.info(
+                f"Processing batch {batch_index + 1}/{len(prefix_groups)}: {query}"
+            )
+
+            try:
+                cur = self.connection.query(query)
+                for row in cur:
+                    view_name = row["name"]
+                    if view_name in view_map:
+                        view_definition = row.get("text")
+                        if view_definition:  # Ensure definition is not None or empty
+                            view_map[view_name].view_definition = view_definition
+                            views_found_count += 1
+                            logger.debug(
+                                f"Fetched view definition for {db_name}.{schema_name}.{view_name}"
+                            )
+                            # If all targeted views are found, we could theoretically break early,
+                            # but SHOW VIEWS doesn't guarantee order, so we must process all results.
+                        else:
+                            logger.warning(
+                                f"'text' field missing or empty in SHOW VIEWS result for {db_name}.{schema_name}.{view_name}"
+                            )
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to execute query for batch {batch_index + 1} ('{query}') for {db_name}.{schema_name} or process its results.",
+                    exc_info=e,
+                )
+                # Returning the original list; some views might still be missing definitions.
+                # This also means subsequent batches for this schema (in this call) are skipped.
+                return views_with_empty_definition
+
+        logger.info(
+            f"Finished processing 'SHOW VIEWS' batches for {db_name}.{schema_name}. "
+            f"Fetched definitions for {views_found_count} out of {len(view_map)} targeted views."
+        )
+
+        if views_found_count < len(view_map):
+            missing_count = len(view_map) - views_found_count
+            logger.warning(
+                f"Could not fetch definitions for {missing_count} views in {db_name}.{schema_name} after processing all batches."
+            )
+        # The SnowflakeView objects in the original list were modified in place via view_map
+        return views_with_empty_definition
+
+    def _get_views_for_database_using_information_schema(
+        self, db_name: str, view_filter: str = ""
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_views_for_database(db_name, view_filter),
+            )
+        except Exception as e:
+            logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
+            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
+            return None
+
+        views: Dict[str, List[SnowflakeView]] = {}
+        views_with_empty_definition: Dict[str, List[SnowflakeView]] = {}
+
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            if view.view_definition is None or view.view_definition == "":
+                views_with_empty_definition.setdefault(schema_name, []).append(view)
+            else:
+                views.setdefault(schema_name, []).append(view)
+
+        for schema_name, empty_views in views_with_empty_definition.items():
+            updated_views = self._maybe_populate_empty_view_definitions(
+                db_name, schema_name, empty_views
+            )
+            views.setdefault(schema_name, []).extend(updated_views)
+
+        return views
+
+    def get_views_for_schema_using_information_schema(
+        self, *, schema_name: str, db_name: str, view_filter: str = ""
+    ) -> List[SnowflakeView]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_views_for_schema(
+                db_name=db_name, schema_name=schema_name, view_filter=view_filter
+            ),
+        )
+
+        views: List[SnowflakeView] = []
+        views_with_empty_definition: List[SnowflakeView] = []
+
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            if view.view_definition is None or view.view_definition == "":
+                views_with_empty_definition.append(view)
+            else:
+                views.append(view)
+
+        if views_with_empty_definition:
+            updated_empty_views = self._maybe_populate_empty_view_definitions(
+                db_name, schema_name, views_with_empty_definition
+            )
+            views.extend(updated_empty_views)
+
+        return views
+
+    @serialized_lru_cache(maxsize=1)
+    def get_semantic_views_for_database(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeSemanticView]]]:
+        """
+        Fetch semantic views for a database using INFORMATION_SCHEMA.SEMANTIC_VIEWS.
+
+        Uses the dedicated information_schema.semantic_views view which provides
+        semantic view metadata. At realistic scale (dozens to hundreds of semantic views),
+        this approach is reliable and simple.
+        """
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_semantic_views_for_database(db_name),
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to get semantic views for database {db_name}: {e}",
+                exc_info=True,
+            )
+            return None
+
+        semantic_views: Dict[str, List[SnowflakeSemanticView]] = {}
+
+        for row in cur:
+            schema_name = row["SEMANTIC_VIEW_SCHEMA"]
+            semantic_view = SnowflakeSemanticView(
+                name=row["SEMANTIC_VIEW_NAME"],
+                created=row["CREATED"],
+                comment=row.get("COMMENT"),
+                view_definition=None,
+                last_altered=row["CREATED"],
+            )
+            semantic_views.setdefault(schema_name, []).append(semantic_view)
+
+        # Log counts per schema (cached function, logs once per database)
+        semantic_view_counts = {
+            schema_name: len(semantic_views[schema_name])
+            for schema_name in semantic_views
+        }
+        logger.info(
+            f"Finished fetching semantic views in {db_name}; counts by schema {semantic_view_counts}"
+        )
+
+        self._populate_semantic_view_definitions(db_name, semantic_views)
+        self._populate_semantic_view_base_tables(db_name, semantic_views)
+        self._populate_semantic_view_columns(db_name, semantic_views)
+
+        return semantic_views
+
+    def _populate_semantic_view_definitions(
+        self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
+    ) -> None:
+        """Fetch and populate semantic view definitions using GET_DDL."""
+        for schema_name, views in semantic_views.items():
+            for semantic_view in views:
+                try:
+                    query = SnowflakeQuery.get_semantic_view_ddl(
+                        db_name, schema_name, semantic_view.name
+                    )
+                    logger.debug(
+                        f"Fetching DDL for semantic view {db_name}.{schema_name}.{semantic_view.name}"
+                    )
+
+                    cur = self.connection.query(query)
+                    row = cur.fetchone()
+                    if row:
+                        ddl = row.get("DDL") or row.get("ddl")
+                        if ddl:
+                            semantic_view.view_definition = ddl
+                        else:
+                            logger.warning(
+                                f"GET_DDL returned empty definition for semantic view {db_name}.{schema_name}.{semantic_view.name}"
+                            )
+                    else:
+                        logger.warning(
+                            f"GET_DDL returned no rows for semantic view {db_name}.{schema_name}.{semantic_view.name}"
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to fetch DDL for semantic view {db_name}.{schema_name}.{semantic_view.name}: {e}"
+                    )
+                    # Continue without definition - it's not critical
+
+    def _parse_json_array(
+        self, value: Optional[str], field_name: str, context: str
+    ) -> List[str]:
+        """
+        Safely parse JSON array from Snowflake system views.
+
+        Args:
+            value: JSON string to parse (may be None)
+            field_name: Name of the field being parsed (for logging)
+            context: Context string for logging (e.g., "table_name in view_name")
+
+        Returns:
+            List of strings from JSON array, or empty list if parsing fails
+        """
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value) if isinstance(value, str) else value
+            if isinstance(parsed, list):
+                # Only accept simple types (str, int, float, bool)
+                # Skip complex types (dict, list) to avoid useless stringified objects
+                result = []
+                for item in parsed:
+                    if isinstance(item, (str, int, float, bool)):
+                        result.append(str(item))
+                    else:
+                        logger.debug(
+                            f"Skipping complex item in {field_name} ({context}): {type(item).__name__}"
+                        )
+                return result
+            logger.warning(
+                f"Expected list for {field_name} in {context}, got {type(parsed).__name__}: {parsed}"
+            )
+            return []
+        except (json.JSONDecodeError, TypeError) as e:
+            # Truncate large values to avoid logging sensitive/large data
+            truncated_value = (
+                f"{str(value)[:100]}..." if value and len(str(value)) > 100 else value
+            )
+            logger.warning(
+                f"Failed to parse {field_name} as JSON in {context}. "
+                f"Value: {truncated_value!r}. Error: {e}"
+            )
+            return []
+
+    def _get_data_type_with_default(
+        self, row: Dict, subtype: str, col_name: str, default: str
+    ) -> str:
+        """Get data type from row, logging debug message if defaulting."""
+        data_type = row.get("DATA_TYPE")
+        if not data_type:
+            logger.debug(
+                f"No DATA_TYPE for {subtype} column '{col_name}', defaulting to {default}"
+            )
+            return default
+        return data_type
+
+    def _populate_semantic_view_base_tables(
+        self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
+    ) -> None:
+        """Fetch and populate base table lineage for semantic views using INFORMATION_SCHEMA.SEMANTIC_TABLES."""
+        try:
+            query = SnowflakeQuery.get_semantic_tables_for_database(db_name)
+            logger.debug(f"Fetching semantic tables for database {db_name}")
+
+            # Build a map of semantic_view_name -> semantic_view object for quick lookup
+            semantic_view_map: Dict[Tuple[str, str], SnowflakeSemanticView] = {}
+            for schema_name, views in semantic_views.items():
+                for semantic_view in views:
+                    semantic_view_map[(schema_name, semantic_view.name)] = semantic_view
+
+            cur = self.connection.query(query)
+            row_count = 0
+            for row in cur:
+                row_count += 1
+                schema_name = row["SEMANTIC_VIEW_SCHEMA"]
+                view_name = row["SEMANTIC_VIEW_NAME"]
+                logical_table_name = row["SEMANTIC_TABLE_NAME"]
+                base_db = row["BASE_TABLE_CATALOG"]
+                base_schema = row["BASE_TABLE_SCHEMA"]
+                base_table = row["BASE_TABLE_NAME"]
+
+                # Find the corresponding semantic view and add the base table
+                semantic_view_obj = semantic_view_map.get((schema_name, view_name))
+                if not semantic_view_obj:
+                    continue
+
+                base_table_id = SnowflakeTableIdentifier(
+                    database=base_db, schema=base_schema, table=base_table
+                )
+                if base_table_id not in semantic_view_obj.base_tables:
+                    semantic_view_obj.base_tables.append(base_table_id)
+
+                # Store the logical-to-physical mapping for lineage generation
+                logical_table_upper = logical_table_name.upper()
+                semantic_view_obj.logical_to_physical_table[logical_table_upper] = (
+                    base_table_id.as_tuple()
+                )
+
+                primary_keys_raw = row.get("PRIMARY_KEYS")
+                primary_keys = self._parse_json_array(
+                    primary_keys_raw, "PRIMARY_KEYS", f"{schema_name}.{view_name}"
+                )
+                if primary_keys:
+                    for pk_col in primary_keys:
+                        semantic_view_obj.primary_key_columns.add(pk_col.upper())
+
+                synonyms_raw = row.get("SYNONYMS")
+                synonyms = self._parse_json_array(
+                    synonyms_raw,
+                    "SYNONYMS",
+                    f"{logical_table_name} in {schema_name}.{view_name}",
+                )
+                if synonyms and logical_table_name:
+                    logical_table_upper = logical_table_name.upper()
+                    if logical_table_upper not in semantic_view_obj.table_synonyms:
+                        semantic_view_obj.table_synonyms[logical_table_upper] = []
+                    semantic_view_obj.table_synonyms[logical_table_upper].extend(
+                        synonyms
+                    )
+
+            logger.info(
+                f"Populated base tables for {len(semantic_view_map)} semantic views "
+                f"in database {db_name} ({row_count} table mappings)"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch semantic tables for database {db_name}: {e}"
+            )
+
+        # Fallback: for any semantic view that received no rows from
+        # INFORMATION_SCHEMA.SEMANTIC_TABLES (e.g. the ingestion role lacks REFERENCES
+        # on cross-database base tables), parse the TABLES clause from the DDL directly.
+        # The DDL is already fetched during ingestion and contains fully-qualified base
+        # table names, so no additional Snowflake privileges are required.
+        for views in semantic_views.values():
+            for semantic_view in views:
+                if not semantic_view.base_tables and isinstance(
+                    semantic_view.view_definition, str
+                ):
+                    parsed = self._parse_base_tables_from_ddl(
+                        semantic_view.view_definition
+                    )
+                    for logical_alias_upper, (db, schema, table) in parsed.items():
+                        base_table_id = SnowflakeTableIdentifier(
+                            database=db, schema=schema, table=table
+                        )
+                        semantic_view.base_tables.append(base_table_id)
+                        semantic_view.logical_to_physical_table[logical_alias_upper] = (
+                            base_table_id.as_tuple()
+                        )
+                    if parsed:
+                        logger.debug(
+                            f"Populated {len(parsed)} base tables for "
+                            f"{semantic_view.name} from DDL fallback "
+                            f"(INFORMATION_SCHEMA.SEMANTIC_TABLES returned no rows)"
+                        )
+
+    @staticmethod
+    def _parse_base_tables_from_ddl(
+        view_definition: str,
+    ) -> Dict[str, Tuple[str, str, str]]:
+        """
+        Recover the logical-table -> physical-table mapping from a semantic
+        view's GET_DDL, as a fallback when INFORMATION_SCHEMA.SEMANTIC_TABLES
+        returns no rows (the ingestion role has USAGE but not REFERENCES on a
+        cross-database base table).
+
+        sqlglot has no grammar for CREATE SEMANTIC VIEW, so we tokenize the DDL
+        and walk the ``TABLES ( ... )`` clause. Each entry is ``[ <alias> AS ]
+        <db>.<schema>.<table>`` followed by optional clauses (PRIMARY KEY /
+        UNIQUE / CONSTRAINT / WITH SYNONYMS / WITH TAG / COMMENT), e.g.
+        ``orders AS DB.SCH.T PRIMARY KEY (id)`` or just ``DB.SCH.T COMMENT='x'``.
+
+        Keyed by the logical alias (or table name when no alias is given),
+        because per-column references (``column_table_mappings``, from
+        SEMANTIC_DIMENSIONS/FACTS/METRICS.TABLE_NAME) use the alias, not the
+        physical name. SQL-query logical tables (``alias AS (SELECT ...)``) have
+        no single base table and are skipped.
+
+        Returns {LOGICAL_NAME_UPPER: (database, schema, table)}.
+        """
+        result: Dict[str, Tuple[str, str, str]] = {}
+        for alias, parts in SnowflakeDataDictionary._semantic_view_table_entries(
+            view_definition
+        ):
+            # Only a fully-qualified name yields a cross-database URN; skip
+            # partially-qualified names and SQL-query logical tables (empty parts).
+            if len(parts) != 3:
+                continue
+            db, schema, table = parts
+            logical_name = (alias if alias else table).upper()
+            result[logical_name] = (db, schema, table)
+        return result
+
+    @staticmethod
+    def _semantic_view_table_entries(
+        view_definition: str,
+    ) -> List[Tuple[Optional[str], List[str]]]:
+        """Tokenize the semantic-view DDL and return one ``(alias, name_parts)``
+        pair per entry in the ``TABLES ( ... )`` clause. ``alias`` is the logical
+        alias when the entry is ``alias AS <table>`` (else None); ``name_parts``
+        are the dotted identifier components of the referenced table.
+
+        Splitting is done on the token stream, so string comments, doubled-quote
+        escapes and nested parens in PRIMARY KEY (...) / WITH SYNONYMS (...) /
+        subqueries need no special handling."""
+        try:
+            tokens = _SNOWFLAKE_DIALECT.tokenize(view_definition)
+        except Exception:
+            return []
+
+        # Locate the `TABLES (` that opens the base-table clause.
+        block_start = None
+        for idx in range(len(tokens) - 1):
+            if (
+                tokens[idx].token_type == TokenType.VAR
+                and tokens[idx].text.upper() == _SEMANTIC_VIEW_TABLES_KEYWORD
+                and tokens[idx + 1].token_type == TokenType.L_PAREN
+            ):
+                block_start = idx + 2
+                break
+        if block_start is None:
+            return []
+
+        # Split the clause into comma-separated entries, tracking paren depth so
+        # commas inside PRIMARY KEY (...) / WITH SYNONYMS (...) / subqueries are not
+        # mistaken for separators, and stopping at the paren that closes TABLES(
+        # (before the RELATIONSHIPS/FACTS/DIMENSIONS/METRICS clauses).
+        entries: List[List[Token]] = []
+        current: List[Token] = []
+        depth = 1
+        for token in tokens[block_start:]:
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+                if depth == 0:
+                    break
+            if depth == 1 and token.token_type == TokenType.COMMA:
+                entries.append(current)
+                current = []
+            else:
+                current.append(token)
+        if current:
+            entries.append(current)
+
+        return [
+            SnowflakeDataDictionary._entry_alias_and_name(entry) for entry in entries
+        ]
+
+    @staticmethod
+    def _entry_alias_and_name(
+        entry_tokens: List[Token],
+    ) -> Tuple[Optional[str], List[str]]:
+        """Split one TABLES-clause entry into its optional alias and the dotted
+        components of the referenced table: ``alias AS db.sch.tab`` -> (alias,
+        [db, sch, tab]); ``db.sch.tab`` -> (None, [db, sch, tab])."""
+        alias: Optional[str] = None
+        ref_tokens = entry_tokens
+        # A top-level `AS` separates the alias from the table reference.
+        depth = 0
+        for idx, token in enumerate(entry_tokens):
+            if token.token_type == TokenType.L_PAREN:
+                depth += 1
+            elif token.token_type == TokenType.R_PAREN:
+                depth -= 1
+            elif depth == 0 and token.token_type == TokenType.ALIAS:
+                alias_parts = SnowflakeDataDictionary._leading_identifier(
+                    entry_tokens[:idx]
+                )
+                alias = alias_parts[-1] if alias_parts else None
+                ref_tokens = entry_tokens[idx + 1 :]
+                break
+        return alias, SnowflakeDataDictionary._leading_identifier(ref_tokens)
+
+    @staticmethod
+    def _leading_identifier(tokens: List[Token]) -> List[str]:
+        """Collect the leading ``a.b.c`` identifier from a token run, stopping at
+        the first token that is not part of a dotted name (a keyword such as
+        PRIMARY KEY / COMMENT, or an opening paren for a subquery). Quoted
+        identifiers arrive already unquoted from the tokenizer."""
+        parts: List[str] = []
+        want_identifier = True
+        for token in tokens:
+            if want_identifier:
+                if token.token_type in (TokenType.VAR, TokenType.IDENTIFIER):
+                    parts.append(token.text)
+                    want_identifier = False
+                else:
+                    break
+            elif token.token_type == TokenType.DOT:
+                want_identifier = True
+            else:
+                break
+        return parts
+
+    def _fetch_semantic_columns(
+        self,
+        db_name: str,
+        column_data: Dict[Tuple[str, str], SemanticViewColumnCollection],
+        column_type: SemanticViewColumnSubtype,
+        query_func: Callable[[str], str],
+        default_data_type: str,
+    ) -> int:
+        """Fetch columns of a specific type for semantic views in a database."""
+        rows = self.connection.query(query_func(db_name))
+        count = 0
+        type_label = column_type.value.lower()
+
+        for row in rows:
+            count += 1
+            view_key = (row["SEMANTIC_VIEW_SCHEMA"], row["SEMANTIC_VIEW_NAME"])
+            if view_key not in column_data:
+                column_data[view_key] = SemanticViewColumnCollection()
+
+            col_name = row["NAME"]
+            synonyms = self._parse_json_array(
+                row.get("SYNONYMS"), "SYNONYMS", f"{type_label} {col_name}"
+            )
+
+            metadata = SemanticViewColumnMetadata(
+                name=col_name,
+                data_type=self._get_data_type_with_default(
+                    row, type_label.upper(), col_name, default_data_type
+                ),
+                comment=row.get("COMMENT"),
+                subtype=column_type,
+                table_name=row.get("TABLE_NAME"),
+                synonyms=synonyms,
+                expression=row.get("EXPRESSION"),
+            )
+            column_data[view_key].add_column(metadata)
+
+        logger.debug(f"Fetched {count} {type_label}s for database {db_name}")
+        return count
+
+    def _deduplicate_synonyms(
+        self, occurrences: List[SemanticViewColumnMetadata]
+    ) -> List[str]:
+        """
+        Deduplicate and merge synonyms from multiple column occurrences.
+
+        Returns a sorted list for deterministic output (order doesn't matter semantically).
+        """
+        # Collect all synonyms and deduplicate case-insensitively
+        seen_upper = set()
+        unique_synonyms = []
+        for occ in occurrences:
+            if occ.synonyms:
+                for syn in occ.synonyms:
+                    syn_upper = syn.upper()
+                    if syn_upper not in seen_upper:
+                        seen_upper.add(syn_upper)
+                        unique_synonyms.append(syn)
+
+        # Sort for deterministic output (synonyms have no inherent order)
+        return sorted(unique_synonyms, key=str.lower)
+
+    def _process_column_occurrences(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        col_name_upper: str,
+        occurrences: List[SemanticViewColumnMetadata],
+        view_name: str,
+        ordinal: int,
+    ) -> None:
+        """Process and deduplicate column occurrences for a semantic view."""
+        col_name = occurrences[0].name
+
+        # Merge metadata from all occurrences
+        data_type, merged_comment, merged_subtype = self._merge_column_metadata(
+            occurrences, col_name, view_name
+        )
+
+        # Create deduplicated column
+        semantic_view.columns.append(
+            SnowflakeColumn(
+                name=col_name,
+                ordinal_position=ordinal,
+                data_type=data_type,
+                is_nullable=True,
+                comment=merged_comment,
+                character_maximum_length=None,
+                numeric_precision=None,
+                numeric_scale=None,
+                expression=occurrences[0].expression,
+            )
+        )
+        semantic_view.column_subtypes[col_name_upper] = merged_subtype
+
+        # Store table mappings for column-level lineage
+        table_names: List[str] = [
+            occ.table_name for occ in occurrences if occ.table_name
+        ]
+        if table_names:
+            semantic_view.column_table_mappings[col_name_upper] = table_names
+
+        # Store merged synonyms
+        unique_synonyms = self._deduplicate_synonyms(occurrences)
+        if unique_synonyms:
+            semantic_view.column_synonyms[col_name_upper] = unique_synonyms
+
+    def _merge_column_metadata(
+        self,
+        occurrences: List[SemanticViewColumnMetadata],
+        col_name: str,
+        view_name: str,
+    ) -> Tuple[str, Optional[str], str]:
+        """
+        Merge metadata from multiple occurrences of the same column.
+
+        Returns: (data_type, merged_comment, merged_subtype)
+        """
+        # Resolve type conflicts
+        types = [occ.data_type for occ in occurrences]
+        unique_types = set(types)
+        if len(unique_types) > 1:
+            logger.warning(
+                f"Column '{col_name}' in {view_name} has conflicting types: "
+                f"{unique_types}. Using '{types[0]}'."
+            )
+        data_type = types[0]
+
+        # Merge descriptions
+        comments = [occ.comment for occ in occurrences if occ.comment]
+        unique_comments = set(comments)
+
+        if len(unique_comments) == 0:
+            merged_comment = None
+        elif len(unique_comments) == 1:
+            merged_comment = list(unique_comments)[0]
+            if len(occurrences) > 1:
+                # Add context about multiple occurrences
+                merged_comment = f"{merged_comment}\n\n(Appears in {len(occurrences)} logical table(s))"
+        else:
+            # Different descriptions - show all with inline expressions
+            comment_parts = []
+            for occ in occurrences:
+                comment = occ.comment or "(no description)"
+
+                # For FACT and METRIC, include expression inline if available
+                if (
+                    occ.subtype
+                    in (
+                        SemanticViewColumnSubtype.FACT,
+                        SemanticViewColumnSubtype.METRIC,
+                    )
+                    and occ.expression
+                ):
+                    comment_parts.append(
+                        f"• {occ.subtype}: {comment} [Expression: {occ.expression}]"
+                    )
+                else:
+                    comment_parts.append(f"• {occ.subtype}: {comment}")
+            merged_comment = "\n".join(comment_parts)
+
+        # Collect all subtypes (comma-separated for display)
+        subtypes = [occ.subtype for occ in occurrences]
+        unique_subtypes = sorted(set(subtypes))  # Deduplicate and sort
+        merged_subtype = ",".join(unique_subtypes)
+
+        # For single occurrence FACT/METRIC columns, append expression if available
+        # (This handles the case where there's only one description)
+        if len(unique_comments) <= 1 and any(
+            subtype
+            in (SemanticViewColumnSubtype.FACT, SemanticViewColumnSubtype.METRIC)
+            for subtype in unique_subtypes
+        ):
+            expression = occurrences[0].expression
+            if expression:
+                if merged_comment:
+                    merged_comment = f"{merged_comment}\n\n[Expression: {expression}]"
+                else:
+                    merged_comment = f"[Expression: {expression}]"
+
+        return (data_type, merged_comment, merged_subtype)
+
+    def _populate_semantic_view_columns(
+        self, db_name: str, semantic_views: Dict[str, List[SnowflakeSemanticView]]
+    ) -> None:
+        """
+        Fetch and populate columns (dimensions, facts, metrics) for semantic views
+        using INFORMATION_SCHEMA system views.
+        """
+        try:
+            # Build a map of (schema_name, semantic_view_name) -> semantic_view object for quick lookup
+            semantic_view_map: Dict[Tuple[str, str], SnowflakeSemanticView] = {}
+            for schema_name, views in semantic_views.items():
+                for semantic_view in views:
+                    semantic_view_map[(schema_name, semantic_view.name)] = semantic_view
+                    semantic_view.columns = []
+                    semantic_view.column_subtypes = {}
+
+            logger.debug(f"Fetching semantic view columns for database {db_name}")
+
+            # Step 1: Collect all column metadata with duplicates
+            column_data: Dict[Tuple[str, str], SemanticViewColumnCollection] = {}
+
+            dim_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.DIMENSION,
+                SnowflakeQuery.get_semantic_dimensions_for_database,
+                "VARCHAR",
+            )
+            fact_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.FACT,
+                SnowflakeQuery.get_semantic_facts_for_database,
+                "NUMBER",
+            )
+            metric_count = self._fetch_semantic_columns(
+                db_name,
+                column_data,
+                SemanticViewColumnSubtype.METRIC,
+                SnowflakeQuery.get_semantic_metrics_for_database,
+                "NUMBER",
+            )
+
+            # Step 2: Deduplicate and merge metadata for each semantic view
+            for view_key, column_collection in column_data.items():
+                semantic_view = semantic_view_map.get(view_key)  # type: ignore[assignment]
+                if not semantic_view:
+                    # Column data exists but semantic view not found - possible data inconsistency
+                    schema_name, view_name = view_key
+                    column_count = len(column_collection.columns)
+                    logger.warning(
+                        f"Found {column_count} columns for semantic view {schema_name}.{view_name} "
+                        f"but the view was not found in INFORMATION_SCHEMA.SEMANTIC_VIEWS. "
+                        f"This may indicate a data inconsistency or permission issue."
+                    )
+                    continue
+
+                ordinal = 1
+                for col_name_upper, occurrences in column_collection.columns.items():
+                    self._process_column_occurrences(
+                        semantic_view, col_name_upper, occurrences, view_key[1], ordinal
+                    )
+                    ordinal += 1
+
+            logger.info(
+                f"Populated columns for semantic views in database {db_name}. "
+                f"Total: {dim_count} dimensions + {fact_count} facts + {metric_count} metrics"
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch semantic view columns for database {db_name}: {e}"
+            )
+
+    def get_semantic_views_for_schema_using_information_schema(
+        self, *, schema_name: str, db_name: str
+    ) -> List[SnowflakeSemanticView]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_semantic_views_for_schema(
+                db_name=db_name, schema_name=schema_name
+            ),
+        )
+
+        semantic_views: List[SnowflakeSemanticView] = []
+
+        for row in cur:
+            semantic_view = SnowflakeSemanticView(
+                name=row["SEMANTIC_VIEW_NAME"],
+                created=row["CREATED"],
+                comment=row.get("COMMENT"),
+                view_definition=None,
+                last_altered=row["LAST_ALTERED"],
+            )
+            semantic_views.append(semantic_view)
+
+        return semantic_views
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
@@ -473,8 +1805,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
             ]
         else:
             # Build batches for full schema scan
+            # Max object names per batch; bounds the WHERE clause size of the
+            # per-batch SELECT against information_schema.columns.
+            _COLUMN_FETCH_MAX_BATCH_SIZE = 10000
+            # Max prefix groups per batch; limits how many table_name LIKE
+            # clauses are OR'd together in one query.
+            _COLUMN_FETCH_MAX_GROUPS_IN_BATCH = 6
+
             object_batches = build_prefix_batches(
-                all_objects, max_batch_size=10000, max_groups_in_batch=5
+                all_objects,
+                max_batch_size=_COLUMN_FETCH_MAX_BATCH_SIZE,
+                max_groups_in_batch=_COLUMN_FETCH_MAX_GROUPS_IN_BATCH,
             )
 
         # Process batches
@@ -569,11 +1910,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
         tags = _SnowflakeTagCache()
 
         for tag in cur:
+            tag_db = tag["TAG_DATABASE"]
+            tag_schema = tag["TAG_SCHEMA"]
+            tag_name = tag["TAG_NAME"]
+            tag_value = tag["TAG_VALUE"]
+            if tag_db is None or tag_schema is None or tag_name is None:
+                logger.warning(
+                    f"Skipping tag with null definition fields: "
+                    f"TAG_DATABASE={tag_db}, TAG_SCHEMA={tag_schema}, "
+                    f"TAG_NAME={tag_name}"
+                )
+                continue
+
             snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
+                database=tag_db,
+                schema=tag_schema,
+                name=tag_name,
+                value=tag_value or "",
             )
 
             # This is the name of the object, unless the object is a column, in which
@@ -584,17 +1937,47 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # This will be null if the object is a database
             object_database = tag["OBJECT_DATABASE"]
 
-            domain = tag["DOMAIN"].lower()
+            raw_domain = tag["DOMAIN"]
+            if raw_domain is None:
+                logger.warning(
+                    f"Skipping tag with null DOMAIN: "
+                    f"tag={tag_name}, object_name={object_name}"
+                )
+                continue
+            domain = raw_domain.lower()
             if domain == SnowflakeObjectDomain.DATABASE:
                 tags.add_database_tag(object_name, snowflake_tag)
             elif domain == SnowflakeObjectDomain.SCHEMA:
+                if object_database is None:
+                    logger.warning(
+                        f"Skipping schema tag with null OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_schema_tag(object_name, object_database, snowflake_tag)
             elif domain == SnowflakeObjectDomain.TABLE:  # including views
+                if object_schema is None or object_database is None:
+                    logger.warning(
+                        f"Skipping table tag with null OBJECT_SCHEMA/OBJECT_DATABASE: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}"
+                    )
+                    continue
                 tags.add_table_tag(
                     object_name, object_schema, object_database, snowflake_tag
                 )
             elif domain == SnowflakeObjectDomain.COLUMN:
                 column_name = tag["COLUMN_NAME"]
+                if (
+                    column_name is None
+                    or object_schema is None
+                    or object_database is None
+                ):
+                    logger.warning(
+                        f"Skipping column tag with null fields: "
+                        f"tag={snowflake_tag.name}, object_name={object_name}, "
+                        f"column_name={column_name}"
+                    )
+                    continue
                 tags.add_column_tag(
                     column_name,
                     object_name,
@@ -603,56 +1986,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     snowflake_tag,
                 )
             else:
-                # This should never happen.
-                logger.error(f"Encountered an unexpected domain: {domain}")
-                continue
-
-        return tags
-
-    def get_tags_for_object_with_propagation(
-        self,
-        domain: str,
-        quoted_identifier: str,
-        db_name: str,
-    ) -> List[SnowflakeTag]:
-        tags: List[SnowflakeTag] = []
-
-        cur = self.connection.query(
-            SnowflakeQuery.get_all_tags_on_object_with_propagation(
-                db_name, quoted_identifier, domain
-            ),
-        )
-
-        for tag in cur:
-            tags.append(
-                SnowflakeTag(
-                    database=tag["TAG_DATABASE"],
-                    schema=tag["TAG_SCHEMA"],
-                    name=tag["TAG_NAME"],
-                    value=tag["TAG_VALUE"],
+                self.report.warning(
+                    title="Unexpected tag domain encountered",
+                    message=f"Tag '{snowflake_tag.name}' has domain '{domain}' which is not "
+                    "recognized. This tag will be skipped.",
+                    context=f"database={db_name}, object={object_name}",
                 )
-            )
-        return tags
-
-    def get_tags_on_columns_for_table(
-        self, quoted_table_name: str, db_name: str
-    ) -> Dict[str, List[SnowflakeTag]]:
-        tags: Dict[str, List[SnowflakeTag]] = defaultdict(list)
-        cur = self.connection.query(
-            SnowflakeQuery.get_tags_on_columns_with_propagation(
-                db_name, quoted_table_name
-            ),
-        )
-
-        for tag in cur:
-            column_name = tag["COLUMN_NAME"]
-            snowflake_tag = SnowflakeTag(
-                database=tag["TAG_DATABASE"],
-                schema=tag["TAG_SCHEMA"],
-                name=tag["TAG_NAME"],
-                value=tag["TAG_VALUE"],
-            )
-            tags[column_name].append(snowflake_tag)
+                continue
 
         return tags
 
@@ -660,7 +2000,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_streams_for_database(
         self, db_name: str
     ) -> Dict[str, List[SnowflakeStream]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         streams: Dict[str, List[SnowflakeStream]] = {}
 
@@ -708,7 +2048,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
 
             if result_set_size >= page_limit:
-                # If we hit the limit, we need to send another request to get the next page.
                 logger.info(
                     f"Fetching next page of streams for {db_name} - after {stream_name}"
                 )
@@ -743,3 +2082,313 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
         return procedures
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streamlit_apps_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeStreamlitApp]]:
+        streamlit_apps: Dict[str, List[SnowflakeStreamlitApp]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.streamlit_apps_for_database(db_name),
+        )
+
+        for app in cur:
+            schema_name = app["schema_name"]
+            if schema_name not in streamlit_apps:
+                streamlit_apps[schema_name] = []
+            streamlit_apps[schema_name].append(
+                SnowflakeStreamlitApp(
+                    name=app["name"],
+                    created=app["created_on"],
+                    owner=app["owner"],
+                    database_name=app["database_name"],
+                    schema_name=app["schema_name"],
+                    title=app["title"],
+                    comment=app.get("comment"),
+                    url_id=app["url_id"],
+                    owner_role_type=app["owner_role_type"],
+                )
+            )
+
+        return streamlit_apps
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_table_graph_info(self, db_name: str) -> Dict[str, Dict[str, Any]]:
+        """Get dynamic table dependency information from information schema."""
+        dt_graph_info: Dict[str, Dict[str, Any]] = {}
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_dynamic_table_graph_history(db_name)
+            )
+            for row in cur:
+                dt_name = row["NAME"]
+                dt_graph_info[dt_name] = {
+                    "inputs": row.get("INPUTS"),
+                    "target_lag_type": row.get("TARGET_LAG_TYPE"),
+                    "target_lag_sec": row.get("TARGET_LAG_SEC"),
+                    "scheduling_state": row.get("SCHEDULING_STATE"),
+                    "alter_trigger": row.get("ALTER_TRIGGER"),
+                }
+            logger.debug(
+                f"Successfully retrieved graph info for {len(dt_graph_info)} dynamic tables in {db_name}"
+            )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get dynamic table graph history",
+                db_name,
+                exc=e,
+            )
+
+        return dt_graph_info
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_tables_with_definitions(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+        """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
+
+        # Get graph/dependency information (pass db_name)
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
+
+        first_iteration = True
+        dt_pagination_marker: Optional[str] = None
+
+        while first_iteration or dt_pagination_marker is not None:
+            try:
+                cur = self.connection.query(
+                    SnowflakeQuery.show_dynamic_tables_for_database(
+                        db_name,
+                        limit=page_limit,
+                        dynamic_table_pagination_marker=dt_pagination_marker,
+                    )
+                )
+
+                first_iteration = False
+                dt_pagination_marker = None
+                result_set_size = 0
+
+                for dt in cur:
+                    result_set_size += 1
+
+                    dt_name = dt["name"]
+                    schema_name = dt["schema_name"]
+
+                    if schema_name not in dynamic_tables:
+                        dynamic_tables[schema_name] = []
+
+                    definition = dt.get("text")
+                    target_lag = dt.get("target_lag")
+                    upstream_tables: List[SnowflakeDynamicTableInput] = []
+                    if dt_graph_info:
+                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+                        graph_info = dt_graph_info.get(qualified_name, {})
+                        if not target_lag:
+                            if graph_info.get("target_lag_type") and graph_info.get(
+                                "target_lag_sec"
+                            ):
+                                target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                        raw_inputs = graph_info.get("inputs")
+                        if raw_inputs:
+                            # INPUTS is ARRAY of OBJECTs [{name, kind}, ...]; may be a JSON string.
+                            try:
+                                if isinstance(raw_inputs, str):
+                                    raw_inputs = json.loads(raw_inputs)
+                                # Coerce non-list JSON values (e.g. "null" -> None,
+                                # single object -> dict) so the comprehension below
+                                # doesn't crash the whole database scan.
+                                if not isinstance(raw_inputs, list):
+                                    raw_inputs = []
+                                upstream_tables = [
+                                    SnowflakeDynamicTableInput(
+                                        name=inp["name"],
+                                        kind=inp.get("kind", "Table"),
+                                    )
+                                    for inp in raw_inputs
+                                    if isinstance(inp, dict) and inp.get("name")
+                                ]
+                            except json.JSONDecodeError as e:
+                                logger.warning(
+                                    f"Failed to parse INPUTS for dynamic table "
+                                    f"{db_name}.{schema_name}.{dt_name}: {e}"
+                                )
+
+                    dynamic_tables[schema_name].append(
+                        SnowflakeDynamicTable(
+                            name=dt_name,
+                            created=dt["created_on"],
+                            last_altered=dt.get("created_on"),
+                            size_in_bytes=dt.get("bytes", 0),
+                            rows_count=dt.get("rows", 0),
+                            comment=dt.get("comment"),
+                            definition=definition,
+                            target_lag=target_lag,
+                            upstream_tables=upstream_tables,
+                            is_dynamic=True,
+                            type="DYNAMIC TABLE",
+                        )
+                    )
+
+                if result_set_size >= page_limit:
+                    logger.info(
+                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
+                    )
+                    dt_pagination_marker = dt_name
+
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get dynamic tables for database {db_name}: {e}"
+                )
+                break
+
+        return dynamic_tables
+
+    def populate_dynamic_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate dynamic table definitions for tables that are marked as dynamic."""
+        try:
+            # Get dynamic tables with definitions from SHOW command
+            dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
+
+            for schema_name, table_list in tables.items():
+                for table in table_list:
+                    if (
+                        isinstance(table, SnowflakeDynamicTable)
+                        and table.definition is None
+                    ):
+                        # Find matching dynamic table from SHOW results
+                        show_dt_list = dt_with_definitions.get(schema_name, [])
+                        for show_dt in show_dt_list:
+                            if show_dt.name == table.name:
+                                table.definition = show_dt.definition
+                                table.target_lag = show_dt.target_lag
+                                table.upstream_tables = show_dt.upstream_tables
+                                break
+        except Exception as e:
+            logger.debug(
+                f"Failed to populate dynamic table definitions for {db_name}: {e}"
+            )
+
+    def get_stages_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeStage]:
+        stages: List[SnowflakeStage] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_stages_for_schema(schema_name, db_name)
+            )
+            for stage in cur:
+                stages.append(
+                    SnowflakeStage(
+                        name=stage["name"],
+                        created=stage["created_on"],
+                        owner=stage.get("owner", ""),
+                        database_name=stage.get("database_name", db_name),
+                        schema_name=stage.get("schema_name", schema_name),
+                        comment=stage.get("comment"),
+                        stage_type=SnowflakeStageType(
+                            (stage.get("type") or "INTERNAL").upper()
+                        ),
+                        url=stage.get("url") or None,
+                        cloud=stage.get("cloud") or None,
+                        region=stage.get("region") or None,
+                        storage_integration=stage.get("storage_integration") or None,
+                        owner_role_type=stage.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get stages for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return stages
+
+    def get_tasks_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakeTask]:
+        tasks: List[SnowflakeTask] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_tasks_for_schema(schema_name, db_name)
+            )
+            for task in cur:
+                predecessors_raw = task.get("predecessors", "[]")
+                if isinstance(predecessors_raw, str):
+                    try:
+                        predecessors = json.loads(predecessors_raw)
+                    except (ValueError, TypeError) as pred_err:
+                        self.report.warning(
+                            "Failed to parse task predecessors",
+                            f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
+                            exc=pred_err,
+                        )
+                        predecessors = []
+                else:
+                    predecessors = predecessors_raw if predecessors_raw else []
+
+                tasks.append(
+                    SnowflakeTask(
+                        name=task["name"],
+                        created=task["created_on"],
+                        owner=task.get("owner", ""),
+                        database_name=task.get("database_name", db_name),
+                        schema_name=task.get("schema_name", schema_name),
+                        comment=task.get("comment"),
+                        warehouse=task.get("warehouse") or None,
+                        schedule=task.get("schedule") or None,
+                        predecessors=predecessors,
+                        state=SnowflakeTaskState(
+                            (task.get("state") or "SUSPENDED").upper()
+                        ),
+                        definition=task.get("definition", ""),
+                        condition=task.get("condition") or None,
+                        allow_overlapping_execution=task.get(
+                            "allow_overlapping_execution", False
+                        )
+                        == "true"
+                        or task.get("allow_overlapping_execution", False) is True,
+                        owner_role_type=task.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get tasks for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return tasks
+
+    def get_pipes_for_schema(
+        self, db_name: str, schema_name: str
+    ) -> List[SnowflakePipe]:
+        pipes: List[SnowflakePipe] = []
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.show_pipes_for_schema(schema_name, db_name)
+            )
+            for pipe in cur:
+                pipes.append(
+                    SnowflakePipe(
+                        name=pipe["name"],
+                        created=pipe["created_on"],
+                        owner=pipe.get("owner", ""),
+                        database_name=pipe.get("database_name", db_name),
+                        schema_name=pipe.get("schema_name", schema_name),
+                        comment=pipe.get("comment"),
+                        definition=pipe.get("definition", ""),
+                        auto_ingest=pipe.get("auto_ingest", "false") == "true"
+                        or pipe.get("auto_ingest", False) is True,
+                        notification_channel=pipe.get("notification_channel") or None,
+                        owner_role_type=pipe.get("owner_role_type", "ROLE"),
+                    )
+                )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get pipes for schema",
+                f"{db_name}.{schema_name}",
+                exc=e,
+            )
+        return pipes

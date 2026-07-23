@@ -1,8 +1,11 @@
-import react from '@vitejs/plugin-react';
+import { codecovVitePlugin } from '@codecov/vite-plugin';
+import federation from '@originjs/vite-plugin-federation';
+import basicSsl from '@vitejs/plugin-basic-ssl';
+import react from '@vitejs/plugin-react-swc';
+import * as fs from 'fs';
 import * as path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
@@ -27,34 +30,142 @@ const injectMeticulous = () => {
     };
 };
 
+// since we have base: './' for relative paths, vite will set static assets at "./assets/..."
+// with a base path configured we can't find them. We want simple "assets/..."
+export function stripDotSlashFromAssets() {
+    return {
+        name: 'strip-dot-slash',
+        transformIndexHtml(html) {
+            return html.replace(/src="\.\//g, 'src="').replace(/href="\.\//g, 'href="');
+        },
+    };
+}
+
+// Fails fast with a clear message if lazy icon stubs haven't been generated.
+// Prevents silent fallback-to-AppWindow when running outside Gradle.
+function assertLazyIconsGenerated(): PluginOption {
+    return {
+        name: 'assert-lazy-icons-generated',
+        buildStart() {
+            const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
+            const hasStubs =
+                fs.existsSync(iconsDir) &&
+                fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
+            if (!hasStubs) {
+                throw new Error(
+                    '\n\n  [Lazy Icons] Icon stubs are missing. Generate them before starting:\n\n' +
+                        '    ./gradlew :datahub-web-react:generateLazyIconStubs\n' +
+                        '    — or —\n' +
+                        '    node datahub-web-react/scripts/generate-lazy-icon-stubs.js\n\n',
+                );
+            }
+        },
+    };
+}
+
+// In production the datahub-frontend Play server substitutes @basePath in index.html
+// at serve time. The Vite dev server serves the template verbatim, leaving a broken
+// relative <base href="@basePath">, so relative asset URLs (e.g. platform logos at
+// assets/platforms/*) resolve against the current route instead of the site root and
+// 404 on deep routes. Substitute it to '/' for dev, matching what Play does.
+function substituteBasePathForDev(): PluginOption {
+    return {
+        name: 'substitute-base-path-dev',
+        apply: 'serve',
+        transformIndexHtml(html) {
+            return html.replace('@basePath', '/');
+        },
+    };
+}
+
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
+    const { viteStaticCopy } = await import('vite-plugin-static-copy');
+
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
-    // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
+    let antThemeConfig: any;
+    if (process.env.ANT_THEME_CONFIG) {
+        const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        antThemeConfig = require(themeConfigFile);
+    }
+
+    // common extra logging setup for proxies
+    const proxyDebugConfig = (proxy, options) => {
+        proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log(`[PROXY] ${req.url} -> ${options.target}${req.url}`);
+        });
+        proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log(`[PROXY RESPONSE] ${req.url} <- ${proxyRes.statusCode} ${proxyRes.statusMessage}`);
+            if (proxyRes.statusCode >= 300 && proxyRes.statusCode < 400) {
+                console.log(`[PROXY REDIRECT] Location: ${proxyRes.headers.location}`);
+            }
+        });
+        proxy.on('error', (err, req, _res) => {
+            console.error(`[PROXY ERROR] ${req.url}:`, err.message);
+        });
+    };
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
         target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
         changeOrigin: true,
+        configure: proxyDebugConfig,
     };
+
     const proxyOptions = {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
-        '/track': frontendProxy,
+        '/openapi/v1/tracking/track': frontendProxy,
+        '/openapi/v1/files': frontendProxy,
+        '/mfe/config': frontendProxy,
     };
 
-    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+    const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
+
+    if (mode === 'development') {
+        const localesDir = path.resolve(__dirname, 'src/i18n/locales');
+        const { i18nextHMRPlugin } = await import('i18next-hmr/vite');
+        devPlugins.push(i18nextHMRPlugin({ localesDir }));
+        // i18nextHMRPlugin sends the WS event but returns undefined, letting Vite fall through
+        // to a full-page reload for files not in the module graph. Return [] to suppress it.
+        devPlugins.push({
+            name: 'i18next-hmr-suppress-reload',
+            handleHotUpdate({ file }) {
+                return file.startsWith(localesDir) && file.endsWith('.json') ? [] : undefined;
+            },
+        });
+    }
+
+    if (isHttps) {
+        devPlugins.push(
+            basicSsl({
+                name: 'datahub-dev-ssl',
+                domains: ['localhost'],
+            }),
+        );
+    }
 
     return {
         appType: 'spa',
+        base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            substituteBasePathForDev(),
+            assertLazyIconsGenerated(),
             ...devPlugins,
             react(),
+            federation({
+                name: 'datahub-host',
+                remotes: {
+                    // at least one remote is needed to load the plugin correctly, just remotes: {} does not work
+                    remoteName: '',
+                },
+            }),
             svgr(),
             macrosPlugin(),
             viteStaticCopy({
@@ -63,29 +174,46 @@ export default defineConfig(({ mode }) => {
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
+                    // i18n locale files — served at /assets/locales/{{lng}}/{{ns}}.json
+                    { src: path.resolve(__dirname, 'src/i18n/locales'), dest: 'assets' },
                 ],
             }),
             viteStaticCopy({
                 targets: [
-                    // Copy monaco-editor files to the build directory
-                    // Because of the structured option, specifying dest .
-                    // means that it will mirror the node_modules/... structure
-                    // in the build directory.
+                    // Selective Monaco Editor files — only what DataHub actually uses (YAML + SQL).
+                    // structured: true mirrors the node_modules/... path into the build directory,
+                    // so Monaco's AMD loader can find files at /node_modules/monaco-editor/min/vs/*.
+                    // The language/ directory (TS/CSS/HTML/JSON IntelliSense, ~7 MB) and min-maps/
+                    // (~11 MB) are intentionally excluded — they are never requested at runtime.
+                    { src: 'node_modules/monaco-editor/min/vs/loader.js', dest: '.' },
                     {
-                        src: 'node_modules/monaco-editor/min/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.js',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.css',
+                            'node_modules/monaco-editor/min/vs/editor/editor.main.nls.js',
+                        ],
                         dest: '.',
                     },
+                    // base/ contains workerMain.js and the codicon font — required by the editor core.
+                    { src: 'node_modules/monaco-editor/min/vs/base/', dest: '.' },
+                    // Only the two language tokenizers DataHub uses.
                     {
-                        src: 'node_modules/monaco-editor/min-maps/vs/',
+                        src: [
+                            'node_modules/monaco-editor/min/vs/basic-languages/yaml/',
+                            'node_modules/monaco-editor/min/vs/basic-languages/sql/',
+                        ],
                         dest: '.',
-                        rename: (name, ext, fullPath) => {
-                            console.log(name, ext, fullPath);
-                            return name;
-                        },
                     },
                 ],
                 structured: true,
             }),
+            codecovVitePlugin({
+                enableBundleAnalysis: true,
+                bundleName: 'datahub-react-web',
+                uploadToken: process.env.CODECOV_TOKEN,
+                gitService: 'github',
+            }),
+            stripDotSlashFromAssets(),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -98,12 +226,32 @@ export default defineConfig(({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            rollupOptions: {
+                output: {
+                    // Emit source maps without inlined sourcesContent. The original source text is
+                    // ~70% of each map's bytes and pushes the largest 'source' map over Cloudflare
+                    // Pages' 25 MiB (26,214,400 byte) per-file limit, which breaks the preview
+                    // deploy Meticulous records against. The mappings + source paths that remain are
+                    // what Meticulous needs to attribute coverage to source files; it fetches the
+                    // original files from the served build rather than reading inlined text. Keeps
+                    // every map well under the limit without splitting app code (static app-code
+                    // splits cut import cycles and cause "cannot access X before initialization"
+                    // TDZ crashes at load).
+                    sourcemapExcludeSources: true,
+                    // Split locale JSON files into per-language chunks
+                    manualChunks(id: string) {
+                        const match = id.match(/\/locales\/([^/]+)\/[^/]+\.json$/);
+                        return match ? match[1] : undefined;
+                    },
+                },
+            },
         },
         server: {
             open: false,
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            https: isHttps,
         },
         css: {
             preprocessorOptions: {
@@ -111,7 +259,7 @@ export default defineConfig(({ mode }) => {
                     javascriptEnabled: true,
                     // Override antd theme variables.
                     // https://4x.ant.design/docs/react/customize-theme#Ant-Design-Less-variables
-                    modifyVars: themeConfig.styles,
+                    modifyVars: antThemeConfig,
                 },
             },
         },
@@ -121,13 +269,31 @@ export default defineConfig(({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            onConsoleLog(log) {
+                // Suppress noisy Apollo Client / GraphQL mock warnings that produce
+                // thousands of lines of output and make CI logs unreadable.
+                if (
+                    log.includes('No more mocked responses') ||
+                    log.includes('Missing field') ||
+                    log.includes('[GraphQL error]') ||
+                    log.includes('networkError') ||
+                    log.includes('Mocked provider') ||
+                    log.includes('query-manager') ||
+                    log.includes('ObservableQuery')
+                ) {
+                    return false;
+                }
+                return undefined;
+            },
             coverage: {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
-                exclude: [],
+                exclude: [
+                    '**/*.d.ts', // TypeScript declaration files contain no executable code
+                ],
             },
         },
         resolve: {

@@ -14,9 +14,14 @@ record GlobalSettingsInfo {
   sso: optional SsoSettings
 
   /**
+   * Settings related to the oauth authentication provider
+   */
+   oauth: optional OAuthSettings
+
+  /**
    * Settings related to the Views Feature
    */
-   views: optional GlobalViewsSettings
+  views: optional GlobalViewsSettings
 
   /**
    * Settings related to the documentation propagation feature
@@ -25,4 +30,14 @@ record GlobalSettingsInfo {
         "enabled": true
         "columnPropagationEnabled": true
    }
+
+  /**
+   * Global settings related to the home page for an instance
+   */
+   homePage: optional GlobalHomePageSettings
+
+  /**
+   * Settings related to applications. If not enabled, applications won't show up in navigation
+   */
+   applications: optional ApplicationsSettings
 }

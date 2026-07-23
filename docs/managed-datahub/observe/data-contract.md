@@ -1,3 +1,8 @@
+---
+title: Data Contracts Monitoring
+description: "Define Data Contracts in DataHub Cloud Observe as agreements between producers and consumers covering schema, freshness, and quality."
+---
+
 # Data Contracts
 
 ## What Is a Data Contract
@@ -35,36 +40,12 @@ The owner of the physical data asset is also the owner of the contract and can a
 
 ## How to Create Data Contracts
 
-Data Contracts can be created via DataHub CLI (YAML), API, or UI.
-
-### DataHub CLI using YAML
-
-For creation via CLI, it’s a simple CLI upsert command that you can integrate into your CI/CD system to publish your Data Contracts and any change to them.
-
-1. Define your data contract.
-
-<!-- prettier-ignore-start -->
-```yaml
-{{ inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment }}
-```
-<!-- prettier-ignore-end -->
-
-2. Use the CLI to create the contract by running the below command.
-
-```shell
-datahub datacontract upsert -f contract_definition.yml
-```
-
-3. Now you can see your contract on the UI.
-
-<p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/data-contracts-ui.png"/>
-</p>
+Data Contracts can be created via DataHub API, or UI.
 
 ### UI
 
 1. Navigate to the Dataset Profile for the dataset you wish to create a contract for
-2. Under the **Validations** > **Data Contracts** tab, click **Create**.
+2. Under the **Quality** > **Data Contracts** tab, click **Create**.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/create-data-contract-ui.png"/>
@@ -92,9 +73,9 @@ _API guide on creating data contract is coming soon!_
 
 ## How to Run Data Contracts
 
-Running Data Contracts is dependent on running the contract’s assertions and getting the results on Datahub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on Datahub itself. Otherwise, you can run your assertions outside of Datahub and have the results published back to Datahub.
+Running Data Contracts is dependent on running the contract’s assertions and getting the results on DataHub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on DataHub itself. Otherwise, you can run your assertions outside of DataHub and have the results published back to DataHub.
 
-Datahub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
+DataHub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
 
 ### DBT Test
 
@@ -106,7 +87,7 @@ During DBT Ingestion, we pick up the dbt `run_results` file, which contains the 
 
 ### Great Expectations
 
-For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to Datahub. [See the guide here](../../../metadata-ingestion/integration_docs/great-expectations.md).
+For Great Expectations, you can integrate the **DataHubValidationAction** directly into your Great Expectations Checkpoint in order to have the assertion (aka. expectation) results to DataHub. [See the guide here](../../../metadata-ingestion/integration_docs/great-expectations.md).
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/gx-test.png"/>

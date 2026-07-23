@@ -10,7 +10,8 @@
         "fields": [
           {
             "name": "fieldString",
-            "type": "string"
+            "type": "string",
+            "custom-prop": "custom-value"
           },
           {
             "name": "fieldInt",

@@ -1,0 +1,51 @@
+import { Text } from '@components';
+import React from 'react';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
+import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
+import { formatTimestamp } from '@app/sharedV2/time/utils';
+import { Popover } from '@src/alchemy-components';
+
+import { Document, EntityType } from '@types';
+
+const DATE_TIME_FORMAT = 'll LTS';
+const DATE_FORMAT = 'll';
+
+const DateWithTooltip = styled.span`
+    cursor: help;
+    &:hover {
+        text-decoration: underline;
+        text-decoration-style: dotted;
+        text-decoration-color: ${(props) => props.theme.colors.border};
+    }
+`;
+
+export default function LastUpdatedProperty(props: PropertyComponentProps) {
+    const { entityData, entityType } = useEntityData();
+
+    // Different entities store lastModified in different locations
+    let lastModified: number | undefined;
+
+    if (entityType === EntityType.Document) {
+        const document = entityData as Document;
+        lastModified = document?.info?.lastModified?.time;
+    } else {
+        // For other entities, check common locations
+        // Using type assertion as different entities may have different property structures
+        lastModified = (entityData as any)?.properties?.lastModified?.time;
+    }
+
+    const renderLastModified = (timestamp: number) => {
+        return (
+            <Popover content={formatTimestamp(timestamp, DATE_TIME_FORMAT)} placement="top">
+                <DateWithTooltip>
+                    <Text>{formatTimestamp(timestamp, DATE_FORMAT)}</Text>
+                </DateWithTooltip>
+            </Popover>
+        );
+    };
+
+    return <BaseProperty {...props} values={lastModified ? [lastModified] : []} renderValue={renderLastModified} />;
+}

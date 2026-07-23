@@ -3,21 +3,36 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 """
 
 import dataclasses
+import json
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
+import cachetools
+import yaml
+from cachetools import cached
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    ConnectionInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
+    ModelVersionInfo,
+    RegisteredModelInfo,
     SchemaInfo,
+    TableConstraint,
     TableInfo,
 )
+from databricks.sdk.service.files import DownloadResponse, FilesAPI
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
+from databricks.sdk.service.ml import (
+    ExperimentsAPI,
+)
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
@@ -25,30 +40,67 @@ from databricks.sdk.service.sql import (
     QueryStatus,
 )
 from databricks.sdk.service.workspace import ObjectType
+from databricks.sql import connect
+from databricks.sql.types import Row
+from typing_extensions import assert_never
 
-from datahub._version import nice_version_name
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.unity.config import (
+    LineageDataSource,
+    UsageDataSource,
+)
+from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
 from datahub.ingestion.source.unity.proxy_types import (
-    ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
     CustomCatalogType,
     ExternalTableReference,
     Metastore,
+    Model,
+    ModelRunDetails,
+    ModelSignature,
+    ModelVersion,
     Notebook,
+    NotebookReference,
     Query,
     Schema,
     ServicePrincipal,
     Table,
     TableReference,
+    usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# It is enough to keep the cache size to 1, since we only process one catalog at a time
+# We need to change this if we want to support parallel processing of multiple catalogs
+_MAX_CONCURRENT_CATALOGS = 1
+
+
+# Import and apply the proxy patch from separate module
+try:
+    from datahub.ingestion.source.unity.proxy_patch import (
+        apply_databricks_proxy_fix,
+        mask_proxy_credentials,
+    )
+
+    # Apply the fix when the module is imported
+    apply_databricks_proxy_fix()
+except ImportError as e:
+    logger.debug(f"Could not import proxy patch module: {e}")
+
+    # Fallback function for masking credentials
+    def mask_proxy_credentials(url: Optional[str]) -> str:
+        return "***MASKED***" if url else "None"
 
 
 @dataclasses.dataclass
@@ -73,7 +125,16 @@ class QueryFilterWithStatementTypes(QueryFilter):
     statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
 
     def as_dict(self) -> dict:
-        return {**super().as_dict(), "statement_types": self.statement_types}
+        # Emit the enum *values* (strings), not the QueryStatementType objects —
+        # the filter is JSON-serialized into the REST query-history request body,
+        # and raw enum objects are not JSON serializable.
+        return {
+            **super().as_dict(),
+            "statement_types": [
+                t.value if isinstance(t, QueryStatementType) else t
+                for t in self.statement_types
+            ],
+        }
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
@@ -81,8 +142,155 @@ class QueryFilterWithStatementTypes(QueryFilter):
             QueryFilterWithStatementTypes,
             super().from_dict(d),
         )
-        v.statement_types = d["statement_types"]
+        raw = d.get("statement_types", [])
+        coerced: List[QueryStatementType] = []
+        for item in raw:
+            try:
+                coerced.append(
+                    item
+                    if isinstance(item, QueryStatementType)
+                    else QueryStatementType(item)
+                )
+            except Exception:
+                # Fallback: ignore invalid entries and continue
+                logger.debug(
+                    f"Unable to coerce statement_type {item} to QueryStatementType"
+                )
+        v.statement_types = coerced
         return v
+
+
+@dataclasses.dataclass
+class TableUpstream:
+    table_name: str
+    source_type: str
+    last_updated: Optional[datetime] = None
+
+
+@dataclasses.dataclass
+class ExternalUpstream:
+    path: str
+    source_type: str
+    last_updated: Optional[datetime] = None
+
+
+@dataclasses.dataclass
+class TableLineageInfo:
+    upstreams: List[TableUpstream] = dataclasses.field(default_factory=list)
+    external_upstreams: List[ExternalUpstream] = dataclasses.field(default_factory=list)
+    upstream_notebooks: List[NotebookReference] = dataclasses.field(
+        default_factory=list
+    )
+    downstream_notebooks: List[NotebookReference] = dataclasses.field(
+        default_factory=list
+    )
+
+
+def _build_catalog_column_filter(
+    column_expr: str, catalog_pattern: AllowDenyPattern
+) -> tuple[str, list[str]]:
+    """Build RLIKE filter for a single table_lineage catalog column.
+
+    Returns the SQL predicate and bind parameters for RLIKE patterns so recipe
+    catalog_pattern values are never interpolated into the query string.
+    """
+    pattern_parts: List[str] = []
+    bind_params: list[str] = []
+
+    def transform(pattern: str) -> str:
+        return pattern.upper() if catalog_pattern.ignoreCase else pattern
+
+    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+
+    allow_patterns = catalog_pattern.allow
+    if allow_patterns and allow_patterns != [".*"]:
+        allow_conditions = []
+        for pattern in allow_patterns:
+            allow_conditions.append(f"{col_expr} RLIKE %s")
+            bind_params.append(transform(pattern))
+        if allow_conditions:
+            pattern_parts.append(
+                allow_conditions[0]
+                if len(allow_conditions) == 1
+                else f"({' OR '.join(allow_conditions)})"
+            )
+
+    deny_patterns = catalog_pattern.deny
+    if deny_patterns:
+        deny_conditions = []
+        for pattern in deny_patterns:
+            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            bind_params.append(transform(pattern))
+        if deny_conditions:
+            pattern_parts.append(
+                deny_conditions[0]
+                if len(deny_conditions) == 1
+                else f"({' AND '.join(deny_conditions)})"
+            )
+
+    if not pattern_parts:
+        return "TRUE", []
+    sql = (
+        pattern_parts[0]
+        if len(pattern_parts) == 1
+        else f"({' AND '.join(pattern_parts)})"
+    )
+    return sql, bind_params
+
+
+def _build_table_lineage_catalog_filter_condition(
+    catalog_pattern: AllowDenyPattern,
+) -> tuple[str, list[str]]:
+    """Build catalog allow/deny filter for system.access.table_lineage pushdown."""
+    source_filter, source_params = _build_catalog_column_filter(
+        "tl2.source_table_catalog", catalog_pattern
+    )
+    target_filter, target_params = _build_catalog_column_filter(
+        "tl2.target_table_catalog", catalog_pattern
+    )
+
+    if source_filter == "TRUE" and target_filter == "TRUE":
+        return "TRUE", []
+
+    parts: List[str] = []
+    bind_params: list[str] = []
+    if source_filter != "TRUE":
+        parts.append(f"({source_filter} AND tl2.source_table_catalog IS NOT NULL)")
+        bind_params.extend(source_params)
+    if target_filter != "TRUE":
+        parts.append(f"({target_filter} AND tl2.target_table_catalog IS NOT NULL)")
+        bind_params.extend(target_params)
+    sql = parts[0] if len(parts) == 1 else f"({' OR '.join(parts)})"
+    return sql, bind_params
+
+
+# Raised when constructing a Query from a query-history row fails (e.g. an
+# invalid statement_type enum value) — bucketed as a query-parse failure.
+_ROW_PARSE_EXCEPTIONS = (AttributeError, ValueError)
+# Raised when reading an individual lineage column off a row — bucketed as a
+# field-read error. Kept identical to what _optional_row_field catches so the
+# outer handler can't mis-bucket field reads as query parses.
+_ROW_FIELD_READ_EXCEPTIONS = (AttributeError, ValueError)
+
+
+def _optional_row_field(
+    row: object,
+    field: str,
+    report: Optional[UnityCatalogReport] = None,
+) -> Optional[str]:
+    try:
+        value = getattr(row, field)
+    except _ROW_FIELD_READ_EXCEPTIONS:
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str):
+        if report is not None:
+            report.num_lineage_row_field_read_errors += 1
+        return None
+    return value
 
 
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
@@ -90,27 +298,229 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     _workspace_url: str
     report: UnityCatalogReport
     warehouse_id: str
+    _experiments_api: ExperimentsAPI
+    _files_api: FilesAPI
 
     def __init__(
         self,
-        workspace_url: str,
-        personal_access_token: str,
-        warehouse_id: Optional[str],
+        workspace_client: WorkspaceClient,
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
+        lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
+        usage_data_source: UsageDataSource = UsageDataSource.AUTO,
+        databricks_api_page_size: int = 0,
     ):
-        self._workspace_client = WorkspaceClient(
-            host=workspace_url,
-            token=personal_access_token,
-            product="datahub",
-            product_version=nice_version_name(),
-        )
-        self.warehouse_id = warehouse_id or ""
+        self._workspace_client = workspace_client
+        self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
+        self.lineage_data_source = lineage_data_source
+        self.usage_data_source = usage_data_source
+        self.databricks_api_page_size = databricks_api_page_size
+        self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
+        # Initialize MLflow APIs
+        self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
+        self._files_api = FilesAPI(self._workspace_client.api_client)
+
+    def get_run_details(self, run_id: str) -> Optional[ModelRunDetails]:
+        """
+        Get comprehensive details from an MLflow run.
+
+        Args:
+            run_id: The MLflow run ID
+
+        Returns:
+            ModelRunDetails object with comprehensive run information
+        """
+        try:
+            run_response = self._experiments_api.get_run(run_id)
+            run = run_response.run
+
+            if (
+                not run
+                or not run.info
+                or not run.info.run_id
+                or not run.info.experiment_id
+            ):
+                return None
+
+            # Extract metrics
+            metrics: Dict[str, Any] = {}
+            if run.data and run.data.metrics:
+                for metric in run.data.metrics:
+                    if metric.key is not None:
+                        metrics[metric.key] = metric.value
+
+            # Extract parameters
+            parameters: Dict[str, Any] = {}
+            if run.data and run.data.params:
+                for param in run.data.params:
+                    if param.key is not None:
+                        parameters[param.key] = param.value
+
+            # Extract tags
+            tags: Dict[str, str] = {}
+            if run.data and run.data.tags:
+                for tag in run.data.tags:
+                    if tag.key is not None and tag.value is not None:
+                        tags[tag.key] = tag.value
+
+            return ModelRunDetails(
+                run_id=run.info.run_id,
+                experiment_id=run.info.experiment_id,
+                status=run.info.status.value if run.info.status else None,
+                start_time=parse_ts_millis(run.info.start_time),
+                end_time=parse_ts_millis(run.info.end_time),
+                user_id=run.info.user_id,
+                metrics=metrics,
+                parameters=parameters,
+                tags=tags,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Unable to get run details for MLflow experiment, run-id: {run_id}",
+                exc_info=True,
+            )
+            self.report.warning(
+                title="Unable to get run details for MLflow experiment",
+                message="Error while getting run details for MLflow experiment",
+                context=f"run-id: {run_id}",
+                exc=e,
+                log=False,
+            )
+            return None
+
+    def _extract_signature_from_files_api(
+        self, model_version: ModelVersionInfo
+    ) -> Optional[ModelSignature]:
+        """
+        Extract signature from MLmodel file using Databricks FilesAPI.
+        Uses the API endpoint: /api/2.0/fs/files/Models/{catalog}/{schema}/{model}/{version}/MLmodel
+
+        Args:
+            model_version: Unity Catalog ModelVersionInfo object with catalog_name, schema_name, model_name, version
+
+        Returns:
+            ModelSignature if found, None otherwise
+        """
+        try:
+            # Construct file path for FilesAPI
+            # The correct path format is: /Models/{catalog}/{schema}/{model}/{version}/MLmodel
+            file_path = (
+                f"/Models/{model_version.catalog_name}/{model_version.schema_name}/"
+                f"{model_version.model_name}/{model_version.version}/MLmodel"
+            )
+
+            logger.debug(f"Downloading MLmodel from FilesAPI: {file_path}")
+
+            # Download the file using FilesAPI
+            download_response: DownloadResponse = self._files_api.download(
+                file_path=file_path
+            )
+
+            # Read the file content
+            # DownloadResponse.contents is a BinaryIO object
+            if download_response and download_response.contents:
+                content_stream = download_response.contents
+
+                # Read from the binary stream
+                if content_stream:
+                    mlmodel_content: str = content_stream.read().decode("utf-8")
+
+                    logger.debug(
+                        f"MLmodel file contents from FilesAPI ({file_path}):\n{mlmodel_content}"
+                    )
+
+                    # Parse YAML content
+                    mlmodel_data = yaml.safe_load(mlmodel_content)
+
+                    # Extract signature from MLmodel YAML
+                    if mlmodel_data and "signature" in mlmodel_data:
+                        signature_raw = mlmodel_data["signature"]
+
+                        # Signature inputs and outputs are stored as JSON strings in the YAML
+                        # Parse them into proper dict/list format
+                        signature_data = {}
+                        if "inputs" in signature_raw:
+                            raw_inputs = signature_raw.get("inputs")
+                            if raw_inputs is not None:
+                                if isinstance(raw_inputs, (str, bytes)):
+                                    try:
+                                        signature_data["inputs"] = json.loads(
+                                            raw_inputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse inputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["inputs"] = raw_inputs
+
+                        if "outputs" in signature_raw:
+                            raw_outputs = signature_raw.get("outputs")
+                            if raw_outputs is not None:
+                                if isinstance(raw_outputs, (str, bytes)):
+                                    try:
+                                        signature_data["outputs"] = json.loads(
+                                            raw_outputs
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse outputs JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["outputs"] = raw_outputs
+
+                        if "params" in signature_raw:
+                            raw_params = signature_raw.get("params")
+                            if raw_params is not None:
+                                if isinstance(raw_params, (str, bytes)):
+                                    try:
+                                        signature_data["params"] = json.loads(
+                                            raw_params
+                                        )
+                                    except (json.JSONDecodeError, TypeError) as e:
+                                        logger.debug(
+                                            f"Failed to parse params JSON: {e}"
+                                        )
+                                else:
+                                    signature_data["params"] = raw_params
+
+                        return ModelSignature(
+                            inputs=signature_data.get("inputs"),
+                            outputs=signature_data.get("outputs"),
+                            parameters=signature_data.get("params"),
+                        )
+                    else:
+                        logger.debug(
+                            f"No signature found in MLmodel data from {file_path}"
+                        )
+                        return None
+
+            return None
+
+        except Exception as e:
+            model_name = getattr(model_version, "model_name", "unknown")
+            version_num = getattr(model_version, "version", "unknown")
+            self.report.warning(
+                title="Unable to extract signature from MLmodel file",
+                message="Error while extracting signature from MLmodel file",
+                context=f"model-name: {model_name}, model-version: {version_num}",
+                exc=e,
+                log=False,
+            )
+            logger.warning(
+                f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {version_num}",
+                exc_info=True,
+            )
+            return None
 
     def check_basic_connectivity(self) -> bool:
-        return bool(self._workspace_client.catalogs.list(include_browse=True))
+        return bool(
+            self._workspace_client.catalogs.list(
+                include_browse=True, max_results=self.databricks_api_page_size
+            )
+        )
 
     def assigned_metastore(self) -> Optional[Metastore]:
         response = self._workspace_client.metastores.summary()
@@ -120,7 +530,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if self.hive_metastore_proxy:
             yield self.hive_metastore_proxy.hive_metastore_catalog(metastore)
 
-        response = self._workspace_client.catalogs.list(include_browse=True)
+        response = self._workspace_client.catalogs.list(
+            include_browse=True, max_results=self.databricks_api_page_size
+        )
         if not response:
             logger.info("Catalogs not found")
             return
@@ -144,6 +556,44 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return None
 
+    def connections(self) -> Dict[str, ConnectionInfo]:
+        """Return Unity Catalog connections keyed by name (cached).
+
+        Lakehouse Federation foreign catalogs reference a connection by name; the
+        connection carries the external system's type. Listing connections requires
+        metastore-admin or connection-ownership; on permission/other errors we return
+        an empty map so the source can fall back to config overrides.
+        """
+        if self._connections_cache is not None:
+            return self._connections_cache
+        result: Dict[str, ConnectionInfo] = {}
+        try:
+            response = self._workspace_client.connections.list(
+                max_results=self.databricks_api_page_size
+            )
+            for connection in response or []:
+                if connection.name:
+                    result[connection.name] = connection
+        except Exception as e:
+            # Federation is supplemental: never let a connections-listing failure
+            # crash ingestion, but surface it in the report since it silently
+            # degrades federation links/structured properties for this run.
+            self.report.num_federation_connections_list_failed += 1
+            self.report.warning(
+                title="Failed to list Unity Catalog connections",
+                message=(
+                    "Lakehouse Federation links and structured properties will be "
+                    "degraded this run; grant the service principal metastore-admin "
+                    "or connection ownership, or set federation_connection_details "
+                    "overrides."
+                ),
+                context="listing Unity Catalog connections",
+                exc=e,
+                log=False,
+            )
+        self._connections_cache = result
+        return result
+
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
         if (
             self.hive_metastore_proxy
@@ -152,7 +602,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
             return
         response = self._workspace_client.schemas.list(
-            catalog_name=catalog.name, include_browse=True
+            catalog_name=catalog.name,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
         )
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
@@ -174,6 +626,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 catalog_name=schema.catalog.name,
                 schema_name=schema.name,
                 include_browse=True,
+                max_results=self.databricks_api_page_size,
             )
             if not response:
                 logger.info(f"Tables not found for schema {schema.id}")
@@ -187,7 +640,41 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         yield optional_table
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
-                    self.report.report_warning("table-parse", str(e))
+                    self.report.warning("table-parse", str(e), log=False)
+
+    def ml_models(
+        self, schema: Schema, max_results: Optional[int] = None
+    ) -> Iterable[Model]:
+        response = self._workspace_client.registered_models.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            max_results=max_results,
+        )
+        for ml_model in response:
+            optional_ml_model = self._create_ml_model(schema, ml_model)
+            if optional_ml_model:
+                yield optional_ml_model
+
+    def ml_model_versions(
+        self, ml_model: Model, include_aliases: bool = False
+    ) -> Iterable[ModelVersion]:
+        response = self._workspace_client.model_versions.list(
+            full_name=ml_model.id,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
+        )
+        for version in response:
+            if version.version is not None:
+                if include_aliases:
+                    # to get aliases info, use GET
+                    version = self._workspace_client.model_versions.get(
+                        ml_model.id, version.version, include_aliases=True
+                    )
+                optional_ml_model_version = self._create_ml_model_version(
+                    ml_model, version
+                )
+                if optional_ml_model_version:
+                    yield optional_ml_model_version
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
@@ -206,7 +693,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return group_list
 
     def workspace_notebooks(self) -> Iterable[Notebook]:
-        for obj in self._workspace_client.workspace.list("/", recursive=True):
+        workspace_objects_iter = self._workspace_client.workspace.list(
+            "/", recursive=True, max_results=self.databricks_api_page_size
+        )
+        for obj in workspace_objects_iter:
             if obj.object_type == ObjectType.NOTEBOOK and obj.object_id and obj.path:
                 yield Notebook(
                     id=obj.object_id,
@@ -220,12 +710,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self,
         start_time: datetime,
         end_time: datetime,
+        *,
+        include_operational_stats: bool = True,
     ) -> Iterable[Query]:
         """Returns all queries that were run between start_time and end_time with relevant statement_type.
 
         Raises:
             DatabricksError: If the query history API returns an error.
         """
+        statement_types = usage_statement_types(include_operational_stats)
         filter_by = QueryFilterWithStatementTypes.from_dict(
             {
                 "query_start_time_range": {
@@ -233,7 +726,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "end_time_ms": end_time.timestamp() * 1000,
                 },
                 "statuses": [QueryStatus.FINISHED],
-                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
+                "statement_types": [typ.value for typ in statement_types],
             }
         )
         for query_info in self._query_history(filter_by=filter_by):
@@ -242,13 +735,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if optional_query:
                     yield optional_query
             except Exception as e:
-                logger.warning(f"Error parsing query: {e}")
-                self.report.report_warning("query-parse", str(e))
+                logger.warning("Error parsing query", exc_info=True)
+                self.report.warning(
+                    title="Failed to parse query",
+                    message="A query from query history could not be parsed and was skipped.",
+                    context=f"query_id={getattr(query_info, 'query_id', None)}",
+                    exc=e,
+                    log=False,
+                )
 
     def _query_history(
         self,
         filter_by: QueryFilterWithStatementTypes,
-        max_results: int = 1000,
         include_metrics: bool = False,
     ) -> Iterable[QueryInfo]:
         """Manual implementation of the query_history.list() endpoint.
@@ -260,9 +758,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """
         method = "GET"
         path = "/api/2.0/sql/history/queries"
+
         body: Dict[str, Any] = {
             "include_metrics": include_metrics,
-            "max_results": max_results,  # Max batch size
+            "max_results": self.databricks_api_page_size,  # Max batch size
         }
 
         response: dict = self._workspace_client.api_client.do(  # type: ignore
@@ -280,10 +779,385 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
-    def list_lineages_by_table(
+    def get_query_history_via_system_tables(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        *,
+        catalog_pattern: Optional[AllowDenyPattern] = None,
+        include_operational_stats: bool = True,
+    ) -> Iterable[Query]:
+        """Get query history using system.query.history joined with table lineage.
+
+        Joins system.access.table_lineage on statement_id so each query carries
+        pre-resolved source/target table names, avoiding sqlglot parsing during
+        usage extraction.
+
+        When catalog_pattern is provided, filters queries via a semi-join on
+        table_lineage so only statements touching matching catalogs are fetched.
+        """
+        logger.info(
+            f"Fetching query history from system.query.history for period: {start_time} to {end_time}"
+        )
+
+        allowed_types = [
+            typ.value for typ in usage_statement_types(include_operational_stats)
+        ]
+        statement_type_filter = ", ".join(f"'{typ}'" for typ in allowed_types)
+
+        catalog_pushdown_clause = ""
+        catalog_filter_params: list[str] = []
+        if catalog_pattern is not None:
+            catalog_filter, catalog_filter_params = (
+                _build_table_lineage_catalog_filter_condition(catalog_pattern)
+            )
+            catalog_pushdown_clause = f"""
+                AND qh.statement_id IN (
+                    SELECT DISTINCT tl2.statement_id
+                    FROM system.access.table_lineage tl2
+                    WHERE tl2.event_time >= %s
+                        AND tl2.event_time <= %s
+                        AND {catalog_filter}
+                )"""
+
+        query = f"""
+            SELECT
+                qh.statement_id,
+                qh.statement_text,
+                qh.statement_type,
+                qh.start_time,
+                qh.end_time,
+                qh.executed_by,
+                qh.executed_as,
+                qh.executed_by_user_id,
+                qh.executed_as_user_id,
+                tl.source_table_full_name,
+                tl.target_table_full_name
+            FROM system.query.history qh
+            LEFT JOIN system.access.table_lineage tl
+                ON qh.statement_id = tl.statement_id
+                AND tl.event_time >= %s
+                AND tl.event_time <= %s
+            WHERE
+                qh.start_time >= %s
+                AND qh.end_time <= %s
+                AND qh.execution_status = 'FINISHED'
+                AND qh.statement_type IN ({statement_type_filter}){catalog_pushdown_clause}
+            ORDER BY qh.start_time, qh.statement_id
+        """
+
+        params_list: list[Any] = [start_time, end_time, start_time, end_time]
+        if catalog_pattern is not None:
+            params_list.extend([start_time, end_time, *catalog_filter_params])
+        params = tuple(params_list)
+
+        def _query_from_row(row: Row) -> Optional[Query]:
+            if not row.statement_text or not row.start_time or not row.end_time:
+                return None
+            return Query(
+                query_id=row.statement_id,
+                query_text=row.statement_text,
+                statement_type=(
+                    QueryStatementType(row.statement_type)
+                    if row.statement_type
+                    else None
+                ),
+                start_time=row.start_time,
+                end_time=row.end_time,
+                user_id=row.executed_by_user_id,
+                user_name=row.executed_by,
+                executed_as_user_id=row.executed_as_user_id,
+                executed_as_user_name=row.executed_as,
+            )
+
+        current_statement_id: Optional[str] = None
+        current_query: Optional[Query] = None
+        source_names: set[str] = set()
+        target_names: set[str] = set()
+
+        def _flush_current() -> Iterable[Query]:
+            nonlocal current_query, source_names, target_names
+            if current_query is None:
+                source_names = set()
+                target_names = set()
+                return
+            yield dataclasses.replace(
+                current_query,
+                source_table_full_names=sorted(source_names),
+                target_table_full_names=sorted(target_names),
+            )
+            current_query = None
+            source_names = set()
+            target_names = set()
+
+        missing_info_before = self.report.num_queries_missing_info
+        row_field_errors_before = self.report.num_lineage_row_field_read_errors
+        try:
+            with closing(self._execute_sql_query_streaming(query, params)) as rows:
+                for row in rows:
+                    try:
+                        statement_id = row.statement_id
+                    except _ROW_FIELD_READ_EXCEPTIONS:
+                        # Can't determine grouping for this row. Skip it without
+                        # disturbing the in-progress statement so a single bad row
+                        # doesn't split a statement into duplicate emissions.
+                        self.report.num_lineage_row_field_read_errors += 1
+                        logger.debug(
+                            "Skipping system.query.history row with unreadable "
+                            "statement_id",
+                            exc_info=True,
+                        )
+                        continue
+
+                    if statement_id != current_statement_id:
+                        yield from _flush_current()
+                        current_statement_id = statement_id
+                        try:
+                            parsed = _query_from_row(row)
+                        except _ROW_PARSE_EXCEPTIONS:
+                            logger.debug(
+                                "Skipping unparseable statement from "
+                                "system.query.history (statement_id=%s)",
+                                statement_id,
+                                exc_info=True,
+                            )
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        if parsed is None:
+                            self.report.num_queries_missing_info += 1
+                            current_statement_id = None
+                            current_query = None
+                            continue
+                        current_query = parsed
+
+                    if current_query is None:
+                        continue
+
+                    # Field-read errors are owned by _optional_row_field, which
+                    # counts them and returns None — accumulation continues into the
+                    # same statement group rather than flushing a partial result.
+                    source_name = _optional_row_field(
+                        row, "source_table_full_name", self.report
+                    )
+                    if source_name:
+                        source_names.add(source_name)
+                    target_name = _optional_row_field(
+                        row, "target_table_full_name", self.report
+                    )
+                    if target_name:
+                        target_names.add(target_name)
+
+            yield from _flush_current()
+        finally:
+            parse_failures = self.report.num_queries_missing_info - missing_info_before
+            if parse_failures > 0:
+                self.report.warning(
+                    title="Failed to parse queries from system tables",
+                    message=(
+                        "Statements from system.query.history could not be parsed "
+                        "and were skipped."
+                    ),
+                    context=f"count={parse_failures}",
+                    log=False,
+                )
+            row_field_errors = (
+                self.report.num_lineage_row_field_read_errors - row_field_errors_before
+            )
+            if row_field_errors > 0:
+                self.report.warning(
+                    title="Failed to read lineage row fields",
+                    message=(
+                        "Lineage column values from system.access.table_lineage "
+                        "could not be read and were skipped."
+                    ),
+                    context=f"count={row_field_errors}",
+                    log=False,
+                )
+
+    def _build_datetime_where_conditions(
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
+    ) -> str:
+        """Build datetime filtering conditions for lineage queries."""
+        conditions = []
+        if start_time:
+            conditions.append(f"event_time >= '{start_time.isoformat()}'")
+        if end_time:
+            conditions.append(f"event_time <= '{end_time.isoformat()}'")
+        return " AND " + " AND ".join(conditions) if conditions else ""
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_table_lineage_via_system_tables(
+        self,
+        catalog: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> FileBackedDict[TableLineageInfo]:
+        """Get table lineage for all tables in a catalog using system tables."""
+        logger.info(f"Fetching table lineage for catalog: {catalog}")
+        try:
+            additional_where = self._build_datetime_where_conditions(
+                start_time, end_time
+            )
+
+            query = f"""
+                SELECT
+                    entity_type, entity_id,
+                    source_table_full_name, source_type, source_path,
+                    target_table_full_name, target_type,
+                    max(event_time) as last_updated
+                FROM system.access.table_lineage
+                WHERE
+                    (target_table_catalog = %s or source_table_catalog = %s)
+                    {additional_where}
+                GROUP BY
+                    entity_type, entity_id,
+                    source_table_full_name, source_type, source_path,
+                    target_table_full_name, target_type
+                """
+            rows = self._execute_sql_query(query, [catalog, catalog])
+
+            result_dict: FileBackedDict[TableLineageInfo] = FileBackedDict()
+            for row in rows:
+                entity_type = row["entity_type"]
+                entity_id = row["entity_id"]
+                source_full_name = row["source_table_full_name"]
+                target_full_name = row["target_table_full_name"]
+                source_type = row["source_type"]
+                source_path = row["source_path"]
+                last_updated = row["last_updated"]
+
+                # Initialize TableLineageInfo for both source and target tables if they're in our catalog
+                for table_name in [source_full_name, target_full_name]:
+                    if (
+                        table_name
+                        and table_name.startswith(f"{catalog}.")
+                        and table_name not in result_dict
+                    ):
+                        result_dict[table_name] = TableLineageInfo()
+
+                # Process upstream relationships (target table gets upstreams)
+                if target_full_name and target_full_name.startswith(f"{catalog}."):
+                    # Handle table upstreams
+                    if (
+                        source_type in ["TABLE", "VIEW"]
+                        and source_full_name != target_full_name
+                    ):
+                        upstream = TableUpstream(
+                            table_name=source_full_name,
+                            source_type=source_type,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].upstreams.append(upstream)
+
+                    # Handle external upstreams (PATH type)
+                    elif source_type == "PATH":
+                        external_upstream = ExternalUpstream(
+                            path=source_path,
+                            source_type=source_type,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].external_upstreams.append(
+                            external_upstream
+                        )
+
+                    # Handle upstream notebooks (notebook -> table)
+                    elif entity_type == "NOTEBOOK":
+                        notebook_ref = NotebookReference(
+                            id=entity_id,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].upstream_notebooks.append(
+                            notebook_ref
+                        )
+
+                # Process downstream relationships (source table gets downstream notebooks)
+                if (
+                    entity_type == "NOTEBOOK"
+                    and source_full_name
+                    and source_full_name.startswith(f"{catalog}.")
+                ):
+                    notebook_ref = NotebookReference(
+                        id=entity_id,
+                        last_updated=last_updated,
+                    )
+                    result_dict[source_full_name].downstream_notebooks.append(
+                        notebook_ref
+                    )
+
+            return result_dict
+        except Exception as e:
+            logger.warning(
+                f"Error getting table lineage for catalog {catalog}: {e}",
+                exc_info=True,
+            )
+            return FileBackedDict()
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_column_lineage_via_system_tables(
+        self,
+        catalog: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> FileBackedDict[Dict[str, dict]]:
+        """Get column lineage for all tables in a catalog using system tables."""
+        logger.info(f"Fetching column lineage for catalog: {catalog}")
+        try:
+            additional_where = self._build_datetime_where_conditions(
+                start_time, end_time
+            )
+
+            query = f"""
+                SELECT
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
+                    target_table_schema, target_table_name, target_column_name,
+                    max(event_time) as last_updated
+                FROM system.access.column_lineage
+                WHERE
+                    target_table_catalog = %s
+                    AND target_table_schema IS NOT NULL
+                    AND target_table_name IS NOT NULL
+                    AND target_column_name IS NOT NULL
+                    AND source_table_catalog IS NOT NULL
+                    AND source_table_schema IS NOT NULL
+                    AND source_table_name IS NOT NULL
+                    AND source_column_name IS NOT NULL
+                    {additional_where}
+                GROUP BY
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
+                    target_table_schema, target_table_name, target_column_name
+                """
+            rows = self._execute_sql_query(query, [catalog])
+
+            result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
+            for row in rows:
+                result_dict.setdefault(row["target_table_schema"], {}).setdefault(
+                    row["target_table_name"], {}
+                ).setdefault(row["target_column_name"], []).append(
+                    # make fields look like the response from the older HTTP API
+                    {
+                        "catalog_name": row["source_table_catalog"],
+                        "schema_name": row["source_table_schema"],
+                        "table_name": row["source_table_name"],
+                        "name": row["source_column_name"],
+                        "last_updated": row["last_updated"],
+                    }
+                )
+
+            return result_dict
+        except Exception as e:
+            logger.warning(
+                f"Error getting column lineage for catalog {catalog}: {e}",
+                exc_info=True,
+            )
+            return FileBackedDict()
+
+    def list_lineages_by_table_via_http_api(
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
+        logger.debug(f"Getting table lineage for {table_name}")
         return self._workspace_client.api_client.do(  # type: ignore
             method="GET",
             path="/api/2.0/lineage-tracking/table-lineage",
@@ -293,67 +1167,225 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             },
         )
 
-    def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
+    def list_lineages_by_column_via_http_api(
+        self, table_name: str, column_name: str
+    ) -> list:
         """List column lineage by table name and column name."""
-        return self._workspace_client.api_client.do(  # type: ignore
-            "GET",
-            "/api/2.0/lineage-tracking/column-lineage",
-            body={"table_name": table_name, "column_name": column_name},
-        )
+        logger.debug(f"Getting column lineage for {table_name}.{column_name}")
+        try:
+            return (
+                self._workspace_client.api_client.do(  # type: ignore
+                    "GET",
+                    "/api/2.0/lineage-tracking/column-lineage",
+                    body={"table_name": table_name, "column_name": column_name},
+                ).get("upstream_cols")
+                or []
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error getting column lineage on table {table_name}, column {column_name}: {e}",
+                exc_info=True,
+            )
+            return []
 
-    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
+    def table_lineage(
+        self,
+        table: Table,
+        include_entity_lineage: bool,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> None:
         if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
             # Lineage is not available for Hive Metastore Tables.
             return None
-        # Lineage endpoint doesn't exists on 2.1 version
+
         try:
-            response: dict = self.list_lineages_by_table(
-                table_name=table.ref.qualified_table_name,
-                include_entity_lineage=include_entity_lineage,
-            )
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LineageDataSource.API:
+                use_system_tables = False
+            elif self.lineage_data_source == LineageDataSource.AUTO:
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
 
-            for item in response.get("upstreams") or []:
-                if "tableInfo" in item:
-                    table_ref = TableReference.create_from_lineage(
-                        item["tableInfo"], table.schema.catalog.metastore
-                    )
-                    if table_ref:
-                        table.upstreams[table_ref] = {}
-                elif "fileInfo" in item:
-                    external_ref = ExternalTableReference.create_from_lineage(
-                        item["fileInfo"]
-                    )
-                    if external_ref:
-                        table.external_upstreams.add(external_ref)
-
-                for notebook in item.get("notebookInfos") or []:
-                    table.upstream_notebooks.add(notebook["notebook_id"])
-
-            for item in response.get("downstreams") or []:
-                for notebook in item.get("notebookInfos") or []:
-                    table.downstream_notebooks.add(notebook["notebook_id"])
+            if use_system_tables:
+                self._process_system_table_lineage(table, start_time, end_time)
+            else:
+                self._process_table_lineage_via_http_api(table, include_entity_lineage)
         except Exception as e:
             logger.warning(
                 f"Error getting lineage on table {table.ref}: {e}", exc_info=True
             )
 
-    def get_column_lineage(self, table: Table, column_name: str) -> None:
-        try:
-            response: dict = self.list_lineages_by_column(
-                table_name=table.ref.qualified_table_name,
-                column_name=column_name,
+    def _process_system_table_lineage(
+        self,
+        table: Table,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> None:
+        """Process table lineage using system.access.table_lineage table."""
+        catalog_lineage = self.get_catalog_table_lineage_via_system_tables(
+            table.ref.catalog, start_time, end_time
+        )
+        table_full_name = table.ref.qualified_table_name
+
+        lineage_info = catalog_lineage.get(table_full_name, TableLineageInfo())
+
+        # Process table upstreams
+        for upstream in lineage_info.upstreams:
+            upstream_table_name = upstream.table_name
+            parts = split_databricks_identifier(upstream_table_name)
+            if parts is not None and len(parts) == 3:
+                catalog_name, schema_name, table_name = parts[0], parts[1], parts[2]
+                table_ref = TableReference(
+                    metastore=table.schema.catalog.metastore.id
+                    if table.schema.catalog.metastore
+                    else None,
+                    catalog=catalog_name,
+                    schema=schema_name,
+                    table=table_name,
+                    last_updated=upstream.last_updated,
+                )
+                table.upstreams[table_ref] = {}
+            else:
+                logger.warning(
+                    f"Unexpected upstream table format: {upstream_table_name} for table {table_full_name}"
+                )
+                continue
+
+        # Process external upstreams
+        for external_upstream in lineage_info.external_upstreams:
+            external_ref = ExternalTableReference(
+                path=external_upstream.path,
+                has_permission=True,
+                name=None,
+                type=None,
+                storage_location=external_upstream.path,
+                last_updated=external_upstream.last_updated,
             )
-            for item in response.get("upstream_cols") or []:
+            table.external_upstreams.add(external_ref)
+
+        # Process upstream notebook lineage
+        for notebook_ref in lineage_info.upstream_notebooks:
+            existing_ref = table.upstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
+
+        # Process downstream notebook lineage
+        for notebook_ref in lineage_info.downstream_notebooks:
+            existing_ref = table.downstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
+
+    def _process_table_lineage_via_http_api(
+        self, table: Table, include_entity_lineage: bool
+    ) -> None:
+        """Process table lineage using the HTTP API (legacy fallback)."""
+        response: dict = self.list_lineages_by_table_via_http_api(
+            table_name=table.ref.qualified_table_name,
+            include_entity_lineage=include_entity_lineage,
+        )
+
+        for item in response.get("upstreams") or []:
+            if "tableInfo" in item:
                 table_ref = TableReference.create_from_lineage(
-                    item, table.schema.catalog.metastore
+                    item["tableInfo"], table.schema.catalog.metastore
                 )
                 if table_ref:
-                    table.upstreams.setdefault(table_ref, {}).setdefault(
-                        column_name, []
-                    ).append(item["name"])
+                    table.upstreams[table_ref] = {}
+            elif "fileInfo" in item:
+                external_ref = ExternalTableReference.create_from_lineage(
+                    item["fileInfo"]
+                )
+                if external_ref:
+                    table.external_upstreams.add(external_ref)
+
+            for notebook in item.get("notebookInfos") or []:
+                notebook_ref = NotebookReference(
+                    id=notebook["notebook_id"],
+                )
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
+
+        for item in response.get("downstreams") or []:
+            for notebook in item.get("notebookInfos") or []:
+                notebook_ref = NotebookReference(
+                    id=notebook["notebook_id"],
+                )
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
+
+    def get_column_lineage(
+        self,
+        table: Table,
+        column_names: List[str],
+        *,
+        max_workers: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> None:
+        try:
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LineageDataSource.API:
+                use_system_tables = False
+            elif self.lineage_data_source == LineageDataSource.AUTO:
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
+
+            if use_system_tables:
+                lineage = (
+                    self.get_catalog_column_lineage_via_system_tables(
+                        table.ref.catalog, start_time, end_time
+                    )
+                    .get(table.ref.schema, {})
+                    .get(table.ref.table, {})
+                )
+            else:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [
+                        executor.submit(
+                            self.list_lineages_by_column_via_http_api,
+                            table.ref.qualified_table_name,
+                            column_name,
+                        )
+                        for column_name in column_names
+                    ]
+                lineage = {
+                    column_name: future.result()
+                    for column_name, future in zip(column_names, futures, strict=False)
+                }
+
+            for column_name in column_names:
+                for item in lineage.get(column_name) or []:
+                    table_ref = TableReference.create_from_lineage(
+                        item,
+                        table.schema.catalog.metastore,
+                    )
+                    if table_ref:
+                        table.upstreams.setdefault(table_ref, {}).setdefault(
+                            column_name, []
+                        ).append(item["name"])
+
         except Exception as e:
             logger.warning(
-                f"Error getting column lineage on table {table.ref}, column {column_name}: {e}",
+                f"Error getting column lineage on table {table.ref}: {e}",
                 exc_info=True,
             )
 
@@ -392,6 +1424,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=obj.comment,
             owner=obj.owner,
             type=obj.catalog_type,
+            connection_name=obj.connection_name,
+            options=obj.options,
         )
 
     def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Optional[Schema]:
@@ -420,6 +1454,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             position=obj.position,
             nullable=obj.nullable,
             comment=obj.comment,
+            partition_index=obj.partition_index,
         )
 
     def _create_table(
@@ -461,6 +1496,88 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if optional_column:
                 yield optional_column
 
+    def get_table_constraints(self, table: Table) -> List[TableConstraint]:
+        """Fetch table constraints (PK/FK) via a separate tables.get() call.
+
+        The Databricks tables.list() API does not return table_constraints; a
+        dedicated tables.get() call is required per table. Hive Metastore
+        catalog tables do not support constraints and are skipped.
+
+        Note: this adds one Databricks API call per Unity Catalog table and is
+        subject to the workspace's API rate limits. Enable only via
+        include_table_constraints=True in the connector config.
+        """
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return []
+        try:
+            table_info = self._workspace_client.tables.get(
+                full_name=table.ref.qualified_table_name
+            )
+            return table_info.table_constraints or []
+        except Exception as e:
+            self.report.warning(
+                "table-constraints-fetch",
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+                log=False,
+            )
+            logger.warning(
+                f"Unable to fetch table constraints for {table.ref}: {e}",
+                exc_info=True,
+            )
+            return []
+
+    def _create_ml_model(
+        self, schema: Schema, obj: RegisteredModelInfo
+    ) -> Optional[Model]:
+        if not obj.name or not obj.full_name:
+            self.report.num_ml_models_missing_name += 1
+            return None
+        return Model(
+            id=obj.full_name,
+            name=obj.name,
+            description=obj.comment,
+            schema_name=schema.name,
+            catalog_name=schema.catalog.name,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+        )
+
+    def _create_ml_model_version(
+        self, model: Model, obj: ModelVersionInfo
+    ) -> Optional[ModelVersion]:
+        if obj.version is None:
+            return None
+
+        aliases = []
+        if obj.aliases:
+            for alias in obj.aliases:
+                if alias.alias_name:
+                    aliases.append(alias.alias_name)
+
+        run_details: Optional[ModelRunDetails] = None
+        # Fetch run details if run_id exists
+        if obj.run_id:
+            run_details = self.get_run_details(obj.run_id)
+
+        # Extract signature separately from Files API
+        signature: Optional[ModelSignature] = self._extract_signature_from_files_api(
+            obj
+        )
+
+        return ModelVersion(
+            id=f"{model.id}_{obj.version}",
+            name=f"{model.name}_{obj.version}",
+            model=model,
+            version=str(obj.version),
+            aliases=aliases,
+            description=obj.comment,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+            created_by=obj.created_by,
+            run_details=run_details,
+            signature=signature,
+        )
+
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal
     ) -> Optional[ServicePrincipal]:
@@ -492,3 +1609,252 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_id=info.executed_as_user_id,
             executed_as_user_name=info.executed_as_user_name,
         )
+
+    def _check_warehouse_configured(self) -> bool:
+        """Return True if a warehouse is configured for SQL operations.
+
+        Reports a warning and returns False otherwise, so callers can short-circuit
+        with an empty result instead of raising.
+        """
+        if self.warehouse_id:
+            return True
+        self.report.warning(
+            title="Cannot execute SQL query",
+            message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
+            log=False,
+        )
+        logger.warning(
+            "Cannot execute SQL query: warehouse_id is not configured. "
+            "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+        )
+        return False
+
+    def _detected_proxy_env_vars(self) -> Dict[str, str]:
+        """Return proxy-related env vars (masked) that affect SQL connections."""
+        proxy_env_debug = {}
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            value = os.environ.get(var)
+            if value:
+                proxy_env_debug[var] = mask_proxy_credentials(value)
+        return proxy_env_debug
+
+    def _report_sql_query_failure(
+        self,
+        error: Exception,
+        query: str,
+        params: Sequence[Any],
+        *,
+        count_as_fetch_failure: bool = False,
+    ) -> None:
+        """Log and report a SQL execution failure, flagging likely proxy issues."""
+        logger.warning(f"Failed to execute SQL query: {error}", exc_info=True)
+        if logger.isEnabledFor(logging.DEBUG):
+            # Only log failed query details in debug mode for security
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
+
+        error_str = str(error).lower()
+        if any(
+            proxy_keyword in error_str
+            for proxy_keyword in [
+                "proxy",
+                "407",
+                "authentication required",
+                "tunnel",
+                "connect",
+            ]
+        ):
+            # Lazy: only collect proxy env vars when the error looks proxy-related.
+            proxy_env_debug = self._detected_proxy_env_vars()
+            logger.error(
+                "SQL query failure appears to be proxy-related. "
+                "Please check proxy configuration and authentication. "
+                f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
+            )
+
+        self.report.warning(
+            title="Failed to run SQL query",
+            message=(
+                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
+            ),
+            log=False,
+        )
+        if count_as_fetch_failure:
+            self.report.num_usage_query_fetch_failures += 1
+
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
+        """Execute SQL query using databricks-sql connector and materialize all rows.
+
+        Used by the small-result metadata queries (catalogs, schemas, columns, tags).
+        For large result sets (e.g. query history) prefer _execute_sql_query_streaming,
+        which bounds memory by yielding rows in batches instead of buffering everything.
+        """
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return []
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+
+        try:
+            with (
+                connect(**sql_connection_params) as connection,
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(query, list(params))
+                return cursor.fetchall()
+        except Exception as e:
+            self._report_sql_query_failure(e, query, params)
+            return []
+
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+    ) -> Generator[Row, None, None]:
+        """Execute a SQL query and yield rows in batches.
+
+        The connection stays open for the lifetime of iteration — bounded memory in
+        exchange for a longer-held connection. Callers must fully consume or close the
+        generator to release the connection.
+        On failure, reports a warning, increments num_usage_query_fetch_failures, and
+        yields nothing (does not raise). Consumer errors propagate cleanly because yield
+        is never inside a try/except.
+        """
+        logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        if not self._check_warehouse_configured():
+            return
+
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+
+        try:
+            connection = connect(**sql_connection_params)
+        except Exception as e:
+            self._report_sql_query_failure(
+                e, query, params, count_as_fetch_failure=True
+            )
+            return
+        with closing(connection):
+            try:
+                cursor = connection.cursor()
+                cursor.execute(query, list(params))
+            except Exception as e:
+                self._report_sql_query_failure(
+                    e, query, params, count_as_fetch_failure=True
+                )
+                return
+            with closing(cursor):
+                while True:
+                    try:
+                        batch = cursor.fetchmany(batch_size)
+                    except Exception as e:
+                        self._report_sql_query_failure(
+                            e, query, params, count_as_fetch_failure=True
+                        )
+                        return
+                    if not batch:
+                        break
+                    yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching schema tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.schema_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, tag_name, tag_value = row
+            schema_key = f"{catalog_name}.{schema_name}"
+
+            if schema_key not in result_dict:
+                result_dict[schema_key] = []
+
+            result_dict[schema_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching table tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.catalog_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, tag_name, tag_value = row
+
+            if catalog_name not in result_dict:
+                result_dict[catalog_name] = []
+
+            result_dict[catalog_name].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching table tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.table_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, table_name, tag_name, tag_value = row
+            table_key = f"{catalog_name}.{schema_name}.{table_name}"
+
+            if table_key not in result_dict:
+                result_dict[table_key] = []
+
+            result_dict[table_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
+            )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_column_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching column tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.column_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, table_name, column_name, tag_name, tag_value = (
+                row
+            )
+            column_key = f"{catalog_name}.{schema_name}.{table_name}.{column_name}"
+
+            if column_key not in result_dict:
+                result_dict[column_key] = []
+
+            result_dict[column_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
+            )
+
+        return result_dict

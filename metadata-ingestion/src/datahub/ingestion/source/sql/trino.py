@@ -18,11 +18,15 @@ from sqlalchemy.types import TypeEngine
 from trino.sqlalchemy import datatype
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -36,6 +40,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -56,6 +61,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NumberTypeClass,
     RecordTypeClass,
     SchemaField,
+)
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    SchemaMetadataClass,
+)
+from datahub.utilities.urns.field_paths import (
+    get_simple_field_path_from_v2_field_path,
 )
 
 register_custom_type(datatype.ROW, RecordTypeClass)
@@ -79,7 +93,7 @@ KNOWN_CONNECTOR_PLATFORM_MAPPING = {
 
 TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg"]
 
-PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg"]
+PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg", "lakehouse", "delta_lake"]
 
 # Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
 if version.parse(trino.__version__) >= version.parse("0.317.0"):
@@ -143,19 +157,25 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                 # No properties found, return empty dictionary
                 return {}
 
-            # Check if using the old format (key, value columns)
+            # Table properties can be returned in different formats depending on the connector, so we need to handle different cases.
+            # Lakehouse is a proxy for hive, iceberg and delta lake connectors. It can contain both formats.
             if (
-                connector_name == "iceberg"
+                connector_name in ["iceberg", "lakehouse", "delta_lake"]
                 and len(rows[0]) == 2
                 and "key" in rows[0]
                 and "value" in rows[0]
             ):
-                #  https://trino.io/docs/current/connector/iceberg.html#properties-table
+                # https://trino.io/docs/current/connector/iceberg.html#properties-table
+                # https://trino.io/docs/current/connector/delta-lake.html#properties-table
                 for row in rows:
                     if row["value"] is not None:
                         properties[row["key"]] = row["value"]
                 return {"text": properties.get("comment"), "properties": properties}
-            elif connector_name == "hive" and len(rows[0]) > 1 and len(rows) == 1:
+            elif (
+                connector_name in ["hive", "lakehouse"]
+                and len(rows[0]) > 1
+                and len(rows) == 1
+            ):
                 # https://trino.io/docs/current/connector/hive.html#properties-table
                 row = rows[0]
                 for col_name, col_value in row.items():
@@ -221,7 +241,7 @@ class ConnectorDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme: str = Field(default="trino", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="trino")
     database: str = Field(description="database (catalog)")
 
     catalog_to_connector_details: Dict[str, ConnectorDetail] = Field(
@@ -233,6 +253,12 @@ class TrinoConfig(BasicSQLAlchemyConfig):
     ingest_lineage_to_connectors: bool = Field(
         default=True,
         description="Whether lineage of datasets to connectors should be ingested",
+    )
+
+    include_column_lineage: bool = Field(
+        default=True,
+        description="When emitting upstreamLineage to connector sources (e.g. Iceberg, Hive), "
+        "include column-level (fine-grained) lineage. Requires schema to be available.",
     )
 
     trino_as_primary: bool = Field(
@@ -249,15 +275,31 @@ class TrinoConfig(BasicSQLAlchemyConfig):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Extract table-level lineage",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Column-level lineage when emitting lineage to connector sources (e.g. Iceberg, Hive)",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
 class TrinoSource(SQLAlchemySource):
     """
+    Extracts metadata and two distinct relations to connector datasets (e.g. Iceberg, Hive):
 
-    This plugin extracts the following:
+    - **Siblings**: Same logical dataset in two platforms (Trino catalog table ↔ connector table).
+    - **UpstreamLineage**: This Trino dataset reads from the connector dataset (table or view).
+      Optionally includes column-level lineage (fineGrainedLineages) when schema is available.
 
-    - Metadata for databases, schemas, and tables
-    - Column types and schema associated with each table
-    - Table, row, and column statistics via optional SQL profiling
-
+    Also extracts: databases, schemas, tables, column types, optional profiling.
     """
 
     config: TrinoConfig
@@ -338,18 +380,71 @@ class TrinoSource(SQLAlchemySource):
         self,
         dataset_urn: str,
         source_dataset_urn: str,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Generate dataset to source connector lineage workunit
+        Emit upstreamLineage from this Trino dataset to the connector dataset.
+        When include_column_lineage is True and schema_metadata has fields,
+        also emits fineGrainedLineages (column-level lineage) with 1:1 field mapping.
         """
+        fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
+        if (
+            self.config.include_column_lineage
+            and schema_metadata is not None
+            and schema_metadata.fields
+        ):
+            fine_grained_lineages = []
+            for field in schema_metadata.fields:
+                try:
+                    path = get_simple_field_path_from_v2_field_path(field.fieldPath)
+                    fine_grained_lineages.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[make_schema_field_urn(source_dataset_urn, path)],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[make_schema_field_urn(dataset_urn, path)],
+                        )
+                    )
+                except Exception as e:
+                    logging.debug(
+                        "Skipping column lineage for field %s: %s",
+                        field.fieldPath,
+                        e,
+                    )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=UpstreamLineage(
                 upstreams=[
                     Upstream(dataset=source_dataset_urn, type=DatasetLineageType.VIEW)
-                ]
+                ],
+                fineGrainedLineages=fine_grained_lineages,
             ),
         ).as_workunit()
+
+    def _emit_connector_lineage(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        entity: str,
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.ingest_lineage_to_connectors:
+            return
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        source_dataset_urn = self._get_source_dataset_urn(
+            dataset_name, inspector, schema, entity
+        )
+        if source_dataset_urn:
+            yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
+            yield from self.gen_lineage_workunit(
+                dataset_urn, source_dataset_urn, schema_metadata
+            )
 
     def _process_table(
         self,
@@ -360,22 +455,18 @@ class TrinoSource(SQLAlchemySource):
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        yield from super()._process_table(
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in super()._process_table(
             dataset_name, inspector, schema, table, sql_config, data_reader
+        ):
+            sm = wu.get_aspect_of_type(SchemaMetadataClass)
+            if sm is not None:
+                schema_metadata = sm
+            yield wu
+
+        yield from self._emit_connector_lineage(
+            dataset_name, inspector, schema, table, schema_metadata
         )
-        if self.config.ingest_lineage_to_connectors:
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, table
-            )
-            if source_dataset_urn:
-                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
     def _process_view(
         self,
@@ -385,25 +476,22 @@ class TrinoSource(SQLAlchemySource):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
-        yield from super()._process_view(
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in super()._process_view(
             dataset_name, inspector, schema, view, sql_config
+        ):
+            sm = wu.get_aspect_of_type(SchemaMetadataClass)
+            if sm is not None:
+                schema_metadata = sm
+            yield wu
+
+        yield from self._emit_connector_lineage(
+            dataset_name, inspector, schema, view, schema_metadata
         )
-        if self.config.ingest_lineage_to_connectors:
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
-            source_dataset_urn = self._get_source_dataset_urn(
-                dataset_name, inspector, schema, view
-            )
-            if source_dataset_urn:
-                yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TrinoConfig.parse_obj(config_dict)
+        config = TrinoConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     def get_schema_fields_for_column(

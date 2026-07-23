@@ -1,21 +1,19 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Check } from '@phosphor-icons/react';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentResolutionPopup } from '@app/entityV2/shared/tabs/Incident/IncidentResolutionPopup';
 import { ResolvedSection } from '@app/entityV2/shared/tabs/Incident/ResolvedSection';
-import { noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
 import { ResolverNameContainer } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
-import { Button, Pill, Popover, colors } from '@src/alchemy-components';
+import { Button, Pill, Popover } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { CorpUser, EntityPrivileges, IncidentState } from '@src/types.generated';
-
-const ME = 'Me';
 
 const Container = styled.div`
     margin-right: 12px;
@@ -37,6 +35,8 @@ export const IncidentResolveButton = ({
     refetch: () => void;
     privileges?: EntityPrivileges;
 }) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const theme = useTheme();
     const canEditIncidents = privileges?.canEditIncidents || false;
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
@@ -44,7 +44,7 @@ export const IncidentResolveButton = ({
     const [getAssigneeEntities, { data: resolvedAssigneeEntities, loading }] = useGetEntitiesLazyQuery();
     const resolverName =
         me?.urn === incidentResolver?.urn
-            ? ME
+            ? t('resolution.me')
             : incidentResolver?.properties?.displayName || incidentResolver?.username;
 
     useEffect(() => {
@@ -69,7 +69,7 @@ export const IncidentResolveButton = ({
     };
 
     const checkIconRenderer = () => {
-        return <Check color="#248F5B" height={9} width={12} />;
+        return <Check color={theme.colors.iconSuccess} height={9} width={12} />;
     };
 
     const showPopoverWithResolver = loading ? (
@@ -102,8 +102,8 @@ export const IncidentResolveButton = ({
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            backgroundColor: colors.gray[1300],
-                            color: colors.green[1000],
+                            backgroundColor: theme.colors.bgSurfaceSuccess,
+                            color: theme.colors.textSuccess,
                         }}
                     />
                 </div>
@@ -125,9 +125,9 @@ export const IncidentResolveButton = ({
             data-testid="incident-resolve-button-container"
         >
             {incident?.state === IncidentState.Active ? (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? t('permission.noEditIncidents') : null}>
                     <ResolveButton disabled={!canEditIncidents} variant="text" onClick={handleShowPopup}>
-                        Resolve
+                        {t('resolution.resolveButton')}
                     </ResolveButton>
                 </Tooltip>
             ) : (

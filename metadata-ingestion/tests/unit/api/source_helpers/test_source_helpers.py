@@ -1,25 +1,33 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import List, Optional, Union
+from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
-    auto_patch_last_modified,
-)
 from datahub.ingestion.api.source_helpers import (
     auto_empty_dataset_usage_statistics,
-    auto_lowercase_urns,
-    auto_status_aspect,
     auto_workunit,
     create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_patch_last_modified import (
+    AutoPatchLastModifiedProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_status_aspect import (
+    AutoStatusAspectProcessor,
+    _gms_supports_status_patch,
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     OperationTypeClass,
@@ -77,6 +85,7 @@ def test_auto_workunit():
 
 
 def test_auto_status_aspect():
+    """Default (no GMS config) emits UPSERT status aspects."""
     initial_wu = list(auto_workunit(_base_metadata))
 
     expected = [
@@ -96,7 +105,161 @@ def test_auto_status_aspect():
             )
         ),
     ]
-    assert list(auto_status_aspect(initial_wu)) == expected
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    assert list(processor.process(initial_wu)) == expected
+
+
+def test_auto_status_aspect_patch_mode():
+    """When GMS supports status PATCH, emit PATCH MCPs instead of UPSERT."""
+    initial_wu = list(auto_workunit(_base_metadata))
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=True,
+    ):
+        result = list(processor.process(initial_wu))
+
+    # First N items are the original workunits passed through unchanged.
+    assert result[: len(initial_wu)] == initial_wu
+
+    # The processor should emit PATCH MCPs for URNs that didn't already have a
+    # status aspect in the stream.
+    auto_status_wus = result[len(initial_wu) :]
+    assert len(auto_status_wus) == 2
+
+    auto_status_urns = [wu.get_urn() for wu in auto_status_wus]
+    assert auto_status_urns == [
+        "urn:li:container:008e111aa1d250dd52e0fd5d4b307b1a",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_aha.staffing,PROD)",
+    ]
+
+    for wu in auto_status_wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, models.MetadataChangeProposalClass)
+        assert mcp.changeType == models.ChangeTypeClass.PATCH
+        assert mcp.aspectName == "status"
+
+    assert processor.report.status_patch_mode is True
+
+
+def test_auto_status_aspect_upsert_fallback():
+    """When GMS does not support status PATCH, fall back to UPSERT."""
+    initial_wu = list(auto_workunit(_base_metadata))
+
+    processor = AutoStatusAspectProcessor.create(mock.MagicMock())
+    with mock.patch(
+        "datahub.ingestion.workunit_processors.auto_status_aspect._gms_supports_status_patch",
+        return_value=False,
+    ):
+        result = list(processor.process(initial_wu))
+
+    auto_status_wus = result[len(initial_wu) :]
+    assert len(auto_status_wus) == 2
+
+    for wu in auto_status_wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert isinstance(mcp.aspect, models.StatusClass)
+        assert mcp.aspect.removed is False
+
+    assert processor.report.status_patch_mode is False
+
+
+class TestGmsSupportsStatusPatch:
+    """Tests for the _gms_supports_status_patch version-gating logic."""
+
+    def test_no_config_returns_false(self) -> None:
+        """When GMS config is unavailable (e.g. file sink), returns False."""
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value={},
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_cloud_below_threshold_returns_false(self) -> None:
+        """Cloud server below v2.1.0 should not support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v2.0.5"}},
+            "datahub": {"serverEnv": "cloud"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_cloud_at_threshold_returns_true(self) -> None:
+        """Cloud server at exactly v2.1.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v2.1.0"}},
+            "datahub": {"serverEnv": "cloud"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_core_below_threshold_returns_false(self) -> None:
+        """Core server below v1.7.0 should not support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.6.9"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
+
+    def test_core_at_threshold_returns_true(self) -> None:
+        """Core server at exactly v1.7.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.7.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_core_above_threshold_returns_true(self) -> None:
+        """Core server above v1.7.0 should support status PATCH."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.8.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_raw_dict_config_is_wrapped(self) -> None:
+        """When get_gms_config returns a plain dict, it should be wrapped in RestServiceConfig."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "v1.7.0"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is True
+
+    def test_null_version_string_returns_false(self) -> None:
+        """Misconfigured GMS /config version should fall back to UPSERT, not crash."""
+        config = {
+            "versions": {"acryldata/datahub": {"version": "null"}},
+            "datahub": {"serverEnv": "core"},
+        }
+        with mock.patch(
+            "datahub.ingestion.workunit_processors.auto_status_aspect.get_gms_config",
+            return_value=config,
+        ):
+            assert _gms_supports_status_patch() is False
 
 
 def test_auto_lowercase_aspects():
@@ -165,10 +328,57 @@ def test_auto_lowercase_aspects():
             )
         ),
     ]
-    assert list(auto_lowercase_urns(mcws)) == expected
+    processor = AutoLowercaseUrnsProcessor(mock.MagicMock())
+    assert list(processor.process(mcws)) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+def _lowercase_ctx(
+    recipe_config: object, parsed_default: bool
+) -> WorkunitProcessorContext:
+    """Build a context whose recipe dict is `recipe_config` and whose parsed
+    source config defaults convert_urns_to_lowercase to `parsed_default`."""
+    pipeline_config = SimpleNamespace(source=SimpleNamespace(config=recipe_config))
+    pipeline_context = SimpleNamespace(pipeline_config=pipeline_config)
+    return WorkunitProcessorContext(
+        source_report=mock.MagicMock(),
+        pipeline_context=pipeline_context,  # type: ignore[arg-type]
+        source_config=SimpleNamespace(convert_urns_to_lowercase=parsed_default),  # type: ignore[arg-type]
+        platform=None,
+    )
+
+
+def test_auto_lowercase_should_enable_ignores_connector_default():
+    # A recipe that never sets the flag must NOT lowercase, even when the
+    # connector default is True (e.g. Snowflake). Guards against the identity
+    # flip regression where the parsed default was honored.
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(recipe_config={}, parsed_default=True)
+        )
+        is False
+    )
+
+
+def test_auto_lowercase_should_enable_honors_explicit_recipe_value():
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(
+                recipe_config={"convert_urns_to_lowercase": True}, parsed_default=False
+            )
+        )
+        is True
+    )
+    assert (
+        AutoLowercaseUrnsProcessor.should_enable(
+            _lowercase_ctx(
+                recipe_config={"convert_urns_to_lowercase": False}, parsed_default=True
+            )
+        )
+        is False
+    )
+
+
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -> None:
     has_urn = make_dataset_urn("my_platform", "has_aspect")
     empty_urn = make_dataset_urn("my_platform", "no_aspect")
@@ -203,7 +413,9 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
         MetadataChangeProposalWrapper(
             entityUrn=empty_urn,
             aspect=models.DatasetUsageStatisticsClass(
-                timestampMillis=int(datetime(2023, 1, 1).timestamp() * 1000),
+                timestampMillis=int(
+                    datetime(2023, 1, 1, tzinfo=timezone.utc).timestamp() * 1000
+                ),
                 eventGranularity=models.TimeWindowSizeClass(
                     models.CalendarIntervalClass.DAY
                 ),
@@ -217,7 +429,7 @@ def test_auto_empty_dataset_usage_statistics(caplog: pytest.LogCaptureFixture) -
     ]
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_empty_dataset_usage_statistics_invalid_timestamp(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -315,7 +527,7 @@ def get_auto_generated_wu() -> List[MetadataWorkUnit]:
     return auto_generated_work_units
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_no_change():
     mcps = [
         MetadataChangeProposalWrapper(
@@ -328,12 +540,11 @@ def test_auto_patch_last_modified_no_change():
 
     expected = initial_wu
 
-    assert (
-        list(auto_patch_last_modified(initial_wu)) == expected
-    )  # There should be no change
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(initial_wu)) == expected  # There should be no change
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_max_last_updated_timestamp():
     mcps = get_sample_mcps()
 
@@ -345,10 +556,11 @@ def test_auto_patch_last_modified_max_last_updated_timestamp():
 
     # work unit should contain a path of datasetProperties with lastModified set to max of operation.lastUpdatedTime
     # i.e., 20
-    assert list(auto_patch_last_modified(auto_workunit(mcps))) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(auto_workunit(mcps))) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_multi_patch():
     mcps = get_sample_mcps()
 
@@ -369,10 +581,11 @@ def test_auto_patch_last_modified_multi_patch():
 
     # In this case, the final work units include two patch units: one originating from the source and
     # the other from auto_patch_last_modified.
-    assert list(auto_patch_last_modified(work_units)) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == expected
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_exist():
     mcps = get_sample_mcps()
 
@@ -392,10 +605,11 @@ def test_auto_patch_last_modified_last_modified_patch_exist():
     # The input and output should align since the source is generating a patch for datasetProperties with the
     # lastModified attribute.
     # Therefore, `auto_patch_last_modified` should not create any additional patch.
-    assert list(auto_patch_last_modified(work_units)) == work_units
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == work_units
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00+00:00", tick=False)
 def test_auto_patch_last_modified_last_modified_patch_not_exist():
     mcps = get_sample_mcps()
 
@@ -417,4 +631,5 @@ def test_auto_patch_last_modified_last_modified_patch_not_exist():
         *get_auto_generated_wu(),  # The output should include an additional patch for the `lastModified` attribute.
     ]
 
-    assert list(auto_patch_last_modified(work_units)) == expected
+    processor = AutoPatchLastModifiedProcessor.create(mock.MagicMock())
+    assert list(processor.process(work_units)) == expected

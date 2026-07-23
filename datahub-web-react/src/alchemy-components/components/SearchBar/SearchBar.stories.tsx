@@ -64,6 +64,13 @@ const meta = {
                 type: 'boolean',
             },
         },
+        clearIcon: {
+            description: 'Optional custom clear icon',
+            table: {
+                defaultValue: { summary: 'undefined' },
+                type: { summary: 'ReactNode' },
+            },
+        },
         onChange: {
             description: 'On change function for the search bar.',
         },

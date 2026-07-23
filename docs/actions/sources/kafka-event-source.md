@@ -1,3 +1,7 @@
+---
+description: "Configure the Kafka event source to consume DataHub metadata change events directly from Kafka topics for custom Action pipelines."
+---
+
 # Kafka Event Source
 
 ## Overview
@@ -59,7 +63,7 @@ source:
         #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
     # Topic Routing - which topics to read from.
     topic_routes:
-      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLog_v1 events.
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLogEvent_v1 events.
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1} # Topic name for PlatformEvent_v1 events.
 action:
   # action configs
@@ -75,7 +79,101 @@ action:
   | `connection.consumer_config` | ❌ | {} | A set of key-value pairs that represents arbitrary Kafka Consumer configs |
   | `topic_routes.mcl` | ❌  | `MetadataChangeLog_v1` | The name of the topic containing MetadataChangeLog events |
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
+  | `async_commit_enabled` | ❌ | `true` | Use async (periodic background) offset commits. Set to `false` for batch-processing actions. |
+  | `async_commit_interval` | ❌ | `10000` | Milliseconds between background offset commits (only used when `async_commit_enabled` is `true`) |
+  | `commit_retry_count` | ❌ | `5` | Number of retries on synchronous commit failure (only used when `async_commit_enabled` is `false`) |
+  | `commit_retry_backoff` | ❌ | `10.0` | Seconds between synchronous commit retries (only used when `async_commit_enabled` is `false`) |
 </details>
+
+## Schema Registry Configuration
+
+The Kafka Event Source requires a schema registry to deserialize events. There are several ways to configure the schema registry:
+
+### Default Schema Registry
+
+When using the default schema registry that comes with DataHub, you can use the internal URL:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "http://datahub-datahub-gms:8080/schema-registry/api/"
+```
+
+Note: If you're running this outside the DataHub cluster, you'll need to map this internal URL to an externally accessible URL.
+
+### External Schema Registry
+
+For external schema registries (like Confluent Cloud), you'll need to provide the full URL and any necessary authentication:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "https://your-schema-registry-url"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+```
+
+### AWS Glue Schema Registry
+
+If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](../../deploy/aws.md/#aws-glue-schema-registry) for details.
+
+## Offset Commit Modes
+
+The Kafka Event Source supports two offset commit strategies, controlled by the `async_commit_enabled` configuration option.
+
+### Async Commits (default)
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: true # default
+    async_commit_interval: 10000 # ms between background commits (default: 10s)
+```
+
+After each event is processed, the offset is stored locally via `store_offsets()`. A background thread
+in librdkafka periodically commits all stored offsets to Kafka at the configured interval. This is the
+[manual store + auto commit](https://github.com/confluentinc/librdkafka/blob/master/INTRODUCTION.md#auto-offset-commit)
+pattern.
+
+**Tradeoff:** On consumer crash, up to `async_commit_interval` milliseconds of events may be
+redelivered. For idempotent actions (all built-in actions), this is a non-issue.
+
+**Performance:** Async commits eliminate the ~3ms synchronous Kafka round-trip per event, which can
+yield up to 25x throughput improvement for high-volume pipelines.
+
+### Sync Commits
+
+```yml
+source:
+  type: "kafka"
+  config:
+    async_commit_enabled: false
+    commit_retry_count: 5 # retries on commit failure (default: 5)
+    commit_retry_backoff: 10.0 # seconds between retries (default: 10)
+```
+
+After each event is processed, the consumer performs a blocking synchronous commit to Kafka. This
+provides tighter delivery guarantees at the cost of throughput (~326 events/sec per pod vs ~8,200
+with async).
+
+### Batch-Processing Actions
+
+Batch-processing actions (where `act()` returns `False` to defer acknowledgment) work with both
+commit modes. When an action returns `False`, no offset is stored or committed for that event.
+The action later calls `ctx.event_source.ack(event, processed=True)` to commit the offset when
+the batch is ready.
+
+| Mode                | Commit Timing               | Throughput            | Use Case                              |
+| ------------------- | --------------------------- | --------------------- | ------------------------------------- |
+| **Async** (default) | Background thread, periodic | High (~8,200 evt/sec) | All actions, including batch          |
+| **Sync**            | Immediate, per-event        | Lower (~326 evt/sec)  | When tighter offset control is needed |
 
 ## FAQ
 
@@ -84,7 +182,3 @@ action:
 Currently, the only way is to change the `name` of the Action in its configuration file. In the future,
 we are hoping to add first-class support for configuring the action to be "stateless", ie only process
 messages that are received while the Action is running.
-
-2. Is there a way to asynchronously commit offsets back to Kafka?
-
-Currently, all consumer offset commits are made synchronously for each message received. For now we've optimized for correctness over performance.

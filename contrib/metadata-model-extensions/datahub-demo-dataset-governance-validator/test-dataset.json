@@ -1,0 +1,20 @@
+{
+  "auditHeader": null,
+  "entityType": "dataset",
+  "entityUrn": "urn:li:dataset:(mysql,test_database.test_table,PROD)",
+  "entityKeyAspect": {
+    "value": {
+      "name": "test_database.test_table",
+      "platform": "urn:li:dataPlatform:mysql",
+      "origin": "PROD"
+    }
+  },
+  "changeType": "UPSERT",
+  "aspectName": "datasetProperties",
+  "aspect": {
+    "value": {
+      "name": "Test Table",
+      "description": "A test table without governance metadata"
+    }
+  }
+}

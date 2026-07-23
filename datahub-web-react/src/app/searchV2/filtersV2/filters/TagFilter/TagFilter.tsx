@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
@@ -19,7 +20,16 @@ function TagLabel({ entity }: PlatformLabelProps) {
 }
 
 export default function TagFilter(props: FilterComponentProps) {
+    const { t: tc } = useTranslation('common.labels');
     const renderEntity = useCallback((entity: Entity) => <TagLabel entity={entity} />, []);
 
-    return <BaseEntityFilter {...props} renderEntity={renderEntity} entityTypes={[EntityType.Tag]} filterName="Tags" />;
+    return (
+        <BaseEntityFilter
+            {...props}
+            renderEntity={renderEntity}
+            entityTypes={[EntityType.Tag]}
+            filterName={tc('tags')}
+            dataTestId="filter-tag"
+        />
+    );
 }

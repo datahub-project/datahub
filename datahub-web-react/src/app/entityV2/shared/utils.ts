@@ -1,7 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { TimeWindowSize } from '@app/shared/time/timeUtils';
@@ -10,8 +11,8 @@ import {
     ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
+    DataPlatform,
     DataProduct,
-    Dataset,
     DatasetProfile,
     DatasetProperties,
     DatasetStatsSummary,
@@ -89,15 +90,13 @@ export const singularizeCollectionName = (collectionName: string): string => {
     return collectionName;
 };
 
-export function getPlatformName(entityData: GenericEntityProperties | null) {
-    const platformNames = entityData?.siblingPlatforms?.map(
-        (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
-    );
-    return (
-        platformNames?.[0] ||
-        entityData?.platform?.properties?.displayName ||
-        capitalizeFirstLetterOnly(entityData?.platform?.name)
-    );
+export function getPlatformNameFromEntityData(entityData: GenericEntityProperties | null) {
+    const platformNames = entityData?.siblingPlatforms?.map((platform) => getPlatformName(platform));
+    return platformNames?.[0] || getPlatformName(entityData?.platform);
+}
+
+export function getPlatformName(platform: DataPlatform | undefined | null) {
+    return platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name);
 }
 
 export function getExternalUrlDisplayName(entity: GenericEntityProperties | null) {
@@ -121,8 +120,6 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
 }
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
-
-export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
 
 export enum SidebarTitleActionType {
     LineageExplore = 'Lineage Explore',
@@ -148,8 +145,7 @@ function getGraphqlErrorCode(e) {
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
-            content:
-                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            content: i18next.t('entity.shared.actions:bulkEditUnauthorized'),
             duration: 3,
         };
     }
@@ -245,7 +241,7 @@ export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldP
         .filter((profile) => profile.fieldProfiles)
         .map((profile) => {
             const fieldProfiles = profile.fieldProfiles
-                ?.filter((field) => field.fieldPath === fieldPath)
+                ?.filter((field) => pathMatchesInsensitiveToV2(field.fieldPath, fieldPath))
                 .filter((field) => field[statName] !== null && field[statName] !== undefined);
 
             if (fieldProfiles?.length === 1) {
@@ -298,37 +294,6 @@ export function getDashboardLastUpdatedMs(
     return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }
 
-// return title case of the string with handling exceptions
-export const toProperTitleCase = (str: string) => {
-    return str
-        .toLowerCase()
-        .split(' ')
-        .map((word, index) =>
-            index === 0 || !TITLE_CASE_EXCEPTION_WORDS.includes(word)
-                ? word.charAt(0).toUpperCase() + word.slice(1)
-                : word,
-        )
-        .join(' ');
-};
-
-/**
- * Attempts to extract a description for a sub-resource of an entity, if it exists.
- * @param entity ie dataset
- * @param subResource ie field name
- * @returns the description of the sub-resource if it exists, otherwise undefined
- */
-export const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
-    // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
-    // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
-    const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    const maybeSchemaMetadataDescription = (entity as Dataset).schemaMetadata?.fields?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
-};
-
 /**
  * Type guard for entity type
  */
@@ -339,3 +304,97 @@ export function isEntityType(entityType?: string | null): entityType is EntityTy
     const possibleValues: Array<string> = Array.from(Object.values(EntityType));
     return possibleValues.includes(entityType);
 }
+
+const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
+const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
+const NESTED_URN_TYPES = ['schemaField'];
+
+export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
+    const [, , entityType, ...entityIdsStr] = urn.split(':');
+    const entityIds = splitEntityId(entityIdsStr.join(':'));
+    if (PLATFORM_URN_TYPES.includes(entityType)) {
+        return entityIds[0];
+    }
+    if (TRUNCATED_PLATFORM_TYPES.includes(entityType)) {
+        return `urn:li:dataPlatform:${entityIds[0]}`;
+    }
+    if (NESTED_URN_TYPES.includes(entityType)) {
+        return getPlatformUrnFromEntityUrn(entityIds[0]);
+    }
+    return undefined;
+}
+
+/** Mimics metadata-ingestion function in _urn_base.py */
+function splitEntityId(entity_id: string): string[] {
+    if (!(entity_id.startsWith('(') && entity_id.endsWith(')'))) {
+        return [entity_id];
+    }
+    const parts: string[] = [];
+    let startParentCount = 1;
+    let partStart = 1;
+    for (let i = 1; i < entity_id.length; i++) {
+        const c = entity_id[i];
+        if (c === '(') {
+            startParentCount += 1;
+        } else if (c === ')') {
+            startParentCount -= 1;
+            if (startParentCount < 0) {
+                throw new Error(`${entity_id}, mismatched paren nesting`);
+            }
+        } else if (c === ',' && startParentCount === 1) {
+            if (i - partStart <= 0) {
+                throw new Error(`${entity_id}, empty part disallowed`);
+            }
+            parts.push(entity_id.slice(partStart, i));
+            partStart = i + 1;
+        }
+    }
+
+    if (startParentCount !== 0) {
+        throw new Error(`${entity_id}, mismatched paren nesting`);
+    }
+
+    parts.push(entity_id.slice(partStart, -1));
+
+    return parts;
+}
+
+export function extractPlatformNameFromPlatformUrn(platformUrn: string): string | null {
+    const match = platformUrn.match(/^urn:li:dataPlatform:([^,\s)]+)$/);
+    return match ? match[1] : null;
+}
+
+export function extractPlatformNameFromAssetUrn(urn: string) {
+    // First extract the platform URN
+    const platformUrn = getPlatformUrnFromEntityUrn(urn);
+    if (!platformUrn) return null;
+
+    // Then extract the platform name from the platform URN
+    const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
+    return platformName;
+}
+
+/**
+ * Extracts the fully qualified dataset name from a dataset URN.
+ * URNs typically look like: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+ * @param datasetUrn - The URN of the dataset.
+ * @returns The dataset name.
+ */
+export const extractDatasetNameFromUrn = (datasetUrn: string): string => {
+    const parts = datasetUrn.split(',');
+    if (parts.length >= 2) {
+        return parts[1] || datasetUrn;
+    }
+    return datasetUrn;
+};
+
+/**
+ * Utility function to safely extract the first subtype from entity data
+ * @param data The entity data that may contain subTypes
+ * @returns The first subtype name or undefined if not available
+ */
+export const getFirstSubType = (
+    data?: { subTypes?: { typeNames?: string[] | null } | null } | null,
+): string | undefined => {
+    return data?.subTypes?.typeNames?.[0];
+};

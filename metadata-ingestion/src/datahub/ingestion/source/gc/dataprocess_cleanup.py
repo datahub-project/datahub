@@ -4,17 +4,19 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from functools import partial
 from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 
@@ -205,8 +207,8 @@ class DataProcessCleanup:
         return self.report
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc.. which is not needed her.
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def fetch_dpis(self, job_urn: str, batch_size: int) -> List[dict]:
         assert self.ctx.graph
@@ -264,9 +266,7 @@ class DataProcessCleanup:
                     deleted_count_last_n += 1
                     futures[future]["deleted"] = True
                 except Exception as e:
-                    self.report.report_failure(
-                        f"Exception while deleting DPI: {e}", exc=e
-                    )
+                    self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
             if (
                 deleted_count_last_n % self.config.batch_size == 0
                 and deleted_count_last_n > 0
@@ -287,7 +287,9 @@ class DataProcessCleanup:
             self.report.num_aspect_removed_by_type.get(type, 0) + 1
         )
         if type not in self.report.sample_soft_deleted_aspects_by_type:
-            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList()
+            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList(
+                max_elements=get_report_info_sample_size()
+            )
         self.report.sample_soft_deleted_aspects_by_type[type].append(urn)
 
         if self.dry_run:
@@ -303,9 +305,11 @@ class DataProcessCleanup:
 
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(
-            key=lambda x: x["created"]["time"]
-            if x.get("created") and x["created"].get("time")
-            else 0,
+            key=lambda x: (
+                x["created"]["time"]
+                if x.get("created") and x["created"].get("time")
+                else 0
+            ),
             reverse=True,
         )
 
@@ -355,7 +359,7 @@ class DataProcessCleanup:
                 deleted_count_retention += 1
                 futures[future]["deleted"] = True
             except Exception as e:
-                self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
+                self.report.failure(f"Exception while deleting DPI: {e}", exc=e)
 
             if (
                 deleted_count_retention % self.config.batch_size == 0

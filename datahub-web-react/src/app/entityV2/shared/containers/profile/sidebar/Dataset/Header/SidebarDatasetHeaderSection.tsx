@@ -1,9 +1,9 @@
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
 import {
@@ -16,12 +16,13 @@ import CompactContext from '@app/shared/CompactContext';
 import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const StatContent = styled.div`
-    color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 600;
 `;
 
 const SidebarDatasetHeaderSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData } = useEntityData();
     const dataset = entityData as any;
 
@@ -42,6 +43,7 @@ const SidebarDatasetHeaderSection = () => {
             dataset?.statsSummary?.queryCountPercentileLast30Days,
             dataset?.statsSummary?.uniqueUserPercentileLast30Days,
         ),
+        t,
     );
     if (popularityColumn) {
         columns.push(popularityColumn);
@@ -55,9 +57,9 @@ const SidebarDatasetHeaderSection = () => {
         dataset?.statsSummary?.topUsersLast30Days?.find((user) => userExists(user))
     ) {
         columns.push({
-            title: 'Top Users',
+            title: t('sidebar.datasetHeader.topUsersColumn'),
             content: (
-                <Tooltip showArrow={false} title="Top users over the past 30 days">
+                <Tooltip showArrow={false} title={t('sidebar.datasetHeader.topUsersTooltip')}>
                     <SidebarTopUsersHeaderSection />
                 </Tooltip>
             ),
@@ -68,16 +70,20 @@ const SidebarDatasetHeaderSection = () => {
      * Queries column
      */
     if (dataset?.statsSummary?.queryCountLast30Days) {
+        const count = dataset?.statsSummary?.queryCountLast30Days;
         columns.push({
-            title: 'Queries',
+            title: t('sidebar.datasetHeader.queriesColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(
-                        dataset?.statsSummary?.queryCountLast30Days,
-                    )} queries over the past 30 days`}
+                    title={t('sidebar.datasetHeader.queriesOverPast30DaysTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(dataset?.statsSummary?.queryCountLast30Days)} queries</StatContent>
+                    <StatContent>
+                        {t('sidebar.datasetHeader.queriesCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });
@@ -87,16 +93,20 @@ const SidebarDatasetHeaderSection = () => {
      * Users column
      */
     if (dataset?.statsSummary?.uniqueUserCountLast30Days) {
+        const count = dataset?.statsSummary?.uniqueUserCountLast30Days;
         columns.push({
-            title: 'Users',
+            title: t('sidebar.datasetHeader.usersColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(
-                        dataset?.statsSummary?.uniqueUserCountLast30Days,
-                    )} users over the past 30 days`}
+                    title={t('sidebar.datasetHeader.usersOverPast30DaysTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(dataset?.statsSummary?.uniqueUserCountLast30Days)} users</StatContent>
+                    <StatContent>
+                        {t('sidebar.datasetHeader.usersCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });
@@ -106,14 +116,20 @@ const SidebarDatasetHeaderSection = () => {
      * Rows column
      */
     if (isValuePresent(maybeLastProfile?.rowCount)) {
+        const count = maybeLastProfile?.rowCount;
         columns.push({
-            title: 'Rows',
+            title: t('sidebar.datasetHeader.rowsColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`${formatNumberWithoutAbbreviation(maybeLastProfile?.rowCount)} rows`}
+                    title={t('sidebar.datasetHeader.rowsTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
-                    <StatContent>{formatNumber(maybeLastProfile?.rowCount)} rows</StatContent>
+                    <StatContent>
+                        {t('sidebar.datasetHeader.rowsCount', { count, formattedCount: formatNumber(count) })}
+                    </StatContent>
                 </Tooltip>
             ),
         });
@@ -123,9 +139,14 @@ const SidebarDatasetHeaderSection = () => {
      * Column column
      */
     if (isValuePresent(maybeLastProfile?.columnCount)) {
+        const count = maybeLastProfile?.columnCount;
         columns.push({
-            title: 'Columns',
-            content: <StatContent>{formatNumber(maybeLastProfile?.columnCount)} columns</StatContent>,
+            title: t('sidebar.datasetHeader.columnsColumn'),
+            content: (
+                <StatContent>
+                    {t('sidebar.datasetHeader.columnsCount', { count, formattedCount: formatNumber(count) })}
+                </StatContent>
+            ),
         });
     }
 
@@ -133,16 +154,18 @@ const SidebarDatasetHeaderSection = () => {
      * Size column
      */
     if (isValuePresent(maybeLastProfile?.sizeInBytes)) {
-        const formattedBytes = formatBytes(maybeLastProfile?.sizeInBytes, 0);
+        const count = maybeLastProfile?.sizeInBytes;
+        const formattedBytes = formatBytes(count, 0);
         const { number, unit } = formattedBytes;
         columns.push({
-            title: 'Size',
+            title: t('sidebar.datasetHeader.sizeColumn'),
             content: (
                 <Tooltip
                     showArrow={false}
-                    title={`Consumes ${formatNumberWithoutAbbreviation(
-                        maybeLastProfile?.sizeInBytes,
-                    )} bytes of storage.`}
+                    title={t('sidebar.datasetHeader.storageSizeTooltip', {
+                        count,
+                        formattedCount: formatNumberWithoutAbbreviation(count),
+                    })}
                 >
                     <StatContent>
                         {number} {unit}

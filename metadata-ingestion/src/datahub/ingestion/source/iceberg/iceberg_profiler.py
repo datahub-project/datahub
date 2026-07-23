@@ -12,6 +12,7 @@ from pyiceberg.types import (
     IcebergType,
     IntegerType,
     LongType,
+    PrimitiveType,
     TimestampType,
     TimestamptzType,
     TimeType,
@@ -22,6 +23,7 @@ from pyiceberg.utils.datetime import (
     to_human_timestamp,
     to_human_timestamptz,
 )
+from typing_extensions import TypeGuard
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.iceberg.iceberg_common import (
@@ -65,7 +67,7 @@ class IcebergProfiler:
         aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, bytes],
     ) -> None:
-        for field_id, value_encoded in manifest_values.items():  # type: int, Any
+        for field_id, value_encoded in manifest_values.items():
             try:
                 field = schema.find_field(field_id)
             except ValueError:
@@ -123,6 +125,16 @@ class IcebergProfiler:
                 if current_snapshot.summary
                 else 0
             )
+            size_in_bytes: Optional[int] = None
+            if current_snapshot.summary:
+                size_in_bytes_str = current_snapshot.summary.additional_properties.get(
+                    "total-files-size"
+                )
+                if size_in_bytes_str:
+                    try:
+                        size_in_bytes = int(size_in_bytes_str)
+                    except (ValueError, TypeError):
+                        pass
             column_count = len(
                 [
                     field.field_id
@@ -134,6 +146,7 @@ class IcebergProfiler:
                 timestampMillis=get_sys_time(),
                 rowCount=row_count,
                 columnCount=column_count,
+                sizeInBytes=size_in_bytes,
             )
             dataset_profile.fieldProfiles = []
 
@@ -240,7 +253,7 @@ class IcebergProfiler:
             return None
 
     @staticmethod
-    def _is_numeric_type(type: IcebergType) -> bool:
+    def _is_numeric_type(type: IcebergType) -> TypeGuard[PrimitiveType]:
         return isinstance(
             type,
             (

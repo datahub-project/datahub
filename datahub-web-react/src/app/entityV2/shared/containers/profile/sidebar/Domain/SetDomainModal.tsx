@@ -1,21 +1,26 @@
-import { Empty, Form, Modal, Select, message } from 'antd';
+import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
+import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { Domain, Entity, EntityType } from '@types';
+import { DataHubPageModuleType, Domain, Entity, EntityType } from '@types';
 
 type Props = {
     urns: string[];
@@ -33,7 +38,12 @@ type SelectedDomain = {
 };
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
+    const themeConfig = useTheme();
+    const { reloadByKeyType } = useReloadableContext();
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -59,7 +69,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     };
 
     const handleSearch = (text: string) => {
-        console.log('Not calling search');
         if (text) {
             domainSearch({
                 variables: {
@@ -104,6 +113,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -124,17 +152,36 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    message.success({ content: t('sidebar.domain.updatedSuccess'), duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
+                    // Reload modules
+                    // Assets - as assets module in domain summary tab could be updated
+                    reloadByKeyType(
+                        [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
+                        3000,
+                    );
+                    // DataProduct - as data products module in domain summary tab could be updated
+                    if (entityType === EntityType.DataProduct) {
+                        reloadByKeyType(
+                            [
+                                getReloadableKeyType(
+                                    ReloadableKeyTypeNamespace.MODULE,
+                                    DataHubPageModuleType.DataProducts,
+                                ),
+                            ],
+                            3000,
+                        );
+                    }
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add assets to Domain: \n ${e.message || ''}`,
+                        content: t('sidebar.domain.addFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -159,20 +206,27 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
 
     return (
         <Modal
-            title={titleOverride || 'Set Domain'}
+            title={titleOverride || t('sidebar.domain.setModalTitle')}
             open
             onCancel={onModalClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Save
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: tc('cancel'),
+                    variant: 'text',
+                    onClick: onModalClose,
+                    buttonDataTestId: 'cancel-button',
+                },
+                {
+                    text: tc('save'),
+                    variant: 'filled',
+                    disabled: selectedDomain === undefined,
+                    onClick: onOk,
+                    id: 'setDomainButton',
+                    buttonDataTestId: 'submit-button',
+                },
+            ]}
             getContainer={getModalDomContainer}
+            data-testid="set-domain-modal"
         >
             <Form component={false}>
                 <Form.Item>
@@ -182,7 +236,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             showSearch
                             filterOption={false}
                             defaultActiveFirstOption={false}
-                            placeholder="Search for Domains..."
+                            placeholder={t('sidebar.domain.searchPlaceholder')}
                             onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                             onDeselect={onDeselectDomain}
                             onSearch={(value: string) => {
@@ -196,12 +250,13 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
                             notFoundContent={
                                 <Empty
-                                    description="No Domains Found"
+                                    description={t('sidebar.domain.emptyText')}
                                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    style={{ color: ANTD_GRAY[7] }}
+                                    style={{ color: themeConfig.colors.textTertiary }}
                                 />
                             }
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
+                            data-testid="set-domain-select"
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                             <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />

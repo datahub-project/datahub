@@ -2,13 +2,14 @@
 
 import contextlib
 import dataclasses
+import logging
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -18,10 +19,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_ldap,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -38,6 +42,8 @@ from datahub.metadata.schema_classes import (
     GroupMembershipClass,
 )
 from datahub.utilities.lossy_collections import LossyList
+
+logger = logging.getLogger(__name__)
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -58,6 +64,7 @@ user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
 user_attrs_map["memberOf"] = "memberOf"
+user_attrs_map["accountStatus"] = "userAccountControl"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
@@ -105,7 +112,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
-    ldap_password: str = Field(description="LDAP password.")
+    ldap_password: TransparentSecretStr = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -154,6 +161,13 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Use email for users' usernames instead of username (disabled by default). \
             If enabled, the user and group urn would be having email as the id part of the urn.",
     )
+
+    tls_verify: bool = Field(
+        default=True,
+        description="Verify server TLS certificates for LDAPS connections. "
+        "Disabling in production exposes connections to Man-in-the-Middle attacks (CWE-295).",
+    )
+
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -175,15 +189,17 @@ def guess_person_ldap(
         return attrs[config.user_attrs_map["urn"]][0].decode()
     else:  # for backward compatiblity
         if "sAMAccountName" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to sAMAccountName as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["sAMAccountName"][0].decode()
         if "uid" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to uid as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["uid"][0].decode()
         return None
@@ -221,7 +237,17 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.report = LDAPSourceReport()
 
-        ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
+        # Configure TLS certificate validation
+        # Setting tls_verify=True enforces certificate validation (recommended for production)
+        if self.config.tls_verify:
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+        else:
+            logger.warning(
+                "LDAP TLS certificate verification is disabled (tls_verify=False). "
+                "This makes the connection vulnerable to Man-in-the-Middle attacks. "
+                "Set tls_verify=True for production environments."
+            )
+            ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_ALLOW)
         ldap.set_option(ldap.OPT_REFERRALS, 0)
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)
@@ -229,7 +255,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         try:
             self.ldap_client.simple_bind_s(
-                self.config.ldap_user, self.config.ldap_password
+                self.config.ldap_user, self.config.ldap_password.get_secret_value()
             )
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e
@@ -242,16 +268,8 @@ class LDAPSource(StatefulIngestionSourceBase):
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
         """Factory method."""
-        config = LDAPSourceConfig.parse_obj(config_dict)
+        config = LDAPSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
@@ -267,7 +285,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.report_failure("ldap-control", f"LDAP search failed: {e}")
+                self.report.failure("ldap-control", f"LDAP search failed: {e}")
                 break
 
             for dn, attrs in rdata:
@@ -275,10 +293,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                     continue
 
                 if not attrs or "objectClass" not in attrs:
-                    self.report.report_warning(
+                    self.report.warning(
                         "<general>",
                         f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
                         f"check your permissions if this is unexpected",
+                        log=False,
                     )
                     continue
 
@@ -301,7 +320,7 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.lc:
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
-                    self.report.report_failure(
+                    self.report.failure(
                         "ldap-control", "Server ignores RFC 2696 control."
                     )
                     break
@@ -345,7 +364,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     )
 
             except ldap.LDAPError as e:
-                self.report.report_warning(dn, f"manager LDAP search failed: {e}")
+                self.report.warning(dn, f"manager LDAP search failed: {e}", log=False)
         mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
             yield MetadataWorkUnit(dn, mce)
@@ -412,11 +431,19 @@ class LDAPSource(StatefulIngestionSourceBase):
             email if email and self.config.use_email_as_username else ldap_user
         )
 
+        account_status_attr = self.config.user_attrs_map.get(
+            "accountStatus", "userAccountControl"
+        )
+        user_status = derive_corp_user_status_from_ldap(
+            attrs,
+            account_status_attr,
+            get_attr=get_attr_or_none,
+        )
         user_snapshot = CorpUserSnapshotClass(
             urn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
-                    active=True,
+                    active=corp_user_info_active_from_status(user_status),
                     email=email,
                     fullName=full_name,
                     firstName=first_name,
@@ -429,6 +456,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     managerUrn=manager_urn,
                     customProperties=custom_props_map,
                 ),
+                make_corp_user_status_aspect(user_status),
             ],
         )
 

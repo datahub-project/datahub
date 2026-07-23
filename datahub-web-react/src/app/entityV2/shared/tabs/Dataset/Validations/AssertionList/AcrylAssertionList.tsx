@@ -1,5 +1,7 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -19,10 +21,20 @@ import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 import { Assertion, DataContract } from '@src/types.generated';
 
+const AssertionListContainer = styled.div`
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    margin: 0px 20px;
+    flex: 1;
+    overflow: hidden;
+`;
+
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -81,7 +93,6 @@ export const AcrylAssertionList = () => {
                 <AcrylAssertionListTable
                     contract={contract}
                     assertionData={visibleAssertions}
-                    filter={selectedFilters}
                     refetch={() => {
                         refetch();
                         contractRefetch();
@@ -89,11 +100,11 @@ export const AcrylAssertionList = () => {
                 />
             );
         }
-        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionList.noAssertionsRun')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (
-        <>
+        <AssertionListContainer>
             <AssertionListTitleContainer />
             {assertionMonitorData?.length > 0 && (
                 <AcrylAssertionListFilters
@@ -106,6 +117,6 @@ export const AcrylAssertionList = () => {
                 />
             )}
             {renderListTable()}
-        </>
+        </AssertionListContainer>
     );
 };

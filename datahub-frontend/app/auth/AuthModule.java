@@ -3,6 +3,9 @@ package auth;
 import static auth.AuthUtils.*;
 import static utils.ConfigUtil.*;
 
+import auth.metrics.PrometheusScrapeServer;
+import auth.pac4j.DatahubPlayCookieSessionStore;
+import auth.pac4j.Shiro2AesDataEncrypter;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
@@ -18,6 +21,8 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.metadata.restli.RestliClientSslConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
@@ -30,6 +35,18 @@ import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ValidationContext;
+import io.micrometer.core.instrument.Clock;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import io.micrometer.core.instrument.config.MeterFilter;
+import io.micrometer.core.instrument.config.MeterFilterReply;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.core.instrument.util.HierarchicalNameMapper;
+import io.micrometer.jmx.JmxConfig;
+import io.micrometer.jmx.JmxMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -44,12 +61,12 @@ import org.pac4j.core.util.serializer.JavaSerializer;
 import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import org.pac4j.play.store.PlayCookieSessionStore;
-import org.pac4j.play.store.ShiroAesDataEncrypter;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
+import utils.CustomHttpClientFactory;
+import utils.TruststoreConfig;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
 @Slf4j
@@ -97,7 +114,7 @@ public class AuthModule extends AbstractModule {
       bind(SessionStore.class).toInstance(playCacheSessionStore);
       bind(PlayCacheSessionStore.class).toInstance(playCacheSessionStore);
     } else {
-      PlayCookieSessionStore playCacheCookieStore;
+      DatahubPlayCookieSessionStore playCacheCookieStore;
       try {
         // To generate a valid encryption key from an input value, we first
         // hash the input to generate a fixed-length string. Then, we convert
@@ -108,13 +125,14 @@ public class AuthModule extends AbstractModule {
             DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
         final String aesEncryptionKey = aesKeyHash.substring(0, 16);
         playCacheCookieStore =
-            new PlayCookieSessionStore(new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
+            new DatahubPlayCookieSessionStore(
+                new Shiro2AesDataEncrypter(aesEncryptionKey.getBytes()));
         playCacheCookieStore.setSerializer(new JavaSerializer());
       } catch (Exception e) {
         throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
       }
       bind(SessionStore.class).toInstance(playCacheCookieStore);
-      bind(PlayCookieSessionStore.class).toInstance(playCacheCookieStore);
+      bind(DatahubPlayCookieSessionStore.class).toInstance(playCacheCookieStore);
     }
 
     try {
@@ -176,6 +194,78 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
+  protected MetricUtils metricUtils(final AnnotationConfigApplicationContext springContext) {
+    org.springframework.core.env.Environment env = springContext.getEnvironment();
+    Boolean jmxEnabled = env.getProperty("management.metrics.export.jmx.enabled", Boolean.class);
+    Boolean prometheusEnabled =
+        env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class);
+    if (prometheusEnabled == null) {
+      prometheusEnabled = Boolean.TRUE;
+    }
+
+    CompositeMeterRegistry composite = new CompositeMeterRegistry();
+    PrometheusMeterRegistry prometheusRegistry = null;
+
+    if (Boolean.TRUE.equals(prometheusEnabled)) {
+      prometheusRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+      prometheusRegistry
+          .config()
+          .meterFilter(
+              new MeterFilter() {
+                @Override
+                public MeterFilterReply accept(Meter.Id id) {
+                  return id.getTag(MetricUtils.DROPWIZARD_METRIC) == null
+                      ? MeterFilterReply.ACCEPT
+                      : MeterFilterReply.DENY;
+                }
+              });
+      composite.add(prometheusRegistry);
+    }
+
+    if (jmxEnabled != null && jmxEnabled) {
+      HierarchicalNameMapper legacyMapper = (id, namingConvention) -> id.getName();
+      JmxMeterRegistry jmx = new JmxMeterRegistry(JmxConfig.DEFAULT, Clock.SYSTEM, legacyMapper);
+      jmx.config()
+          .meterFilter(
+              new MeterFilter() {
+                @Override
+                public MeterFilterReply accept(Meter.Id id) {
+                  return id.getTag(MetricUtils.DROPWIZARD_METRIC) != null
+                      ? MeterFilterReply.ACCEPT
+                      : MeterFilterReply.DENY;
+                }
+              });
+      composite.add(jmx);
+    } else if (Boolean.TRUE.equals(prometheusEnabled)) {
+      SimpleMeterRegistry legacyOnly = new SimpleMeterRegistry();
+      legacyOnly
+          .config()
+          .meterFilter(
+              new MeterFilter() {
+                @Override
+                public MeterFilterReply accept(Meter.Id id) {
+                  return id.getTag(MetricUtils.DROPWIZARD_METRIC) != null
+                      ? MeterFilterReply.ACCEPT
+                      : MeterFilterReply.DENY;
+                }
+              });
+      composite.add(legacyOnly);
+    } else {
+      composite.add(new SimpleMeterRegistry());
+    }
+
+    composite.config().commonTags("application", "datahub-frontend");
+    MetricUtils metricUtils = MetricUtils.builder().registry(composite).build();
+
+    if (prometheusRegistry != null) {
+      PrometheusScrapeServer.startIfConfigured(prometheusRegistry);
+    }
+
+    return metricUtils;
+  }
+
+  @Provides
+  @Singleton
   @Named("systemOperationContext")
   protected OperationContext provideOperationContext(
       final Authentication systemAuthentication,
@@ -209,17 +299,25 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected ConfigurationProvider provideConfigurationProvider() {
+  protected ConfigurationProvider provideConfigurationProvider(
+      AnnotationConfigApplicationContext springContext) {
+    return springContext.getBean(ConfigurationProvider.class);
+  }
+
+  @Provides
+  @Singleton
+  protected AnnotationConfigApplicationContext springContext() {
     AnnotationConfigApplicationContext context =
         new AnnotationConfigApplicationContext(ConfigurationProvider.class);
-    return context.getBean(ConfigurationProvider.class);
+    return context;
   }
 
   @Provides
   @Singleton
   protected SystemEntityClient provideEntityClient(
       @Named("systemOperationContext") final OperationContext systemOperationContext,
-      final ConfigurationProvider configurationProvider) {
+      final ConfigurationProvider configurationProvider,
+      final MetricUtils metricUtils) {
 
     return new SystemRestliEntityClient(
         buildRestliClient(),
@@ -229,7 +327,8 @@ public class AuthModule extends AbstractModule {
             .batchGetV2Size(configs.getInt(ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE))
             .batchGetV2Concurrency(2)
             .build(),
-        configurationProvider.getCache().getClient().getEntityClient());
+        configurationProvider.getCache().getClient().getEntityClient(),
+        metricUtils);
   }
 
   @Provides
@@ -241,20 +340,52 @@ public class AuthModule extends AbstractModule {
 
     final int metadataServicePort = getMetadataServicePort(configs);
 
+    final String metadataServiceBasePath = getMetadataServiceBasePath(configs);
+
     final boolean metadataServiceUseSsl = doesMetadataServiceUseSsl(configs);
 
+    final boolean authVerboseLogging =
+        configs.hasPath("auth.verbose.logging") && configs.getBoolean("auth.verbose.logging");
     return new AuthServiceClient(
         metadataServiceHost,
         metadataServicePort,
+        metadataServiceBasePath,
         metadataServiceUseSsl,
         systemAuthentication,
-        httpClient);
+        httpClient,
+        authVerboseLogging);
   }
 
   @Provides
   @Singleton
-  protected CloseableHttpClient provideHttpClient() {
-    return HttpClients.createDefault();
+  protected CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getApacheHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type, tsConfig.sslEnabledProtocols);
+      } else {
+        return HttpClients.createDefault();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize CloseableHttpClient", e);
+    }
+  }
+
+  @Provides
+  @Singleton
+  protected HttpClient provideHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getJavaHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type, tsConfig.sslEnabledProtocols);
+      } else {
+        return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize HttpClient", e);
+    }
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
@@ -268,6 +399,16 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             utils.ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+    final String metadataServiceBasePath =
+        utils.ConfigUtil.getString(
+            configs,
+            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
+    final boolean metadataServiceBasePathEnabled =
+        utils.ConfigUtil.getBoolean(
+            configs,
+            utils.ConfigUtil.METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH,
+            utils.ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH_ENABLED);
     final boolean metadataServiceUseSsl =
         utils.ConfigUtil.getBoolean(
             configs,
@@ -278,11 +419,38 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
+
+    RestliClientSslConfig restliSslConfig = buildRestliSslConfigForMetadataService(configs);
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    String resolvedBasePath =
+        com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(
+            metadataServiceBasePathEnabled, metadataServiceBasePath);
+
     return DefaultRestliClientFactory.getRestLiClient(
         metadataServiceHost,
         metadataServicePort,
+        resolvedBasePath,
         metadataServiceUseSsl,
-        metadataServiceSslProtocol);
+        metadataServiceSslProtocol,
+        null,
+        restliSslConfig);
+  }
+
+  /**
+   * Reads truststore/keystore settings from Play config for the Rest.li metadata client. Package
+   * visibility for unit tests.
+   */
+  static RestliClientSslConfig buildRestliSslConfigForMetadataService(
+      com.typesafe.config.Config configs) {
+    return RestliClientSslConfig.fromNullableStrings(
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_PATH, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_PASSWORD, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_TRUST_STORE_TYPE, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_PATH, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_PASSWORD, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_STORE_TYPE, null),
+        utils.ConfigUtil.getString(configs, METADATA_SERVICE_SSL_KEY_PASSWORD, null));
   }
 
   protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {
@@ -305,13 +473,35 @@ public class AuthModule extends AbstractModule {
             Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
   }
 
+  protected String getMetadataServiceBasePath(com.typesafe.config.Config configs) {
+    final String basePath =
+        configs.hasPath(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
+            ? configs.getString(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
+            : Configuration.getEnvironmentVariable(GMS_BASE_PATH_ENV_VAR, DEFAULT_GMS_BASE_PATH);
+
+    final boolean basePathEnabled =
+        configs.hasPath(METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH)
+            ? configs.getBoolean(METADATA_SERVICE_BASE_PATH_ENABLED_CONFIG_PATH)
+            : Boolean.parseBoolean(
+                Configuration.getEnvironmentVariable(
+                    "DATAHUB_GMS_BASE_PATH_ENABLED", DEFAULT_GMS_BASE_PATH_ENABLED));
+
+    // Use the same logic as GMSConfiguration.getResolvedBasePath()
+    return com.linkedin.metadata.utils.BasePathUtils.resolveBasePath(basePathEnabled, basePath);
+  }
+
   protected String getSsoSettingsRequestUrl(com.typesafe.config.Config configs) {
     final String protocol = doesMetadataServiceUseSsl(configs) ? "https" : "http";
     final String metadataServiceHost = getMetadataServiceHost(configs);
+    final String metadataServiceBasePath = getMetadataServiceBasePath(configs);
     final Integer metadataServicePort = getMetadataServicePort(configs);
 
     return String.format(
-        "%s://%s:%s/%s",
-        protocol, metadataServiceHost, metadataServicePort, GET_SSO_SETTINGS_ENDPOINT);
+        "%s://%s:%s%s/%s",
+        protocol,
+        metadataServiceHost,
+        metadataServicePort,
+        metadataServiceBasePath,
+        GET_SSO_SETTINGS_ENDPOINT);
   }
 }

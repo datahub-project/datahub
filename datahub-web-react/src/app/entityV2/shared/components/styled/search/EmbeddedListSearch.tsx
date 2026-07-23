@@ -1,5 +1,6 @@
 import { ApolloError } from '@apollo/client';
 import React, { useContext, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -16,7 +17,7 @@ import {
 } from '@app/entityV2/shared/components/styled/search/types';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { isListSubset } from '@app/entityV2/shared/utils';
-import { DEGREE_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { DEGREE_FILTER_NAME, FIELD_PATHS_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import {
@@ -61,7 +62,7 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
 }
 
 // the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
-export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
+const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
     let finalQuery = ``;
     if (baseQuery && fixedQuery) {
         finalQuery = baseQuery.includes(fixedQuery) ? `${baseQuery}` : `(*${baseQuery}*) AND (${fixedQuery})`;
@@ -77,7 +78,7 @@ export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery:
 
 // Simply remove the fields that were marked as fixed from the facets that the server
 // responds.
-export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
+const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: FacetMetadata[]) => {
     const fixedFields = fixedFilters.filters.map((filter) => filter.field);
     return facets.filter((facet) => !fixedFields.includes(facet.field));
 };
@@ -167,6 +168,7 @@ export const EmbeddedListSearch = ({
     sort,
     searchFlags,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const userContext = useUserContext();
 
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
@@ -206,9 +208,9 @@ export const EmbeddedListSearch = ({
         variables: {
             input: {
                 types: entityTypes || [],
-                query,
+                query: finalQuery,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filters),
+                orFilters: finalFilters,
                 scrollId: null,
                 searchFlags,
             },
@@ -352,22 +354,36 @@ export const EmbeddedListSearch = ({
 
     // used for logging impact anlaysis events
     const degreeFilter = filters.find((filter) => filter.field === DEGREE_FILTER_NAME);
+    const columnFilter = filters.find((filter) => filter.field === FIELD_PATHS_FILTER_NAME);
+
+    // Stable values for analytics to prevent multiple events
+    const degreeValues = degreeFilter?.values || [];
+    const maxDegree = degreeValues.length > 0 ? degreeValues.sort().reverse()[0] || '1' : null;
+
+    // Check for column-level lineage: either fieldPaths filter OR schema field URN
+    const hasFieldPathsFilter = columnFilter && (columnFilter.values?.length || 0) > 0;
+    const isSchemaFieldUrn = !!fixedQuery && fixedQuery.includes('urn:li:schemaField:');
+    const hasColumnFilter = hasFieldPathsFilter || isSchemaFieldUrn;
 
     // we already have some lineage logging through Tab events, but this adds additional context, particularly degree
-    if (!loading && (degreeFilter?.values?.length || 0) > 0) {
-        analytics.event({
-            type: EventType.SearchAcrossLineageResultsViewEvent,
-            query,
-            page,
-            total: data?.total || 0,
-            maxDegree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
-        });
-    }
+    useEffect(() => {
+        if (!loading && maxDegree && data?.total !== undefined) {
+            analytics.event({
+                type: EventType.SearchAcrossLineageResultsViewEvent,
+                query,
+                page,
+                total: data.total,
+                maxDegree,
+                hasUserAppliedColumnFilter: hasFieldPathsFilter,
+                isSchemaFieldContext: isSchemaFieldUrn,
+            });
+        }
+    }, [loading, data?.total, query, page, maxDegree, hasColumnFilter, hasFieldPathsFilter, isSchemaFieldUrn]);
 
     let errorMessage = '';
     if (error) {
         console.error('Failed to load results', error);
-        errorMessage = `Failed to load results due to an unexpected error. Please try again later.`;
+        errorMessage = t('embeddedSearch.loadError');
     }
 
     return (

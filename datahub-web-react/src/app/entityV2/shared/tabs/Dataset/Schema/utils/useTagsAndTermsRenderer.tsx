@@ -1,12 +1,29 @@
+import { Text, Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
-import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
+
+const TagDisclaimer = styled(Text)`
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 24px;
+    align-items: center;
+    display: flex;
+    gap: 4px;
+    width: fit-content;
+    margin-bottom: 4px;
+`;
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -15,11 +32,17 @@ export default function useTagsAndTermsRenderer(
     canEdit: boolean,
     showOneAndCount?: boolean,
 ) {
+    const { t } = useTranslation('entity.profile.schema');
     const urn = useMutationUrn();
     const refetch = useRefetch();
+    const entityRegistry = useEntityRegistry();
     const schemaRefetch = useSchemaRefetch();
     const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
+    const { entityData } = useEntityData();
+    const platformName = entityData?.platform
+        ? entityRegistry.getDisplayName(EntityType.DataPlatform, entityData?.platform)
+        : null;
 
     const refresh: any = () => {
         refetch?.();
@@ -27,14 +50,30 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const { editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
-        const { editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(record);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(record, tags);
 
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
+                {/* If can edit, show disclaimer for uneditable tags */}
+                {canEdit && options.showTags && !!uneditableTags?.tags?.length && (
+                    <Tooltip
+                        title={t('tagTermRenderer.externalPlatformTooltip', {
+                            platform: platformName || t('tagTermRenderer.externalPlatformFallback'),
+                        })}
+                    >
+                        <TagDisclaimer type="span">
+                            <Info /> {t('tagTermRenderer.tagsNotEditable')}
+                        </TagDisclaimer>
+                    </Tooltip>
+                )}
                 <TagTermGroup
+                    numberOfTags={numberOfTags}
+                    directTags={options.showTags ? directTags : null}
                     uneditableTags={options.showTags ? uneditableTags : null}
                     editableTags={options.showTags ? editableTags : null}
+                    numberOfTerms={numberOfTerms}
+                    directGlossaryTerms={options.showTerms ? directTerms : null}
                     uneditableGlossaryTerms={options.showTerms ? uneditableTerms : null}
                     editableGlossaryTerms={options.showTerms ? editableTerms : null}
                     canRemove={canEdit}

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
@@ -79,6 +80,7 @@ public class FieldPathValidatorTest {
     final SchemaMetadata schema = getMockSchemaMetadataAspect(false);
     assertEquals(
         test.validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -90,7 +92,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -101,6 +104,7 @@ public class FieldPathValidatorTest {
 
     assertEquals(
         test.validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -112,7 +116,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -122,6 +127,7 @@ public class FieldPathValidatorTest {
     final EditableSchemaMetadata schema = getMockEditableSchemaMetadataAspect(false);
     assertEquals(
         test.validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -133,7 +139,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         0);
   }
@@ -144,6 +151,7 @@ public class FieldPathValidatorTest {
 
     assertEquals(
         test.validateProposed(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
@@ -155,7 +163,8 @@ public class FieldPathValidatorTest {
                                 .getAspectSpec(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))
                         .recordTemplate(schema)
                         .build()),
-                mockRetrieverContext)
+                mockRetrieverContext,
+                null)
             .count(),
         1);
   }
@@ -176,7 +185,9 @@ public class FieldPathValidatorTest {
             .build();
 
     Set<AspectValidationException> exceptions =
-        test.validateProposed(Set.of(testItem), mockRetrieverContext).collect(Collectors.toSet());
+        test.validateProposed(
+                OperationFingerprint.EMPTY, Set.of(testItem), mockRetrieverContext, null)
+            .collect(Collectors.toSet());
 
     assertEquals(
         exceptions,

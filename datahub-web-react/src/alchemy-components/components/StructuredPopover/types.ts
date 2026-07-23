@@ -1,5 +1,5 @@
 export interface SectionType {
-    title: string;
+    title: string | React.ReactNode;
     titleSuffix?: string | React.ReactNode;
     content: string | React.ReactNode;
 }

@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -33,7 +34,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
@@ -44,13 +45,17 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.service.UpdateIndicesStrategy;
+import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
+import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.NumberType;
@@ -62,6 +67,9 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,6 +88,13 @@ public class UpdateIndicesHookTest {
       "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
   static final String TEST_DATASET_URN_3 =
       "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressKafkaDataset,PROD)";
+  static final String TEST_DATASET_URN_4 =
+      "urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD)";
+  static final String TEST_SCHEMA_FIELD_HDFS_FIELD_INFO =
+      "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),field_foo)";
+  static final String TEST_SCHEMA_FIELD_HIVE_FIELD_INFO =
+      "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHdfsDataset,PROD),field_foo)";
+  static final String TEST_HDFS_PLATFORM = "hdfs";
   static final String TEST_CHART_URN = "urn:li:chart:(looker,dashboard_elements.1)";
   static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   static final String DOWNSTREAM_OF = "DownstreamOf";
@@ -116,20 +131,34 @@ public class UpdateIndicesHookTest {
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
-    when(mockEntitySearchService.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
-
-    ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    when(mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearchConfiguration);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_OS_SEARCH_CONFIG);
+
+    // Create V2 strategy for the test
+    UpdateIndicesV2Strategy v2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            mockEntitySearchService,
+            searchDocumentTransformer,
+            mockTimeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
+
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),
             mockEntitySearchService,
-            mockTimeseriesAspectService,
             mockSystemMetadataService,
-            searchDocumentTransformer,
-            "MD5");
+            java.util.Collections.singletonList(v2Strategy),
+            null,
+            true, // searchDiffMode
+            true, // structuredPropertiesHookEnabled
+            true); // structuredPropertiesWriteEnabled
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
@@ -141,16 +170,13 @@ public class UpdateIndicesHookTest {
   @Test
   public void testFineGrainedLineageEdgesAreAdded() throws Exception {
     updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
-    Urn upstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
-    Urn downstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
-    Urn lifeCycleOwner =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
-    MetadataChangeLog event = createUpstreamLineageMCL(upstreamUrn, downstreamUrn);
-    updateIndicesHook.invoke(event);
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn lifeCycleOwner = UrnUtils.getUrn(TEST_DATASET_URN);
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN_2), TEST_DATASET_URN);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -164,7 +190,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -179,17 +206,17 @@ public class UpdateIndicesHookTest {
   @Test
   public void testFineGrainedLineageEdgesAreAddedRestate() throws Exception {
     updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
-    Urn upstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
-    Urn downstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
-    Urn lifeCycleOwner =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn lifeCycleOwner = UrnUtils.getUrn(TEST_DATASET_URN);
     MetadataChangeLog event =
-        createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.RESTATE);
-    updateIndicesHook.invoke(event);
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn),
+            downstreamUrn,
+            ChangeType.RESTATE,
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN);
+    updateIndicesHook.invoke(opContext, event);
 
     Edge edge =
         new Edge(
@@ -203,7 +230,8 @@ public class UpdateIndicesHookTest {
             null,
             lifeCycleOwner,
             null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -218,10 +246,7 @@ public class UpdateIndicesHookTest {
             any(OperationContext.class),
             Mockito.eq(DATASET_ENTITY_NAME),
             Mockito.any(),
-            Mockito.eq(
-                URLEncoder.encode(
-                    "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
-                    StandardCharsets.UTF_8)));
+            Mockito.eq(URLEncoder.encode(TEST_DATASET_URN, StandardCharsets.UTF_8)));
   }
 
   @Test
@@ -232,27 +257,45 @@ public class UpdateIndicesHookTest {
     String downstreamFieldPath = "users.count";
     MetadataChangeLog event = createInputFieldsMCL(upstreamUrn, downstreamFieldPath);
     EntityRegistry mockEntityRegistry = createMockEntityRegistry();
+
+    // Create V2 strategy for the test
+    UpdateIndicesV2Strategy testV2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            mockEntitySearchService,
+            searchDocumentTransformer,
+            mockTimeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
+
     updateIndicesService =
         new UpdateIndicesService(
-            new UpdateGraphIndicesService(mockGraphService, false, true),
+            new UpdateGraphIndicesService(mockGraphService, false, true, Collections.emptyList()),
             mockEntitySearchService,
-            mockTimeseriesAspectService,
             mockSystemMetadataService,
-            searchDocumentTransformer,
-            "MD5");
+            java.util.Collections.singletonList(testV2Strategy),
+            null,
+            true,
+            true,
+            true);
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
     updateIndicesHook.init(
         TestOperationContexts.userContextNoSearchAuthorization(mockEntityRegistry));
 
-    updateIndicesHook.invoke(event);
+    updateIndicesHook.invoke(opContext, event);
 
     Urn downstreamUrn =
         UrnUtils.getUrn(
             String.format("urn:li:schemaField:(%s,%s)", TEST_CHART_URN, downstreamFieldPath));
 
     Edge edge = new Edge(downstreamUrn, upstreamUrn, DOWNSTREAM_OF, null, null, null, null, null);
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(
             any(OperationContext.class),
@@ -271,10 +314,10 @@ public class UpdateIndicesHookTest {
      */
     MetadataChangeLog changeLog = createBaseChangeLog();
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // One new edge added
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any(), Mockito.any());
     // Update document
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(
@@ -290,12 +333,12 @@ public class UpdateIndicesHookTest {
     changeLog = setSystemMetadata(changeLog);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No edges added
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Timestamp updated
-    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any(), Mockito.any());
     // No document change
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -308,12 +351,12 @@ public class UpdateIndicesHookTest {
     UpstreamLineage currentLineage = addLineageEdge(createBaseLineageAspect());
     changeLog = modifyAspect(changeLog, currentLineage);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // New edge added
-    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamp of old edge
-    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(1)).upsertEdge(Mockito.any(), Mockito.any());
     // Document update for new upstream
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -324,12 +367,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -340,12 +383,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToUpsert(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -356,12 +399,12 @@ public class UpdateIndicesHookTest {
     Mockito.clearInvocations(mockGraphService, mockEntitySearchService);
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -373,12 +416,12 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousData(setToUpsert(changeLog), changeLog);
     changeLog = modifySystemMetadata(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -390,12 +433,12 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousData(setToRestate(changeLog), changeLog);
     changeLog = modifySystemMetadata2(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -408,12 +451,12 @@ public class UpdateIndicesHookTest {
     currentLineage = modifyNonSearchableField(currentLineage);
     changeLog = modifyAspect(changeLog, currentLineage);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // No new edges
-    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(0)).addEdge(Mockito.any(), Mockito.any());
     // Update timestamps of old edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).upsertEdge(Mockito.any(), Mockito.any());
     // No document update
     Mockito.verify(mockEntitySearchService, Mockito.times(0))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -425,13 +468,13 @@ public class UpdateIndicesHookTest {
     changeLog = setPreviousDataToEmpty(setToRestate(changeLog));
     changeLog = setSystemMetadataWithForceIndexing(changeLog);
 
-    updateIndicesHook.invoke(changeLog);
+    updateIndicesHook.invoke(opContext, changeLog);
 
     // Forced removal of all edges
     Mockito.verify(mockGraphService, Mockito.times(1))
         .removeEdgesFromNode(any(OperationContext.class), any(), any(), any());
     // Forced add of edges
-    Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any());
+    Mockito.verify(mockGraphService, Mockito.times(2)).addEdge(Mockito.any(), Mockito.any());
     // Forced document update
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
@@ -439,16 +482,17 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testMCLUIPreProcessed() throws Exception {
-    Urn upstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info)");
-    Urn downstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
 
     MetadataChangeLog changeLog =
-        createUpstreamLineageMCLUIPreProcessed(upstreamUrn, downstreamUrn, ChangeType.UPSERT);
-    updateIndicesHook.invoke(changeLog);
+        createUpstreamLineageMCLUIPreProcessed(
+            List.of(upstreamUrn),
+            downstreamUrn,
+            ChangeType.UPSERT,
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN);
+    updateIndicesHook.invoke(opContext, changeLog);
     Mockito.verifyNoInteractions(
         mockEntitySearchService,
         mockGraphService,
@@ -458,24 +502,501 @@ public class UpdateIndicesHookTest {
 
   @Test
   public void testMCLUIPreProcessedReprocess() throws Exception {
-    Urn upstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),foo_info2)");
-    Urn downstreamUrn =
-        UrnUtils.getUrn(
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo2)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
 
     MetadataChangeLog changeLog =
-        createUpstreamLineageMCLUIPreProcessed(upstreamUrn, downstreamUrn, ChangeType.UPSERT);
-    reprocessUIHook.invoke(changeLog);
-    Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any());
+        createUpstreamLineageMCLUIPreProcessed(
+            List.of(upstreamUrn),
+            downstreamUrn,
+            ChangeType.UPSERT,
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN);
+    reprocessUIHook.invoke(opContext, changeLog);
+    Mockito.verify(mockGraphService, Mockito.times(3)).addEdge(Mockito.any(), Mockito.any());
     Mockito.verify(mockEntitySearchService, Mockito.times(1))
         .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
   }
 
   @Test
+  public void testFineGrainedLineageNotAllowed_When_downstream_type_hdfs() throws Exception {
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+
+    Urn lifeCycleOwner = UrnUtils.getUrn(TEST_DATASET_URN_2);
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN), TEST_DATASET_URN_2);
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .removeEdgesFromNode(
+            any(OperationContext.class),
+            Mockito.eq(downstreamUrn),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.eq(
+                newRelationshipFilter(
+                    new Filter().setOr(new ConjunctiveCriterionArray()),
+                    RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_When_upstream_type_hdfs() throws Exception {
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+
+    Urn downstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+
+    Urn lifeCycleOwner = UrnUtils.getUrn(TEST_DATASET_URN);
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn), downstreamUrn, List.of(TEST_DATASET_URN_2), TEST_DATASET_URN);
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .removeEdgesFromNode(
+            any(OperationContext.class),
+            Mockito.eq(downstreamUrn),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.eq(
+                newRelationshipFilter(
+                    new Filter().setOr(new ConjunctiveCriterionArray()),
+                    RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_When_upstream_downstream_type_hdfs()
+      throws Exception {
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+    Urn upstreamUrn_1 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),field_foo_1)");
+    Urn upstreamUrn_2 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),field_foo_2)");
+
+    Urn downstreamUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD),field_foo)");
+
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD)");
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn_1, upstreamUrn_2),
+            downstreamUrn,
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN_4);
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge_1 =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn_1,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+    Edge edge_2 =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn_2,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+
+    Edge edge_3 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            upstreamUrn_1,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Edge edge_4 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            upstreamUrn_2,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .removeEdgesFromNode(
+            any(OperationContext.class),
+            Mockito.eq(downstreamUrn),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.eq(
+                newRelationshipFilter(
+                    new Filter().setOr(new ConjunctiveCriterionArray()),
+                    RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_When_downstream_is_non_dataset_entity()
+      throws Exception {
+    // Regression test: FineGrainedLineage downstreams aren't always Dataset-backed schemaFields
+    // (e.g. SemanticModel columns via upstreamLineage). Checking the platform exclusion list must
+    // not try to cast the parent's key to DatasetKey when the parent is some other entity type.
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+
+    Urn semanticModelUrn =
+        UrnUtils.getUrn(
+            "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,b2b_sales,b2b_sales_bookings)");
+    Urn upstreamUrn = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn downstreamUrn =
+        UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,bookings)", semanticModelUrn));
+
+    MetadataChangeLog event =
+        createUpstreamLineageMCLForEntity(
+            SEMANTIC_MODEL_ENTITY_NAME,
+            semanticModelUrn,
+            List.of(upstreamUrn),
+            downstreamUrn,
+            TEST_DATASET_URN);
+
+    // Must not throw (e.g. ClassCastException: SemanticModelKey -> DatasetKey).
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            semanticModelUrn,
+            null);
+    // Not excluded: the downstream's parent is a SemanticModel, not the excluded "hdfs" platform.
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_When_multiple_upstreams() throws Exception {
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(false);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+    Urn upstreamUrn_1 = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO);
+    Urn upstreamUrn_2 = UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO);
+    Urn downstreamUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD),field_foo)");
+
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD)");
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            List.of(upstreamUrn_1, upstreamUrn_2),
+            downstreamUrn,
+            List.of(TEST_DATASET_URN_2, TEST_DATASET_URN),
+            TEST_DATASET_URN_4);
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge_1 =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn_1,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+    Edge edge_2 =
+        new Edge(
+            downstreamUrn,
+            upstreamUrn_2,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+
+    Edge edge_3 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            upstreamUrn_1,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Edge edge_4 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            upstreamUrn_2,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .removeEdgesFromNode(
+            any(OperationContext.class),
+            Mockito.eq(downstreamUrn),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.eq(
+                newRelationshipFilter(
+                    new Filter().setOr(new ConjunctiveCriterionArray()),
+                    RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
+  public void testFineGrainedLineageNotAllowed_with_Old_aspect_and_graphDiffMode_true()
+      throws Exception {
+    updateIndicesService.getUpdateGraphIndicesService().setGraphDiffMode(true);
+    updateIndicesService
+        .getUpdateGraphIndicesService()
+        .setFineGrainedLineageNotAllowedForPlatforms(List.of(TEST_HDFS_PLATFORM));
+    Urn new_upstreamUrn_1 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo)");
+    Urn new_upstreamUrn_2 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),field_foo)");
+
+    Urn old_upstreamUrn_1 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD),field_foo_1)");
+    Urn old_upstreamUrn_2 =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),field_foo_1)");
+
+    Urn downstreamUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD),field_foo)");
+
+    Urn lifeCycleOwner =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,CypressHdfsDataset,PROD)");
+    MetadataChangeLog event =
+        createUpstreamLineageMCLWithOldAspect(
+            List.of(new_upstreamUrn_1, new_upstreamUrn_2),
+            List.of(old_upstreamUrn_1, old_upstreamUrn_2),
+            downstreamUrn,
+            List.of(TEST_DATASET_URN_2, TEST_DATASET_URN),
+            TEST_DATASET_URN_4);
+    updateIndicesHook.invoke(opContext, event);
+
+    Edge edge_1 =
+        new Edge(
+            downstreamUrn,
+            new_upstreamUrn_1,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+    Edge edge_2 =
+        new Edge(
+            downstreamUrn,
+            new_upstreamUrn_2,
+            DOWNSTREAM_OF,
+            null,
+            null,
+            null,
+            null,
+            null,
+            lifeCycleOwner,
+            null);
+
+    Edge edge_3 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            new_upstreamUrn_1,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Edge edge_4 =
+        new Edge(
+            Urn.createFromString(TEST_DATASET_URN_4),
+            new_upstreamUrn_2,
+            DOWNSTREAM_OF,
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            0L,
+            Urn.createFromString(TEST_ACTOR_URN),
+            null,
+            null,
+            null);
+
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_1));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_2));
+    Mockito.verify(mockGraphService, Mockito.times(1))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_3));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .addEdge(Mockito.eq(opContext), Mockito.eq(edge_4));
+    Mockito.verify(mockGraphService, Mockito.times(0))
+        .removeEdgesFromNode(
+            any(OperationContext.class),
+            Mockito.eq(downstreamUrn),
+            Mockito.eq(Set.of(DOWNSTREAM_OF)),
+            Mockito.eq(
+                newRelationshipFilter(
+                    new Filter().setOr(new ConjunctiveCriterionArray()),
+                    RelationshipDirection.OUTGOING)));
+  }
+
+  @Test
   public void testUpdateIndexMappings() throws CloneNotSupportedException {
-    // ensure no mutation
+    // Test with both V2 and V3 strategies enabled
+    testUpdateIndexMappingsWithStrategies(true, true, "V2 and V3 strategies");
+    testUpdateIndexMappingsWithStrategies(true, false, "V2 strategy only");
+    testUpdateIndexMappingsWithStrategies(false, true, "V3 strategy only");
+  }
+
+  private void testUpdateIndexMappingsWithStrategies(
+      boolean v2Enabled, boolean v3Enabled, String strategyDescription)
+      throws CloneNotSupportedException {
+    // Create strategies based on configuration
+    List<UpdateIndicesStrategy> strategies = new ArrayList<>();
+
+    if (v2Enabled) {
+      UpdateIndicesV2Strategy v2Strategy =
+          new UpdateIndicesV2Strategy(
+              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+              mockEntitySearchService,
+              searchDocumentTransformer,
+              mockTimeseriesAspectService,
+              "MD5",
+              null, // No semantic search config for this test
+              mock(IndexConvention.class),
+              false,
+              mock(V2MappingsBuilder.class),
+              null);
+      strategies.add(v2Strategy);
+    }
+
+    if (v3Enabled) {
+      UpdateIndicesV3Strategy v3Strategy =
+          new UpdateIndicesV3Strategy(
+              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+              mockEntitySearchService,
+              searchDocumentTransformer,
+              mockTimeseriesAspectService,
+              "MD5",
+              v2Enabled, // v2Enabled parameter
+              null);
+      strategies.add(v3Strategy);
+    }
+
+    // Create UpdateIndicesService with the specified strategies
+    UpdateIndicesService testUpdateIndicesService =
+        new UpdateIndicesService(
+            UpdateGraphIndicesService.withService(mockGraphService),
+            mockEntitySearchService,
+            mockSystemMetadataService,
+            strategies,
+            null,
+            true, // searchDiffMode
+            true, // structuredPropertiesHookEnabled
+            true); // structuredPropertiesWriteEnabled
+
+    // Test data setup
     EntitySpec entitySpec =
         opContext.getEntityRegistry().getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
@@ -498,11 +1019,19 @@ public class UpdateIndicesHookTest {
     StructuredPropertyDefinition newValue =
         new StructuredPropertyDefinition(newValueOrigin.data().copy());
 
-    updateIndicesService.updateIndexMappings(
-        UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
+    // Call updateIndexMappings
+    testUpdateIndicesService.updateIndexMappings(
+        opContext, UrnUtils.getUrn(TEST_DATASET_URN), entitySpec, aspectSpec, newValue, oldValue);
 
-    assertEquals(oldValue, oldValueOrigin, "Ensure no mutation to input objects");
-    assertEquals(newValue, newValueOrigin, "Ensure no mutation to input objects");
+    // Verify no mutation to input objects
+    assertEquals(
+        oldValue,
+        oldValueOrigin,
+        String.format("Ensure no mutation to input objects with %s", strategyDescription));
+    assertEquals(
+        newValue,
+        newValueOrigin,
+        String.format("Ensure no mutation to input objects with %s", strategyDescription));
   }
 
   private EntityRegistry createMockEntityRegistry() {
@@ -537,13 +1066,23 @@ public class UpdateIndicesHookTest {
     return mockSpec;
   }
 
-  private MetadataChangeLog createUpstreamLineageMCL(Urn upstreamUrn, Urn downstreamUrn)
+  private MetadataChangeLog createUpstreamLineageMCL(
+      List<Urn> upstreamUrn,
+      Urn downstreamUrn,
+      List<String> upstreamDatasets,
+      String downstreamDataset)
       throws Exception {
-    return createUpstreamLineageMCL(upstreamUrn, downstreamUrn, ChangeType.UPSERT);
+    return createUpstreamLineageMCL(
+        upstreamUrn, downstreamUrn, ChangeType.UPSERT, upstreamDatasets, downstreamDataset);
   }
 
   private MetadataChangeLog createUpstreamLineageMCL(
-      Urn upstreamUrn, Urn downstreamUrn, ChangeType changeType) throws Exception {
+      List<Urn> upstreamUrn,
+      Urn downstreamUrn,
+      ChangeType changeType,
+      List<String> upstreamDatasets,
+      String downstreamDataset)
+      throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(Constants.DATASET_ENTITY_NAME);
     event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
@@ -552,10 +1091,10 @@ public class UpdateIndicesHookTest {
     UpstreamLineage upstreamLineage = new UpstreamLineage();
     FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
     FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
-    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
-    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.DATASET);
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
     UrnArray upstreamUrns = new UrnArray();
-    upstreamUrns.add(upstreamUrn);
+    upstreamUrns.addAll(upstreamUrn);
     fineGrainedLineage.setUpstreams(upstreamUrns);
     UrnArray downstreamUrns = new UrnArray();
     downstreamUrns.add(downstreamUrn);
@@ -563,25 +1102,113 @@ public class UpdateIndicesHookTest {
     fineGrainedLineages.add(fineGrainedLineage);
     upstreamLineage.setFineGrainedLineages(fineGrainedLineages);
     final UpstreamArray upstreamArray = new UpstreamArray();
-    final Upstream upstream = new Upstream();
-    upstream.setType(DatasetLineageType.TRANSFORMED);
-    upstream.setDataset(
-        DatasetUrn.createFromString(
-            "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"));
-    upstreamArray.add(upstream);
+    for (String upstreamDataset : upstreamDatasets) {
+      final Upstream upstream = new Upstream();
+      upstream.setType(DatasetLineageType.TRANSFORMED);
+      upstream.setDataset(DatasetUrn.createFromString(upstreamDataset));
+      upstreamArray.add(upstream);
+    }
     upstreamLineage.setUpstreams(upstreamArray);
 
     event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
-    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setEntityUrn(Urn.createFromString(downstreamDataset));
     event.setEntityType(DATASET_ENTITY_NAME);
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
     return event;
   }
 
+  /**
+   * Like {@link #createUpstreamLineageMCL}, but for entities other than dataset (e.g.
+   * semanticModel) whose fine-grained lineage downstreams are schemaFields parented by that entity
+   * rather than by a dataset.
+   */
+  private MetadataChangeLog createUpstreamLineageMCLForEntity(
+      String entityType,
+      Urn entityUrn,
+      List<Urn> upstreamSchemaFieldUrns,
+      Urn downstreamSchemaFieldUrn,
+      String upstreamDataset)
+      throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    UrnArray upstreamUrns = new UrnArray();
+    upstreamUrns.addAll(upstreamSchemaFieldUrns);
+    fineGrainedLineage.setUpstreams(upstreamUrns);
+    UrnArray downstreamUrns = new UrnArray();
+    downstreamUrns.add(downstreamSchemaFieldUrn);
+    fineGrainedLineage.setDownstreams(downstreamUrns);
+    fineGrainedLineages.add(fineGrainedLineage);
+    upstreamLineage.setFineGrainedLineages(fineGrainedLineages);
+
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    final Upstream upstream = new Upstream();
+    upstream.setType(DatasetLineageType.TRANSFORMED);
+    upstream.setDataset(DatasetUrn.createFromString(upstreamDataset));
+    upstreamArray.add(upstream);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(entityUrn);
+    event.setEntityType(entityType);
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    return event;
+  }
+
+  private MetadataChangeLog createUpstreamLineageMCLWithOldAspect(
+      List<Urn> newUpstreamSchemaFieldUrn,
+      List<Urn> oldUpstreamSchemaFieldUrn,
+      Urn downstreamUrn,
+      List<String> upstreamDatasets,
+      String downstreamDataset)
+      throws Exception {
+    MetadataChangeLog event =
+        createUpstreamLineageMCL(
+            newUpstreamSchemaFieldUrn, downstreamUrn, upstreamDatasets, downstreamDataset);
+
+    // Set the Old Aspect;
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
+    FineGrainedLineage fineGrainedLineage = new FineGrainedLineage();
+    fineGrainedLineage.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+    fineGrainedLineage.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    UrnArray upstreamUrns = new UrnArray();
+    upstreamUrns.addAll(oldUpstreamSchemaFieldUrn);
+    fineGrainedLineage.setUpstreams(upstreamUrns);
+    UrnArray downstreamUrns = new UrnArray();
+    downstreamUrns.add(downstreamUrn);
+    fineGrainedLineage.setDownstreams(downstreamUrns);
+    fineGrainedLineages.add(fineGrainedLineage);
+    upstreamLineage.setFineGrainedLineages(fineGrainedLineages);
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    for (String upstreamDataset : upstreamDatasets) {
+      final Upstream upstream = new Upstream();
+      upstream.setType(DatasetLineageType.TRANSFORMED);
+      upstream.setDataset(DatasetUrn.createFromString(upstreamDataset));
+      upstreamArray.add(upstream);
+    }
+    upstreamLineage.setUpstreams(upstreamArray);
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
+
+    return event;
+  }
+
   private MetadataChangeLog createUpstreamLineageMCLUIPreProcessed(
-      Urn upstreamUrn, Urn downstreamUrn, ChangeType changeType) throws Exception {
+      List<Urn> upstreamUrn,
+      Urn downstreamUrn,
+      ChangeType changeType,
+      List<String> upstreamDataset,
+      String downstreamDataset)
+      throws Exception {
     final MetadataChangeLog metadataChangeLog =
-        createUpstreamLineageMCL(upstreamUrn, downstreamUrn, changeType);
+        createUpstreamLineageMCL(
+            upstreamUrn, downstreamUrn, changeType, upstreamDataset, downstreamDataset);
     final StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);
     final SystemMetadata systemMetadata = new SystemMetadata().setProperties(properties);
@@ -613,5 +1240,29 @@ public class UpdateIndicesHookTest {
     event.setEntityType(Constants.CHART_ENTITY_NAME);
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
     return event;
+  }
+
+  @Test
+  public void testInvokeBatchSmallBatchProcessesEvents() throws Exception {
+    // A small batch (< 500 events) should still be processed normally
+    MetadataChangeLog changeLog =
+        createUpstreamLineageMCL(
+            List.of(UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO)),
+            UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO),
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN);
+    updateIndicesHook.invokeBatch(opContext, List.of(changeLog));
+
+    // Verify that the service was invoked (batch was processed, not skipped)
+    Mockito.verify(mockEntitySearchService, Mockito.atLeastOnce())
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testInvokeBatchEmptyBatchSkipsProcessing() {
+    // An empty batch should not invoke the service
+    updateIndicesHook.invokeBatch(opContext, Collections.emptyList());
+
+    Mockito.verifyNoInteractions(mockEntitySearchService, mockGraphService);
   }
 }

@@ -1,0 +1,305 @@
+package com.linkedin.datahub.graphql.resolvers.knowledge;
+
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.testng.Assert.*;
+
+import com.datahub.authentication.Authentication;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Document;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.ParentDocumentsResult;
+import com.linkedin.entity.Aspect;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.knowledge.DocumentContents;
+import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.knowledge.ParentDocument;
+import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import org.mockito.Mockito;
+import org.testng.annotations.Test;
+
+public class ParentDocumentsResolverTest {
+  @Test
+  public void testGetSuccess() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn documentUrn = Urn.createFromString("urn:li:document:test-doc");
+    Document documentEntity = new Document();
+    documentEntity.setUrn(documentUrn.toString());
+    documentEntity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(documentEntity);
+
+    Urn parentDoc1Urn = Urn.createFromString("urn:li:document:parent-doc-1");
+    Urn parentDoc2Urn = Urn.createFromString("urn:li:document:parent-doc-2");
+
+    // Create document info with parent reference
+    final ParentDocument parentDoc1Ref = new ParentDocument().setDocument(parentDoc1Urn);
+    final ParentDocument parentDoc2Ref = new ParentDocument().setDocument(parentDoc2Urn);
+
+    // Document content (required field)
+    final DocumentContents content = new DocumentContents().setText("Test content");
+
+    // Audit stamp (required fields)
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(Urn.createFromString("urn:li:corpuser:testUser"));
+
+    // Child document has parent1 as parent
+    final DocumentInfo childDocInfo =
+        new DocumentInfo()
+            .setContents(content)
+            .setCreated(auditStamp)
+            .setLastModified(auditStamp)
+            .setParentDocument(parentDoc1Ref);
+
+    // Parent1 document has parent2 as parent
+    final DocumentInfo parent1DocInfo =
+        new DocumentInfo()
+            .setContents(content)
+            .setCreated(auditStamp)
+            .setLastModified(auditStamp)
+            .setParentDocument(parentDoc2Ref);
+
+    // Parent2 document has no parent (root level)
+    final DocumentInfo parent2DocInfo =
+        new DocumentInfo().setContents(content).setCreated(auditStamp).setLastModified(auditStamp);
+
+    Map<String, EnvelopedAspect> childDocAspects = new HashMap<>();
+    childDocAspects.put(
+        DOCUMENT_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(childDocInfo.data())));
+
+    Map<String, EnvelopedAspect> parent1DocAspects = new HashMap<>();
+    parent1DocAspects.put(
+        DOCUMENT_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(parent1DocInfo.data())));
+
+    Map<String, EnvelopedAspect> parent2DocAspects = new HashMap<>();
+    parent2DocAspects.put(
+        DOCUMENT_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(parent2DocInfo.data())));
+
+    // Mock client responses for fetching document info aspects
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(DOCUMENT_ENTITY_NAME),
+                Mockito.eq(documentUrn),
+                Mockito.eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(documentUrn)
+                .setAspects(new EnvelopedAspectMap(childDocAspects)));
+
+    // Full parent fetches (null aspects) already carry DocumentInfo, so the walk reads the next
+    // hop from them directly rather than re-fetching each parent's DocumentInfo.
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(DOCUMENT_ENTITY_NAME),
+                Mockito.eq(parentDoc1Urn),
+                Mockito.eq(null)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(parentDoc1Urn)
+                .setAspects(new EnvelopedAspectMap(parent1DocAspects)));
+
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(DOCUMENT_ENTITY_NAME),
+                Mockito.eq(parentDoc2Urn),
+                Mockito.eq(null)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(parentDoc2Urn)
+                .setAspects(new EnvelopedAspectMap(parent2DocAspects)));
+
+    ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
+    ParentDocumentsResult result = resolver.get(mockEnv).get();
+
+    // Should have called getV2 three times (each node fetched once):
+    // 1. Get child doc info (DOCUMENT_INFO only) to find the first parent
+    // 2. Get parent1 full doc (null aspects) — maps it and yields the next parent
+    // 3. Get parent2 full doc (null aspects) — maps it; no further parent
+    Mockito.verify(mockClient, Mockito.times(3))
+        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+    assertEquals(result.getCount(), 2);
+    assertEquals(result.getDocuments().get(0).getUrn(), parentDoc1Urn.toString());
+    assertEquals(result.getDocuments().get(1).getUrn(), parentDoc2Urn.toString());
+  }
+
+  @Test
+  public void testGetSuccessNoParents() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(50);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Urn documentUrn = Urn.createFromString("urn:li:document:root-doc");
+    Document documentEntity = new Document();
+    documentEntity.setUrn(documentUrn.toString());
+    documentEntity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(documentEntity);
+
+    // Document content (required field)
+    final DocumentContents content = new DocumentContents().setText("Test content");
+
+    // Audit stamp (required fields)
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setTime(System.currentTimeMillis())
+            .setActor(Urn.createFromString("urn:li:corpuser:testUser"));
+
+    // Root document has no parent
+    final DocumentInfo rootDocInfo =
+        new DocumentInfo().setContents(content).setCreated(auditStamp).setLastModified(auditStamp);
+
+    Map<String, EnvelopedAspect> rootDocAspects = new HashMap<>();
+    rootDocAspects.put(
+        DOCUMENT_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(rootDocInfo.data())));
+
+    // Mock client response for fetching root document info
+    Mockito.when(
+            mockClient.getV2(
+                any(),
+                Mockito.eq(DOCUMENT_ENTITY_NAME),
+                Mockito.eq(documentUrn),
+                Mockito.eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(documentUrn)
+                .setAspects(new EnvelopedAspectMap(rootDocAspects)));
+
+    ParentDocumentsResolver resolver = new ParentDocumentsResolver(mockClient);
+    ParentDocumentsResult result = resolver.get(mockEnv).get();
+
+    // Should have called getV2 once to get the document info
+    Mockito.verify(mockClient, Mockito.times(1))
+        .getV2(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any());
+
+    assertEquals(result.getCount(), 0);
+    assertEquals(result.getDocuments().size(), 0);
+  }
+
+  @Test
+  public void testStopsAtMaxParentDepth() throws Exception {
+    Urn source = Urn.createFromString("urn:li:document:d-source");
+    Urn p1 = Urn.createFromString("urn:li:document:d-p1");
+    Urn p2 = Urn.createFromString("urn:li:document:d-p2");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    stubDocInfo(mockClient, source, p1); // source -> p1
+    stubFullDoc(mockClient, p1, p2); // p1 -> p2
+    stubFullDoc(mockClient, p2, null); // p2 -> root
+
+    // maxParentDepth = 1 must stop after the first ancestor even though deeper parents exist.
+    ParentDocumentsResult result =
+        new ParentDocumentsResolver(mockClient).get(envFor(source, 1)).get();
+
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getDocuments().get(0).getUrn(), p1.toString());
+  }
+
+  @Test
+  public void testCycleDetectionStopsWalk() throws Exception {
+    Urn source = Urn.createFromString("urn:li:document:c-source");
+    Urn p1 = Urn.createFromString("urn:li:document:c-p1");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    stubDocInfo(mockClient, source, p1); // source -> p1
+    stubFullDoc(mockClient, p1, source); // p1 -> source (cycle back to the origin)
+
+    // Must terminate (source already visited) and not loop forever.
+    ParentDocumentsResult result =
+        new ParentDocumentsResolver(mockClient).get(envFor(source, 50)).get();
+
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getDocuments().get(0).getUrn(), p1.toString());
+  }
+
+  @Test
+  public void testStopsWhenParentResponseNull() throws Exception {
+    Urn source = Urn.createFromString("urn:li:document:n-source");
+    Urn p1 = Urn.createFromString("urn:li:document:n-p1");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    stubDocInfo(mockClient, source, p1); // source -> p1
+    // p1 full fetch is left unstubbed (returns null): the parent cannot be hydrated.
+
+    ParentDocumentsResult result =
+        new ParentDocumentsResolver(mockClient).get(envFor(source, 50)).get();
+
+    // A parent that cannot be fetched is not added and the walk stops.
+    assertEquals(result.getCount(), 0);
+  }
+
+  private static DataFetchingEnvironment envFor(Urn source, int maxParentDepth) {
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getMaxParentDepth()).thenReturn(maxParentDepth);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Document entity = new Document();
+    entity.setUrn(source.toString());
+    entity.setType(EntityType.DOCUMENT);
+    Mockito.when(mockEnv.getSource()).thenReturn(entity);
+    return mockEnv;
+  }
+
+  private static EntityResponse docInfoResponse(Urn urn, Urn parent) {
+    final DocumentContents content = new DocumentContents().setText("content");
+    final AuditStamp stamp =
+        new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:test"));
+    final DocumentInfo info =
+        new DocumentInfo().setContents(content).setCreated(stamp).setLastModified(stamp);
+    if (parent != null) {
+      info.setParentDocument(new ParentDocument().setDocument(parent));
+    }
+    Map<String, EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(DOCUMENT_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(info.data())));
+    return new EntityResponse().setUrn(urn).setAspects(new EnvelopedAspectMap(aspects));
+  }
+
+  private static void stubDocInfo(EntityClient client, Urn urn, Urn parent) throws Exception {
+    Mockito.when(
+            client.getV2(
+                any(),
+                Mockito.eq(DOCUMENT_ENTITY_NAME),
+                Mockito.eq(urn),
+                Mockito.eq(Collections.singleton(DOCUMENT_INFO_ASPECT_NAME))))
+        .thenReturn(docInfoResponse(urn, parent));
+  }
+
+  private static void stubFullDoc(EntityClient client, Urn urn, Urn parent) throws Exception {
+    Mockito.when(
+            client.getV2(
+                any(), Mockito.eq(DOCUMENT_ENTITY_NAME), Mockito.eq(urn), Mockito.eq(null)))
+        .thenReturn(docInfoResponse(urn, parent));
+  }
+}

@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
+import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadataSettings;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -30,7 +31,13 @@ public class InstitutionalMemoryMetadataMapper {
     result.setAuthor(getAuthor(input.getCreateStamp().getActor().toString()));
     result.setActor(ResolvedActorMapper.map(input.getCreateStamp().getActor()));
     result.setCreated(AuditStampMapper.map(context, input.getCreateStamp()));
+    if (input.getUpdateStamp() != null) {
+      result.setUpdated(AuditStampMapper.map(context, input.getUpdateStamp()));
+    }
     result.setAssociatedUrn(entityUrn.toString());
+    if (input.getSettings() != null) {
+      result.setSettings(mapSettings(input.getSettings()));
+    }
     return result;
   }
 
@@ -38,5 +45,12 @@ public class InstitutionalMemoryMetadataMapper {
     CorpUser partialUser = new CorpUser();
     partialUser.setUrn(actor);
     return partialUser;
+  }
+
+  private InstitutionalMemoryMetadataSettings mapSettings(
+      com.linkedin.common.InstitutionalMemoryMetadataSettings gmsSettings) {
+    InstitutionalMemoryMetadataSettings settings = new InstitutionalMemoryMetadataSettings();
+    settings.setShowInAssetPreview(gmsSettings.isShowInAssetPreview());
+    return settings;
   }
 }

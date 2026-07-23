@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.TimeseriesUtils;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.parseq.Task;
@@ -43,6 +44,7 @@ import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
@@ -70,6 +72,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   private static final String PARAM_START_TIME = "startTime";
   private static final String PARAM_END_TIME = "endTime";
   private static final String PARAM_MAX_BUCKETS = "maxBuckets";
+  private static final String PARAM_TIME_ZONE = "timeZone";
 
   private static final String ACTION_QUERY_RANGE = "queryRange";
   private static final String PARAM_RANGE = "rangeFromEnd";
@@ -100,16 +103,18 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   @WithSpan
   public Task<Void> batchIngest(@ActionParam(PARAM_BUCKETS) @Nonnull UsageAggregation[] buckets) {
     log.info("Ingesting {} usage stats aggregations", buckets.length);
-    return RestliUtils.toTask(systemOperationContext,
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    String actorUrnStr = auth.getActor().toUrnStr();
+    Set<Urn> urns = Arrays.stream(buckets).map(UsageAggregation::getResource).collect(Collectors.toSet());
+    final OperationContext opContext = RestliUtils.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
+                    ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList()))
+                .withUsageOperation(UsageOperation.METADATA_INGEST)
+                .withUsageQuantity(buckets.length),
+            _authorizer,
+            auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          String actorUrnStr = auth.getActor().toUrnStr();
-          Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
-                          ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
-                  auth, true);
 
           if (!isAPIAuthorizedEntityUrns(
                   opContext,
@@ -137,18 +142,20 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           Long startTime,
       @ActionParam(PARAM_END_TIME) @com.linkedin.restli.server.annotations.Optional Long endTime,
       @ActionParam(PARAM_MAX_BUCKETS) @com.linkedin.restli.server.annotations.Optional
-          Integer maxBuckets) {
+          Integer maxBuckets,
+      @ActionParam(PARAM_TIME_ZONE) @com.linkedin.restli.server.annotations.Optional String timeZone) {
     log.info(
         "Querying usage stats for resource: {}, duration: {}, start time: {}, end time: {}, max buckets: {}",
         resource, duration, startTime, endTime, maxBuckets);
-    return RestliUtils.toTask(systemOperationContext,
+    Urn resourceUrn = UrnUtils.getUrn(resource);
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    final OperationContext opContext = RestliUtils.asSession(
+            systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                    ACTION_QUERY, resourceUrn.getEntityType())
+                .withUsageOperation(UsageOperation.METADATA_QUERY),
+            _authorizer, auth, true);
+    return RestliUtils.toTask(opContext,
         () -> {
-
-          Urn resourceUrn = UrnUtils.getUrn(resource);
-          final Authentication auth = AuthenticationContext.getAuthentication();
-          final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                          ACTION_QUERY, resourceUrn.getEntityType()), _authorizer, auth, true);
 
           if (!isAPIAuthorized(
                   opContext,
@@ -158,7 +165,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
           }
 
-          return UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets);
+          return UsageServiceUtil.query(opContext, _timeseriesAspectService, resource, duration, startTime, endTime, maxBuckets, timeZone);
         },
         MetricRegistry.name(this.getClass(), "query"));
   }
@@ -169,13 +176,15 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
   public Task<UsageQueryResult> queryRange(
       @ActionParam(PARAM_RESOURCE) @Nonnull String resource,
       @ActionParam(PARAM_DURATION) @Nonnull WindowDuration duration,
-      @ActionParam(PARAM_RANGE) UsageTimeRange range) {
+      @ActionParam(PARAM_RANGE) UsageTimeRange range,
+      @ActionParam(PARAM_START_TIME) @com.linkedin.restli.server.annotations.Optional Long startTime,
+      @ActionParam(PARAM_TIME_ZONE) @com.linkedin.restli.server.annotations.Optional String timeZone) {
 
     Urn resourceUrn = UrnUtils.getUrn(resource);
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    ACTION_QUERY_RANGE, resourceUrn.getEntityType()), _authorizer, auth, true);
+                    ACTION_QUERY_RANGE, resourceUrn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
 
 
     if (!isAPIAuthorized(
@@ -186,8 +195,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to query usage.");
     }
 
-    return RestliUtils.toTask(systemOperationContext,
-            () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range), MetricRegistry.name(this.getClass(), "queryRange"));
+    return RestliUtils.toTask(opContext,
+            () -> UsageServiceUtil.queryRange(opContext, _timeseriesAspectService, resource, duration, range, timeZone), MetricRegistry.name(this.getClass(), "queryRange"));
   }
 
   private void ingest(@Nonnull OperationContext opContext, @Nonnull UsageAggregation bucket) {
@@ -195,7 +204,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     DatasetUsageStatistics datasetUsageStatistics = new DatasetUsageStatistics();
     datasetUsageStatistics.setTimestampMillis(bucket.getBucket());
     datasetUsageStatistics.setEventGranularity(
-        new TimeWindowSize().setUnit(UsageServiceUtil.windowToInterval(bucket.getDuration())).setMultiple(1));
+        new TimeWindowSize().setUnit(TimeseriesUtils.windowToInterval(bucket.getDuration())).setMultiple(1));
     UsageAggregationMetrics aggregationMetrics = bucket.getMetrics();
     if (aggregationMetrics.hasUniqueUserCount()) {
       datasetUsageStatistics.setUniqueUserCount(aggregationMetrics.getUniqueUserCount());

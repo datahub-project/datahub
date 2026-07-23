@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Application;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
@@ -12,6 +13,8 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
+import com.linkedin.datahub.graphql.generated.DataHubPageModule;
+import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.DataHubRole;
 import com.linkedin.datahub.graphql.generated.DataHubView;
@@ -21,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -33,6 +37,7 @@ import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.Metric;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.Post;
@@ -40,6 +45,7 @@ import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
@@ -248,6 +254,36 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new VersionSet();
       ((VersionSet) partialEntity).setUrn(input.toString());
       ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
+    }
+    if (input.getEntityType().equals(APPLICATION_ENTITY_NAME)) {
+      partialEntity = new Application();
+      ((Application) partialEntity).setUrn(input.toString());
+      ((Application) partialEntity).setType(EntityType.APPLICATION);
+    }
+    if (input.getEntityType().equals(DATAHUB_PAGE_TEMPLATE_ENTITY_NAME)) {
+      partialEntity = new DataHubPageTemplate();
+      ((DataHubPageTemplate) partialEntity).setUrn(input.toString());
+      ((DataHubPageTemplate) partialEntity).setType(EntityType.DATAHUB_PAGE_TEMPLATE);
+    }
+    if (input.getEntityType().equals(DATAHUB_PAGE_MODULE_ENTITY_NAME)) {
+      partialEntity = new DataHubPageModule();
+      ((DataHubPageModule) partialEntity).setUrn(input.toString());
+      ((DataHubPageModule) partialEntity).setType(EntityType.DATAHUB_PAGE_MODULE);
+    }
+    if (input.getEntityType().equals(DOCUMENT_ENTITY_NAME)) {
+      partialEntity = new Document();
+      ((Document) partialEntity).setUrn(input.toString());
+      ((Document) partialEntity).setType(EntityType.DOCUMENT);
+    }
+    if (input.getEntityType().equals(METRIC_ENTITY_NAME)) {
+      partialEntity = new Metric();
+      ((Metric) partialEntity).setUrn(input.toString());
+      ((Metric) partialEntity).setType(EntityType.METRIC);
+    }
+    if (input.getEntityType().equals(SEMANTIC_MODEL_ENTITY_NAME)) {
+      partialEntity = new SemanticModel();
+      ((SemanticModel) partialEntity).setUrn(input.toString());
+      ((SemanticModel) partialEntity).setType(EntityType.SEMANTIC_MODEL);
     }
     return partialEntity;
   }

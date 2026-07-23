@@ -9,6 +9,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -209,5 +210,61 @@ public class LineageRegistryTest {
 
     // Count of entities might vary depending on registry content, so we don't assert exact counts
     // but ensure key expected entities are present
+  }
+
+  @Test
+  public void testGetLineageSpecs() {
+    // Test the getLineageSpecs method which should return only entities with lineage relationships
+    Map<String, LineageRegistry.LineageSpec> allLineageSpecs = lineageRegistry.getLineageSpecs();
+
+    // Verify the map is not null and not empty
+    assertNotNull(allLineageSpecs);
+    assertTrue(allLineageSpecs.size() > 0);
+
+    // Verify that all returned entities have at least one lineage edge (upstream or downstream)
+    for (Map.Entry<String, LineageRegistry.LineageSpec> entry : allLineageSpecs.entrySet()) {
+      String entityName = entry.getKey();
+      LineageRegistry.LineageSpec spec = entry.getValue();
+
+      // At least one of upstream or downstream edges should be non-empty
+      assertTrue(
+          !spec.getUpstreamEdges().isEmpty() || !spec.getDownstreamEdges().isEmpty(),
+          String.format("Entity '%s' should have at least one lineage edge", entityName));
+    }
+
+    // Verify that entities with lineage relationships are included
+    assertTrue(
+        allLineageSpecs.containsKey("dataset"),
+        "Dataset should be in lineage specs as it has lineage relationships");
+    assertTrue(
+        allLineageSpecs.containsKey("datajob"),
+        "DataJob should be in lineage specs as it has lineage relationships");
+
+    // Verify case-insensitive behavior (all keys should be lowercase)
+    for (String key : allLineageSpecs.keySet()) {
+      assertEquals(key, key.toLowerCase(), "All keys in the returned map should be lowercase");
+    }
+
+    // Compare with individual entity lookups to ensure consistency
+    for (String entityName : allLineageSpecs.keySet()) {
+      LineageRegistry.LineageSpec individualSpec = lineageRegistry.getLineageSpec(entityName);
+      assertEquals(
+          allLineageSpecs.get(entityName),
+          individualSpec,
+          String.format(
+              "LineageSpec for '%s' should match between getLineageSpecs() and getLineageSpec()",
+              entityName));
+    }
+
+    // Verify that entities without lineage relationships are filtered out
+    // First, check if "tag" entity has no lineage (based on existing test)
+    LineageRegistry.LineageSpec tagSpec = lineageRegistry.getLineageSpec("tag");
+    if (tagSpec != null
+        && tagSpec.getUpstreamEdges().isEmpty()
+        && tagSpec.getDownstreamEdges().isEmpty()) {
+      assertTrue(
+          !allLineageSpecs.containsKey("tag"),
+          "Tag entity should not be in lineage specs if it has no lineage relationships");
+    }
   }
 }

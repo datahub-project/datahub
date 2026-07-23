@@ -1,12 +1,6 @@
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 
-/**
- * The size of the builder modal
- */
-export enum ModalSize {
-    SMALL = 800,
-    LARGE = 1200,
-}
+import { IngestionSource } from '@types';
 
 /**
  * The default executor id used for ingestion
@@ -34,6 +28,8 @@ export type StepProps = {
     cancel: () => void;
     ingestionSources: SourceConfig[];
     isEditing: boolean;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
 export type StringMapEntryInput = {
@@ -111,4 +107,8 @@ export interface SourceBuilderState {
          */
         extraArgs?: StringMapEntryInput[] | null;
     };
+    /**
+     * Owner URNs for the Ingestion source
+     */
+    owners?: string[];
 }

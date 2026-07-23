@@ -2,6 +2,7 @@ import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
 import _ from 'lodash';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -11,7 +12,9 @@ import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 
-export const getCacheIncident = ({
+import { IncidentResultFieldsFragment } from '@graphql/incident.generated';
+
+const getCacheIncident = ({
     values,
     responseData,
     user,
@@ -21,8 +24,9 @@ export const getCacheIncident = ({
     responseData?: any;
     user?: any;
     incidentUrn?: string;
-}) => {
-    const newIncident = {
+}): IncidentResultFieldsFragment['incidents'][number] => {
+    const firstLinkedAsset = values.linkedAssets?.[0] || {};
+    const newIncident: IncidentResultFieldsFragment['incidents'][number] = {
         __typename: 'Incident',
         urn: incidentUrn ?? responseData?.data?.raiseIncident,
         type: EntityType.Incident,
@@ -33,6 +37,17 @@ export const getCacheIncident = ({
         startedAt: null,
         tags: null,
         status: {
+            __typename: 'IncidentStatus',
+            state: values?.state,
+            stage: values?.stage,
+            message: values?.message || null,
+            lastUpdated: {
+                __typename: 'AuditStamp',
+                time: Date.now(),
+                actor: user?.urn,
+            },
+        },
+        incidentStatus: {
             __typename: 'IncidentStatus',
             state: values?.state,
             stage: values?.stage,
@@ -64,11 +79,16 @@ export const getCacheIncident = ({
             actor: user?.urn,
         },
         assignees: values.assignees,
+        entity: {
+            __typename: firstLinkedAsset.type,
+            ...firstLinkedAsset,
+        },
     };
     return newIncident;
 };
 
 export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+    const { t } = useTranslation('entity.profile.incident');
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();
@@ -121,11 +141,10 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
     };
 
     const handleSubmissionError = (error: any) => {
-        const action = isAddIncidentMode ? 'raise' : 'update';
         handleGraphQLError({
             error,
-            defaultMessage: `Failed to ${action} incident!`,
-            permissionMessage: `Unauthorized to ${action} incident.`,
+            defaultMessage: isAddIncidentMode ? t('toast.raiseFailed') : t('toast.updateFailed'),
+            permissionMessage: isAddIncidentMode ? t('toast.raiseUnauthorized') : t('toast.updateUnauthorized'),
         });
     };
 
@@ -144,13 +163,13 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 },
             };
             const newInput = _.omit(baseInput, ['state', 'message']);
-            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
+            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'customType']);
             const input = !isAddIncidentMode ? newUpdateInput : newInput;
 
             if (isAddIncidentMode) {
                 const responseData: any = await handleAddIncident(input);
                 if (responseData) {
-                    showMessage('Incident Added');
+                    showMessage(t('toast.incidentAdded'));
                 }
                 const newIncident = getCacheIncident({
                     values: {
@@ -181,7 +200,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignee
                 });
             } else if (incidentUrn) {
                 await handleUpdateIncident(input, incidentUrn);
-                showMessage('Incident Updated');
+                showMessage(t('toast.incidentUpdated'));
             }
 
             finalizeSubmission();

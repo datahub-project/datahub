@@ -1,0 +1,68 @@
+# GraphQL schema for lifecycle stage governance.
+# Lifecycle stages (DRAFT, IN_REVIEW, DEPRECATED, etc.) control entity visibility
+# and signal governance state. Stages are data-driven — operators define their own
+# vocabulary by ingesting lifecycleStageType entities.
+
+"""
+A registered lifecycle stage type.
+"""
+type LifecycleStageType {
+  """
+  Full URN of the lifecycle stage type entity.
+  """
+  urn: String!
+
+  """
+  Display name (e.g. "Draft", "In Review", "Deprecated").
+  """
+  name: String!
+
+  """
+  Optional description of what this stage represents.
+  """
+  description: String
+
+  """
+  Entity type names this stage applies to (e.g. ["glossaryTerm", "document"]).
+  Null / absent means the stage applies to all entity types.
+  """
+  entityTypes: [String!]
+
+  """
+  When true, entities in this stage are excluded from default search results.
+  """
+  hideInSearch: Boolean!
+
+  """
+  Allowed previous stage URNs that may transition into this stage.
+  Null means any prior stage is allowed (no enforcement).
+  Empty list means the stage is unreachable.
+  Use "urn:li:lifecycleStageType:__NONE__" as the sentinel for the default active state.
+  """
+  allowedPreviousStages: [String!]
+}
+
+extend type Query {
+  """
+  Return all registered lifecycle stage types.
+  Useful for agents and UIs to discover available stages before calling setLifecycleStage.
+  """
+  listLifecycleStages: [LifecycleStageType!]!
+}
+
+extend input SearchFlags {
+  """
+  When true, entities explicitly part of hidden lifecycle stages (e.g. DRAFT, IN_REVIEW) are included
+  in search results.
+  """
+  includeHiddenLifecycleStages: Boolean
+}
+
+extend type Mutation {
+  """
+  Set or clear the lifecycle stage on any entity that has a Status aspect.
+  Pass null for lifecycleStageUrn to clear the stage (publish/activate the entity).
+  Transition rules defined on the destination stage are enforced server-side.
+  """
+  setLifecycleStage(urn: String!, lifecycleStageUrn: String): Boolean!
+}

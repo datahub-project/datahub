@@ -35,6 +35,7 @@ public class InviteTokenServiceTest {
   private Urn roleUrn;
   private EntityClient _entityClient;
   private SecretService _secretService;
+  private OperationContext _systemOperationContext;
   private InviteTokenService _inviteTokenService;
   private OperationContext opContext;
 
@@ -45,7 +46,9 @@ public class InviteTokenServiceTest {
     _entityClient = mock(EntityClient.class);
     _secretService = mock(SecretService.class);
     opContext = mock(OperationContext.class);
-    _inviteTokenService = new InviteTokenService(_entityClient, _secretService);
+    _systemOperationContext = mock(OperationContext.class);
+    _inviteTokenService =
+        new InviteTokenService(_entityClient, _secretService, _systemOperationContext);
   }
 
   @Test
@@ -142,7 +145,7 @@ public class InviteTokenServiceTest {
         .thenReturn(searchResult);
     when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, true);
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
@@ -158,7 +161,7 @@ public class InviteTokenServiceTest {
         .thenReturn(searchResult);
     when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
     when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, false);
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
@@ -198,7 +201,7 @@ public class InviteTokenServiceTest {
             any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
-    when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     assertThrows(() -> _inviteTokenService.getInviteToken(opContext, null, false));
   }
@@ -227,7 +230,8 @@ public class InviteTokenServiceTest {
             any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(entityResponse);
 
-    when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN_STRING))).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.decrypt(any(), eq(ENCRYPTED_INVITE_TOKEN_STRING)))
+        .thenReturn(INVITE_TOKEN_STRING);
 
     assertEquals(_inviteTokenService.getInviteToken(opContext, null, false), INVITE_TOKEN_STRING);
   }

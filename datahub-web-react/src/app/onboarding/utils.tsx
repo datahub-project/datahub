@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -43,11 +43,7 @@ function hasStepBeenSeen(stepId: string, userUrn: string, educationSteps: StepSt
     return educationSteps.some((step) => step.id === convertedStepId);
 }
 
-export function hasSeenPrerequisiteStepIfExists(
-    step: OnboardingStep,
-    userUrn: string,
-    educationSteps: StepStateResult[],
-) {
+function hasSeenPrerequisiteStepIfExists(step: OnboardingStep, userUrn: string, educationSteps: StepStateResult[]) {
     if (step?.prerequisiteStepId) {
         if (hasStepBeenSeen(step.prerequisiteStepId, userUrn, educationSteps)) {
             return true;
@@ -57,8 +53,8 @@ export function hasSeenPrerequisiteStepIfExists(
     return true;
 }
 
-const StepTitle = styled(Typography.Title)`
-    margin-botton: 5px;
+const StepTitle = styled.div`
+    margin-bottom: 5px;
 `;
 
 export function getStepsToRender(
@@ -82,7 +78,11 @@ export function getStepsToRender(
             ...step,
             content: (
                 <div>
-                    <StepTitle level={5}>{step?.title}</StepTitle>
+                    <StepTitle>
+                        <Heading type="h5" size="lg" weight="bold">
+                            {step?.title}
+                        </Heading>
+                    </StepTitle>
                     <div>{step?.content}</div>
                 </div>
             ),

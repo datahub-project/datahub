@@ -2,14 +2,17 @@ import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-export type Props = {
+type Props = {
     query: string;
     showCopyText?: boolean;
     style?: any;
 };
 
 export default function CopyQuery({ query, showCopyText = false, style }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const [queryCopied, setQueryCopied] = useState(false);
 
     const copyQuery = () => {
@@ -18,9 +21,9 @@ export default function CopyQuery({ query, showCopyText = false, style }: Props)
     };
 
     return (
-        <Tooltip title="Copy the query">
+        <Tooltip title={t('copyQuery.tooltip')}>
             <Button onClick={copyQuery} style={style}>
-                {showCopyText && ((queryCopied && 'Copied') || 'Copy')}
+                {showCopyText && ((queryCopied && tc('common.feedback:copied')) || tc('copy'))}
                 {(queryCopied && <CheckOutlined />) || <CopyOutlined />}
             </Button>
         </Tooltip>

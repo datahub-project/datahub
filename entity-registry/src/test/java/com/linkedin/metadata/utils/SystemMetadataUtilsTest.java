@@ -1,8 +1,11 @@
 package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.mxe.SystemMetadata;
 import org.testng.annotations.Test;
@@ -165,13 +168,64 @@ public class SystemMetadataUtilsTest {
 
   @Test
   public void testGenerateSystemMetadataIfEmpty_AllFieldsPopulated() {
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
     SystemMetadata input =
-        new SystemMetadata().setRunId("custom-run-id").setLastObserved(1234567890L);
+        new SystemMetadata()
+            .setRunId("custom-run-id")
+            .setLastObserved(1234567890L)
+            .setAspectCreated(auditStamp)
+            .setAspectModified(auditStamp)
+            .setVersion("1");
 
     SystemMetadata result = SystemMetadataUtils.generateSystemMetadataIfEmpty(input);
 
     assertNotNull(result);
     assertEquals("custom-run-id", result.getRunId());
     assertEquals(1234567890L, result.getLastObserved().longValue());
+    assertEquals(1234567890L, result.getAspectCreated().getTime());
+    assertEquals("urn:li:corpuser:datahub", result.getAspectModified().getActor().toString());
+    assertEquals("1", result.getVersion());
+  }
+
+  @Test
+  public void testSetAspectModified() {
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(1234567890L);
+    SystemMetadata input = new SystemMetadata();
+    SystemMetadata result = SystemMetadataUtils.setAspectModified(input, auditStamp);
+
+    assertEquals("urn:li:corpuser:datahub", result.getAspectModified().getActor().toString());
+  }
+
+  @Test
+  public void testSetAspectModifiedSystemUser() {
+    AuditStamp auditStamp =
+        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(1234567890L);
+    SystemMetadata input = new SystemMetadata();
+    SystemMetadata result = SystemMetadataUtils.setAspectModified(input, auditStamp);
+
+    assertNull(result.getAspectModified());
+  }
+
+  @Test
+  public void testSetSchemaVersionSetsWhenAbsent() {
+    SystemMetadata metadata = new SystemMetadata();
+    assertFalse(metadata.hasSchemaVersion());
+
+    SystemMetadata result = SystemMetadataUtils.setSchemaVersion(metadata, 3L);
+
+    assertNotNull(result);
+    assertTrue(result.hasSchemaVersion());
+    assertEquals(result.getSchemaVersion(), (Long) 3L);
+  }
+
+  @Test
+  public void testSetSchemaVersionDoesNotOverwriteExisting() {
+    SystemMetadata metadata = new SystemMetadata().setSchemaVersion(2L);
+
+    SystemMetadataUtils.setSchemaVersion(metadata, 5L);
+
+    assertEquals(metadata.getSchemaVersion(), (Long) 2L);
   }
 }

@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -41,6 +42,7 @@ export default function Preview({
     paths,
     health,
     parentEntities,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -63,8 +65,10 @@ export default function Preview({
     paths?: EntityPath[];
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
+    previewType: PreviewType;
 }): JSX.Element {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     return (
         <DefaultPreviewCard
             entityType={EntityType.DataProcessInstance}
@@ -73,7 +77,7 @@ export default function Preview({
             urn={urn}
             data={data}
             description={description || ''}
-            type={subType || 'Process Instance'}
+            type={subType || t('dataProcessInstance.name')}
             typeIcon={entityRegistry.getIcon(EntityType.DataProcessInstance, 14, IconStyleType.ACCENT)}
             platform={platformName || undefined}
             logoUrl={platformLogo || undefined}
@@ -92,6 +96,7 @@ export default function Preview({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
+            previewType={previewType}
         />
     );
 }

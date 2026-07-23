@@ -1,8 +1,8 @@
 import { Checkbox } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import { Button } from '@src/alchemy-components';
 
@@ -20,9 +20,9 @@ const StyledCheckbox = styled(Checkbox)`
     margin-left: -16px;
     padding-left: 16px;
     :hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
-    width: 232px;
+    min-width: 232px;
 `;
 
 const StyledButton = styled(Button)`
@@ -33,6 +33,9 @@ const StyledButton = styled(Button)`
 `;
 
 export default function SchemaFilterSelectContent({ schemaFilterTypes, setSchemaFilterTypes, close }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
     const [stagedSchemaFilterTypes, setStagedSchemaFilterTypes] = useState<SchemaFilterType[]>(schemaFilterTypes);
 
     return (
@@ -43,16 +46,16 @@ export default function SchemaFilterSelectContent({ schemaFilterTypes, setSchema
                 onChange={(values) => setStagedSchemaFilterTypes(values as SchemaFilterType[])}
             >
                 <span>
-                    <StyledCheckbox value={SchemaFilterType.FieldPath}>Name</StyledCheckbox>
+                    <StyledCheckbox value={SchemaFilterType.FieldPath}>{tl('name')}</StyledCheckbox>
                 </span>
                 <span>
-                    <StyledCheckbox value={SchemaFilterType.Documentation}>Documentation</StyledCheckbox>
+                    <StyledCheckbox value={SchemaFilterType.Documentation}>{t('tab.documentation')}</StyledCheckbox>
                 </span>
                 <span>
-                    <StyledCheckbox value={SchemaFilterType.Tags}>Tags</StyledCheckbox>
+                    <StyledCheckbox value={SchemaFilterType.Tags}>{tl('tags')}</StyledCheckbox>
                 </span>
                 <span>
-                    <StyledCheckbox value={SchemaFilterType.Terms}>Glossary Terms</StyledCheckbox>
+                    <StyledCheckbox value={SchemaFilterType.Terms}>{t('glossaryTerm.namePlural')}</StyledCheckbox>
                 </span>
             </Checkbox.Group>
             <StyledButton
@@ -61,7 +64,7 @@ export default function SchemaFilterSelectContent({ schemaFilterTypes, setSchema
                     close();
                 }}
             >
-                Apply
+                {tc('apply')}
             </StyledButton>
         </div>
     );

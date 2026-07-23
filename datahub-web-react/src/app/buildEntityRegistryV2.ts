@@ -1,5 +1,6 @@
 import { RoleEntity } from '@app/entityV2/Access/RoleEntity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { ApplicationEntity } from '@app/entityV2/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entityV2/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entityV2/chart/ChartEntity';
 import { ContainerEntity } from '@app/entityV2/container/ContainerEntity';
@@ -12,10 +13,12 @@ import { DataPlatformInstanceEntity } from '@app/entityV2/dataPlatformInstance/D
 import { DataProcessInstanceEntity } from '@app/entityV2/dataProcessInstance/DataProcessInstanceEntity';
 import { DataProductEntity } from '@app/entityV2/dataProduct/DataProductEntity';
 import { DatasetEntity } from '@app/entityV2/dataset/DatasetEntity';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DomainEntity } from '@app/entityV2/domain/DomainEntity';
 import GlossaryNodeEntity from '@app/entityV2/glossaryNode/GlossaryNodeEntity';
 import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
 import { GroupEntity } from '@app/entityV2/group/Group';
+import { MetricEntity } from '@app/entityV2/metric/MetricEntity';
 import { MLFeatureEntity } from '@app/entityV2/mlFeature/MLFeatureEntity';
 import { MLFeatureTableEntity } from '@app/entityV2/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '@app/entityV2/mlModel/MLModelEntity';
@@ -23,6 +26,7 @@ import { MLModelGroupEntity } from '@app/entityV2/mlModelGroup/MLModelGroupEntit
 import { MLPrimaryKeyEntity } from '@app/entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
 import { QueryEntity } from '@app/entityV2/query/QueryEntity';
 import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
+import { SemanticModelEntity } from '@app/entityV2/semanticModel/SemanticModelEntity';
 import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entityV2/tag/Tag';
 import { UserEntity } from '@app/entityV2/user/User';
@@ -45,6 +49,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new MLModelEntity());
     registry.register(new MLModelGroupEntity());
     registry.register(new DomainEntity());
+    registry.register(new DocumentEntity());
     registry.register(new ContainerEntity());
     registry.register(new GlossaryNodeEntity());
     registry.register(new RoleEntity());
@@ -56,5 +61,8 @@ export default function buildEntityRegistryV2() {
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
     registry.register(new BusinessAttributeEntity());
+    registry.register(new ApplicationEntity());
+    registry.register(new MetricEntity());
+    registry.register(new SemanticModelEntity());
     return registry;
 }

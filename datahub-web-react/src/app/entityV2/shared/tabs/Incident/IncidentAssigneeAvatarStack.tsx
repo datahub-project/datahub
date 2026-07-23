@@ -7,7 +7,7 @@ import { AvatarStack } from '@src/alchemy-components/components/AvatarStack/Avat
 export const IncidentAssigneeAvatarStack = ({ assignees }: { assignees: any[] }) => {
     return (
         <AssigneeAvatarStackContainer data-testid="incident-avatar-stack">
-            <AvatarStack avatars={assignees?.slice(0, MAX_VISIBLE_ASSIGNEE)} />
+            <AvatarStack avatars={assignees?.slice(0, MAX_VISIBLE_ASSIGNEE)} showRemainingNumber={false} />
             {assignees?.length > MAX_VISIBLE_ASSIGNEE && <span>{`+${assignees.length - MAX_VISIBLE_ASSIGNEE}`}</span>}
         </AssigneeAvatarStackContainer>
     );

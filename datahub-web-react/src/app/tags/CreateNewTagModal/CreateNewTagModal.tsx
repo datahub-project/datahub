@@ -1,54 +1,65 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
+import { ModalButton } from '@components/components/Modal/Modal';
+
+import OwnersSection from '@app/domainV2/OwnersSection';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import OwnersSection, { PendingOwner } from '@app/tags/CreateNewTagModal/OwnersSection';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
-import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
-import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
+import {
+    useBatchAddOwnersMutation,
+    useBatchAddTagsMutation,
+    useSetTagColorMutation,
+} from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
+import { ResourceRefInput } from '@types';
 
 type CreateNewTagModalProps = {
     open: boolean;
     onClose: () => void;
+    /**
+     * Pre-fills the tag name field. Used by `AddTagsModal` when the user clicks the synthetic
+     * "Create <name>" option in the dropdown so they don't have to retype it.
+     */
+    initialTagName?: string;
+    /**
+     * When set, the newly-created tag is batch-added to these resources after creation. Mirrors
+     * the legacy `CreateTagModal` "create-and-assign" flow used by the entity-sidebar Add Tags
+     * button. Omit when the modal is opened from the standalone /tags admin page.
+     */
+    resources?: ResourceRefInput[];
 };
 
-/**
- * Modal for creating a new tag with owners and applying it to entities
- */
-const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) => {
-    // Tag details state
-    const [tagName, setTagName] = useState('');
+const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, initialTagName, resources }) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const defaultTagColor = theme.colors.textBrand;
+    const [tagName, setTagName] = useState(initialTagName ?? '');
     const [tagDescription, setTagDescription] = useState('');
-    const [tagColor, setTagColor] = useState('#1890ff');
-
-    // Owners state
+    const [tagColor, setTagColor] = useState(defaultTagColor);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
-
-    // Loading state
     const [isLoading, setIsLoading] = useState(false);
 
-    // Mutations
     const [createTagMutation] = useCreateTagMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
-    /**
-     * Handler for creating the tag and applying it to entities
-     */
     const onOk = async () => {
         if (!tagName) {
-            message.error('Tag name is required');
+            message.error(t('tags.nameRequiredError'));
             return;
         }
 
         setIsLoading(true);
 
         try {
-            // Step 1: Create the new tag
             const createTagResult = await createTagMutation({
                 variables: {
                     input: {
@@ -62,12 +73,11 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             const newTagUrn = createTagResult.data?.createTag;
 
             if (!newTagUrn) {
-                message.error('Failed to create tag. An unexpected error occurred');
+                message.error(t('tags.createError'));
                 setIsLoading(false);
                 return;
             }
 
-            // Step 2: Add color
             if (tagColor) {
                 await setTagColorMutation({
                     variables: {
@@ -77,60 +87,79 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                 });
             }
 
-            // Step 3: Add owners if any
-            if (pendingOwners.length > 0) {
+            if (selectedOwnerUrns.length > 0) {
+                const ownerInputs = createOwnerInputs(selectedOwnerUrns);
                 await batchAddOwnersMutation({
                     variables: {
                         input: {
-                            owners: pendingOwners,
+                            owners: ownerInputs,
                             resources: [{ resourceUrn: newTagUrn }],
                         },
                     },
                 });
             }
 
-            message.success(`Tag "${tagName}" successfully created`);
+            // When launched from `AddTagsModal` the caller passes the entity resources so the new
+            // tag is also assigned to them — preserves the legacy inline "create and apply" flow.
+            if (resources && resources.length > 0) {
+                await batchAddTagsMutation({
+                    variables: {
+                        input: {
+                            tagUrns: [newTagUrn],
+                            resources,
+                        },
+                    },
+                });
+            }
+
+            message.success(t('tags.createSuccess', { name: tagName }));
             onClose();
             setTagName('');
             setTagDescription('');
-            setTagColor('#1890ff');
+            setTagColor(defaultTagColor);
             setSelectedOwnerUrns([]);
-            setPendingOwners([]);
         } catch (e: any) {
             message.destroy();
-            message.error('Failed to create tag. An unexpected error occurred');
+            message.error(t('tags.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#createNewTagButton',
     });
 
-    // Modal buttons configuration
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
-            color: 'violet',
+            text: tc('cancel'),
+            color: 'primary',
             variant: 'text',
             onClick: onClose,
+            buttonDataTestId: 'create-tag-modal-cancel-button',
         },
         {
-            text: 'Create',
+            text: tc('create'),
             id: 'createNewTagButton',
-            color: 'violet',
+            color: 'primary',
             variant: 'filled',
             onClick: onOk,
             disabled: !tagName || isLoading,
             isLoading,
+            buttonDataTestId: 'create-tag-modal-create-button',
         },
     ];
 
     return (
-        <Modal title="Create New Tag" onCancel={onClose} buttons={buttons} open={open} centered width={500}>
-            {/* Tag Details Section */}
+        <Modal
+            title={t('tags.createModalTitle')}
+            onCancel={onClose}
+            buttons={buttons}
+            open={open}
+            centered
+            width={500}
+            dataTestId="create-tag-modal"
+        >
             <TagDetailsSection
                 tagName={tagName}
                 setTagName={setTagName}
@@ -139,14 +168,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
                 tagColor={tagColor}
                 setTagColor={setTagColor}
             />
-
-            {/* Owners Section */}
-            <OwnersSection
-                selectedOwnerUrns={selectedOwnerUrns}
-                setSelectedOwnerUrns={setSelectedOwnerUrns}
-                pendingOwners={pendingOwners}
-                setPendingOwners={setPendingOwners}
-            />
+            <OwnersSection selectedOwnerUrns={selectedOwnerUrns} setSelectedOwnerUrns={setSelectedOwnerUrns} />
         </Modal>
     );
 };

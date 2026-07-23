@@ -1,0 +1,115 @@
+# DataHub Event Schema Configuration
+# This YAML file defines schema versioning relationships and compatibility rules
+# for the DataHub event system. Schema loading and enum mappings are handled
+# in the Java constants files.
+
+# Schema definitions organized by schema name (matching EventUtils constants)
+schemas:
+  MetadataChangeProposal:
+    description: "Metadata change proposal events"
+    versions:
+      - version: 1
+        ordinal_id: "METADATA_CHANGE_PROPOSAL_V1"
+        description: "Original MCP schema without aspectCreated"
+      - version: 2
+        ordinal_id: "METADATA_CHANGE_PROPOSAL_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 3
+        ordinal_id: "METADATA_CHANGE_PROPOSAL"
+        description: "New MCP schema with aspectCreated field"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  FailedMetadataChangeProposal:
+    description: "Failed metadata change proposal events"
+    versions:
+      - version: 1
+        ordinal_id: "FAILED_METADATA_CHANGE_PROPOSAL_V1"
+        description: "Original FMCP schema without aspectCreated"
+      - version: 2
+        ordinal_id: "FAILED_METADATA_CHANGE_PROPOSAL_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 3
+        ordinal_id: "FAILED_METADATA_CHANGE_PROPOSAL"
+        description: "New FMCP schema with aspectCreated field"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  MetadataChangeLog:
+    description: "Metadata change log events with multiple schema types"
+    versions:
+      - version: 1
+        ordinal_id: "METADATA_CHANGE_LOG_V1"
+        description: "Original MCL schema"
+      - version: 2
+        ordinal_id: "METADATA_CHANGE_LOG_TIMESERIES_V1"
+        description: "Timeseries v1 schema"
+      - version: 3
+        ordinal_id: "METADATA_CHANGE_LOG_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 4
+        ordinal_id: "METADATA_CHANGE_LOG_TIMESERIES_V1_FIX"
+        description: "Same as v3 for backward compatibility"
+      - version: 5
+        ordinal_id: "METADATA_CHANGE_LOG"
+        description: "New MCL schema"
+      - version: 6
+        ordinal_id: "METADATA_CHANGE_LOG_TIMESERIES"
+        description: "New timeseries schema"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  PlatformEvent:
+    description: "Platform events"
+    versions:
+      - version: 1
+        ordinal_id: "PLATFORM_EVENT"
+        description: "Platform event schema"
+    compatibility: "BACKWARD"  # Single version, can evolve backward-compatibly
+
+  MetadataChangeEvent:
+    description: "Metadata change events"
+    versions:
+      - version: 1
+        ordinal_id: "METADATA_CHANGE_EVENT_V1"
+        description: "Original MCE schema"
+      - version: 2
+        ordinal_id: "METADATA_CHANGE_EVENT_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 3
+        ordinal_id: "METADATA_CHANGE_EVENT"
+        description: "New MCE schema"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  FailedMetadataChangeEvent:
+    description: "Failed metadata change events"
+    versions:
+      - version: 1
+        ordinal_id: "FAILED_METADATA_CHANGE_EVENT_V1"
+        description: "Original FMCE schema"
+      - version: 2
+        ordinal_id: "FAILED_METADATA_CHANGE_EVENT_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 3
+        ordinal_id: "FAILED_METADATA_CHANGE_EVENT"
+        description: "New FMCE schema"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  MetadataAuditEvent:
+    description: "Metadata audit events"
+    versions:
+      - version: 1
+        ordinal_id: "METADATA_AUDIT_EVENT_V1"
+        description: "Original MAE schema"
+      - version: 2
+        ordinal_id: "METADATA_AUDIT_EVENT_V1_FIX"
+        description: "Same as v1 for backward compatibility"
+      - version: 3
+        ordinal_id: "METADATA_AUDIT_EVENT"
+        description: "New MAE schema"
+    compatibility: "NONE"  # Breaking changes between versions
+
+  DataHubUpgradeHistoryEvent:
+    description: "DataHub upgrade history events"
+    versions:
+      - version: 1
+        ordinal_id: "DATAHUB_UPGRADE_HISTORY_EVENT"
+        description: "DataHub upgrade history schema"
+    compatibility: "BACKWARD"  # Single version, can evolve backward-compatibly

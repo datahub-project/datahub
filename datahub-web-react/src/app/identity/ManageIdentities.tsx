@@ -1,8 +1,12 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { GroupList } from '@app/identity/group/GroupList';
+import { ServiceAccountList } from '@app/identity/serviceAccount';
 import { UserList } from '@app/identity/user/UserList';
 import { RoutedTabs } from '@app/shared/RoutedTabs';
 
@@ -34,7 +38,7 @@ const Content = styled.div`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     // height: calc(100vh - 60px);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
@@ -45,22 +49,26 @@ const Content = styled.div`
 enum TabType {
     Users = 'Users',
     Groups = 'Groups',
+    ServiceAccounts = 'Service Accounts',
 }
-const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
 
 interface Props {
     version?: string; // used to help with cypress tests bouncing between versions. wait till correct version loads
 }
 
 export const ManageIdentities = ({ version }: Props) => {
+    const { t } = useTranslation('entity.identity');
+
     /**
-     * Determines which view should be visible: users or groups list.
+     * Determines which view should be visible: users, groups, or service accounts list.
      */
+    const authenticatedUser = useUserContext();
+    const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts || false;
 
     const getTabs = () => {
-        return [
+        const baseTabs = [
             {
-                name: TabType.Users,
+                name: t('tabs.users'),
                 path: TabType.Users.toLocaleLowerCase(),
                 content: <UserList />,
                 display: {
@@ -68,14 +76,27 @@ export const ManageIdentities = ({ version }: Props) => {
                 },
             },
             {
-                name: TabType.Groups,
+                name: t('tabs.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
                 content: <GroupList />,
                 display: {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ];
+
+        if (canManageServiceAccounts) {
+            baseTabs.push({
+                name: t('tabs.serviceAccounts'),
+                path: 'service-accounts',
+                content: <ServiceAccountList />,
+                display: {
+                    enabled: () => true,
+                },
+            });
+        }
+
+        return baseTabs;
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
@@ -84,10 +105,8 @@ export const ManageIdentities = ({ version }: Props) => {
     return (
         <PageContainer>
             <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-                <PageTitle level={3}>Manage Users & Groups</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View your DataHub users & groups. Take administrative actions.
-                </Typography.Paragraph>
+                <PageTitle level={3}>{t('pageTitle')}</PageTitle>
+                <Text color="textSecondary">{t('pageSubTitle')}</Text>
             </PageHeaderContainer>
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />

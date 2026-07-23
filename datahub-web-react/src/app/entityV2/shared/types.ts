@@ -1,5 +1,3 @@
-import { ReactElement } from 'react';
-
 export enum TabRenderType {
     /**
      * A default, full screen tab.
@@ -63,10 +61,12 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
-    getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
+    getCount?: (GenericEntityProperties, T, loading: boolean) => number | undefined;
+    supportsFullsize?: boolean; // As per TabFullsizedContext
 };
 
 export type EntitySidebarTab = {
+    key?: string;
     name: string;
     component: React.FunctionComponent<EntityTabProps>;
     icon: React.FunctionComponent<any>;
@@ -92,7 +92,3 @@ export type EntitySidebarSection = {
     };
     properties?: any;
 };
-
-export type ResourceType = 'incidents' | 'assertions';
-
-export type QueryType = 'incident_urn' | 'assertion_urn';

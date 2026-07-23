@@ -13,6 +13,11 @@ record DatasetAssertionInfo {
       "name": "Asserts",
       "entityTypes": [ "dataset" ]
     }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "dataset" ]
+    }
     dataset: Urn
 
     /**
@@ -61,6 +66,11 @@ record DatasetAssertionInfo {
       "/*": {
         "fieldType": "URN"
       }
+    }
+    @UrnValidation = {
+      "exist": false,
+      "strict": true,
+      "entityTypes": [ "schemaField" ]
     }
     fields: optional array[Urn]
 

@@ -1,13 +1,12 @@
 package com.linkedin.gms.factory.event;
 
-import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.mxe.TopicConvention;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.TopicsConfiguration;
+import io.datahubproject.event.ExternalEventsPollHandler;
 import io.datahubproject.event.ExternalEventsService;
-import io.datahubproject.event.kafka.KafkaConsumerPool;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,27 +17,39 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ExternalEventsServiceFactory {
 
-  @Value("${eventsApi.defaultPollTimeoutSeconds:10}")
+  @Value("${eventsApi.defaultPollTimeoutSeconds:5}")
   private int pollTimeout;
 
   @Value("${eventsApi.defaultLimit:100}")
   private int defaultLimit;
 
-  @Autowired private TopicConvention topicConvention;
+  @Autowired private ConfigurationProvider configurationProvider;
 
-  @Autowired private KafkaConsumerPool consumerPool;
-
-  @Autowired private ObjectMapper objectMapper;
+  @Autowired private ExternalEventsPollHandler externalEventsPollHandler;
 
   @Bean
   public ExternalEventsService externalEventsService() {
     return new ExternalEventsService(
-        consumerPool, objectMapper, buildTopicNameMappings(), pollTimeout, defaultLimit);
+        buildPollAllowedTopics(),
+        externalEventsPollHandler,
+        buildTopicNameMappings(),
+        pollTimeout,
+        defaultLimit);
+  }
+
+  private Set<String> buildPollAllowedTopics() {
+    return configurationProvider.getKafka().getTopics().getTopics().values().stream()
+        .filter(t -> t.getPollEnabled())
+        .map(TopicsConfiguration.TopicConfiguration::getDisplayName)
+        .collect(Collectors.toSet());
   }
 
   private Map<String, String> buildTopicNameMappings() {
-    final Map<String, String> topicNames = new HashMap<>();
-    topicNames.put(PLATFORM_EVENT_TOPIC_NAME, topicConvention.getPlatformEventTopicName());
-    return topicNames;
+    return configurationProvider.getKafka().getTopics().getTopics().values().stream()
+        .filter(t -> t.getPollEnabled())
+        .collect(
+            Collectors.toMap(
+                TopicsConfiguration.TopicConfiguration::getDisplayName,
+                TopicsConfiguration.TopicConfiguration::getName));
   }
 }

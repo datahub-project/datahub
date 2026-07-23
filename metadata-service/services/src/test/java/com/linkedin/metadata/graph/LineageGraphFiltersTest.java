@@ -47,7 +47,14 @@ public class LineageGraphFiltersTest {
             "dataset",
             "chart",
             "dashboard",
-            "mlPrimaryKey"));
+            "mlPrimaryKey",
+            "metric",
+            "semanticModel",
+            "aiAgent",
+            "application",
+            "service",
+            "api",
+            "repository"));
     assertNull(filters.getAllowedRelationshipTypes());
     assertTrue(filters.getEdgesPerEntityType().isEmpty());
 
@@ -158,13 +165,19 @@ public class LineageGraphFiltersTest {
 
     List<Pair<String, LineageRegistry.EdgeInfo>> streamResult = filters.streamEdgeInfo().toList();
 
-    assertEquals(streamResult.size(), 1);
+    assertEquals(streamResult.size(), 2);
     assertTrue(
         streamResult.contains(
             Pair.of(
                 "chart",
                 new LineageRegistry.EdgeInfo(
                     "Consumes", RelationshipDirection.OUTGOING, "dataset"))));
+    assertTrue(
+        streamResult.contains(
+            Pair.of(
+                "chart",
+                new LineageRegistry.EdgeInfo(
+                    "Consumes", RelationshipDirection.OUTGOING, "chart"))));
 
     assertTrue(filters.containsEdgeInfo("chart", streamResult.get(0).getValue()));
     assertFalse(

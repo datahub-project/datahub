@@ -14,10 +14,13 @@ query getDataProduct($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
+        deprecation {
+            ...deprecationFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 
@@ -62,6 +65,9 @@ fragment dataProductSearchFields on DataProduct {
         name
         description
         externalUrl
+        createdOn {
+            time
+        }
     }
     ownership {
         ...ownershipFields
@@ -74,6 +80,12 @@ fragment dataProductSearchFields on DataProduct {
     }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    privileges {
+        ...entityPrivileges
     }
     entities(input: { start: 0, count: 0, query: "*" }) {
         total
@@ -98,4 +110,29 @@ mutation deleteDataProduct($urn: String!) {
 
 mutation batchSetDataProduct($input: BatchSetDataProductInput!) {
     batchSetDataProduct(input: $input)
+}
+
+mutation batchAddToDataProducts($input: BatchSetDataProductsInput!) {
+    batchAddToDataProducts(input: $input)
+}
+
+mutation batchRemoveFromDataProducts($input: BatchSetDataProductsInput!) {
+    batchRemoveFromDataProducts(input: $input)
+}
+
+query getDataProductEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    dataProduct(urn: $urn) {
+        urn
+        type
+        exists
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
 }

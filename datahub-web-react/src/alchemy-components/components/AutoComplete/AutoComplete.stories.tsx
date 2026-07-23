@@ -95,6 +95,13 @@ const meta = {
                 'Determine whether the dropdown menu and the select input are the same width.' +
                 'Default set min-width same as input. Will ignore when value less than select width.',
         },
+        clickOutsideWidth: {
+            description:
+                'Customize width of the wrapper to handle outside clicks. This wrapper is fit-content by default',
+        },
+        shouldPreventOptionSelectingByMouseMove: {
+            description: 'When enabled it prepents selecting option by mouse move event',
+        },
     },
 
     // Define defaults

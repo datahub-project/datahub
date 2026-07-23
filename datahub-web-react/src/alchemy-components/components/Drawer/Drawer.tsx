@@ -1,3 +1,5 @@
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { Button } from '@components/components/Button';
@@ -16,18 +18,21 @@ export const Drawer = ({
     width = drawerDefault.width,
     closable = drawerDefault.closable,
     maskTransparent = drawerDefault.maskTransparent,
+    dataTestId,
 }: React.PropsWithChildren<DrawerProps>) => {
     return (
         <StyledDrawer
             onClose={onClose}
             destroyOnClose
             title={
-                <TitleContainer>
+                <TitleContainer
+                    data-testid={dataTestId ? `${dataTestId}-drawer-title-container` : 'drawer-title-container'}
+                >
                     <TitleLeftContainer>
                         {onBack && (
                             <Button
                                 color="gray"
-                                icon={{ icon: 'ArrowBack', source: 'material' }}
+                                icon={{ icon: ArrowLeft }}
                                 iconPosition="left"
                                 isCircle
                                 onClick={() => onBack?.()}
@@ -35,19 +40,20 @@ export const Drawer = ({
                                 variant="text"
                             />
                         )}
-                        <Text weight="bold" size="xl">
+                        <Text weight="bold" size="xl" data-testid="drawer-title">
                             {title}
                         </Text>
                     </TitleLeftContainer>
                     {closable && (
                         <Button
                             color="gray"
-                            icon={{ icon: 'Close', source: 'material' }}
+                            icon={{ icon: X }}
                             iconPosition="left"
                             isCircle
                             onClick={() => onClose?.()}
                             size="xl"
                             variant="text"
+                            data-testid="drawer-close-button"
                         />
                     )}
                 </TitleContainer>

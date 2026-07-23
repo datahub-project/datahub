@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
+import { Button, Editor, Tooltip } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
+const ELLIPSIS = '...';
 
 const ShowMoreWrapper = styled.div`
     align-items: start;
@@ -16,18 +17,15 @@ const ShowMoreWrapper = styled.div`
 const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     max-width: 100%;
     position: relative;
+    flex: 1;
     ${(props) =>
         props.lineLimit &&
         props.lineLimit <= 1 &&
-        ` 
+        `
         display: flex;
         align-items: center;
         gap: 4px;
     `}
-`;
-
-const CustomButton = styled(Button)`
-    padding: 8px 0px;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -36,9 +34,14 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     word-wrap: break-word;
     overflow-x: hidden;
     overflow-y: ${(props) => (props.scrollableY ? 'auto' : 'hidden')};
+    flex: 1;
 `;
 
+// Wrapper div that applies compact editor styles via CSS class selectors,
+// so the lazy-loaded Editor can be styled without a static component reference.
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
+    border: none;
+
     .remirror-theme {
         max-width: 100%;
     }
@@ -88,7 +91,11 @@ const FixedLineHeightEditor = styled(CompactEditor)<{ customStyle?: React.CSSPro
     }
 `;
 
-export type Props = {
+const MoreIndicator = styled.span`
+    break-word: normal;
+`;
+
+type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;
@@ -107,6 +114,7 @@ export default function CompactMarkdownViewer({
     handleShowMore,
     hideShowMore,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -123,7 +131,7 @@ export default function CompactMarkdownViewer({
 
     return (
         <MarkdownContainer lineLimit={lineLimit}>
-            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef}>
+            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef} data-testid="compact-markdown-viewver">
                 <StyledEditor
                     customStyle={customStyle}
                     limit={isShowingMore ? null : lineLimit}
@@ -131,14 +139,22 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-            {hideShowMore && <>...</>}
+            {hideShowMore && isTruncated && (
+                <Tooltip title={content}>
+                    <MoreIndicator>{ELLIPSIS}</MoreIndicator>
+                </Tooltip>
+            )}
 
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
-                        <CustomButton
+                        <Button
                             variant="text"
+                            color="gray"
                             size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
+                            // Drop the button's horizontal padding so the label left-aligns
+                            // with the content above it instead of sitting indented.
+                            style={{ paddingLeft: 0, paddingRight: 0 }}
                             onClick={(e) => {
                                 if (handleShowMore) {
                                     handleShowMore();
@@ -148,8 +164,8 @@ export default function CompactMarkdownViewer({
                                 e.stopPropagation();
                             }}
                         >
-                            {isShowingMore ? 'show less' : 'show more'}
-                        </CustomButton>
+                            {isShowingMore ? tc('showLess') : tc('showMoreCapitalized')}
+                        </Button>
                     </ShowMoreWrapper>
                 )}
         </MarkdownContainer>

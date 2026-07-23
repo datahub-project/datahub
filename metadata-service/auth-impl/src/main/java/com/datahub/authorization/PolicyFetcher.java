@@ -46,7 +46,7 @@ public class PolicyFetcher {
    */
   @Deprecated
   public CompletableFuture<PolicyFetchResult> fetchPolicies(
-      OperationContext opContext, int start, String query, int count, Filter filter) {
+      OperationContext opContext, int start, String query, @Nullable Integer count, Filter filter) {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -73,13 +73,17 @@ public class PolicyFetcher {
   }
 
   public PolicyFetchResult fetchPolicies(
-      OperationContext opContext, int count, @Nullable String scrollId, Filter filter)
+      OperationContext opContext, @Nullable Integer count, @Nullable String scrollId, Filter filter)
       throws RemoteInvocationException, URISyntaxException {
     return fetchPolicies(opContext, "", count, scrollId, filter);
   }
 
   public PolicyFetchResult fetchPolicies(
-      OperationContext opContext, String query, int count, @Nullable String scrollId, Filter filter)
+      OperationContext opContext,
+      String query,
+      @Nullable Integer count,
+      @Nullable String scrollId,
+      Filter filter)
       throws RemoteInvocationException, URISyntaxException {
     log.debug("Batch fetching policies. count: {}, scroll: {}", count, scrollId);
 

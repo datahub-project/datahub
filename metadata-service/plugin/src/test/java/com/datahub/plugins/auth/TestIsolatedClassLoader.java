@@ -23,10 +23,12 @@ import com.datahub.plugins.loader.PluginPermissionManagerImpl;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -61,7 +63,13 @@ class TestIsolatedClassLoader {
 
   @BeforeClass
   public void setSecurityManager() {
-    System.setSecurityManager(new SecurityManager());
+    // SecurityManager deprecated and removed in Java 21+
+    // Plugin security is now enforced by PluginPermissionManager instead
+  }
+
+  @AfterClass
+  public void clearSecurityManager() {
+    // SecurityManager deprecated and removed in Java 21+
   }
 
   @Test
@@ -192,7 +200,8 @@ class TestIsolatedClassLoader {
                 authorizerPluginConfig.getPluginHomeDirectory().toString()),
             null);
     AuthorizationRequest authorizationRequest =
-        new AuthorizationRequest("urn:li:user:fake", "test", Optional.empty());
+        new AuthorizationRequest(
+            "urn:li:user:fake", "test", Optional.empty(), Collections.emptyList());
     authorizer.init(authorizerPluginConfig.getConfigs().orElse(new HashMap<>()), authorizerContext);
     assert authorizer.authorize(authorizationRequest).getMessage().equals("fake message");
   }

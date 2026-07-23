@@ -1,3 +1,8 @@
+---
+title: Datasets API Tutorial
+description: "Step-by-step tutorial for creating, updating, and querying Dataset entities in DataHub using the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -6,7 +11,7 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Datasets?
 
 The dataset entity is one the most important entities in the metadata model. They represent collections of data that are typically represented as Tables or Views in a database (e.g. BigQuery, Snowflake, Redshift etc.), Streams in a stream-processing environment (Kafka, Pulsar etc.), bundles of data found as Files or Folders in data lake systems (S3, ADLS, etc.).
-For more information about datasets, refer to [Dataset](/docs/generated/metamodel/entities/dataset.md).
+For more information about datasets, refer to our [dataset reference](/docs/generated/metamodel/entities/dataset.md).
 
 ### Goal Of This Guide
 
@@ -18,7 +23,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Create Dataset
 
@@ -109,7 +114,7 @@ Expected Response:
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/delete_dataset.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_delete.py show_path_as_comment }}
 ```
 
 </TabItem>

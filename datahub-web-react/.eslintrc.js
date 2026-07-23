@@ -1,5 +1,194 @@
+const path = require('path');
+
+// --------------------------------------------------------------------------
+// Semantic color token enforcement (dark mode initiative)
+//
+// These rules block hardcoded colors and deprecated color imports across the
+// whole codebase (all src/**, except COLOR_RULE_EXCLUDED_FILES) so color flows
+// through theme.colors.* tokens that repaint for theming / dark mode.
+// --------------------------------------------------------------------------
+const rulesDirPlugin = require('eslint-plugin-rulesdir');
+rulesDirPlugin.RULES_DIR = path.join(__dirname, 'eslint-rules');
+
+const COLOR_ENFORCEMENT_RULES = {
+    'no-restricted-imports': [
+        'error',
+        {
+            patterns: [
+                {
+                    group: ['@conf/theme/colorThemes/color', '**/conf/theme/colorThemes/color'],
+                    message:
+                        'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['**/alchemy-components/theme/foundations/colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+                {
+                    group: ['@components', '@components/*'],
+                    importNames: ['colors'],
+                    message:
+                        'Do not import alchemy colors directly. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
+                },
+            ],
+            paths: [
+                {
+                    name: '@app/entity/shared/constants',
+                    importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
+                    message:
+                        'ANTD_GRAY / REDESIGN_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
+                },
+                {
+                    name: '@app/entityV2/shared/constants',
+                    importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS', 'LINEAGE_COLORS'],
+                    message:
+                        'ANTD_GRAY / REDESIGN_COLORS / LINEAGE_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
+                },
+            ],
+        },
+    ],
+    'rulesdir/no-hardcoded-colors': 'error',
+};
+
+// --------------------------------------------------------------------------
+// i18n string enforcement
+//
+// Global — everything under src/**, except I18N_RULE_EXCLUDED_FILES — so new
+// files/directories are covered automatically and can't silently ship
+// hardcoded English. Add a path here only for legacy areas still being
+// migrated; once a legacy area is migrated, remove its entry instead of
+// adding new ones.
+// --------------------------------------------------------------------------
+const I18N_RULE_EXCLUDED_FILES = [
+    // Legacy v1 ingestion UI, superseded by ingestV2/. Migration deferred because
+    // live and dead code interleave (no clean glob) — same rationale as this
+    // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
+    'src/app/ingest/**',
+    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    'src/graphql/**',
+    'src/graphql-mock/**',
+    // Mock fixtures, tests, and Storybook demos — never production UI.
+    '**/__tests__/**',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/*.stories.tsx',
+    // The alchemy rich-text Editor is not yet migrated; excluded so a directory-level
+    // glob can lock the rest of alchemy-components under enforcement without failing on it.
+    '**/alchemy-components/components/Editor/**',
+];
+
+const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
+    'to',
+    'path',
+    'target',
+    'type',
+    'rel',
+    'href',
+    'name',
+    // Source/connector display names are proper nouns (Athena, BigQuery, Confluence, …) and
+    // must never be translated. Exempt any `displayName`/`*DisplayName` property or attribute.
+    '.*[Dd]isplayName$',
+    'form',
+    'htmlFor',
+    'entityTypeName',
+    'propertyName',
+    'typeName',
+    // Styled-components transient props ($-prefixed) are never user-visible
+    '^\\$',
+    'autoComplete',
+    'preload',
+    'placement',
+    'trigger',
+    'language',
+    'fill',
+    'justifyContent',
+    'field',
+    'tab',
+    'optionFilterProp',
+    'paramsField',
+    'commandName',
+    'optionLabelProp',
+    'classNames',
+    // SVG presentation attributes — coordinates, font names, marker refs, dash patterns;
+    // never user-visible text.
+    'dx',
+    'dy',
+    'textDecoration',
+    '.*[Aa]lign$',
+    'viewBox',
+    'textAnchor',
+    'fontFamily',
+    'pointerEvents',
+    'markerEnd',
+    'markerStart',
+    'stroke',
+    'strokeDasharray',
+    'transform',
+    // Date/number format tokens (e.g. dayjs 'll') and tooltip position enums.
+    'format',
+    'tooltipPlacement',
+    '.*Path$',
+    '.*background$',
+    '.*Background$',
+    '.*borderRadius$',
+    '.*BorderRadius$',
+    '.*className$',
+    '.*ClassName$',
+    '.*color$',
+    '.*Color$',
+    '.*height$',
+    '.*Height$',
+    '.*icon$',
+    '.*Icon$',
+    '.*id$',
+    '.*Id$',
+    '.*key$',
+    '.*Key$',
+    '.*[Mm]argin.*',
+    '.*[Pp]adding.*',
+    '.*size$',
+    '.*Size$',
+    '.*testid$',
+    '.*TestId$',
+    '.*TestID$',
+    '.*TestIdPrefix$',
+    '.*variant$',
+    '.*Variant$',
+    '.*weight$',
+    '.*Weight$',
+    '.*width$',
+    '.*Width$',
+    '.*style$',
+    '.*Style$',
+];
+
+// Files that legitimately need raw color values, or where migration is deferred.
+const COLOR_RULE_EXCLUDED_FILES = [
+    'src/conf/theme/colorThemes/**',
+    'src/conf/theme/*.ts',
+    'src/conf/theme/*.json',
+    'src/alchemy-components/theme/**',
+    // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
+    // Migration is deferred here because live and dead code interleave (no clean glob).
+    'src/app/entity/**',
+    'src/app/search/**',
+    'src/app/lineage/**',
+    'src/app/glossary/**',
+    'src/app/analyticsDashboard/**',
+    'src/app/ingest/**',
+    // Mock fixtures, tests, and Storybook demos — never production UI.
+    'src/graphql-mock/**',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/__tests__/**',
+    '**/*.stories.tsx',
+    // Deferred to a design-led pass: chart series palette.
+    'src/app/dataviz/**',
+];
+
 module.exports = {
-    parser: '@typescript-eslint/parser', // Specifies the ESLint parser
+    parser: '@typescript-eslint/parser',
     extends: [
         'airbnb',
         'airbnb-typescript',
@@ -8,16 +197,41 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias'],
+    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias', 'rulesdir', 'i18next'],
     parserOptions: {
-        ecmaVersion: 2020, // Allows for the parsing of modern ECMAScript features
-        sourceType: 'module', // Allows for the use of imports
+        ecmaVersion: 2020,
+        sourceType: 'module',
         ecmaFeatures: {
-            jsx: true, // Allows for the parsing of JSX
+            jsx: true,
         },
         project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
     },
     rules: {
+        'no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: 'moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'moment-timezone',
+                        message: 'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
+                    },
+                    {
+                        name: 'moment/moment',
+                        message: 'moment was removed for bundle size. Use dayjs instead.',
+                    },
+                    {
+                        name: 'dayjs',
+                        message:
+                            "Import dayjs from '@utils/dayjs' instead. The utils wrapper registers all required plugins (utc, isoWeek, timezone, etc.) — importing bare 'dayjs' silently skips plugin registration.",
+                    },
+                ],
+            },
+        ],
         '@typescript-eslint/no-explicit-any': 'off',
         '@stylistic/js/comma-dangle': ['error', 'always-multiline'],
         'arrow-body-style': 'off',
@@ -25,6 +239,25 @@ module.exports = {
         'import/no-extraneous-dependencies': 'off',
         'import/no-relative-packages': 'error',
         'import/prefer-default-export': 'off', // TODO: remove this lint rule
+        '@typescript-eslint/no-restricted-imports': [
+            'error',
+            {
+                paths: [
+                    {
+                        name: '@phosphor-icons/react',
+                        message:
+                            'Import Phosphor icons from their individual CSR paths: @phosphor-icons/react/dist/csr/IconName.',
+                        allowTypeImports: true,
+                    },
+                    {
+                        name: '@monaco-editor/react',
+                        importNames: ['loader'],
+                        message:
+                            "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+                    },
+                ],
+            },
+        ],
         'no-console': 'off',
         'no-plusplus': 'off',
         'no-prototype-builtins': 'off',
@@ -72,7 +305,7 @@ module.exports = {
     },
     settings: {
         react: {
-            version: 'detect', // Tells eslint-plugin-react to automatically detect the version of React to use
+            version: 'detect',
         },
     },
     overrides: [
@@ -81,8 +314,63 @@ module.exports = {
             rules: { 'import/no-cycle': 'off' },
         },
         {
+            // Custom ESLint rules and their tests live outside src/, so the src path
+            // aliases don't apply and the rule modules are CommonJS (.js).
+            files: ['eslint-rules/**'],
+            rules: { 'import-alias/import-alias': 'off', 'import/extensions': 'off' },
+        },
+        {
+            // The dayjs utils wrapper itself must import bare 'dayjs' to extend plugins.
+            files: ['src/utils/dayjs.ts'],
+            rules: { 'no-restricted-imports': 'off' },
+        },
+        {
             files: ['src/alchemy-components/theme/**/*.ts'],
             rules: { 'import/no-relative-packages': 'off', 'import-alias/import-alias': 'off' },
+        },
+        // Semantic color enforcement — global; everything except COLOR_RULE_EXCLUDED_FILES.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: COLOR_RULE_EXCLUDED_FILES,
+            rules: COLOR_ENFORCEMENT_RULES,
+        },
+        // i18n enforcement — global; everything except I18N_RULE_EXCLUDED_FILES.
+        {
+            files: ['src/**/*.ts', 'src/**/*.tsx'],
+            excludedFiles: I18N_RULE_EXCLUDED_FILES,
+            rules: {
+                'i18next/no-literal-string': [
+                    'error',
+                    {
+                        mode: 'jsx-only',
+                        'jsx-attributes': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        'object-properties': {
+                            exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                        },
+                        words: {
+                            exclude: [
+                                '^_blank$',
+                                '^noopener noreferrer$',
+                                '^\\*+$',
+                                '^-$',
+                                '^—$',
+                                '^[A-Z0-9_]+$',
+                                '^:\\s*$',
+                                '^[()]+$',
+                                '^\\.+$',
+                                // CSS length values in inline styles (e.g. '4px', '0px', '1.5rem')
+                                '^\\d+(\\.\\d+)?(px|rem|em|%|vw|vh)$',
+                                // Bare slash or pipe separators between values (e.g. "{index} / {total}", "{a} | {b}")
+                                '^\\s*/\\s*$',
+                                '^\\s*\\|\\s*$',
+                            ],
+                        },
+                    },
+                ],
+                'rulesdir/no-manual-pluralize-in-i18n': 'error',
+            },
         },
     ],
 };

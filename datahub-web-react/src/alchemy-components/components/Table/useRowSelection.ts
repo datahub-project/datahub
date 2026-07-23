@@ -14,30 +14,49 @@ export const useRowSelection = <T>(
         [data, getCheckboxProps],
     );
 
-    const isSelectAll = useMemo(
+    const selectableRowsKeys = useMemo(
         () =>
-            data.length > 0 &&
-            selectedRowKeys.length !== 0 &&
-            selectedRowKeys.length === data.length - disabledRows.length,
-        [selectedRowKeys, data, disabledRows],
+            rowSelection
+                ? data
+                      .filter((row) => !rowSelection.getCheckboxProps?.(row).disabled)
+                      .map((row, index) => getRowKey(row, index, rowKey))
+                : [],
+        [data, rowSelection, rowKey],
+    );
+
+    const isSelectAll = useMemo(
+        () => selectableRowsKeys.length > 0 && selectableRowsKeys.every((key) => selectedRowKeys.includes(key)),
+        [selectedRowKeys, selectableRowsKeys],
     );
 
     const isSelectAllDisabled = useMemo(() => data.length === disabledRows.length, [data, disabledRows]);
 
     const isIntermediate = useMemo(
-        () => selectedRowKeys.length > 0 && selectedRowKeys.length < data.length - disabledRows.length,
-        [selectedRowKeys, data, disabledRows],
+        () =>
+            selectableRowsKeys.some((key) => selectedRowKeys.includes(key)) &&
+            !selectableRowsKeys.every((key) => selectedRowKeys.includes(key)),
+        [selectedRowKeys, selectableRowsKeys],
     );
 
     const handleSelectAll = useCallback(() => {
         if (!rowSelection) return;
-        const newSelectedKeys = isSelectAll
-            ? []
-            : data
-                  .filter((row) => !rowSelection.getCheckboxProps?.(row).disabled)
-                  .map((row, index) => getRowKey(row, index, rowKey));
-        onChange?.(newSelectedKeys, data);
-    }, [rowSelection, isSelectAll, data, onChange, rowKey]);
+
+        const currentPageKeys = selectableRowsKeys;
+        let newSelectedKeys;
+
+        if (isSelectAll) {
+            // Deselect only the current page's rows
+            newSelectedKeys = selectedRowKeys.filter((key) => !currentPageKeys.includes(key));
+        } else {
+            // Add current page's rows to existing selection (removing duplicates)
+            const keysToAdd = currentPageKeys.filter((key) => !selectedRowKeys.includes(key));
+            newSelectedKeys = [...selectedRowKeys, ...keysToAdd];
+        }
+
+        const selectedRows = data.filter((row, idx) => newSelectedKeys.includes(getRowKey(row, idx, rowKey)));
+
+        onChange?.(newSelectedKeys, selectedRows);
+    }, [rowSelection, isSelectAll, selectedRowKeys, selectableRowsKeys, data, onChange, rowKey]);
 
     const handleRowSelect = (record: T, index: number) => {
         if (!rowSelection) return;

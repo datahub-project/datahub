@@ -1,15 +1,37 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
-import { Button, DatePicker, Space, Typography } from 'antd';
-import moment from 'moment';
+import { Button, Space } from 'antd';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import DatePicker from '@utils/DayjsDatePicker';
+import dayjs from '@utils/dayjs';
+import type { Dayjs } from '@utils/dayjs';
 
 const { RangePicker } = DatePicker;
 
-export type Datetime = moment.Moment | null;
+export type Datetime = Dayjs | null;
+
+const TimeRangeTrigger = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    color: ${(props) => props.theme.colors.text};
+    cursor: pointer;
+`;
+
+const TriggerCaret = styled(CaretDownOutlined)`
+    font-size: 10px;
+    color: ${(props) => props.theme.colors.icon};
+`;
 
 const ConfirmButtonWrapper = styled.div`
     position: absolute;
@@ -20,7 +42,7 @@ const ConfirmButtonWrapper = styled.div`
 
 const ConfirmButton = styled(Button)`
     border-radius: 15px;
-    border: 1px solid ${REDESIGN_COLORS.BLACK};
+    border: 1px solid ${(props) => props.theme.colors.text};
 
     position: absolute;
     right: 10px;
@@ -28,29 +50,31 @@ const ConfirmButton = styled(Button)`
     text-align: right;
 
     :hover {
-        border-color: ${REDESIGN_COLORS.BLUE};
-        color: ${REDESIGN_COLORS.BLUE};
+        border-color: ${(props) => props.theme.colors.hyperlinks};
+        color: ${(props) => props.theme.colors.hyperlinks};
     }
 `;
 
-export type Props = {
+type Props = {
     onChange: (start: Datetime, end: Datetime) => void;
     startTimeMillis?: number;
     endTimeMillis?: number;
 };
 
 export default function LineageTimeSelector({ onChange, startTimeMillis, endTimeMillis }: Props) {
-    const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? moment(startTimeMillis) : null);
-    const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? moment(endTimeMillis) : null);
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
+    const [startDate, setStartDate] = useState<Datetime>(startTimeMillis ? dayjs(startTimeMillis) : null);
+    const [endDate, setEndDate] = useState<Datetime>(endTimeMillis ? dayjs(endTimeMillis) : null);
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const ref = useRef<any>(null);
 
     useEffect(() => {
-        setStartDate(startTimeMillis ? moment(startTimeMillis) : null);
+        setStartDate(startTimeMillis ? dayjs(startTimeMillis) : null);
     }, [startTimeMillis]);
 
     useEffect(() => {
-        setEndDate(endTimeMillis ? moment(endTimeMillis) : null);
+        setEndDate(endTimeMillis ? dayjs(endTimeMillis) : null);
     }, [endTimeMillis]);
 
     const handleOpenChange = useCallback(
@@ -67,33 +91,28 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
         const [start, end] = dates || [null, null];
 
-        start?.set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
-        end?.set({ hour: 23, minute: 59, second: 59, millisecond: 999 });
-
-        setStartDate(start);
-        setEndDate(end);
+        setStartDate(start?.startOf('day') ?? null);
+        setEndDate(end?.endOf('day') ?? null);
     }, []);
 
     const showText = !isOpen && (startDate === null || endDate === null);
 
     const [ranges] = useState<Array<[Datetime, Datetime]>>([
-        [moment().subtract(7, 'days'), null],
-        [moment().subtract(14, 'days'), null],
-        [moment().subtract(28, 'days'), null],
+        [dayjs().subtract(7, 'days'), null],
+        [dayjs().subtract(14, 'days'), null],
+        [dayjs().subtract(28, 'days'), null],
         [null, null],
     ]);
 
     return (
         <>
-            {showText ? ( // Conditionally render All Time selection
-                <Tooltip title="Filter lineage edges by observed date" placement="topLeft" showArrow={false}>
-                    <Button type="text" onClick={() => handleOpenChange(true)}>
+            {showText ? (
+                <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
+                    <TimeRangeTrigger type="button" onClick={() => handleOpenChange(true)}>
                         <CalendarOutlined style={{ marginRight: '4px' }} />
-                        <Typography.Text>
-                            <b>{getTimeRangeDescription(startDate, endDate)}</b>
-                        </Typography.Text>
-                        <CaretDownOutlined style={{ fontSize: '10px' }} />
-                    </Button>
+                        {getTimeRangeDescription(startDate, endDate)}
+                        <TriggerCaret />
+                    </TimeRangeTrigger>
                 </Tooltip>
             ) : (
                 <Space direction="vertical" size={12}>
@@ -105,12 +124,12 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                         bordered={false}
                         value={[startDate, endDate]}
                         disabledDate={(current: any) => {
-                            return current && current > moment().endOf('day');
+                            return current && current > dayjs().endOf('day');
                         }}
                         renderExtraFooter={() => (
                             <ConfirmButtonWrapper>
                                 <ConfirmButton type="text" onClick={() => handleOpenChange(false)}>
-                                    <b>Confirm</b>
+                                    {tcAction('confirm')}
                                 </ConfirmButton>
                             </ConfirmButtonWrapper>
                         )}
@@ -128,22 +147,22 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
     );
 }
 
-function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
-        return 'All Time';
+        return i18next.t('lineage:timeSelector.allTime');
     }
 
     if (!startDate && endDate) {
-        return `Until ${endDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.until', { date: endDate.format('ll') });
     }
 
     if (startDate && !endDate) {
-        const dayDiff = moment().diff(startDate, 'days');
+        const dayDiff = dayjs().diff(startDate, 'days');
         if (dayDiff <= 30) {
-            return `Last ${dayDiff} days`;
+            return i18next.t('lineage:timeSelector.lastNDays', { count: dayDiff });
         }
-        return `From ${startDate.format('ll')}`;
+        return i18next.t('lineage:timeSelector.from', { date: startDate.format('ll') });
     }
 
-    return 'Unknown time range';
+    return i18next.t('lineage:timeSelector.unknownRange');
 }

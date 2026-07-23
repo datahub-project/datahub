@@ -1,30 +1,53 @@
-function readyToTypeEditor() {
-  return cy.get(".monaco-scrollable-element").first().click().focused();
+function clearMonacoEditor() {
+  const selectAllKey = Cypress.platform === "darwin" ? "{cmd}a" : "{ctrl}a";
+  return cy
+    .get(".monaco-scrollable-element")
+    .first()
+    .click()
+    .focused()
+    .type(selectAllKey)
+    .type("{backspace}");
 }
 
-describe("run managed ingestion", () => {
+function typeInMonacoEditor(text) {
+  return cy
+    .get(".monaco-scrollable-element")
+    .first()
+    .click()
+    .focused()
+    .type(text);
+}
+
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("run managed ingestion", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    cy.setFeatureFlags((res) => {
+      res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+    });
   });
+
   it("create run managed ingestion source", () => {
     const number = Math.floor(Math.random() * 100000);
     const testName = `cypress test source ${number}`;
     const cli_version = "0.12.0";
+
     cy.login();
     cy.goToIngestionPage();
     cy.contains("Loading ingestion sources...").should("not.exist");
-    // cy.clickOptionWithText("Create new source");
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.get('[placeholder="Search data sources..."]').type("other");
     cy.clickOptionWithTextToScrollintoView("Other");
 
     cy.waitTextVisible("source-type");
-    readyToTypeEditor().type("{ctrl}a").clear();
-    readyToTypeEditor().type("source:{enter}");
-    readyToTypeEditor().type("    type: demo-data");
-    readyToTypeEditor().type("{enter}");
-    // no space because the editor starts new line at same indentation
-    readyToTypeEditor().type("config: {}");
+
+    // Clear the editor first
+    clearMonacoEditor();
+
+    // Type your content
+    typeInMonacoEditor("source:{enter}");
+    typeInMonacoEditor("    type: demo-data{enter}");
+    typeInMonacoEditor("config: {}");
+
     cy.clickOptionWithText("Next");
     cy.clickOptionWithText("Next");
 

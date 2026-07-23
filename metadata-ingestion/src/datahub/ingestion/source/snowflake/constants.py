@@ -9,6 +9,8 @@ class SnowflakeCloudProvider(StrEnum):
 
 SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
+DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"
@@ -31,6 +33,7 @@ SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
     "azure_northeurope": (SnowflakeCloudProvider.AZURE, "north-europe"),
     "azure_westeurope": (SnowflakeCloudProvider.AZURE, "west-europe"),
     "azure_switzerlandnorth": (SnowflakeCloudProvider.AZURE, "switzerland-north"),
+    "azure_swedencentral": (SnowflakeCloudProvider.AZURE, "sweden-central"),
     "azure_uaenorth": (SnowflakeCloudProvider.AZURE, "uae-north"),
     "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india"),
     "azure_japaneast": (SnowflakeCloudProvider.AZURE, "japan-east"),
@@ -49,19 +52,44 @@ class SnowflakeObjectDomain(StrEnum):
     EXTERNAL_TABLE = "external table"
     VIEW = "view"
     MATERIALIZED_VIEW = "materialized view"
+    SEMANTIC_VIEW = "semantic view"
     DATABASE = "database"
     SCHEMA = "schema"
     COLUMN = "column"
     ICEBERG_TABLE = "iceberg table"
     STREAM = "stream"
     PROCEDURE = "procedure"
+    DYNAMIC_TABLE = "dynamic table"
+    STREAMLIT = "streamlit"
+    STAGE = "stage"
+    TASK = "task"
+    PIPE = "pipe"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
 LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
+
+STREAMLIT_PLATFORM = "streamlit"
+
+
+class SemanticViewColumnSubtype(StrEnum):
+    """Subtype for semantic view columns: dimensions, facts, and metrics."""
+
+    DIMENSION = "DIMENSION"
+    FACT = "FACT"
+    METRIC = "METRIC"
 
 
 # Snowflake connection arguments
 # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
 CLIENT_PREFETCH_THREADS = "client_prefetch_threads"
 CLIENT_SESSION_KEEP_ALIVE = "client_session_keep_alive"
+
+MARKETPLACE_LISTINGS_PERMISSION_ERROR = "marketplace-listings-permission-error"
+MARKETPLACE_PURCHASES_PERMISSION_ERROR = "marketplace-purchases-permission-error"
+MARKETPLACE_USAGE_PERMISSION_ERROR = "marketplace-usage-permission-error"
+
+
+class SnowflakeMarketplaceObjectDomain(StrEnum):
+    LISTING = "listing"
+    PURCHASE = "purchase"

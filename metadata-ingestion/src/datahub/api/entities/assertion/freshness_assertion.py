@@ -3,15 +3,15 @@ from enum import Enum
 from typing import Optional, Union
 
 import humanfriendly
+from pydantic import Field, field_validator
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
-    BaseAssertionProtocol,
+    AssertionFailureSeverityDefaultConfig,
     BaseEntityAssertion,
 )
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.api.entities.assertion.filter import DatasetFilter
-from datahub.configuration.pydantic_migration_helpers import v1_Field, v1_validator
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionInfo,
@@ -32,19 +32,22 @@ class FreshnessSourceType(Enum):
 
 class CronFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
-    freshness_type: Literal["cron"]
-    cron: str = v1_Field(
+    failure_severity_config: Optional[AssertionFailureSeverityDefaultConfig] = Field(
+        default=None,
+        description="Optional default severity for failed freshness assertion results.",
+    )
+    cron: str = Field(
         description="The cron expression to use. See https://crontab.guru/ for help."
     )
-    timezone: str = v1_Field(
+    timezone: str = Field(
         "UTC",
         description="The timezone to use for the cron schedule. Defaults to UTC.",
     )
-    source_type: FreshnessSourceType = v1_Field(
+    source_type: FreshnessSourceType = Field(
         default=FreshnessSourceType.LAST_MODIFIED_COLUMN
     )
     last_modified_field: str
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
+    filters: Optional[DatasetFilter] = Field(default=None)
 
     def get_assertion_info(
         self,
@@ -59,21 +62,41 @@ class CronFreshnessAssertion(BaseEntityAssertion):
                     type=FreshnessAssertionScheduleType.CRON,
                     cron=FreshnessCronSchedule(cron=self.cron, timezone=self.timezone),
                 ),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
+                ),
             ),
         )
+
+    def get_id(self) -> str:
+        guid_dict = {
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
+        }
+        return self.id or datahub_guid(guid_dict)
+
+    def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
+        return self.trigger
 
 
 class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
-    freshness_type: Literal["interval"] = v1_Field(default="interval")
+    failure_severity_config: Optional[AssertionFailureSeverityDefaultConfig] = Field(
+        default=None,
+        description="Optional default severity for failed freshness assertion results.",
+    )
     lookback_interval: timedelta
-    filters: Optional[DatasetFilter] = v1_Field(default=None)
-    source_type: FreshnessSourceType = v1_Field(
+    filters: Optional[DatasetFilter] = Field(default=None)
+    source_type: FreshnessSourceType = Field(
         default=FreshnessSourceType.LAST_MODIFIED_COLUMN
     )
     last_modified_field: str
 
-    @v1_validator("lookback_interval", pre=True)
+    @field_validator("lookback_interval", mode="before")
+    @classmethod
     def lookback_interval_to_timedelta(cls, v):
         if isinstance(v, str):
             seconds = humanfriendly.parse_timespan(v)
@@ -96,29 +119,26 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
                         multiple=self.lookback_interval.seconds,
                     ),
                 ),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
+                ),
             ),
         )
 
-
-class FreshnessAssertion(BaseAssertionProtocol):
-    __root__: Union[FixedIntervalFreshnessAssertion, CronFreshnessAssertion]
-
-    @property
-    def assertion(self):
-        return self.__root__
-
     def get_id(self) -> str:
         guid_dict = {
-            "entity": self.__root__.entity,
-            "type": self.__root__.type,
-            "id_raw": self.__root__.id_raw,
+            "entity": self.entity,
+            "type": self.type,
+            "id_raw": self.id_raw,
         }
-        return self.__root__.id or datahub_guid(guid_dict)
-
-    def get_assertion_info_aspect(
-        self,
-    ) -> AssertionInfo:
-        return self.__root__.get_assertion_info()
+        return self.id or datahub_guid(guid_dict)
 
     def get_assertion_trigger(self) -> Optional[AssertionTrigger]:
-        return self.__root__.trigger
+        return self.trigger
+
+
+# Pydantic v2 smart union: automatically discriminates based on presence of
+# unique fields (eg lookback_interval vs cron)
+FreshnessAssertion = Union[FixedIntervalFreshnessAssertion, CronFreshnessAssertion]

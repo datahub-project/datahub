@@ -1,0 +1,54 @@
+namespace com.linkedin.application
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+
+/**
+ * The main properties of an Application
+ */
+@Aspect = {
+  "name": "applicationProperties",
+  "schemaVersion": 2
+}
+record ApplicationProperties includes CustomProperties, ExternalReference  {
+  /**
+   * Display name of the Application
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: optional string
+
+  /**
+   * Documentation of the application
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2,
+    "sanitizeRichText": true
+  }
+  description: optional string
+
+  /**
+   * The parent application that contains this one (app-of-apps hierarchy).
+   * A child holds the reference to its parent to avoid cardinality blow-up on
+   * the parent side. The Application profile follows the edge upward to render
+   * the "Part of" breadcrumb.
+   */
+  @Relationship = {
+    "name": "ApplicationPartOf",
+    "entityTypes": [ "application" ]
+  }
+  @Searchable = {
+    "fieldName": "parentApplication",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  parentApplication: optional Urn
+}

@@ -1,15 +1,17 @@
+from typing import Any, Dict
+
 import pytest
 
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from conftest import _ingest_cleanup_data_impl
+from tests.utilities.metadata_operations import add_tag, add_term, update_description
+from tests.utils import execute_graphql
 
 
 @pytest.fixture(scope="module", autouse=False)
-def ingest_cleanup_data(auth_session, graph_client, request):
-    print("ingesting containers test data")
-    ingest_file_via_rest(auth_session, "tests/containers/data.json")
-    yield
-    print("removing containers test data")
-    delete_urns_from_file(graph_client, "tests/containers/data.json")
+def ingest_cleanup_data(auth_session, graph_client):
+    yield from _ingest_cleanup_data_impl(
+        auth_session, graph_client, "tests/containers/data.json", "containers"
+    )
 
 
 @pytest.mark.dependency()
@@ -20,87 +22,80 @@ def test_get_full_container(auth_session, ingest_cleanup_data):
     editable_container_description = "custom description"
 
     # Get a full container
-    get_container_json = {
-        "query": """query container($urn: String!) {\n
-            container(urn: $urn) {\n
-              urn\n
-              type\n
-              platform {\n
-                urn\n
-                properties{\n
-                  displayName\n
-                }\n
-              }\n
-              container {\n
-                urn\n
-                properties {\n
-                  name\n
-                  description\n
-                }\n
-              }\n
-              properties {\n
-                name\n
-                description\n
-              }\n
-              editableProperties {\n
-                description\n
-              }\n
-              ownership {\n
-                owners {\n
-                  owner {\n
-                    ...on CorpUser {\n
-                      urn\n
-                    }\n
-                  }\n
-                }\n
-              }\n
-              institutionalMemory {\n
-                elements {\n
-                  url\n
-                }\n
-              }\n
-              tags {\n
-                tags {\n
-                  tag {\n
-                    urn\n
-                  }\n
-                }\n
-              }\n
-              glossaryTerms {\n
-                terms {\n
-                  term {\n
-                    urn\n
-                  }\n
-                }\n
-              }\n
-              subTypes {\n
-                typeNames\n
-              }\n
-              entities(input: {}) {\n
-                total\n
-                searchResults {\n
-                  entity {\n
-                    ...on Dataset {\n
-                      urn\n
-                    }\n
-                  }\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": container_urn},
-    }
+    get_container_query = """query container($urn: String!) {
+            container(urn: $urn) {
+              urn
+              type
+              platform {
+                urn
+                properties{
+                  displayName
+                }
+              }
+              container {
+                urn
+                properties {
+                  name
+                  description
+                }
+              }
+              properties {
+                name
+                description
+              }
+              editableProperties {
+                description
+              }
+              ownership {
+                owners {
+                  owner {
+                    ...on CorpUser {
+                      urn
+                    }
+                  }
+                }
+              }
+              institutionalMemory {
+                elements {
+                  url
+                }
+              }
+              tags {
+                tags {
+                  tag {
+                    urn
+                  }
+                }
+              }
+              glossaryTerms {
+                terms {
+                  term {
+                    urn
+                  }
+                }
+              }
+              subTypes {
+                typeNames
+              }
+              entities(input: {}) {
+                total
+                searchResults {
+                  entity {
+                    ...on Dataset {
+                      urn
+                    }
+                  }
+                }
+              }
+            }
+        }"""
+    get_container_variables: Dict[str, Any] = {"urn": container_urn}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_container_json
+    res_data = execute_graphql(
+        auth_session, get_container_query, get_container_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["container"] is not None
-    assert "errors" not in res_data
 
     container = res_data["data"]["container"]
     assert container["urn"] == container_urn
@@ -123,31 +118,22 @@ def test_get_parent_container(auth_session):
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get count of existing secrets
-    get_dataset_json = {
-        "query": """query dataset($urn: String!) {\n
-          dataset(urn: $urn) {\n
-            urn\n
-            container {\n
-              urn\n
-              properties {\n
-                name\n
-              }\n
-            }\n
-          }\n
-        }""",
-        "variables": {"urn": dataset_urn},
-    }
+    get_dataset_query = """query dataset($urn: String!) {
+          dataset(urn: $urn) {
+            urn
+            container {
+              urn
+              properties {
+                name
+              }
+            }
+          }
+        }"""
+    get_dataset_variables: Dict[str, Any] = {"urn": dataset_urn}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_dataset_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, get_dataset_query, get_dataset_variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["dataset"] is not None
-    assert "errors" not in res_data
 
     dataset = res_data["data"]["dataset"]
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
@@ -158,179 +144,93 @@ def test_update_container(auth_session):
     container_urn = "urn:li:container:SCHEMA"
 
     new_tag = "urn:li:tag:Test"
-
-    add_tag_json = {
-        "query": """mutation addTag($input: TagAssociationInput!) {\n
-            addTag(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "tagUrn": new_tag,
-                "resourceUrn": container_urn,
-            }
-        },
-    }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_tag_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTag"] is True
+    assert add_tag(auth_session, container_urn, new_tag)
 
     new_term = "urn:li:glossaryTerm:Term"
-
-    add_term_json = {
-        "query": """mutation addTerm($input: TermAssociationInput!) {\n
-            addTerm(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "termUrn": new_term,
-                "resourceUrn": container_urn,
-            }
-        },
-    }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_term_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["addTerm"] is True
+    assert add_term(auth_session, container_urn, new_term)
 
     new_owner = "urn:li:corpuser:jdoe"
 
-    add_owner_json = {
-        "query": """mutation addOwner($input: AddOwnerInput!) {\n
+    add_owner_query = """mutation addOwner($input: AddOwnerInput!) {
             addOwner(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "ownerUrn": new_owner,
-                "resourceUrn": container_urn,
-                "ownerEntityType": "CORP_USER",
-                "ownershipTypeUrn": "urn:li:ownershipType:__system__technical_owner",
-            }
-        },
+        }"""
+    add_owner_variables: Dict[str, Any] = {
+        "input": {
+            "ownerUrn": new_owner,
+            "resourceUrn": container_urn,
+            "ownerEntityType": "CORP_USER",
+            "ownershipTypeUrn": "urn:li:ownershipType:__system__technical_owner",
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_owner_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, add_owner_query, add_owner_variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["addOwner"] is True
 
     new_link = "https://www.test.com"
 
-    add_link_json = {
-        "query": """mutation addLink($input: AddLinkInput!) {\n
+    add_link_query = """mutation addLink($input: AddLinkInput!) {
             addLink(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "linkUrl": new_link,
-                "resourceUrn": container_urn,
-                "label": "Label",
-            }
-        },
+        }"""
+    add_link_variables: Dict[str, Any] = {
+        "input": {
+            "linkUrl": new_link,
+            "resourceUrn": container_urn,
+            "label": "Label",
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=add_link_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    res_data = execute_graphql(auth_session, add_link_query, add_link_variables)
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["addLink"] is True
 
     new_description = "New description"
-
-    update_description_json = {
-        "query": """mutation updateDescription($input: DescriptionUpdateInput!) {\n
-            updateDescription(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "description": new_description,
-                "resourceUrn": container_urn,
-            }
-        },
-    }
-
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_description_json
-    )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["updateDescription"] is True
+    assert update_description(auth_session, container_urn, new_description)
 
     # Now fetch the container to ensure it was updated
     # Get the container
-    get_container_json = {
-        "query": """query container($urn: String!) {\n
-           container(urn: $urn) {\n
-              editableProperties {\n
-                description\n
-              }\n
-              ownership {\n
-                owners {\n
-                  owner {\n
-                    ...on CorpUser {\n
-                      urn\n
-                    }\n
-                  }\n
-                }\n
-              }\n
-              institutionalMemory {\n
-                elements {\n
-                  url\n
-                }\n
-              }\n
-              tags {\n
-                tags {\n
-                  tag {\n
-                    urn\n
-                  }\n
-                }\n
-              }\n
-              glossaryTerms {\n
-                terms {\n
-                  term {\n
-                    urn\n
-                  }\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": container_urn},
-    }
+    get_container_query = """query container($urn: String!) {
+           container(urn: $urn) {
+              editableProperties {
+                description
+              }
+              ownership {
+                owners {
+                  owner {
+                    ...on CorpUser {
+                      urn
+                    }
+                  }
+                }
+              }
+              institutionalMemory {
+                elements {
+                  url
+                }
+              }
+              tags {
+                tags {
+                  tag {
+                    urn
+                  }
+                }
+              }
+              glossaryTerms {
+                terms {
+                  term {
+                    urn
+                  }
+                }
+              }
+            }
+        }"""
+    get_container_variables: Dict[str, Any] = {"urn": container_urn}
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_container_json
+    res_data = execute_graphql(
+        auth_session, get_container_query, get_container_variables
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["container"] is not None
-    assert "errors" not in res_data
 
     container = res_data["data"]["container"]
     assert container["editableProperties"]["description"] == new_description

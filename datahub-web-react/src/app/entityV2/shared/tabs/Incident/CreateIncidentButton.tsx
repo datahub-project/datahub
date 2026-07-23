@@ -1,6 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Dropdown, message } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { CreateButton, SiblingSelectionDropdownLink } from '@app/entityV2/shared/tabs/Incident/styledComponents';
 import { CreateIncidentButtonProps, EntityStagedForIncident } from '@app/entityV2/shared/tabs/Incident/types';
@@ -11,7 +12,9 @@ import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
-    const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
+    const { entityData, urn: entityUrn, entityType: dataEntityType, loading } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
@@ -19,16 +22,12 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
 
     const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
-    const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
-
     const canEditIncidents = privileges?.canEditIncidents || false;
 
     const onCreateIncidentForEntity = ({ urn, platform, entityType }: Partial<EntityStagedForIncident>) => {
         if (!urn || !platform || !entityType) {
             console.error(`Params missing necessary data to author incidents:`, { urn, platform, entityType });
-            message.error(
-                `Failed to load data for the selected platform. Please contact support if this issue persists.`,
-            );
+            message.error(t('toast.platformLoadFailed'));
             return;
         }
         if (!canEditIncidents) return;
@@ -55,27 +54,34 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         ),
     }));
 
+    // Dynamic test IDs based on loading state
+    const getTestId = () => {
+        if (loading) return 'create-incident-btn-loading';
+        if (isSiblingMode) return 'create-incident-btn-main-with-siblings';
+        return 'create-incident-btn-main';
+    };
+
     return (
         <>
             {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
                     <CreateButton
                         disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
+                        data-testid={getTestId()}
                         className="create-incident-button"
                     >
-                        <PlusOutlined /> Create
+                        <PlusOutlined /> {tc('create')}
                     </CreateButton>
                 </Dropdown>
             ) : (
-                <Tooltip showArrow={false} title={!canEditIncidents ? noPermissionsMessage : null}>
+                <Tooltip showArrow={false} title={!canEditIncidents ? t('permission.noEditIncidents') : null}>
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
+                        data-testid={getTestId()}
                         className="create-incident-button"
                     >
-                        <PlusOutlined /> Create
+                        <PlusOutlined /> {tc('create')}
                     </CreateButton>
                 </Tooltip>
             )}

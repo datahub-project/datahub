@@ -1,17 +1,20 @@
-import { ArrowsClockwise } from 'phosphor-react';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import React from 'react';
 
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import Preview from '@app/entityV2/dataProcessInstance/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, getDataProduct, getFirstSubType } from '@app/entityV2/shared/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
 
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
@@ -37,20 +40,12 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
     type: EntityType = EntityType.DataProcessInstance;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <ArrowsClockwise style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
         return (
             <ArrowsClockwise
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                className={TYPE_ICON_CLASS_NAME}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -65,11 +60,11 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
 
     getPathName = () => 'dataProcessInstance';
 
-    getEntityName = () => 'Process Instance';
+    getEntityName = () => i18next.t('entity.types:dataProcessInstance.name');
 
     getGraphName = () => 'dataProcessInstance';
 
-    getCollectionName = () => 'Process Instances';
+    getCollectionName = () => i18next.t('entity.types:dataProcessInstance.namePlural');
 
     useEntityQuery = useGetDataProcessInstanceQuery;
 
@@ -81,32 +76,41 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={
-                new Set([
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                    EntityMenuItems.RAISE_INCIDENT,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.EXTERNAL_URL,
-                ])
+                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
             }
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: DataProcessInstanceSummary,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
+                    supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
     getSidebarSections = () => [{ component: SidebarEntityHeader }];
+
+    getSidebarTabs = () => [
+        {
+            name: i18next.t('entity.types:tab.lineage'),
+            component: LineageTab,
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+    ];
 
     getOverridePropertiesFromEntity = (processInstance?: DataProcessInstance | null): GenericEntityProperties => {
         const parent =
@@ -126,7 +130,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataProcessInstance) => {
+    renderPreview = (previewType: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
         return (
@@ -134,7 +138,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
-                subType={data.subTypes?.typeNames?.[0]}
+                subType={getFirstSubType(data)}
                 description=""
                 platformName={genericProperties?.platform?.properties?.displayName ?? undefined}
                 platformLogo={genericProperties?.platform?.properties?.logoUrl}
@@ -144,6 +148,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 externalUrl={data.properties?.externalUrl}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
+                previewType={previewType}
             />
         );
     };
@@ -157,7 +162,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             urn: entity?.urn,
             name: this.displayName(entity),
             type: EntityType.DataProcessInstance,
-            subtype: entity?.subTypes?.typeNames?.[0],
+            subtype: getFirstSubType(entity),
             icon: properties?.platform?.properties?.logoUrl ?? undefined,
             platform: properties?.platform ?? undefined,
             container: entity?.container,

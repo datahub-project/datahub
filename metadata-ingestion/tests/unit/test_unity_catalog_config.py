@@ -1,31 +1,36 @@
 from datetime import datetime, timedelta
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    LineageDataSource,
+    UnityCatalogGEProfilerConfig,
+    UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
+    UsageDataSource,
+)
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_within_thirty_days():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
             "include_usage_statistics": True,
             "include_hive_metastore": False,
+            "include_tags": False,
             "start_time": FROZEN_TIME - timedelta(days=30),
         }
     )
     assert config.start_time == FROZEN_TIME - timedelta(days=30)
 
-    with pytest.raises(
-        ValueError, match="Query history is only maintained for 30 days."
-    ):
-        UnityCatalogSourceConfig.parse_obj(
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://workspace_url",
@@ -36,7 +41,7 @@ def test_within_thirty_days():
 
 
 def test_profiling_requires_warehouses_id():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
@@ -50,30 +55,32 @@ def test_profiling_requires_warehouses_id():
     )
     assert config.profiling.enabled is True
 
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://workspace_url",
             "include_hive_metastore": False,
+            "include_tags": False,
             "profiling": {"enabled": False, "method": "ge"},
         }
     )
     assert config.profiling.enabled is False
 
     with pytest.raises(ValueError):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "workspace_url": "workspace_url",
             }
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_workspace_url_should_start_with_https():
     with pytest.raises(ValueError, match="Workspace URL must start with http scheme"):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "workspace_url",
@@ -83,7 +90,7 @@ def test_workspace_url_should_start_with_https():
 
 
 def test_global_warehouse_id_is_set_from_profiling():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -103,7 +110,7 @@ def test_set_different_warehouse_id_from_profiling():
         ValueError,
         match="When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`.",
     ):
-        UnityCatalogSourceConfig.parse_obj(
+        UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
                 "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -118,32 +125,36 @@ def test_set_different_warehouse_id_from_profiling():
 
 
 def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
-    with pytest.raises(
-        ValueError,
-        match="When `include_hive_metastore` is set, `warehouse_id` must be set.",
-    ):
-        UnityCatalogSourceConfig.parse_obj(
-            {
-                "token": "token",
-                "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-                "include_hive_metastore": True,
-            }
-        )
+    """Test that include_hive_metastore is auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
+            "include_hive_metastore": True,
+        }
+    )
+    # Should automatically disable hive_metastore when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.warehouse_id is None
 
 
+@pytest.mark.skip(
+    reason="This test is making actual network calls with retries taking ~5 mins, needs to be mocked"
+)
 def test_warehouse_id_must_be_present_test_connection():
+    """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
         "token": "token",
         "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-        "include_hive_metastore": True,
+        "include_hive_metastore": True,  # Will be auto-disabled
     }
     report = UnityCatalogSource.test_connection(config_dict)
-    assert report.internal_failure
-    print(report.internal_failure_reason)
+    # Should succeed since include_hive_metastore gets auto-disabled
+    assert not report.internal_failure
 
 
 def test_set_profiling_warehouse_id_from_global():
-    config = UnityCatalogSourceConfig.parse_obj(
+    config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
@@ -155,3 +166,560 @@ def test_set_profiling_warehouse_id_from_global():
         }
     )
     assert config.profiling.warehouse_id == "my_global_warehouse_id"
+
+
+def test_warehouse_id_auto_disables_tags_when_missing():
+    """Test that include_tags is automatically disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,  # Disable to test tag validation specifically
+            # include_tags defaults to True, warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags when warehouse_id is missing
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_not_required_when_tags_disabled():
+    """Test that warehouse_id is not required when include_tags=False."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,  # Explicitly disable tags
+            # warehouse_id is missing but should be allowed
+        }
+    )
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_explicit_true_auto_disables():
+    """Test that explicitly setting include_tags=True gets auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,  # Explicitly enable tags
+            # warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags even when explicitly set to True
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_with_tags_enabled_succeeds():
+    """Test that providing warehouse_id with include_tags=True succeeds."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,
+            "warehouse_id": "test_warehouse_123",
+        }
+    )
+    assert config.include_tags is True
+    assert config.warehouse_id == "test_warehouse_123"
+
+
+def test_warehouse_id_validation_with_hive_metastore_precedence():
+    """Test that both hive_metastore and tags are auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": True,  # Should be auto-disabled
+            "include_tags": True,  # Should be auto-disabled
+            # warehouse_id is missing
+        }
+    )
+    # Both should be auto-disabled when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_databricks_api_page_size_default():
+    """Test that databricks_api_page_size defaults to 0."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    assert config.databricks_api_page_size == 0
+
+
+def test_databricks_api_page_size_valid_values():
+    """Test that databricks_api_page_size accepts valid positive integers."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "databricks_api_page_size": 100,
+        }
+    )
+    assert config.databricks_api_page_size == 100
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "databricks_api_page_size": 1000,
+        }
+    )
+    assert config.databricks_api_page_size == 1000
+
+
+def test_databricks_api_page_size_zero_allowed():
+    """Test that databricks_api_page_size allows zero (default behavior)."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "databricks_api_page_size": 0,
+        }
+    )
+    assert config.databricks_api_page_size == 0
+
+
+def test_databricks_api_page_size_negative_invalid():
+    """Test that databricks_api_page_size rejects negative values."""
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "databricks_api_page_size": -1,
+            }
+        )
+
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "databricks_api_page_size": -100,
+            }
+        )
+
+
+def test_include_ml_model_default():
+    """Test that include_ml_model_aliases defaults to False."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert config.include_ml_model_aliases is False
+    assert config.ml_model_max_results == 1000
+
+
+def test_include_ml_model_aliases_explicit_true():
+    """Test that include_ml_model_aliases can be set to True."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_ml_model_aliases": True,
+        }
+    )
+    assert config.include_ml_model_aliases is True
+
+
+def test_ml_model_max_results_valid_values():
+    """Test that ml_model_max_results accepts valid positive integers."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 2000,
+        }
+    )
+    assert config.ml_model_max_results == 2000
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 1,
+        }
+    )
+    assert config.ml_model_max_results == 1
+
+
+def test_ml_model_max_results_negative_invalid():
+    """Test that ml_model_max_results rejects negative values."""
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "ml_model_max_results": -100,
+            }
+        )
+
+
+def test_lineage_data_source_default():
+    """Test that lineage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    assert config.lineage_data_source == LineageDataSource.AUTO
+
+
+def test_lineage_data_source_system_tables_requires_warehouse_id():
+    """Test that lineage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="lineage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "lineage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_lineage_data_source_api_does_not_require_warehouse():
+    """Test that lineage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "lineage_data_source": "API",
+        }
+    )
+    assert config.lineage_data_source == LineageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_default():
+    """Test that usage_data_source defaults to AUTO."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+        }
+    )
+    assert config.usage_data_source == UsageDataSource.AUTO
+
+
+def test_usage_data_source_system_tables_requires_warehouse_id():
+    """Test that usage_data_source=SYSTEM_TABLES requires warehouse_id."""
+    with pytest.raises(
+        ValueError,
+        match="usage_data_source='SYSTEM_TABLES' requires warehouse_id to be set",
+    ):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "include_tags": False,
+                "usage_data_source": "SYSTEM_TABLES",
+            }
+        )
+
+
+def test_usage_data_source_api_does_not_require_warehouse():
+    """Test that usage_data_source=API does not require warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "usage_data_source": "API",
+        }
+    )
+    assert config.usage_data_source == UsageDataSource.API
+    assert config.warehouse_id is None
+
+
+def test_usage_data_source_can_be_set_with_warehouse():
+    """Test that usage_data_source can be set to SYSTEM_TABLES with warehouse_id."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "warehouse_id": "test_warehouse",
+            "usage_data_source": "SYSTEM_TABLES",
+        }
+    )
+    assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
+    assert config.warehouse_id == "test_warehouse"
+
+
+def test_profiling_default_method_is_sqlalchemy():
+    # profiling absent → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_dict_without_method_defaults_to_sqlalchemy():
+    # profiling: {enabled: true} with no method key → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+    assert config.profiling.enabled is True
+
+
+def test_profiling_empty_dict_defaults_to_sqlalchemy():
+    # profiling: {} with no keys at all → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_prebuilt_instance_passes_through():
+    # passing a pre-built config object bypasses the dict validator — must stay unchanged
+    prebuilt = UnityCatalogSQLAlchemyProfilerConfig()
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": prebuilt,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_explicit_ge_method_preserved():
+    # profiling: {method: ge, ...} → GE variant unchanged
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"method": "ge", "enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogGEProfilerConfig)
+    assert config.profiling.method == "ge"
+
+
+def test_uses_table_level_profiler_helpers():
+    base = {
+        "token": "token",
+        "workspace_url": "https://test.databricks.com",
+        "include_hive_metastore": False,
+    }
+
+    # sqlalchemy → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "sqlalchemy", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is True
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is True
+
+    # ge → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "ge", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is True
+    assert cfg.uses_table_level_profiler() is True
+
+    # analyze → False
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "analyze"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is False
+
+
+def _base(**kw):
+    cfg = {
+        "workspace_url": "https://x.cloud.databricks.com",
+        "token": "t",
+        **kw,
+    }
+    return cfg
+
+
+def test_emit_and_parse_flags_default_true():
+    c = UnityCatalogSourceConfig.model_validate(_base())
+    assert c.include_queries is True
+    assert c.include_query_usage_statistics is True
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_allows_365_days_with_warehouse_system_tables():
+    start = FROZEN_TIME - timedelta(days=120)
+    c = UnityCatalogSourceConfig.model_validate(
+        _base(warehouse_id="wh1", usage_data_source="SYSTEM_TABLES", start_time=start)
+    )
+    assert c.start_time == start
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_still_capped_at_30_days_for_api():
+    start = FROZEN_TIME - timedelta(days=120)
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.model_validate(
+            _base(usage_data_source="API", start_time=start)
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_capped_at_30_when_warehouse_set_but_all_api():
+    """warehouse_id is set, but both data sources are explicitly API → 30-day cap applies."""
+    start = FROZEN_TIME - timedelta(days=120)
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
+        UnityCatalogSourceConfig.model_validate(
+            _base(
+                warehouse_id="wh1",
+                usage_data_source="API",
+                lineage_data_source="API",
+                start_time=start,
+            )
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_allows_365_days_when_warehouse_only_in_profiling():
+    """Validator ordering: warehouse_id only in profiling.warehouse_id, not at the top level.
+    _validate_start_time_window() is invoked from inside set_warehouse_id_from_profiling AFTER
+    self.warehouse_id is resolved from profiling, so it reads the canonical self.warehouse_id
+    and correctly applies the 365-day cap instead of the 30-day cap."""
+    start = FROZEN_TIME - timedelta(days=120)
+    cfg = UnityCatalogSourceConfig.model_validate(
+        _base(
+            usage_data_source="SYSTEM_TABLES",
+            profiling={
+                "method": "sqlalchemy",
+                "enabled": True,
+                "warehouse_id": "wh1",
+            },
+            start_time=start,
+        )
+    )
+    assert cfg.start_time == start
+    assert cfg.warehouse_id == "wh1"
+
+
+def test_system_table_flags_warn_when_usage_not_system_tables(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    # API usage path → the system-table-only flags are no-ops and must warn.
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="API",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected a no-op flag warning"
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_system_table_flags_no_warning_on_system_tables_path(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings == []
+
+
+def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            include_column_usage_stats=True,
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected override warning when column usage stats is enabled"
+    assert "include_column_usage_stats" in warnings[0]
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]

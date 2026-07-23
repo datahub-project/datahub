@@ -25,13 +25,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -170,7 +166,8 @@ class PulsarSource(StatefulIngestionSourceBase):
         """
         # JWT, get access token (jwt) from config
         if self._is_token_authentication_configured():
-            return str(self.config.token)
+            assert self.config.token is not None
+            return self.config.token.get_secret_value()
 
         # OAuth, connect to issuer and return access token
         if self._is_oauth_authentication_configured():
@@ -188,7 +185,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                     allow_redirects=False,
                     auth=(
                         self.config.client_id,
-                        self.config.client_secret,
+                        self.config.client_secret.get_secret_value(),
                     ),
                 )
                 token_response.raise_for_status()
@@ -223,11 +220,11 @@ class PulsarSource(StatefulIngestionSourceBase):
                     f" no messages have been written to the topic yet."
                     f" {http_error}"
                 )
-                self.report.report_warning("NoSchemaFound", message)
+                self.report.warning("NoSchemaFound", message, log=False)
             else:
                 # Authorization error
                 message = f"An HTTP error occurred: {http_error}"
-                self.report.report_warning("HTTPError", message)
+                self.report.warning("HTTPError", message, log=False)
         except requests.exceptions.RequestException as e:
             raise Exception(
                 "An ambiguous exception occurred while handling the request"
@@ -235,21 +232,13 @@ class PulsarSource(StatefulIngestionSourceBase):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = PulsarSourceConfig.parse_obj(config_dict)
+        config = PulsarSourceConfig.model_validate(config_dict)
 
         # Do not include each individual partition for partitioned topics,
         if config.exclude_individual_partitions:
             config.topic_patterns.deny.append(r".*-partition-[0-9]+")
 
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -371,9 +360,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 schema.schema_str, is_key_schema=is_key_schema
             )
         else:
-            self.report.report_warning(
+            self.report.warning(
                 pulsar_topic.fullname,
                 f"Parsing Pulsar schema type {schema.schema_type} is currently not implemented",
+                log=False,
             )
         return fields
 

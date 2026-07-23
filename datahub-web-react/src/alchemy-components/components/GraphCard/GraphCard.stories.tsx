@@ -1,4 +1,5 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
@@ -43,6 +44,18 @@ const meta = {
         renderControls: {
             description: 'A function to render additiona controls on the card',
         },
+        showHeader: {
+            description: 'Show or hide the header of the card',
+            control: 'boolean',
+        },
+        showEmptyMessageHeader: {
+            description: 'Show or hide the header of the empty message',
+            control: 'boolean',
+        },
+        emptyMessage: {
+            description: 'The message to display when there is no data',
+            control: 'text',
+        },
     },
 
     // Define defaults
@@ -51,7 +64,7 @@ const meta = {
         subTitle: 'Description of the card',
         renderControls: () => (
             <>
-                <Button icon={{ icon: 'Add', source: 'material' }} variant="outline" size="md">
+                <Button icon={{ icon: Plus }} variant="outline" size="md">
                     Assertion
                 </Button>
                 <SimpleSelect

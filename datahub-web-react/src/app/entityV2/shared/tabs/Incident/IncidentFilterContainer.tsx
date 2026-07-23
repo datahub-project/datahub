@@ -34,8 +34,7 @@ export const IncidentFilterContainer: React.FC<IncidentAssigneeAvatarStack> = ({
     handleFilterChange,
     selectedFilters,
 }) => {
-    const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchText = event.target.value;
+    const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
             ...selectedFilters,
             filterCriteria: { ...selectedFilters.filterCriteria, searchText },

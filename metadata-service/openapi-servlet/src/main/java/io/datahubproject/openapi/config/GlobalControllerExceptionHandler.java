@@ -4,25 +4,37 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaderWriter;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver;
 
@@ -30,6 +42,16 @@ import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolv
 @ControllerAdvice(
     basePackages = {"io.datahubproject.openapi", "com.datahub.graphql", "com.datahub.auth"})
 public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionResolver {
+
+  private static final Pattern JAVA_CLASS_PATTERN =
+      Pattern.compile(
+          "([a-z][a-z0-9_]*\\.)+[A-Z][A-Za-z0-9_]*(Exception|Error|Throwable|\\$[A-Za-z0-9_]*)");
+  private static final Pattern SOURCE_LOCATION_PATTERN =
+      Pattern.compile("\\[Source:.*?]|at \\[.*?]");
+
+  @Autowired(required = false)
+  @Nullable
+  private MetricUtils metricUtils;
 
   @PostConstruct
   public void init() {
@@ -41,14 +63,30 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     setWarnLogCategory(getClass().getName());
   }
 
+  /**
+   * Strips internal Java class names (e.g. com.fasterxml.jackson.core.JsonParseException) and
+   * Jackson source location details from exception messages to prevent CWE-200 information
+   * disclosure.
+   */
+  static String sanitizeExceptionMessage(String message) {
+    if (message == null || message.isEmpty()) {
+      return message;
+    }
+    String sanitized = SOURCE_LOCATION_PATTERN.matcher(message).replaceAll("");
+    sanitized = JAVA_CLASS_PATTERN.matcher(sanitized).replaceAll("");
+    sanitized = sanitized.replaceAll("[:\\s]+$", "").trim();
+    return sanitized.isEmpty() ? "Invalid request" : sanitized;
+  }
+
   @ExceptionHandler({ConversionFailedException.class, ConversionNotSupportedException.class})
   public ResponseEntity<String> handleConflict(RuntimeException ex) {
-    return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>(sanitizeExceptionMessage(ex.getMessage()), HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler({IllegalArgumentException.class, InvalidUrnException.class})
   public static ResponseEntity<Map<String, String>> handleUrnException(Exception e) {
-    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getMessage())), HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(APIThrottleException.class)
@@ -56,9 +94,9 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       APIThrottleException e) {
 
     HttpHeaders headers = new HttpHeaders();
-    if (e.getDurationMs() >= 0) {
-      headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(e.getDurationSeconds()));
-    }
+    ThrottleResponseHeaderWriter.createDenialHeaders(
+            e.getRuleId(), e.getMechanismType(), e.getSource(), e.getDurationMs())
+        .forEach(headers::add);
 
     return new ResponseEntity<>(
         Map.of("error", e.getMessage()), headers, HttpStatus.TOO_MANY_REQUESTS);
@@ -75,6 +113,54 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
   }
 
+  private static final long ASYNC_TIMEOUT_RETRY_AFTER_SECONDS = 30;
+
+  @ExceptionHandler(AsyncRequestTimeoutException.class)
+  public ResponseEntity<Map<String, String>> handleAsyncTimeout(
+      AsyncRequestTimeoutException e, HttpServletRequest request) {
+    log.warn(
+        "Async request timeout: path={}, method={}", request.getRequestURI(), request.getMethod());
+    if (metricUtils != null) {
+      String pattern =
+          (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+      String requestPath = (pattern != null) ? pattern : "unknown";
+      metricUtils.incrementMicrometer("datahub.http.async_timeout", 1, "request_path", requestPath);
+    }
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(HttpHeaders.RETRY_AFTER, String.valueOf(ASYNC_TIMEOUT_RETRY_AFTER_SECONDS));
+    return new ResponseEntity<>(
+        Map.of(
+            "error", "Request timed out. The operation may still be completing in the background."),
+        headers,
+        HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<Map<String, String>> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException e, HttpServletRequest request) {
+    log.error("Malformed request body: {}", request.getRequestURI(), e);
+    return new ResponseEntity<>(Map.of("error", "Malformed request body"), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(RuntimeException.class)
+  public ResponseEntity<Map<String, String>> handleRuntimeException(
+      RuntimeException e, HttpServletRequest request) {
+
+    // Check if this exception originates from UrnUtils.getUrn()
+    for (StackTraceElement element : e.getStackTrace()) {
+      if (element.getClassName().equals("com.linkedin.common.urn.UrnUtils")
+          && element.getMethodName().equals("getUrn")) {
+        log.error("Invalid URN format in request: {}", request.getRequestURI(), e);
+        return new ResponseEntity<>(
+            Map.of("error", "Invalid URN format: " + sanitizeExceptionMessage(e.getMessage())),
+            HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    // For other RuntimeExceptions, let them bubble up to the generic handler
+    return handleGenericException(e, request);
+  }
+
   @Override
   protected void logException(Exception ex, HttpServletRequest request) {
     log.error("Error while resolving request: {}", request.getRequestURI(), ex);
@@ -85,6 +171,9 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       @Nullable Exception ex, HttpServletRequest request, HttpServletResponse response)
       throws IOException {
     log.error("Error while resolving request: {}", request.getRequestURI(), ex);
+    if (ex != null) {
+      recordErrorOnSpan(ex, HttpStatus.INTERNAL_SERVER_ERROR.value());
+    }
     request.setAttribute("jakarta.servlet.error.exception", ex);
     response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value());
   }
@@ -92,18 +181,39 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(ValidationException.class)
   public ResponseEntity<Map<String, String>> handleValidationException(
       ValidationException e, HttpServletRequest request) {
-    log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
+
+    Map<String, String> response =
+        new LinkedHashMap<>(Map.of("error", "Validation Error", "message", e.getMessage()));
+    HttpStatus statusCode = HttpStatus.BAD_REQUEST;
+
     if (e.getValidationExceptionCollection() != null
         && e.getValidationExceptionCollection()
             .getSubTypes()
-            .equals(Set.of(ValidationSubType.PRECONDITION))) {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()),
-          HttpStatus.PRECONDITION_FAILED);
-    } else {
-      return new ResponseEntity<>(
-          Map.of("error", "Validation Error", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+            .contains(ValidationSubType.AUTHORIZATION)) {
+      response.put("error", "Authorization Error");
+      statusCode = HttpStatus.FORBIDDEN;
+    } else if (e.getValidationExceptionCollection() != null
+        && e.getValidationExceptionCollection()
+            .getSubTypes()
+            .contains(ValidationSubType.PRECONDITION)) {
+      response.put("error", "Precondition Error");
+      statusCode = HttpStatus.PRECONDITION_FAILED;
     }
+
+    // Precondition-only failures are expected during optimistic work claim (e.g. If-Version-Match
+    // mismatch) and shouldn't be logged as errors since they are normal control flow.
+    if (e.getValidationExceptionCollection() != null
+        && Set.of(ValidationSubType.PRECONDITION)
+            .equals(e.getValidationExceptionCollection().getSubTypes())) {
+      log.info(
+          "Conditional write precondition failed for request:{} - {}",
+          request.getRequestURI(),
+          e.getMessage());
+    } else {
+      log.error("Validation exception occurred for request:{}", request.getRequestURI(), e);
+    }
+
+    return new ResponseEntity<>(response, statusCode);
   }
 
   @ExceptionHandler(Exception.class)
@@ -119,6 +229,7 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     }
 
     log.error("Unhandled exception occurred for request: {}", request.getRequestURI(), e);
+    recordErrorOnSpan(e, HttpStatus.INTERNAL_SERVER_ERROR.value());
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
   }
@@ -137,6 +248,33 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       Exception e, HttpServletRequest request) {
     log.error("Invalid JSON format: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
-        Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+        Map.of("error", "Invalid JSON format", "message", sanitizeExceptionMessage(e.getMessage())),
+        HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler(InvalidSyntaxException.class)
+  public ResponseEntity<Map<String, String>> handleInvalidSyntaxException(
+      InvalidSyntaxException e) {
+    return new ResponseEntity<>(
+        Map.of(
+            "error", "Invalid GraphQL syntax", "message", sanitizeExceptionMessage(e.getMessage())),
+        HttpStatus.BAD_REQUEST);
+  }
+
+  /**
+   * Stamps the current trace span with the error type and status so a failed request is diagnosable
+   * in traces. Deliberately omits the exception message — messages can carry user input / internal
+   * detail (the same CWE-200 concern {@link #sanitizeExceptionMessage} guards against), and traces
+   * are a lower-trust store than the sanitized HTTP response. Type + status are low-cardinality and
+   * safe.
+   */
+  private static void recordErrorOnSpan(@Nonnull final Throwable ex, final int statusCode) {
+    final Span span = Span.current();
+    if (!span.getSpanContext().isValid()) {
+      return;
+    }
+    span.setStatus(StatusCode.ERROR);
+    span.setAttribute("error.type", ex.getClass().getSimpleName());
+    span.setAttribute("http.response.status_code", (long) statusCode);
   }
 }

@@ -1,5 +1,9 @@
 import { QuickFilterField } from '@app/searchV2/autoComplete/quickFilters/utils';
-import { getAutoCompleteInputFromQuickFilter, getFiltersWithQuickFilter } from '@app/searchV2/utils/filterUtils';
+import {
+    excludeEmptyAndFilters,
+    getAutoCompleteInputFromQuickFilter,
+    getFiltersWithQuickFilter,
+} from '@app/searchV2/utils/filterUtils';
 
 describe('getAutoCompleteInputFromQuickFilter', () => {
     it('should create a platform filter if the selected quick filter is a platform', () => {
@@ -41,5 +45,43 @@ describe('getFiltersWithQuickFilter', () => {
         const filterResult = getFiltersWithQuickFilter(null);
 
         expect(filterResult).toMatchObject([]);
+    });
+});
+
+describe('excludeEmptyAndFilters', () => {
+    it('should handle filter out empty filters', () => {
+        const result = excludeEmptyAndFilters(undefined);
+
+        expect(result).toBeUndefined();
+    });
+
+    it('should handle empty array', () => {
+        const result = excludeEmptyAndFilters([]);
+
+        expect(result).toMatchObject([]);
+    });
+
+    it('should handle array of filled filters', () => {
+        const result = excludeEmptyAndFilters([
+            { and: [{ field: 'test', values: ['test'] }] },
+            { and: [{ field: 'test2', values: ['test2'] }] },
+        ]);
+
+        expect(result).toMatchObject([
+            { and: [{ field: 'test', values: ['test'] }] },
+            { and: [{ field: 'test2', values: ['test2'] }] },
+        ]);
+    });
+
+    it('should handle mixed empty and filled filters', () => {
+        const result = excludeEmptyAndFilters([{ and: [] }, { and: [{ field: 'test', values: ['test'] }] }]);
+
+        expect(result).toMatchObject([{ and: [{ field: 'test', values: ['test'] }] }]);
+    });
+
+    it('should handle array of empty filters', () => {
+        const result = excludeEmptyAndFilters([{ and: [] }, { and: [] }]);
+
+        expect(result).toMatchObject([]);
     });
 });

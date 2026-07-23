@@ -45,6 +45,14 @@ record SearchFlags {
    includeSoftDeleted:optional boolean = false
 
   /**
+   * Include entities in lifecycle stages that have hideInSearch=true.
+   * By default, entities in hidden lifecycle stages are excluded from search results.
+   * Set to true for eval queries or admin tooling that needs to discover all entities
+   * regardless of lifecycle stage settings.
+   */
+   includeHiddenLifecycleStages:optional boolean = false
+
+  /**
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false
@@ -69,4 +77,20 @@ record SearchFlags {
    * Include only latest versions in version sets, default true
    */
    filterNonLatestVersions: optional boolean = true
+
+   /**
+    * Which fieldConfiguration should be applied. The possible values
+    * are defined in the configuration file `search_config.yaml`
+    */
+    fieldConfiguration:optional string
+
+  /**
+    * Sets slice parameter for elasticsearch query,
+    * to allow multiple clients to scroll the same query at once.
+    * Only supported by the ElasticSearchService
+    */
+  sliceOptions: optional record SliceOptions {
+    id: int
+    max: int
+  }
 }

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.INDEX_BLOCKS_WRITE_SETTING;
-import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -17,12 +16,12 @@ import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
@@ -51,21 +50,17 @@ public class BuildIndicesPreStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      OperationContext opContext = context.opContext();
       try {
-        final List<ReindexConfig> reindexConfigs =
-            getAllReindexConfigs(services, structuredProperties);
-
-        // Get indices to update
         List<ReindexConfig> indexConfigs =
-            reindexConfigs.stream()
-                .filter(ReindexConfig::requiresReindex)
-                .collect(Collectors.toList());
+            IndexUtils.getIndicesNeedingReindex(opContext, services, structuredProperties);
 
         for (ReindexConfig indexConfig : indexConfigs) {
           String indexName =
-              IndexUtils.resolveAlias(esComponents.getSearchClient(), indexConfig.name());
+              IndexUtils.resolveAlias(
+                  opContext, esComponents.getSearchClient(), indexConfig.name());
 
-          boolean ack = blockWrites(indexName);
+          boolean ack = blockWrites(opContext, indexName);
           if (!ack) {
             log.error(
                 "Partial index settings update, some indices may still be blocking writes."
@@ -80,8 +75,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
             boolean cloneAck =
                 esComponents
                     .getSearchClient()
-                    .indices()
-                    .clone(resizeRequest, RequestOptions.DEFAULT)
+                    .cloneIndex(opContext, resizeRequest, RequestOptions.DEFAULT)
                     .isAcknowledged();
             log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
             if (!cloneAck) {
@@ -100,7 +94,8 @@ public class BuildIndicesPreStep implements UpgradeStep {
     };
   }
 
-  private boolean blockWrites(String indexName) throws InterruptedException, IOException {
+  private boolean blockWrites(OperationContext opContext, String indexName)
+      throws InterruptedException, IOException {
     UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
     Map<String, Object> indexSettings = ImmutableMap.of(INDEX_BLOCKS_WRITE_SETTING, "true");
 
@@ -110,8 +105,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
       ack =
           esComponents
               .getSearchClient()
-              .indices()
-              .putSettings(request, RequestOptions.DEFAULT)
+              .updateIndexSettings(opContext, request, RequestOptions.DEFAULT)
               .isAcknowledged();
       log.info(
           "Updated index {} with new settings. Settings: {}, Acknowledged: {}",
@@ -132,7 +126,8 @@ public class BuildIndicesPreStep implements UpgradeStep {
     }
 
     if (ack) {
-      ack = IndexUtils.validateWriteBlock(esComponents.getSearchClient(), indexName, true);
+      ack =
+          IndexUtils.validateWriteBlock(opContext, esComponents.getSearchClient(), indexName, true);
       log.info(
           "Validated index {} with new settings. Settings: {}, Acknowledged: {}",
           indexName,

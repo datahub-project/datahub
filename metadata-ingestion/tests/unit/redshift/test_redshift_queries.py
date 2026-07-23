@@ -1,0 +1,256 @@
+"""Tests for Redshift query generation and validation.
+
+Covers query patterns used across RedshiftProvisionedQuery and RedshiftServerlessQuery,
+including segment stitching strategies that preserve word boundaries when reconstructing
+queries from fixed-width character segments (200 bytes provisioned, 4000 bytes serverless).
+"""
+
+from datetime import datetime
+
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
+
+START_TIME = datetime(2024, 1, 1, 12, 0, 0)
+END_TIME = datetime(2024, 1, 10, 12, 0, 0)
+
+# The boundary-aware LISTAGG pattern for 200-byte segments (provisioned).
+# Appends a space when the trimmed segment is shorter than the segment size,
+# indicating a word boundary was at the segment edge.
+PROVISIONED_LISTAGG_PATTERN = (
+    "RTRIM(LISTAGG(RTRIM(text) "
+    "|| CASE WHEN LEN(RTRIM(text)) < 200 THEN ' ' ELSE '' END, '')"
+)
+
+# The boundary-aware LISTAGG pattern for 4000-byte segments (serverless).
+SERVERLESS_LISTAGG_PATTERN_TEXT = (
+    'RTRIM(LISTAGG(RTRIM(qt."text") '
+    "|| CASE WHEN LEN(RTRIM(qt.\"text\")) < 4000 THEN ' ' ELSE '' END, '')"
+)
+
+SERVERLESS_LISTAGG_PATTERN_QUERYTXT = (
+    "RTRIM(LISTAGG(RTRIM(querytxt) "
+    "|| CASE WHEN LEN(RTRIM(querytxt)) < 4000 THEN ' ' ELSE '' END, '')"
+)
+
+
+class TestCommonQueries:
+    def test_list_schemas_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_schemas("mydb", extract_ownership=False)
+        assert "NULL as schema_owner_name" in sql
+        assert "pg_user" not in sql
+
+    def test_list_schemas_with_ownership_joins_pg_user(self):
+        sql = RedshiftCommonQuery.list_schemas("mydb", extract_ownership=True)
+        assert "u.usename as schema_owner_name" in sql
+        assert "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = s.schema_owner" in sql
+
+    def test_list_tables_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_tables("mydb", extract_ownership=False)
+        assert 'NULL as "owner_name"' in sql
+        assert "pg_user" not in sql
+
+    def test_list_tables_with_ownership_joins_pg_user(self):
+        sql = RedshiftCommonQuery.list_tables("mydb", extract_ownership=True)
+        assert 'u.usename as "owner_name"' in sql
+        assert "LEFT JOIN pg_catalog.pg_user u ON u.usesysid = c.relowner" in sql
+
+    def test_list_tables_shared_db_without_ownership_uses_null_owner(self):
+        sql = RedshiftCommonQuery.list_tables(
+            "mydb", is_shared_database=True, extract_ownership=False
+        )
+        assert 'NULL AS "owner_name"' in sql
+
+    def test_list_tables_shared_db_with_ownership_uses_table_owner(self):
+        sql = RedshiftCommonQuery.list_tables(
+            "mydb", is_shared_database=True, extract_ownership=True
+        )
+        assert 'table_owner AS "owner_name"' in sql
+        assert "pg_user" not in sql
+
+    def test_list_columns_late_binding_view_filters_by_view_schema(self):
+        sql = RedshiftCommonQuery.list_columns("mydb", "common")
+        # pg_get_late_binding_view_cols() exposes "view_schema", not "schema" —
+        # the WHERE clause must use the correct column name or late-binding view
+        # columns are silently dropped.
+        assert "view_schema = 'common'" in sql
+
+
+class TestProvisionedQueries:
+    def test_list_insert_create_queries_uses_boundary_aware_listagg(self):
+        sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert PROVISIONED_LISTAGG_PATTERN in sql
+
+    def test_temp_table_ddl_query_uses_boundary_aware_listagg(self):
+        sql = RedshiftProvisionedQuery.temp_table_ddl_query(
+            start_time=START_TIME, end_time=END_TIME
+        )
+        assert PROVISIONED_LISTAGG_PATTERN in sql
+
+    def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
+        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert PROVISIONED_LISTAGG_PATTERN in sql
+
+    def test_stl_scan_based_lineage_uses_cte_not_stl_query(self):
+        """The provisioned scan lineage query should use a CTE from STL_QUERYTEXT
+        instead of stl_query.querytxt (which is truncated to 4000 chars)."""
+        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert "WITH query_txt AS" in sql
+        assert "STL_QUERYTEXT" in sql
+        # Should join query_txt CTE (not stl_query table) for querytxt
+        assert "join query_txt sq" in sql.lower()
+        # Should NOT join stl_query table directly (only stl_querytext via CTE)
+        assert "join stl_query " not in sql.lower()
+
+    def test_no_old_listagg_pattern_provisioned(self):
+        """Ensure the old LISTAGG pattern with LEN(RTRIM(text)) = 0 is gone."""
+        for sql in [
+            RedshiftProvisionedQuery.list_insert_create_queries_sql(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftProvisionedQuery.temp_table_ddl_query(
+                start_time=START_TIME, end_time=END_TIME
+            ),
+        ]:
+            assert "LEN(RTRIM(text)) = 0" not in sql
+
+    def test_list_all_queries_reconstructs_full_text(self):
+        """Queries-v2 unified feed: all statements (reads + writes) with full text
+        reconstructed from STL_QUERYTEXT, not pre-filtered by table."""
+        sql = RedshiftProvisionedQuery.list_all_queries_sql()
+        assert "STL_QUERYTEXT" in sql
+        assert PROVISIONED_LISTAGG_PATTERN in sql
+        assert "stl_query" in sql.lower()
+        # Not scoped to a target/scanned table — the aggregator filters instead.
+        assert "stl_scan" not in sql.lower()
+        # Time window and database are bound as parameters (%s), not interpolated,
+        # so config/catalog values never enter the SQL string.
+        assert "q.database = %s" in sql
+        assert "q.starttime >= %s" in sql
+        assert "q.starttime < %s" in sql
+        assert sql.count("%s") == 3
+        # Internal Redshift user must be excluded to avoid usage noise.
+        assert "rdsdb" in sql
+
+
+class TestServerlessQueries:
+    def test_stl_scan_based_lineage_uses_boundary_aware_listagg(self):
+        sql = RedshiftServerlessQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
+
+    def test_list_insert_create_queries_uses_boundary_aware_listagg(self):
+        sql = RedshiftServerlessQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert SERVERLESS_LISTAGG_PATTERN_QUERYTXT in sql
+
+    def test_temp_table_ddl_query_uses_boundary_aware_listagg(self):
+        sql = RedshiftServerlessQuery.temp_table_ddl_query(
+            start_time=START_TIME, end_time=END_TIME
+        )
+        assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
+
+    def test_list_all_queries_reconstructs_full_text(self):
+        """Queries-v2 unified feed (serverless): all statements with full text
+        reconstructed from SYS_QUERY_TEXT, not pre-filtered by table."""
+        sql = RedshiftServerlessQuery.list_all_queries_sql()
+        assert "SYS_QUERY_HISTORY" in sql
+        assert SERVERLESS_LISTAGG_PATTERN_TEXT in sql
+        assert "qt.sequence < 16" in sql
+        assert "SYS_QUERY_DETAIL" not in sql  # not scan/table-scoped
+        # Time window and database are bound as parameters (%s), not interpolated,
+        # so config/catalog values never enter the SQL string.
+        assert "qh.database_name = %s" in sql
+        assert "qh.start_time >= %s" in sql
+        assert "qh.start_time < %s" in sql
+        assert sql.count("%s") == 3
+        # Internal Redshift user must be excluded to avoid usage noise.
+        assert "rdsdb" in sql
+
+    def test_no_old_listagg_pattern_serverless(self):
+        """Ensure the old bare LISTAGG(qt."text") pattern is gone for serverless."""
+        for sql in [
+            RedshiftServerlessQuery.stl_scan_based_lineage_query(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftServerlessQuery.list_insert_create_queries_sql(
+                db_name="test_db", start_time=START_TIME, end_time=END_TIME
+            ),
+            RedshiftServerlessQuery.temp_table_ddl_query(
+                start_time=START_TIME, end_time=END_TIME
+            ),
+        ]:
+            # Should not have bare LISTAGG without RTRIM wrapper
+            assert 'LISTAGG(qt."text")' not in sql
+            assert "LEN(RTRIM(querytxt)) = 0" not in sql
+
+
+def _assert_no_inner_join_on(sql: str, view: str) -> None:
+    # The user-info views (svl_user_info / SVV_USER_INFO) enrich a log row with a
+    # username; they must never gate it. Every join on them must be a LEFT join, so a
+    # user the view can't resolve (rdsdb, or a real user on editions that keep these
+    # views superuser/self-only) doesn't drop the row.
+    lowered = sql.lower()
+    view = view.lower()
+    assert f"join {view}" in lowered
+    assert lowered.count(f"join {view}") == lowered.count(f"left join {view}")
+
+
+class TestUserInfoJoinResilience:
+    """The username-resolution join to the user-info views must only enrich, never gate.
+    rdsdb (the internal system user, absent from these views) is excluded explicitly by
+    its system user id -- not as a side effect of an INNER join."""
+
+    def test_provisioned_usage_query_left_joins_and_excludes_rdsdb_by_id(self):
+        sql = RedshiftProvisionedQuery.usage_query(
+            start_time="2024-01-01 00:00:00",
+            end_time="2024-01-02 00:00:00",
+            database="dev",
+        )
+        _assert_no_inner_join_on(sql, "svl_user_info")
+        assert "sq.userid <> 1" in sql
+
+    def test_provisioned_operation_aspect_query_left_joins_and_excludes_rdsdb(self):
+        sql = RedshiftProvisionedQuery.operation_aspect_query(
+            start_time="2024-01-01 00:00:00", end_time="2024-01-02 00:00:00"
+        )
+        # Both the insert and delete branches must LEFT join and exclude rdsdb by id.
+        assert sql.lower().count("left join svl_user_info") == 2
+        assert sql.count("sq.userid <> 1") == 2
+        _assert_no_inner_join_on(sql, "svl_user_info")
+
+    def test_serverless_usage_query_left_joins_and_excludes_rdsdb_by_id(self):
+        sql = RedshiftServerlessQuery.usage_query(
+            start_time="2024-01-01 00:00:00",
+            end_time="2024-01-02 00:00:00",
+            database="dev",
+        )
+        _assert_no_inner_join_on(sql, "svv_user_info")
+        assert "qd.user_id <> 1" in sql
+
+    def test_serverless_operation_aspect_query_left_joins_and_excludes_rdsdb(self):
+        sql = RedshiftServerlessQuery.operation_aspect_query(
+            start_time="2024-01-01 00:00:00", end_time="2024-01-02 00:00:00"
+        )
+        _assert_no_inner_join_on(sql, "svv_user_info")
+        assert "qd.user_id <> 1" in sql
+
+    def test_serverless_insert_lineage_excludes_rdsdb_by_id_not_name(self):
+        # rdsdb has no row in SVV_USER_INFO, so a name-based `<> 'rdsdb'` relied on NULL
+        # propagation and also dropped any real user the view couldn't resolve. Excluding
+        # by user_id keeps unresolved real users (LEFT join) while still dropping rdsdb.
+        sql = RedshiftServerlessQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        assert "qd.user_id <> 1" in sql
+        assert "user_name <> 'rdsdb'" not in sql

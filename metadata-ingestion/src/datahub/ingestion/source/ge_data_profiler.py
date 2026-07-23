@@ -16,6 +16,7 @@ import uuid
 from functools import lru_cache
 from typing import (
     TYPE_CHECKING,
+    AbstractSet,
     Any,
     Callable,
     Dict,
@@ -23,6 +24,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
     cast,
@@ -56,13 +58,16 @@ from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
+    ProfilerRequest,
     convert_to_cardinality,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    EditableSchemaFieldInfo,
     EditableSchemaMetadata,
     NumberType,
+    SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -71,8 +76,10 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
     QuantileClass,
+    SchemaFieldClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
@@ -120,7 +127,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -176,10 +182,9 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
             yield
 
 
-@dataclasses.dataclass
-class GEProfilerRequest:
-    pretty_name: str
-    batch_kwargs: dict
+# Legacy alias - GEProfilerRequest is the historical name. New code should
+# import ProfilerRequest from datahub.ingestion.source.profiling.common.
+GEProfilerRequest = ProfilerRequest
 
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
@@ -206,6 +211,25 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
+    elif self.engine.dialect.name.lower() == DATABRICKS:
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
@@ -289,7 +313,6 @@ def _is_single_row_query_method(query: Any) -> bool:
         "get_column_max",
         "get_column_mean",
         "get_column_stdev",
-        "get_column_nonnull_count",
         "get_column_unique_count",
     }
     CONSTANT_ROW_QUERY_METHODS = {
@@ -313,6 +336,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
     FIRST_PARTY_SINGLE_ROW_QUERY_METHODS = {
         "get_column_unique_count_dh_patch",
+        "_get_column_cardinality",
     }
 
     # We'll do this the inefficient way since the arrays are pretty small.
@@ -479,18 +503,32 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            # Don't use Great Expectations get_column_nonnull_count because it
+            # generates this SQL:
+            #
+            #   sum(CASE WHEN (mycolumn IN (NULL) OR mycolumn IS NULL) THEN 1 ELSE 0 END)
+            #
+            # which fails for complex types (such as Databricks maps) that don't
+            # support the IN operator.
+            nonnull_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select(sa.func.count(sa.column(column))).select_from(
+                        self.dataset._table
+                    )
+                ).scalar()
+            )
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Cardinality",
                 message="The cardinality for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -574,11 +612,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column min for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Min",
                 message="The min for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -594,11 +633,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column max for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Max",
                 message="The max for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -614,11 +654,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column mean for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Mean",
                 message="The mean for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -661,11 +702,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Medians",
                 message="The medians for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -680,11 +722,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             logger.debug(
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Standard Deviation",
                 message="The standard deviation for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -716,6 +759,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     for quantile, value in zip(
                         res["observed_value"]["quantiles"],
                         res["observed_value"]["values"],
+                        strict=False,
                     )
                 ]
         except Exception as e:
@@ -723,22 +767,54 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Quantiles",
                 message="The quantiles for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
+            results = self.dataset.engine.execute(
+                sa.select(
+                    [
+                        sa.column(column),
+                        sa.func.count(sa.column(column)),
+                    ]
+                )
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .group_by(sa.column(column))
+            ).fetchall()
+
             column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                ValueFrequencyClass(value=str(value), frequency=int(count))
+                for value, count in results
             ]
+            # sort so output is deterministic. don't do it in SQL because not all column
+            # types are sortable in SQL (such as JSON data types on Athena/Trino).
+            column_profile.distinctValueFrequencies = sorted(
+                column_profile.distinctValueFrequencies, key=lambda x: x.value
+            )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+                log=False,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
@@ -770,11 +846,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Histogram",
                 message="The histogram for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     @_run_with_query_combiner
@@ -805,11 +882,12 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
             )
 
-            self.report.report_warning(
+            self.report.warning(
                 title="Profiling: Unable to Calculate Sample Values",
                 message="The sample values for the column will not be accessible",
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
+                log=False,
             )
 
     def generate_dataset_profile(  # noqa: C901 (complexity)
@@ -1173,26 +1251,34 @@ class DatahubGEProfiler:
             f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
         )
 
-        with PerfTimer() as timer, unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-            get_column_unique_count_dh_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
-            _get_column_quantiles_bigquery_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
-            _get_column_quantiles_awsathena_patch,
-        ), unittest.mock.patch(
-            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
-            _get_column_median_patch,
-        ), concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_workers
-        ) as async_executor, SQLAlchemyQueryCombiner(
-            enabled=self.config.query_combiner_enabled,
-            catch_exceptions=self.config.catch_exceptions,
-            is_single_row_query_method=_is_single_row_query_method,
-            serial_execution_fallback_enabled=True,
-        ).activate() as query_combiner:
+        with (
+            PerfTimer() as timer,
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+                get_column_unique_count_dh_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+                _get_column_quantiles_bigquery_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
+                _get_column_quantiles_awsathena_patch,
+            ),
+            unittest.mock.patch(
+                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
+                _get_column_median_patch,
+            ),
+            concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as async_executor,
+            SQLAlchemyQueryCombiner(
+                enabled=self.config.query_combiner_enabled,
+                catch_exceptions=self.config.catch_exceptions,
+                is_single_row_query_method=_is_single_row_query_method,
+                serial_execution_fallback_enabled=True,
+            ).activate() as query_combiner,
+        ):
             # Submit the profiling requests to the thread pool executor.
             async_profiles = collections.deque(
                 async_executor.submit(
@@ -1395,12 +1481,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)
@@ -1449,9 +1535,17 @@ class DatahubGEProfiler:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            if platform == DATABRICKS:
+                # TODO: Review logic for BigQuery as well, probably project.dataset.table should be quoted there as well
+                quoted_name = ".".join(
+                    batch.engine.dialect.identifier_preparer.quote(part)
+                    for part in name_parts
+                )
+                batch._table = sa.text(quoted_name)
+                logger.debug(f"Setting quoted table name to be {batch._table}")
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
-            if len(str(batch._table).split(".")) == 2:
+            elif len(str(batch._table).split(".")) == 2:
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 
@@ -1493,9 +1587,10 @@ def create_athena_temp_table(
         if not instance.config.catch_exceptions:
             raise e
         logger.exception(f"Encountered exception while profiling {table_pretty_name}")
-        instance.report.report_warning(
+        instance.report.warning(
             table_pretty_name,
             f"Profiling exception {e} when running custom sql {sql}",
+            log=False,
         )
         return None
     finally:
@@ -1526,9 +1621,10 @@ def create_bigquery_temp_table(
             logger.exception(
                 f"Encountered exception while profiling {table_pretty_name}"
             )
-            instance.report.report_warning(
+            instance.report.warning(
                 table_pretty_name,
                 f"Profiling exception {e} when running custom sql {bq_sql}",
+                log=False,
             )
             return None
 
@@ -1580,42 +1676,58 @@ def create_bigquery_temp_table(
         raw_connection.close()
 
 
+def _matching_field_paths(
+    fields: Sequence[Union[SchemaFieldClass, EditableSchemaFieldInfo]],
+    tags: AbstractSet[str],
+) -> List[str]:
+    return [
+        field.fieldPath
+        for field in fields
+        if field.globalTags
+        and any(TagUrn.from_string(ta.tag).name in tags for ta in field.globalTags.tags)
+    ]
+
+
 def _get_columns_to_ignore_sampling(
     dataset_name: str, tags_to_ignore: Optional[List[str]], platform: str, env: str
 ) -> Tuple[bool, List[str]]:
     logger.debug("Collecting columns to ignore for sampling")
 
-    ignore_table: bool = False
-    columns_to_ignore: List[str] = []
-
     if not tags_to_ignore:
-        return ignore_table, columns_to_ignore
+        return False, []
 
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
-
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags:
-        ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-            for tag_association in dataset_tags.tags
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
+        return True, []
+
+    # Collect from both aspects; use a set to deduplicate across them.
+    # SchemaMetadata holds ingestion-sourced column tags (e.g. from Snowflake).
+    # EditableSchemaMetadata holds tags applied via the DataHub UI.
+    columns_to_ignore: set[str] = set()
+
+    schema_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=SchemaMetadata
+    )
+    if schema_metadata:
+        columns_to_ignore.update(
+            _matching_field_paths(schema_metadata.fields, tags_set)
         )
 
-    if not ignore_table:
-        metadata = datahub_graph.get_aspect(
-            entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    editable_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    )
+    if editable_metadata:
+        columns_to_ignore.update(
+            _matching_field_paths(editable_metadata.editableSchemaFieldInfo, tags_set)
         )
 
-        if metadata:
-            for schemaField in metadata.editableSchemaFieldInfo:
-                if schemaField.globalTags:
-                    columns_to_ignore.extend(
-                        schemaField.fieldPath
-                        for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-                    )
-
-    return ignore_table, columns_to_ignore
+    return False, list(columns_to_ignore)

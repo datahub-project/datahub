@@ -1,8 +1,10 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
+import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV2/LineageEdge/LineageTableEdge';
 import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV2/LineageEntityNode/LineageEntityNode';
@@ -14,10 +16,12 @@ import LineageTransformationNode, {
 } from '@app/lineageV2/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { LineageVisualizationNode } from '@app/lineageV2/NodeBuilder';
-import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
+import { LineageDisplayContext, LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV2/common';
 import LineageControls from '@app/lineageV2/controls/LineageControls';
 import SearchControl from '@app/lineageV2/controls/SearchControl';
 import ZoomControls from '@app/lineageV2/controls/ZoomControls';
+import { getLineageUrl } from '@app/lineageV2/lineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {
@@ -56,6 +60,10 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const theme = useTheme();
+    const entityRegistry = useEntityRegistry();
+    const history = useHistory();
+    const location = useLocation();
 
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
@@ -73,6 +81,11 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onNodeDragStart={(_e, node) => {
                     // eslint-disable-next-line no-param-reassign
                     node.data.dragged = true;
+                }}
+                onNodeDoubleClick={(_e, node) => {
+                    if (node.data?.urn && node.data?.type) {
+                        history.push(getLineageUrl(node.data.urn, node.data.type, location, entityRegistry));
+                    }
                 }}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
@@ -94,7 +107,16 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 <ZoomControls />
                 <SearchControl />
                 <LineageControls />
-                <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
+                <LineageEmptyGraphNudgePanel />
+                <MiniMap
+                    position="bottom-right"
+                    ariaLabel={null}
+                    pannable
+                    zoomable
+                    style={{ backgroundColor: theme.colors.bgSurface }}
+                    maskColor={`${theme.colors.bg}cc`}
+                    nodeColor={theme.colors.border}
+                />
             </StyledReactFlow>
         </LineageVisualizationContext.Provider>
     );
@@ -126,4 +148,18 @@ function useHandleKeyboardDeselect(setSelectedColumn: (value: string | null) => 
             document.removeEventListener('keydown', handleKeyPress);
         };
     }, [setSelectedColumn]);
+}
+
+function LineageEmptyGraphNudgePanel() {
+    const { rootUrn, adjacencyList, nodes, showGhostEntities, setShowGhostEntities } = useContext(LineageNodesContext);
+
+    return (
+        <LineageEmptyGraphNudge
+            rootUrn={rootUrn}
+            adjacencyList={adjacencyList}
+            nodes={nodes}
+            showGhostEntities={showGhostEntities}
+            setShowGhostEntities={setShowGhostEntities}
+        />
+    );
 }

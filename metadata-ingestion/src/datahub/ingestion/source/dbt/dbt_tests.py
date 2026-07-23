@@ -9,6 +9,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
@@ -18,6 +19,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    CustomAssertionInfoClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
@@ -44,6 +46,41 @@ class DBTTestResult:
 
     def has_success_status(self) -> bool:
         return self.status in ("pass", "success")
+
+
+@dataclass
+class DBTFreshnessCriteria:
+    """Represents warn_after or error_after criteria from dbt freshness"""
+
+    count: int
+    period: str  # minute, hour, day
+
+
+@dataclass
+class DBTFreshnessInfo:
+    """Freshness test information from dbt sources.json"""
+
+    invocation_id: str
+    status: str  # pass, warn, error, runtime error
+    max_loaded_at: datetime
+    snapshotted_at: datetime
+    max_loaded_at_time_ago_in_s: float
+    warn_after: Optional[DBTFreshnessCriteria]
+    error_after: Optional[DBTFreshnessCriteria]
+
+
+def parse_freshness_criteria(data: Optional[Dict]) -> Optional[DBTFreshnessCriteria]:
+    """Parse warn_after or error_after criteria dict into DBTFreshnessCriteria."""
+    if not data:
+        return None
+    count = data.get("count")
+    period = data.get("period")
+    if count is None or period is None:
+        return None
+    return DBTFreshnessCriteria(
+        count=count,
+        period=period,
+    )
 
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
@@ -154,6 +191,63 @@ def _string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
     return {k: str(v) for k, v in input_map.items()}
 
 
+def _map_dbt_test_status(
+    status: str, test_warnings_are_errors: bool
+) -> tuple[str, Optional[str]]:
+    """Map a dbt test result status to (AssertionResultType, AssertionResultSeverity).
+
+    dbt test statuses:
+      - pass/success: the test ran and found no failing rows.
+      - warn: the test ran, found failing rows, and is configured with
+        ``severity: warn``. Surfaced as a soft failure.
+      - fail: the test ran, found failing rows, and is configured with
+        ``severity: error`` (the default). Hard failure.
+      - error / runtime error: the test invocation itself could not complete
+        (compilation/SQL/infra issue). No pass/fail verdict was produced.
+
+    Severity is only meaningful on FAILURE results.
+    """
+    if status in ("pass", "success"):
+        return AssertionResultTypeClass.SUCCESS, None
+    if status in ("error", "runtime error"):
+        return AssertionResultTypeClass.ERROR, None
+    if status == "warn":
+        if test_warnings_are_errors:
+            return (
+                AssertionResultTypeClass.FAILURE,
+                AssertionResultSeverityClass.LOW,
+            )
+        return AssertionResultTypeClass.SUCCESS, None
+    # Anything else (fail, or an unknown non-pass/non-error status) is a hard
+    # failure.
+    return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
+
+
+def _map_dbt_freshness_status(
+    status: str, test_warnings_are_errors: bool
+) -> tuple[str, Optional[str]]:
+    """Map a dbt source freshness status to (AssertionResultType, AssertionResultSeverity).
+
+    Unlike regular dbt tests, freshness ``error`` means the ``error_after``
+    threshold was exceeded - the check ran to completion and produced a verdict.
+    Only ``runtime error`` indicates the freshness check itself failed to run.
+    """
+    if status == "pass":
+        return AssertionResultTypeClass.SUCCESS, None
+    if status == "runtime error":
+        return AssertionResultTypeClass.ERROR, None
+    if status == "warn":
+        if test_warnings_are_errors:
+            return (
+                AssertionResultTypeClass.FAILURE,
+                AssertionResultSeverityClass.LOW,
+            )
+        return AssertionResultTypeClass.SUCCESS, None
+    # Covers "error" (error_after threshold exceeded) and any other unknown
+    # non-pass status.
+    return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
+
+
 def make_assertion_from_test(
     extra_custom_props: Dict[str, str],
     node: "DBTNode",
@@ -170,6 +264,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=assertion_params.scope,
@@ -203,6 +298,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=DatasetAssertionScopeClass.DATASET_COLUMN,
@@ -219,6 +315,7 @@ def make_assertion_from_test(
         assertion_info = AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
             customProperties=extra_custom_props,
+            source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
                 scope=DatasetAssertionScopeClass.DATASET_ROWS,
@@ -243,18 +340,17 @@ def make_assertion_result_from_test(
     upstream_urn: str,
     test_warnings_are_errors: bool,
 ) -> MetadataChangeProposalWrapper:
+    result_type, severity = _map_dbt_test_status(
+        test_result.status, test_warnings_are_errors
+    )
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
         asserteeUrn=upstream_urn,
         runId=test_result.invocation_id,
         result=AssertionResultClass(
-            type=(
-                AssertionResultTypeClass.SUCCESS
-                if test_result.has_success_status()
-                or (not test_warnings_are_errors and test_result.status == "warn")
-                else AssertionResultTypeClass.FAILURE
-            ),
+            type=result_type,
+            severity=severity,
             nativeResults=test_result.native_results,
         ),
         status=AssertionRunStatusClass.COMPLETE,
@@ -263,4 +359,81 @@ def make_assertion_result_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertionResult,
+    )
+
+
+def make_assertion_from_freshness(
+    extra_custom_props: Dict[str, str],
+    node: "DBTNode",
+    assertion_urn: str,
+    upstream_urn: str,
+) -> MetadataChangeProposalWrapper:
+    """Create an AssertionInfo aspect for a dbt freshness test."""
+    assert node.freshness_info
+    freshness_info = node.freshness_info
+
+    assert (
+        freshness_info.error_after or freshness_info.warn_after
+    )  # At least one of error_after/warn_after must be set
+
+    custom_props = {**extra_custom_props, "dbt_freshness_test": "true"}
+    if freshness_info.warn_after:
+        custom_props["warn_after_count"] = str(freshness_info.warn_after.count)
+        custom_props["warn_after_period"] = freshness_info.warn_after.period
+    if freshness_info.error_after:
+        custom_props["error_after_count"] = str(freshness_info.error_after.count)
+        custom_props["error_after_period"] = freshness_info.error_after.period
+
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=custom_props,
+        source=mce_builder.make_assertion_source(),
+        customAssertion=CustomAssertionInfoClass(
+            type="dbt Freshness", entity=upstream_urn
+        ),
+    )
+
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=assertion_info,
+    )
+
+
+def make_assertion_result_from_freshness(
+    node: "DBTNode",
+    assertion_urn: str,
+    upstream_urn: str,
+    test_warnings_are_errors: bool,
+) -> MetadataChangeProposalWrapper:
+    """Create an AssertionRunEvent aspect for a dbt freshness test result"""
+    assert node.freshness_info
+    freshness_info = node.freshness_info
+
+    result_type, severity = _map_dbt_freshness_status(
+        freshness_info.status, test_warnings_are_errors
+    )
+
+    native_results = {
+        "status": freshness_info.status,
+        "max_loaded_at": freshness_info.max_loaded_at.isoformat(),
+        "snapshotted_at": freshness_info.snapshotted_at.isoformat(),
+        "max_loaded_at_time_ago_in_s": str(freshness_info.max_loaded_at_time_ago_in_s),
+    }
+
+    assertion_result = AssertionRunEventClass(
+        timestampMillis=int(freshness_info.snapshotted_at.timestamp() * 1000.0),
+        assertionUrn=assertion_urn,
+        asserteeUrn=upstream_urn,
+        runId=freshness_info.invocation_id,
+        result=AssertionResultClass(
+            type=result_type,
+            severity=severity,
+            nativeResults=native_results,
+        ),
+        status=AssertionRunStatusClass.COMPLETE,
+    )
+
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=assertion_result,
     )

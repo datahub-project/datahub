@@ -1,35 +1,18 @@
-import datetime
 import json
-import os
 from contextlib import contextmanager
 from typing import Iterator
 from unittest import mock
-from unittest.mock import Mock
 
 import airflow.configuration
-import airflow.version
-import packaging.version
 import pytest
-from airflow.lineage import apply_lineage, prepare_lineage
-from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
+from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
-from datahub_airflow_plugin._airflow_shims import (
-    AIRFLOW_PATCHED,
-    AIRFLOW_VERSION,
-    EmptyOperator,
-)
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
-from tests.utils import PytestConfig
-
-assert AIRFLOW_PATCHED
-
-# TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
-
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -76,13 +59,13 @@ def test_airflow_provider_info():
 
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
-def test_dags_load_with_no_errors(pytestconfig: PytestConfig) -> None:
+def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
-    dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
+    dag_bag = DagBag(dag_folder=str(airflow_examples_folder))
 
     import_errors = dag_bag.import_errors
 
@@ -167,7 +150,7 @@ def test_datahub_lineage_operator(mock_emit):
                 )
             ],
         )
-        task.execute(None)
+        task.execute({})
 
         mock_emit.assert_called()
 
@@ -185,6 +168,108 @@ def test_hook_airflow_ui(hook):
     # is wrong.
     hook.get_connection_form_widgets()
     hook.get_ui_field_behaviour()
+
+
+def test_datajob_url_link_taskinstance_rejected_with_migration_message():
+    """Users upgrading from Airflow 2 may still have `datajob_url_link=taskinstance`
+    in airflow.cfg — the removed Airflow 2 URL format. Confirm the plugin fails fast
+    with a migration-friendly error rather than an opaque pydantic enum error."""
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "taskinstance" if key == "datajob_url_link" else fallback
+        ),
+    ):
+        with pytest.raises(ValueError, match="taskinstance"):
+            get_lineage_config()
+
+
+def test_emit_mode_defaults_to_async_and_is_overridable():
+    """The listener defaults to ASYNC emit so high-volume DAG runs don't block
+    GMS, and operators can override it via `[datahub] emit_mode`."""
+    from datahub.emitter.rest_emitter import EmitMode
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    # Default: no emit_mode in airflow.cfg -> ASYNC.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: fallback,
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.ASYNC
+
+    # Explicit override in airflow.cfg.
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "SYNC_WAIT" if key == "emit_mode" else fallback
+        ),
+    ):
+        assert get_lineage_config().emit_mode == EmitMode.SYNC_WAIT
+
+
+def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
+    """BaseHook moved into the Task SDK (airflow.sdk.bases.hook) in Airflow 3.1.
+    On Airflow 3.0.x it is only importable from airflow.hooks.base, so
+    hooks/datahub.py imports it via a try/except. Simulate the 3.0 surface
+    (airflow.sdk without BaseHook) and re-import the module to prove the
+    fallback branch keeps DatahubRestHook working — this guards 3.0 support
+    even though the unit suite itself runs on a newer Airflow."""
+    import importlib
+    import sys
+    import types
+
+    # airflow.hooks.base exposes BaseHook via a lazy shim mypy can't see on 3.1+.
+    # Keep this on one line so the inline ignore lands on the line mypy flags.
+    from airflow.hooks.base import BaseHook  # type: ignore[attr-defined]
+
+    import datahub_airflow_plugin.hooks.datahub as hook_module
+
+    # Replace airflow.sdk with a stub that lacks BaseHook so
+    # `from airflow.sdk import BaseHook` raises ImportError, as on Airflow 3.0.x.
+    stub_sdk = types.ModuleType("airflow.sdk")
+    monkeypatch.setitem(sys.modules, "airflow.sdk", stub_sdk)
+    try:
+        importlib.reload(hook_module)
+        assert hook_module.BaseHook is BaseHook
+        assert issubclass(hook_module.DatahubRestHook, BaseHook)
+    finally:
+        # Restore the real (3.1+) import surface for the rest of the suite.
+        monkeypatch.undo()
+        importlib.reload(hook_module)
+
+
+def test_get_base_url_prefers_api_over_webserver():
+    """_get_base_url should prefer Airflow 3's `[api] base_url` over the legacy
+    `[webserver] base_url`, then fall back to localhost. The integration suite
+    only sets `[api]`, so the precedence and the webserver fallback are unit-tested
+    here."""
+    from datahub_airflow_plugin.client.airflow_generator import _get_base_url
+
+    def conf_get(values):
+        return lambda section, key, fallback=None: values.get((section, key), fallback)
+
+    cases = [
+        # both set -> api wins
+        (
+            {
+                ("api", "base_url"): "http://api:8080",
+                ("webserver", "base_url"): "http://web:8080",
+            },
+            "http://api:8080",
+        ),
+        # only webserver set -> webserver fallback
+        ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # neither set -> localhost default
+        ({}, "http://localhost:8080"),
+    ]
+    for values, expected in cases:
+        with mock.patch(
+            "datahub_airflow_plugin.client.airflow_generator.conf.get",
+            side_effect=conf_get(values),
+        ):
+            assert _get_base_url() == expected
 
 
 def test_entities():
@@ -219,265 +304,3 @@ def test_entities():
         ValueError, match="only supports datasets and upstream datajobs"
     ):
         Urn("urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)")
-
-
-@pytest.mark.parametrize(
-    ["inlets", "outlets", "capture_executions"],
-    [
-        pytest.param(
-            [
-                Dataset("snowflake", "mydb.schema.tableConsumed"),
-                Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"),
-            ],
-            [Dataset("snowflake", "mydb.schema.tableProduced")],
-            False,
-            id="airflow-lineage-no-executions",
-        ),
-        pytest.param(
-            [
-                Dataset("snowflake", "mydb.schema.tableConsumed"),
-                Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"),
-            ],
-            [Dataset("snowflake", "mydb.schema.tableProduced")],
-            True,
-            id="airflow-lineage-capture-executions",
-        ),
-    ],
-)
-@mock.patch("datahub_provider.hooks.datahub.DatahubRestHook.make_emitter")
-def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
-    DEFAULT_DATE = datetime.datetime(2020, 5, 17)
-    mock_emitter = Mock()
-    mock_emit.return_value = mock_emitter
-    # Using autospec on xcom_pull and xcom_push methods fails on Python 3.6.
-    with mock.patch.dict(
-        os.environ,
-        {
-            "AIRFLOW__LINEAGE__BACKEND": "datahub_provider.lineage.datahub.DatahubLineageBackend",
-            "AIRFLOW__LINEAGE__DATAHUB_CONN_ID": datahub_rest_connection_config.conn_id,
-            "AIRFLOW__LINEAGE__DATAHUB_KWARGS": json.dumps(
-                {"graceful_exceptions": False, "capture_executions": capture_executions}
-            ),
-        },
-    ), mock.patch("airflow.models.BaseOperator.xcom_pull"), mock.patch(
-        "airflow.models.BaseOperator.xcom_push"
-    ), patch_airflow_connection(datahub_rest_connection_config):
-        func = mock.Mock()
-        func.__name__ = "foo"
-
-        dag = DAG(
-            dag_id="test_lineage_is_sent_to_backend",
-            start_date=DEFAULT_DATE,
-            default_view="tree",
-        )
-
-        with dag:
-            op1 = EmptyOperator(
-                task_id="task1_upstream",
-                inlets=inlets,
-                outlets=outlets,
-            )
-            op2 = EmptyOperator(
-                task_id="task2",
-                inlets=inlets,
-                outlets=outlets,
-            )
-            op1 >> op2
-
-        # Airflow < 2.2 requires the execution_date parameter. Newer Airflow
-        # versions do not require it, but will attempt to find the associated
-        # run_id in the database if execution_date is provided. As such, we
-        # must fake the run_id parameter for newer Airflow versions.
-        # We need to add type:ignore in else to suppress mypy error in Airflow < 2.2
-        if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
-            ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
-            # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(
-                state="success",  # type: ignore[arg-type]
-                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
-            )
-        else:
-            from airflow.utils.state import DagRunState
-
-            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")  # type: ignore[call-arg]
-            dag_run = DagRun(
-                state=DagRunState.SUCCESS,
-                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
-            )
-
-        ti.dag_run = dag_run  # type: ignore
-        ti.start_date = datetime.datetime.utcnow()
-        ti.execution_date = DEFAULT_DATE
-
-        ctx1 = {
-            "dag": dag,
-            "task": op2,
-            "ti": ti,
-            "dag_run": dag_run,
-            "task_instance": ti,
-            "execution_date": DEFAULT_DATE,
-            "ts": "2021-04-08T00:54:25.771575+00:00",
-        }
-
-        prep = prepare_lineage(func)
-        prep(op2, ctx1)
-        post = apply_lineage(func)
-        post(op2, ctx1)
-
-        # Verify that the inlets and outlets are registered and recognized by Airflow correctly,
-        # or that our lineage backend forces it to.
-        assert len(op2.inlets) == 2
-        assert len(op2.outlets) == 1
-        assert all(
-            map(
-                lambda let: isinstance(let, Dataset) or isinstance(let, Urn), op2.inlets
-            )
-        )
-        assert all(map(lambda let: isinstance(let, Dataset), op2.outlets))
-
-        # Check that the right things were emitted.
-        assert mock_emitter.emit.call_count == 19 if capture_executions else 11
-
-        # TODO: Replace this with a golden file-based comparison.
-        assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
-        assert (
-            mock_emitter.method_calls[0].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
-
-        assert mock_emitter.method_calls[1].args[0].aspectName == "status"
-        assert (
-            mock_emitter.method_calls[1].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
-
-        assert mock_emitter.method_calls[2].args[0].aspectName == "ownership"
-        assert (
-            mock_emitter.method_calls[2].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
-
-        assert mock_emitter.method_calls[3].args[0].aspectName == "globalTags"
-        assert (
-            mock_emitter.method_calls[3].args[0].entityUrn
-            == "urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod)"
-        )
-
-        assert mock_emitter.method_calls[4].args[0].aspectName == "dataJobInfo"
-        assert (
-            mock_emitter.method_calls[4].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-
-        assert mock_emitter.method_calls[5].args[0].aspectName == "status"
-        assert (
-            mock_emitter.method_calls[5].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-
-        assert mock_emitter.method_calls[6].args[0].aspectName == "dataJobInputOutput"
-        assert (
-            mock_emitter.method_calls[6].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-        assert (
-            mock_emitter.method_calls[6].args[0].aspect.inputDatajobs[0]
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task1_upstream)"
-        )
-        assert (
-            mock_emitter.method_calls[6].args[0].aspect.inputDatajobs[1]
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,testDag,PROD),testTask)"
-        )
-        assert (
-            mock_emitter.method_calls[6].args[0].aspect.inputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-        )
-        assert (
-            mock_emitter.method_calls[6].args[0].aspect.outputDatasets[0]
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-        )
-
-        assert mock_emitter.method_calls[7].args[0].aspectName == "datasetKey"
-        assert (
-            mock_emitter.method_calls[7].args[0].entityUrn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-        )
-
-        assert mock_emitter.method_calls[8].args[0].aspectName == "datasetKey"
-        assert (
-            mock_emitter.method_calls[8].args[0].entityUrn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-        )
-
-        assert mock_emitter.method_calls[9].args[0].aspectName == "ownership"
-        assert (
-            mock_emitter.method_calls[9].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-
-        assert mock_emitter.method_calls[10].args[0].aspectName == "globalTags"
-        assert (
-            mock_emitter.method_calls[10].args[0].entityUrn
-            == "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_lineage_is_sent_to_backend,prod),task2)"
-        )
-
-        if capture_executions:
-            assert (
-                mock_emitter.method_calls[11].args[0].aspectName
-                == "dataProcessInstanceProperties"
-            )
-            assert (
-                mock_emitter.method_calls[11].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-
-            assert (
-                mock_emitter.method_calls[12].args[0].aspectName
-                == "dataProcessInstanceRelationships"
-            )
-            assert (
-                mock_emitter.method_calls[12].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert (
-                mock_emitter.method_calls[13].args[0].aspectName
-                == "dataProcessInstanceInput"
-            )
-            assert (
-                mock_emitter.method_calls[13].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert (
-                mock_emitter.method_calls[14].args[0].aspectName
-                == "dataProcessInstanceOutput"
-            )
-            assert (
-                mock_emitter.method_calls[14].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert mock_emitter.method_calls[15].args[0].aspectName == "datasetKey"
-            assert (
-                mock_emitter.method_calls[15].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableConsumed,PROD)"
-            )
-            assert mock_emitter.method_calls[16].args[0].aspectName == "datasetKey"
-            assert (
-                mock_emitter.method_calls[16].args[0].entityUrn
-                == "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableProduced,PROD)"
-            )
-            assert (
-                mock_emitter.method_calls[17].args[0].aspectName
-                == "dataProcessInstanceRunEvent"
-            )
-            assert (
-                mock_emitter.method_calls[17].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )
-            assert (
-                mock_emitter.method_calls[18].args[0].aspectName
-                == "dataProcessInstanceRunEvent"
-            )
-            assert (
-                mock_emitter.method_calls[18].args[0].entityUrn
-                == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
-            )

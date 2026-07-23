@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button } from '@src/alchemy-components';
@@ -35,11 +36,12 @@ type MarkAsDeprecatedButtonContentsProps = {
     internalText?: string;
 };
 
-export const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
+const MarkAsDeprecatedButtonContents = ({ internalText }: MarkAsDeprecatedButtonContentsProps) => {
+    const { t } = useTranslation('entity.shared.components');
     return (
         <FlexContainer>
             <StyledDeprecatedIcon />
-            {internalText || 'Mark as deprecated'}
+            {internalText || t('deprecation.markAsDeprecated')}
         </FlexContainer>
     );
 };

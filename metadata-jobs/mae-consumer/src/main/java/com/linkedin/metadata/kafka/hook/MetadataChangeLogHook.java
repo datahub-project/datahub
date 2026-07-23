@@ -1,7 +1,9 @@
 package com.linkedin.metadata.kafka.hook;
 
+import com.linkedin.metadata.kafka.listener.EventHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import javax.annotation.Nonnull;
 
 /**
@@ -11,7 +13,7 @@ import javax.annotation.Nonnull;
  * with the same message. In the future, we intend to migrate to "at least once" semantics, meaning
  * that the hook will be responsible for implementing idempotency.
  */
-public interface MetadataChangeLogHook {
+public interface MetadataChangeLogHook extends EventHook<MetadataChangeLog> {
 
   /** Initialize the hook */
   default MetadataChangeLogHook init(@Nonnull OperationContext systemOperationContext) {
@@ -19,28 +21,30 @@ public interface MetadataChangeLogHook {
   }
 
   /**
-   * Suffix for the consumer group
+   * Invoke the hook when a MetadataChangeLog is received.
    *
-   * @return suffix
+   * @param operationContext per-event operation context. In OSS this is currently the system
+   *     context; downstream callers may swap it for a tenant-scoped per-event context later.
+   * @param event the MCL payload
    */
-  @Nonnull
-  String getConsumerGroupSuffix();
+  void invoke(@Nonnull OperationContext operationContext, @Nonnull MetadataChangeLog event)
+      throws Exception;
 
   /**
-   * Return whether the hook is enabled or not. If not enabled, the below invoke method is not
-   * triggered
-   */
-  boolean isEnabled();
-
-  /** Invoke the hook when a MetadataChangeLog is received */
-  void invoke(@Nonnull MetadataChangeLog log) throws Exception;
-
-  /**
-   * Controls hook execution ordering
+   * Invoke the hook on a batch of MCL events under the batch-level / system context. Default
+   * implementation falls back to individual {@link #invoke} calls for backward compatibility. Hooks
+   * that benefit from true batch processing should override.
    *
-   * @return order to execute
+   * @param systemOperationContext batch-level operation context
+   * @param events the MCL events to process
+   * @throws Exception if processing fails
    */
-  default int executionOrder() {
-    return 100;
+  default void invokeBatch(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull Collection<MetadataChangeLog> events)
+      throws Exception {
+    for (MetadataChangeLog event : events) {
+      invoke(systemOperationContext, event);
+    }
   }
 }

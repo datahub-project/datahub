@@ -1,14 +1,5 @@
-describe("siblings", () => {
-  beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
-  });
-
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("siblings", () => {
   it("will merge metadata to non-primary sibling", () => {
     cy.login();
     cy.visit("/");
@@ -52,13 +43,6 @@ describe("siblings", () => {
     cy.login();
     cy.visit("/");
     cy.skipIntroducePage();
-    const resizeObserverLoopErrRe = /^[^(ResizeObserver loop limit exceeded)]/;
-    cy.on("uncaught:exception", (err) => {
-      /* returning false here prevents Cypress from failing the test */
-      if (resizeObserverLoopErrRe.test(err.message)) {
-        return false;
-      }
-    });
 
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
@@ -97,11 +81,9 @@ describe("siblings", () => {
     cy.clickOptionWithTestId(
       "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
     );
-    cy.contains(".ant-collapse-header-text", "Terms")
-      .parent()
-      .find('[data-testid="AddRoundedIcon"]')
-      .scrollIntoView()
-      .click();
+    cy.get('[id="entity-profile-glossary-terms"]').within(() => {
+      cy.clickOptionWithTestId("add-terms-button");
+    });
     cy.selectOptionInTagTermModal("CypressTerm");
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
@@ -123,12 +105,6 @@ describe("siblings", () => {
   });
 
   it.only("separates siblings in lineage", () => {
-    Cypress.on("uncaught:exception", (err, runnable) => {
-      if (err.message.includes("ResizeObserver loop limit exceeded")) {
-        return false;
-      }
-    });
-
     cy.login();
     cy.visit("/");
     cy.skipIntroducePage();

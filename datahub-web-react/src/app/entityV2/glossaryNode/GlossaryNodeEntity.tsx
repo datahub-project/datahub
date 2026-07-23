@@ -1,14 +1,19 @@
-import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import i18next from 'i18next';
 import React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import ChildrenTab from '@app/entityV2/glossaryNode/ChildrenTab';
+import ChildrenTabWrapper from '@app/entityV2/glossaryNode/ChildrenTabWrapper';
 import { Preview } from '@app/entityV2/glossaryNode/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
+import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
@@ -16,14 +21,19 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineage/types';
 
 import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.EDIT_GLOSSARY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -34,31 +44,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookmarksSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <BookmarksSimple
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || '#B37FEB' }}
-                    weight="fill"
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.ACCENT) {
-            return <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || '#6C6B88' }} />;
-        }
-
         return (
             <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -73,9 +64,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getPathName = () => 'glossaryNode';
 
-    getCollectionName = () => 'Term Groups';
+    getCollectionName = () => i18next.t('entity.types:glossaryNode.namePlural');
 
-    getEntityName = () => 'Term Group';
+    getEntityName = () => i18next.t('entity.types:glossaryNode.name');
 
     useEntityQuery = useGetGlossaryNodeQuery;
 
@@ -86,27 +77,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 entityType={EntityType.GlossaryNode}
                 useEntityQuery={useGetGlossaryNodeQuery}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
-                isNameEditable
-                tabs={[
-                    {
-                        name: 'Contents',
-                        component: ChildrenTab,
-                        icon: AppstoreOutlined,
-                    },
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        name: 'Properties',
-                        component: PropertiesTab,
-                        icon: UnorderedListOutlined,
-                    },
-                ]}
+                tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 // NOTE: Hiding this for now as we've moved the actions to the content of ChildrenTab.tsx
                 // The buttons are too big and causes other actions to overflow.
@@ -134,6 +105,15 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarOwnerSection,
         },
         {
+            component: SidebarDomainSection,
+            properties: {
+                hideOwnerType: true,
+            },
+        },
+        {
+            component: SidebarApplicationSection,
+        },
+        {
             component: SidebarStructuredProperties,
         },
         {
@@ -141,12 +121,49 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
     ];
 
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.summary'),
+                          component: SummaryTab,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.contents'),
+                component: ChildrenTabWrapper,
+                icon: SquaresFour,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          component: DocumentationTab,
+                          icon: FileText,
+                          properties: {
+                              hideLinksButton: true,
+                          },
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                component: PropertiesTab,
+                icon: ListBullets,
+            },
+        ];
+    };
+
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
+            icon: ListBullets,
         },
     ];
 
@@ -197,6 +214,10 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

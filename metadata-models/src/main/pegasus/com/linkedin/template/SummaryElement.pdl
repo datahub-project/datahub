@@ -1,0 +1,34 @@
+namespace com.linkedin.template
+
+import com.linkedin.common.Urn
+
+/**
+ * Info for a given asset summary element
+ */
+record SummaryElement  {
+  /**
+   * The type of element/property
+   */
+  elementType: enum SummaryElementType {
+	CREATED,
+	LAST_MODIFIED,
+	LAST_INGESTED,
+	TAGS,
+	GLOSSARY_TERMS,
+	OWNERS,
+	DOMAIN,
+	STRUCTURED_PROPERTY,
+	DOCUMENT_STATUS,
+	DOCUMENT_TYPE,
+	SEMANTIC_MODEL
+  }
+
+  /**
+   * The urn of the structured property shown. Required if propertyType is STRUCTURED_PROPERTY
+   */
+    @Relationship = {
+      "name": "ContainsStructuredProperty",
+      "entityTypes": [ "structuredProperty" ]
+    }
+  structuredPropertyUrn: optional Urn
+}

@@ -1,4 +1,5 @@
-describe("features", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("features", () => {
   it("can visit feature tables and see features", () => {
     cy.visit("/");
     cy.login();

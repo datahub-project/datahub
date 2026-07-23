@@ -92,7 +92,7 @@ export default function LineageDisplay({ urn, type, initialized }: Props) {
             }}
         >
             <LineageVisualization initialNodes={flowNodes} initialEdges={flowEdges} />
-            <LineageSidebar />
+            <LineageSidebar urn={urn} />
         </LineageDisplayContext.Provider>
     );
 }

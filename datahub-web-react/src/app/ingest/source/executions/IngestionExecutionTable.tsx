@@ -20,7 +20,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -133,6 +133,7 @@ export default function IngestionExecutionTable({
         executedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: getIngestionSourceStatus(execution.result),
+        // we should add this logic to backend
         showRollback: mostRecentSuccessfulExecution && execution?.urn === mostRecentSuccessfulExecution?.urn,
     }));
 

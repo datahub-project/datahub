@@ -4,7 +4,6 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.EntityService;
@@ -15,6 +14,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -29,7 +29,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -57,7 +56,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
           Constants.ML_MODEL_GROUP_ENTITY_NAME,
           Constants.ML_FEATURE_TABLE_ENTITY_NAME);
 
-  private final RestHighLevelClient _searchClient;
+  private final SearchClientShim<?> _searchClient;
   private final IndexConvention _indexConvention;
   private final EntityService<?> _entityService;
 
@@ -86,11 +85,10 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     boolean analyticsEnabled = false;
     try {
       analyticsEnabled =
-          _searchClient
-              .indices()
-              .exists(
-                  new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-                  RequestOptions.DEFAULT);
+          _searchClient.indexExists(
+              opContext,
+              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
+              RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.error("Failed to check whether DataHub usage index exists");
     }
@@ -104,15 +102,14 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest =
-        buildSearchRequest(
-            opContext.getSessionActorContext().getActorUrn(), opContext.getAspectRetriever());
+        buildSearchRequest(opContext, opContext.getSessionActorContext().getActorUrn());
 
     return opContext.withSpan(
         "getRecentlyEdited",
         () -> {
           try {
             final SearchResponse searchResponse =
-                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             List<String> bucketUrns =
@@ -137,7 +134,7 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   }
 
   private SearchRequest buildSearchRequest(
-      @Nonnull Urn userUrn, @Nullable AspectRetriever aspectRetriever) {
+      @Nonnull OperationContext opContext, @Nonnull Urn userUrn) {
     // TODO: Proactively filter for entity types in the supported set.
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
@@ -145,7 +142,11 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
     // Filter for the entity edit events of the user requesting recommendation
     query.must(
         QueryBuilders.termQuery(
-            ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, false, aspectRetriever),
+            ESUtils.toKeywordField(
+                opContext,
+                DataHubUsageEventConstants.ACTOR_URN,
+                false,
+                opContext.getAspectRetriever()),
             userUrn.toString()));
     // Filter for the entity action events
     query.must(
@@ -159,7 +160,10 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
         AggregationBuilders.terms(ENTITY_AGG_NAME)
             .field(
                 ESUtils.toKeywordField(
-                    DataHubUsageEventConstants.ENTITY_URN, false, aspectRetriever))
+                    opContext,
+                    DataHubUsageEventConstants.ENTITY_URN,
+                    false,
+                    opContext.getAspectRetriever()))
             .size(MAX_CONTENT)
             .order(BucketOrder.aggregation(lastViewed, false))
             .subAggregation(

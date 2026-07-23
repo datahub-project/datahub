@@ -3,12 +3,14 @@ import {
     EyeOutlined,
     FileOutlined,
     LayoutOutlined,
-    LineChartOutlined,
     PartitionOutlined,
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { ListBullets, TreeStructure } from '@phosphor-icons/react';
+import { ChartLine } from '@phosphor-icons/react/dist/csr/ChartLine';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -20,6 +22,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import SidebarChartHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Chart/Header/SidebarChartHeaderSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -38,14 +41,13 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { ChartDashboardsTab } from '@app/entityV2/shared/tabs/Entity/ChartDashboardsTab';
 import { InputFieldsTab } from '@app/entityV2/shared/tabs/Entity/InputFieldsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
-    getDataProduct,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
@@ -59,7 +61,6 @@ import { Chart, EntityType, LineageDirection, SearchResult } from '@types';
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -72,32 +73,12 @@ export class ChartEntity implements Entity<Chart> {
     type: EntityType = EntityType.Chart;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
-        if (styleType === IconStyleType.TAB_VIEW) {
-            return <LineChartOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
-        }
-
-        if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <LineChartOutlined
-                    className={TYPE_ICON_CLASS_NAME}
-                    style={{ fontSize, color: color || 'rgb(144 163 236)' }}
-                />
-            );
-        }
-
-        if (styleType === IconStyleType.SVG) {
-            return (
-                <path d="M888 792H200V168c0-4.4-3.6-8-8-8h-56c-4.4 0-8 3.6-8 8v688c0 4.4 3.6 8 8 8h752c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM305.8 637.7c3.1 3.1 8.1 3.1 11.3 0l138.3-137.6L583 628.5c3.1 3.1 8.2 3.1 11.3 0l275.4-275.3c3.1-3.1 3.1-8.2 0-11.3l-39.6-39.6a8.03 8.03 0 00-11.3 0l-230 229.9L461.4 404a8.03 8.03 0 00-11.3 0L266.3 586.7a8.03 8.03 0 000 11.3l39.5 39.7z" />
-            );
-        }
-
         return (
-            <LineChartOutlined
+            <ChartLine
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                size={fontSize || 14}
+                color={color || 'currentColor'}
+                weight={styleType === IconStyleType.HIGHLIGHT ? 'fill' : 'regular'}
             />
         );
     };
@@ -114,9 +95,9 @@ export class ChartEntity implements Entity<Chart> {
 
     getPathName = () => this.getGraphName();
 
-    getEntityName = () => 'Chart';
+    getEntityName = () => i18next.t('entity.types:chart.name');
 
-    getCollectionName = () => 'Charts';
+    getCollectionName = () => i18next.t('entity.types:chart.namePlural');
 
     useEntityQuery = useGetChartQuery;
 
@@ -133,7 +114,7 @@ export class ChartEntity implements Entity<Chart> {
             }}
             tabs={[
                 {
-                    name: 'Summary',
+                    name: i18next.t('entity.types:tab.summary'),
                     component: ChartSummaryTab,
                     icon: SUMMARY_TAB_ICON,
                     display: {
@@ -145,12 +126,12 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileOutlined,
                 },
                 {
-                    name: 'Fields',
+                    name: i18next.t('entity.types:chart.fieldsTab'),
                     component: InputFieldsTab,
                     icon: LayoutOutlined,
                     display: {
@@ -159,7 +140,7 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Preview',
+                    name: i18next.t('common.actions:preview'),
                     component: EmbedTab,
                     icon: EyeOutlined,
                     display: {
@@ -172,20 +153,21 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
                     icon: PartitionOutlined,
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
+                    supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
                 },
                 {
-                    name: 'Dashboards',
+                    name: i18next.t('entity.types:dashboard.namePlural'),
                     component: ChartDashboardsTab,
                     icon: DashboardOutlined,
                     display: {
@@ -194,10 +176,9 @@ export class ChartEntity implements Entity<Chart> {
                     },
                 },
                 {
-                    name: 'Incidents',
-                    getDynamicName: (_, chart, loading) => {
-                        const activeIncidentCount = chart?.chart?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    name: i18next.t('entity.types:tab.incidents'),
+                    getCount: (_, chart, loading) => {
+                        return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                     },
                     icon: WarningOutlined,
                     component: IncidentTab,
@@ -231,6 +212,9 @@ export class ChartEntity implements Entity<Chart> {
             component: SidebarDomainSection,
         },
         {
+            component: SidebarApplicationSection,
+        },
+        {
             component: DataProductSection,
         },
         {
@@ -249,18 +233,18 @@ export class ChartEntity implements Entity<Chart> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
             icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];
@@ -277,7 +261,7 @@ export class ChartEntity implements Entity<Chart> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: Chart) => {
+    renderPreview = (previewType: PreviewType, data: Chart) => {
         const genericProperties = this.getGenericEntityProperties(data);
 
         return (
@@ -292,13 +276,12 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
-                subType={data.subTypes?.typeNames?.[0]}
+                subType={getFirstSubType(data)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
                 externalUrl={data.properties?.externalUrl}
+                previewType={previewType}
             />
         );
     };
@@ -310,7 +293,7 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 data={genericProperties}
-                subType={data.subTypes?.typeNames?.[0]}
+                subType={getFirstSubType(data)}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
@@ -321,8 +304,6 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain?.domain}
-                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
@@ -338,6 +319,7 @@ export class ChartEntity implements Entity<Chart> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -356,7 +338,7 @@ export class ChartEntity implements Entity<Chart> {
             type: EntityType.Chart,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             deprecation: entity?.deprecation,
         };
     };
@@ -385,6 +367,9 @@ export class ChartEntity implements Entity<Chart> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.RELATED_DOCUMENTS,
+            EntityCapabilityType.FORMS,
         ]);
     };
 

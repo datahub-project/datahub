@@ -1,0 +1,79 @@
+import { Card, Icon, Text } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { StructuredReportItemContext } from '@app/ingestV2/executions/components/reporting/StructuredReportItemContext';
+import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
+
+const StyledCard = styled(Card)`
+    padding: 8px;
+    width: 100%;
+`;
+
+const Content = styled.div`
+    border-radius: 8px;
+    margin-top: 8px;
+    background-color: ${(props) => props.theme.colors.bg};
+    padding: 8px;
+`;
+
+const HeaderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    gap: 8px;
+`;
+
+const ChevronIcon = styled(Icon)`
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 12px;
+`;
+
+interface Props {
+    item: StructuredReportLogEntry;
+    color: string;
+    textColor?: string;
+    icon?: React.ComponentType<any>;
+    defaultActiveKey?: string;
+}
+
+export function StructuredReportItem({ item, color, textColor, icon, defaultActiveKey }: Props) {
+    const [isExpanded, setIsExpanded] = useState(defaultActiveKey === '0');
+
+    const toggleExpanded = () => {
+        setIsExpanded(!isExpanded);
+    };
+
+    return (
+        <StyledCard
+            style={{ backgroundColor: color }}
+            onClick={toggleExpanded}
+            icon={
+                <HeaderContainer>
+                    {icon && <Icon icon={icon} style={{ color: textColor }} size="md" />}
+                    <ChevronIcon icon={isExpanded ? CaretUp : CaretDown} style={{ color: textColor }} size="md" />
+                </HeaderContainer>
+            }
+            title={
+                <Text style={{ color: textColor }} weight="semiBold" size="md" lineHeight="normal">
+                    {item.title}
+                </Text>
+            }
+            subTitle={
+                <Text style={{ color: textColor }} size="sm">
+                    {item.message}
+                </Text>
+            }
+            width="100%"
+            isCardClickable
+        >
+            {isExpanded && (
+                <Content onClick={(e) => e.stopPropagation()}>
+                    <StructuredReportItemContext item={item} />
+                </Content>
+            )}
+        </StyledCard>
+    );
+}

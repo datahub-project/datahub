@@ -15,13 +15,16 @@ export const StyledEntitySidebarContainer = styled.div<{
     backgroundColor?: string;
     isFocused?: boolean;
     $isShowNavBarRedesign?: boolean;
+    $contextType?: TabContextType;
 }>`
     flex: 1;
     overflow: auto;
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 6px 0px rgba(93, 102, 139, 0.2)'};
+    box-shadow: ${(props) => {
+        if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
+            return 'none';
+        }
+        return props.theme.colors.shadowSm;
+    }};
     ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
     ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
@@ -31,6 +34,9 @@ export const StyledEntitySidebarContainer = styled.div<{
     }
 
     margin: ${(props) => {
+        if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
+            return '0';
+        }
         if (props.$isShowNavBarRedesign) {
             return '4px 4px 4px 8px';
         }
@@ -42,8 +48,8 @@ export const StyledEntitySidebarContainer = styled.div<{
 `;
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
-    box-shadow: ${(props) => (props.isCard ? '0px 0px 5px rgba(0, 0, 0, 0.08)' : 'none')};
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => (props.isCard ? props.theme.colors.shadowXs : 'none')};
     border-radius: ${(props) => {
         if (!props.isCard) return 'none';
         return props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px';
@@ -81,7 +87,7 @@ const Content = styled.div`
 
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
-    ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
+    ${(props) => props.isVisible && `border-right: 1px solid ${props.theme.colors.border};`}
     overflow: auto;
     display: flex;
     flex-direction: column;
@@ -128,7 +134,7 @@ export default function EntityProfileSidebar({
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
     width,
-    headerDropdownItems: _headerDropdownItems,
+    headerDropdownItems,
     className,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
@@ -139,6 +145,7 @@ export default function EntityProfileSidebar({
     const selectedTab = tabs.find((tab) => tab.name === selectedTabName);
 
     const isCardLayout = type === 'card';
+    const hideCollapse = contextType === TabContextType.CHROME_SIDEBAR;
 
     return (
         <StyledEntitySidebarContainer
@@ -149,10 +156,12 @@ export default function EntityProfileSidebar({
             isFocused={focused}
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
+            $contextType={contextType}
+            aria-expanded={!isClosed}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
-                    <SidebarCollapsibleHeader currentTab={selectedTab} />
+                    <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
                     <Body>
                         {selectedTab && (
                             <Content>
@@ -171,6 +180,7 @@ export default function EntityProfileSidebar({
                             tabs={tabs}
                             selectedTab={selectedTab}
                             onSelectTab={(name) => setSelectedTabName(name)}
+                            hideCollapse={hideCollapse}
                         />
                     </Tabs>
                 </TabsContainer>

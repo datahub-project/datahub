@@ -3,8 +3,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from functools import partial
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable
 
 from pydantic import Field
 
@@ -16,8 +15,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataProcessCleanup,
@@ -29,12 +27,19 @@ from datahub.ingestion.source.gc.execution_request_cleanup import (
     DatahubExecutionRequestCleanupConfig,
     DatahubExecutionRequestCleanupReport,
 )
+from datahub.ingestion.source.gc.query_cleanup import (
+    QueryCleanup,
+    QueryCleanupConfig,
+    QueryCleanupReport,
+)
 from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanup,
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
+    AutoWorkunitsReporterProcessor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +47,7 @@ logger = logging.getLogger(__name__)
 class DataHubGcSourceConfig(ConfigModel):
     dry_run: bool = Field(
         default=False,
-        description="Whether to perform a dry run or not. This is only supported for dataprocess cleanup and soft deleted entities cleanup.",
+        description="Whether to perform a dry run or not. This is only supported for dataprocess cleanup, query cleanup, and soft deleted entities cleanup.",
     )
 
     cleanup_expired_tokens: bool = Field(
@@ -81,13 +86,18 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Configuration for execution request cleanup",
     )
 
+    query_cleanup: QueryCleanupConfig = Field(
+        default_factory=QueryCleanupConfig,
+        description="Configuration for query cleanup",
+    )
+
 
 @dataclass
 class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
-    IngestionStageReport,
+    QueryCleanupReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -126,15 +136,18 @@ class DataHubGcSource(Source):
             graph=self.graph,
             report=self.report,
         )
+        self.query_cleanup = QueryCleanup(
+            ctx, self.config.query_cleanup, self.report, self.config.dry_run
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = DataHubGcSourceConfig.parse_obj(config_dict)
+        config = DataHubGcSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
     # auto_work_unit_report is overriden to disable a couple of automation like auto status aspect, etc. which is not needed her.
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+    def get_allowed_workunit_processors(self):
+        return [AutoWorkunitsReporterProcessor]
 
     def get_workunits_internal(
         self,
@@ -151,6 +164,12 @@ class DataHubGcSource(Source):
                     self.truncate_indices()
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
+        if self.config.query_cleanup.enabled:
+            try:
+                with self.report.new_stage("Query Cleanup"):
+                    yield from self.query_cleanup.get_workunits()
+            except Exception as e:
+                self.report.failure("While trying to cleanup queries", exc=e)
         if self.config.soft_deleted_entities_cleanup.enabled:
             try:
                 with self.report.new_stage("Soft Deleted Entities Cleanup"):

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
@@ -22,6 +22,11 @@ public class SystemMetadataMappingsBuilder {
     mappings.put("registryName", getMappingsForKeyword());
     mappings.put("removed", getMappingsForRemoved());
     mappings.put(TELEMETRY_TRACE_KEY, getMappingsForKeyword());
+    // Timestamp fields for aspect creation/modification - used for filtering in consistency checks
+    mappings.put("aspectCreatedTime", getMappingsForLastUpdated());
+    mappings.put("aspectCreatedActor", getMappingsForKeyword());
+    mappings.put("aspectModifiedTime", getMappingsForLastUpdated());
+    mappings.put("aspectModifiedActor", getMappingsForKeyword());
     return ImmutableMap.of("properties", mappings);
   }
 

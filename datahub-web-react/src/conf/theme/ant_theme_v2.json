@@ -1,0 +1,18 @@
+{
+    "primary-color": "#533FD1",
+    "link-color": "#533FD1",
+    "layout-header-background": "white",
+    "layout-header-color": "#434343",
+    "layout-body-background": "white",
+    "component-background": "white",
+    "body-background": "white",
+    "border-color-base": "#ececec",
+    "text-color": "fade(black, 85%)",
+    "text-color-secondary": "fade(black, 45%)",
+    "heading-color": "fade(black, 85%)",
+    "background-color-light": "hsv(0, 0, 98%)",
+    "divider-color": "fade(black, 6%)",
+    "disabled-color": "fade(black, 25%)",
+    "steps-nav-arrow-color": "fade(black, 25%)",
+    "highlight-color": "#ece9f8"
+}

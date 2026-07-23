@@ -25,11 +25,11 @@ from acryl.executor.execution.reporting_executor import (
 from acryl.executor.execution.task import TaskConfig
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.request.signal_request import SignalRequest
-from acryl.executor.secret.datahub_secret_store import DataHubSecretStoreConfig
-from acryl.executor.secret.secret_store import SecretStoreConfig
 from pydantic import BaseModel
 
 from datahub.metadata.schema_classes import MetadataChangeLogClass
+from datahub.secret.datahub_secret_store import DataHubSecretStoreConfig
+from datahub.secret.secret_store import SecretStoreConfig
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
@@ -76,7 +76,7 @@ class ExecutorConfig(BaseModel):
 class ExecutorAction(Action):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = ExecutorConfig.parse_obj(config_dict or {})
+        config = ExecutorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def __init__(self, config: ExecutorConfig, ctx: PipelineContext):
@@ -206,7 +206,7 @@ class ExecutorAction(Action):
                     # TODO: Once SecretStoreConfig is updated to accept arbitrary types
                     # and not just dicts, we can just pass in the DataHubSecretStoreConfig
                     # object directly.
-                    config=DataHubSecretStoreConfig(graph_client=graph).dict(),
+                    config=DataHubSecretStoreConfig(graph_client=graph).model_dump(),
                 ),
             ],
             graph_client=graph,
