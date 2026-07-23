@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.validation;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.CompressionType;
 import com.linkedin.common.LargeString;
 import com.linkedin.common.urn.Urn;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.utils.LargeStrings;
 import com.linkedin.service.ServiceDefinition;
 import com.linkedin.service.ServiceDefinitionFormat;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -54,6 +56,42 @@ public class ServiceDefinitionLargeStringValidatorTest {
     definition.setRawSpec(LargeStrings.encode("openapi: 3.0.0"));
 
     assertTrue(validate(definition).isEmpty());
+  }
+
+  /** A rawSpec set via patch is decode-checked from the patch's own value at the request stage. */
+  @Test
+  public void testPatchRawSpecValidated() {
+    final String corruptOps =
+        "[{\"op\":\"add\",\"path\":\"/rawSpec\",\"value\":"
+            + "{\"compression\":\"GZIP\",\"blob\":\"!!!not-valid-base64!!!\"}}]";
+    assertEquals(
+        validator
+            .validateProposedAspects(
+                null,
+                Set.of(
+                    TestPatchMCP.of(
+                        SERVICE_URN, Constants.SERVICE_DEFINITION_ASPECT_NAME, corruptOps)),
+                null)
+            .count(),
+        1,
+        "Patch with a corrupt rawSpec blob should be rejected");
+
+    final LargeString valid = LargeStrings.encode("openapi: 3.0.0");
+    final String validOps =
+        "[{\"op\":\"add\",\"path\":\"/rawSpec\",\"value\":"
+            + RecordUtils.toJsonString(valid)
+            + "}]";
+    assertEquals(
+        validator
+            .validateProposedAspects(
+                null,
+                Set.of(
+                    TestPatchMCP.of(
+                        SERVICE_URN, Constants.SERVICE_DEFINITION_ASPECT_NAME, validOps)),
+                null)
+            .count(),
+        0,
+        "Patch with a decodable rawSpec should pass");
   }
 
   @Test
