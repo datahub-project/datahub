@@ -342,7 +342,16 @@ def probe_columns(
     "(e.g. --parent my_schema --parent my_table). Omit to list the top level.",
 )
 @click.option("--limit", default=200, type=int)
-def probe_list(recipe_path: str, parents: Tuple[str, ...], limit: int) -> None:
+@click.option(
+    "--report-to",
+    "report_to",
+    default=None,
+    help="Write the redacted probe result as JSON to this file (in addition to "
+    "stdout). Used by the executor's probe task to capture a structured report.",
+)
+def probe_list(
+    recipe_path: str, parents: Tuple[str, ...], limit: int, report_to: Optional[str]
+) -> None:
     # Source-agnostic lister: descends whatever hierarchy the source declares via
     # probe_hierarchy(), so non-SQL shapes (Kafka topics, ThoughtSpot worksheets)
     # work without the SQL-shaped --database/--schema/--table flags.
@@ -352,7 +361,11 @@ def probe_list(recipe_path: str, parents: Tuple[str, ...], limit: int) -> None:
             _load_recipe(recipe_path)
         )
         result = probe(source_type, resolved, list(parents), limit)
-        _emit(redact(result.to_dict(), secret_values))
+        payload = redact(result.to_dict(), secret_values)
+        if report_to:
+            with open(report_to, "w") as f:
+                json.dump(payload, f)
+        _emit(payload)
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
