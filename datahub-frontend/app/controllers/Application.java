@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,6 +67,11 @@ public class Application extends Controller {
   private final String basePath;
   private final String gaTrackingId;
   private final List<String> streamingPathPrefixes;
+
+  // Cached initial flags fetched from GMS /config on first HTML request.
+  // Seeded into window.__INITIAL_FLAGS__ so the Apollo link has correct defaults
+  // before the appConfig GraphQL query resolves.
+  private final AtomicReference<String> cachedInitialFlagsScript = new AtomicReference<>(null);
 
   @Inject
   public Application(
@@ -119,6 +125,13 @@ public class Application extends Controller {
       // Inject <base href="..."/> right after <head> for use in the frontend.
       String modifiedHtml = html.replace("@basePath", basePath);
 
+      // Inject initial feature flags so the Apollo link has correct values before
+      // the appConfig GraphQL query resolves on the client.
+      String initialFlagsScript = getInitialFlagsScript();
+      if (initialFlagsScript != null) {
+        modifiedHtml = modifiedHtml.replace("</head>", initialFlagsScript + "</head>");
+      }
+
       // Inject google tracking if it exists, should only be enabled for demo site
       if (gaTrackingId != null && !gaTrackingId.isEmpty()) {
         String gaScript =
@@ -135,6 +148,74 @@ public class Application extends Controller {
       logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
       return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
     }
+  }
+
+  /**
+   * Fetches featureFlags from GMS /config on first call and returns a script tag that seeds
+   * window.__INITIAL_FLAGS__. Returns null if GMS is unreachable or flags are all false (no-op).
+   * Result is cached for the lifetime of the process — flags are static config, not per-user.
+   */
+  @Nullable
+  private String getInitialFlagsScript() {
+    String cached = cachedInitialFlagsScript.get();
+    if (cached != null) {
+      return cached.isEmpty() ? null : cached;
+    }
+
+    try {
+      final String metadataServiceHost =
+          ConfigUtil.getString(
+              config,
+              ConfigUtil.METADATA_SERVICE_HOST_CONFIG_PATH,
+              ConfigUtil.DEFAULT_METADATA_SERVICE_HOST);
+      final int metadataServicePort =
+          ConfigUtil.getInt(
+              config,
+              ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
+              ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+      final boolean metadataServiceUseSsl =
+          ConfigUtil.getBoolean(
+              config,
+              ConfigUtil.METADATA_SERVICE_USE_SSL_CONFIG_PATH,
+              ConfigUtil.DEFAULT_METADATA_SERVICE_USE_SSL);
+
+      final String protocol = metadataServiceUseSsl ? "https" : "http";
+      final String configUrl =
+          String.format("%s://%s:%s/config", protocol, metadataServiceHost, metadataServicePort);
+
+      HttpRequest req =
+          HttpRequest.newBuilder()
+              .uri(URI.create(configUrl))
+              .timeout(Duration.ofSeconds(5))
+              .GET()
+              .build();
+
+      HttpResponse<String> resp =
+          httpClient.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+      if (resp.statusCode() == 200) {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode flags = mapper.readTree(resp.body()).path("featureFlags");
+
+        boolean showSeparateSiblings = flags.path("showSeparateSiblings").asBoolean(false);
+        boolean hideLineageInSearchCards = flags.path("hideLineageInSearchCards").asBoolean(false);
+
+        String script = "";
+        if (showSeparateSiblings || hideLineageInSearchCards) {
+          script =
+              String.format(
+                  "<script>window.__INITIAL_FLAGS__={\"showSeparateSiblings\":%b,\"hideLineageInSearchCards\":%b};</script>",
+                  showSeparateSiblings, hideLineageInSearchCards);
+        }
+        cachedInitialFlagsScript.set(script);
+        return script.isEmpty() ? null : script;
+      }
+    } catch (Exception e) {
+      // Leave cachedInitialFlagsScript as null so the next request retries — GMS may not be ready yet.
+      logger.warn("Could not fetch GMS /config for initial flags injection: {}", e.getMessage());
+    }
+
+    return null;
   }
 
   @Nonnull
