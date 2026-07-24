@@ -56,8 +56,8 @@ def test_saas_metrics_absent_enables():
 
 
 def test_saas_metrics_false_vetoes_but_stays_capable():
-    # Row 2 of the entityTypes matrix: Metrics off → emit legacy, but the server
-    # is still version-capable, so entityTypes must stay at 5 (capable=True).
+    # Metrics off -> legacy emit, but a version-capable server keeps entityTypes
+    # at 5 (capable stays True).
     graph = _make_graph(
         is_cloud=True, version="2.1.0", metrics_flags={"metricsEnabled": False}
     )
@@ -74,13 +74,13 @@ def test_saas_old_version_vetoes_recipe_true():
     decision = resolve_emit_semantic_model_entities(graph, True)
     assert not decision.enabled
     assert "below the minimum" in decision.reason
-    # Row 4: below the minimum → not capable → entityTypes stays at 3.
+    # Below the minimum -> not capable -> entityTypes stays at 3.
     assert not decision.entity_types_capable
 
 
 def test_saas_recipe_false_forces_off_but_stays_capable():
-    # Row 3: recipe force-off → emit legacy, but a version-capable server keeps
-    # entityTypes at 5, so the shared definition does not flap vs an emit-on recipe.
+    # Recipe force-off -> legacy emit, but a version-capable server keeps entityTypes
+    # at 5 (no flap vs an emit-on recipe).
     graph = _make_graph(
         is_cloud=True, version="2.5.0", metrics_flags={"metricsEnabled": True}
     )

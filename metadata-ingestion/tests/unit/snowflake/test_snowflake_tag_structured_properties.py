@@ -37,7 +37,7 @@ def _entity_types(capable: bool) -> List[str]:
 
 
 def test_sp_entity_types_include_semantic_entities_when_capable():
-    # #2: a capable server declares all five entity types, independent of the emit
+    # A capable server declares all five entity types, independent of the emit
     # decision, so the shared definition does not flap. The golden runs without a
     # graph (capable=False) and cannot cover this path, so it is tested explicitly.
     types = _entity_types(capable=True)

@@ -683,9 +683,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         original_value = semantic_model_info.nativeDefinition
         if not original_value:
-            # Over budget with no DDL to trim: the datasets array alone is oversized.
-            # We deliberately do not trim it (it is the primary structured payload),
-            # so warn that the aspect may be rejected by GMS rather than fail silently.
+            # Over budget with no DDL to trim; warn (the datasets array is left intact).
             self.ctx.source_report.warning(
                 title="Semantic model info remains oversized after truncation",
                 message="semanticModelInfo exceeded the size limit and has no "
@@ -729,10 +727,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         )
         self._record_truncation("semanticModelInfo")
 
-        # If the aspect is still over budget after minimizing nativeDefinition, the
-        # datasets array alone is oversized. We deliberately do not trim it (it is the
-        # primary structured payload and dropping fields would corrupt the model), so
-        # warn that the aspect may still be rejected by GMS rather than fail silently.
+        # Still over budget after minimizing nativeDefinition; warn (datasets untrimmed).
         if (
             self._semantic_model_info_serialized_size(semantic_model_info)
             >= self.payload_constraint

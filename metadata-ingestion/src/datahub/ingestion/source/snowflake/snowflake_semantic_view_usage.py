@@ -5,8 +5,8 @@ It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function call
 
 - DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN.
   Only emitted in legacy dataset mode (semantic_views.emit_semantic_model_entities is
-  disabled) - per model-owner decision, semanticModel entities do not carry usage
-  statistics, so nothing is emitted here in the new mode.
+  disabled): semanticModel entities have no usage aspect, so nothing is emitted
+  here in the new mode.
 - Query entities: individual queries for the Queries tab, emitted in both legacy and
   semanticModel modes; the subject follows the dataset-vs-semanticModel URN choice.
 
@@ -81,8 +81,7 @@ class SemanticViewUsageExtractor:
         """
         Extract usage statistics for semantic views (legacy dataset mode only).
 
-        Per model-owner decision, semanticModel entities do not carry usage
-        statistics, so this is a no-op when
+        semanticModel entities have no usage aspect, so this is a no-op when
         semantic_views.emit_semantic_model_entities is enabled.
 
         Args:

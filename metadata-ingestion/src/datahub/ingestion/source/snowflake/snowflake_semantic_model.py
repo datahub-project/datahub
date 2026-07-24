@@ -723,9 +723,7 @@ class SnowflakeSemanticModelMapper:
         metric_names_upper: Set[str],
         shadowed_metric_names: Set[str],
     ) -> Tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]:
-        # Routes off the first downstream of each FGL, safe because every
-        # semantic-view FGL has exactly one downstream per (column, logical-table);
-        # _downstream_field_name guards at runtime if that changes.
+        # Routes off each FGL's downstream field name (see _downstream_field_name).
         model_lineages: List[FineGrainedLineageClass] = []
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
@@ -762,8 +760,8 @@ class SnowflakeSemanticModelMapper:
         if not lineage.downstreams:
             return None
         if len(lineage.downstreams) > 1:
-            # Assumes one downstream per FGL (see _split_lineages_by_metric); log
-            # rather than crash if that's ever violated.
+            # Every semantic-view FGL has exactly one downstream per (column,
+            # logical-table); log rather than crash if that assumption is violated.
             logger.debug(
                 f"Semantic view fine-grained lineage has {len(lineage.downstreams)} "
                 f"downstreams; only the first ({lineage.downstreams[0]}) is used "
