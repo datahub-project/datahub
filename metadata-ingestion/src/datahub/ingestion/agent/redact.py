@@ -1,6 +1,15 @@
-from typing import Dict, Set
+from typing import Dict, Set, Tuple
 
 _MASK = "***"
+
+_SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
+    "password",
+    "sasl",
+    "secret",
+    "token",
+    "basic.auth.user.info",
+    "ssl.key",
+)
 
 
 def collect_secret_values(
@@ -12,6 +21,23 @@ def collect_secret_values(
         if isinstance(value, str) and value:
             values.add(value)
     return values
+
+
+def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str]:
+    """Recursively collect string values whose (dict) key contains a sensitive
+    hint. Defense-in-depth for secrets that live in free-form dict config fields
+    (e.g. Kafka's consumer_config) and so are not typed SecretStr."""
+    found: Set[str] = set()
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, str) and v and any(h in str(k).lower() for h in hints):
+                found.add(v)
+            else:
+                found |= collect_nested_secret_values(v, hints)
+    elif isinstance(obj, list):
+        for item in obj:
+            found |= collect_nested_secret_values(item, hints)
+    return found
 
 
 def redact(payload: object, secret_values: Set[str]) -> object:

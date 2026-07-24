@@ -10,8 +10,14 @@ from datahub.ingestion.agent.api_probe import probe_api
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind, ProbeLeafKind, ProbeNodeKind
 from datahub.ingestion.agent.probe import probe, probe_hierarchy
+from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
-from datahub.ingestion.agent.redact import collect_secret_values, redact
+from datahub.ingestion.agent.redact import (
+    _SENSITIVE_KEY_HINTS,
+    collect_nested_secret_values,
+    collect_secret_values,
+    redact,
+)
 from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
@@ -93,6 +99,10 @@ def _resolve_for_probe(
     secret_values = resolved.secret_values | collect_secret_values(
         resolved.config, secret_fields
     )
+    # Defense-in-depth: catch secrets living in free-form dict config fields
+    # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
+    # covered by either collection above.
+    secret_values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
     return source_type, resolved.config, secret_values
 
 
@@ -419,3 +429,71 @@ def probe_api_cmd(recipe_path: str) -> None:
         redacted = redact(str(exc), secret_values)
         assert isinstance(redacted, str)
         _fail(redacted, EXIT_USER)
+
+
+def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, str]:
+    # Hand-rolled rather than a second click.Command: tokens here are dynamic,
+    # connector-specific probe-method parameters (e.g. --schema/--table) that
+    # aren't known until list_probe_methods() resolves the source type.
+    out: Dict[str, str] = {}
+    toks = list(tokens)
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        if not tok.startswith("--"):
+            raise ValueError(f"unexpected argument '{tok}'; use --name value")
+        key = tok[2:]
+        if "=" in key:
+            name, value = key.split("=", 1)
+            out[name.replace("-", "_")] = value
+            i += 1
+        elif i + 1 < len(toks) and not toks[i + 1].startswith("--"):
+            out[key.replace("-", "_")] = toks[i + 1]
+            i += 2
+        else:
+            out[key.replace("-", "_")] = "true"  # bare flag => boolean true
+            i += 1
+    return out
+
+
+@probe_group.command(name="methods")
+@click.option("--recipe", "recipe_path", required=True)
+def probe_methods_cmd(recipe_path: str) -> None:
+    # Connection-free: lists each command, its params, and its docstring (the
+    # help the agent reads to decide which method to call).
+    try:
+        source_type, _resolved, _secrets = _resolve_for_probe(_load_recipe(recipe_path))
+        specs = list_probe_methods(source_type)
+        _emit({"source_type": source_type, "methods": [s.to_dict() for s in specs]})
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        _fail(str(exc), EXIT_USER)
+
+
+@probe_group.command(
+    name="run",
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.argument("command")
+@click.option("--recipe", "recipe_path", required=True)
+@click.argument("params", nargs=-1, type=click.UNPROCESSED)
+def probe_run_cmd(command: str, recipe_path: str, params: Tuple[str, ...]) -> None:
+    secret_values: Set[str] = set()
+    try:
+        source_type, resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
+        call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
+        result = run_probe_method(source_type, resolved, command, call_kwargs)
+        _emit(redact(result.to_dict(), secret_values))
+    except (ValueError, TypeError, AssertionError, KeyError) as exc:
+        # SECURITY: exception text may embed a resolved secret (e.g. a
+        # connection-string password) surfaced by a failed provider call.
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
+    except Exception as exc:
+        # SECURITY: same rationale as above -- underlying driver errors
+        # routinely embed the connection string, password included.
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_CONNECTION)
