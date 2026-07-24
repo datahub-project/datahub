@@ -27,13 +27,13 @@ npx skills add datahub-project/datahub-skills
 Or install directly as a Claude Code plugin:
 
 ```bash
-claude plugins install datahub-skills --from github:datahub-project/datahub-skills
+claude plugin install datahub-skills
 ```
 
 Verify the install:
 
 ```bash
-claude plugins list
+claude plugin list
 ```
 
 You should see `datahub-skills` in the output.
@@ -71,7 +71,7 @@ Connect to my self-hosted DataHub at <gms-url>
 
 ## Step 3: Try the Skills
 
-DataHub ships with five skills. Each one handles a distinct workflow, but they hand off cleanly to each other — a search can flow into a lineage trace, which can surface a quality issue, which can trigger enrichment.
+DataHub ships with five skills for working with your catalog. Each one handles a distinct workflow, but they hand off cleanly to each other — a search can flow into a lineage trace, which can surface a quality issue, which can trigger enrichment.
 
 ### Search: Find Trustworthy Data
 
@@ -119,7 +119,7 @@ Use **datahub-quality** to find unhealthy assets, investigate incidents, and set
 Which tables owned by the Analytics team have failing quality checks?
 ```
 
-For DataHub Cloud customers, the skill can also create freshness, volume, and column-level assertions on your most important tables.
+The skill adapts to your deployment tier. On **open source**, it diagnoses quality — inspecting assertions, checking health status, and investigating incidents. On **DataHub Cloud**, it also manages quality: creating and running assertions (freshness, volume, SQL, column, and schema), setting up smart AI-inferred monitors, and raising or resolving incidents.
 
 ## Putting It Together: Build an Agent Workflow
 
@@ -127,13 +127,13 @@ The real power is combining skills into multi-step workflows. Here are three pat
 
 ### Data Analytics Agent (Text-to-SQL)
 
-Ask a business question in plain English. The agent uses **datahub-search** to find the right table — checking descriptions, glossary terms, sample queries, usage stats, and quality signals — then generates and executes SQL against your warehouse.
+Ask a business question in plain English. The agent uses **datahub-search** to find the right table — checking descriptions, glossary terms, sample queries, usage stats, and quality signals — then generates SQL grounded in that context for the agent or your warehouse client to run.
 
 ```
 What was our revenue by region last quarter?
 ```
 
-The agent finds the canonical revenue table in DataHub, confirms it's the certified source, generates the SQL, and runs it.
+The agent finds the canonical revenue table in DataHub, confirms it's the certified source, and generates SQL grounded in real usage patterns; the agent (or your warehouse client) runs the query.
 
 ### Data Quality Agent
 
@@ -153,17 +153,17 @@ Tag all columns containing email addresses with the PII glossary term across our
 
 ## Available Skills Reference
 
-| Skill       | Command                           | What it does                                                                               |
-| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or self-hosted)                                    |
-| **Search**  | `/datahub-skills:datahub-search`  | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals |
-| **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers                          |
-| **Enrich**  | `/datahub-skills:datahub-enrich`  | Add descriptions, tags, glossary terms, owners, domains, and structured properties         |
-| **Quality** | `/datahub-skills:datahub-quality` | Find unhealthy assets, investigate incidents, create quality assertions (Cloud)            |
+| Skill       | Command                           | What it does                                                                                              |
+| ----------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Setup**   | `/datahub-skills:datahub-setup`   | Connect to your DataHub instance (Cloud or self-hosted)                                                   |
+| **Search**  | `/datahub-skills:datahub-search`  | Find data assets using descriptions, glossary terms, ownership, usage, and quality signals                |
+| **Lineage** | `/datahub-skills:datahub-lineage` | Trace upstream sources, transformations, and downstream consumers                                         |
+| **Enrich**  | `/datahub-skills:datahub-enrich`  | Add descriptions, tags, glossary terms, owners, domains, and structured properties                        |
+| **Quality** | `/datahub-skills:datahub-quality` | Diagnose quality and investigate incidents; on DataHub Cloud, also create and run assertions and monitors |
 
 ## Other Platforms
 
-DataHub Skills also work with [Cursor](https://cursor.sh), [OpenAI Codex](https://openai.com/codex), [GitHub Copilot](https://github.com/features/copilot), [Gemini CLI](https://github.com/google-gemini/gemini-cli), and [Windsurf](https://windsurf.com).
+DataHub Skills also work with other coding agents, including [Cursor](https://cursor.sh), [OpenAI Codex](https://openai.com/codex), [GitHub Copilot](https://github.com/features/copilot), [Gemini CLI](https://github.com/google-gemini/gemini-cli), and [Windsurf](https://windsurf.com).
 
 ```bash
 # Cursor
