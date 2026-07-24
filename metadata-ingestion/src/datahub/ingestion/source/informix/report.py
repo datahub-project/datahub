@@ -10,3 +10,4 @@ class InformixSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned: int = 0
     views_scanned: int = 0
     filtered: int = 0
+    row_counts_emitted: int = 0

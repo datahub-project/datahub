@@ -24,4 +24,4 @@ The connecting user needs `SELECT` on the Informix system catalog to enumerate m
 - `systables`, `syscolumns` — tables, views, and columns.
 - `sysconstraints`, `sysindexes` — primary key detection.
 
-No access to user table data is required; this module does not profile or sample rows.
+No access to user table data is required; row counts are approximate values read from the system catalog (`systables.nrows`), not row scans or sampling.

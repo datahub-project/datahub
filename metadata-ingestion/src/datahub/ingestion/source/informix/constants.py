@@ -60,8 +60,9 @@ def map_coltype(coltype: int) -> Tuple[SchemaFieldDataTypeClass, bool, str]:
 
 
 # tabid < 100 are reserved system-catalog objects; tabtype 'T' table, 'V' view.
+# nrows is an approximate, catalog-maintained row count (-1/0 means unknown).
 SQL_TABLES = (
-    "SELECT TRIM(tabname) AS tabname, TRIM(owner) AS owner, tabtype "
+    "SELECT TRIM(tabname) AS tabname, TRIM(owner) AS owner, tabtype, nrows "
     "FROM systables WHERE tabid >= 100 AND tabtype IN ('T', 'V')"
 )
 SQL_COLUMNS = (

@@ -7,7 +7,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 This v1 module does not support:
 
 - **Lineage** — no table/view or query-based lineage is extracted.
-- **Profiling** — no row sampling or column statistics.
+- **Profiling** — approximate row counts only, from `systables.nrows`; no row sampling or column statistics.
 - **Stored procedures** — SPL routines are not ingested as DataJobs.
 
 #### Extended type mapping

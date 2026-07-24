@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -13,3 +15,4 @@ class InformixTable(BaseModel):
     name: str
     owner: str
     is_view: bool = False
+    nrows: Optional[int] = None

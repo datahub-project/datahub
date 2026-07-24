@@ -80,11 +80,15 @@ class InformixClient:
             rs = stmt.executeQuery(SQL_TABLES)
             try:
                 while rs.next():
+                    # nrows is -1 or 0 when Informix hasn't computed a row estimate yet.
+                    raw_nrows = rs.getObject(4)
+                    parsed_nrows = int(str(raw_nrows)) if raw_nrows is not None else 0
                     tables.append(
                         InformixTable(
                             name=str(rs.getString(1)).strip(),
                             owner=str(rs.getString(2)).strip(),
                             is_view=str(rs.getString(3)).strip() == "V",
+                            nrows=parsed_nrows if parsed_nrows > 0 else None,
                         )
                     )
             finally:

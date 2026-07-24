@@ -1,5 +1,7 @@
+import time
 from typing import Iterable, Optional, Union
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey, SchemaKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -29,6 +31,7 @@ from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import DatasetProfileClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -44,6 +47,7 @@ from datahub.sdk.dataset import Dataset
     "Enabled by default via stateful ingestion",
     supported=True,
 )
+@capability(SourceCapability.DATA_PROFILING, "Row counts only, via systables.nrows")
 class InformixSource(StatefulIngestionSourceBase):
     config: InformixSourceConfig
     report: InformixSourceReport
@@ -136,7 +140,7 @@ class InformixSource(StatefulIngestionSourceBase):
                         subtype = DatasetSubTypes.VIEW
                     else:
                         subtype = DatasetSubTypes.TABLE
-                    yield Dataset(
+                    dataset = Dataset(
                         platform=self.platform,
                         name=name,
                         env=self.config.env,
@@ -146,10 +150,20 @@ class InformixSource(StatefulIngestionSourceBase):
                         schema=fields,
                         display_name=table.name,
                     )
+                    yield dataset
                     if table.is_view:
                         self.report.views_scanned += 1
                     else:
                         self.report.tables_scanned += 1
+                        if self.config.include_row_counts and table.nrows is not None:
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=dataset.urn.urn(),
+                                aspect=DatasetProfileClass(
+                                    timestampMillis=int(time.time() * 1000),
+                                    rowCount=table.nrows,
+                                ),
+                            ).as_workunit()
+                            self.report.row_counts_emitted += 1
                 except Exception as e:
                     self.report.warning(
                         title="Failed to ingest table",

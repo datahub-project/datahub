@@ -78,6 +78,10 @@ class InformixSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for views to filter.",
     )
+    include_row_counts: bool = Field(
+        default=True,
+        description="Emit approximate row counts from systables.nrows.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion / stale-entity removal config."
     )

@@ -1,4 +1,6 @@
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -6,6 +8,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.models import InformixColumn, InformixTable
 from datahub.ingestion.source.informix.source import InformixSource
+from datahub.metadata.schema_classes import DatasetProfileClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -13,7 +16,7 @@ from datahub.sdk.dataset import Dataset
 class _FakeClient:
     def get_tables(self):
         return [
-            InformixTable(name="customers", owner="informix", is_view=False),
+            InformixTable(name="customers", owner="informix", is_view=False, nrows=42),
             InformixTable(name="active", owner="informix", is_view=True),
         ]
 
@@ -84,6 +87,26 @@ def test_source_emits_containers_and_datasets():
     assert view_dataset.subtype == DatasetSubTypes.VIEW
     assert table_dataset.subtype == DatasetSubTypes.TABLE
     assert view_dataset.subtype != table_dataset.subtype
+
+
+def test_source_emits_row_count_profile_for_tables_only():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    profiles = [
+        e.metadata.aspect
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, DatasetProfileClass)
+    ]
+    assert len(profiles) == 1
+    assert profiles[0].rowCount == 42
 
 
 def test_source_isolates_per_table_failures():
