@@ -765,7 +765,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "editedFieldTags",
             "displayName",
             "title",
-            "applications");
+            "applications",
+            "dataProduct");
 
     Map<EntityType, Set<String>> expectedQueryByDefault =
         ImmutableMap.<EntityType, Set<String>>builder()
