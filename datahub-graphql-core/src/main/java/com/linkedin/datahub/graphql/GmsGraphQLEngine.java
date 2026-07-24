@@ -1185,7 +1185,8 @@ public class GmsGraphQLEngine {
                     "listExecutionRequests", new ListExecutionRequestsResolver(this.entityClient))
                 .dataFetcher("executionRequest", getResolver(executionRequestType))
                 .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
-                .dataFetcher("getTimeline", new GetTimelineResolver(this.timelineService))
+                .dataFetcher(
+                    "getTimeline", new GetTimelineResolver(this.timelineService, this.entityClient))
                 .dataFetcher(
                     "getSchemaVersionList", new GetSchemaVersionListResolver(this.timelineService))
                 .dataFetcher("test", getResolver(testType))
