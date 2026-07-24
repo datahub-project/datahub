@@ -144,6 +144,18 @@ aws-secret-manager = [
 
 azure-ad = []
 
+azure-analysis-services = [
+    "azure-identity>=1.21.0,<2.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
+    "mini-racer==0.14.1",
+    "more-itertools<11.0.0",
+    "requests<3.0.0",
+    "setuptools<82",
+    "sqlglot[c]==30.12.0",
+    "sqlparse<1.0.0",
+    "stopit==1.1.2",
+]
+
 azure-auth = [
     "azure-identity>=1.21.0,<2.0.0",
 ]
@@ -1344,6 +1356,7 @@ dev = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1535,6 +1548,7 @@ docs = [
     "db-dtypes",
     "deepdiff!=8.0.0,<9.0.0",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
@@ -1798,6 +1812,7 @@ datahub = "datahub.ingestion.source.datahub.datahub_source:DataHubSource"
 sqlalchemy = "datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource"
 airbyte = "datahub.ingestion.source.airbyte.source:AirbyteSource"
 athena = "datahub.ingestion.source.sql.athena:AthenaSource"
+azure-analysis-services = "datahub.ingestion.source.azure_analysis_services.source:AzureAnalysisServicesSource"
 azure-ad = "datahub.ingestion.source.identity.azure_ad:AzureADSource"
 azure-data-factory = "datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource"
 fabric-onelake = "datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource"

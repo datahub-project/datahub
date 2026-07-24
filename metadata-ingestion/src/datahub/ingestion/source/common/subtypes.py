@@ -52,8 +52,7 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
-    # Analysis Services / tabular model table whose rows are produced by a DAX
-    # expression rather than loaded from an upstream source.
+    # Analysis Services table populated by a DAX expression, not an upstream load.
     CALCULATED_TABLE = "Calculated Table"
 
     # TODO: Create separate entity...
@@ -104,7 +103,7 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
-    # Azure Analysis Services / SSAS server hosting one or more tabular models.
+    # Azure Analysis Services
     ANALYSIS_SERVICES_SERVER = "Analysis Services Server"
 
 

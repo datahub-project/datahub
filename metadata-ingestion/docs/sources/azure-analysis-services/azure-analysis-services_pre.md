@@ -1,3 +1,10 @@
+### Overview
+
+This connector extracts tabular model metadata from Azure Analysis Services (and Power BI Premium
+semantic models) through the XMLA endpoint. It emits each model as a semantic-model container with
+its tables, columns, DAX measures, and relationships, and can optionally resolve upstream lineage
+from partition queries and intra-model column lineage from DAX dependencies.
+
 ### Prerequisites
 
 The connector talks to the server's XMLA endpoint over HTTPS using an Azure AD bearer token, so no

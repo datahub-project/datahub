@@ -253,6 +253,17 @@ aws-secret-manager = [
     { name = "cachetools" },
     { name = "urllib3" },
 ]
+azure-analysis-services = [
+    { name = "azure-identity" },
+    { name = "defusedxml" },
+    { name = "mini-racer" },
+    { name = "more-itertools" },
+    { name = "requests" },
+    { name = "setuptools" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "sqlparse" },
+    { name = "stopit" },
+]
 azure-auth = [
     { name = "azure-identity" },
 ]
@@ -508,6 +519,7 @@ dev = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -701,6 +713,7 @@ docs = [
     { name = "db-dtypes" },
     { name = "deepdiff" },
     { name = "deepmerge" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "deprecated" },
     { name = "dlt" },
@@ -1666,6 +1679,7 @@ requires-dist = [
     { name = "azure-identity", marker = "extra == 'abs'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'abs-slim'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'all'", specifier = ">=1.21.0,<2.0.0" },
+    { name = "azure-identity", marker = "extra == 'azure-analysis-services'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'azure-auth'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'azure-data-factory'", specifier = ">=1.21.0,<2.0.0" },
     { name = "azure-identity", marker = "extra == 'delta-lake'", specifier = ">=1.21.0,<2.0.0" },
@@ -1906,6 +1920,9 @@ requires-dist = [
     { name = "deepmerge", marker = "extra == 'looker'", specifier = ">=1.1.1,<3.0.0" },
     { name = "deepmerge", marker = "extra == 'lookml'", specifier = ">=1.1.1,<3.0.0" },
     { name = "defusedxml", marker = "extra == 'all'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'azure-analysis-services'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'dev'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'docs'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
@@ -2163,6 +2180,7 @@ requires-dist = [
     { name = "markdownify", marker = "extra == 'docs'", specifier = ">=0.14.1,<2.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
     { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
+    { name = "mini-racer", marker = "extra == 'azure-analysis-services'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'docs'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'powerbi'", specifier = "==0.14.1" },
@@ -2176,6 +2194,7 @@ requires-dist = [
     { name = "more-itertools", marker = "extra == 'abs'", specifier = ">=8.12.0,<11.0.0" },
     { name = "more-itertools", marker = "extra == 'abs-slim'", specifier = ">=8.12.0,<11.0.0" },
     { name = "more-itertools", marker = "extra == 'all'", specifier = ">=8.12.0,<11.0.0" },
+    { name = "more-itertools", marker = "extra == 'azure-analysis-services'", specifier = "<11.0.0" },
     { name = "more-itertools", marker = "extra == 'bigquery'", specifier = ">=8.12.0,<11.0.0" },
     { name = "more-itertools", marker = "extra == 'bigquery-queries'", specifier = ">=8.12.0,<11.0.0" },
     { name = "more-itertools", marker = "extra == 'bigquery-slim'", specifier = ">=8.12.0,<11.0.0" },
@@ -2433,6 +2452,7 @@ requires-dist = [
     { name = "redshift-connector", marker = "extra == 'redshift-slim'", specifier = ">=2.1.14,<3.0.0" },
     { name = "requests", marker = "extra == 'airbyte'" },
     { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
+    { name = "requests", marker = "extra == 'azure-analysis-services'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'bigid'", specifier = ">=2.28.0,<3.0" },
     { name = "requests", marker = "extra == 'cube'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'databricks'", specifier = "<3.0.0" },
@@ -2498,6 +2518,7 @@ requires-dist = [
     { name = "sentry-sdk", marker = "extra == 'docs'", specifier = ">=1.33.1,<3.0.0" },
     { name = "setuptools", specifier = "<82.0.0" },
     { name = "setuptools", marker = "extra == 'all'", specifier = "<82" },
+    { name = "setuptools", marker = "extra == 'azure-analysis-services'", specifier = "<82" },
     { name = "setuptools", marker = "extra == 'dev'", specifier = "<82.0.0" },
     { name = "setuptools", marker = "extra == 'docs'", specifier = "<82.0.0" },
     { name = "setuptools", marker = "extra == 'mlflow'", specifier = "<82" },
@@ -2624,6 +2645,7 @@ requires-dist = [
     { name = "sqlalchemy2-stubs", marker = "extra == 'docs'", specifier = "<0.1.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'azure-analysis-services'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.12.0" },
@@ -2691,6 +2713,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.12.0" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = "<0.6.0" },
+    { name = "sqlparse", marker = "extra == 'azure-analysis-services'", specifier = "<1.0.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'bigquery-queries'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'clickhouse'", specifier = "<0.6.0" },
@@ -2741,6 +2764,7 @@ requires-dist = [
     { name = "starrocks", marker = "extra == 'integration-tests'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'starrocks'", specifier = ">=1.3.3,<2.0" },
     { name = "stopit", marker = "extra == 'all'", specifier = "==1.1.2" },
+    { name = "stopit", marker = "extra == 'azure-analysis-services'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
@@ -2938,7 +2962,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-analysis-services", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"

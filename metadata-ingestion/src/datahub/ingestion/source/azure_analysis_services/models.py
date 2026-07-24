@@ -52,10 +52,6 @@ class AasRow(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
-class AasCatalogRow(AasRow):
-    catalog_name: str = Field(alias="CATALOG_NAME")
-
-
 class AasModelRow(AasRow):
     id: int = Field(alias="ID")
     name: str = Field(alias="Name")
@@ -133,30 +129,6 @@ class AasRelationshipRow(AasRow):
     )
 
 
-class AasHierarchyRow(AasRow):
-    id: int = Field(alias="ID")
-    table_id: int = Field(alias="TableID")
-    name: str = Field(alias="Name")
-    description: Optional[str] = Field(default=None, alias="Description")
-    is_hidden: bool = Field(default=False, alias="IsHidden")
-
-
-class AasLevelRow(AasRow):
-    id: int = Field(alias="ID")
-    hierarchy_id: int = Field(alias="HierarchyID")
-    column_id: Optional[int] = Field(default=None, alias="ColumnID")
-    name: str = Field(alias="Name")
-    ordinal: Optional[int] = Field(default=None, alias="Ordinal")
-
-
-class AasKpiRow(AasRow):
-    id: int = Field(alias="ID")
-    measure_id: Optional[int] = Field(default=None, alias="MeasureID")
-    target_expression: Optional[str] = Field(default=None, alias="TargetExpression")
-    status_expression: Optional[str] = Field(default=None, alias="StatusExpression")
-    trend_expression: Optional[str] = Field(default=None, alias="TrendExpression")
-
-
 class AasRoleRow(AasRow):
     id: int = Field(alias="ID")
     name: str = Field(alias="Name")
@@ -170,15 +142,6 @@ class AasDataSourceRow(AasRow):
     data_source_type: Optional[int] = Field(default=None, alias="Type")
     connection_string: Optional[str] = Field(default=None, alias="ConnectionString")
     description: Optional[str] = Field(default=None, alias="Description")
-
-
-class AasExpressionRow(AasRow):
-    # Shared M expressions and model parameters (TMSCHEMA_EXPRESSIONS). ``Kind``
-    # distinguishes M queries from parameter values.
-    id: int = Field(alias="ID")
-    name: str = Field(alias="Name")
-    expression: Optional[str] = Field(default=None, alias="Expression")
-    kind: Optional[int] = Field(default=None, alias="Kind")
 
 
 class AasCalcDependencyRow(AasRow):
