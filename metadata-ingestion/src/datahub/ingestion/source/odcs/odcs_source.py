@@ -556,11 +556,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS file exceeds max_input_file_bytes",
                 message=(
-                    f"File size {file_size} bytes exceeds configured limit "
-                    f"{self.config.max_input_file_bytes}; skipping. Raise "
-                    "max_input_file_bytes to ingest larger files."
+                    "File size exceeds configured limit; skipping. "
+                    "Raise max_input_file_bytes to ingest larger files."
                 ),
-                context=str(file_path),
+                context=f"{file_path} (size={file_size}, limit={self.config.max_input_file_bytes})",
             )
             self.report.files_skipped.append(str(file_path))
             return None
@@ -602,11 +601,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS file exceeds max_input_file_bytes",
                 message=(
-                    "Remote file exceeds the configured "
-                    f"max_input_file_bytes ({self.config.max_input_file_bytes}); "
+                    "Remote file exceeds the configured limit; "
                     "skipping. Raise max_input_file_bytes to ingest larger files."
                 ),
-                context=uri,
+                context=f"{uri} (limit={self.config.max_input_file_bytes})",
                 exc=e,
             )
             self.report.files_skipped.append(uri)
@@ -670,11 +668,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                     self.report.unknown_fields_count += 1
                     self.report.warning(
                         title="Unknown ODCS field",
-                        message=(
-                            f"Field '{key}' on {model_cls.__name__} is not "
-                            "recognized; check spelling or version compatibility."
-                        ),
-                        context=f"{source_uri}: {path_hint}.{key}",
+                        message="Field is not recognized; check spelling or version compatibility",
+                        context=f"{source_uri}: {path_hint}.{key} (model={model_cls.__name__})",
                     )
                     continue
                 if (
@@ -1056,11 +1051,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         if prior_claim is not None:
             self.report.warning(
                 title="Physical dataset bound by multiple ODCS schema entries",
-                message=(
-                    "logicalParent is single-valued; the last writer wins "
-                    f"(already bound by {prior_claim})."
-                ),
-                context=f"file={source_uri} urn={physical_urn}",
+                message="logicalParent is single-valued; the last writer wins",
+                context=f"file={source_uri} urn={physical_urn} prior_claim={prior_claim}",
             )
         self._seen_physical_urns[physical_urn] = f"{contract.id}/{schema_entry.name}"
 

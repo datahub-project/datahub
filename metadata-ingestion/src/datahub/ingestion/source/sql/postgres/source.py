@@ -568,12 +568,13 @@ class PostgresSource(SQLAlchemySource):
                     )
                     self.report.failure(
                         message=(
-                            f"Query lineage extraction failed: {e}. "
+                            "Query lineage extraction failed. "
                             "Check that pg_stat_statements extension is properly configured and accessible. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/postgres"
                         ),
                         context="query_lineage_extraction_failed",
+                        exc=e,
                     )
 
         with PerfTimer() as timer:
@@ -591,11 +592,12 @@ class PostgresSource(SQLAlchemySource):
                     )
                     self.report.failure(
                         message=(
-                            f"Lineage metadata generation failed: {e}. "
+                            "Lineage metadata generation failed. "
                             "This may indicate issues with the DataHub graph connection or schema resolution. "
                             "Check your graph configuration and ensure all required schemas are accessible."
                         ),
                         context="lineage_metadata_generation_failed",
+                        exc=e,
                     )
 
         logger.info(

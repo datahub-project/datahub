@@ -405,7 +405,11 @@ class RedshiftSqlLineage(Closeable):
                     ),
                 )
             except ValueError as e:
-                self.report.warning("non-s3-lineage", str(e))
+                self.report.warning(
+                    message="Failed to resolve non-S3 lineage target",
+                    context="non-s3-lineage",
+                    exc=e,
+                )
                 return None
         else:
             target_platform = LineageDatasetPlatform.REDSHIFT
@@ -755,8 +759,8 @@ class RedshiftSqlLineage(Closeable):
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
-                message=f"Failed to extract lineage of type {lineage_type.name}",
-                context=f"Query: '{query}'",
+                message="Failed to extract lineage",
+                context=f"type={lineage_type.name}, query='{query}'",
                 exc=e,
             )
             self.report_status(f"extract-{lineage_type.name}", False)

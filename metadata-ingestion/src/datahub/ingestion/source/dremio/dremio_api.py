@@ -398,13 +398,15 @@ class DremioAPIOperations:
                         )
                         return
                     else:
-                        self.report.failure("Failed to authenticate", login_url)
+                        self.report.failure(
+                            message="Failed to authenticate", context=login_url
+                        )
                         raise DremioAPIException("Failed to authenticate with Dremio")
             except (AssertionError, DremioAPIException):
                 # Credential / config errors: fail fast instead of looping.
                 raise
             except Exception as e:
-                self.report.failure("Failed to authenticate", str(e))
+                self.report.failure(message="Failed to authenticate", exc=e)
                 if attempt < self._retry_count:
                     sleep(1)
 
@@ -1267,10 +1269,8 @@ class DremioAPIOperations:
                 )
                 if "'rows'" in str(e):
                     self.report.warning(
-                        f"Dremio crash detected during query extraction "
-                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
-                        f"Consider reducing chunk size if this persists.",
-                        context="query_extraction",
+                        message="Dremio crash detected during query extraction (KeyError: 'rows' - likely OOM), consider reducing chunk size if this persists",
+                        context=f"query_extraction: chunk_size={chunk_size}",
                         log=False,
                     )
                 break

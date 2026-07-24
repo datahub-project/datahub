@@ -2298,8 +2298,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             f"Available mappings: {list(semantic_view.logical_to_physical_table.keys())}"
                         )
                         self.report.warning(
-                            semantic_view.name,
-                            f"Missing logical table mapping: {logical_table_name}",
+                            message="Missing logical table mapping",
+                            context=f"{semantic_view.name}: {logical_table_name}",
                             log=False,
                         )
                     continue

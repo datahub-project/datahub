@@ -48,8 +48,9 @@ class TestUserResolverLoadUsers:
 
         assert len(resolver._user_cache) == 0
         mock_report.warning.assert_called_once()
-        assert "user_loading" in mock_report.warning.call_args[0]
-        assert "API" in mock_report.warning.call_args[0][1]
+        call_kwargs = mock_report.warning.call_args.kwargs
+        assert call_kwargs["context"] == "user_loading"
+        assert "API" in call_kwargs["message"]
 
     def test_load_users_unexpected_error_reports_failure(self):
         """Test that unexpected errors are reported as failures."""
@@ -62,8 +63,9 @@ class TestUserResolverLoadUsers:
 
         assert len(resolver._user_cache) == 0
         mock_report.failure.assert_called_once()
-        assert "user_loading" in mock_report.failure.call_args[0]
-        assert "Unexpected" in mock_report.failure.call_args[0][1]
+        call_kwargs = mock_report.failure.call_args.kwargs
+        assert call_kwargs["context"] == "user_loading"
+        assert "Unexpected" in call_kwargs["message"]
 
     def test_load_users_caches_by_name_and_display_name(self):
         """Test that users are cached by both name and display_name."""

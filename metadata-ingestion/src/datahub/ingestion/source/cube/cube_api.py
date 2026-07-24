@@ -181,7 +181,7 @@ class CubeAPIClient:
                     "environment_id (or a Control Plane token) to enable the "
                     "Metadata API."
                 ),
-                context=str(e),
+                exc=e,
             )
             return core_entities
         return merge_entities(core_entities, cloud_entities)
@@ -198,7 +198,7 @@ class CubeAPIClient:
                     "Warehouse platform/database auto-detection was skipped; set "
                     "warehouse_platform explicitly if warehouse lineage is missing."
                 ),
-                context=str(e),
+                exc=e,
             )
             return []
         return CloudDataSourcesResponse.model_validate(raw).data.data_sources
@@ -259,7 +259,7 @@ class CubeAPIClient:
             self.report.warning(
                 title="Could not list all Cube reports",
                 message="Report ingestion may be incomplete.",
-                context=str(e),
+                exc=e,
             )
         return reports
 
@@ -277,7 +277,7 @@ class CubeAPIClient:
             self.report.warning(
                 title="Could not list all Cube workbooks",
                 message="Workbook ingestion may be incomplete.",
-                context=str(e),
+                exc=e,
             )
         return workbooks
 

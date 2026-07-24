@@ -293,14 +293,14 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(self._fetcher, ThriftDataFetcher):
             for db_name, error_msg in self._fetcher.get_database_failures():
                 self.report.warning(
-                    f"database-{db_name}",
-                    f"Failed to process database: {error_msg}",
+                    message="Failed to process database",
+                    context=f"database-{db_name}: {error_msg}",
                     log=False,
                 )
             for db_name, table_name, error_msg in self._fetcher.get_table_failures():
                 self.report.warning(
-                    f"table-{db_name}.{table_name}",
-                    f"Failed to process table: {error_msg}",
+                    message="Failed to process table",
+                    context=f"table-{db_name}.{table_name}: {error_msg}",
                     log=False,
                 )
 

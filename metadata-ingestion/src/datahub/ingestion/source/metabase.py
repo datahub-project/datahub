@@ -220,7 +220,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
             if response.status_code not in (200, 204):
                 self.report.failure(
                     title="Unable to Log User Out",
-                    message=f"Unable to logout for user {self.config.username}",
+                    message="Unable to logout for user",
+                    context=f"username={self.config.username}",
                 )
         super().close()
 
@@ -531,8 +532,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         if not display_type:
             self.report.warning(
                 title="Unrecognized Card Type",
-                message=f"Unrecognized card type {display_type} found. Setting to None",
-                context=f"Card ID: {card_id}",
+                message="Unrecognized card type found, setting to None",
+                context=f"card_id={card_id}, display_type={display_type}",
                 log=False,
             )
             return None
@@ -541,8 +542,8 @@ class MetabaseSource(StatefulIngestionSourceBase):
         except KeyError:
             self.report.warning(
                 title="Unrecognized Chart Type",
-                message=f"Unrecognized chart type {display_type} found. Setting to None",
-                context=f"Card ID: {card_id}",
+                message="Unrecognized chart type found, setting to None",
+                context=f"card_id={card_id}, display_type={display_type}",
                 log=False,
             )
             chart_type = None

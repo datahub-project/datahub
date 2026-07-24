@@ -405,7 +405,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         return test_report
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.failure(key, reason[:100])
+        self.report.failure(
+            message=reason[:100],
+            context=key,
+        )
         log.error(f"{key} => {reason}\n{traceback.format_exc()}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
@@ -931,8 +934,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc_info=e,
             )
             self.report.warning(
-                "Failed to classify table columns",
-                dataset_name,
+                message="Failed to classify table columns",
+                context=dataset_name,
                 log=False,
             )
 
