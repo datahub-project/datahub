@@ -144,7 +144,7 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    aspect_pattern: AllowDenyPattern = Field(
+    aspect_type_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=["datahub-.*"]),
         description="Regex allow/deny patterns matched against Dataplex aspect type "
         "names to decide which aspects are flattened into DataHub custom properties. "

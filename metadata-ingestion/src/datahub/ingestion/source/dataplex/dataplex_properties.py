@@ -11,22 +11,22 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import serialize_field_v
 def extract_aspects_to_custom_properties(
     aspects: Mapping[Any, Any],
     custom_properties: dict[str, str],
-    aspect_pattern: AllowDenyPattern,
+    aspect_type_pattern: AllowDenyPattern,
 ) -> None:
     """Extract aspects as custom properties, skipping aspect types denied by
-    ``aspect_pattern`` (defaults to denying DataHub-authored ``datahub_*`` aspects).
+    ``aspect_type_pattern`` (defaults to denying DataHub-authored ``datahub-*`` aspects).
 
     Args:
         aspects: Dictionary of aspects from entry
         custom_properties: Dictionary to update with aspect properties
-        aspect_pattern: Allow/deny pattern matched against aspect type names
+        aspect_type_pattern: Allow/deny pattern matched against aspect type names
     """
     for aspect_key, aspect_value in aspects.items():
         # Dataplex aspect keys arrive as "<project>.<location>.<aspect_type>"
         # (and occasionally as a ".../aspectTypes/<aspect_type>" path); take the
         # final segment either way so the pattern matches the bare aspect type.
         aspect_type = aspect_key.replace("/", ".").split(".")[-1]
-        if not aspect_pattern.allowed(aspect_type):
+        if not aspect_type_pattern.allowed(aspect_type):
             continue
         custom_properties[f"dataplex_aspect_{aspect_type}"] = aspect_type
 
@@ -40,7 +40,7 @@ def extract_entry_custom_properties(
     entry: dataplex_v1.Entry,
     entry_id: str,
     entry_group_id: str,
-    aspect_pattern: AllowDenyPattern,
+    aspect_type_pattern: AllowDenyPattern,
 ) -> dict[str, str]:
     """Extract custom properties from a Dataplex entry.
 
@@ -48,7 +48,7 @@ def extract_entry_custom_properties(
         entry: Entry object from Catalog API
         entry_id: Entry ID
         entry_group_id: Entry group ID
-        aspect_pattern: Allow/deny pattern matched against aspect type names
+        aspect_type_pattern: Allow/deny pattern matched against aspect type names
 
     Returns:
         Dictionary of custom properties
@@ -76,7 +76,7 @@ def extract_entry_custom_properties(
 
     if entry.aspects:
         extract_aspects_to_custom_properties(
-            entry.aspects, custom_properties, aspect_pattern
+            entry.aspects, custom_properties, aspect_type_pattern
         )
 
     return custom_properties

@@ -408,7 +408,7 @@ class _CommonFields:
 
 
 def _extract_common_fields(
-    entry: dataplex_v1.Entry, aspect_pattern: AllowDenyPattern
+    entry: dataplex_v1.Entry, aspect_type_pattern: AllowDenyPattern
 ) -> _CommonFields:
     entry_group_id = _extract_entry_group_id(entry.name)
     return _CommonFields(
@@ -417,7 +417,7 @@ def _extract_common_fields(
         created=_extract_datetime(entry, "create_time"),
         last_modified=_extract_datetime(entry, "update_time"),
         custom_properties=extract_entry_custom_properties(
-            entry, entry.name, entry_group_id, aspect_pattern
+            entry, entry.name, entry_group_id, aspect_type_pattern
         ),
     )
 
@@ -593,7 +593,7 @@ def build_dataset(
             fqn_regex, platform, entry.fully_qualified_name
         )
 
-    common = _extract_common_fields(entry, ctx.config.aspect_pattern)
+    common = _extract_common_fields(entry, ctx.config.aspect_type_pattern)
     # Only pass parent_container when resolved: the SDK emits an (empty)
     # browsePathsV2 aspect when the kwarg is provided even as None, so omitting
     # it preserves the exact emitted metadata. Two explicit calls (rather than a
@@ -713,7 +713,7 @@ def build_container(
             fqn_regex, platform, entry.fully_qualified_name
         )
 
-    common = _extract_common_fields(entry, ctx.config.aspect_pattern)
+    common = _extract_common_fields(entry, ctx.config.aspect_type_pattern)
     # container_parent_key is effectively always set here — the project key is
     # the fallback and only fails to build when the FQN is unparseable, in which
     # case the container key above already failed and we returned. Passed
