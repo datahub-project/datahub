@@ -45,6 +45,18 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 log = logging.getLogger(__name__)
 
+# Relationship types whose target aspects reference an entity by urn (e.g.
+# lineage, foreign keys). Shared across migrate commands that report --
+# without repointing -- inbound references to a migrated urn.
+INBOUND_REFERENCE_RELATIONSHIP_TYPES: List[str] = [
+    "DownstreamOf",
+    "Consumes",
+    "Produces",
+    "ForeignKeyToDataset",
+    "DerivedFrom",
+    "IsPartOf",
+]
+
 
 # --- Constants ---
 
@@ -360,14 +372,7 @@ def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
     client = get_default_graph(ClientMode.CLI)
     yield from client.get_related_entities(
         entity_urn=urn,
-        relationship_types=[
-            "DownstreamOf",
-            "Consumes",
-            "Produces",
-            "ForeignKeyToDataset",
-            "DerivedFrom",
-            "IsPartOf",
-        ],
+        relationship_types=INBOUND_REFERENCE_RELATIONSHIP_TYPES,
         direction=RelationshipDirection.INCOMING,
     )
 

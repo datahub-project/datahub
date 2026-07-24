@@ -18,6 +18,14 @@ from datahub.cli.migration_utils import (
     make_urn_builder,
     merge_entity,
 )
+from datahub.cli.snowflake_semantic_view_migration import (
+    SEMANTIC_VIEW_SUBTYPE,
+    MigrationDirection,
+    discover_semantic_model_urns,
+    discover_semantic_view_dataset_urns,
+    filter_by_semantic_view_subtype,
+    run_migration,
+)
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_data_platform_urn,
@@ -742,3 +750,206 @@ def instance2instance(
         keep=keep,
         rest_emitter=graph,
     )
+
+
+def _read_urns_from_file(path: str) -> List[str]:
+    with open(path) as f:
+        stripped = (line.strip() for line in f)
+        return [line for line in stripped if line and not line.startswith("#")]
+
+
+@migrate.command(name="snowflake-semantic-views")
+@click.option(
+    "--direction",
+    type=click.Choice([d.value for d in MigrationDirection]),
+    required=True,
+    help="dataset-to-sm migrates legacy 'Semantic View' datasets to semanticModel "
+    "entities (flag OFF->ON). sm-to-dataset migrates semanticModel entities back "
+    "to legacy datasets (flag ON->OFF).",
+)
+@click.option(
+    "--env",
+    type=str,
+    default=DEFAULT_ENV,
+    help="Env for the dataset side of the mapping. Required to reconstruct dataset "
+    "urns for sm-to-dataset; also used to filter discovery for dataset-to-sm. "
+    "Note: semanticModel URNs omit env, so PROD and DEV views with the same "
+    "db.schema.view map to one semanticModel and would overwrite each other's "
+    "governance — migrate one env at a time.",
+)
+@click.option(
+    "--platform-instance",
+    type=str,
+    default=None,
+    help="Platform instance used by the Snowflake ingestion recipe, if any. Must "
+    "match the recipe exactly or urn mapping will be wrong. Also filters discovery.",
+)
+@click.option(
+    "--convert-urns-to-lowercase/--no-convert-urns-to-lowercase",
+    default=True,
+    help="Must match the Snowflake recipe's convert_urns_to_lowercase setting "
+    "(connector default: true).",
+)
+@click.option(
+    "--urn",
+    "urns",
+    type=str,
+    multiple=True,
+    help="Explicit source urn(s) to migrate. Can be passed multiple times. If "
+    "neither --urn nor --urn-file is given, entities are discovered via search.",
+)
+@click.option(
+    "--urn-file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    help="Path to a file with one source urn per line. Blank lines and '#' "
+    "comment lines are ignored.",
+)
+@click.option(
+    "--include-soft-deleted/--exclude-soft-deleted",
+    default=False,
+    help="Include soft-deleted entities when discovering sources (default: false). "
+    "After flag flip + stateful ingest, sources are often soft-deleted — pass "
+    "--include-soft-deleted deliberately so stale unrelated deletes are not "
+    "migrated by accident. Soft-deleted sources are marked in the report.",
+)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option(
+    "-F",
+    "--force",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip the 'Semantic View' subtype check (dataset-to-sm) and skip the "
+    "confirmation prompt.",
+)
+@click.option(
+    "--report-inbound-refs",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="List DownstreamOf/Consumes/etc relationships pointing at the source urn "
+    "that this command does not repoint.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def snowflake_semantic_views(
+    direction: str,
+    env: str,
+    platform_instance: Optional[str],
+    convert_urns_to_lowercase: bool,
+    urns: Tuple[str, ...],
+    urn_file: Optional[str],
+    include_soft_deleted: bool,
+    dry_run: bool,
+    force: bool,
+    report_inbound_refs: bool,
+) -> None:
+    """Copy governance between legacy Snowflake "Semantic View" datasets and
+    semanticModel/metric entities.
+
+    Source must exist; destination URNs may not (aspects are written so a later
+    Snowflake ingest with emit_semantic_model_entities can fill structural
+    aspects). Typical order: migrate governance, then ingest.
+
+    Copies entity-level ownership, domains, tags, glossary terms, institutional
+    memory, structured properties, documentation, deprecation, and applications.
+    Also fans out column tags/terms (from editableSchemaMetadata and non-synthetic
+    schemaMetadata tags) onto metric / schemaField URNs. Does NOT touch lineage,
+    policies, data products, or soft/hard-delete.
+
+    Re-running is safe: destination entity aspects are overwritten (last-write-wins);
+    editableSchemaMetadata field entries are merged (descriptions preserved; tags
+    unioned by URN).
+    """
+    migration_direction = MigrationDirection(direction)
+    graph = get_default_graph(ClientMode.CLI)
+
+    urns_to_process: List[str] = list(urns)
+    if urn_file:
+        urns_to_process.extend(_read_urns_from_file(urn_file))
+    # Preserve order while dropping duplicates from --urn / --urn-file.
+    urns_to_process = list(dict.fromkeys(urns_to_process))
+    used_discovery = not bool(urns_to_process)
+
+    subtype_skipped: List[str] = []
+    if urns_to_process:
+        if migration_direction == MigrationDirection.DATASET_TO_SM:
+            urns_to_process, subtype_skipped = filter_by_semantic_view_subtype(
+                graph, urns_to_process, force
+            )
+    else:
+        if migration_direction == MigrationDirection.DATASET_TO_SM:
+            urns_to_process = discover_semantic_view_dataset_urns(
+                graph,
+                env=env,
+                platform_instance=platform_instance,
+                include_soft_deleted=include_soft_deleted,
+            )
+        else:
+            urns_to_process = discover_semantic_model_urns(
+                graph,
+                platform_instance=platform_instance,
+                include_soft_deleted=include_soft_deleted,
+            )
+
+    if not urns_to_process:
+        if subtype_skipped:
+            click.echo(
+                f"No entities found to migrate: all {len(subtype_skipped)} provided "
+                f"urn(s) lack the '{SEMANTIC_VIEW_SUBTYPE}' subtype. Pass --force to "
+                "bypass this check."
+            )
+            return
+        if used_discovery and not include_soft_deleted:
+            if migration_direction == MigrationDirection.DATASET_TO_SM:
+                soft_only = discover_semantic_view_dataset_urns(
+                    graph,
+                    env=env,
+                    platform_instance=platform_instance,
+                    only_soft_deleted=True,
+                )
+            else:
+                soft_only = discover_semantic_model_urns(
+                    graph,
+                    platform_instance=platform_instance,
+                    only_soft_deleted=True,
+                )
+            if soft_only:
+                click.echo(
+                    f"No live entities found to migrate, but found "
+                    f"{len(soft_only)} soft-deleted "
+                    f"{'Semantic View dataset' if migration_direction == MigrationDirection.DATASET_TO_SM else 'semanticModel'}"
+                    f"{'s' if len(soft_only) != 1 else ''}. "
+                    "Did ingest already run? Re-run with --include-soft-deleted "
+                    "after reviewing that set."
+                )
+                return
+        click.echo("No entities found to migrate.")
+        return
+
+    click.echo(
+        f"Found {len(urns_to_process)} entities to migrate ({direction})."
+        + (
+            f" Skipped {len(subtype_skipped)} without '{SEMANTIC_VIEW_SUBTYPE}' subtype."
+            if subtype_skipped
+            else ""
+        )
+    )
+    if not force and not dry_run:
+        sample = urns_to_process[:5]
+        click.echo(f"Will migrate urns such as: {sample}")
+        click.confirm("Ok to proceed?", abort=True)
+
+    report = run_migration(
+        graph=graph,
+        direction=migration_direction,
+        urns=urns_to_process,
+        platform_instance=platform_instance,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+        env=env,
+        dry_run=dry_run,
+        report_inbound_refs=report_inbound_refs,
+        subtype_skipped=subtype_skipped,
+    )
+    click.echo(f"{report}")
