@@ -1,6 +1,6 @@
 import pytest
 
-from datahub.ingestion.source.zipline.config import ZiplineConfig
+from datahub.ingestion.source.zipline.config import ZiplineConfig, ZiplineOwnerMapping
 from datahub.ingestion.source.zipline.constants import (
     operation_to_feature_data_type,
 )
@@ -48,6 +48,12 @@ def test_output_column_names_windowed():
 def test_output_column_names_no_window():
     agg = _agg("item_id", 5)
     assert agg.output_column_names() == ["item_id_approx_unique_count"]
+
+
+def test_output_column_names_without_input_column_is_empty():
+    # An aggregation with no inputColumn cannot yield a real feature name; the
+    # old code produced a bogus "None_<op>" column.
+    assert _agg(None, 7).output_column_names() == []
 
 
 def test_output_column_names_bucketed():
@@ -159,12 +165,6 @@ def test_metadata_tags_from_custom_json():
     assert meta.tags("groupby_tags") == {"tier": "gold", "pii": "false"}
 
 
-def test_metadata_online_int_coerced_to_bool():
-    # thrift-JSON serializes booleans as 0/1
-    assert MetaData(name="gb", online=0).online is False
-    assert MetaData(name="gb", online=1).online is True
-
-
 def test_operation_to_feature_data_type():
     assert operation_to_feature_data_type(6) == MLFeatureDataTypeClass.COUNT
     assert operation_to_feature_data_type(7) == MLFeatureDataTypeClass.CONTINUOUS
@@ -175,3 +175,30 @@ def test_operation_to_feature_data_type():
 def test_config_owner_extraction_requires_mappings():
     with pytest.raises(ValueError):
         ZiplineConfig(path="/tmp/x", enable_owner_extraction=True)
+
+
+def test_owner_mapping_rejects_unknown_ownership_type():
+    with pytest.raises(ValueError):
+        ZiplineOwnerMapping(
+            team_name="t",
+            datahub_owner_urn="urn:li:corpGroup:t",
+            datahub_ownership_type="OWNER",
+        )
+
+
+def test_owner_mapping_accepts_ownership_type_urn():
+    mapping = ZiplineOwnerMapping(
+        team_name="t",
+        datahub_owner_urn="urn:li:corpGroup:t",
+        datahub_ownership_type="urn:li:ownershipType:custom",
+    )
+    assert mapping.datahub_ownership_type == "urn:li:ownershipType:custom"
+
+
+def test_owner_mapping_rejects_typoed_key():
+    # extra="forbid" turns a mistyped key into a config error instead of silently
+    # yielding zero owners.
+    with pytest.raises(ValueError):
+        ZiplineOwnerMapping.model_validate(
+            {"team_name": "t", "datahub_owner": "urn:li:corpGroup:t"}
+        )

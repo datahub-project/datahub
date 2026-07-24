@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -13,6 +13,42 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.metadata.schema_classes import OwnershipTypeClass
+
+# Standard ownership-type enum values; a custom ownership type may instead be a
+# `urn:li:ownershipType:` URN, which is accepted as-is.
+_VALID_OWNERSHIP_TYPES = frozenset(
+    value
+    for key, value in vars(OwnershipTypeClass).items()
+    if key.isupper() and isinstance(value, str)
+)
+_OWNERSHIP_TYPE_URN_PREFIX = "urn:li:ownershipType:"
+
+
+class ZiplineOwnerMapping(ConfigModel):
+    team_name: str = Field(description="Chronon team name to match on.")
+    datahub_owner_urn: str = Field(
+        description="DataHub owner URN (e.g. `urn:li:corpGroup:analytics`)."
+    )
+    datahub_ownership_type: str = Field(
+        default=OwnershipTypeClass.TECHNICAL_OWNER,
+        description=(
+            "Ownership type: a standard value (e.g. `TECHNICAL_OWNER`, "
+            "`BUSINESS_OWNER`) or a `urn:li:ownershipType:` URN."
+        ),
+    )
+
+    @field_validator("datahub_ownership_type")
+    def _validate_ownership_type(cls, value: str) -> str:
+        if value.startswith(_OWNERSHIP_TYPE_URN_PREFIX):
+            return value
+        if value not in _VALID_OWNERSHIP_TYPES:
+            raise ValueError(
+                f"datahub_ownership_type must be one of "
+                f"{sorted(_VALID_OWNERSHIP_TYPES)} or a "
+                f"'{_OWNERSHIP_TYPE_URN_PREFIX}' URN"
+            )
+        return value
 
 
 class ZiplineConfig(
@@ -49,7 +85,16 @@ class ZiplineConfig(
             "Maps the first path segment (namespace/database) of a backing source "
             'table to a DataHub platform. Example: `{"prod_db": "snowflake"}` '
             "resolves `prod_db.events` to the Snowflake platform. Namespaces not "
-            "listed fall back to `default_source_platform`."
+            "listed fall back to `default_source_platform`. Namespace matching is "
+            "case-insensitive."
+        ),
+    )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Lowercase backing source table names when building dataset URNs. "
+            "Enable to stitch lineage to native connectors (e.g. Snowflake, Hive) "
+            "that emit lowercased URNs, when Chronon references mixed-case tables."
         ),
     )
     source_platform_instance: Optional[str] = Field(
@@ -104,12 +149,10 @@ class ZiplineConfig(
             "required and maps a Chronon team to a DataHub owner."
         ),
     )
-    owner_mappings: Optional[List[Dict[str, str]]] = Field(
+    owner_mappings: Optional[List[ZiplineOwnerMapping]] = Field(
         default=None,
         description=(
-            "Mapping of Chronon team name to a DataHub owner. Each entry supports "
-            "`team_name`, `datahub_owner_urn` and optional `datahub_ownership_type` "
-            "(defaults to `TECHNICAL_OWNER`). Only used when "
+            "Mapping of Chronon team name to a DataHub owner. Only used when "
             "`enable_owner_extraction` is true."
         ),
     )

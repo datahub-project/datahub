@@ -30,6 +30,34 @@ def test_resolve_table_urn_uses_namespace_mapping():
     )
 
 
+def test_resolve_table_urn_namespace_match_is_case_insensitive():
+    # The map key is capitalized but the table's namespace is lower-case; they
+    # must still match so mixed-case Chronon tables resolve to the right platform.
+    config = ZiplineConfig(
+        path="/tmp/x",
+        source_platform_map={"Warehouse": "snowflake"},
+        default_source_platform="hive",
+    )
+    resolver = SourceResolver(config, ZiplineSourceReport())
+    assert resolver.resolve_table_urn("warehouse.accounts") == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)"
+    )
+    assert not resolver.report.warnings
+
+
+def test_resolve_table_urn_lowercases_when_enabled():
+    config = ZiplineConfig(
+        path="/tmp/x",
+        source_platform_map={"warehouse": "snowflake"},
+        default_source_platform="hive",
+        convert_urns_to_lowercase=True,
+    )
+    resolver = SourceResolver(config, ZiplineSourceReport())
+    assert resolver.resolve_table_urn("Warehouse.Accounts") == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)"
+    )
+
+
 def test_resolve_table_urn_falls_back_to_default_and_warns_once():
     resolver = _resolver()
     urn = resolver.resolve_table_urn("legacy.audit_log")
@@ -44,8 +72,35 @@ def test_resolve_table_urn_falls_back_to_default_and_warns_once():
 
 
 def _extractor() -> StagingQueryLineageExtractor:
-    config = ZiplineConfig(path="/tmp/x", default_source_platform="hive")
-    return StagingQueryLineageExtractor(config, ZiplineSourceReport(), graph=None)
+    resolver = _resolver()
+    return StagingQueryLineageExtractor(
+        resolver.config, resolver.report, graph=None, source_resolver=resolver
+    )
+
+
+def test_staging_query_reresolves_in_tables_through_platform_map():
+    # sqlglot attributes every derived table to default_source_platform (hive);
+    # re-resolving through the map re-maps warehouse.* to snowflake so lineage
+    # actually stitches to the native connector.
+    extractor = _extractor()
+    result = SimpleNamespace(
+        debug_info=None,
+        in_tables=[
+            "urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.accounts,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD)",
+        ],
+    )
+    with patch(
+        "datahub.ingestion.source.zipline.lineage.create_lineage_from_sql_statements",
+        return_value=result,
+    ):
+        urns = extractor.extract_input_urns("SELECT 1", name="team.sq.v1")
+
+    assert urns == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+    ]
+    assert extractor.report.sql_lineage_parsed == 1
 
 
 def test_staging_query_sql_result_error_warns():

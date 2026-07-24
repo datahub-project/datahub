@@ -28,17 +28,12 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
     OwnerClass,
     OwnershipClass,
-    OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
 )
 
 logger = logging.getLogger(__name__)
-
-_OWNER_TEAM_KEY = "team_name"
-_OWNER_URN_KEY = "datahub_owner_urn"
-_OWNER_TYPE_KEY = "datahub_ownership_type"
 
 
 class ZiplineMapper:
@@ -252,15 +247,14 @@ class ZiplineMapper:
         if not self.config.owner_mappings:
             return None
         for mapping in self.config.owner_mappings:
-            if mapping.get(_OWNER_TEAM_KEY) != team:
+            if mapping.team_name != team:
                 continue
-            owner_urn = mapping.get(_OWNER_URN_KEY)
-            if not owner_urn:
-                continue
-            ownership_type = mapping.get(
-                _OWNER_TYPE_KEY, OwnershipTypeClass.TECHNICAL_OWNER
-            )
             return OwnershipClass(
-                owners=[OwnerClass(owner=owner_urn, type=ownership_type)]
+                owners=[
+                    OwnerClass(
+                        owner=mapping.datahub_owner_urn,
+                        type=mapping.datahub_ownership_type,
+                    )
+                ]
             )
         return None

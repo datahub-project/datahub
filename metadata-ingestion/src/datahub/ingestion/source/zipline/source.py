@@ -90,7 +90,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
         self.source_resolver = SourceResolver(config, self.report)
         self.mapper = ZiplineMapper(config, self.report, self.source_resolver)
         self.staging_lineage = StagingQueryLineageExtractor(
-            config, self.report, ctx.graph
+            config, self.report, ctx.graph, self.source_resolver
         )
         self._emitted_flow_teams: Set[str] = set()
         # Joins embed a nested GroupBy copy that drops `outputNamespace`, so cache

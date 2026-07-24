@@ -19,7 +19,6 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2023-06-01 07:00:00"
 GMS_SERVER = "http://localhost:8080"
 
 _OWNER_MAPPINGS = [

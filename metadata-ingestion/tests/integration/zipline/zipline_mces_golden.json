@@ -1248,7 +1248,7 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:hive,warehouse.accounts,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD)"
@@ -1256,7 +1256,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784815410591,
+        "lastObserved": 1784901426256,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }

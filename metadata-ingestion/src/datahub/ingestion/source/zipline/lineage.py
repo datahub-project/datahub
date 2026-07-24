@@ -1,11 +1,12 @@
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.zipline.config import ZiplineConfig
 from datahub.ingestion.source.zipline.models import Source
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 
 # Chronon SQL embeds Jinja macros (`{{ start_date }}`) that aren't valid SQL.
@@ -29,6 +30,11 @@ class SourceResolver:
     def __init__(self, config: ZiplineConfig, report: ZiplineSourceReport) -> None:
         self.config = config
         self.report = report
+        # Chronon's namespace and a native connector's database may differ only
+        # in case, so match the platform map case-insensitively.
+        self._platform_map_lower: Dict[str, str] = {
+            key.lower(): value for key, value in config.source_platform_map.items()
+        }
 
     def resolve_source_urns(self, source: Source) -> List[str]:
         urns: List[str] = []
@@ -46,14 +52,15 @@ class SourceResolver:
     def resolve_table_urn(self, table: str) -> str:
         namespace = table.split(".", 1)[0] if "." in table else None
         platform = self.config.default_source_platform
-        if namespace is not None and namespace in self.config.source_platform_map:
-            platform = self.config.source_platform_map[namespace]
+        if namespace is not None and namespace.lower() in self._platform_map_lower:
+            platform = self._platform_map_lower[namespace.lower()]
         elif namespace is not None:
             self.report.report_unmapped_namespace(namespace)
 
+        name = table.lower() if self.config.convert_urns_to_lowercase else table
         return make_dataset_urn_with_platform_instance(
             platform=platform,
-            name=table,
+            name=name,
             platform_instance=self.config.source_platform_instance,
             env=self.config.env,
         )
@@ -75,10 +82,12 @@ class StagingQueryLineageExtractor:
         config: ZiplineConfig,
         report: ZiplineSourceReport,
         graph: Optional[DataHubGraph],
+        source_resolver: SourceResolver,
     ) -> None:
         self.config = config
         self.report = report
         self.graph = graph
+        self.source_resolver = source_resolver
 
     def extract_input_urns(self, query: str, name: Optional[str] = None) -> List[str]:
         cleaned = strip_sql_templates(query)
@@ -118,4 +127,12 @@ class StagingQueryLineageExtractor:
             return []
 
         self.report.sql_lineage_parsed += 1
-        return sorted(set(result.in_tables))
+        # sqlglot attributes every derived table to default_source_platform. Re-map
+        # each through the resolver so source_platform_map, lowercasing and the
+        # unmapped-namespace warning apply here too — otherwise a table in a mapped
+        # platform (e.g. Snowflake) is mis-attributed and its lineage never stitches.
+        resolved = {
+            self.source_resolver.resolve_table_urn(DatasetUrn.from_string(urn).name)
+            for urn in result.in_tables
+        }
+        return sorted(resolved)

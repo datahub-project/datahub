@@ -53,6 +53,10 @@ class Aggregation(_ZiplineBaseModel):
     def output_column_names(self) -> List[str]:
         """Mirrors ``ai.chronon.group_by.get_output_col_names`` so feature names
         match Chronon's backfill output columns exactly."""
+        # No input column means no derivable feature name; emitting "None_<op>"
+        # would create a bogus feature, so skip it.
+        if self.input_column is None:
+            return []
         base_name = f"{self.input_column}_{self._operation_suffix()}"
         if self.windows:
             windowed = [f"{base_name}_{window.suffix}" for window in self.windows]

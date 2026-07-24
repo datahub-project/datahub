@@ -6,15 +6,27 @@ source:
     path: "/path/to/chronon/production"
 
     # Map the first segment of each source table (namespace/database) to a
-    # DataHub platform so backing datasets resolve to real URNs.
+    # DataHub platform so backing datasets resolve to real URNs. Namespace
+    # matching is case-insensitive.
     source_platform_map:
       my_warehouse_db: snowflake
     default_source_platform: hive
     stream_platform: kafka
 
+    # Lowercase source table names in URNs to stitch lineage to native
+    # connectors (e.g. Snowflake/Hive) that emit lowercased URNs.
+    convert_urns_to_lowercase: false
+
     # Emit Joins and StagingQueries as DataJobs with lineage.
     include_joins: true
     include_staging_queries: true
+
+    # Attach owners by mapping each Chronon team to a DataHub owner URN.
+    enable_owner_extraction: false
+    # owner_mappings:
+    #   - team_name: analytics
+    #     datahub_owner_urn: "urn:li:corpGroup:analytics"
+    #     datahub_ownership_type: TECHNICAL_OWNER
 
     stateful_ingestion:
       enabled: true
