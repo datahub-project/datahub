@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Dict, List, Protocol
+from typing import Dict, List, Optional, Protocol
 
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import (
@@ -8,6 +8,7 @@ from datahub.ingestion.source.informix.constants import (
     SQL_FK,
     SQL_PK,
     SQL_TABLES,
+    SQL_VIEW_DEF,
 )
 from datahub.ingestion.source.informix.driver import resolve_driver_jars
 from datahub.ingestion.source.informix.mapping import build_jdbc_url
@@ -28,6 +29,8 @@ class InformixClientProtocol(Protocol):
     def get_columns(self, table: InformixTable) -> List[InformixColumn]: ...
 
     def get_foreign_keys(self, table: InformixTable) -> List[InformixForeignKey]: ...
+
+    def get_view_definition(self, table: InformixTable) -> Optional[str]: ...
 
     def close(self) -> None: ...
 
@@ -149,6 +152,11 @@ class InformixClient:
             if parent_col not in fk.parent_columns:
                 fk.parent_columns.append(parent_col)
         return list(fks.values())
+
+    def get_view_definition(self, table: InformixTable) -> Optional[str]:
+        rows = self._query(SQL_VIEW_DEF, [table.name, table.owner])
+        chunks = [str(r[0]) for r in rows if r[0] is not None]
+        return "".join(chunks) if chunks else None
 
     def close(self) -> None:
         try:

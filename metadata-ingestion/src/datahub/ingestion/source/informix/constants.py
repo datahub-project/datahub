@@ -112,3 +112,9 @@ SQL_FK = (
     "ABS(pix.part16)) "
     "WHERE cn.constrtype = 'R' AND TRIM(ct.tabname) = ? AND TRIM(ct.owner) = ?"
 )
+# View text is stored across multiple rows (Informix caps each viewtext row at
+# 64 chars); seqno gives the chunk order to reconstruct the full CREATE VIEW SQL.
+SQL_VIEW_DEF = (
+    "SELECT viewtext FROM sysviews v JOIN systables t ON v.tabid = t.tabid "
+    "WHERE TRIM(t.tabname) = ? AND TRIM(t.owner) = ? ORDER BY v.seqno"
+)

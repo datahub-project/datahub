@@ -1,5 +1,5 @@
 import time
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -20,6 +20,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.informix.client import (
     InformixClient,
@@ -27,11 +28,13 @@ from datahub.ingestion.source.informix.client import (
 )
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import PLATFORM
+from datahub.ingestion.source.informix.lineage import build_view_upstream_lineage
 from datahub.ingestion.source.informix.mapping import (
     build_foreign_key_constraints,
     columns_to_schema_fields,
     make_table_identifier,
 )
+from datahub.ingestion.source.informix.models import InformixTable
 from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -44,6 +47,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
 @platform_name("Informix", id="informix")
@@ -58,6 +62,16 @@ from datahub.sdk.dataset import Dataset
     supported=True,
 )
 @capability(SourceCapability.DATA_PROFILING, "Row counts only, via systables.nrows")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "View lineage",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Column-level view lineage",
+    subtype_modifier=[SourceCapabilityModifier.VIEW],
+)
 class InformixSource(StatefulIngestionSourceBase):
     config: InformixSourceConfig
     report: InformixSourceReport
@@ -114,6 +128,16 @@ class InformixSource(StatefulIngestionSourceBase):
                 display_name=self.config.database,
                 subtype=DatasetContainerSubTypes.DATABASE,
             )
+
+            # Pass 1 populates this resolver with every emitted dataset's schema so
+            # pass 2 can resolve view SQL against it, including view-on-view
+            # references and views defined earlier or later than their sources.
+            resolver = SchemaResolver(
+                platform=self.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            views: List[Tuple[InformixTable, str]] = []
 
             seen_owners = set()
             for table in client.get_tables():
@@ -198,13 +222,18 @@ class InformixSource(StatefulIngestionSourceBase):
                         display_name=table.name,
                     )
                     yield dataset
+                    dataset_urn = dataset.urn.urn()
+                    resolver.add_raw_schema_info(
+                        dataset_urn, {f.fieldPath: f.nativeDataType for f in fields}
+                    )
                     if table.is_view:
                         self.report.views_scanned += 1
+                        views.append((table, dataset_urn))
                     else:
                         self.report.tables_scanned += 1
                         if self.config.include_row_counts and table.nrows is not None:
                             yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset.urn.urn(),
+                                entityUrn=dataset_urn,
                                 aspect=DatasetProfileClass(
                                     timestampMillis=int(time.time() * 1000),
                                     rowCount=table.nrows,
@@ -218,6 +247,34 @@ class InformixSource(StatefulIngestionSourceBase):
                         context=f"{table.owner}.{table.name}",
                         exc=e,
                     )
+
+            if self.config.include_view_lineage:
+                for table, view_urn in views:
+                    try:
+                        sql = client.get_view_definition(table)
+                        if not sql:
+                            continue
+                        upstream_lineage = build_view_upstream_lineage(
+                            view_urn,
+                            sql,
+                            resolver,
+                            self.config.database,
+                            table.owner,
+                        )
+                        if upstream_lineage is not None:
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=view_urn, aspect=upstream_lineage
+                            ).as_workunit()
+                            self.report.views_with_lineage += 1
+                    except Exception as e:
+                        self.report.view_lineage_failures += 1
+                        self.report.warning(
+                            title="Failed to parse view lineage",
+                            message="Skipping view lineage due to an error during "
+                            "SQL parsing.",
+                            context=f"{table.owner}.{table.name}",
+                            exc=e,
+                        )
         finally:
             client.close()
 

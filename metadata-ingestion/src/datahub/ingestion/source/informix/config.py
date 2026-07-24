@@ -86,6 +86,10 @@ class InformixSourceConfig(
         default=True,
         description="Extract foreign-key relationships from sysconstraints/sysreferences.",
     )
+    include_view_lineage: bool = Field(
+        default=True,
+        description="Extract table- and column-level lineage for views by parsing their SQL definitions.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion / stale-entity removal config."
     )
