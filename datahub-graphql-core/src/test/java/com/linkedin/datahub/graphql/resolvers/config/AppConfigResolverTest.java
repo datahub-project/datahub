@@ -128,7 +128,6 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isThemeV2Enabled()).thenReturn(false);
     when(mockFeatureFlags.isThemeV2Default()).thenReturn(false);
     when(mockFeatureFlags.isThemeV2Toggleable()).thenReturn(false);
-    when(mockFeatureFlags.isLineageGraphV2()).thenReturn(false);
     when(mockFeatureFlags.isShowSeparateSiblings()).thenReturn(false);
     when(mockFeatureFlags.isShowManageStructuredProperties()).thenReturn(false);
     when(mockFeatureFlags.isSchemaFieldCLLEnabled()).thenReturn(false);
@@ -146,7 +145,6 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowStatsTabRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowHomePageRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
-    when(mockFeatureFlags.isLineageGraphV3()).thenReturn(false);
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);

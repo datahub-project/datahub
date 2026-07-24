@@ -11,7 +11,7 @@ import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import type { Dayjs } from '@utils/dayjs';

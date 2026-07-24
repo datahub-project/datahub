@@ -94,7 +94,6 @@ query appConfig {
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
-            lineageGraphV2
             showSeparateSiblings
             showManageStructuredProperties
             schemaFieldCLLEnabled
@@ -114,7 +113,6 @@ query appConfig {
             showHomePageRedesign
             showDefaultExternalLinks
             showProductUpdates
-            lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1

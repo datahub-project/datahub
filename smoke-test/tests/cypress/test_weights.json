@@ -36,16 +36,8 @@
     "duration": "59.119s"
   },
   {
-    "filePath": "lineageV2/v2_lineage_graph.js",
-    "duration": "52.507s"
-  },
-  {
     "filePath": "documents/document_management.js",
     "duration": "52.125s"
-  },
-  {
-    "filePath": "lineageV2/v2_impact_analysis.js",
-    "duration": "51.701s"
   },
   {
     "filePath": "statsTabV2/charts.js",
@@ -74,10 +66,6 @@
   {
     "filePath": "glossaryV2/v2_glossaryTerm.js",
     "duration": "37.032s"
-  },
-  {
-    "filePath": "lineageV2/v2_download_lineage_results.js",
-    "duration": "34.110s"
   },
   {
     "filePath": "lineageV3/v3_download_lineage_results.js",
@@ -130,10 +118,6 @@
   {
     "filePath": "mutationsV2/v2_managed_ingestion.js",
     "duration": "17.828s"
-  },
-  {
-    "filePath": "lineageV2/v2_lineage_column_path.js",
-    "duration": "17.219s"
   },
   {
     "filePath": "mfeframework/valid_config_mfe.js",
@@ -242,10 +226,6 @@
   {
     "filePath": "viewV2/v2_manage_views.js",
     "duration": "6.340s"
-  },
-  {
-    "filePath": "lineageV2/v2_lineage_column_level.js",
-    "duration": "6.334s"
   },
   {
     "filePath": "schema_blameV2/v2_schema_blame.js",

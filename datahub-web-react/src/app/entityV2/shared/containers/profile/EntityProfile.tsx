@@ -35,10 +35,8 @@ import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/Dyna
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import LineageExplorer from '@app/lineage/LineageExplorer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import LineageGraph from '@app/lineageV3/LineageGraph';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
@@ -198,7 +196,6 @@ export const EntityProfile = <T, U>({
 }: Props<T, U>): JSX.Element => {
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
-    const isLineageV2 = useLineageV2();
     const { t } = useTranslation('entity.shared.containers');
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -359,8 +356,7 @@ export const EntityProfile = <T, U>({
     }
 
     const showError = error;
-    const showFullScreen = !error && isLineageMode && isLineageV2;
-    const showExplorer = isLineageMode && !isLineageV2;
+    const showFullScreen = !error && isLineageMode;
 
     return (
         <EntityContext.Provider
@@ -397,7 +393,6 @@ export const EntityProfile = <T, U>({
                 {showFullScreen && <LineageGraph isFullscreen />}
                 {!showFullScreen && (
                     <ContentContainer>
-                        {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
                                 <HeaderAndTabsFlex>

@@ -1,9 +1,8 @@
 /**
- * LineageV2Page — page object for lineageV2 graph and impact analysis interactions.
+ * LineageBasePage — page object for lineage graph and impact analysis interactions.
  *
- * Wraps all lineage-specific selectors and actions used by v2_lineage_graph,
- * v2_lineage_column_level, v2_lineage_column_path, v2_download_lineage_results,
- * and v2_impact_analysis Cypress tests.
+ * Wraps all lineage-specific selectors and actions shared across the lineage graph
+ * tests. Extended by LineageV3Page.
  *
  * ReactFlow auto-generates node/edge DOM IDs from the node IDs we supply:
  *   - Entity node:   [data-testid="lineage-node-{urn}"]
@@ -23,7 +22,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
-export class LineageV2Page extends BasePage {
+export class LineageBasePage extends BasePage {
   // ── Static selector properties ───────────────────────────────────────────────
   readonly lineageEditMenuButton: Locator;
   readonly editUpstreamLineageButton: Locator;

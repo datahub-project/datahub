@@ -19,7 +19,7 @@ import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineage/types';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
 
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';

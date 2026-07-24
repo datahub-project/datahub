@@ -79,7 +79,6 @@ test.describe('impact analysis', () => {
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     lineagePage = new LineageV3Page(page, logger, logDir);
     await apiMock.setFeatureFlags({
-      lineageGraphV3: true,
       themeV2Enabled: true,
       themeV2Default: true,
       showNavBarRedesign: true,
@@ -156,11 +155,8 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
   });
 
-  test('can see when the inputs to a data job change', async ({ page, apiMock }) => {
+  test('can see when the inputs to a data job change', async ({ page }) => {
     test.setTimeout(90000);
-
-    // DataJob root entities must use V3 graph
-    await apiMock.setFeatureFlags({ lineageGraphV3: true });
 
     // Between 14 days ago and 7 days ago, only transactions was an input
     await page.goto(

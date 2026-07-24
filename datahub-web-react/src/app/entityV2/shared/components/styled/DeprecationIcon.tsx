@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { decommissionTimeToSeconds, toLocalDateString } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
