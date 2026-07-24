@@ -328,7 +328,7 @@
   },
   {
     "request": {
-      "url": "/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29?startTime=-1&endTime=0&raw=false&categories=TECHNICAL_SCHEMA",
+      "url": "/openapi/v1/timeline/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29?startTime=-1&endTime=0&raw=false&categories=TECHNICAL_SCHEMA",
       "method": "get",
       "description": "Get timeline response"
     },

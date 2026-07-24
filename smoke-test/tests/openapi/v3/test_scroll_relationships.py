@@ -320,6 +320,56 @@ def test_scroll_relationships_with_direction_incoming(
     )
 
 
+def test_scroll_relationships_with_entity_urn_incoming(
+    graph_client: DataHubGraph,
+) -> None:
+    """entity_urn + INCOMING uses walker mode (pin destination literal edge end).
+
+    Unlike direction remapping without entity_urn, destination is the focal URN —
+    do not also pass destination_urns with INCOMING (that double-applies "incoming").
+    """
+    result = graph_client.scroll_relationships(
+        entity_urn=ALPHA,
+        direction=RelationshipDirection.INCOMING,
+        count=100,
+    )
+    assert len(result.relationships) >= 2
+    edges = {
+        (r.source_urn, r.destination_urn, r.relationship_type)
+        for r in result.relationships
+    }
+    assert (ZETA, ALPHA, "DownstreamOf") in edges, (
+        f"Expected ZETA->ALPHA DownstreamOf with entity_urn walker INCOMING, got: {edges}"
+    )
+    assert (FEATURE_1, ALPHA, "DerivedFrom") in edges, (
+        f"Expected FEATURE_1->ALPHA DerivedFrom with entity_urn walker INCOMING, got: {edges}"
+    )
+    logger.info(
+        f"scroll_relationships entity_urn INCOMING: {len(result.relationships)} edges into ALPHA"
+    )
+
+
+def test_scroll_relationships_with_entity_urn_outgoing(
+    graph_client: DataHubGraph,
+) -> None:
+    result = graph_client.scroll_relationships(
+        entity_urn=ZETA,
+        relationship_types=["DownstreamOf"],
+        direction=RelationshipDirection.OUTGOING,
+        count=10,
+    )
+    edges = {
+        (r.source_urn, r.destination_urn, r.relationship_type)
+        for r in result.relationships
+    }
+    assert (ZETA, ALPHA, "DownstreamOf") in edges, (
+        f"Expected ZETA->ALPHA DownstreamOf with entity_urn walker OUTGOING, got: {edges}"
+    )
+    logger.info(
+        f"scroll_relationships entity_urn OUTGOING: {len(result.relationships)} edges from ZETA"
+    )
+
+
 def test_scroll_relationships_pagination(graph_client: DataHubGraph) -> None:
     """Pagination via scroll_id should produce non-overlapping pages."""
     first = graph_client.scroll_relationships(destination_urns=[ALPHA], count=1)

@@ -72,17 +72,26 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/*
+ Prefer /openapi/v3/entity instead
+*/
+@Deprecated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/openapi/v2/entity")
 @Slf4j
+@Tag(
+    name = "Generic Entities",
+    description = "Deprecated: prefer /openapi/v3/entity for entity operations.")
 public class EntityController
     extends GenericEntitiesController<
         GenericAspectV2, GenericEntityV2, GenericEntityScrollResultV2> {
 
-  @Tag(name = "Generic Entities")
   @PostMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(summary = "Get a batch of entities")
+  @Operation(
+      deprecated = true,
+      summary = "Get a batch of entities",
+      description = "Deprecated: prefer /openapi/v3/entity/batchGet.")
   public ResponseEntity<BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2>> getEntityBatch(
       HttpServletRequest httpServletRequest,
       @PathVariable("entityName") String entityName,

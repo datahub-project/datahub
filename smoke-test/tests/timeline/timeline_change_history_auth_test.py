@@ -5,7 +5,7 @@ Smoke tests verifying entity-level authorization is enforced on Change History
 Covers:
   - GraphQL getTimeline denied for unauthorized user on Dataset and Domain
   - GraphQL getTimeline succeeds for admin on Dataset (happy path)
-  - REST /openapi/v2/timeline/v1/{urn} denied for unauthorized user (HTTP 401/403)
+  - REST /openapi/v1/timeline/{urn} denied for unauthorized user (HTTP 401/403)
 """
 
 import logging
@@ -232,8 +232,8 @@ def test_get_timeline_authorized_user_succeeds(auth_session):
     logger.info("test_get_timeline_authorized_user_succeeds: admin access confirmed")
 
 
-def test_get_timeline_rest_v2_unauthorized_user_is_denied():
-    """Unauthorized user must be denied on the REST /openapi/v2/timeline/v1/{urn} endpoint."""
+def test_get_timeline_rest_unauthorized_user_is_denied():
+    """Unauthorized user must be denied on the REST /openapi/v1/timeline/{urn} endpoint."""
     encoded_urn = urllib.parse.quote(TEST_DATASET_URN, safe="")
     # `categories` is a required query param on the REST endpoint; without it Spring
     # returns 400 before the auth check fires, which would mask the auth behaviour.
@@ -243,10 +243,10 @@ def test_get_timeline_rest_v2_unauthorized_user_is_denied():
     # GMS directly would require a PAT, which this user cannot generate (see
     # _graphql_as_user).
     url = (
-        f"{get_frontend_url()}/openapi/v2/timeline/v1/{encoded_urn}"
+        f"{get_frontend_url()}/openapi/v1/timeline/{encoded_urn}"
         f"?categories=TECHNICAL_SCHEMA"
     )
-    logger.info(f"test_get_timeline_rest_v2_unauthorized_user_is_denied: GET {url}")
+    logger.info(f"test_get_timeline_rest_unauthorized_user_is_denied: GET {url}")
 
     user_session = login_as(TEST_USER_EMAIL, TEST_USER_PASSWORD)
     response = user_session.get(url)
@@ -256,6 +256,6 @@ def test_get_timeline_rest_v2_unauthorized_user_is_denied():
         f"got {response.status_code}. Body: {response.text[:500]}"
     )
     logger.info(
-        f"test_get_timeline_rest_v2_unauthorized_user_is_denied: "
+        f"test_get_timeline_rest_unauthorized_user_is_denied: "
         f"correctly denied with HTTP {response.status_code}"
     )

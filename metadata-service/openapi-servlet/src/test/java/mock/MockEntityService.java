@@ -1,6 +1,6 @@
 package mock;
 
-import static entities.EntitiesControllerTest.*;
+import static entities.EntitiesApiServiceTest.*;
 import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.AuditStamp;

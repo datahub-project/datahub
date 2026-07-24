@@ -29,8 +29,6 @@ import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.AspectRowSummary;
 import io.datahubproject.openapi.util.MappingUtil;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
 import java.util.Arrays;
@@ -43,31 +41,17 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.InitBinder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Service;
 
-/*
- Use v2 or v3 controllers instead
-*/
-@Deprecated
-@RestController
-@RequestMapping("/openapi/entities/v1")
+/**
+ * Shared entity get/ingest/delete logic used by generated OpenAPI v2 typed entity APIs. Previously
+ * exposed over HTTP at /openapi/entities/v1 (removed).
+ */
+@Service
 @Slf4j
-@Tag(
-    name = "Entities",
-    description = "APIs for ingesting and accessing entities and their constituent aspects")
-public class EntitiesController {
+public class EntitiesApiService {
 
   private final OperationContext systemOperationContext;
   private final EntityService<ChangeItemImpl> _entityService;
@@ -75,7 +59,7 @@ public class EntitiesController {
   private final AuthorizerChain _authorizerChain;
   @Nullable private final MetricUtils metricUtils;
 
-  public EntitiesController(
+  public EntitiesApiService(
       OperationContext systemOperationContext,
       EntityService<ChangeItemImpl> _entityService,
       ObjectMapper _objectMapper,
@@ -87,26 +71,8 @@ public class EntitiesController {
     this._authorizerChain = _authorizerChain;
   }
 
-  @InitBinder
-  public void initBinder(WebDataBinder binder) {
-    binder.registerCustomEditor(String[].class, new StringArrayPropertyEditor(null));
-  }
-
-  @GetMapping(value = "/latest", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UrnResponseMap> getEntities(
-      HttpServletRequest request,
-      @Parameter(
-              name = "urns",
-              required = true,
-              description =
-                  "A list of raw urn strings, only supports a single entity type per request.")
-          @RequestParam("urns")
-          @Nonnull
-          String[] urns,
-      @Parameter(name = "aspectNames", description = "The list of aspect names to retrieve")
-          @RequestParam(name = "aspectNames", required = false)
-          @Nullable
-          String[] aspectNames) {
+      HttpServletRequest request, @Nonnull String[] urns, @Nullable String[] aspectNames) {
 
     final Set<Urn> entityUrns =
         Arrays.stream(urns)
@@ -176,14 +142,12 @@ public class EntitiesController {
     }
   }
 
-  @PostMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<String>> postEntities(
       HttpServletRequest request,
-      @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests,
-      @RequestParam(required = false, name = "async") Boolean async,
-      @RequestParam(required = false, name = "createIfNotExists") Boolean createIfNotExists,
-      @RequestParam(required = false, name = "createEntityIfNotExists")
-          Boolean createEntityIfNotExists) {
+      @Nonnull List<UpsertAspectRequest> aspectRequests,
+      @Nullable Boolean async,
+      @Nullable Boolean createIfNotExists,
+      @Nullable Boolean createEntityIfNotExists) {
 
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
@@ -261,24 +225,8 @@ public class EntitiesController {
     }
   }
 
-  @DeleteMapping(value = "/", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<RollbackRunResultDto>> deleteEntities(
-      HttpServletRequest request,
-      @Parameter(
-              name = "urns",
-              required = true,
-              description =
-                  "A list of raw urn strings, only supports a single entity type per request.")
-          @RequestParam("urns")
-          @Nonnull
-          String[] urns,
-      @Parameter(
-              name = "soft",
-              description =
-                  "Determines whether the delete will be soft or hard, defaults to true for soft delete")
-          @RequestParam(value = "soft", defaultValue = "true")
-          boolean soft,
-      @RequestParam(required = false, name = "async") Boolean async) {
+      HttpServletRequest request, @Nonnull String[] urns, boolean soft, @Nullable Boolean async) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
 

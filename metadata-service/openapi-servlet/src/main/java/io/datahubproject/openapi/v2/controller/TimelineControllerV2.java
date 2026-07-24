@@ -18,6 +18,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
@@ -33,6 +34,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Deprecated awkward path. Prefer {@code GET /openapi/v1/timeline/{urn}}.
+ *
+ * @deprecated use OpenAPI v1 timeline at {@code /openapi/v1/timeline}
+ */
+@Deprecated
 @RestController
 @AllArgsConstructor
 @RequestMapping("/openapi/v2/timeline/v1")
@@ -59,7 +66,9 @@ public class TimelineControllerV2 {
    * @throws URISyntaxException
    * @throws JsonProcessingException
    */
+  @Deprecated
   @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
+  @Operation(deprecated = true, summary = "Deprecated; use GET /openapi/v1/timeline/{urn}")
   public ResponseEntity<List<ChangeTransaction>> getTimeline(
       HttpServletRequest request,
       @PathVariable("urn") String rawUrn,

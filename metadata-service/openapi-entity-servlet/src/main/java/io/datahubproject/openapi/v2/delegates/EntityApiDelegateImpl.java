@@ -59,7 +59,7 @@ import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
-import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesApiService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -88,7 +88,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final EntityRegistry _entityRegistry;
   private final EntityService<?> _entityService;
   private final SearchService _searchService;
-  private final EntitiesController _v1Controller;
+  private final EntitiesApiService _entitiesApiService;
   private final AuthorizerChain _authorizationChain;
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
@@ -116,7 +116,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       HttpServletRequest request,
       EntityService<?> entityService,
       SearchService searchService,
-      EntitiesController entitiesController,
+      EntitiesApiService entitiesApiService,
       AuthorizerChain authorizationChain,
       Class<I> reqClazz,
       Class<O> respClazz,
@@ -126,7 +126,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     this._entityService = entityService;
     this._searchService = searchService;
     this._entityRegistry = systemOperationContext.getEntityRegistry();
-    this._v1Controller = entitiesController;
+    this._entitiesApiService = entitiesApiService;
     this._authorizationChain = authorizationChain;
     this._reqClazz = reqClazz;
     this._respClazz = respClazz;
@@ -142,7 +142,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
             .orElse(null);
     ResponseEntity<UrnResponseMap> result =
-        _v1Controller.getEntities(request, new String[] {urn}, requestedAspects);
+        _entitiesApiService.getEntities(request, new String[] {urn}, requestedAspects);
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertEntity(
             Optional.ofNullable(result).map(HttpEntity::getBody).orElse(null),
@@ -169,7 +169,7 @@ public class EntityApiDelegateImpl<I, O, S> {
         throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
       }
     }
-    _v1Controller.postEntities(
+    _entitiesApiService.postEntities(
         request, aspects, resolveAsyncRequestParam(), createIfNotExists, createEntityIfNotExists);
     List<O> responses =
         body.stream()
@@ -182,7 +182,7 @@ public class EntityApiDelegateImpl<I, O, S> {
     if (checkBusinessAttributeFlagFromUrn(urn)) {
       throw new UnsupportedOperationException(BUSINESS_ATTRIBUTE_ERROR_MESSAGE);
     }
-    _v1Controller.deleteEntities(request, new String[] {urn}, false, false);
+    _entitiesApiService.deleteEntities(request, new String[] {urn}, false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
 
@@ -227,7 +227,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       Class<A> aspectRespClazz) {
     String[] requestedAspects = new String[] {aspect};
     ResponseEntity<UrnResponseMap> result =
-        _v1Controller.getEntities(request, new String[] {urn}, requestedAspects);
+        _entitiesApiService.getEntities(request, new String[] {urn}, requestedAspects);
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertAspect(
             result.getBody(), aspect, entityRespClass, aspectRespClazz, systemMetadata));
@@ -243,7 +243,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       @Nullable Boolean createEntityIfNotExists) {
     UpsertAspectRequest aspectUpsert =
         OpenApiEntitiesUtil.convertAspectToUpsert(urn, body, reqClazz);
-    _v1Controller.postEntities(
+    _entitiesApiService.postEntities(
         request,
         Stream.of(aspectUpsert).filter(Objects::nonNull).collect(Collectors.toList()),
         resolveAsyncRequestParam(),
@@ -298,7 +298,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             auth,
             true);
     _entityService.deleteAspect(opContext, urn, aspect, Map.of(), false);
-    _v1Controller.deleteEntities(
+    _entitiesApiService.deleteEntities(
         opContext, auth.getActor().toUrnStr(), Set.of(entityUrn), false, false);
     return new ResponseEntity<>(HttpStatus.OK);
   }
@@ -686,7 +686,8 @@ public class EntityApiDelegateImpl<I, O, S> {
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
             .orElse(null);
     List<O> entities =
-        Optional.ofNullable(_v1Controller.getEntities(request, urns, requestedAspects).getBody())
+        Optional.ofNullable(
+                _entitiesApiService.getEntities(request, urns, requestedAspects).getBody())
             .map(body -> body.getResponses().entrySet())
             .map(
                 entries -> OpenApiEntitiesUtil.convertEntities(entries, _respClazz, systemMetadata))

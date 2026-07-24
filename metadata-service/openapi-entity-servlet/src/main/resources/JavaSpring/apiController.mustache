@@ -4,7 +4,7 @@ import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
-import io.datahubproject.openapi.v1.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesApiService;
 import com.datahub.authorization.AuthorizerChain;
 
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -79,8 +79,12 @@ import java.util.concurrent.Callable;
 {{^useOas2}}
 {{/useOas2}}
 {{#operations}}
+@Deprecated
 @RestController
 @RequestMapping("/openapi/v2/entity")
+@io.swagger.v3.oas.annotations.tags.Tag(
+    name = "{{classname}}",
+    description = "Deprecated: prefer /openapi/v3/entity for entity operations.")
 public class {{classname}}Controller implements {{classname}} {
 
     private static final Logger log = LoggerFactory.getLogger({{classname}}Controller.class);
@@ -95,10 +99,10 @@ public class {{classname}}Controller implements {{classname}} {
     public {{classname}}Controller(ObjectMapper objectMapper, HttpServletRequest request,
     @org.springframework.beans.factory.annotation.Qualifier("systemOperationContext") OperationContext systemOperationContext,
     EntityService entityService,
-    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain) {
+    SearchService searchService, EntitiesApiService entitiesApiService, AuthorizerChain authorizationChain) {
         this.objectMapper = objectMapper;
         this.request = request;
-        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, request, entityService, searchService, v1Controller,
+        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, request, entityService, searchService, entitiesApiService,
         authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
     }
     {{#isJava8or11}}
