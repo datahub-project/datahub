@@ -2,8 +2,37 @@ import {
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { getDataContractCategoryFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 
-import { DataContract } from '@types';
+import { Assertion, DataContract } from '@types';
+
+export const partitionAssertionsByContractCategory = (assertions: Assertion[]) => {
+    const freshnessAssertions: Assertion[] = [];
+    const schemaAssertions: Assertion[] = [];
+    const dataQualityAssertions: Assertion[] = [];
+
+    assertions.forEach((assertion) => {
+        switch (getDataContractCategoryFromAssertion(assertion)) {
+            case DataContractCategoryType.FRESHNESS:
+                freshnessAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.SCHEMA:
+                schemaAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.DATA_QUALITY:
+                dataQualityAssertions.push(assertion);
+                break;
+            default:
+                break;
+        }
+    });
+
+    return {
+        freshnessAssertions,
+        schemaAssertions,
+        dataQualityAssertions,
+    };
+};
 
 /**
  * Constructs the input variables required for upserting a data contract using graphql
