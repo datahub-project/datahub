@@ -9,6 +9,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
@@ -91,6 +92,30 @@ class KafkaSourceConfig(
         from datahub.ingestion.source.kafka.kafka_probe import list_kafka_children
 
         return list_kafka_children(self, parent_path, limit)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+        return KafkaMetadataProbe
+
+    def build_probe_provider(self) -> ProbeProvider:
+        from datahub.ingestion.source.kafka.kafka import (
+            get_kafka_admin_client,
+            get_kafka_consumer,
+        )
+        from datahub.ingestion.source.kafka.kafka_probe import (
+            KafkaMetadataProbe,
+            build_registry_client,
+        )
+
+        timeout = max(10, getattr(self.connection, "client_timeout_seconds", 10))
+        return KafkaMetadataProbe(
+            consumer=get_kafka_consumer(self.connection),
+            admin=get_kafka_admin_client(self.connection),
+            registry=build_registry_client(self),
+            timeout=timeout,
+        )
 
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
