@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import static com.datahub.authorization.AuthUtil.VIEW_RESTRICTED_ENTITY_TYPES;
 import static com.datahub.authorization.AuthUtil.canViewEntity;
+import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
@@ -246,26 +246,24 @@ public class AuthorizationUtils {
    *
    * <p>- The caller is system authentication
    *
-   * <p>- The URN's entity type is not in {@link
-   * com.datahub.authorization.AuthUtil#VIEW_RESTRICTED_ENTITY_TYPES}
+   * <p>- The URN's entity type is in the effective view-unrestricted set (see {@link
+   * com.datahub.authorization.AuthUtil#getViewUnrestrictedEntityTypes})
    *
-   * <p><b>Silent no-op warning for unlisted entity types.</b> If {@code urn.getEntityType()} is not
-   * in {@code VIEW_RESTRICTED_ENTITY_TYPES}, this method returns {@code true} with no logging and
-   * no error. Any caller relying on it to gate access for such a type is silently permissive. If
-   * you are writing a resolver for an entity type that is not on the allowlist, use the
-   * type-specific helper instead. Known cases:
+   * <p>When view authorization is enabled, entity types are restricted by default. Only types
+   * explicitly listed as unrestricted bypass this gate. Prefer type-specific helpers when a type
+   * needs privileges beyond standard VIEW (e.g. {@link #canGetDocument} also accepts {@code
+   * MANAGE_DOCUMENTS_PRIVILEGE}).
    *
-   * <p>- {@code document} — use {@link #canGetDocument(Urn, QueryContext)} (routes through {@code
-   * isAuthorized} with {@code VIEW_ENTITY_PAGE_PRIVILEGE} or {@code MANAGE_DOCUMENTS_PRIVILEGE})
-   *
-   * @see com.datahub.authorization.AuthUtil#VIEW_RESTRICTED_ENTITY_TYPES
+   * @see com.datahub.authorization.AuthUtil#isViewRestrictedEntityType
    * @see <a href="https://docs.datahub.com/docs/features/feature-guides/search-access-controls">
    *     Search Access Controls</a>
    */
   public static boolean canView(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
         && !opContext.isSystemAuth()
-        && VIEW_RESTRICTED_ENTITY_TYPES.contains(urn.getEntityType())) {
+        && isViewRestrictedEntityType(
+            opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
+            urn.getEntityType())) {
 
       return canViewEntity(opContext, urn);
     }

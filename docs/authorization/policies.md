@@ -189,6 +189,14 @@ This section covers how to design access policies when **view-based access contr
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
+When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATION_ENABLED`), entity types are
+**restricted by default**. Types listed in `VIEW_UNRESTRICTED_ENTITY_TYPES` (see
+[Environment Variables](../deploy/environment-vars.md)) bypass view checks. The stock default is backwards-compatible;
+trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example `schemaField,document`) when you want those types under
+view policy. **Search Access Controls** (query-time search filtering) remain **DataHub Cloud–only**; on OSS the
+unrestricted list only affects entity-page / masking behavior. Cloud operators: see also
+[Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
+
 ### Performance considerations
 
 Policy evaluation is **grant-only** and **first-match-wins**: DataHub checks policies in order until one grants access. Under VBAC, view and discovery privileges trigger authorization on search results, entity pages, and browse — often **once per entity**.

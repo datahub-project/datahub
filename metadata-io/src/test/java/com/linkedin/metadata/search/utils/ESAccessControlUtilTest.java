@@ -19,6 +19,7 @@ import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.DefaultEntitySpecResolver;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.authorization.config.ViewUnrestrictedEntityTypes;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -92,7 +93,14 @@ public class ESAccessControlUtilTest {
               OperationContextConfig.builder()
                   .allowSystemAuthentication(true)
                   .viewAuthorizationConfiguration(
-                      ViewAuthorizationConfiguration.builder().enabled(true).build())
+                      ViewAuthorizationConfiguration.builder()
+                          .enabled(true)
+                          .effectiveUnrestrictedEntityTypes(
+                              Set.copyOf(
+                                  ViewUnrestrictedEntityTypes.parseCsv(
+                                      ViewUnrestrictedEntityTypes
+                                          .DEFAULT_VIEW_UNRESTRICTED_ENTITY_TYPES)))
+                          .build())
                   .build(),
           () -> SYSTEM_AUTH,
           () ->

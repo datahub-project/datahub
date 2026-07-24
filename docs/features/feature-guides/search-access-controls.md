@@ -39,6 +39,25 @@ When Search Access Controls are enabled:
 - Only entities matching at least one policy with the "View Entity" privilege are returned
 - This creates a "default deny" model where explicit permission grants are required
 
+### Entity types that bypass view checks
+
+When Search Access Controls are enabled, some entity types still **bypass** view authorization entirely and can appear
+in search without a View Entity grant. Those types are configured with `VIEW_UNRESTRICTED_ENTITY_TYPES` (plus optional
+`_ADD` / `_REMOVE`). All other types are restricted by default.
+
+The stock default list is **backwards-compatible** with the former restricted allowlist model: types that previously
+fail-opened (including `schemaField` and `document`) remain unrestricted until you trim them. To stop columns and
+documents from appearing for users without View Entity grants:
+
+```
+VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document
+```
+
+These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
+applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on self-hosted deployments — that only
+gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
+note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
+
 ### Policy-Based Filtering
 
 Search results are automatically filtered based on:
@@ -302,6 +321,12 @@ Yes. Instead of domain filters, select "Tag" as the resource filter type. This i
 **Do Search Access Controls affect the GraphQL API?**
 
 Yes. The same filtering applies to programmatic access via the GraphQL API. Users will only receive entities they have permission to view.
+
+**Why do users still see columns (`schemaField`) or documents without View Entity grants?**
+
+Those entity types may be on the view-unrestricted list (`VIEW_UNRESTRICTED_ENTITY_TYPES`). Remove them with
+`VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document` (or replace the full list). See
+[Entity types that bypass view checks](#entity-types-that-bypass-view-checks).
 
 **Can I create a policy that denies access instead of granting it?**
 

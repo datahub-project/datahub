@@ -20,8 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   /**
-   * Set of entities that we want to consider for defining the top platform sources. This must match
-   * SearchUtils.SEARCHABLE_ENTITY_TYPES
+   * Entity types considered when aggregating top platforms. Intentionally a platform-bearing
+   * subset, not the full search default entity-type list.
    */
   private static final List<String> SEARCHABLE_ENTITY_TYPES =
       ImmutableList.of(

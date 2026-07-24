@@ -97,6 +97,26 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    # Entity types that bypass view authorization when enabled. All other types are restricted by
+    # default. Live default is backwards-compatible: entity-registry entities minus the former
+    # VIEW_RESTRICTED_ENTITY_TYPES allowlist (trim with remove / VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE).
+    # Example: VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document
+    #
+    # Future lean default (commented) — production scaffolding only; catalog assets stay restricted.
+    # Intentionally omits schemaField/document and other searchable content, plus secrets/tokens,
+    # OAuth, policies/roles, connections, ingestion, remote executors, and workflow entities.
+    # Grouped as:
+    #   identity: corpuser, corpGroup
+    #   browse: container
+    #   platforms: dataPlatform, dataPlatformInstance
+    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, relationshipType, form, role
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, recommendationModule, post
+    #   settings: globalSettings
+    # value: corpuser,corpGroup,container,dataPlatform,dataPlatformInstance,ownershipType,lifecycleStageType,entityType,dataType,structuredProperty,relationshipType,form,role,dataHubPageTemplate,dataHubPageModule,dataHubFile,dataHubPersona,recommendationModule,post,globalSettings
+    unrestrictedEntityTypes:
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataPlatform,role,dataHubPolicy,dataProcess,corpuser,corpGroup,container,document,dataHubIngestionSource,dataHubSecret,service,oauthAuthorizationServer,dataHubExecutionRequest,assertion,dataHubRetention,dataPlatformInstance,mlModelDeployment,telemetry,dataHubAccessToken,dataHubOAuthClient,dataHubOAuthSession,test,dataHubUpgrade,inviteToken,schemaField,globalSettings,versionSet,incident,dataHubRole,post,dataHubStepState,erModelRelationship,application,semanticModel,metric,ownershipType,lifecycleStageType,businessAttribute,dataContract,dataHubPersona,dataHubAction,entityType,dataType,structuredProperty,relationshipType,form,dataHubPageTemplate,dataHubPageModule,dataHubFile,dataHubConnection,platformResource,dataHubOpenAPISchema,dataHubRemoteExecutor,dataHubRemoteExecutorPool,dataHubRemoteExecutorGlobalConfig,constraint,recommendationModule,actionRequest,actionWorkflow,monitor,monitorSuite,assertionAssignmentRule,assertionInferenceAdjustmentRule,linkPreview,subscription,dataHubMetricCube,dataHubAiConversation,aiAgent,api,repository,agentSkill,dataHubTask,eval}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
+      remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
   # The value of cliVersion is substituted in by the processResources Gradle task.
@@ -922,6 +942,37 @@ elasticsearch:
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
       maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
+    # Default entity types when callers omit types. No code baseline — configure via YAML/env.
+    # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    defaultEntityTypes:
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for autocomplete-across-entities when callers omit types.
+    autocompleteEntityTypes:
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for browse V2 when callers omit types.
+    browseEntityTypes:
+      value: ${SEARCH_BROWSE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,notebook,document}
+      add: ${SEARCH_BROWSE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_BROWSE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for source-entity quick filters (first N with hits win).
+    prioritizedSourceEntityTypes:
+      value: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES:dataset,dashboard,dataFlow,dataJob,chart,container,mlModel,mlModelGroup,mlFeature,mlFeatureTable,mlPrimaryKey}
+      add: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for DataHub-entity quick filters (first N with hits win).
+    prioritizedDatahubEntityTypes:
+      value: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES:domain,glossaryTerm,corpGroup,corpuser}
+      add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
+
 
 # TODO: Kafka topic convention
 kafka:

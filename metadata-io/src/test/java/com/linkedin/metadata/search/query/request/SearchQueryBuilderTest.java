@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search.query.request;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
@@ -356,11 +357,14 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testGetStandardFieldsEntitySpec() {
     List<EntitySpec> entitySpecs =
-        Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
+        Stream.concat(
+                parseCsv(DEFAULT_SEARCH_ENTITY_TYPES).stream(),
+                parseCsv(DEFAULT_AUTOCOMPLETE_ENTITY_TYPES).stream())
+            .distinct()
             .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
-    assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
+    assertTrue(
+        entitySpecs.size() >= 30, "Expected at least 30 searchable entities in the registry");
 
     // Count of the distinct field names
     Set<String> expectedFieldNames =
