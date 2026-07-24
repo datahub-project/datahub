@@ -1,6 +1,7 @@
 package com.linkedin.metadata.forms.validators;
 
 import static com.linkedin.metadata.Constants.FORM_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -210,5 +212,79 @@ public class FormPromptValidatorTest {
 
     // Assert validation exception exists
     Assert.assertFalse(validationResult.findAny().isEmpty());
+  }
+
+  /** A prompt added via patch is checked for cross-form uniqueness at the request stage. */
+  @Test
+  public void testPatchAddedPromptCrossFormConflict() {
+    SearchEntity existingForm = new SearchEntity();
+    existingForm.setEntity(TEST_FORM_URN_2);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(Collections.singletonList(existingForm)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10),
+                Mockito.eq(new ArrayList<>()),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(mockResult);
+
+    String ops = "[{\"op\":\"add\",\"path\":\"/prompts/dup1\",\"value\":{\"id\":\"dup1\"}}]";
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            Collections.singletonList(TestPatchMCP.of(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, ops)),
+            retrieverContext);
+
+    Assert.assertFalse(validationResult.findAny().isEmpty());
+  }
+
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the serialized patch must be read from the MCP payload
+   * itself.
+   */
+  @Test
+  public void testPatchAddedPromptCrossFormConflictViaProposedItemShape() {
+    SearchEntity existingForm = new SearchEntity();
+    existingForm.setEntity(TEST_FORM_URN_2);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(Collections.singletonList(existingForm)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10),
+                Mockito.eq(new ArrayList<>()),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(mockResult);
+
+    String serialized =
+        "{\"arrayPrimaryKeys\":{\"prompts\":[\"id\"]},\"patch\":"
+            + "[{\"op\":\"add\",\"path\":\"/prompts/dup1\",\"value\":{\"id\":\"dup1\"}}]}";
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            Collections.singletonList(
+                TestPatchMCP.ofProposed(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, serialized)),
+            retrieverContext);
+
+    Assert.assertFalse(validationResult.findAny().isEmpty());
+  }
+
+  /** Removes and sub-field ops carry no prompt id — no value check and no search. */
+  @Test
+  public void testPatchRemoveAndSubFieldOpsSkipped() {
+    String ops =
+        "[{\"op\":\"remove\",\"path\":\"/prompts/p1\"},"
+            + "{\"op\":\"replace\",\"path\":\"/prompts/p1/title\",\"value\":\"new title\"}]";
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            Collections.singletonList(TestPatchMCP.of(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, ops)),
+            retrieverContext);
+
+    Assert.assertTrue(validationResult.findAny().isEmpty());
+    Mockito.verifyNoInteractions(mockSearchRetriever);
   }
 }

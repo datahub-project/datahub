@@ -25,13 +25,14 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -115,12 +116,15 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
             .collect(Collectors.toList());
 
     // PATCH has no record template until applyPatch (inside the DB tx). Validate ADD ops here at
-    // request time by inspecting the patch payload — ignore REMOVE (no values to check).
+    // request time by inspecting the patch payload — ignore REMOVE (no values to check). Route on
+    // the change type, not the item class: with alternate MCP validation (the quickstart/docker
+    // default, ALTERNATE_MCP_VALIDATION=true) a patch arrives as a ProposedItem carrying the raw
+    // proposal rather than a PatchItemImpl.
     List<BatchItem> patchAddItems =
         mcpItems.stream()
             .filter(i -> ChangeType.PATCH.equals(i.getChangeType()))
-            .filter(i -> i instanceof PatchItemImpl)
-            .map(i -> (PatchItemImpl) i)
+            .filter(i -> i instanceof MCPItem)
+            .map(i -> (MCPItem) i)
             .map(patchItem -> materializePatchAddUpsert(patchItem, aspectRetriever, objectMapper))
             .flatMap(Optional::stream)
             .collect(Collectors.toList());
@@ -160,7 +164,7 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    * from PATCH {@code add} ops, for request-time value validation.
    */
   private static Optional<BatchItem> materializePatchAddUpsert(
-      @Nonnull PatchItemImpl patchItem,
+      @Nonnull MCPItem patchItem,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull ObjectMapper objectMapper) {
     List<StructuredPropertyValueAssignment> adds =
@@ -187,8 +191,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
 
   @Nonnull
   public static List<StructuredPropertyValueAssignment> extractPatchAddAssignments(
-      @Nonnull PatchItemImpl patchItem, @Nonnull ObjectMapper objectMapper) {
-    GenericJsonPatch genericJsonPatch = patchItem.getGenericJsonPatch();
+      @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
+    GenericJsonPatch genericJsonPatch = PatchOperationUtils.resolveGenericJsonPatch(patchItem);
     if (genericJsonPatch == null || genericJsonPatch.getPatch() == null) {
       return List.of();
     }
@@ -229,6 +233,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       String json = objectMapper.writeValueAsString(value);
       return RecordUtils.toRecordTemplate(StructuredPropertyValueAssignment.class, json);
     } catch (Exception e) {
+      // Skip here: value checks are best-effort on the canonical full-assignment add shape.
+      // Non-canonical values are still rejected by applyPatch / schema when the patch is merged.
       log.debug("Failed to parse structured property patch ADD value: {}", e.toString());
       return null;
     }
@@ -292,9 +298,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         final int assignmentCountBefore =
             structuredProperties.hasProperties() ? structuredProperties.getProperties().size() : 0;
         if (assignmentCountBefore > 0) {
+          // Reuse aspects from fetchPropertyAspects — do not call the retriever overload
+          // (re-reads).
           final Pair<StructuredProperties, Set<Urn>> filtered =
               StructuredPropertyUtils.filterMissingPropertyDefinitions(
-                  operationContext, structuredProperties, aspectRetriever);
+                  structuredProperties, allStructuredPropertiesAspects);
           missingPropertyUrns = filtered.getSecond();
           final boolean noValidAssignmentsRemain =
               filtered.getFirst().getProperties() == null
