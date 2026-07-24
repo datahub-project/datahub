@@ -539,8 +539,6 @@
     "severity.low": "Niedriger Schweregrad",
     "severity.medium": "Mittlerer Schweregrad",
     "sourceType.external": "Extern",
-    "sourceType.native": "Nativ",
-    "sourceType.smartAssertions": "Smart Assertions",
     "status.error": "Fehler",
     "status.errors": "Fehler",
     "status.failing": "Fehlschlagend",
