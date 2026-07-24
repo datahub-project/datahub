@@ -32,8 +32,15 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+    # Bring the container up detached rather than with pytest-docker's default
+    # `up --build --wait`: `--wait` blocks on the container's healthcheck and
+    # aborts ("container testinformix is unhealthy") before our readiness probe
+    # runs. We disable the healthcheck (see docker-compose.yml) and gate on
+    # `_informix_ready` (onstat) below, which tolerates the slow first boot.
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "informix"
+        test_resources_dir / "docker-compose.yml",
+        "informix",
+        setup_command=["up -d"],
     ) as docker_services:
         wait_for_port(
             docker_services,

@@ -9,13 +9,10 @@ services:
       LICENSE: accept
     ports:
       - "9088:9088"
-    # The image's built-in healthcheck uses start_period=60s + retries=1, which
-    # flips to "unhealthy" before this 2.23GB privileged image finishes starting
-    # on slower CI runners (causing `docker compose up --wait` to abort). Override
-    # with a generous start_period + retries so startup is tolerated.
+    # Disable the image's built-in healthcheck: on slower CI runners it flips to
+    # "unhealthy" before this 2.23GB privileged image finishes its multi-minute
+    # first-boot init. The test brings the container up detached (no
+    # `--wait`, see test_informix.py) and gates readiness on an `onstat` probe
+    # instead, which tolerates the slow boot.
     healthcheck:
-      test: ["CMD-SHELL", "/opt/ibm/scripts/informix_status.sh || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 20
-      start_period: 300s
+      disable: true
