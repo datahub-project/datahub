@@ -69,8 +69,11 @@ SQL_COLUMNS = (
 )
 SQL_PK = (
     "SELECT TRIM(c.colname) AS colname "
-    "FROM sysconstraints cn JOIN systables t ON cn.tabid = t.tabid "
+    "FROM sysconstraints cn "
+    "JOIN systables t ON cn.tabid = t.tabid "
     "JOIN sysindexes ix ON cn.idxname = ix.idxname "
-    "JOIN syscolumns c ON c.tabid = t.tabid "
+    "JOIN syscolumns c ON c.tabid = t.tabid AND c.colno IN "
+    "(ix.part1, ix.part2, ix.part3, ix.part4, ix.part5, ix.part6, ix.part7, ix.part8, "
+    "ix.part9, ix.part10, ix.part11, ix.part12, ix.part13, ix.part14, ix.part15, ix.part16) "
     "WHERE cn.constrtype = 'P' AND TRIM(t.tabname) = ? AND TRIM(t.owner) = ?"
 )

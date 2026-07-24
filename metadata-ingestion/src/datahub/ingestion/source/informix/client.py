@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 _DRIVER_CLASS = "com.informix.jdbc.IfxDriver"
 
 
+def _safe_close(closeable: object) -> None:
+    try:
+        closeable.close()  # type: ignore[attr-defined]
+    except Exception as e:
+        logger.debug("Error closing JDBC resource: %s", e)
+
+
 class InformixClient:
     def __init__(self, config: InformixSourceConfig) -> None:
         jars = resolve_driver_jars(config)
@@ -30,36 +37,52 @@ class InformixClient:
 
         driver_manager = jpype.JClass("java.sql.DriverManager")
         jpype.JClass(_DRIVER_CLASS)  # force-load the Informix driver
-        self._conn = driver_manager.getConnection(build_jdbc_url(config))
+        try:
+            self._conn = driver_manager.getConnection(build_jdbc_url(config))
+        except Exception:
+            # build_jdbc_url embeds the password in cleartext; the JVM's SQLException
+            # can echo the full URL back, so re-raise sanitized and drop __cause__.
+            raise RuntimeError(
+                f"Failed to connect to Informix server '{config.server}' at "
+                f"{config.host_port}, database '{config.database}'"
+            ) from None
 
     def _query(self, sql: str, params: List[str]) -> List[List[object]]:
         stmt = self._conn.prepareStatement(sql)
-        for i, p in enumerate(params, start=1):
-            stmt.setString(i, p)
-        rs = stmt.executeQuery()
-        meta = rs.getMetaData()
-        n = meta.getColumnCount()
-        rows: List[List[object]] = []
-        while rs.next():
-            rows.append([rs.getObject(i) for i in range(1, n + 1)])
-        rs.close()
-        stmt.close()
-        return rows
+        try:
+            for i, p in enumerate(params, start=1):
+                stmt.setString(i, p)
+            rs = stmt.executeQuery()
+            try:
+                meta = rs.getMetaData()
+                n = meta.getColumnCount()
+                rows: List[List[object]] = []
+                while rs.next():
+                    rows.append([rs.getObject(i) for i in range(1, n + 1)])
+                return rows
+            finally:
+                _safe_close(rs)
+        finally:
+            _safe_close(stmt)
 
     def get_tables(self) -> List[InformixTable]:
         tables: List[InformixTable] = []
         stmt = self._conn.createStatement()
-        rs = stmt.executeQuery(SQL_TABLES)
-        while rs.next():
-            tables.append(
-                InformixTable(
-                    name=str(rs.getString(1)).strip(),
-                    owner=str(rs.getString(2)).strip(),
-                    is_view=str(rs.getString(3)).strip() == "V",
-                )
-            )
-        rs.close()
-        stmt.close()
+        try:
+            rs = stmt.executeQuery(SQL_TABLES)
+            try:
+                while rs.next():
+                    tables.append(
+                        InformixTable(
+                            name=str(rs.getString(1)).strip(),
+                            owner=str(rs.getString(2)).strip(),
+                            is_view=str(rs.getString(3)).strip() == "V",
+                        )
+                    )
+            finally:
+                _safe_close(rs)
+        finally:
+            _safe_close(stmt)
         return tables
 
     def get_columns(self, table: InformixTable) -> List[InformixColumn]:
