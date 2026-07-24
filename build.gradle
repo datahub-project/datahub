@@ -52,7 +52,8 @@ buildscript {
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
-  ext.jettyVersion = '12.1.7'
+  // CVE-2026-10050 (Digest Auth bypass via ISO-8859-1 encoding): fixed in 12.1.10+
+  ext.jettyVersion = '12.1.10'
   // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
   ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
@@ -105,7 +106,11 @@ buildscript {
   ext.vertxVersion = '4.5.27'
   // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
   // CVE-2026-47691 (netty-resolver-dns): 4.1.135+ or 4.2.15+; CVE-2026-48059/50560 fixed in 4.2.15+
-  ext.nettyVersion = '4.2.15.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-55831/55833/56745 (netty-codec-http); CVE-2026-55851 (netty-codec-haproxy);
+  // CVE-2026-56816 (netty-codec-http3); CVE-2026-56817 (netty-codec-xml);
+  // CVE-2026-56820/56821/56822 (netty-handler-ssl-ocsp); CVE-2026-59901 (netty-codec-compression):
+  // all fixed in 4.2.16+
+  ext.nettyVersion = '4.2.16.Final' // align all io.netty modules (excl. netty-tcnative line)
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
