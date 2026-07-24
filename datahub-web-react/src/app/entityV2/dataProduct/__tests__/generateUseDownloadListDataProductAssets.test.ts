@@ -25,6 +25,7 @@ describe('generateUseDownloadListDataProductAssets', () => {
                     count: 100,
                     total: 150,
                     searchResults: [],
+                    facets: null,
                 },
             },
             loading: false,
@@ -64,6 +65,7 @@ describe('generateUseDownloadListDataProductAssets', () => {
             }),
         );
         expect(result.current.searchResults?.nextScrollId).toBe('100');
+        expect(result.current.searchResults?.facets).toBeUndefined();
 
         await act(async () => {
             const nextPage = await result.current.refetch({ ...downloadInput, scrollId: '100' });
@@ -74,5 +76,34 @@ describe('generateUseDownloadListDataProductAssets', () => {
             urn: 'urn:li:dataProduct:analytics',
             input: expect.objectContaining({ start: 100 }),
         });
+    });
+
+    it('handles malformed cursors and absent product results safely', () => {
+        (useListDataProductAssetsQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+            data: { listDataProductAssets: null },
+            loading: false,
+            error: undefined,
+            refetch,
+        });
+
+        const useDownloadSearchResults = generateUseDownloadListDataProductAssets({
+            urn: 'urn:li:dataProduct:analytics',
+        });
+        const { result } = renderHook(() =>
+            useDownloadSearchResults({
+                variables: { input: { ...downloadInput, scrollId: 'invalid-cursor' } },
+                skip: true,
+            }),
+        );
+
+        expect(useListDataProductAssetsQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: {
+                    urn: 'urn:li:dataProduct:analytics',
+                    input: expect.objectContaining({ start: 0 }),
+                },
+            }),
+        );
+        expect(result.current.searchResults).toBeUndefined();
     });
 });

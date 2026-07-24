@@ -4,10 +4,10 @@ import {
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 
-import { useListDataProductAssetsQuery } from '@graphql/search.generated';
+import { ListDataProductAssetsQuery, useListDataProductAssetsQuery } from '@graphql/search.generated';
 
 const DEFAULT_DOWNLOAD_PAGE_SIZE = 100;
-type DataProductSearchResults = Omit<DownloadSearchResults, 'nextScrollId'>;
+type DataProductSearchResults = NonNullable<ListDataProductAssetsQuery['listDataProductAssets']>;
 
 function getDownloadStart(scrollId: string | null | undefined): number {
     const parsedScrollId = Number.parseInt(scrollId || '0', 10);
@@ -27,7 +27,10 @@ function toDownloadSearchResults(
     const nextStart = start + count;
 
     return {
-        ...searchResults,
+        count: searchResults.count,
+        total: searchResults.total,
+        searchResults: searchResults.searchResults,
+        facets: searchResults.facets || undefined,
         nextScrollId: nextStart < searchResults.total ? `${nextStart}` : undefined,
     };
 }
