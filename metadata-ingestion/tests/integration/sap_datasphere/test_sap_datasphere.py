@@ -335,11 +335,11 @@ def _lineage_csn_by_name() -> dict:
                 }
             }
         },
-        "FED_BIGQUERY_BAD": {
+        "FED_UNSUPPORTED": {
             "definitions": {
-                "FED_BIGQUERY_BAD": {
+                "FED_UNSUPPORTED": {
                     "kind": "entity",
-                    "@remote.source": "GBQ_BAD",
+                    "@remote.source": "UNSUPPORTED_CONN",
                 }
             }
         },
@@ -475,8 +475,9 @@ def _lineage_pipeline_config(output_file: Path, max_workers_assets: int = 4) -> 
                         "platform_instance": "prod_snowflake",
                         "lowercase_urn": True,
                     },
-                    # BIGQUERY intentionally NOT here — FED_BIGQUERY_BAD lands in
-                    # assets_skipped_unknown_platform.
+                    # SALESFORCE intentionally unmapped (not a builtin default and
+                    # not added here) — FED_UNSUPPORTED lands in
+                    # assets_skipped_unknown_typeid.
                 },
             },
         },
@@ -626,10 +627,10 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
         f"got platforms: {dataset_platforms}"
     )
 
-    # FED_BIGQUERY_BAD must NOT appear as a dataset (unmapped typeId → skipped)
-    assert not any("FED_BIGQUERY_BAD" in u for u in dataset_urns_all), (
-        f"FED_BIGQUERY_BAD should be skipped, but found dataset URN: "
-        f"{[u for u in dataset_urns_all if 'FED_BIGQUERY_BAD' in u]}"
+    # FED_UNSUPPORTED must NOT appear as a dataset (unmapped typeId → skipped)
+    assert not any("FED_UNSUPPORTED" in u for u in dataset_urns_all), (
+        f"FED_UNSUPPORTED should be skipped, but found dataset URN: "
+        f"{[u for u in dataset_urns_all if 'FED_UNSUPPORTED' in u]}"
     )
 
     # MID_VIEW should have an upstreamLineage aspect pointing at BASE_TABLE
@@ -873,6 +874,154 @@ def test_sap_datasphere_stale_entity_removal(
     assert "fact_sales" in dropped_dataset_urns[0], (
         f"Expected dropped URN to contain 'fact_sales'; got: {dropped_dataset_urns[0]}"
     )
+
+
+def _install_federation_mocks(m: rm_module.Mocker) -> None:
+    """Install fixtures for the federation scenario: one process-graph data flow
+    (local SRC -> local TGT with a column map), one replication flow (ABAP ->
+    BigQuery, two independent 1:1 tasks) and one HANA remote table whose
+    ``@DataWarehouse.remote.entity`` is the SQL-quoted dotted form.
+
+    Exercises the dwaas-core flow/remote-table discovery path, the DataFlow /
+    DataJob emission (Space Flows), external URN assembly (BigQuery ``database``
+    qualification + preserved casing), per-task source->target pairing, and the
+    quoted-identifier stripping that lets HANA upstreams stitch to the native
+    HANA connector.
+    """
+    m.get(
+        f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "FED_TEST", "label": "Federation Test Space"}]},
+    )
+    m.get(
+        f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces('FED_TEST')/assets",
+        json={"value": []},
+    )
+    m.get(
+        f"{TENANT_URL}/api/v1/datasphere/spaces/FED_TEST/connections",
+        json=[],
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/dataflows",
+        json=[{"technicalName": "DF_ENRICH_CUSTOMER"}],
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/dataflows/DF_ENRICH_CUSTOMER",
+        text=_fixture("data_flow_federated.json").read_text(),
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/replicationflows",
+        json=[{"technicalName": "RF_CUSTOMER_TO_BQ"}],
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/replicationflows/RF_CUSTOMER_TO_BQ",
+        text=_fixture("replication_flow_federated.json").read_text(),
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/remotetables",
+        json=[{"technicalName": "RT_BIC_MATERIAL"}],
+    )
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/remotetables/RT_BIC_MATERIAL",
+        text=_fixture("remote_table_hana_quoted.json").read_text(),
+    )
+
+
+def _federation_pipeline_config(output_file: Path) -> dict:
+    return {
+        "run_id": "sap-datasphere-federation-test",
+        "source": {
+            "type": "sap-datasphere",
+            "config": {
+                "base_url": TENANT_URL,
+                "token": "test-token",
+                "env": "PROD",
+                "platform_instance": "test_tenant",
+                "include_lineage": True,
+                "include_data_flows": True,
+                "include_replication_flows": True,
+                "include_remote_tables": True,
+                # Single-threaded: replication/remote-table emission is ordered,
+                # keeping the golden byte-stable without the LossyList follow-up.
+                "max_workers_assets": 1,
+                "connection_to_platform_map": {
+                    "ABAP_SRC": {"platform": "abap"},
+                    # BigQuery: the API never returns the GCP project, so the
+                    # `database` qualifier is required for the target URN to
+                    # stitch, and casing must be preserved.
+                    "BQ_TGT": {
+                        "platform": "bigquery",
+                        "database": "my-gcp-project",
+                        "convert_urns_to_lowercase": False,
+                    },
+                    # HANA stores unquoted identifiers uppercase; the native HANA
+                    # connector preserves that, so we must too (else the upstream
+                    # URN won't match).
+                    "HANA_DP_AGENT": {
+                        "platform": "hana",
+                        "convert_urns_to_lowercase": False,
+                    },
+                },
+            },
+        },
+        "sink": {"type": "file", "config": {"filename": str(output_file)}},
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_sap_datasphere_replication_flow_and_remote_table_golden_file(
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+) -> None:
+    """Golden coverage for the flow (DataFlow/DataJob) + federated remote-table
+    paths, including the quoted-HANA-identifier stitching fix."""
+    output_file = tmp_path / "sap_datasphere_flow_remote_table_mces.json"
+    golden_file = (
+        Path(__file__).parent / "sap_datasphere_flow_remote_table_mces_golden.json"
+    )
+
+    with rm_module.Mocker() as m:
+        _install_federation_mocks(m)
+        pipeline = Pipeline.create(_federation_pipeline_config(output_file))
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_file,
+        golden_path=golden_file,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_sap_datasphere_federation_golden_has_expected_stitching() -> None:
+    """Structural assertions on the flow + remote-table golden: BigQuery target
+    URN is project-qualified with preserved casing, and the HANA upstream is the
+    unquoted schema.table the native HANA connector emits."""
+    golden = Path(__file__).parent / "sap_datasphere_flow_remote_table_mces_golden.json"
+    events = json.loads(golden.read_text())
+    text = json.dumps(events)
+
+    # Quoted-HANA fix: the remote-table upstream must be unquoted SCHEMA.TABLE,
+    # never the raw '"MY_SCHEMA"."/BIC/MY_MATERIAL"' form.
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:hana,MY_SCHEMA./BIC/MY_MATERIAL,PROD)"
+        in text
+    ), "Expected unquoted HANA upstream URN (quote-stripping fix)"
+    assert '"MY_SCHEMA"."/BIC/MY_MATERIAL"' not in text, (
+        "HANA upstream URN still carries SQL identifier quotes"
+    )
+
+    # BigQuery replication targets: project-qualified + casing preserved.
+    assert (
+        "urn:li:dataPlatform:bigquery,my-gcp-project.staging.CUSTOMER,PROD" in text
+    ), "Expected project-qualified, case-preserved BigQuery target URN"
+
+    # A DataJob (replication task) and DataFlow were emitted for the flow.
+    entity_types = {e.get("entityType") for e in events if e.get("entityType")}
+    assert "dataJob" in entity_types, "Expected a DataJob for the replication flow"
+    assert "dataFlow" in entity_types, "Expected a DataFlow for the replication flow"
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

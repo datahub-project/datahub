@@ -1,42 +1,7 @@
-"""DataHub source for SAP Datasphere.
-
-Architectural overview and configuration guide live in the customer-facing docs
-at ``docs/sources/sap-datasphere/sap-datasphere_pre.md``. This module docstring
-is the developer-facing summary.
-
-URN platform model: All Datasphere-managed assets (Views, Analytical Models,
-Local Tables) emit on the ``sap-datasphere`` platform. Federated Remote Tables
-emit on the storage platform they federate from (``snowflake`` / ``s3`` /
-``bigquery`` / ``hana`` / ...) via ``connection_to_platform_map``, so they
-merge automatically with native warehouse connectors' URNs. Space containers
-also use ``sap-datasphere`` (2-tier Space -> object model, no folder layer).
-Resolution is centralized in ``PlatformMappingResolver``; see
-``sap-datasphere_pre.md`` for the full explanation and a worked example.
-
-Endpoints used (all SAP-supported public APIs):
-  * Catalog API: /api/v1/datasphere/consumption/catalog/spaces,
-                 .../spaces('<S>')/assets
-  * Connections API: /api/v1/datasphere/spaces/<S>/connections
-  * EDMX consumption metadata:
-                 /api/v1/datasphere/consumption/relational/<S>/<A>/$metadata
-  * Per-object-type CSN read (lineage extraction; same surface the official
-    ``datasphere`` CLI uses):
-                 /dwaas-core/api/v1/spaces/<S>/{views,analyticmodels,localtables}/<name>
-                 with Accept: application/vnd.sap.datasphere.object.content+json
-                 Called ONLY when ``include_lineage=true``.
-
-Supported authentication (priority order):
-  * Raw bearer token (config.token)
-  * XSUAA refresh-token grant (config.refresh_token + client_id + xsuaa_url)
-  * XSUAA client-credentials grant (config.client_id + client_secret + xsuaa_url)
-
-Example recipe: ``docs/sources/sap-datasphere/sap-datasphere_recipe.yml``.
-"""
-
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Type, Union
 
 import requests
 
@@ -54,6 +19,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    get_fine_grained_lineage_key,
+)
 from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceCapability,
@@ -61,39 +29,89 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.common.subtypes import (
+    DataFlowSubTypes,
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sap_datasphere.analytic_model import (
     parse_business_layer,
 )
-from datahub.ingestion.source.sap_datasphere.client import (
-    EdmxFetchReason,
-    SapDatasphereClient,
-)
+from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import (
-    MANAGED_CONNECTION_KEY,
     SapDatasphereConfig,
     SpaceContainerKey,
+)
+from datahub.ingestion.source.sap_datasphere.constants import (
+    CATALOG_FIELD_HAS_PARAMETERS,
+    CATALOG_FIELD_LABEL,
+    CATALOG_FIELD_METADATA_URL,
+    CATALOG_FIELD_NAME,
+    CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES,
+    CSN_KEY_BUSINESS_LAYER,
+    CSN_KEY_DEFINITIONS,
+    CSN_KEY_ELEMENTS,
+    CSN_KEY_QUERY,
+    CSN_KEY_SQL_EDITOR_QUERY,
+    FIELD_TECHNICAL_NAME,
+    GENERIC_SCHEME_PLATFORMS,
+    MANAGED_CONNECTION_KEY,
+    OBJECT_TYPE_ANALYTIC_MODELS,
+    OBJECT_TYPE_DATA_FLOWS,
+    OBJECT_TYPE_LOCAL_TABLES,
+    OBJECT_TYPE_REMOTE_TABLES,
+    OBJECT_TYPE_REPLICATION_FLOWS,
+    OBJECT_TYPE_TASK_CHAINS,
+    OBJECT_TYPE_TRANSFORMATION_FLOWS,
+    OBJECT_TYPE_VIEWS,
+    PLATFORM,
+    PROP_EXPOSED_FOR_CONSUMPTION,
+    PROP_LOCAL_TABLE,
+    PROP_SAP_CALENDAR_TYPE,
+    PROP_SAP_DATASPHERE_ASSET,
+    PROP_SAP_DATASPHERE_SPACE,
+    PROP_SAP_DIMENSION_TYPE,
+    PROP_SAP_IS_DIMENSION,
+    PROP_SAP_IS_MEASURE,
+    PROP_SAP_SEMANTIC,
+    PROP_SAP_VARIABLES,
+    PROP_SPACE_NAME,
+    PROP_VALUE_FALSE,
+    PROP_VALUE_TRUE,
+    SCALE_WARNING_URN_THRESHOLD,
+    SCHEMA_FIELD_URN_PREFIX,
+    SEMANTIC_CURRENCY,
+    SEMANTIC_UNIT,
+    VIEW_LANGUAGE_CSN,
+    VIEW_LANGUAGE_SQL,
 )
 from datahub.ingestion.source.sap_datasphere.csn_parser import (
     parse_csn_elements_to_schema_fields,
 )
-from datahub.ingestion.source.sap_datasphere.edmx_parser import (
-    EdmxParser,
-    EdmxParseResult,
-)
+from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
+from datahub.ingestion.source.sap_datasphere.flows import parse_flow
 from datahub.ingestion.source.sap_datasphere.lineage import (
+    CsnLineageExtractor,
+    parse_remote_table_source,
+)
+from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
-    CsnLineageExtractor,
-)
-from datahub.ingestion.source.sap_datasphere.platform_mapping import (
-    SAP_DATASPHERE_PLATFORM as PLATFORM,
-    PlatformMappingResolver,
+    EdmxFetchReason,
+    EdmxParseResult,
+    FlowColumnMapping,
+    FlowEndpoint,
+    JsonDict,
+    ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
+    TransformOp,
+    UnknownColumnType,
+    UpstreamRef,
+)
+from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+    PlatformMappingResolver,
 )
 from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 from datahub.ingestion.source.sap_datasphere.tags import (
@@ -108,6 +126,9 @@ from datahub.ingestion.source.sap_datasphere.tags import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
+    AutoLowercaseUrnsProcessor,
+)
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
@@ -120,20 +141,33 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
+# Per-flow-object-type report counter attribute names, keyed by dwaas-core type.
+_FLOW_SCANNED_ATTR: Dict[str, str] = {
+    OBJECT_TYPE_DATA_FLOWS: "data_flows_scanned",
+    OBJECT_TYPE_REPLICATION_FLOWS: "replication_flows_scanned",
+    OBJECT_TYPE_TRANSFORMATION_FLOWS: "transformation_flows_scanned",
+    OBJECT_TYPE_TASK_CHAINS: "task_chains_scanned",
+}
+_FLOW_EMITTED_ATTR: Dict[str, str] = {
+    OBJECT_TYPE_DATA_FLOWS: "data_flows_emitted",
+    OBJECT_TYPE_REPLICATION_FLOWS: "replication_flows_emitted",
+    OBJECT_TYPE_TRANSFORMATION_FLOWS: "transformation_flows_emitted",
+    OBJECT_TYPE_TASK_CHAINS: "task_chains_emitted",
+}
+
 
 def _chunked(iterable: Iterable[Dict], size: int) -> Iterator[List[Dict]]:
-    """Yield successive lists of up to ``size`` items from ``iterable`` (lazy).
-
-    Pulling one ``size``-bounded chunk at a time keeps peak memory bounded when
-    the source iterable is itself lazy (e.g. paginated asset listing): only the
-    current chunk is materialized at any moment.
-    """
+    # Lazy chunking keeps peak memory bounded: only the current chunk is
+    # materialized, even when the source iterable is a paginated listing.
     iterator = iter(iterable)
     while True:
         chunk = list(itertools.islice(iterator, size))
@@ -196,42 +230,43 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = SapDatasphereReport()
         self._client = SapDatasphereClient(config, report=self.report)
-        # Stale-entity removal is wired automatically by the base
-        # Source.get_workunit_processors() from self.state_provider (set by
-        # StatefulIngestionSourceBase) — no manual handler construction needed.
         self._lineage_extractor = CsnLineageExtractor()
-        # Resolvers are built lazily per space because each space has its own
-        # connections list from the Datasphere connections API.
+        # Built lazily per space — each space has its own connections list.
         self._resolvers: Dict[str, PlatformMappingResolver] = {}
-        # Scaling counters — used to warn operators when the stateful-ingestion
-        # checkpoint is approaching the GMS payload ceiling (see
-        # docs/sources/sap-datasphere/sap-datasphere_pre.md). Not strictly atomic
-        # under threading but ok for a coarse threshold check.
         self._scale_warning_emitted = False
         self._datasets_emitted = 0
-        # M5: dedupe the built-in-defaults warning to once per platform.
         self._builtin_defaults_warning_emitted_for: Dict[str, bool] = {}
-        # Tracks whether we've yielded the standalone TagProperties MCPs for the
-        # predefined SAP tag URNs yet (display name + description). Emitted once
-        # per ingestion run; resets per source instance.
         self._sap_tags_emitted = False
+        # Flow target -> merged UpstreamLineage. Accumulated across every flow in
+        # the run so that multiple flows writing to the same target (e.g. an
+        # initial-load flow plus a delta flow) don't clobber each other: each
+        # flow emits a *full* UpstreamLineage aspect, and without aggregation the
+        # last write would win and drop the earlier flow's edges. Emitted once
+        # per target at the end of the run (see _emit_flow_downstream_lineage).
+        self._flow_downstream_lineage: Dict[str, UpstreamLineageClass] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
         config = SapDatasphereConfig.model_validate(config_dict)
         return cls(ctx, config)
 
-    def _safe_list_spaces(self) -> Iterator[Dict]:
-        """Yield spaces from the catalog API, converting network errors into a
-        report warning instead of propagating. Allows ``get_workunits_internal``
-        to start emitting workunits without first buffering every space response.
+    def get_excluded_workunit_processors(
+        self,
+    ) -> List[Union[str, Type[WorkunitProcessor]]]:
+        # This connector applies URN casing itself, per platform: managed assets
+        # follow the top-level convert_urns_to_lowercase flag, while external /
+        # flow-target URNs honor the per-connection override (see
+        # _maybe_lower_external) so e.g. BigQuery endpoints keep their source case
+        # and stitch to the BigQuery connector. The framework's global
+        # AutoLowercaseUrnsProcessor would re-lowercase every dataset URN
+        # unconditionally and silently defeat that per-platform override, so it is
+        # excluded here.
+        return [AutoLowercaseUrnsProcessor]
 
-        Only transport-level ``RequestException`` (a transient catalog hiccup) is
-        softened. Auth/config failures surface as ``ValueError`` (raised by the
-        client's token flow) and intentionally propagate as a hard pipeline
-        failure: a total auth outage that "succeeded" with zero spaces would let
-        stateful ingestion soft-delete every previously-ingested entity, so it
-        must fail loudly rather than warn."""
+    def _safe_list_spaces(self) -> Iterator[Dict]:
+        # Soften only transport errors. Auth/config failures raise ValueError and
+        # must propagate: a total auth outage that "succeeded" with zero spaces
+        # would let stateful ingestion soft-delete every prior entity.
         try:
             yield from self._client.list_spaces()
         except requests.RequestException as e:
@@ -245,11 +280,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _safe_list_assets(self, space_name: str) -> Iterator[Dict]:
-        """Yield assets for a space, converting network errors into a report
-        warning instead of propagating. Generator semantics mean the warning is
-        emitted lazily on iteration, which matches the previous behaviour where a
-        ``RequestException`` could be raised by either the initial call or
-        pagination."""
+        # Soften transport errors into a warning so one space's outage doesn't
+        # abort the run.
         try:
             yield from self._client.list_assets(space_name)
         except requests.RequestException as e:
@@ -263,17 +295,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # Emit standalone Tag entities once per run so the predefined SAP tag
-        # URNs (Dimension/Measure/sap:calendar:*/sap:semantic:*) have proper
-        # display names + descriptions in the DataHub UI. Mirrors Looker's
-        # tag-emission pattern (looker_common.py:850-855).
+        # Emit standalone Tag entities once per run so the predefined SAP tag URNs
+        # get display names + descriptions in the UI.
         if self.config.emit_sap_semantics_as_tags and not self._sap_tags_emitted:
             yield from get_predefined_tag_workunits()
             self._sap_tags_emitted = True
 
         for space in self._safe_list_spaces():
             try:
-                space_name = space.get("name")
+                space_name = space.get(CATALOG_FIELD_NAME)
                 if not space_name:
                     self.report.warning(
                         title="Skipped malformed Datasphere space record",
@@ -281,28 +311,28 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                         context=str(space),
                     )
                     continue
-                space_label: str = space.get("label") or space_name
+                space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
                 self.report.spaces_scanned += 1
                 if not self.config.space_pattern.allowed(space_name):
                     self.report.spaces_filtered += 1
                     continue
                 yield from self._emit_space(space_name, space_label)
 
-                # Warm the per-space resolver cache BEFORE workers hit it in
-                # parallel. _get_resolver mutates self._resolvers; doing this
-                # serially up-front avoids two threads racing to build the same
-                # resolver (and double-firing the connections API call).
+                # Warm the resolver cache serially before parallel workers hit it,
+                # so two threads don't race to build it (and double-fire the
+                # connections API call).
                 self._get_resolver(space_name)
 
                 yield from self._emit_assets_in_space(space_name)
 
-                # PR-1: discover Local Tables via the supported /dwaas-core/
-                # endpoint. Gated on `include_local_tables` (off by default).
                 if self.config.include_local_tables:
                     yield from self._emit_local_tables_for_space(space_name)
+
+                if self.config.include_remote_tables:
+                    yield from self._emit_remote_tables_for_space(space_name)
+
+                yield from self._emit_flows_for_space(space_name)
             except Exception as e:  # per-space isolation
-                # Catches malformed space records (missing 'name', etc.) so one bad
-                # space doesn't abort the entire ingestion.
                 self.report.warning(
                     title="Failed to process Datasphere space",
                     message="Encountered unexpected error iterating space; continuing with next space.",
@@ -310,22 +340,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
+        # Flow targets can be shared across flows (and spaces), so their lineage
+        # is accumulated during the space loop and emitted once here — merged —
+        # to avoid full-aspect overwrites between flows writing the same target.
+        yield from self._emit_flow_downstream_lineage()
+
     def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
-        """Drive per-asset emission, optionally in parallel.
-
-        With ``max_workers_assets > 1`` (the default) assets in a space are
-        processed concurrently via :class:`ThreadedIteratorExecutor`. The
-        executor preserves per-asset exception isolation by running each asset
-        through ``_emit_asset_with_isolation``, which converts any exception
-        into a report warning rather than letting it bubble up and abort the
-        whole space.
-        """
-
         def _emit_asset_with_isolation(
-            asset: Dict,
+            asset: JsonDict,
         ) -> Iterable[MetadataWorkUnit]:
             asset_name = (
-                asset.get("name", "<unknown>")
+                asset.get(CATALOG_FIELD_NAME, "<unknown>")
                 if isinstance(asset, dict)
                 else "<unknown>"
             )
@@ -340,9 +365,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=str(e),
                 )
             except Exception as e:  # per-entity isolation
-                # Catches non-network errors (KeyError/ValueError/TypeError from
-                # malformed API records, URN construction, CSN parsing, etc.) so
-                # one bad asset doesn't abort the whole space.
                 self.report.warning(
                     title="Failed to emit Datasphere asset",
                     message=(
@@ -353,10 +375,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.max_workers_assets > 1:
-            # Process the asset stream in bounded chunks so peak memory stays
-            # ~asset_batch_size live futures/asset-dicts instead of growing with
-            # the number of assets in the space (ThreadedIteratorExecutor submits
-            # every task up front). Output is identical; only memory is bounded.
+            # Bounded chunks cap peak memory at ~asset_batch_size live tasks
+            # (ThreadedIteratorExecutor otherwise submits every task up front).
             for chunk in _chunked(
                 self._safe_list_assets(space_name), self.config.asset_batch_size
             ):
@@ -366,30 +386,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     max_workers=self.config.max_workers_assets,
                 )
         else:
-            # Serial path — preserve previous behaviour for max_workers_assets=1.
             for asset in self._safe_list_assets(space_name):
                 yield from _emit_asset_with_isolation(asset)
 
     def _emit_local_tables_for_space(
         self, space_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit minimal Dataset stubs for Local Tables in a Space.
+        """Emit Dataset stubs for Local Tables (base tables not exposed via OData).
 
-        These are base tables not exposed via the OData Consumption API — they
-        show up as upstream lineage targets of views. Emitting them as Dataset
-        entities turns phantom lineage edges into real, navigable nodes in
-        DataHub's lineage graph.
-
-        Stubs carry: platform (resolved storage platform — defaults to ``hana``
-        via the ``_managed`` connection), subtype ``Local Table``, container
-        membership (directly under the Space container), and column-level
-        schema parsed from the per-table CSN (so column-level lineage edges
-        from Views render in the DataHub UI).
-
-        The endpoints hit (``/dwaas-core/api/v1/spaces/X/localtables`` list and
-        ``/dwaas-core/api/v1/spaces/X/localtables/{name}`` detail) are the same
-        surface the official ``datasphere`` CLI uses; SAP marks them as the
-        public API in KBA #3517441 — no policy caveat applies here.
+        They show up as upstream lineage targets of views, so emitting them turns
+        phantom lineage edges into navigable nodes. Column schema is parsed from
+        the per-table CSN when available so column-level edges render.
         """
         try:
             local_tables = list(self._client.list_local_tables(space_name))
@@ -407,111 +414,720 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not local_tables:
             return
 
-        # Resolve the storage platform via the _managed connection (Local Tables
-        # always live in the Datasphere tenant's own HANA Cloud).
-        resolver = self._get_resolver(space_name)
-        resolved, skip_reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+        # Local Tables always live in the tenant's own HANA Cloud (_managed).
+        resolved = self._resolve_managed_or_warn(
+            space_name,
+            "Local Tables",
+            extra_hint=(
+                " Configure connection_to_platform_map to enable Local Table discovery."
+            ),
+        )
         if resolved is None:
-            self.report.warning(
-                title="Cannot emit Local Tables — _managed connection unresolvable",
-                message=(
-                    f"Space {space_name} has {len(local_tables)} Local Tables but "
-                    f"the _managed connection's platform mapping is missing/disabled "
-                    f"(reason={skip_reason}). Configure connection_to_platform_map "
-                    f"to enable Local Table discovery."
+            return
+
+        space_key = self._space_key(space_name)
+
+        for technical_name in self._iter_allowed_technical_names(local_tables):
+            yield from self._isolate(
+                f"{space_name}.{OBJECT_TYPE_LOCAL_TABLES}.{technical_name}",
+                self._emit_one_local_table(
+                    space_name, technical_name, resolved, space_key
                 ),
+            )
+
+    def _emit_one_local_table(
+        self,
+        space_name: str,
+        technical_name: str,
+        resolved: ResolvedPlatform,
+        space_key: SpaceContainerKey,
+    ) -> Iterable[MetadataWorkUnit]:
+        dataset_name = self._build_dataset_name(space_name, technical_name)
+
+        # Schema fields on both sides (View + Local Table) let the UI draw
+        # column-level lineage edges between them.
+        schema_fields = None
+        csn_obj = self._client.fetch_object_definition(
+            space_name, OBJECT_TYPE_LOCAL_TABLES, technical_name
+        )
+        if csn_obj is not None:
+            definition = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
+            elements = (
+                definition.get(CSN_KEY_ELEMENTS)
+                if isinstance(definition, dict)
+                else None
+            )
+            if isinstance(elements, dict):
+                csn_schema = parse_csn_elements_to_schema_fields(elements)
+                self._report_unknown_cds_types(
+                    space_name, technical_name, csn_schema.unknown_types
+                )
+                # Honor column_pattern here too, so a Local Table's columns are
+                # filtered consistently with views / remote tables rather than
+                # being the one schema path that ignores the pattern.
+                schema_fields = self._apply_column_pattern(csn_schema.fields) or None
+            else:
+                # 200 OK but not a parseable CSN shape — record it so a parse
+                # miss isn't mistaken for a genuine no-schema base table.
+                self.report.assets_csn_unparseable.append(
+                    f"{space_name}.{technical_name}"
+                )
+                self.report.warning(
+                    title="Unparseable Local Table CSN",
+                    message=(
+                        "Fetched the Local Table definition but it did not "
+                        "contain a parseable elements map; emitting the table "
+                        "without column schema."
+                    ),
+                    context=f"{space_name}.{technical_name}",
+                )
+
+        if schema_fields:
+            description = f"Local Table from SAP Datasphere space {space_name}."
+        else:
+            description = (
+                f"Local Table from SAP Datasphere space {space_name}. "
+                f"This is a base table not exposed via the OData Consumption "
+                f"API — schema details are unavailable. Emitted to close "
+                f"phantom-lineage gaps from views referencing this table."
+            )
+
+        dataset = Dataset(
+            platform=resolved.platform,
+            name=dataset_name,
+            platform_instance=resolved.platform_instance,
+            env=resolved.env,
+            display_name=technical_name,
+            description=description,
+            subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
+            parent_container=space_key,
+            custom_properties={
+                PROP_SPACE_NAME: space_name,
+                PROP_SAP_DATASPHERE_SPACE: space_name,
+                PROP_SAP_DATASPHERE_ASSET: technical_name,
+                PROP_EXPOSED_FOR_CONSUMPTION: PROP_VALUE_FALSE,
+                PROP_LOCAL_TABLE: PROP_VALUE_TRUE,
+            },
+            schema=schema_fields,
+        )
+        yield from dataset.as_workunits()
+        self.report.local_tables_emitted += 1
+
+    def _enabled_flow_types(self) -> List[str]:
+        types: List[str] = []
+        if self.config.include_data_flows:
+            types.append(OBJECT_TYPE_DATA_FLOWS)
+        if self.config.include_replication_flows:
+            types.append(OBJECT_TYPE_REPLICATION_FLOWS)
+        if self.config.include_transformation_flows:
+            types.append(OBJECT_TYPE_TRANSFORMATION_FLOWS)
+        if self.config.include_task_chains:
+            types.append(OBJECT_TYPE_TASK_CHAINS)
+        return types
+
+    def _emit_flows_for_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
+        """Emit each enabled flow object (data / replication / transformation flow,
+        task chain) as a DataJob under a single per-space DataFlow, wiring its IO
+        objects as inlets/outlets and its column mappings as fine-grained lineage.
+        """
+        flow_types = self._enabled_flow_types()
+        if not flow_types:
+            return
+
+        # The DataFlow is emitted lazily on the first parseable flow so a space
+        # with none doesn't get an empty pipeline node.
+        dataflow: Optional[DataFlow] = None
+        for object_type in flow_types:
+            try:
+                entries = list(self._client.list_objects(space_name, object_type))
+            except requests.RequestException as e:
+                self.report.warning(
+                    title="Failed to list flows in space",
+                    message=(
+                        f"Could not enumerate {object_type} in space {space_name}; "
+                        f"flow lineage from this type will be missing."
+                    ),
+                    context=str(e),
+                )
+                continue
+            for technical_name in self._iter_allowed_technical_names(entries):
+                self._bump_report(_FLOW_SCANNED_ATTR[object_type])
+                payload = self._client.fetch_flow_definition(
+                    space_name, object_type, technical_name
+                )
+                if payload is None:
+                    continue
+                parsed = parse_flow(payload, object_type, technical_name)
+                if parsed is None:
+                    self.report.flows_unparseable.append(
+                        f"{space_name}.{object_type}.{technical_name}"
+                    )
+                    continue
+                if parsed.cll_suppressed_multi_input:
+                    self.report.flow_column_lineage_suppressed_multi_input += 1
+                if dataflow is None:
+                    dataflow = self._build_space_dataflow(space_name)
+                    yield from dataflow.as_workunits()
+                yield from self._isolate(
+                    f"{space_name}.{object_type}.{technical_name}",
+                    self._emit_flow_job(space_name, dataflow, parsed),
+                )
+                self._bump_report(_FLOW_EMITTED_ATTR[object_type])
+
+    def _bump_report(self, attr: str) -> None:
+        setattr(self.report, attr, getattr(self.report, attr) + 1)
+
+    def _iter_allowed_technical_names(
+        self, entries: Iterable[JsonDict]
+    ) -> Iterator[str]:
+        # Shared entry-validation for the dwaas-core list endpoints (local tables,
+        # remote tables, flows): skip non-dict records and blank names, and drop
+        # anything filtered out by asset_pattern. Callers own their per-type
+        # scanned/emitted counters.
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            technical_name = entry.get(FIELD_TECHNICAL_NAME)
+            if not isinstance(technical_name, str) or not technical_name:
+                continue
+            if not self.config.asset_pattern.allowed(technical_name):
+                continue
+            yield technical_name
+
+    def _resolve_managed_or_warn(
+        self, space_name: str, entity_label: str, extra_hint: str = ""
+    ) -> Optional[ResolvedPlatform]:
+        # Local and Remote Tables both live in the tenant's own managed HANA
+        # Cloud, so both resolve the _managed connection and warn identically when
+        # its platform mapping is missing/disabled.
+        result = self._get_resolver(space_name).resolve(MANAGED_CONNECTION_KEY)
+        if result.platform is None:
+            self.report.warning(
+                title=f"Cannot emit {entity_label} — _managed connection unresolvable",
+                message=(
+                    f"Space {space_name} has {entity_label} but the _managed "
+                    f"connection's platform mapping is missing/disabled "
+                    f"(reason={result.skip_reason}).{extra_hint}"
+                ),
+            )
+        return result.platform
+
+    def _build_space_dataflow(self, space_name: str) -> DataFlow:
+        return DataFlow(
+            platform=PLATFORM,
+            name=self._maybe_lower(space_name),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            display_name=space_name,
+            description=f"SAP Datasphere flows in space {space_name}.",
+            subtype=DataFlowSubTypes.SAP_DATASPHERE_SPACE_FLOWS,
+            parent_container=self._space_key(space_name),
+        )
+
+    def _emit_flow_job(
+        self, space_name: str, dataflow: DataFlow, parsed: ParsedFlow
+    ) -> Iterable[MetadataWorkUnit]:
+        # Keyed separately by side: a replication task usually replicates an
+        # object to a same-named target (CUSTOMER -> CUSTOMER), so a single
+        # name->urn map would let the output URN clobber the input's and corrupt
+        # per-task upstream pairing (dropping the target's lineage entirely).
+        input_urn_by_object: Dict[str, str] = {}
+        output_urn_by_object: Dict[str, str] = {}
+        inlets: List[Union[str, DatasetUrn]] = []
+        outlets: List[Union[str, DatasetUrn]] = []
+        for endpoint in parsed.inputs:
+            urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
+            if urn is not None:
+                input_urn_by_object[endpoint.object_name] = urn
+                inlets.append(urn)
+        for endpoint in parsed.outputs:
+            urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
+            if urn is not None:
+                output_urn_by_object[endpoint.object_name] = urn
+                outlets.append(urn)
+
+        fine_grained = self._build_flow_fine_grained(
+            parsed, input_urn_by_object, output_urn_by_object
+        )
+        job = DataJob(
+            name=self._maybe_lower(f"{space_name}.{parsed.technical_name}"),
+            flow=dataflow,
+            display_name=parsed.technical_name,
+            subtype=parsed.subtype,
+            custom_properties={
+                PROP_SAP_DATASPHERE_SPACE: space_name,
+                PROP_SAP_DATASPHERE_ASSET: parsed.technical_name,
+            },
+            inlets=inlets or None,
+            outlets=outlets or None,
+            fine_grained_lineages=fine_grained or None,
+        )
+        yield from job.as_workunits()
+
+        # Also surface the flow's lineage as a dataset-to-dataset edge on each
+        # target, so it shows on the downstream's Lineage tab (the DataJob IO
+        # aspect alone only drives the job's own lineage view). Accumulate rather
+        # than emit inline: several flows can share a target, and each edge is a
+        # *full* UpstreamLineage aspect, so we merge them and emit once per target
+        # at the end of the run (see _emit_flow_downstream_lineage).
+        for downstream_urn, lineage in self._build_flow_downstream_lineage(
+            parsed, input_urn_by_object, output_urn_by_object, inlets
+        ).items():
+            self._merge_flow_downstream_lineage(downstream_urn, lineage)
+
+    def _merge_flow_downstream_lineage(
+        self, downstream_urn: str, lineage: UpstreamLineageClass
+    ) -> None:
+        """Union a flow's downstream lineage into the per-target accumulator.
+
+        Upstream datasets are deduped by URN and fine-grained edges by their
+        (upstreams, downstreams, transformOperation) identity so two flows
+        contributing the same edge to a shared target don't double-count it.
+        """
+        existing = self._flow_downstream_lineage.get(downstream_urn)
+        if existing is None:
+            self._flow_downstream_lineage[downstream_urn] = lineage
+            return
+
+        seen_upstreams = {u.dataset for u in existing.upstreams}
+        for upstream in lineage.upstreams:
+            if upstream.dataset not in seen_upstreams:
+                existing.upstreams.append(upstream)
+                seen_upstreams.add(upstream.dataset)
+
+        incoming_fine_grained = lineage.fineGrainedLineages or []
+        if incoming_fine_grained:
+            merged = list(existing.fineGrainedLineages or [])
+            seen_keys = {get_fine_grained_lineage_key(f) for f in merged}
+            for fine_grained in incoming_fine_grained:
+                key = get_fine_grained_lineage_key(fine_grained)
+                if key not in seen_keys:
+                    merged.append(fine_grained)
+                    seen_keys.add(key)
+            existing.fineGrainedLineages = merged
+
+    def _emit_flow_downstream_lineage(self) -> Iterable[MetadataWorkUnit]:
+        """Emit the merged flow lineage once per target after all flows are seen.
+
+        is_primary_source=False keeps AutoStatusAspectProcessor from synthesizing
+        a Status(removed=false) for the target: a flow target is typically a
+        Local/Remote table owned by another platform (or not ingested here), and
+        materializing a phantom entity would pollute search and stale-entity
+        state. This mirrors the airbyte connector's downstream lineage emission.
+        """
+        for downstream_urn, lineage in self._flow_downstream_lineage.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=downstream_urn, aspect=lineage
+            ).as_workunit(is_primary_source=False)
+        self._flow_downstream_lineage.clear()
+
+    def _resolve_flow_endpoint_urn(
+        self, space_name: str, endpoint: FlowEndpoint
+    ) -> Optional[str]:
+        resolver = self._get_resolver(space_name)
+        if endpoint.is_local:
+            resolved = resolver.resolve(MANAGED_CONNECTION_KEY).platform
+            # A local endpoint's object_name is usually the bare technical name,
+            # but a qualifiedName-derived one may already be "SPACE.OBJECT";
+            # don't prefix the space twice.
+            # KNOWN EDGE CASE: this only guards against re-prefixing the *current*
+            # space. A cross-space local reference "OTHER_SPACE.OBJECT" would get
+            # the current space prepended ("SPACE.OTHER_SPACE.OBJECT"). Flows
+            # referencing another space's managed object are not observed in
+            # practice (managed objects are space-scoped); accepted as low risk.
+            prefix = f"{space_name}."
+            if endpoint.object_name.startswith(prefix):
+                name = self._maybe_lower(endpoint.object_name)
+            else:
+                name = self._build_dataset_name(space_name, endpoint.object_name)
+        else:
+            resolved = resolver.resolve_external(
+                endpoint.connection, endpoint.connection_type
+            ).platform
+            name = self._maybe_lower_external(
+                resolved,
+                self._qualify_external_name(
+                    resolved, endpoint.container, endpoint.object_name
+                ),
+            )
+        if resolved is None:
+            self.report.flow_endpoints_unresolved.append(
+                f"{space_name}.{endpoint.object_name} "
+                f"(connection={endpoint.connection}, type={endpoint.connection_type})"
+            )
+            return None
+        return self._dataset_urn(resolved, name)
+
+    def _build_flow_fine_grained(
+        self,
+        parsed: ParsedFlow,
+        input_urn_by_object: Dict[str, str],
+        output_urn_by_object: Dict[str, str],
+    ) -> List[FineGrainedLineageClass]:
+        fine_grained: List[FineGrainedLineageClass] = []
+        for mapping in parsed.column_mappings:
+            upstream_dataset_urn = input_urn_by_object.get(mapping.upstream_object)
+            downstream_dataset_urn = output_urn_by_object.get(mapping.downstream_object)
+            if upstream_dataset_urn is None or downstream_dataset_urn is None:
+                continue
+            fine_grained.append(
+                self._field_edge(
+                    upstream_dataset_urn,
+                    mapping.upstream_col,
+                    downstream_dataset_urn,
+                    mapping.downstream_col,
+                )
+            )
+        return fine_grained
+
+    def _build_flow_downstream_lineage(
+        self,
+        parsed: ParsedFlow,
+        input_urn_by_object: Dict[str, str],
+        output_urn_by_object: Dict[str, str],
+        inlets: List[Union[str, DatasetUrn]],
+    ) -> Dict[str, UpstreamLineageClass]:
+        """Build one UpstreamLineage per flow target (keyed by its dataset URN).
+
+        Column edges are attributed to the specific target they land on. A target
+        with no attributable column mapping falls back to a table-level edge: for a
+        replication flow (independent 1:1 tasks) that is only the target's paired
+        sources; for a connected-graph data flow it is every resolved input.
+        """
+        mappings_by_downstream: Dict[str, List[FlowColumnMapping]] = {}
+        for mapping in parsed.column_mappings:
+            mappings_by_downstream.setdefault(mapping.downstream_object, []).append(
+                mapping
+            )
+
+        # Per-target source pairing (replication flows only) so a pure-copy task's
+        # target is never attributed to sibling tasks' sources.
+        paired_upstreams_by_downstream: Dict[str, List[str]] = {}
+        for table_mapping in parsed.table_mappings:
+            upstream_urn = input_urn_by_object.get(table_mapping.upstream_object)
+            paired_downstream_urn = output_urn_by_object.get(
+                table_mapping.downstream_object
+            )
+            if upstream_urn is None or paired_downstream_urn is None:
+                continue
+            bucket = paired_upstreams_by_downstream.setdefault(
+                paired_downstream_urn, []
+            )
+            if upstream_urn not in bucket:
+                bucket.append(upstream_urn)
+
+        result: Dict[str, UpstreamLineageClass] = {}
+        for object_name, downstream_urn in output_urn_by_object.items():
+            upstream_urns: List[str] = []
+            fine_grained: List[FineGrainedLineageClass] = []
+            for mapping in mappings_by_downstream.get(object_name, []):
+                upstream_urn = input_urn_by_object.get(mapping.upstream_object)
+                if upstream_urn is None:
+                    continue
+                if upstream_urn not in upstream_urns:
+                    upstream_urns.append(upstream_urn)
+                fine_grained.append(
+                    self._field_edge(
+                        upstream_urn,
+                        mapping.upstream_col,
+                        downstream_urn,
+                        mapping.downstream_col,
+                    )
+                )
+            if not upstream_urns:
+                if parsed.table_mappings:
+                    upstream_urns = list(
+                        paired_upstreams_by_downstream.get(downstream_urn, [])
+                    )
+                else:
+                    upstream_urns = [str(urn) for urn in inlets]
+            # Guard against a target that also appears as its own input.
+            upstream_urns = [urn for urn in upstream_urns if urn != downstream_urn]
+            if not upstream_urns:
+                continue
+            result[downstream_urn] = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=upstream_urn,
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                    for upstream_urn in upstream_urns
+                ],
+                fineGrainedLineages=fine_grained or None,
+            )
+        return result
+
+    def _emit_remote_tables_for_space(
+        self, space_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit federated Remote Tables as Datasets on the sap_datasphere platform,
+        with upstream lineage to their external source object parsed from the CSN
+        ``@DataWarehouse.remote.*`` annotations."""
+        try:
+            entries = list(
+                self._client.list_objects(space_name, OBJECT_TYPE_REMOTE_TABLES)
+            )
+        except requests.RequestException as e:
+            self.report.warning(
+                title="Failed to list Remote Tables in space",
+                message=(
+                    f"Could not enumerate Remote Tables in space {space_name}; "
+                    f"federated lineage in this space will be missing."
+                ),
+                context=str(e),
             )
             return
 
-        # Local Tables parent directly to the Space container (2-tier model);
-        # the "Local Table" dataset subtype is the UI filter facet, so there's
-        # no synthetic folder layer.
+        if not entries:
+            return
+
+        # The remote-table proxy object itself lives in the tenant's managed HANA.
+        local_resolved = self._resolve_managed_or_warn(space_name, "Remote Tables")
+        if local_resolved is None:
+            return
+
+        resolver = self._get_resolver(space_name)
         space_key = self._space_key(space_name)
-
-        for entry in local_tables:
-            if not isinstance(entry, dict):
-                continue
-            technical_name = entry.get("technicalName")
-            if not isinstance(technical_name, str) or not technical_name:
-                continue
-
-            if not self.config.asset_pattern.allowed(technical_name):
-                # Honour the same asset_pattern filter used for exposed views.
-                continue
-
-            dataset_name = self._build_dataset_name(space_name, technical_name)
-
-            # Fetch the per-table CSN to attach column metadata. With schema
-            # fields on both sides (View + Local Table), the DataHub UI can
-            # draw column-level lineage edges between them. Endpoint per SAP
-            # KBA #3517441: GET /dwaas-core/api/v1/spaces/{space}/localtables/{name}
-            schema_fields = None
-            csn_obj = self._client.fetch_object_definition(
-                space_name, "localtables", technical_name
+        for technical_name in self._iter_allowed_technical_names(entries):
+            self.report.remote_tables_scanned += 1
+            yield from self._isolate(
+                f"{space_name}.{OBJECT_TYPE_REMOTE_TABLES}.{technical_name}",
+                self._emit_one_remote_table(
+                    space_name, technical_name, local_resolved, resolver, space_key
+                ),
             )
-            if csn_obj is not None:
-                definition = csn_obj.get("definitions", {}).get(technical_name)
-                elements = (
-                    definition.get("elements") if isinstance(definition, dict) else None
-                )
-                if isinstance(elements, dict):
-                    schema_fields, unknown_cds_types = (
-                        parse_csn_elements_to_schema_fields(elements)
-                    )
-                    self._report_unknown_cds_types(
-                        space_name, technical_name, unknown_cds_types
-                    )
-                else:
-                    # 200 OK but the body wasn't shaped like a CSN definition we
-                    # can parse — record it so a parse miss isn't mistaken for a
-                    # genuine no-schema base table (those have csn_obj is None or
-                    # truly empty elements).
-                    self.report.assets_csn_unparseable.append(
-                        f"{space_name}.{technical_name}"
-                    )
-                    self.report.warning(
-                        title="Unparseable Local Table CSN",
-                        message=(
-                            "Fetched the Local Table definition but it did not "
-                            "contain a parseable elements map; emitting the table "
-                            "without column schema."
-                        ),
-                        context=f"{space_name}.{technical_name}",
-                    )
 
-            if schema_fields:
-                description = f"Local Table from SAP Datasphere space {space_name}."
-            else:
-                description = (
-                    f"Local Table from SAP Datasphere space {space_name}. "
-                    f"This is a base table not exposed via the OData Consumption "
-                    f"API — schema details are unavailable. Emitted to close "
-                    f"phantom-lineage gaps from views referencing this table."
-                )
+    def _emit_one_remote_table(
+        self,
+        space_name: str,
+        technical_name: str,
+        local_resolved: ResolvedPlatform,
+        resolver: PlatformMappingResolver,
+        space_key: SpaceContainerKey,
+    ) -> Iterable[MetadataWorkUnit]:
+        csn_obj = self._client.fetch_object_definition(
+            space_name, OBJECT_TYPE_REMOTE_TABLES, technical_name
+        )
+        definition = (
+            csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
+            if isinstance(csn_obj, dict)
+            else None
+        )
 
-            dataset = Dataset(
-                platform=resolved.platform,
-                name=dataset_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-                display_name=technical_name,
-                description=description,
-                subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
-                parent_container=space_key,
-                custom_properties={
-                    "spaceName": space_name,
-                    "sap_datasphere_space": space_name,
-                    "sap_datasphere_asset": technical_name,
-                    "exposed_for_consumption": "false",
-                    "local_table": "true",
-                },
-                schema=schema_fields,
+        schema_fields = None
+        upstreams_aspect: Optional[UpstreamLineageClass] = None
+        downstream_urn = self._dataset_urn(
+            local_resolved, self._build_dataset_name(space_name, technical_name)
+        )
+        if isinstance(definition, dict):
+            schema_fields = self._remote_table_schema(
+                space_name, technical_name, definition
             )
-            yield from dataset.as_workunits()
-            self.report.local_tables_emitted += 1
+            upstreams_aspect = self._remote_table_upstream(
+                space_name,
+                technical_name,
+                definition,
+                resolver,
+                schema_fields,
+                downstream_urn,
+            )
+        elif csn_obj is not None:
+            # 200 OK but the CSN had no definition for this table. Federated
+            # lineage — the whole point of a remote table — is silently absent
+            # and the stub is indistinguishable from a healthy scanned==emitted
+            # run, so record it (mirrors the local-table assets_csn_unparseable
+            # branch). csn_obj is None means the fetch itself failed and is
+            # already tracked via assets_csn_fetch_failed.
+            self.report.remote_tables_csn_unparseable.append(
+                f"{space_name}.{technical_name}"
+            )
+            self.report.warning(
+                title="Remote Table emitted without schema or lineage",
+                message=(
+                    "Fetched the Remote Table definition but it contained no "
+                    "parseable CSN definition for this table; emitting a bare "
+                    "stub with neither column schema nor federated upstream "
+                    "lineage."
+                ),
+                context=f"{space_name}.{technical_name}",
+            )
+
+        dataset = Dataset(
+            platform=local_resolved.platform,
+            name=self._build_dataset_name(space_name, technical_name),
+            platform_instance=local_resolved.platform_instance,
+            env=local_resolved.env,
+            display_name=technical_name,
+            description=f"Remote Table from SAP Datasphere space {space_name}.",
+            subtype=DatasetSubTypes.SAP_REMOTE_TABLE,
+            parent_container=space_key,
+            custom_properties={
+                PROP_SPACE_NAME: space_name,
+                PROP_SAP_DATASPHERE_SPACE: space_name,
+                PROP_SAP_DATASPHERE_ASSET: technical_name,
+            },
+            schema=schema_fields,
+            upstreams=upstreams_aspect,
+        )
+        yield from dataset.as_workunits()
+        self.report.remote_tables_emitted += 1
+
+    def _remote_table_schema(
+        self, space_name: str, technical_name: str, definition: JsonDict
+    ) -> Optional[List[SchemaFieldClass]]:
+        elements = definition.get(CSN_KEY_ELEMENTS)
+        if not isinstance(elements, dict) or not elements:
+            return None
+        csn_schema = parse_csn_elements_to_schema_fields(elements)
+        self._report_unknown_cds_types(
+            space_name, technical_name, csn_schema.unknown_types
+        )
+        return self._apply_column_pattern(csn_schema.fields) or None
+
+    def _remote_table_upstream(
+        self,
+        space_name: str,
+        technical_name: str,
+        definition: JsonDict,
+        resolver: PlatformMappingResolver,
+        schema_fields: Optional[List[SchemaFieldClass]],
+        downstream_urn: str,
+    ) -> Optional[UpstreamLineageClass]:
+        remote = parse_remote_table_source(definition)
+        if remote is None:
+            return None
+        resolved = resolver.resolve_external(remote.connection, None).platform
+        if resolved is None:
+            self.report.remote_table_source_unresolved.append(
+                f"{space_name}.{technical_name} (connection={remote.connection})"
+            )
+            return None
+        upstream_urn = self._dataset_urn(
+            resolved, self._maybe_lower_external(resolved, remote.qualified_name)
+        )
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+            ],
+            fineGrainedLineages=self._remote_table_fine_grained(
+                resolved, upstream_urn, downstream_urn, schema_fields
+            )
+            or None,
+        )
+
+    def _remote_table_fine_grained(
+        self,
+        resolved: ResolvedPlatform,
+        upstream_urn: str,
+        downstream_urn: str,
+        schema_fields: Optional[List[SchemaFieldClass]],
+    ) -> List[FineGrainedLineageClass]:
+        # A Remote Table is a straight federation mirror of the external table, so
+        # every column maps 1:1 by name (no transform). The upstream column takes
+        # the same per-platform casing as the dataset name so it stitches to the
+        # native connector's schema-field URNs (e.g. BigQuery preserves case).
+        if not schema_fields:
+            return []
+        fine_grained: List[FineGrainedLineageClass] = []
+        for field in schema_fields:
+            fine_grained.append(
+                self._field_edge(
+                    upstream_urn,
+                    self._maybe_lower_external(resolved, field.fieldPath),
+                    downstream_urn,
+                    field.fieldPath,
+                )
+            )
+        return fine_grained
 
     def _maybe_lower(self, name: str) -> str:
         return name.lower() if self.config.convert_urns_to_lowercase else name
+
+    def _maybe_lower_external(
+        self, resolved: Optional[ResolvedPlatform], name: str
+    ) -> str:
+        # External (federated / flow-target) URNs must match the case the sibling
+        # native connector emits, which differs per platform (BigQuery preserves
+        # source case, HANA-default is uppercase, ...). The per-platform casing on
+        # the resolved mapping decides this, independent of the top-level flag; the
+        # top-level flag is only a fallback for the unresolved-platform edge case.
+        lowercase = (
+            resolved.convert_urns_to_lowercase
+            if resolved is not None
+            else self.config.convert_urns_to_lowercase
+        )
+        return name.lower() if lowercase else name
+
+    def _qualify_external_name(
+        self,
+        resolved: Optional[ResolvedPlatform],
+        container: Optional[str],
+        object_name: str,
+    ) -> str:
+        # A replication-flow endpoint object arrives bare (e.g. "C_PURCHASEORDERDEX");
+        # its schema/dataset lives on the system's container ("/CDS_EXTRACTION",
+        # "/staging"). Prepend an optional configured `database` (e.g. the BigQuery
+        # project the API omits), then the container schema, so the URN matches the
+        # sibling connector's `[database.]schema.table` naming. Segments the API
+        # can't supply are simply skipped.
+        parts: List[str] = []
+        if resolved is not None and resolved.database:
+            parts.append(resolved.database)
+        schema = (container or "").strip("/")
+        if schema:
+            parts.append(schema)
+        parts.append(object_name)
+        return ".".join(parts)
+
+    @staticmethod
+    def _dataset_urn(resolved: ResolvedPlatform, name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=resolved.platform,
+            name=name,
+            platform_instance=resolved.platform_instance,
+            env=resolved.env,
+        )
+
+    @staticmethod
+    def _field_edge(
+        upstream_urn: str,
+        upstream_col: str,
+        downstream_urn: str,
+        downstream_col: str,
+        transform_op: Optional[TransformOp] = None,
+    ) -> FineGrainedLineageClass:
+        # A 1:1 (single upstream field -> single downstream field) edge.
+        return FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[make_schema_field_urn(upstream_urn, upstream_col)],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[make_schema_field_urn(downstream_urn, downstream_col)],
+            transformOperation=transform_op,
+        )
+
+    def _isolate(
+        self, label: str, workunits: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        # Per-item guard mirroring _emit_asset_with_isolation: one bad object
+        # (URN/aspect error) is reported and skipped so the rest of the space
+        # still emits, instead of one failure aborting the whole space.
+        try:
+            yield from workunits
+        except requests.RequestException as e:
+            self.report.warning(
+                title="Failed to emit object",
+                message=f"Skipped {label} due to network error",
+                context=str(e),
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit object",
+                message=f"Skipped {label} due to unexpected error",
+                context=f"{type(e).__name__}: {e}",
+            )
 
     def _space_key(self, space_name: str) -> SpaceContainerKey:
         return SpaceContainerKey(
@@ -534,6 +1150,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=str(e),
                 )
                 connections = []
+            # Literal keys required: TypedDict.get only type-narrows with a literal.
             by_name = {c.get("name", ""): c for c in connections if c.get("name")}
             self._resolvers[space] = PlatformMappingResolver(
                 self.config, by_name, report=self.report
@@ -543,11 +1160,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_space(
         self, space_name: str, space_label: str
     ) -> Iterable[MetadataWorkUnit]:
-        # NOTE: the workunit_processor returned by ``StaleEntityRemovalHandler``
-        # automatically calls ``add_entity_to_state`` for every primary-source
-        # workunit (see auto_stale_entity_removal in the handler), so we don't
-        # add the URN to state manually here. Manual calls would double-count
-        # and also race with worker threads under FIX 1's parallelism.
+        # The stale-entity workunit_processor auto-adds every primary workunit to
+        # state, so we must not add URNs manually (would double-count and race
+        # with the parallel asset workers).
         key = self._space_key(space_name)
         container = Container(
             key,
@@ -564,20 +1179,53 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         connection_name: Optional[str],
         skip_reason: Optional[ResolveSkipReason],
     ) -> None:
-        """Record (in the report) an asset skipped because its connection could
-        not be resolved to a concrete platform."""
         qualified = f"{space_name}.{asset_name} (connection={connection_name})"
         if skip_reason == ResolveSkipReason.UNKNOWN_CONNECTION:
             self.report.assets_skipped_unknown_connection.append(qualified)
         elif skip_reason == ResolveSkipReason.DISABLED:
             self.report.assets_skipped_disabled.append(qualified)
         else:
-            # UNKNOWN_TYPEID, plus a defensive catch-all for any future skip
-            # reason so the asset is never dropped silently from the report.
+            # UNKNOWN_TYPEID + a catch-all so an asset is never dropped silently.
             self.report.assets_skipped_unknown_typeid.append(qualified)
 
-    def _emit_asset(self, space_name: str, asset: dict) -> Iterable[MetadataWorkUnit]:
-        asset_name_opt = asset.get("name")
+    def _base_asset_custom_properties(
+        self, space_name: str, asset_name: str, asset: JsonDict, metadata_url: str
+    ) -> Dict[str, str]:
+        # Catalog-derived properties every View / Analytic Model carries; the
+        # EDMX parse_result's entity_custom_props are merged on top by the caller.
+        return {
+            PROP_SPACE_NAME: space_name,
+            CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: str(
+                asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES, False)
+            ).lower(),
+            CATALOG_FIELD_HAS_PARAMETERS: str(
+                asset.get(CATALOG_FIELD_HAS_PARAMETERS, False)
+            ).lower(),
+            PROP_EXPOSED_FOR_CONSUMPTION: str(bool(metadata_url)).lower(),
+            PROP_SAP_DATASPHERE_SPACE: space_name,
+            PROP_SAP_DATASPHERE_ASSET: asset_name,
+        }
+
+    def _resolve_asset_schema_fields(
+        self,
+        space_name: str,
+        asset_name: str,
+        parse_result: Optional[EdmxParseResult],
+        csn_def: Optional[JsonDict],
+    ) -> Optional[List[SchemaFieldClass]]:
+        # Prefer the relational EDMX schema; fall back to the CSN elements map for
+        # analytic models, which expose no relational metadata URL for EDMX.
+        if parse_result is not None and parse_result.fields:
+            self.report.assets_schema_fetched += 1
+            return self._decorate_fields(parse_result)
+        if csn_def is not None:
+            return self._schema_fields_from_csn(space_name, asset_name, csn_def)
+        return None
+
+    def _emit_asset(
+        self, space_name: str, asset: JsonDict
+    ) -> Iterable[MetadataWorkUnit]:
+        asset_name_opt = asset.get(CATALOG_FIELD_NAME)
         if not asset_name_opt:
             # Mirror the malformed-space-record guard: a record missing 'name'
             # is a data problem, not a code bug — report it specifically rather
@@ -589,36 +1237,35 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
         asset_name: str = asset_name_opt
-        asset_label: str = asset.get("label") or asset_name
+        asset_label: str = asset.get(CATALOG_FIELD_LABEL) or asset_name
         self.report.assets_scanned += 1
 
         if not self.config.asset_pattern.allowed(asset_name):
             self.report.assets_filtered += 1
             return
 
-        metadata_url: str = asset.get("assetRelationalMetadataUrl") or ""
+        metadata_url: str = asset.get(CATALOG_FIELD_METADATA_URL) or ""
         if self.config.expose_for_consumption_only and not metadata_url:
             self.report.assets_filtered += 1
             return
 
-        # Step 1: Optionally fetch CSN (when lineage is enabled OR to detect a
-        # federated remote source via @remote.source).
-        csn_def: Optional[Dict] = None
-        csn_obj: Optional[Dict] = None
+        # Fetch CSN for lineage, view definitions, or @remote.source detection.
+        csn_def: Optional[JsonDict] = None
+        csn_obj: Optional[JsonDict] = None
         if self.config.include_lineage or self.config.include_view_definitions:
-            # Route to the supported per-object-type endpoint based on the
-            # asset's analytical-queries flag from the catalog API.
             object_type = (
-                "analyticmodels" if asset.get("supportsAnalyticalQueries") else "views"
+                OBJECT_TYPE_ANALYTIC_MODELS
+                if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
+                else OBJECT_TYPE_VIEWS
             )
             csn_obj = self._client.fetch_object_definition(
                 space_name, object_type, asset_name
             )
             if csn_obj is not None:
-                csn_def = csn_obj.get("definitions", {}).get(asset_name)
+                csn_def = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(asset_name)
 
-        # Step 2: Determine the source connection.  Default to `_managed` (the
-        # Datasphere tenant's own HANA Cloud); override if CSN declares a remote source.
+        # Default to the managed HANA connection; override if CSN declares a
+        # federated remote source.
         connection_name = MANAGED_CONNECTION_KEY
         if csn_def is not None:
             try:
@@ -637,63 +1284,46 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if remote:
                 connection_name = remote
 
-        # Step 3: Resolve to a concrete platform/instance/env via the per-space resolver.
         resolver = self._get_resolver(space_name)
-        resolved, skip_reason = resolver.resolve(connection_name)
+        result = resolver.resolve(connection_name)
+        resolved = result.platform
+        skip_reason = result.skip_reason
         if resolved is None:
             self._record_resolve_skip(
                 space_name, asset_name, connection_name, skip_reason
             )
             return
 
-        # M5: warn once per platform when a built-in default (S3/GCS) lacks
-        # platform_instance — the resulting URN won't merge with the user's
-        # dedicated storage-platform connector. Emitted at most once per platform
-        # per run regardless of how many assets are routed through.
         self._maybe_warn_builtin_defaults_missing_instance(resolved)
 
-        # Step 4: Parse EDMX schema (existing behaviour — only for exposed assets).
         parse_result: Optional[EdmxParseResult] = None
         if metadata_url:
             parse_result = self._parse_schema(space_name, asset_name, metadata_url)
 
         description: Optional[str] = None
-        custom_properties = {
-            "spaceName": space_name,
-            "supportsAnalyticalQueries": str(
-                asset.get("supportsAnalyticalQueries", False)
-            ).lower(),
-            "hasParameters": str(asset.get("hasParameters", False)).lower(),
-            "exposed_for_consumption": str(bool(metadata_url)).lower(),
-            "sap_datasphere_space": space_name,
-            "sap_datasphere_asset": asset_name,
-        }
+        custom_properties = self._base_asset_custom_properties(
+            space_name, asset_name, asset, metadata_url
+        )
         if parse_result is not None:
             if parse_result.entity_label:
                 description = parse_result.entity_label
             custom_properties.update(parse_result.entity_custom_props)
 
-        # M2: use enum-backed subtypes (string values match what was emitted
-        # before so golden files are unaffected).
-        if asset.get("supportsAnalyticalQueries"):
+        if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES):
             sub_type: str = DatasetSubTypes.SAP_ANALYTICAL_MODEL
         else:
             sub_type = DatasetSubTypes.VIEW
 
-        schema_fields = None
-        if parse_result is not None and parse_result.fields:
-            self.report.assets_schema_fetched += 1
-            schema_fields = self._decorate_fields(parse_result)
+        schema_fields = self._resolve_asset_schema_fields(
+            space_name, asset_name, parse_result, csn_def
+        )
 
         dataset_name = self._build_dataset_name(space_name, asset_name)
 
         upstreams_aspect: Optional[UpstreamLineageClass] = None
         if csn_def is not None and self.config.include_lineage:
-            # The walker itself has per-extractor guards (extract_upstream_refs
-            # and extract_column_lineage each catch); this outer guard catches
-            # non-walker failure modes — URN construction, _build_upstream_lineage
-            # raising, or any other surprise in the aspect-assembly path — so a
-            # single bad asset doesn't crash the per-asset emit.
+            # Outer guard for non-walker failures (URN construction, aspect
+            # assembly) so a single bad asset doesn't crash the emit.
             try:
                 upstreams_aspect = self._extract_lineage_aspect(
                     csn_def, resolved, space_name, asset_name, dataset_name
@@ -710,9 +1340,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 upstreams_aspect = None
 
-        # Analytic-model star-schema lineage + measure/dimension tags +
-        # variables from the businessLayerDefinitions block (no-op for plain
-        # views, whose csn_obj has no businessLayerDefinitions).
+        # Analytic-model star-schema lineage + measure/dimension tags + variables
+        # (no-op for plain views, which have no businessLayerDefinitions).
         upstreams_aspect = self._apply_business_layer_guarded(
             csn_obj,
             asset_name,
@@ -722,19 +1351,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             space_name,
         )
 
-        # View Definition: surface the CSN query tree as the viewProperties
-        # aspect for Views and Analytic Models. Local Tables are base tables
-        # (no `query` in their CSN) and are naturally excluded.
         view_properties = self._build_view_properties(csn_def)
 
-        # 2-tier model: parent the dataset directly to the Space container. The
-        # object kind (View / Analytical Model) survives as the dataset subtype,
-        # which the DataHub UI exposes as a filter facet.
+        # 2-tier model: parent directly to the Space container; the object kind
+        # survives as the dataset subtype (a UI filter facet).
         dataset_parent: ContainerKey = self._space_key(space_name)
 
-        # Build entity-level tags from the parsed entity-scope CDS annotations
-        # (Analytics.Dimension/Measure/DimensionType). Field-level tags are
-        # attached separately in ``_decorate_fields``.
         dataset_tags = self._entity_tag_urns(custom_properties)
 
         dataset = Dataset(
@@ -753,56 +1375,36 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         yield from dataset.as_workunits()
         if view_properties is not None:
-            view_dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=resolved.platform,
-                name=dataset_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-            )
+            view_dataset_urn = self._dataset_urn(resolved, dataset_name)
             yield MetadataChangeProposalWrapper(
                 entityUrn=view_dataset_urn,
                 aspect=view_properties,
             ).as_workunit()
-        # NOTE: see _emit_space — we rely on the workunit_processor's automatic
-        # add_entity_to_state, both to avoid double-counting and to keep
-        # FIX 1's parallel workers thread-safe.
-        # Not strictly atomic under threading but ok for a coarse threshold check.
+        # State is added by the workunit_processor (see _emit_space). The counter
+        # isn't strictly atomic under threading but is fine for a coarse threshold.
         self._datasets_emitted += 1
         self._check_scale_warning()
 
     def _build_view_properties(
-        self, csn_def: Optional[Dict]
+        self, csn_def: Optional[JsonDict]
     ) -> Optional[ViewPropertiesClass]:
-        """Build a viewProperties aspect from an asset's CSN definition.
-
-        Returns the aspect for Views and Analytic Models, or None when
-        view-definition emission is disabled, no CSN was fetched, or the CSN
-        has neither raw SQL nor a ``query`` (e.g. base tables).
-
-        SQL views store the raw SQL the modeler wrote in the
-        ``@DataWarehouse.sqlEditor.query`` annotation (confirmed against a real
-        deployed SQL view); that friendly definition wins and is emitted with
-        ``viewLanguage="SQL"``. Graphical/modeled views have no such
-        annotation — their definition is the CSN/CQN ``query`` tree, emitted
-        with ``viewLanguage="CSN"``.
-        """
+        # SQL views store the modeler's raw SQL in @DataWarehouse.sqlEditor.query;
+        # that wins. Graphical/modeled views instead emit their CSN/CQN query tree.
         if not self.config.include_view_definitions or csn_def is None:
             return None
-        sql = csn_def.get("@DataWarehouse.sqlEditor.query")
+        sql = csn_def.get(CSN_KEY_SQL_EDITOR_QUERY)
         if isinstance(sql, str) and sql.strip():
-            # SQL view — surface the actual SQL the modeler wrote.
             return ViewPropertiesClass(
                 materialized=False,
                 viewLogic=sql,
-                viewLanguage="SQL",
+                viewLanguage=VIEW_LANGUAGE_SQL,
             )
-        query = csn_def.get("query")
+        query = csn_def.get(CSN_KEY_QUERY)
         if isinstance(query, dict):
-            # Graphical/modeled view — definition is the CSN/CQN query tree.
             return ViewPropertiesClass(
                 materialized=False,
                 viewLogic=json.dumps(query, indent=2, sort_keys=False),
-                viewLanguage="CSN",
+                viewLanguage=VIEW_LANGUAGE_CSN,
             )
         return None
 
@@ -811,22 +1413,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         space_name: str,
         asset_name: str,
     ) -> str:
-        """Construct the dataset-name portion of the URN.
-
-        Format is always ``<space>.<asset>`` (lowercased per
-        ``config.convert_urns_to_lowercase``). The platform/platform_instance/env
-        that complete the URN are applied separately by the caller from the
-        asset's resolved mapping.
-        """
         name = f"{space_name}.{asset_name}"
         return self._maybe_lower(name)
 
     def _qualified_upstream_urn(self, qualified_key: str) -> str:
-        """Build a sap-datasphere upstream URN from a fully-qualified
-        ``<space>.<object>`` key (e.g. an analytic model's fact/dimension
-        ``dataEntity.key``). The key already contains its (possibly different)
-        space, so it is used as the URN name directly — NOT re-prefixed with the
-        connector's current space (which would corrupt cross-space references)."""
+        # The key already carries its own (possibly different) space, so it is
+        # used as the URN name directly — re-prefixing would corrupt cross-space
+        # references.
         name = self._maybe_lower(qualified_key)
         return make_dataset_urn_with_platform_instance(
             platform=PLATFORM,
@@ -844,19 +1437,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         query_upstreams: Optional[UpstreamLineageClass],
         space_name: str,
     ) -> Optional[UpstreamLineageClass]:
-        """Call ``_apply_business_layer`` with a degradation guard.
-
-        Mirrors the query-lineage try/except in ``_emit_asset``: a star-schema
-        assembly failure (e.g. a malformed ``dataEntity.key`` breaking URN
-        construction) must degrade to the already-computed ``query_upstreams``
-        rather than propagate to the per-asset isolation handler and drop the
-        whole analytic-model dataset.
-
-        NOTE: ``_apply_business_layer`` mutates ``schema_fields`` (measure/
-        dimension tags) and ``custom_properties`` (variables) in place; on a
-        mid-way exception those mutations may be partial, but the dataset is
-        still emitted, which is the primary requirement.
-        """
+        # Degrade a star-schema assembly failure to the already-computed
+        # query_upstreams rather than dropping the whole analytic-model dataset.
+        # _apply_business_layer mutates schema_fields/custom_properties in place;
+        # on a mid-way exception those may be partial but the dataset still emits.
         try:
             return self._apply_business_layer(
                 csn_obj,
@@ -885,44 +1469,27 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         custom_properties: Dict[str, str],
         query_upstreams: Optional[UpstreamLineageClass],
     ) -> Optional[UpstreamLineageClass]:
-        """Wire an analytic model's ``businessLayerDefinitions`` into emission.
+        """Wire an analytic model's ``businessLayerDefinitions`` (fact + dimension
+        sources, measures, attributes, variables) into emission.
 
-        Analytic models are star schemas whose fact + dimension sources live in
-        the ``businessLayerDefinitions`` block (a sibling of ``definitions`` in
-        the CSN), NOT in the CSN ``query`` the generic walker reads. This helper:
-
-        1. Lineage — builds a table-level ``UpstreamClass`` for the fact AND each
-           dimension source via ``_qualified_upstream_urn`` (cross-space safe:
-           the source key already carries its own space). When the business
-           layer yields upstreams these become the AUTHORITATIVE table-level
-           lineage, REPLACING the query-FROM-derived table-level upstreams. The
-           query-FROM path may double-prefix the fact's space (e.g.
-           ``s1.finance_data.sales_all_ge``), so its table-level upstreams are
-           dropped. Column-level fine-grained lineage from the query is kept only
-           when every one of its upstream schemaField URNs points at a
-           business-layer dataset URN; otherwise it is dropped (it would dangle
-           off the double-prefixed fact).
-        2. Tags — tags each schema field whose ``fieldPath`` is a measure with
-           ``MEASURE_TAG_URN`` and each attribute with ``DIMENSION_TAG_URN``
-           (cube elements usually lack ``@Analytics`` flags, so the business
-           layer is the primary signal). Existing tags are not duplicated.
-        3. Variables — surfaces ``businessLayerDefinitions`` variables as the
-           ``sap_variables`` custom property.
-
-        Returns the (possibly replaced) ``UpstreamLineageClass`` to use for the
-        dataset; for non-analytic-model objects (no ``businessLayerDefinitions``)
-        it returns ``query_upstreams`` unchanged so plain views are unaffected.
+        These live in a sibling block of the CSN ``query`` the generic walker
+        reads. When present, the business layer is the AUTHORITATIVE table-level
+        lineage, replacing the query-FROM upstreams (the query-FROM path may
+        double-prefix the fact's space). Query-derived fine-grained lineage is
+        kept only when every upstream schemaField URN points at a business-layer
+        dataset URN; otherwise it would dangle off the double-prefixed fact and
+        is dropped. Returns ``query_upstreams`` unchanged for plain views.
         """
-        bld = (csn_obj or {}).get("businessLayerDefinitions")
+        bld = (csn_obj or {}).get(CSN_KEY_BUSINESS_LAYER)
         if not isinstance(bld, dict):
             return query_upstreams
         bl = parse_business_layer(bld, technical_name)
 
-        # 3. Variables.
         if bl.variable_names:
-            custom_properties["sap_variables"] = ",".join(bl.variable_names)
+            custom_properties[PROP_SAP_VARIABLES] = ",".join(bl.variable_names)
 
-        # 2. Measure / dimension field tags (supplement any element-flag tags).
+        # Cube elements usually lack @Analytics flags, so the business layer is
+        # the primary measure/dimension signal.
         if self.config.emit_sap_semantics_as_tags and schema_fields:
             measures = set(bl.measure_names)
             attributes = set(bl.attribute_names)
@@ -932,8 +1499,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 if field.fieldPath in attributes:
                     self._add_field_tag(field, DIMENSION_TAG_URN)
 
-        # 1. Star-schema lineage: business layer is authoritative for the
-        # table-level upstreams; query-FROM table-level upstreams are suppressed.
         if not bl.upstream_keys:
             return query_upstreams
 
@@ -948,9 +1513,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             for key in bl.upstream_keys
         ]
 
-        # Keep fine-grained lineage only when ALL its upstream schemaField URNs
-        # reference a business-layer dataset URN (else it dangles off the
-        # double-prefixed fact and is dropped).
         fine_grained = None
         if query_upstreams is not None and query_upstreams.fineGrainedLineages:
             kept = [
@@ -971,8 +1533,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _add_field_tag(field: SchemaFieldClass, tag_urn: str) -> None:
-        """Add a tag URN to a schema field's ``globalTags`` without duplicating
-        a tag that is already present."""
         if field.globalTags is None:
             field.globalTags = GlobalTagsClass(tags=[])
         existing = {t.tag for t in field.globalTags.tags}
@@ -981,9 +1541,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _schema_field_parent(schema_field_urn: str) -> str:
-        """Return the parent dataset URN of a ``urn:li:schemaField:(<dataset>,<col>)``
-        URN, or the input unchanged when it is not a schemaField URN."""
-        prefix = "urn:li:schemaField:("
+        prefix = SCHEMA_FIELD_URN_PREFIX
         if schema_field_urn.startswith(prefix):
             inner = schema_field_urn[len(prefix) : schema_field_urn.rfind(")")]
             return inner.rsplit(",", 1)[0]
@@ -997,13 +1555,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         asset_name: str,
         dataset_name: str,
     ) -> Optional[UpstreamLineageClass]:
-        """Extract table-level upstream refs and column-level lineage pairs from CSN
-        and assemble them into a single ``UpstreamLineageClass`` aspect.
-
-        Each extractor is guarded independently so a parsing failure on one side
-        (table-level vs column-level) still allows the other to be emitted.
-        """
-        upstream_refs: List[str] = []
+        # Each extractor is guarded independently so a parsing failure on one
+        # side (table-level vs column-level) still allows the other to emit.
+        upstream_refs: List[UpstreamRef] = []
         column_pairs: List[ColumnLineagePair] = []
         try:
             upstream_refs = self._lineage_extractor.extract_upstream_refs(csn_def)
@@ -1014,6 +1568,29 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     f"Could not parse upstream references from CSN for "
                     f"{space_name}.{asset_name}; the dataset will be emitted "
                     f"without upstreamLineage."
+                ),
+                context=f"{type(e).__name__}: {e}",
+            )
+        try:
+            association_targets = self._lineage_extractor.extract_association_targets(
+                csn_def
+            )
+            if association_targets:
+                self.report.association_upstreams_emitted += len(association_targets)
+                # A ref appearing in both FROM and an association resolves to the
+                # same URN key, so dedup by name (qualified refs win — they carry
+                # the correct URN-build flag).
+                existing = {ref.name for ref in upstream_refs}
+                upstream_refs.extend(
+                    ref for ref in association_targets if ref.name not in existing
+                )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to extract CSN association lineage",
+                message=(
+                    f"Could not parse association-based lineage from CSN for "
+                    f"{space_name}.{asset_name}; the dataset will be emitted "
+                    f"without association upstreams."
                 ),
                 context=f"{type(e).__name__}: {e}",
             )
@@ -1031,15 +1608,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
         if not upstream_refs and not column_pairs:
             return None
-        downstream_dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=resolved.platform,
-            name=dataset_name,
-            platform_instance=resolved.platform_instance,
-            env=resolved.env,
-        )
+        downstream_dataset_urn = self._dataset_urn(resolved, dataset_name)
         column_lineage = (
             ColumnLineageContext(
-                pairs=tuple(column_pairs),
+                pairs=column_pairs,
                 downstream_dataset_urn=downstream_dataset_urn,
             )
             if column_pairs
@@ -1056,27 +1628,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self,
         resolved: ResolvedPlatform,
         space_name: str,
-        upstream_refs: List[str],
+        upstream_refs: List[UpstreamRef],
         column_lineage: Optional[ColumnLineageContext] = None,
     ) -> Optional[UpstreamLineageClass]:
-        """Construct an UpstreamLineageClass aspect.
-
-        Intra-Datasphere lineage is emitted under the same resolved platform so that
-        all URNs in the lineage graph are consistent. When ``column_lineage`` is
-        provided, ``FineGrainedLineageClass`` entries are appended for each
-        downstream column with at least one resolvable upstream column.
-        """
+        # Intra-Datasphere lineage is emitted under the same resolved platform so
+        # all URNs in the lineage graph are consistent.
         upstreams: List[UpstreamClass] = []
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
-            upstream_name = self._maybe_lower(f"{space_name}.{ref}")
-            upstream_urn = make_dataset_urn_with_platform_instance(
-                platform=resolved.platform,
-                name=upstream_name,
-                platform_instance=resolved.platform_instance,
-                env=resolved.env,
-            )
-            upstream_urn_by_name[ref] = upstream_urn
+            if ref.qualified:
+                # Already space-qualified (cross-space or built-in association
+                # target): use as-is on the sap-datasphere platform, mirroring the
+                # business-layer upstream path.
+                upstream_urn = self._qualified_upstream_urn(ref.name)
+            else:
+                upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
+                upstream_urn = self._dataset_urn(resolved, upstream_name)
+            upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
                     dataset=upstream_urn,
@@ -1102,43 +1670,34 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         column_lineage: ColumnLineageContext,
         upstream_urn_by_name: Dict[str, str],
     ) -> List[FineGrainedLineageClass]:
-        """Build the FineGrainedLineage entries for column-level lineage.
-
-        For each ``ColumnLineagePair``:
-          - Resolve each upstream ref to a schemaField URN via ``upstream_urn_by_name``
-          - Skip wildcard ``*`` upstream refs (record to ``report.column_lineage_unresolved``)
-          - Skip refs whose upstream qname isn't in the URN map (record to report)
-          - Append walker-collected ``unresolved_refs`` (record each to report)
-          - If any upstream field URNs survive, emit one ``FineGrainedLineage`` entry
-        """
         fine_grained: List[FineGrainedLineageClass] = []
         downstream_dataset_urn = column_lineage.downstream_dataset_urn
         for pair in column_lineage.pairs:
-            # Surface walker-level unresolvable refs (unknown alias,
-            # 3-segment ref, unnamed expression, malformed CSN markers)
-            # via the report so operators can debug silent drops.
+            # Surface walker-level unresolvable refs (unknown alias, 3-segment
+            # ref, unnamed expression, malformed CSN markers) so operators can
+            # debug silent drops.
             for unresolved_ref in pair.unresolved_refs:
                 self.report.column_lineage_unresolved.append(
                     f"{downstream_dataset_urn}#{pair.downstream_col}: {unresolved_ref}"
                 )
             upstream_field_urns: List[str] = []
-            for upstream_qname, upstream_col in pair.upstream_refs:
-                if upstream_col == "*":
+            for ref in pair.upstream_refs:
+                if ref.col == "*":
                     self.report.column_lineage_unresolved.append(
                         f"{downstream_dataset_urn}#{pair.downstream_col}: "
-                        f"<wildcard upstream {upstream_qname}.*>"
+                        f"<wildcard upstream {ref.qname}.*>"
                     )
                     continue
-                resolved_upstream_urn = upstream_urn_by_name.get(upstream_qname)
+                resolved_upstream_urn = upstream_urn_by_name.get(ref.qname)
                 if resolved_upstream_urn is None:
                     self.report.column_lineage_unresolved.append(
                         f"{downstream_dataset_urn}#{pair.downstream_col}: "
-                        f"<missing upstream qname {upstream_qname!r} "
-                        f"for col {upstream_col!r}>"
+                        f"<missing upstream qname {ref.qname!r} "
+                        f"for col {ref.col!r}>"
                     )
                     continue
                 upstream_field_urns.append(
-                    make_schema_field_urn(resolved_upstream_urn, upstream_col)
+                    make_schema_field_urn(resolved_upstream_urn, ref.col)
                 )
             if not upstream_field_urns:
                 continue
@@ -1204,7 +1763,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     f"Consider adding the type to the connector."
                 ),
                 context=", ".join(
-                    f"{name}:{edm_type}" for edm_type, name in result.unknown_edm_types
+                    f"{unknown.column}:{unknown.type}"
+                    for unknown in result.unknown_edm_types
                 ),
             )
             self.report.assets_with_unknown_edm_types.append(
@@ -1213,14 +1773,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return result
 
     def _report_unknown_cds_types(
-        self, space_name: str, asset_name: str, unknown_cds_types: List[Tuple[str, str]]
+        self,
+        space_name: str,
+        asset_name: str,
+        unknown_cds_types: List[UnknownColumnType],
     ) -> None:
-        """Surface CDS types the CSN parser fell back to StringType for.
-
-        Mirrors the EDMX ``unknown_edm_types`` handling in ``_parse_schema`` so a
-        column mis-typed as a string (because its CDS type isn't in the parser's
-        ``_TYPE_MAP``) is visible to the operator instead of silently degrading.
-        """
         if not unknown_cds_types:
             return
         self.report.warning(
@@ -1232,17 +1789,44 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"the connector."
             ),
             context=", ".join(
-                # (cds_type, name) order mirrors _parse_schema's EDMX reporter.
-                f"{name}:{cds_type}"
-                for cds_type, name in unknown_cds_types
+                f"{unknown.column}:{unknown.type}" for unknown in unknown_cds_types
             ),
         )
         self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
 
+    def _apply_column_pattern(
+        self, fields: List[SchemaFieldClass]
+    ) -> List[SchemaFieldClass]:
+        # Single place that honors column_pattern and counts drops, so every
+        # schema-producing path (EDMX, CSN asset, local table, remote table)
+        # filters consistently instead of some silently ignoring the pattern.
+        column_pattern = self.config.column_pattern
+        kept: List[SchemaFieldClass] = []
+        for f in fields:
+            if not column_pattern.allowed(f.fieldPath):
+                self.report.columns_filtered += 1
+                continue
+            kept.append(f)
+        return kept
+
+    def _schema_fields_from_csn(
+        self, space_name: str, asset_name: str, csn_def: JsonDict
+    ) -> Optional[List[SchemaFieldClass]]:
+        # Analytic models expose no OData $metadata, so the EDMX path yields
+        # nothing; their CSN still carries a full elements map. column_pattern is
+        # applied here for parity with the EDMX _decorate_fields path.
+        elements = csn_def.get(CSN_KEY_ELEMENTS)
+        if not isinstance(elements, dict) or not elements:
+            return None
+        csn_schema = parse_csn_elements_to_schema_fields(elements)
+        self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
+        filtered = self._apply_column_pattern(csn_schema.fields)
+        if not filtered:
+            return None
+        self.report.assets_schema_from_csn += 1
+        return filtered
+
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
-        # M4: filter columns by config.column_pattern (defaults to allow-all so
-        # behaviour is unchanged unless the user opts in). Filtering is applied
-        # to the EDMX property name (fieldPath) before any decoration.
         column_pattern = self.config.column_pattern
         decorated: List[SchemaFieldClass] = []
         for f in result.fields:
@@ -1257,10 +1841,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     if f.description
                     else f"[{prop_str}]"
                 )
-            # Also surface field-level CDS semantic annotations as DataHub tags.
-            # The same signal is already encoded in the description-suffix above
-            # (additive / backward-compatible); tags make it searchable and
-            # filterable in DataHub Search.
             self._apply_field_tags(f, field_props)
             decorated.append(f)
         return decorated
@@ -1268,12 +1848,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _apply_field_tags(
         self, field: SchemaFieldClass, field_props: Dict[str, str]
     ) -> None:
-        """Attach ``globalTags`` to a schema field from its ``sap_*`` custom
-        properties, honouring ``emit_sap_semantics_as_tags``.
-
-        Used by ``_decorate_fields`` (EDMX-sourced) to derive field tags from
-        the ``sap_*`` vocabulary.
-        """
         if not self.config.emit_sap_semantics_as_tags or not field_props:
             return
         tag_urns = self._tag_urns_for_field_props(field_props)
@@ -1283,46 +1857,33 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _entity_tag_urns(self, entity_props: Dict[str, str]) -> List[str]:
-        """Build dataset-level tag URNs from entity-scope custom properties.
-
-        ``Analytics.Dimension``/``Analytics.Measure`` on the entity (as opposed
-        to on a property) are surfaced as dataset tags, so an analytical model
-        that's tagged "Measure" at the entity level pivots cross-connector with
-        the same flat-namespace URN. ``Analytics.DimensionType`` builds a
-        namespaced ``sap:dimension_type:<value>`` tag URN on the fly because
-        CDS allows arbitrary values here.
-        """
+        # sap_dimension_type builds a namespaced tag URN on the fly because CDS
+        # allows arbitrary values here.
         if not self.config.emit_sap_semantics_as_tags:
             return []
         tag_urns: List[str] = []
-        if entity_props.get("sap_is_dimension") == "true":
+        if entity_props.get(PROP_SAP_IS_DIMENSION) == PROP_VALUE_TRUE:
             tag_urns.append(DIMENSION_TAG_URN)
-        if entity_props.get("sap_is_measure") == "true":
+        if entity_props.get(PROP_SAP_IS_MEASURE) == PROP_VALUE_TRUE:
             tag_urns.append(MEASURE_TAG_URN)
-        sap_dim_type = entity_props.get("sap_dimension_type")
+        sap_dim_type = entity_props.get(PROP_SAP_DIMENSION_TYPE)
         if sap_dim_type:
             tag_urns.append(sap_dimension_type_tag_urn(sap_dim_type))
         return tag_urns
 
     @staticmethod
     def _tag_urns_for_field_props(field_props: Dict[str, str]) -> List[str]:
-        """Map a field's parsed ``sap_*`` custom properties to the DataHub tag
-        URNs they correspond to. Returns an empty list when none apply.
-
-        Kept separate from ``_decorate_fields`` so the mapping logic is unit-
-        testable without standing up the full source.
-        """
         tag_urns: List[str] = []
-        if field_props.get("sap_is_dimension") == "true":
+        if field_props.get(PROP_SAP_IS_DIMENSION) == PROP_VALUE_TRUE:
             tag_urns.append(DIMENSION_TAG_URN)
-        if field_props.get("sap_is_measure") == "true":
+        if field_props.get(PROP_SAP_IS_MEASURE) == PROP_VALUE_TRUE:
             tag_urns.append(MEASURE_TAG_URN)
-        sap_semantic = field_props.get("sap_semantic")
-        if sap_semantic == "currency":
+        sap_semantic = field_props.get(PROP_SAP_SEMANTIC)
+        if sap_semantic == SEMANTIC_CURRENCY:
             tag_urns.append(SAP_CURRENCY_TAG_URN)
-        elif sap_semantic == "unit":
+        elif sap_semantic == SEMANTIC_UNIT:
             tag_urns.append(SAP_UNIT_TAG_URN)
-        sap_calendar_type = field_props.get("sap_calendar_type")
+        sap_calendar_type = field_props.get(PROP_SAP_CALENDAR_TYPE)
         if sap_calendar_type and sap_calendar_type in SAP_CALENDAR_TAG_URNS:
             tag_urns.append(SAP_CALENDAR_TAG_URNS[sap_calendar_type])
         return tag_urns
@@ -1330,18 +1891,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _maybe_warn_builtin_defaults_missing_instance(
         self, resolved: ResolvedPlatform
     ) -> None:
-        """M5: warn once per platform when an S3/GCS asset routes through the
-        built-in defaults table without a platform_instance.
-
-        Without a platform_instance the emitted URN uses the generic ``s3://``
-        / ``gs://`` scheme and won't merge with URNs from the operator's
-        dedicated S3/GCS DataHub connector. The warning lets them know they
-        likely want to override via ``platform_type_defaults`` or
-        ``connection_to_platform_map``.
-        """
+        # Without a platform_instance the emitted URN uses the generic s3:// /
+        # gs:// scheme and won't merge with URNs from the operator's dedicated
+        # S3/GCS connector; warn once so they can override the mapping.
         if resolved.platform_instance is not None:
             return
-        if resolved.platform not in {"s3", "gcs"}:
+        if resolved.platform not in GENERIC_SCHEME_PLATFORMS:
             return
         if self._builtin_defaults_warning_emitted_for.get(resolved.platform):
             return
@@ -1361,16 +1916,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _check_scale_warning(self) -> None:
-        """Emit a single warning when emitted-dataset count crosses 50K with
-        stateful ingestion enabled.
-
-        At default GMS / Kafka payload limits the soft-delete checkpoint MCP
-        starts to approach the ~80K-URN ceiling around here; we warn early so
-        operators can switch to manual cleanup or partition the run.
-        """
+        # At default GMS/Kafka payload limits the soft-delete checkpoint MCP
+        # approaches its ~80K-URN ceiling around here; warn early so operators
+        # can switch to manual cleanup or partition the run.
         if (
             not self._scale_warning_emitted
-            and self._datasets_emitted >= 50000
+            and self._datasets_emitted >= SCALE_WARNING_URN_THRESHOLD
             and self.config.stateful_ingestion is not None
             and self.config.stateful_ingestion.enabled
         ):
@@ -1389,13 +1940,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
-        """Validate credentials + tenant URL and probe the spaces endpoint.
-
-        Returns a :class:`TestConnectionReport` with:
-          * ``basic_connectivity`` — auth + reachability of the tenant URL.
-          * ``capability_report[CONTAINERS]`` — whether we can actually list
-            spaces (the lightest catalog-API call).
-        """
         test_report = TestConnectionReport()
         try:
             config = SapDatasphereConfig.parse_obj_allow_extras(config_dict)

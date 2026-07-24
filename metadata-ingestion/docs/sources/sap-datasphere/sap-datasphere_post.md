@@ -12,20 +12,27 @@ surface the official `datasphere` CLI uses.
 (direct refs, joins, and inline subqueries) plus `@remote.source` annotations on
 federated remote tables. For Analytic Models, the star-schema fact and dimension
 sources come from the business layer, which is authoritative over the query's
-`FROM`.
+`FROM`. `UNION` / `INTERSECT` / `EXCEPT` (`query.SET`) branches are flattened so
+every branch's `FROM` contributes an upstream. CDS **associations /
+compositions** (`cds.Association` / `cds.Composition` elements) are treated as
+upstreams **only when actually referenced** — projected in `SELECT` / `columns`
+or used in a `join`/`on` — so unused navigation links don't create phantom
+edges.
 
 **Column-level lineage** walks `query.SELECT.columns[]` and emits one
 `FineGrainedLineage` entry per downstream column with at least one resolvable
 upstream column. Supported expression shapes:
 
-| CSN shape          | Example                                         | Result                                  |
-| ------------------ | ----------------------------------------------- | --------------------------------------- |
-| Direct ref         | `{ref: [AMOUNT]}`                               | `IDENTITY` transformation               |
-| Aliased ref        | `{ref: [BASE, X], as: y}`                       | `RENAME`                                |
-| Aggregate function | `{func: SUM, args: [{ref: [X]}], as: total}`    | `AGGREGATE`                             |
-| Arithmetic / xpr   | `{xpr: [{ref: [A]}, "+", {ref: [B]}], as: sum}` | `EXPRESSION`                            |
-| Function           | `{func: UPPER, args: [{ref: [X]}], as: u}`      | `TRANSFORMATION`                        |
-| Literal            | `{val: 5, as: const}`                           | No lineage emitted (no upstream column) |
+| CSN shape          | Example                                         | Result                                           |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------ |
+| Direct ref         | `{ref: [AMOUNT]}`                               | `IDENTITY` transformation                        |
+| Aliased ref        | `{ref: [BASE, X], as: y}`                       | `RENAME`                                         |
+| Aggregate function | `{func: SUM, args: [{ref: [X]}], as: total}`    | `AGGREGATE`                                      |
+| Arithmetic / xpr   | `{xpr: [{ref: [A]}, "+", {ref: [B]}], as: sum}` | `EXPRESSION`                                     |
+| Function           | `{func: UPPER, args: [{ref: [X]}], as: u}`      | `TRANSFORMATION`                                 |
+| Association nav    | `{ref: [_Customer, NAME], as: cust}`            | Attributed to the association's target entity    |
+| UNION / SET        | `{SET: {op: union, args: [SELECT, SELECT]}}`    | Output column merges upstreams from every branch |
+| Literal            | `{val: 5, as: const}`                           | No lineage emitted (no upstream column)          |
 
 Unresolvable refs (e.g., `SELECT *` star expansion, or columns referring to
 unknown aliases) are skipped and logged to `report.column_lineage_unresolved`.
@@ -34,6 +41,40 @@ Lineage extraction adds one HTTP call per asset (the per-object-type CSN
 fetch). At 1M assets with `max_workers_assets=10`, this adds ~3 hours to the
 total run time. The column-level walker itself is essentially free (in-memory
 tree walk over an already-fetched JSON document).
+
+#### Flow and Remote Table lineage (ETL)
+
+The query-derived lineage above captures how views are computed, but not how
+the tables they read are _populated_. Several opt-in flags surface the
+design-time objects that move and transform data, so an otherwise phantom
+upstream Local Table becomes a navigable node with real upstream lineage:
+
+- **`include_data_flows: true`** — emits each Data Flow as a DataJob (grouped
+  under one DataFlow per space) with its source tables as inputs, its target
+  tables as outputs, and column-level lineage from the flow's column mappings.
+  Column lineage is attributed only when a target has a single input source.
+- **`include_replication_flows: true`** — emits each Replication Flow as a
+  DataJob wiring its source object(s) to target object(s), with per-task column
+  mappings. Source/target systems are routed to a DataHub platform via
+  `connection_to_platform_map` / `platform_type_defaults` (using the flow's own
+  `connectionType` when the connection isn't in the space's connections list).
+- **`include_remote_tables: true`** — emits federated Remote Tables as datasets
+  with upstream lineage to their external source object (parsed from the CSN
+  `@DataWarehouse.remote.*` annotations and routed via the connection maps).
+- **`include_task_chains: true`** — **experimental**. Task Chains _are_
+  discovered against a live tenant and emitted as IO-less DataJobs (their
+  presence + subtype), but their internal member/reference grammar has not been
+  reverse-engineered, so no lineage edges are produced. Enable to catalogue the
+  objects; please share a payload sample if you need lineage.
+- **`include_transformation_flows: true`** — **experimental**. Parsed with the
+  Data Flow process-graph reader, but not yet verified against a live
+  Transformation Flow payload, so lineage may be incomplete. Enable only if you
+  can validate the output.
+
+Endpoints or sources that don't resolve to a platform are counted in
+`report.flow_endpoints_unresolved` and `report.remote_table_source_unresolved`
+rather than being silently dropped. Each flag adds one list call per space plus
+one read call per object.
 
 #### View definitions
 
@@ -83,9 +124,11 @@ All endpoints called by this connector are SAP-supported public APIs:
 - `/api/v1/datasphere/consumption/catalog/...` — asset discovery (Catalog API)
 - `/api/v1/datasphere/consumption/relational/.../$metadata` — EDMX schema
 - `/api/v1/datasphere/spaces/X/connections` — Connections API
-- `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables}/{name}` —
+- `/dwaas-core/api/v1/spaces/X/{views,analyticmodels,localtables,remotetables}/{name}` —
   per-object-type CSN read (with `Accept: application/vnd.sap.datasphere.object.content+json`),
   the same surface the official `datasphere` CLI uses
+- `/dwaas-core/api/v1/spaces/X/{dataflows,replicationflows,transformationflows,taskchains}/{name}` —
+  per-flow design-time definitions (only called when the matching `include_*` flag is set)
 
 Previous releases of this connector used the `/deepsea/repository/` endpoint
 for lineage extraction, which SAP marks as internal-use-only in
@@ -187,10 +230,11 @@ These follow from what the supported consumption surface exposes:
 - Scalar subqueries in column expressions ARE supported (resolved against the
   subquery's own FROM clause). Correlated subqueries that reference outer-scope
   aliases are NOT — their refs land in `report.column_lineage_unresolved`.
-- Cross-Space upstream resolution: column lineage assumes the upstream lives
-  in the same Space and resolves to the same storage platform as the
-  downstream. Cross-Space references will appear with the correct upstream
-  qualified-name but routed to the downstream's platform.
+- Cross-Space upstream resolution: a reference that is already Space-qualified
+  (e.g. `OTHER_SPACE.OBJECT`) is detected and used as-is, so it is no longer
+  double-prefixed into a phantom URN. It is still routed to the downstream's
+  storage platform (managed cross-Space refs stay on `sap-datasphere`), and
+  column matching assumes the upstream schema mirrors the downstream.
 - `SELECT *` star expansion is not unrolled — those columns are listed in
   `report.column_lineage_unresolved`.
 - A `SELECT FROM T AS t` with unqualified column refs (e.g. `{ref: [X]}`) does

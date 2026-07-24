@@ -264,6 +264,1138 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "BusinessPartner",
+                    "nullable": true,
+                    "description": "BusinessPartner",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartner_Location",
+                    "nullable": true,
+                    "description": "BusinessPartner_Location",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_ORDERID",
+                    "nullable": true,
+                    "description": "BW_ORDERID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_YEAR",
+                    "nullable": true,
+                    "description": "BW_Athena_YEAR",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_MONTH",
+                    "nullable": true,
+                    "description": "BW_Athena_MONTH",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_SALESAGENT",
+                    "nullable": true,
+                    "description": "BW_SALESAGENT",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_COUNTRY",
+                    "nullable": true,
+                    "description": "BW_Athena_COUNTRY",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_CUSTOMERSTATUS",
+                    "nullable": true,
+                    "description": "BW_Athena_CUSTOMERSTATUS",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_PRODUCT",
+                    "nullable": true,
+                    "description": "BW_Athena_PRODUCT",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_Athena_PRODUCTTYPE",
+                    "nullable": true,
+                    "description": "BW_Athena_PRODUCTTYPE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Opportunity_Id",
+                    "nullable": true,
+                    "description": "Opportunity_Id",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ForecastCategory",
+                    "nullable": true,
+                    "description": "ForecastCategory",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HasOpenActivity",
+                    "nullable": true,
+                    "description": "HasOpenActivity",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "HasOpportunityLineItem",
+                    "nullable": true,
+                    "description": "HasOpportunityLineItem",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsClosed",
+                    "nullable": true,
+                    "description": "IsClosed",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsDeleted",
+                    "nullable": true,
+                    "description": "IsDeleted",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsWon",
+                    "nullable": true,
+                    "description": "IsWon",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LeadSource",
+                    "nullable": true,
+                    "description": "LeadSource",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "MainCompetitors",
+                    "nullable": true,
+                    "description": "MainCompetitors",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Name",
+                    "nullable": true,
+                    "description": "Name",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrderNumber",
+                    "nullable": true,
+                    "description": "OrderNumber",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrderNumber__c_0",
+                    "nullable": true,
+                    "description": "OrderNumber__c_0",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Probability",
+                    "nullable": true,
+                    "description": "Probability",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "StageName",
+                    "nullable": true,
+                    "description": "StageName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Type",
+                    "nullable": true,
+                    "description": "Type",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sold to party",
+                    "nullable": true,
+                    "description": "Sold to party",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Company Code",
+                    "nullable": true,
+                    "description": "Company Code",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerCategory_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerCategory",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerName_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "CreationDate_Busin",
+                    "nullable": true,
+                    "description": "CreationDate",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LastChangeDate_Busin",
+                    "nullable": true,
+                    "description": "LastChangeDate",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerIsBlocked_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerIsBlocked",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsBusinessPurposeComplet_Busin",
+                    "nullable": true,
+                    "description": "IsBusinessPurposeCompleted",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "OrganizationBPName1_Busin",
+                    "nullable": true,
+                    "description": "OrganizationBPName",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "InternationalLocationNum_Busin",
+                    "nullable": true,
+                    "description": "InternationalLocationNumber",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "LegalForm_Busin",
+                    "nullable": true,
+                    "description": "LegalForm",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "IsNaturalPerson_Busin",
+                    "nullable": true,
+                    "description": "IsNaturalPerson",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerGrouping_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerGrouping",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BusinessPartnerType_Busin",
+                    "nullable": true,
+                    "description": "BusinessPartnerType",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Risk_Class_Busin",
+                    "nullable": true,
+                    "description": "Risk_Class",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Rating_Payment_Behav_Busin",
+                    "nullable": true,
+                    "description": "Rating_Payment_Behav",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Country_Bus1",
+                    "nullable": true,
+                    "description": "Country",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Region_Bus1",
+                    "nullable": true,
+                    "description": "Region",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "State_Bus1",
+                    "nullable": true,
+                    "description": "State",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "City_Bus1",
+                    "nullable": true,
+                    "description": "City",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "City_Population_Bus1",
+                    "nullable": true,
+                    "description": "City_Population",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Average_income_per_head_y_Bus1",
+                    "nullable": true,
+                    "description": "Average_income_per_head_year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Purchasing_Power_per_Year_Bus1",
+                    "nullable": true,
+                    "description": "Purchasing_Power_per_Year",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Location_Bus1",
+                    "nullable": true,
+                    "description": "Location",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_ORDERVALUE",
+                    "nullable": true,
+                    "description": "BW_ORDERVALUE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_UNITSSOLD",
+                    "nullable": true,
+                    "description": "BW_UNITSSOLD",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "BW_NOCUSTOMERMEETINGS",
+                    "nullable": true,
+                    "description": "BW_NOCUSTOMERMEETINGS",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Athena_Planned_ORDERVALUE",
+                    "nullable": true,
+                    "description": "Athena_Planned_ORDERVALUE",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sales_Amount",
+                    "nullable": true,
+                    "description": "Sales_Amount",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Sales_ExpectedRevenue",
+                    "nullable": true,
+                    "description": "Sales_ExpectedRevenue",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "UNKNOWN",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Measure"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-recorded-replay",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
@@ -291,6 +1423,668 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD)",
                     "type": "VIEW"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BusinessPartner)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartner)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BusinessPartner_Location)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartner_Location)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_ORDERID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_ORDERID)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_YEAR)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_YEAR)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_MONTH)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_MONTH)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_SALESAGENT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_SALESAGENT)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_COUNTRY)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_COUNTRY)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_CUSTOMERSTATUS)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_CUSTOMERSTATUS)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_PRODUCT)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_PRODUCT)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_Athena_PRODUCTTYPE)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_Athena_PRODUCTTYPE)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Opportunity_Id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Opportunity_Id)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),ForecastCategory)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),ForecastCategory)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),HasOpenActivity)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),HasOpenActivity)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),HasOpportunityLineItem)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),HasOpportunityLineItem)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),IsClosed)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),IsClosed)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),IsDeleted)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),IsDeleted)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),IsWon)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),IsWon)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),LeadSource)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),LeadSource)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),MainCompetitors)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),MainCompetitors)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Name)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),OrderNumber)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),OrderNumber)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),OrderNumber__c_0)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),OrderNumber__c_0)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Probability)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Probability)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),StageName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),StageName)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Type)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Type)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Sold to party)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Sold to party)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Company Code)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Company Code)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),BusinessPartnerCategory)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartnerCategory_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),BusinessPartnerName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartnerName_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),CreationDate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),CreationDate_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),LastChangeDate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),LastChangeDate_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),BusinessPartnerIsBlocked)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartnerIsBlocked_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),IsBusinessPurposeCompleted)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),IsBusinessPurposeComplet_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),OrganizationBPName1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),OrganizationBPName1_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),InternationalLocationNumber1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),InternationalLocationNum_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),LegalForm)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),LegalForm_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),IsNaturalPerson)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),IsNaturalPerson_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),BusinessPartnerGrouping)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartnerGrouping_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),BusinessPartnerType)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BusinessPartnerType_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),Risk_Class)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Risk_Class_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.businesspartner_dim_ge,PROD),Rating_Payment_Behav)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Rating_Payment_Behav_Busin)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),Country)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Country_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),Region)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Region_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),State)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),State_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),City)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),City_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),City_Population)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),City_Population_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),Average_income_per_head_year)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Average_income_per_head_y_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),Purchasing_Power_per_Year)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Purchasing_Power_per_Year_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.purchasing_power_dim_ge,PROD),Location)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Location_Bus1)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_ORDERVALUE)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_ORDERVALUE)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_UNITSSOLD)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_UNITSSOLD)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),BW_NOCUSTOMERMEETINGS)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),BW_NOCUSTOMERMEETINGS)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Athena_Planned_ORDERVALUE)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Athena_Planned_ORDERVALUE)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Sales_Amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Sales_Amount)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.finance_data.sales_all_ge,PROD),Sales_ExpectedRevenue)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.test_analytic_model,PROD),Sales_ExpectedRevenue)"
+                    ],
+                    "transformOperation": "RENAME",
+                    "confidenceScore": 1.0
                 }
             ]
         }
@@ -557,7 +2351,31 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tday,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tmonth,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -565,7 +2383,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SQL)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DATE_SQL)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -577,7 +2395,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SAP)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DATE_SAP)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -589,7 +2407,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_OF_WEEK)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DAY_OF_WEEK)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -601,7 +2419,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALWEEK)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALWEEK)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -613,7 +2431,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALMONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -625,7 +2443,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),MONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -637,7 +2455,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -649,7 +2467,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -661,7 +2479,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -673,7 +2491,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_INT)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DAY_INT)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1000,7 +2818,15 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -1008,7 +2834,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1020,7 +2846,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1032,7 +2858,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1322,7 +3148,23 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tmonth,PROD)",
+                    "type": "VIEW"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -1330,7 +3172,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALMONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1342,7 +3184,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),MONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1354,7 +3196,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1366,7 +3208,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1378,7 +3220,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -1602,7 +3444,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -1610,7 +3452,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [

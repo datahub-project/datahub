@@ -1,0 +1,31 @@
+{
+  "definitions": {
+    "RT_BIC_MATERIAL": {
+      "kind": "entity",
+      "@EndUserText.label": "/BIC/MY_MATERIAL",
+      "@ObjectModel.supportedCapabilities": [
+        { "#": "SQL_DATA_SOURCE" },
+        { "#": "DATA_STRUCTURE" }
+      ],
+      "@ObjectModel.modelingPattern": { "#": "DATA_STRUCTURE" },
+      "@DataWarehouse.remote.connection": "HANA_DP_AGENT",
+      "@DataWarehouse.remote.entity": "\"MY_SCHEMA\".\"/BIC/MY_MATERIAL\"",
+      "elements": {
+        "/BIC/MY_KEY": {
+          "@EndUserText.label": "/BIC/MY_KEY",
+          "type": "cds.String",
+          "length": 18,
+          "@DataWarehouse.native.dataType": "NVARCHAR",
+          "key": true,
+          "notNull": true
+        },
+        "/BIC/MY_VALUE": {
+          "@EndUserText.label": "/BIC/MY_VALUE",
+          "type": "cds.String",
+          "length": 40,
+          "@DataWarehouse.native.dataType": "NVARCHAR"
+        }
+      }
+    }
+  }
+}

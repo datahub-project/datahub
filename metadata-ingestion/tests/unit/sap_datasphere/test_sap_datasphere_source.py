@@ -9,18 +9,26 @@ import requests
 import requests_mock as rm
 from pydantic import ValidationError
 
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
-from datahub.ingestion.source.sap_datasphere.lineage import (
+from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    FlowEndpoint,
+    ResolvedPlatform,
     UpstreamColRef,
 )
-from datahub.ingestion.source.sap_datasphere.platform_mapping import ResolvedPlatform
+from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+    PlatformMappingResolver,
+)
 from datahub.ingestion.source.sap_datasphere.report import (
     ApiCallStats,
     SapDatasphereReport,
@@ -44,7 +52,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
-from tests.unit.sap_datasphere_test_helpers import (
+from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
     aspect_as,
     aspect_of,
     entity_urn_of,
@@ -1362,6 +1370,94 @@ def test_table_lineage_emitted_from_csn_query_from_ref(requests_mock):
     )
 
 
+def test_association_lineage_emitted_from_csn_elements(requests_mock):
+    """A view referencing another entity through a CDS association (rather than a
+    SELECT FROM/join) surfaces the association target as an upstream edge, with a
+    fine-grained edge for the projected association field. Same-space bare targets
+    are space-prefixed under the resolved platform."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_lineage": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-assoc-lineage")
+
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "SALES_V",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/SALES_V",
+        json={
+            "definitions": {
+                "SALES_V": {
+                    "kind": "entity",
+                    "elements": {
+                        "AMOUNT": {"type": "cds.Decimal"},
+                        "_CUST": {"type": "cds.Association", "target": "CUSTOMERS"},
+                    },
+                    "query": {
+                        "SELECT": {
+                            "from": {"ref": ["SALES"], "as": "SALES"},
+                            "columns": [
+                                {"ref": ["AMOUNT"]},
+                                {"ref": ["_CUST", "NAME"], "as": "CUSTOMER_NAME"},
+                            ],
+                        }
+                    },
+                }
+            }
+        },
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    lineage_wus = [
+        wu
+        for wu in workunits
+        if aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(lineage_wus) >= 1
+    lineage = aspect_as(lineage_wus[0], UpstreamLineageClass)
+    upstream_urns = [u.dataset for u in lineage.upstreams]
+    # The association target is a table-level upstream alongside the FROM source.
+    assert any("s1.customers" in u for u in upstream_urns), (
+        f"Expected association target upstream sap-datasphere:S1.CUSTOMERS, "
+        f"got: {upstream_urns}"
+    )
+    # And a fine-grained edge attributes CUSTOMER_NAME to CUSTOMERS.NAME.
+    assert lineage.fineGrainedLineages
+    assert any(
+        any(
+            "s1.customers" in up and "name" in up.lower()
+            for up in (fgl.upstreams or [])
+        )
+        for fgl in lineage.fineGrainedLineages
+    ), "Expected fine-grained edge from CUSTOMERS.NAME"
+    assert source.report.association_upstreams_emitted >= 1
+
+
 def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
     """When both include_lineage and include_view_definitions are False, the CSN
     endpoint is never called."""
@@ -1427,10 +1523,10 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     )
     ctx = PipelineContext(run_id="test-unknown-typeid")
 
-    # A connection with a typeId we don't have a built-in default for (BIGQUERY).
+    # A connection with a typeId we don't have a built-in default for (SNOWFLAKE).
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
-        json=[{"name": "GBQ_PROD", "typeId": "BIGQUERY"}],
+        json=[{"name": "SF_PROD", "typeId": "SNOWFLAKE"}],
     )
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
@@ -1450,14 +1546,14 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
             ]
         },
     )
-    # CSN routes this asset to the unknown GBQ_PROD connection
+    # CSN routes this asset to the unknown SF_PROD connection
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/FED_TABLE",
         json={
             "definitions": {
                 "FED_TABLE": {
                     "kind": "entity",
-                    "@remote.source": "GBQ_PROD",
+                    "@remote.source": "SF_PROD",
                 }
             }
         },
@@ -1475,7 +1571,7 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     # The new counter should be 1; assets_filtered should NOT increment for this.
     assert source.report.assets_skipped_unknown_typeid is not None
     skipped = list(source.report.assets_skipped_unknown_typeid)
-    assert any("FED_TABLE" in s or "GBQ_PROD" in s for s in skipped), (
+    assert any("FED_TABLE" in s or "SF_PROD" in s for s in skipped), (
         f"Expected FED_TABLE in assets_skipped_unknown_typeid, got: {skipped}"
     )
 
@@ -1820,6 +1916,75 @@ def test_federated_remote_table_still_emits_on_storage_platform(requests_mock):
             f"Federated asset must use the federated connection's "
             f"platform_instance 'snow_acct'; got: {urn}"
         )
+
+
+def test_remote_table_emits_one_to_one_column_lineage_with_case_preserved():
+    """A federated Remote Table mirrors its external source 1:1, so it must emit
+    a table-level COPY edge AND column-level FineGrainedLineage (one edge per
+    field). With a per-platform ``convert_urns_to_lowercase: false`` mapping
+    (BigQuery preserves source case), both the dataset name and the upstream
+    column names keep their case so they stitch to the native connector's URNs."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "connection_to_platform_map": {
+                "BQ": {"platform": "bigquery", "convert_urns_to_lowercase": False},
+            },
+        }
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="rt-cll"), cfg)
+    resolver = PlatformMappingResolver(
+        cfg,
+        connections_by_name={"BQ": {"name": "BQ", "typeId": "BIGQUERY"}},
+        report=source.report,
+    )
+    # \x7f is SAP's remote-entity path delimiter (REMOTE_ENTITY_DELIMITER).
+    definition = {
+        "kind": "entity",
+        "@DataWarehouse.remote.connection": "BQ",
+        "@DataWarehouse.remote.entity": "proj\x7fdataset\x7fMyTable",
+        "elements": {
+            "Id": {"type": "cds.String"},
+            "MixedCol": {"type": "cds.String"},
+        },
+    }
+    schema_fields = source._remote_table_schema("S1", "RT_MYTABLE", definition)
+    assert schema_fields is not None
+    downstream_urn = make_dataset_urn_with_platform_instance(
+        platform="sap-datasphere",
+        name="s1.rt_mytable",
+        platform_instance=None,
+        env="PROD",
+    )
+
+    aspect = source._remote_table_upstream(
+        "S1", "RT_MYTABLE", definition, resolver, schema_fields, downstream_urn
+    )
+    assert aspect is not None
+
+    # Table-level COPY edge to BigQuery, case preserved.
+    upstream_urn = make_dataset_urn_with_platform_instance(
+        platform="bigquery",
+        name="proj.dataset.MyTable",
+        platform_instance=None,
+        env="PROD",
+    )
+    assert [u.dataset for u in aspect.upstreams] == [upstream_urn]
+
+    # 1:1 column lineage, upstream column case preserved (BigQuery), one per field.
+    fgl = aspect.fineGrainedLineages or []
+    edges = {(tuple(f.upstreams or []), tuple(f.downstreams or [])) for f in fgl}
+    assert edges == {
+        (
+            (make_schema_field_urn(upstream_urn, "Id"),),
+            (make_schema_field_urn(downstream_urn, "Id"),),
+        ),
+        (
+            (make_schema_field_urn(upstream_urn, "MixedCol"),),
+            (make_schema_field_urn(downstream_urn, "MixedCol"),),
+        ),
+    }
 
 
 _EDMX_WITH_UNKNOWN_TYPE = """<?xml version="1.0" encoding="UTF-8"?>
@@ -3072,32 +3237,32 @@ def test_build_fine_grained_lineages_reports_wildcard_missing_qname_and_unresolv
     }
 
     column_lineage = ColumnLineageContext(
-        pairs=(
+        pairs=[
             # Normal pair — should produce FineGrainedLineage entry
             ColumnLineagePair(
                 downstream_col="id",
-                upstream_refs=(UpstreamColRef("BASE", "ID"),),
+                upstream_refs=[UpstreamColRef(qname="BASE", col="ID")],
                 transform_op="IDENTITY",
             ),
             # Wildcard upstream — should report, no entry
             ColumnLineagePair(
                 downstream_col="all_data",
-                upstream_refs=(UpstreamColRef("BASE", "*"),),
+                upstream_refs=[UpstreamColRef(qname="BASE", col="*")],
                 transform_op="IDENTITY",
             ),
             # Missing upstream qname — should report, no entry
             ColumnLineagePair(
                 downstream_col="orphan",
-                upstream_refs=(UpstreamColRef("UNKNOWN_TABLE", "x"),),
+                upstream_refs=[UpstreamColRef(qname="UNKNOWN_TABLE", col="x")],
                 transform_op="IDENTITY",
             ),
             # Walker-unresolved — should report, no entry
             ColumnLineagePair(
                 downstream_col="weird",
-                upstream_refs=(),
-                unresolved_refs=("<some walker diagnostic>",),
+                upstream_refs=[],
+                unresolved_refs=["<some walker diagnostic>"],
             ),
-        ),
+        ],
         downstream_dataset_urn=(
             "urn:li:dataset:(urn:li:dataPlatform:hana,SCHEMA.VIEW,PROD)"
         ),
@@ -4387,3 +4552,986 @@ def test_report_api_timings_excluded_from_as_obj_underscore_fields():
     assert "_SLOWEST_N" not in obj
     assert "api_timings" in obj
     assert "slowest_api_calls" in obj
+
+
+def test_schema_fields_from_csn_recovers_analytic_model_schema():
+    """Analytic models expose no OData ``$metadata`` URL, so the EDMX path yields
+    nothing. Their schema is recovered from the CSN ``elements`` map instead —
+    measures/attributes become schema fields. Mirrors the analytic-model CSN shape
+    observed on the live tenant (elements present, no relational metadata URL)."""
+    src = _bl_source("csn-schema-am")
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "revenue": {"type": "cds.Decimal", "@EndUserText.label": "Revenue"},
+            "region": {"type": "cds.String", "length": 20},
+        },
+    }
+    fields = src._schema_fields_from_csn("S1", "AM_X", csn_def)
+    assert fields is not None
+    assert {f.fieldPath for f in fields} == {"revenue", "region"}
+    assert src.report.assets_schema_from_csn == 1
+
+
+def test_schema_fields_from_csn_returns_none_for_base_table_shape():
+    """A CSN definition with no ``elements`` map (query-only view / degenerate
+    shape) yields no fields and does not bump the CSN-schema counter."""
+    src = _bl_source("csn-schema-none")
+    assert src._schema_fields_from_csn("S1", "V_X", {"kind": "entity"}) is None
+    assert src.report.assets_schema_from_csn == 0
+
+
+def test_schema_fields_from_csn_applies_column_pattern():
+    """``column_pattern`` filtering is applied on the CSN path for parity with the
+    EDMX ``_decorate_fields`` path."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "column_pattern": {"deny": ["^secret_.*"]},
+        }
+    )
+    src = SapDatasphereSource(PipelineContext(run_id="csn-schema-colfilter"), cfg)
+    csn_def = {
+        "elements": {
+            "keep_me": {"type": "cds.String"},
+            "secret_ssn": {"type": "cds.String"},
+        },
+    }
+    fields = src._schema_fields_from_csn("S1", "AM_X", csn_def)
+    assert fields is not None
+    assert {f.fieldPath for f in fields} == {"keep_me"}
+    assert src.report.columns_filtered == 1
+
+
+def test_data_flow_emits_downstream_lineage_without_status_materialization(
+    requests_mock,
+):
+    """A Data Flow must (1) emit a DataJob and (2) surface a dataset-to-dataset
+    UpstreamLineage on its target as a *secondary* edge (is_primary_source=False)
+    so AutoStatusAspectProcessor never synthesizes a Status(removed=false) for
+    the target — the target table is owned by another platform / not ingested
+    here, so materializing it would create a phantom entity."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-flow-downstream-lineage")
+
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "MY_DATA_FLOW"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/MY_DATA_FLOW",
+        json={
+            "dataflows": {
+                "MY_DATA_FLOW": {
+                    "contents": {
+                        "processes": {
+                            "p1": {
+                                "component": "com.sap.dataflow.table.consumer",
+                                "metadata": {
+                                    "config": {
+                                        "dwcEntity": "SRC_TABLE",
+                                        "hanaConnection": {"connectionID": "$DWC"},
+                                    }
+                                },
+                            },
+                            "p2": {
+                                "component": "com.sap.dataflow.table.producer",
+                                "metadata": {
+                                    "config": {
+                                        "dwcEntity": "TGT_TABLE",
+                                        "hanaConnection": {"connectionID": "$DWC"},
+                                        "attributeMappings": [
+                                            {
+                                                "target": "OUT_COL",
+                                                "expression": '"IN_COL"',
+                                            }
+                                        ],
+                                    }
+                                },
+                            },
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_table,PROD)"
+
+    # (1) The flow itself is emitted as a DataJob with its IO.
+    assert any(
+        aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
+        for wu in workunits
+    ), "Expected a DataJobInputOutput aspect for the data flow"
+
+    # (2) A dataset-to-dataset UpstreamLineage lands on the flow target.
+    downstream_wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(downstream_wus) == 1, (
+        f"Expected exactly one UpstreamLineage on the flow target; "
+        f"got {len(downstream_wus)}"
+    )
+    lineage = aspect_as(downstream_wus[0], UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [src_urn]
+    assert lineage.fineGrainedLineages, "Expected column-level lineage on the target"
+
+    # It must be a secondary edge, or auto-Status would materialize the target.
+    assert downstream_wus[0].is_primary_source is False
+
+    # (3) No Status(removed=false) may be synthesized for the referenced target.
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "StatusClass"
+    ], "Flow target must not be materialized with a Status aspect"
+
+
+def _data_flow_payload(name: str, src_object: str) -> dict:
+    """A minimal data flow reading src_object -> TGT_TABLE with one column map."""
+    return {
+        "dataflows": {
+            name: {
+                "contents": {
+                    "processes": {
+                        "p1": {
+                            "component": "com.sap.dataflow.table.consumer",
+                            "metadata": {
+                                "config": {
+                                    "dwcEntity": src_object,
+                                    "hanaConnection": {"connectionID": "$DWC"},
+                                }
+                            },
+                        },
+                        "p2": {
+                            "component": "com.sap.dataflow.table.producer",
+                            "metadata": {
+                                "config": {
+                                    "dwcEntity": "TGT_TABLE",
+                                    "hanaConnection": {"connectionID": "$DWC"},
+                                    "attributeMappings": [
+                                        {
+                                            "target": "OUT_COL",
+                                            "expression": f'"{src_object}_COL"',
+                                        }
+                                    ],
+                                }
+                            },
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+
+def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
+    """Two data flows writing to the same target must not clobber each other.
+
+    Each flow emits a *full* UpstreamLineage on the shared target, so without
+    aggregation the second flow's aspect would overwrite the first and drop its
+    edges. The source merges them into a single aspect carrying both upstreams.
+    """
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-flow-merge")
+
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "FLOW_A"}, {"technicalName": "FLOW_B"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/FLOW_A",
+        json=_data_flow_payload("FLOW_A", "SRC_A"),
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/FLOW_B",
+        json=_data_flow_payload("FLOW_B", "SRC_B"),
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
+    src_a = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_a,PROD)"
+    src_b = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_b,PROD)"
+
+    downstream_wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(downstream_wus) == 1, (
+        "Both flows must merge into a single UpstreamLineage on the shared target; "
+        f"got {len(downstream_wus)}"
+    )
+    lineage = aspect_as(downstream_wus[0], UpstreamLineageClass)
+    assert {u.dataset for u in lineage.upstreams} == {src_a, src_b}
+    assert downstream_wus[0].is_primary_source is False
+    # Column edges from both flows survive the merge (one per source).
+    assert lineage.fineGrainedLineages is not None
+    assert len(lineage.fineGrainedLineages) == 2
+
+
+# ---------------------------------------------------------------------------
+# Flow endpoint URN qualification + per-platform casing
+# ---------------------------------------------------------------------------
+
+
+def _flow_source(cfg_overrides: Optional[Dict] = None) -> SapDatasphereSource:
+    cfg_dict: Dict = {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    cfg_dict.update(cfg_overrides or {})
+    cfg = SapDatasphereConfig.model_validate(cfg_dict)
+    source = SapDatasphereSource(PipelineContext(run_id="test-flow-urn"), cfg)
+    # Pre-seed the per-space resolver so no live connections call is made.
+    source._resolvers["SAP_BW"] = PlatformMappingResolver(cfg, connections_by_name={})
+    return source
+
+
+def test_resolve_flow_endpoint_urn_external_bigquery_qualified_and_case_preserved():
+    """An external BigQuery replication-flow target must be qualified as
+    `project.dataset.table` (project from the per-connection `database`, dataset
+    from the flow's container) and keep its source case so it stitches to the
+    BigQuery connector."""
+    source = _flow_source(
+        {
+            "connection_to_platform_map": {
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                }
+            }
+        }
+    )
+    endpoint = FlowEndpoint(
+        object_name="MY_TABLE",
+        is_local=False,
+        connection="BQ_CONN",
+        connection_type="BIGQUERY",
+        container="/staging",
+    )
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "my-gcp-project.staging.MY_TABLE,PROD)"
+    )
+
+
+def test_resolve_flow_endpoint_urn_local_target_routes_to_sap_datasphere():
+    """A $DWC (managed) endpoint is emitted on the sap-datasphere platform,
+    space-qualified and lowercased per the top-level flag — not treated as an
+    external HANA table."""
+    source = _flow_source()
+    endpoint = FlowEndpoint(object_name="MY_TABLE_CS", is_local=True)
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,sap_bw.my_table_cs,PROD)"
+    )
+
+
+def test_source_excludes_global_lowercase_processor():
+    """The connector applies casing per-platform, so the framework's global
+    AutoLowercaseUrnsProcessor (which would flatten every URN and defeat the
+    per-platform override) must be excluded."""
+    source = _flow_source()
+    excluded = source.get_excluded_workunit_processors()
+    assert source_module.AutoLowercaseUrnsProcessor in excluded
+
+
+def test_resolve_flow_endpoint_urn_unresolved_endpoint_increments_counter():
+    """An external flow endpoint whose connection can't be mapped yields no URN
+    and is recorded on the report so operators see the dropped edge."""
+    source = _flow_source()
+    endpoint = FlowEndpoint(
+        object_name="ORPHAN",
+        is_local=False,
+        connection="MYSTERY_CONN",
+        connection_type="SNOWFLAKE",
+    )
+    assert source._resolve_flow_endpoint_urn("SAP_BW", endpoint) is None
+    assert len(source.report.flow_endpoints_unresolved) == 1
+
+
+def test_remote_table_upstream_unresolved_connection_increments_counter():
+    """A remote table whose @DataWarehouse.remote connection isn't mapped emits
+    no upstream lineage aspect, but the miss is counted (the dataset itself still
+    emits — asserted in the end-to-end test below)."""
+    source = _flow_source()
+    resolver = source._resolvers["SAP_BW"]
+    definition = {
+        "@DataWarehouse.remote.connection": "MYSTERY_CONN",
+        "@DataWarehouse.remote.entity": "SCHEMA\x7fTABLE",
+    }
+    aspect = source._remote_table_upstream(
+        "SAP_BW", "RT_X", definition, resolver, None, "urn:li:dataset:(x,y,PROD)"
+    )
+    assert aspect is None
+    assert len(source.report.remote_table_source_unresolved) == 1
+
+
+# ---------------------------------------------------------------------------
+# End-to-end (requests_mock) flow / remote-table orchestration
+# ---------------------------------------------------------------------------
+
+
+def _replication_flow_definition() -> Dict:
+    # Two independent 1:1 copy tasks (no attributeMappings). Source system is an
+    # ABAP connection, target an external BigQuery project — the case the unit
+    # parser tests can't exercise (URN assembly + casing happen in the source).
+    return {
+        "replicationflows": {
+            "MY_REPL": {
+                "contents": {
+                    "sourceSystem": [
+                        {
+                            "connectionId": "SRC_CONN",
+                            "connectionType": "ABAP",
+                            "container": "/CDS",
+                        }
+                    ],
+                    "targetSystem": [
+                        {
+                            "connectionId": "BQ_CONN",
+                            "connectionType": "BIGQUERY",
+                            "container": "/staging",
+                        }
+                    ],
+                    "replicationTasks": [
+                        {
+                            "sourceObject": {"name": "SRC1"},
+                            "targetObject": {"name": "TGT1"},
+                        },
+                        {
+                            "sourceObject": {"name": "SRC2"},
+                            "targetObject": {"name": "TGT2"},
+                        },
+                    ],
+                }
+            }
+        }
+    }
+
+
+def test_replication_flow_pairs_targets_and_qualifies_external_urns(requests_mock):
+    """End-to-end: a replication flow with two independent copy tasks must
+    attribute each target only to its own source (not the flow-wide cross
+    product), and assemble external URNs as [database.]container.object with the
+    per-platform casing so they stitch to the sibling connectors."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_replication_flows": True,
+            "connection_to_platform_map": {
+                # ABAP source: lowercased (connector default) so it merges with
+                # the ABAP connector's case-insensitive URNs.
+                "SRC_CONN": {"platform": "abap"},
+                # BigQuery target: case preserved + a manual project id the API
+                # omits, so the URN is project.dataset.table.
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                },
+            },
+        }
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/replicationflows",
+        json=[{"technicalName": "MY_REPL"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/replicationflows/MY_REPL",
+        json=_replication_flow_definition(),
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="repl-e2e"), cfg)
+    workunits = list(source.get_workunits())
+
+    tgt1 = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.TGT1,PROD)"
+    )
+    tgt2 = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.TGT2,PROD)"
+    )
+    src1 = "urn:li:dataset:(urn:li:dataPlatform:abap,cds.src1,PROD)"
+    src2 = "urn:li:dataset:(urn:li:dataPlatform:abap,cds.src2,PROD)"
+
+    def _upstreams_of(target_urn: str) -> set:
+        wus = [
+            wu
+            for wu in workunits
+            if entity_urn_of(wu) == target_urn
+            and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+        ]
+        assert len(wus) == 1, f"expected one UpstreamLineage on {target_urn}"
+        return {u.dataset for u in aspect_as(wus[0], UpstreamLineageClass).upstreams}
+
+    # The crux of the blocker fix: each target is paired with its own source only.
+    assert _upstreams_of(tgt1) == {src1}
+    assert _upstreams_of(tgt2) == {src2}
+
+    # The flow itself is emitted as a DataJob.
+    assert any(
+        aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
+        for wu in workunits
+    )
+
+
+def _same_name_replication_flow_definition() -> Dict:
+    # The common real-world shape: a task replicates an object to a same-named
+    # target (CUSTOMER -> CUSTOMER). Source and target share the object name, so
+    # a single name->urn map would clobber the input URN with the output's and
+    # drop the target's downstream lineage.
+    return {
+        "replicationflows": {
+            "MY_REPL": {
+                "contents": {
+                    "sourceSystem": [
+                        {
+                            "connectionId": "SRC_CONN",
+                            "connectionType": "ABAP",
+                            "container": "/CDS",
+                        }
+                    ],
+                    "targetSystem": [
+                        {
+                            "connectionId": "BQ_CONN",
+                            "connectionType": "BIGQUERY",
+                            "container": "/staging",
+                        }
+                    ],
+                    "replicationTasks": [
+                        {
+                            "sourceObject": {"name": "CUSTOMER"},
+                            "targetObject": {"name": "CUSTOMER"},
+                        },
+                    ],
+                }
+            }
+        }
+    }
+
+
+def test_replication_flow_same_named_target_keeps_downstream_lineage(requests_mock):
+    """Regression: when a task's source and target share an object name, the
+    target's paired-source lookup must still resolve to the (different-platform)
+    source URN and emit downstream lineage — not collapse to a self-edge and get
+    dropped by the self-edge guard."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_replication_flows": True,
+            "connection_to_platform_map": {
+                "SRC_CONN": {"platform": "abap"},
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                },
+            },
+        }
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/replicationflows",
+        json=[{"technicalName": "MY_REPL"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/replicationflows/MY_REPL",
+        json=_same_name_replication_flow_definition(),
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="repl-samename"), cfg)
+    workunits = list(source.get_workunits())
+
+    target = (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "my-gcp-project.staging.CUSTOMER,PROD)"
+    )
+    src = "urn:li:dataset:(urn:li:dataPlatform:abap,cds.customer,PROD)"
+    wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == target
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(wus) == 1, "same-named target must still get downstream lineage"
+    assert {u.dataset for u in aspect_as(wus[0], UpstreamLineageClass).upstreams} == {
+        src
+    }
+
+
+def _remote_table_csn(connection: str) -> Dict:
+    return {
+        "definitions": {
+            "RT1": {
+                "kind": "entity",
+                "@DataWarehouse.remote.connection": connection,
+                "@DataWarehouse.remote.entity": "MYSCHEMA\x7fMYTABLE",
+                "elements": {
+                    "COL_A": {"type": "cds.String", "length": 10},
+                    "COL_B": {"type": "cds.hana.TINYINT"},
+                },
+            }
+        }
+    }
+
+
+def _mock_remote_table_space(requests_mock: rm.Mocker, connection: str) -> str:
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "RT1"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables/RT1",
+        json=_remote_table_csn(connection),
+    )
+    return base
+
+
+def test_remote_table_end_to_end_emits_subtype_and_copy_edge(requests_mock):
+    """The remote-table orchestration must emit the proxy Dataset on
+    sap-datasphere with the Remote Table subtype and a COPY upstream to the
+    mapped external table (case preserved for HANA), incrementing the counters."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+            "connection_to_platform_map": {
+                "HANA_CONN": {"platform": "hana", "convert_urns_to_lowercase": False},
+            },
+        }
+    )
+    _mock_remote_table_space(requests_mock, connection="HANA_CONN")
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-e2e"), cfg)
+    workunits = list(source.get_workunits())
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hana,MYSCHEMA.MYTABLE,PROD)"
+
+    subtypes = [
+        aspect_as(wu, SubTypesClass).typeNames
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "SubTypesClass"
+    ]
+    assert subtypes and "Remote Table" in subtypes[0]
+
+    lineage_wus = [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert len(lineage_wus) == 1
+    lineage = aspect_as(lineage_wus[0], UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [upstream]
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+
+    assert source.report.remote_tables_scanned == 1
+    assert source.report.remote_tables_emitted == 1
+
+
+def test_remote_table_end_to_end_unmapped_connection_still_emits_dataset(
+    requests_mock,
+):
+    """When the external connection can't be mapped the proxy Dataset must still
+    emit (so the entity isn't lost), but with no upstream lineage aspect and the
+    unresolved-source counter incremented."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+        }
+    )
+    _mock_remote_table_space(requests_mock, connection="UNMAPPED_CONN")
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-e2e-degraded"), cfg)
+    workunits = list(source.get_workunits())
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    assert any(
+        entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "SubTypesClass"
+        for wu in workunits
+    )
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+    assert source.report.remote_tables_emitted == 1
+    assert len(source.report.remote_table_source_unresolved) == 1
+
+
+def _mock_flow_space_base(requests_mock: rm.Mocker) -> str:
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    return base
+
+
+def test_flow_non_object_body_is_reported_and_does_not_abort_remaining_flows(
+    requests_mock,
+):
+    """A flow whose fetch returns a valid-JSON-but-non-object body (e.g. a list)
+    must be routed to flows_unparseable, not raise AttributeError and abort the
+    rest of the space. A following well-formed flow must still be emitted."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "BAD_FLOW"}, {"technicalName": "GOOD_FLOW"}],
+    )
+    # 200 with a JSON array body — not the expected {"dataflows": {...}} object.
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/BAD_FLOW",
+        json=[1, 2, 3],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/GOOD_FLOW",
+        json=_data_flow_payload("GOOD_FLOW", "SRC_TABLE"),
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="flow-unparseable"), cfg)
+    workunits = list(source.get_workunits())
+
+    assert "S1.dataflows.BAD_FLOW" in list(source.report.flows_unparseable)
+    assert source.report.data_flows_scanned == 2
+    assert source.report.data_flows_emitted == 1
+    assert any(
+        aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
+        for wu in workunits
+    ), "The well-formed flow after the bad one must still emit a DataJob"
+
+
+def test_flow_list_request_exception_is_reported_and_degrades(requests_mock):
+    """A transport error listing a flow type must be downgraded to a warning and
+    let ingestion continue, not crash the run."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="flow-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list flows in space" in titles
+
+
+def test_remote_table_list_request_exception_is_reported_and_degrades(requests_mock):
+    """A transport error listing Remote Tables must be downgraded to a warning."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list Remote Tables in space" in titles
+
+
+def test_remote_table_managed_connection_unresolvable_skips_space(requests_mock):
+    """When the _managed connection is disabled, Remote Tables can't be emitted
+    (their proxy lives in managed HANA); the space is skipped with a warning and
+    no per-table CSN fetch happens."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+            "connection_to_platform_map": {
+                "_managed": {"platform": "hana", "enabled": False},
+            },
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "RT1"}],
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-managed-unresolved"), cfg)
+    workunits = list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Cannot emit Remote Tables — _managed connection unresolvable" in titles
+    assert source.report.remote_tables_emitted == 0
+    assert not any(
+        aspect_of(wu).__class__.__name__ == "SubTypesClass"
+        and "Remote Table" in aspect_as(wu, SubTypesClass).typeNames
+        for wu in workunits
+    )
+
+
+def test_asset_pattern_filters_flows_and_remote_tables(requests_mock):
+    """asset_pattern.deny must drop matching flow objects and remote tables before
+    their definitions are fetched (a denied entry's detail endpoint is never hit,
+    which requests_mock would flag as an unmocked call), leaving only allowed
+    objects scanned/emitted."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+            "include_remote_tables": True,
+            "asset_pattern": {"deny": ["^SKIP_.*"]},
+            "connection_to_platform_map": {
+                "HANA_CONN": {"platform": "hana", "convert_urns_to_lowercase": False},
+            },
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "SKIP_FLOW"}, {"technicalName": "KEEP_FLOW"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/KEEP_FLOW",
+        json=_data_flow_payload("KEEP_FLOW", "SRC_TABLE"),
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "SKIP_RT"}, {"technicalName": "RT1"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables/RT1",
+        json=_remote_table_csn("HANA_CONN"),
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="pattern-filter"), cfg)
+    list(source.get_workunits())
+
+    # Only the allowed entries are scanned; the denied ones never reach fetch.
+    assert source.report.data_flows_scanned == 1
+    assert source.report.data_flows_emitted == 1
+    assert source.report.remote_tables_scanned == 1
+    assert source.report.remote_tables_emitted == 1
+
+
+def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_mock):
+    """A transport error enumerating spaces must be softened to a warning and
+    yield zero spaces — never a silent empty 'success', which would let stateful
+    ingestion soft-delete every prior entity."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="spaces-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list spaces" in titles
+    assert source.report.spaces_scanned == 0
+
+
+def test_local_table_list_request_exception_is_reported_and_degrades(requests_mock):
+    """A transport error listing Local Tables must be downgraded to a warning and
+    let ingestion continue (mirrors the flow / remote-table degradation)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_local_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="lt-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list Local Tables in space" in titles
+
+
+def test_local_table_managed_connection_unresolvable_skips_space(requests_mock):
+    """When the _managed connection is disabled, Local Tables can't be emitted
+    (they live in managed HANA); the space is skipped with a warning and no
+    per-table CSN fetch happens (the LT1 detail endpoint is intentionally
+    unmocked, so a fetch would surface as an unmocked-call error)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_local_tables": True,
+            "connection_to_platform_map": {
+                "_managed": {"platform": "hana", "enabled": False},
+            },
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "LT1"}],
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="lt-managed-unresolved"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Cannot emit Local Tables — _managed connection unresolvable" in titles
+    assert source.report.local_tables_emitted == 0
+
+
+def test_remote_table_200_without_definition_is_reported_not_silent(requests_mock):
+    """A Remote Table whose CSN fetch returns 200 but carries no definition for
+    the table must be recorded (counter + warning) rather than emitting a silent
+    bare stub — federated lineage is the whole point of a remote table. The
+    proxy Dataset still emits, but with no upstream lineage."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "RT1"}],
+    )
+    # 200 OK but the CSN has no definition for RT1.
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables/RT1",
+        json={"definitions": {}},
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-no-def"), cfg)
+    workunits = list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Remote Table emitted without schema or lineage" in titles
+    assert "S1.RT1" in list(source.report.remote_tables_csn_unparseable)
+    assert source.report.remote_tables_emitted == 1
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
