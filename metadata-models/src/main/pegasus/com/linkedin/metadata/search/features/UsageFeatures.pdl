@@ -1,0 +1,50 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+/**
+ * Pre-computed usage-based features for a Dataset, written by the daily usage-reporting job.
+ * When populated, resolvers use these values instead of issuing live timeseries queries,
+ * eliminating per-result OpenSearch fan-out on search pages.
+ */
+@Aspect = {
+  "name": "usageFeatures"
+}
+record UsageFeatures {
+  /**
+   * Total SQL query count over the last 30 days.
+   */
+  queryCountLast30Days: optional int
+
+  /**
+   * Unique user count over the last 30 days.
+   */
+  uniqueUserCountLast30Days: optional int
+
+  /**
+   * URNs of the top users by query count over the last 30 days.
+   */
+  topUsersLast30Days: optional array[Urn]
+
+  /**
+   * Percentile rank of query count relative to all datasets, over the last 30 days.
+   */
+  queryCountPercentileLast30Days: optional float
+
+  /**
+   * Percentile rank of unique user count relative to all datasets, over the last 30 days.
+   */
+  uniqueUserPercentileLast30Days: optional float
+
+  /**
+   * Blended search ranking multiplier derived from usage signals.
+   */
+  combinedSearchRankingMultiplier: optional double
+
+  /**
+   * Timestamp (epoch ms) of the most recent DML operation on this dataset, pre-computed
+   * from the operations timeseries. Used by search result cards to show last-updated time
+   * without issuing a live timeseries query per result.
+   */
+  lastOperationTimestampMs: optional long
+}
