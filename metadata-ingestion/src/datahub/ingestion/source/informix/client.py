@@ -92,9 +92,9 @@ class InformixClient:
         return [
             InformixColumn(
                 name=str(r[0]).strip(),
-                coltype=int(r[1]),
-                length=int(r[2]),
-                colno=int(r[3]),
+                coltype=int(str(r[1])),
+                length=int(str(r[2])),
+                colno=int(str(r[3])),
                 is_pk=str(r[0]).strip() in pk_names,
             )
             for r in rows
