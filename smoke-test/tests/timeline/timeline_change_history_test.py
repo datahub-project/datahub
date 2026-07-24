@@ -82,31 +82,62 @@ def _emit_sp_definition(graph_client: Any, mcp: MetadataChangeProposalWrapper) -
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-UNIQUE = uuid.uuid4().hex[:8]
-
-DATASET_URN = f"urn:li:dataset:(urn:li:dataPlatform:kafka,timeline-test-{UNIQUE},PROD)"
-GLOSSARY_TERM_URN = f"urn:li:glossaryTerm:timeline-test-term-{UNIQUE}"
-DOMAIN_URN = f"urn:li:domain:timeline-test-domain-{UNIQUE}"
-DATA_PRODUCT_URN = f"urn:li:dataProduct:timeline-test-dp-{UNIQUE}"
-
-# Structured property used across entity types
-SP_URN = str(StructuredPropertyUrn(f"io.acryl.timeline.test.{UNIQUE}"))
-
-# Tags and terms referenced in tests
+# Tags referenced in tests (stable across fixture re-setups)
 TAG_PII = "urn:li:tag:PII"
 TAG_CONFIDENTIAL = "urn:li:tag:Confidential"
-TERM_A = f"urn:li:glossaryTerm:timeline-ref-term-a-{UNIQUE}"
-TERM_B = f"urn:li:glossaryTerm:timeline-ref-term-b-{UNIQUE}"
-DOMAIN_ENGINEERING = f"urn:li:domain:timeline-ref-eng-{UNIQUE}"
-DOMAIN_MARKETING = f"urn:li:domain:timeline-ref-mkt-{UNIQUE}"
-APP_URN_1 = f"urn:li:application:timeline-ref-app1-{UNIQUE}"
-APP_URN_2 = f"urn:li:application:timeline-ref-app2-{UNIQUE}"
-ASSET_DATASET_1 = (
-    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset1-{UNIQUE},PROD)"
-)
-ASSET_DATASET_2 = (
-    f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset2-{UNIQUE},PROD)"
-)
+
+# Populated by _assign_run_ids(). Under pytest-xdist --dist=loadscope each test
+# class is a separate scheduling unit, so the module-scoped setup_entities
+# fixture can tear down and re-run on the same worker. ES retains structured-
+# property field mappings after hard-delete, so reusing the same qualifiedName
+# then fails PropertyDefinitionValidator collision checks. Refresh IDs on every
+# fixture setup to avoid that stale-mapping collision.
+UNIQUE: str
+DATASET_URN: str
+GLOSSARY_TERM_URN: str
+DOMAIN_URN: str
+DATA_PRODUCT_URN: str
+SP_URN: str
+TERM_A: str
+TERM_B: str
+DOMAIN_ENGINEERING: str
+DOMAIN_MARKETING: str
+APP_URN_1: str
+APP_URN_2: str
+ASSET_DATASET_1: str
+ASSET_DATASET_2: str
+
+
+def _assign_run_ids(unique: Optional[str] = None) -> str:
+    """Bind a fresh unique suffix into module-level URN constants."""
+    global UNIQUE, DATASET_URN, GLOSSARY_TERM_URN, DOMAIN_URN, DATA_PRODUCT_URN
+    global SP_URN, TERM_A, TERM_B, DOMAIN_ENGINEERING, DOMAIN_MARKETING
+    global APP_URN_1, APP_URN_2, ASSET_DATASET_1, ASSET_DATASET_2
+
+    UNIQUE = unique or uuid.uuid4().hex[:8]
+    DATASET_URN = (
+        f"urn:li:dataset:(urn:li:dataPlatform:kafka,timeline-test-{UNIQUE},PROD)"
+    )
+    GLOSSARY_TERM_URN = f"urn:li:glossaryTerm:timeline-test-term-{UNIQUE}"
+    DOMAIN_URN = f"urn:li:domain:timeline-test-domain-{UNIQUE}"
+    DATA_PRODUCT_URN = f"urn:li:dataProduct:timeline-test-dp-{UNIQUE}"
+    SP_URN = str(StructuredPropertyUrn(f"io.acryl.timeline.test.{UNIQUE}"))
+    TERM_A = f"urn:li:glossaryTerm:timeline-ref-term-a-{UNIQUE}"
+    TERM_B = f"urn:li:glossaryTerm:timeline-ref-term-b-{UNIQUE}"
+    DOMAIN_ENGINEERING = f"urn:li:domain:timeline-ref-eng-{UNIQUE}"
+    DOMAIN_MARKETING = f"urn:li:domain:timeline-ref-mkt-{UNIQUE}"
+    APP_URN_1 = f"urn:li:application:timeline-ref-app1-{UNIQUE}"
+    APP_URN_2 = f"urn:li:application:timeline-ref-app2-{UNIQUE}"
+    ASSET_DATASET_1 = (
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset1-{UNIQUE},PROD)"
+    )
+    ASSET_DATASET_2 = (
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,timeline-asset2-{UNIQUE},PROD)"
+    )
+    return UNIQUE
+
+
+_assign_run_ids()
 
 # GraphQL query matching what the frontend HistorySidebar uses
 GET_TIMELINE_QUERY = """
@@ -206,7 +237,11 @@ def _assert_actor_present(
 @pytest.fixture(scope="module", autouse=True)
 def setup_entities(graph_client):
     """Create all test entities and the shared structured property definition."""
-    logger.info("Creating test entities for timeline change history tests")
+    # Fresh IDs per fixture invocation — see _assign_run_ids docstring.
+    _assign_run_ids()
+    logger.info(
+        "Creating test entities for timeline change history tests (unique=%s)", UNIQUE
+    )
 
     # --- Structured property definition (used by dataset, glossary term, domain, data product) ---
     sp_def = StructuredPropertyDefinitionClass(
@@ -314,11 +349,7 @@ def setup_entities(graph_client):
 
     wait_for_writes_to_sync()
 
-    yield
-
-    # --- Cleanup ---
-    logger.info("Cleaning up test entities")
-    for urn in [
+    urns_to_cleanup = [
         DATASET_URN,
         GLOSSARY_TERM_URN,
         DOMAIN_URN,
@@ -332,7 +363,13 @@ def setup_entities(graph_client):
         APP_URN_2,
         ASSET_DATASET_1,
         ASSET_DATASET_2,
-    ]:
+    ]
+
+    yield
+
+    # --- Cleanup ---
+    logger.info("Cleaning up test entities")
+    for urn in urns_to_cleanup:
         try:
             graph_client.hard_delete_entity(urn=urn)
         except Exception:
