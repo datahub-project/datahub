@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Katso epäonnistuneet Assertionit →",
+    "failChecks": "Katso epäonnistuneet tarkistukset →",
+    "failIncidents": "Katso aktiiviset häiriöt →",
+    "passAssertions": "Kaikki Assertionit ovat kunnossa",
+    "passChecks": "Kaikki tarkistukset ovat kunnossa",
+    "passIncidents": "Ei aktiivisia häiriöitä",
+    "summaryHealthy": "Tämä kohde on kunnossa",
+    "summaryUnhealthy": "Tämä kohde ei välttämättä ole kunnossa",
+    "typeAssertions": "Assertionit",
+    "typeIncidents": "Häiriöt",
+    "typeTests": "Testit",
+    "warnAssertions": "Joissakin Assertioneissa on ongelmia.",
+    "warnChecks": "Joissakin tarkistuksissa on ongelmia."
+}

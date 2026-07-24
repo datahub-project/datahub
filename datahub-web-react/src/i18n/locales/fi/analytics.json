@@ -1,0 +1,11 @@
+{
+    "allDomains": "Kaikki toimialueet",
+    "dataLandscapeSummary": "Datan tilannekatsaus",
+    "domainLandscapeSummary": "Toimialueen tilannekatsaus",
+    "failedToLoadCharts": "Kaavioiden lataaminen epäonnistui",
+    "failedToLoadDomains": "Toimialueiden lataaminen epäonnistui",
+    "failedToLoadHighlights": "Kohokohtien lataaminen epäonnistui",
+    "noDomainData": "Tälle toimialueelle ei ole analytiikkatietoja",
+    "selectDomain": "Valitse toimialue",
+    "usageAnalytics": "Käyttöanalytiikka"
+}
