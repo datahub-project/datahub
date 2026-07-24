@@ -20,7 +20,7 @@ both columns and tables back to Snowflake. This automation is available in DataH
 - Automatically Add DataHub Glossary Terms to Snowflake Tables and Columns
 - Automatically Add DataHub Tags to Snowflake Tables and Columns
 - Automatically Sync DataHub Descriptions to Snowflake Tables and Columns as Comments
-- Automatically Remove DataHub Glossary Terms and Tags from Snowflake Tables and Columns when they are removed in DataHub
+- Automatically Remove DataHub Glossary Terms, Tags, and Descriptions from Snowflake Tables and Columns when they are removed in DataHub
 - Support for both Username/Password and Private Key authentication
 
 ## Prerequisites
@@ -102,7 +102,7 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 
 ## Propagating for Existing Assets
 
-You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms are propagated to Snowflake.
+You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms, Tags, and Descriptions are propagated to Snowflake.
 Note that it may take some time to complete the initial back-filling process, depending on the number of Snowflake assets you have.
 
 To do so, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
@@ -117,14 +117,8 @@ and then click "Initialize".
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
 
-This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
-terms going forward, you can skip this step.
-
-:::info
-
-The back-filling of tags will be available in a future release.
-
-:::
+This one-time step will kick off the back-filling process for existing terms, tags, and descriptions. If you only want to begin propagating
+metadata going forward, you can skip this step.
 
 ## Viewing Synced Metadata
 
