@@ -431,3 +431,150 @@ def test_file_cleanup():
     assert filename.exists()
     cache.close()
     assert not filename.exists()
+
+
+# ---------------------------------------------------------------------------
+# Read-only ConnectionWrapper and FileBackedDict tests
+# ---------------------------------------------------------------------------
+
+
+def test_readonly_connection_wrapper_opens_immutable(tmp_path: pathlib.Path) -> None:
+    """A read-only ConnectionWrapper opens an existing file and allows SELECTs."""
+    db_path = tmp_path / "test.db"
+
+    # Create a writable DB with some data.
+    with ConnectionWrapper(filename=db_path) as writable:
+        writable.execute("CREATE TABLE items (key TEXT PRIMARY KEY, value INTEGER)")
+        writable.execute("INSERT INTO items VALUES ('a', 1)")
+        writable.execute("INSERT INTO items VALUES ('b', 2)")
+
+    # Open the same file read-only.
+    ro_conn = ConnectionWrapper(filename=db_path, read_only=True)
+    try:
+        cursor = ro_conn.execute("SELECT value FROM items WHERE key = 'a'")
+        row = cursor.fetchone()
+        assert row[0] == 1
+
+        cursor2 = ro_conn.execute("SELECT COUNT(*) FROM items")
+        assert cursor2.fetchone()[0] == 2
+    finally:
+        ro_conn.close()
+
+
+def test_readonly_connection_skips_writable_pragmas(tmp_path: pathlib.Path) -> None:
+    """Read-only connection should not error on open; writable pragmas are skipped."""
+    db_path = tmp_path / "test.db"
+
+    # Bootstrap a valid SQLite file.
+    with ConnectionWrapper(filename=db_path) as writable:
+        writable.execute("CREATE TABLE t (k TEXT)")
+
+    # Should not raise.
+    ro_conn = ConnectionWrapper(filename=db_path, read_only=True)
+    ro_conn.close()
+
+
+def test_readonly_file_backed_dict_reads(tmp_path: pathlib.Path) -> None:
+    """FileBackedDict on a read-only connection can read existing data."""
+    db_path = tmp_path / "snap.db"
+
+    # Write a writable dict with data.
+    with ConnectionWrapper(filename=db_path) as writable_conn:
+        d: FileBackedDict[int] = FileBackedDict(
+            shared_connection=writable_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        d["x"] = 10
+        d["y"] = 20
+        d.flush()
+
+    # Open read-only and verify reads work.
+    ro_conn = ConnectionWrapper(filename=db_path, read_only=True)
+    try:
+        ro_dict: FileBackedDict[int] = FileBackedDict(
+            shared_connection=ro_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        assert ro_dict["x"] == 10
+        assert ro_dict["y"] == 20
+        assert "x" in ro_dict
+        assert "z" not in ro_dict
+    finally:
+        ro_conn.close()
+
+
+def test_readonly_file_backed_dict_does_not_create_table(
+    tmp_path: pathlib.Path,
+) -> None:
+    """FileBackedDict on a read-only connection must NOT attempt CREATE TABLE."""
+    db_path = tmp_path / "snap.db"
+
+    # Bootstrap a file with the table already present.
+    with ConnectionWrapper(filename=db_path) as writable_conn:
+        d: FileBackedDict[str] = FileBackedDict(
+            shared_connection=writable_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=str,
+        )
+        d["key"] = "value"
+        d.flush()
+
+    # Open read-only — should succeed without creating a second table.
+    ro_conn = ConnectionWrapper(filename=db_path, read_only=True)
+    try:
+        ro_dict: FileBackedDict[str] = FileBackedDict(
+            shared_connection=ro_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=str,
+        )
+        # If CREATE TABLE was attempted on a read-only connection it would have raised.
+        assert ro_dict["key"] == "value"
+    finally:
+        ro_conn.close()
+
+
+def test_two_readonly_connections_same_file(tmp_path: pathlib.Path) -> None:
+    """Two independent read-only connections on the same file work concurrently."""
+    db_path = tmp_path / "shared.db"
+
+    with ConnectionWrapper(filename=db_path) as writable_conn:
+        d: FileBackedDict[int] = FileBackedDict(
+            shared_connection=writable_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        d["a"] = 100
+        d["b"] = 200
+        d.flush()
+
+    ro1 = ConnectionWrapper(filename=db_path, read_only=True)
+    ro2 = ConnectionWrapper(filename=db_path, read_only=True)
+    try:
+        d1: FileBackedDict[int] = FileBackedDict(
+            shared_connection=ro1,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        d2: FileBackedDict[int] = FileBackedDict(
+            shared_connection=ro2,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+
+        # Both should be readable simultaneously — no locking error.
+        assert d1["a"] == 100
+        assert d2["b"] == 200
+        assert d1["b"] == 200
+        assert d2["a"] == 100
+    finally:
+        ro1.close()
+        ro2.close()

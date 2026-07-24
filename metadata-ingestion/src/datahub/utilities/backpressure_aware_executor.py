@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import concurrent.futures
-from concurrent.futures import Future, ThreadPoolExecutor
+import contextlib
+from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from typing import Any, Callable, Iterable, Iterator, Optional, Set, Tuple, TypeVar
 
 _R = TypeVar("_R")
@@ -20,6 +21,7 @@ class BackpressureAwareExecutor:
         args_list: Iterable[Tuple[Any, ...]],
         max_workers: int,
         max_pending: Optional[int] = None,
+        executor: Optional[Executor] = None,
     ) -> Iterator[Future[_R]]:
         """Similar to concurrent.futures.ThreadPoolExecutor#map, except that it won't run ahead of the consumer.
 
@@ -34,6 +36,12 @@ class BackpressureAwareExecutor:
             max_workers: The maximum number of threads to use.
             max_pending: The maximum number of pending results to keep in memory.
                 If not set, it will be set to 2*max_workers.
+            executor: An optional executor to submit work to. When provided, it is
+                used as-is and NOT closed by this method (the caller owns its
+                lifecycle) — this lets callers reuse the bounded-drain logic with a
+                ProcessPoolExecutor or a shared pool. When None (the default), a
+                ThreadPoolExecutor with ``max_workers`` threads is created and
+                closed internally, preserving the original behavior.
 
         Returns:
             An iterable of futures.
@@ -53,7 +61,16 @@ class BackpressureAwareExecutor:
 
         pending_futures: Set[Future] = set()
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # When the caller supplies an executor, it owns the lifecycle — we must not
+        # shut it down. Otherwise, create and own a ThreadPoolExecutor as before.
+        if executor is not None:
+            executor_cm: contextlib.AbstractContextManager[Executor] = (
+                contextlib.nullcontext(executor)
+            )
+        else:
+            executor_cm = ThreadPoolExecutor(max_workers=max_workers)
+
+        with executor_cm as active_executor:
             for args in args_list:
                 # If the pending list is full, wait until one is done.
                 if len(pending_futures) >= max_pending:
@@ -68,7 +85,7 @@ class BackpressureAwareExecutor:
                         yield future
 
                 # Now that there's space in the pending list, enqueue the next task.
-                pending_futures.add(executor.submit(fn, *args))
+                pending_futures.add(active_executor.submit(fn, *args))
 
             # Wait for all the remaining tasks to complete.
             for future in concurrent.futures.as_completed(pending_futures):
