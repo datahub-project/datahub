@@ -198,7 +198,6 @@ public class FieldPathValidatorTest {
         "[{\"op\":\"add\",\"path\":\"/editableSchemaFieldInfo/col_a\",\"value\":{\"fieldPath\":\"\"}}]";
     assertEquals(
         test.validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(
                     TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
                 mockRetrieverContext,
@@ -214,7 +213,6 @@ public class FieldPathValidatorTest {
             + "{\"fields\":[{\"fieldPath\":\"col_a\"},{\"fieldPath\":\"col_a\"}]}}]";
     assertEquals(
         test.validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(TestPatchMCP.of(TEST_DATASET_URN, SCHEMA_METADATA_ASPECT_NAME, ops)),
                 mockRetrieverContext,
                 null)
@@ -235,7 +233,6 @@ public class FieldPathValidatorTest {
             + "\"value\":{\"fieldPath\":\"\"}}]}";
     assertEquals(
         test.validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(
                     TestPatchMCP.ofProposed(
                         TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, serialized)),
@@ -254,7 +251,6 @@ public class FieldPathValidatorTest {
             + "{\"op\":\"remove\",\"path\":\"/editableSchemaFieldInfo/col_b\"}]";
     assertEquals(
         test.validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(
                     TestPatchMCP.of(TEST_DATASET_URN, EDITABLE_SCHEMA_METADATA_ASPECT_NAME, ops)),
                 mockRetrieverContext,

@@ -61,8 +61,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
         continue;
       }
 
-      validateStage(
-          item, status.getLifecycleStage(), retrieverContext, exceptions);
+      validateStage(item, status.getLifecycleStage(), retrieverContext, exceptions);
     }
 
     return exceptions.streamAllExceptions();
@@ -75,9 +74,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
    * time.
    */
   private void validatePatchItem(
-      MCPItem item,
-      RetrieverContext retrieverContext,
-      ValidationExceptionCollection exceptions) {
+      MCPItem item, RetrieverContext retrieverContext, ValidationExceptionCollection exceptions) {
     PatchOperationUtils.addAndReplaceValues(item)
         .forEach(
             op ->
@@ -89,10 +86,7 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
                                 RecordUtils.toRecordTemplate(Status.class, nested.toString());
                             if (status.hasLifecycleStage()) {
                               validateStage(
-                                  item,
-                                  status.getLifecycleStage(),
-                                  retrieverContext,
-                                  exceptions);
+                                  item, status.getLifecycleStage(), retrieverContext, exceptions);
                             }
                           } catch (RuntimeException e) {
                             // unparseable delta — schema validation rejects it at merge time
@@ -135,13 +129,11 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs,
-      @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
-  private LifecycleStageTypeInfo fetchStageInfo(
-      Urn stageUrn, RetrieverContext retrieverContext) {
+  private LifecycleStageTypeInfo fetchStageInfo(Urn stageUrn, RetrieverContext retrieverContext) {
     try {
       RecordTemplate aspect =
           retrieverContext

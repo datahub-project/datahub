@@ -178,7 +178,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       if (!queryUrns.isEmpty()) {
         Set<Urn> viewable =
             EntityAspectAuthorizationUtils.filterViewableQueryEntities(
-                opContext, opContext, opContext.getAspectRetriever(), queryUrns);
+                opContext, opContext.getAspectRetriever(), queryUrns);
         if (!viewable.containsAll(queryUrns)) {
           return false;
         }

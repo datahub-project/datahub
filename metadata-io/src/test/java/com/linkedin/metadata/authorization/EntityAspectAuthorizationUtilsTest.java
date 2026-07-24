@@ -16,8 +16,6 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.domain.DomainAssociation;
-import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -69,21 +67,6 @@ public class EntityAspectAuthorizationUtilsTest {
   @AfterMethod
   public void tearDown() {
     authUtilMockedStatic.close();
-  }
-
-  @Test
-  public void testResolveUniqueDomainUrns_prefersDomainAssociations() {
-    Domains domains = new Domains();
-    DomainAssociation association = new DomainAssociation();
-    association.setDomain(DOMAIN_A);
-    DomainAssociationArray associations = new DomainAssociationArray();
-    associations.add(association);
-    domains.setDomainAssociations(associations);
-    domains.setDomains(new UrnArray(DOMAIN_B));
-
-    Set<Urn> result = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains);
-
-    Assert.assertEquals(result, Set.of(DOMAIN_A));
   }
 
   @Test
@@ -213,7 +196,7 @@ public class EntityAspectAuthorizationUtilsTest {
     Aspect proposedProductDomains = new Aspect(productDomains.data());
 
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+            eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
         .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
 
     authUtilMockedStatic
@@ -239,7 +222,7 @@ public class EntityAspectAuthorizationUtilsTest {
   public void
       testFilterUnauthorizedToManageDataProductMembership_deniesWithoutProductOrAssetAuth() {
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+            eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
         .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
 
     Set<Urn> unauthorized =
@@ -253,7 +236,7 @@ public class EntityAspectAuthorizationUtilsTest {
   public void
       testFilterUnauthorizedToManageDataProductMembership_allowsAssetSideWithoutProductDomains() {
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+            eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
         .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
 
     authUtilMockedStatic
@@ -275,7 +258,7 @@ public class EntityAspectAuthorizationUtilsTest {
   @Test
   public void testFilterUnauthorizedToManageDataProductMembership_allowsProductManageOnAnyDomain() {
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
+            eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
         .thenReturn(
             Map.of(
                 DATA_PRODUCT_URN, Map.of(DOMAINS_ASPECT_NAME, domainsAspect(DOMAIN_A, DOMAIN_B))));
@@ -563,7 +546,7 @@ public class EntityAspectAuthorizationUtilsTest {
   @Test
   public void testFilterViewableQueryEntities_deniesQueryWithNoSubjects() {
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+            eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(Map.of(QUERY_URN, Map.of()));
 
     Set<Urn> viewable =
@@ -582,7 +565,7 @@ public class EntityAspectAuthorizationUtilsTest {
     Aspect subjectsAspect = new Aspect(querySubjects.data());
 
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+            eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
 
     authUtilMockedStatic
@@ -605,7 +588,7 @@ public class EntityAspectAuthorizationUtilsTest {
     Aspect subjectsAspect = new Aspect(querySubjects.data());
 
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+            eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
 
     authUtilMockedStatic
@@ -640,7 +623,7 @@ public class EntityAspectAuthorizationUtilsTest {
     Aspect subjectsAspect = new Aspect(querySubjects.data());
 
     when(mockAspectRetriever.getLatestAspectObjects(
-            any(), eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
+            eq(Set.of(QUERY_URN)), eq(Set.of(QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(Map.of(QUERY_URN, Map.of(QUERY_SUBJECTS_ASPECT_NAME, subjectsAspect)));
 
     authUtilMockedStatic

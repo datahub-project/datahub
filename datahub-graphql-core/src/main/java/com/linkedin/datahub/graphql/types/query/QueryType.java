@@ -74,7 +74,6 @@ public class QueryType
         viewableQueryUrns =
             EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                 context.getOperationContext(),
-                context.getOperationContext(),
                 context.getOperationContext().getAspectRetriever(),
                 viewUrns);
       } else {

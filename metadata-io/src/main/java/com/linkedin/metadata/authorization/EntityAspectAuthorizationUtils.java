@@ -14,7 +14,6 @@ import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.domain.DomainAssociation;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -239,14 +238,7 @@ public final class EntityAspectAuthorizationUtils {
     }
 
     LinkedHashSet<Urn> uniqueDomainUrns = new LinkedHashSet<>();
-    if (domains.hasDomainAssociations() && domains.getDomainAssociations() != null) {
-      for (DomainAssociation association : domains.getDomainAssociations()) {
-        if (association.hasDomain()) {
-          uniqueDomainUrns.add(association.getDomain());
-        }
-      }
-    }
-    if (uniqueDomainUrns.isEmpty() && domains.hasDomains() && domains.getDomains() != null) {
+    if (domains.hasDomains() && domains.getDomains() != null) {
       for (Urn domainUrn : domains.getDomains()) {
         if (domainUrn != null) {
           uniqueDomainUrns.add(domainUrn);

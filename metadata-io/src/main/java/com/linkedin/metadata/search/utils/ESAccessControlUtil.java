@@ -77,7 +77,7 @@ public class ESAccessControlUtil {
   private static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
     if (QUERY_ENTITY_NAME.equals(urn.getEntityType())) {
       return EntityAspectAuthorizationUtils.canViewQueryEntity(
-          opContext, opContext, opContext.getAspectRetriever(), urn);
+          opContext, opContext.getAspectRetriever(), urn);
     }
     return AuthUtil.canViewEntity(opContext, urn);
   }

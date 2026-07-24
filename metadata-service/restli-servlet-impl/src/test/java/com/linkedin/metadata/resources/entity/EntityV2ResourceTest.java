@@ -100,7 +100,6 @@ public class EntityV2ResourceTest {
     when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
     when(aspectRetriever.getLatestAspectObjects(
-            any(),
             eq(Set.of(QUERY_URN)),
             eq(Set.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(

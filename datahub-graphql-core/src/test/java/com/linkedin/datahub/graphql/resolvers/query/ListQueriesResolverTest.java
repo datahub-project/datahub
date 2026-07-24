@@ -134,7 +134,6 @@ public class ListQueriesResolverTest {
         new QuerySubjectArray(new QuerySubject().setEntity(TEST_DATASET_URN)));
     Mockito.when(
             aspectRetriever.getLatestAspectObjects(
-                any(),
                 eq(ImmutableSet.of(TEST_QUERY_URN)),
                 eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(

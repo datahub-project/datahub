@@ -7,8 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
-import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
 import com.linkedin.structured.PrimitivePropertyValue;

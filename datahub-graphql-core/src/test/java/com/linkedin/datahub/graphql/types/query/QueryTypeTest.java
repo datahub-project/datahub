@@ -200,7 +200,6 @@ public class QueryTypeTest {
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
     Mockito.when(
             aspectRetriever.getLatestAspectObjects(
-                any(),
                 eq(ImmutableSet.of(TEST_QUERY_URN)),
                 eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(

@@ -120,7 +120,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     toValidate.addAll(upsertItems);
     toValidate.addAll(patchAddItems);
 
-    return validateProposedUpserts(toValidate, aspectRetriever, dropMissingPropertyValuesWithWarning);
+    return validateProposedUpserts(
+        toValidate, aspectRetriever, dropMissingPropertyValuesWithWarning);
   }
 
   @Override

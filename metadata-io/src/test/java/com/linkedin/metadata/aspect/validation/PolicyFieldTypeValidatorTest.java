@@ -312,7 +312,6 @@ public class PolicyFieldTypeValidatorTest {
     assertEquals(
         validator
             .validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(
                     TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, invalidOps)),
                 mockRetrieverContext,
@@ -328,7 +327,6 @@ public class PolicyFieldTypeValidatorTest {
     assertEquals(
         validator
             .validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, validOps)),
                 mockRetrieverContext,
                 null)

@@ -850,7 +850,10 @@ public class PrivilegeConstraintsValidatorTest {
     item.setSystemMetadata(systemMetadata);
 
     authUtilMockedStatic
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(any(), any(), any(), any()))
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedEntityUrnsWithSubResources(
+                    Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
         .thenReturn(false);
 
     Stream<AspectValidationException> result =

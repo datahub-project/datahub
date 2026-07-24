@@ -191,14 +191,12 @@ public class LifecycleStageValidatorTest {
     LifecycleStageTypeInfo info = makeStageInfo(null);
     doReturn(new Aspect(info.data()))
         .when(mockAspectRetriever)
-        .getLatestAspectObject(
-            any(OperationFingerprint.class), eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
+        .getLatestAspectObject(eq(STAGE_URN), eq("lifecycleStageTypeInfo"));
     String validOps =
         "[{\"op\":\"add\",\"path\":\"/lifecycleStage\",\"value\":\"" + STAGE_URN + "\"}]";
     assertEquals(
         validator
             .validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, validOps)),
                 mockRetrieverContext,
                 null)
@@ -212,7 +210,6 @@ public class LifecycleStageValidatorTest {
     assertEquals(
         validator
             .validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, invalidOps)),
                 mockRetrieverContext,
                 null)
@@ -228,7 +225,6 @@ public class LifecycleStageValidatorTest {
     assertEquals(
         validator
             .validateProposed(
-                OperationFingerprint.EMPTY,
                 Set.of(TestPatchMCP.of(DATASET_URN, STATUS_ASPECT_NAME, ops)),
                 mockRetrieverContext,
                 null)

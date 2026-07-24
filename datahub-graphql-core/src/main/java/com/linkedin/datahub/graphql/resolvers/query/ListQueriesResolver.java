@@ -110,7 +110,6 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
               final Set<Urn> viewableQueryUrns =
                   EntityAspectAuthorizationUtils.filterViewableQueryEntities(
                       context.getOperationContext(),
-                      context.getOperationContext(),
                       context.getOperationContext().getAspectRetriever(),
                       queryUrns);
               authorizedQueryUrns =
