@@ -28,6 +28,7 @@ from datahub.ingestion.source.azure_analysis_services.xmla_client import (
     XmlaClient,
     XmlaClientError,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -42,19 +43,30 @@ _STAGE_EXTRACT_MODEL = "Extract tabular model"
 @config_class(AzureAnalysisServicesConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.ANALYSIS_SERVICES_SERVER,
+        SourceCapabilityModifier.SEMANTIC_MODEL,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default via extract_lineage")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default, configure using `extract_lineage`",
+)
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default via extract_column_level_lineage",
+    "Enabled by default, configure using `extract_column_level_lineage`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class AzureAnalysisServicesSource(StatefulIngestionSourceBase, TestableSource):
     config: AzureAnalysisServicesConfig
     report: AzureAnalysisServicesReport
