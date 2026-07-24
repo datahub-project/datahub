@@ -1,4 +1,3 @@
-
 from datahub.ingestion.source.informix.constants import map_coltype
 from datahub.metadata.schema_classes import (
     NullTypeClass,
@@ -34,7 +33,7 @@ def test_map_coltype_unknown_falls_back_to_null():
 def test_config_minimal_parses():
     from datahub.ingestion.source.informix.config import InformixSourceConfig
 
-    cfg = InformixSourceConfig.parse_obj(
+    cfg = InformixSourceConfig.model_validate(
         {"server": "informix", "database": "testdb"}
     )
     assert cfg.host_port == "localhost:9088"

@@ -24,9 +24,7 @@ class InformixSourceConfig(
     host_port: str = Field(
         default="localhost:9088", description="Informix host and port."
     )
-    server: str = Field(
-        description="Informix server name (INFORMIXSERVER)."
-    )
+    server: str = Field(description="Informix server name (INFORMIXSERVER).")
     database: str = Field(description="Informix database to ingest from.")
     username: Optional[str] = Field(default=None, description="Login user.")
     password: Optional[TransparentSecretStr] = Field(
