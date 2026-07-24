@@ -9,9 +9,7 @@ from datahub.metadata.schema_classes import SchemaFieldClass
 
 def build_jdbc_url(config: InformixSourceConfig) -> str:
     user = config.username or ""
-    password = (
-        config.password.get_secret_value() if config.password is not None else ""
-    )
+    password = config.password.get_secret_value() if config.password is not None else ""
     url = (
         f"jdbc:informix-sqli://{config.host_port}/{config.database}:"
         f"INFORMIXSERVER={config.server};user={user};password={password}"
@@ -43,6 +41,7 @@ def columns_to_schema_fields(
                 type=dh_type,
                 nativeDataType=native,
                 nullable=nullable,
+                isPartOfKey=col.is_pk,
             )
         )
     return fields

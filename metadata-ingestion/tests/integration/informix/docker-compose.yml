@@ -1,0 +1,11 @@
+services:
+  testinformix:
+    container_name: "testinformix"
+    hostname: ifx
+    image: icr.io/informix/informix-developer-database:latest
+    platform: linux/amd64
+    privileged: true
+    environment:
+      LICENSE: accept
+    ports:
+      - "9088:9088"

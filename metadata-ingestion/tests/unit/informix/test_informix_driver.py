@@ -47,7 +47,10 @@ def test_cache_hit_skips_download(tmp_path, monkeypatch):
     result = resolve_driver_jars(
         _cfg(accept_ibm_jdbc_license=True, driver_cache_dir=str(cache))
     )
-    assert sorted(p.split("/")[-1] for p in result) == ["bson-4.11.1.jar", "jdbc-4.50.10.jar"]
+    assert sorted(p.split("/")[-1] for p in result) == [
+        "bson-4.11.1.jar",
+        "jdbc-4.50.10.jar",
+    ]
 
 
 def test_checksum_mismatch_raises_and_cleans_cache(tmp_path, monkeypatch):

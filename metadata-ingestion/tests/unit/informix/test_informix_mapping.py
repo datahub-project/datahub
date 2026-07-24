@@ -17,34 +17,46 @@ class _Report:
 
 def test_build_jdbc_url():
     cfg = InformixSourceConfig.parse_obj(
-        {"server": "informix", "database": "testdb",
-         "host_port": "ifx:9088", "username": "u", "password": "p"}
+        {
+            "server": "informix",
+            "database": "testdb",
+            "host_port": "ifx:9088",
+            "username": "u",
+            "password": "p",
+        }
     )
     url = build_jdbc_url(cfg)
     assert url == (
-        "jdbc:informix-sqli://ifx:9088/testdb:"
-        "INFORMIXSERVER=informix;user=u;password=p"
+        "jdbc:informix-sqli://ifx:9088/testdb:INFORMIXSERVER=informix;user=u;password=p"
     )
 
 
 def test_build_jdbc_url_password_none():
     cfg = InformixSourceConfig.parse_obj(
-        {"server": "informix", "database": "testdb",
-         "host_port": "ifx:9088", "username": "u"}
+        {
+            "server": "informix",
+            "database": "testdb",
+            "host_port": "ifx:9088",
+            "username": "u",
+        }
     )
     url = build_jdbc_url(cfg)
     assert "password=" in url
     assert url == (
-        "jdbc:informix-sqli://ifx:9088/testdb:"
-        "INFORMIXSERVER=informix;user=u;password="
+        "jdbc:informix-sqli://ifx:9088/testdb:INFORMIXSERVER=informix;user=u;password="
     )
 
 
 def test_build_jdbc_url_appends_extra_props():
     cfg = InformixSourceConfig.parse_obj(
-        {"server": "informix", "database": "testdb",
-         "host_port": "ifx:9088", "username": "u", "password": "p",
-         "extra_props": "DB_LOCALE=en_US.utf8"}
+        {
+            "server": "informix",
+            "database": "testdb",
+            "host_port": "ifx:9088",
+            "username": "u",
+            "password": "p",
+            "extra_props": "DB_LOCALE=en_US.utf8",
+        }
     )
     url = build_jdbc_url(cfg)
     assert url.endswith(";DB_LOCALE=en_US.utf8")
@@ -65,7 +77,9 @@ def test_columns_to_schema_fields_maps_types_and_nullable():
     fields = columns_to_schema_fields(cols, report)
     assert [f.fieldPath for f in fields] == ["id", "name"]
     assert fields[0].nullable is False
+    assert fields[0].isPartOfKey is True
     assert fields[1].nativeDataType == "VARCHAR"
+    assert fields[1].isPartOfKey is False
     assert report.warnings == []
 
 
