@@ -23,6 +23,8 @@ from requests.exceptions import HTTPError
 
 from datahub.cli.config_utils import load_client_config
 from datahub.configuration.common import OperationalError
+from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
@@ -260,3 +262,26 @@ def test_ingest_explicit_static_token_wins_over_env_auth(
     assert "401" in str(exc_info.value) or "Unauthorized" in str(exc_info.value), (
         f"expected an authentication failure, got: {exc_info.value!r}"
     )
+
+
+@requires_env_auth
+def test_bare_emitter_explicit_host_uses_env_auth(monkeypatch):
+    # The auth path the other tests do not cover: a client constructed with an
+    # EXPLICIT host and no token must pick up env-based OAuth. Everything else
+    # here goes through the sink, load_client_config, or an explicit config.auth.
+    _set_env_auth(monkeypatch)
+
+    # GMS is guaranteed set by the module-level skipif; assert for the type checker.
+    assert GMS is not None
+
+    # Shape 1: bare emitter -> graph.
+    graph = DataHubRestEmitter(gms_server=GMS).to_graph()
+    assert graph.execute_graphql(_ME_QUERY)["me"]["corpUser"]["urn"]
+
+    # Shape 2: DataHubGraph(config=...) with explicit host, no token — the shape
+    # any DataHubGraph(config=...) consumer (graph clients, connectors) uses.
+    graph2 = DataHubGraph(DatahubClientConfig(server=GMS, token=None))
+    assert graph2.execute_graphql(_ME_QUERY)["me"]["corpUser"]["urn"]
+    # The session carries the OAuth AuthBase, not a baked header — this is what
+    # makes graph.session safe to reuse for raw authenticated requests.
+    assert isinstance(graph2.session.auth, TokenProviderAuth)
