@@ -291,24 +291,26 @@ def select_case_normalizer(
     return str.lower if convert_urns_to_lowercase else _identity
 
 
-# Platforms whose ``_KEY_BUILDERS`` entry joins schema unconditionally
-# (``f"{db}.{sch}.{tbl}"``) — a missing schema there would silently emit a
-# corrupt URN containing the literal string "None" instead of a real
-# component. Excluded: mysql/teradata/athena (schema-less by design,
-# ``_KEY_BUILDERS`` never references schema for them), oracle/hana (already
-# fall back to just the table name when schema is absent), and databricks
-# (joins only the non-None parts).
+def _corrupts_on_missing_schema(
+    builder: Callable[[Optional[str], Optional[str], str], str],
+) -> bool:
+    """Probe a ``_KEY_BUILDERS`` entry with a sentinel ``schema=None`` to
+    see whether it joins schema unconditionally (``f"{db}.{sch}.{tbl}"``)
+    — that's the shape that would silently embed the literal string
+    ``"None"`` into a URN when the real schema is missing. Builders that
+    ignore schema entirely (mysql/teradata/athena) or that already fall
+    back gracefully when it's absent (oracle/hana's ``if sch else tbl``,
+    databricks' ``if p`` filter) return a result with no ``"None"`` in it."""
+    return "None" in builder("db", None, "tbl")
+
+
+# Derived, not hand-maintained: computed once at import time directly from
+# ``_KEY_BUILDERS`` so it can't drift out of sync if a builder's shape
+# changes later.
 _SCHEMA_REQUIRED_PLATFORMS = frozenset(
-    {
-        "snowflake",
-        "bigquery",
-        "redshift",
-        "mssql",
-        "postgres",
-        "presto",
-        "trino",
-        "denodo",
-    }
+    platform
+    for platform, builder in _KEY_BUILDERS.items()
+    if _corrupts_on_missing_schema(builder)
 )
 
 
