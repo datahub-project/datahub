@@ -58,14 +58,7 @@ def _post_side_effect(
     raise AssertionError(f"No fixture matched request body: {body[:200]}")
 
 
-@pytest.mark.integration
-def test_azure_analysis_services_ingest(pytestconfig, tmp_path):
-    output_path = tmp_path / "aas_mces.json"
-    golden_path = (
-        pytestconfig.rootpath
-        / "tests/integration/azure_analysis_services/golden/aas_mces_golden.json"
-    )
-
+def _run_pipeline(output_path: pathlib.Path, extract_lineage: bool) -> None:
     with (
         mock.patch.object(XmlaClient, "_bearer_token", return_value="test-token"),
         mock.patch("requests.Session.post", side_effect=_post_side_effect),
@@ -81,7 +74,7 @@ def test_azure_analysis_services_ingest(pytestconfig, tmp_path):
                         "tenant_id": "test-tenant",
                         "client_id": "test-client",
                         "client_secret": "test-secret",
-                        "extract_lineage": False,
+                        "extract_lineage": extract_lineage,
                         "extract_column_level_lineage": True,
                         "extract_model_definition": True,
                     },
@@ -94,6 +87,37 @@ def test_azure_analysis_services_ingest(pytestconfig, tmp_path):
         )
         pipeline.run()
         pipeline.raise_from_status()
+
+
+@pytest.mark.integration
+def test_azure_analysis_services_ingest(pytestconfig, tmp_path):
+    output_path = tmp_path / "aas_mces.json"
+    golden_path = (
+        pytestconfig.rootpath
+        / "tests/integration/azure_analysis_services/golden/aas_mces_golden.json"
+    )
+
+    _run_pipeline(output_path, extract_lineage=False)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=str(output_path),
+        golden_path=str(golden_path),
+    )
+
+
+@pytest.mark.integration
+def test_azure_analysis_services_ingest_with_lineage(pytestconfig, tmp_path):
+    # extract_lineage=True drives the real M-Query engine over the SalesRemote
+    # partition's Sql.Database(...) expression, pinning coarse upstream lineage
+    # (and upstream CLL) to the backing SQL table.
+    output_path = tmp_path / "aas_mces_lineage.json"
+    golden_path = (
+        pytestconfig.rootpath
+        / "tests/integration/azure_analysis_services/golden/aas_mces_with_lineage_golden.json"
+    )
+
+    _run_pipeline(output_path, extract_lineage=True)
 
     mce_helpers.check_golden_file(
         pytestconfig,
