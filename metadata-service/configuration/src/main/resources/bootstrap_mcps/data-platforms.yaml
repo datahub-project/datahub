@@ -179,6 +179,16 @@
     displayName: SAP HANA
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/hanalogo.png"
+- entityUrn: urn:li:dataPlatform:informix
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: informix
+    displayName: Informix
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/informixlogo.png"
 - entityUrn: urn:li:dataPlatform:hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo

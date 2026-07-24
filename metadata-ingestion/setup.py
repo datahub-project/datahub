@@ -713,6 +713,9 @@ plugins: Dict[str, Set[str]] = {
         # (blocks billion-laughs / external-entity attacks).
         "defusedxml>=0.7.1,<0.8.0",
     },
+    # sqlglot_lib: view lineage reuses datahub.sql_parsing (sqlglot), which is not
+    # in the base install; JPype1/jdk4py bridge to the JDBC driver (no SQLAlchemy).
+    "informix": sqlglot_lib | {"JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -1214,6 +1217,7 @@ entry_points = {
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
+        "informix = datahub.ingestion.source.informix.source:InformixSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.

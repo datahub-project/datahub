@@ -1,0 +1,18 @@
+services:
+  testinformix:
+    container_name: "testinformix"
+    hostname: ifx
+    image: icr.io/informix/informix-developer-database:latest
+    platform: linux/amd64
+    privileged: true
+    environment:
+      LICENSE: accept
+    ports:
+      - "9088:9088"
+    # Disable the image's built-in healthcheck: on slower CI runners it flips to
+    # "unhealthy" before this 2.23GB privileged image finishes its multi-minute
+    # first-boot init. The test brings the container up detached (no
+    # `--wait`, see test_informix.py) and gates readiness on an `onstat` probe
+    # instead, which tolerates the slow boot.
+    healthcheck:
+      disable: true

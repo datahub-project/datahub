@@ -2140,6 +2140,66 @@
       "platform_name": "Informatica",
       "support_status": "INCUBATING"
     },
+    "informix": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level view lineage",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Row counts only, via systables.nrows",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "View lineage",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.informix.source.InformixSource",
+      "platform_id": "informix",
+      "platform_name": "Informix",
+      "support_status": "INCUBATING"
+    },
     "json-schema": {
       "capabilities": [
         {

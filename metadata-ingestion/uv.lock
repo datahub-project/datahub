@@ -1055,6 +1055,11 @@ informatica = [
     { name = "defusedxml" },
     { name = "requests" },
 ]
+informix = [
+    { name = "jdk4py" },
+    { name = "jpype1" },
+    { name = "sqlglot", extra = ["c"] },
+]
 integration-tests = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "azure-core" },
@@ -2122,11 +2127,13 @@ requires-dist = [
     { name = "jdk4py", marker = "extra == 'all'", specifier = ">=21.0,<22.0" },
     { name = "jdk4py", marker = "extra == 'dev'", specifier = ">=21.0,<22.0" },
     { name = "jdk4py", marker = "extra == 'docs'", specifier = ">=21.0,<22.0" },
+    { name = "jdk4py", marker = "extra == 'informix'", specifier = ">=21.0,<22.0" },
     { name = "jdk4py", marker = "extra == 'integration-tests'", specifier = ">=21.0,<22.0" },
     { name = "jdk4py", marker = "extra == 'kafka-connect'", specifier = ">=21.0,<22.0" },
     { name = "jpype1", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "jpype1", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "jpype1", marker = "extra == 'docs'", specifier = "<2.0.0" },
+    { name = "jpype1", marker = "extra == 'informix'", specifier = "<2.0.0" },
     { name = "jpype1", marker = "extra == 'integration-tests'", specifier = "<2.0.0" },
     { name = "jpype1", marker = "extra == 'kafka-connect'", specifier = "<2.0.0" },
     { name = "jsonpath-ng", marker = "extra == 'all'", specifier = "==1.7.0" },
@@ -2664,6 +2671,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hex'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'informix'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.12.0" },
@@ -2954,7 +2962,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"
