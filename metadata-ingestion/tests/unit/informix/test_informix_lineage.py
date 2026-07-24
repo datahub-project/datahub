@@ -26,8 +26,29 @@ def test_view_lineage_join_table_and_column_level() -> None:
         '("informix".customers x0 join "informix".orders x1 on (x0.id = x1.customer_id ) )'
     )
     view_urn = make_dataset_urn("informix", "testdb.informix.customer_orders", "PROD")
-    up = build_view_upstream_lineage(view_urn, sql, _resolver(), "testdb", "informix")
+    up = build_view_upstream_lineage(
+        view_urn,
+        sql,
+        _resolver(),
+        "testdb",
+        "informix",
+        ["customer_id", "customer_name", "order_id", "amount"],
+    )
     assert up is not None
     upstream_names = sorted(u.dataset.split(",")[-2] for u in up.upstreams)
     assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
     assert up.fineGrainedLineages
+
+    # Downstream field names must be the view's DECLARED columns (customer_id,
+    # customer_name), not the inner SELECT projection names (id, name) that
+    # sqlglot reports for Informix's alias-stripped normalized view text.
+    def _down(fgl: object) -> str:
+        return fgl.downstreams[0].split(",")[-1].rstrip(")")  # type: ignore[attr-defined]
+
+    def _up(fgl: object) -> str:
+        return fgl.upstreams[0].split(",")[-1].rstrip(")")  # type: ignore[attr-defined]
+
+    lineage_map = {_down(fgl): _up(fgl) for fgl in up.fineGrainedLineages}
+    assert lineage_map["customer_id"] == "id"
+    assert lineage_map["customer_name"] == "name"
+    assert "id" not in lineage_map  # the inner projection name must NOT leak downstream

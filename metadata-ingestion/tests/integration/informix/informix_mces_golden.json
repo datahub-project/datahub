@@ -1025,7 +1025,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.customer_orders,PROD),id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.customer_orders,PROD),customer_id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -1036,7 +1036,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.customer_orders,PROD),name)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.customer_orders,PROD),customer_name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -1066,8 +1066,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784892553264,
-        "runId": "informix-2026_07_24-13_29_10-by4mtf",
+        "lastObserved": 1784893435291,
+        "runId": "informix-2026_07_24-13_43_53-yzckby",
         "lastRunId": "no-run-id-provided"
     }
 },

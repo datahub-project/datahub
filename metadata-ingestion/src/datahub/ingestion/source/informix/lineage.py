@@ -23,6 +23,7 @@ def build_view_upstream_lineage(
     schema_resolver: SchemaResolverInterface,
     database: str,
     owner: str,
+    view_columns: Optional[List[str]] = None,
 ) -> Optional[UpstreamLineageClass]:
     result = sqlglot_lineage(
         view_sql,
@@ -40,17 +41,29 @@ def build_view_upstream_lineage(
         UpstreamClass(dataset=urn, type=DatasetLineageTypeClass.VIEW)
         for urn in result.in_tables
     ]
+    col_lineages = result.column_lineage or []
+    # Informix normalizes views to `create view V (c1..cN) as select p1..pN`, moving any
+    # column aliases into the outer column list. sqlglot keys the downstream column by the
+    # inner projection name (p_i), not the view's declared column (c_i), so an aliased
+    # column like `c.id AS customer_id` surfaces downstream as `id`. Remap positionally to
+    # the view's declared columns (colno order == projection order) when counts align.
+    remap_cols = (
+        view_columns
+        if view_columns is not None and len(view_columns) == len(col_lineages)
+        else None
+    )
     fine_grained: List[FineGrainedLineageClass] = []
-    for cl in result.column_lineage or []:
+    for idx, cl in enumerate(col_lineages):
         up_fields = [make_schema_field_urn(u.table, u.column) for u in cl.upstreams]
         if not up_fields:
             continue
+        down_col = remap_cols[idx] if remap_cols is not None else cl.downstream.column
         fine_grained.append(
             FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                 upstreams=up_fields,
                 downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                downstreams=[make_schema_field_urn(view_urn, cl.downstream.column)],
+                downstreams=[make_schema_field_urn(view_urn, down_col)],
             )
         )
     return UpstreamLineageClass(

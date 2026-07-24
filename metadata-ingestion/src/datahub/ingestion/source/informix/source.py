@@ -137,7 +137,7 @@ class InformixSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
-            views: List[Tuple[InformixTable, str]] = []
+            views: List[Tuple[InformixTable, str, List[str]]] = []
 
             seen_owners = set()
             for table in client.get_tables():
@@ -228,7 +228,9 @@ class InformixSource(StatefulIngestionSourceBase):
                     )
                     if table.is_view:
                         self.report.views_scanned += 1
-                        views.append((table, dataset_urn))
+                        views.append(
+                            (table, dataset_urn, [f.fieldPath for f in fields])
+                        )
                     else:
                         self.report.tables_scanned += 1
                         if self.config.include_row_counts and table.nrows is not None:
@@ -249,7 +251,7 @@ class InformixSource(StatefulIngestionSourceBase):
                     )
 
             if self.config.include_view_lineage:
-                for table, view_urn in views:
+                for table, view_urn, view_cols in views:
                     try:
                         sql = client.get_view_definition(table)
                         if not sql:
@@ -260,6 +262,7 @@ class InformixSource(StatefulIngestionSourceBase):
                             resolver,
                             self.config.database,
                             table.owner,
+                            view_cols,
                         )
                         if upstream_lineage is not None:
                             yield MetadataChangeProposalWrapper(
