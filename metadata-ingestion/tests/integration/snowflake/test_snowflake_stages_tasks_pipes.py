@@ -136,3 +136,61 @@ def test_snowflake_tasks_only(pytestconfig, tmp_path, mock_time, mock_datahub_gr
     assert report.stages_scanned == 0
     assert report.tasks_scanned == 3
     assert report.pipes_scanned == 0
+
+
+def test_snowflake_task_lineage_extracted_end_to_end(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    """With table/column lineage enabled, task SQL bodies are parsed into
+    real dataset- and column-level lineage on the DataJobInputOutput aspect."""
+    output_file = tmp_path / "snowflake_task_lineage_events.json"
+
+    config = _base_config(
+        include_stages=False,
+        include_tasks=True,
+        include_pipes=False,
+        include_table_lineage=True,
+        include_column_lineage=True,
+    )
+    _run_pipeline(config, output_file)
+
+    with open(output_file) as f:
+        events = json.load(f)
+
+    root_task_io = next(
+        e["aspect"]["json"]
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e["entityUrn"].endswith("root_task)")
+    )
+    assert any("table_2" in u for u in root_task_io["inputDatasets"])
+    assert any("table_1" in u for u in root_task_io["outputDatasets"])
+    assert root_task_io["fineGrainedLineages"]
+
+    child_task_2_io = next(
+        e["aspect"]["json"]
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e["entityUrn"].endswith("child_task_2)")
+    )
+    assert any("table_1" in u for u in child_task_2_io["inputDatasets"])
+    assert any("table_3" in u for u in child_task_2_io["outputDatasets"])
+    assert child_task_2_io["fineGrainedLineages"]
+    # Predecessor lineage (from ROOT_TASK) is still combined with the parsed
+    # SQL-body lineage on the same aspect.
+    assert any("root_task" in u for u in child_task_2_io["inputDatajobs"])
+
+    # CHILD_TASK_1's body is a CALL statement, unsupported by sqlglot's
+    # lineage engine — no dataset lineage should be parsed for it.
+    child_task_1_io = next(
+        (
+            e["aspect"]["json"]
+            for e in events
+            if e.get("aspectName") == "dataJobInputOutput"
+            and e["entityUrn"].endswith("child_task_1)")
+        ),
+        None,
+    )
+    assert child_task_1_io is not None
+    assert child_task_1_io["inputDatasets"] == []
+    assert child_task_1_io["outputDatasets"] == []

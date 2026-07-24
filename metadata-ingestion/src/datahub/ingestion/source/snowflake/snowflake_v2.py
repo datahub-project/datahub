@@ -624,7 +624,7 @@ class SnowflakeV2Source(
                 yield from auto_workunit(self.aggregator.gen_metadata())
 
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
-                schema_resolver = self.aggregator._schema_resolver
+                schema_resolver = self.aggregator.schema_resolver
 
                 redundant_queries_run_skip_handler: Optional[
                     RedundantQueriesRunSkipHandler
@@ -748,6 +748,8 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
+                schema_resolver=self.aggregator.schema_resolver,
+                is_temp_table=self._is_temp_table,
             )
             for db in databases:
                 for schema in db.schemas:
@@ -840,7 +842,12 @@ class SnowflakeV2Source(
                 self.report.edition = SnowflakeEdition.STANDARD
             else:
                 self.report.edition = SnowflakeEdition.ENTERPRISE
-        except Exception:
+        except Exception as e:
+            self.report.warning(
+                title="Snowflake Edition Detection Failed",
+                message="Could not determine Snowflake edition; tag extraction may be affected",
+                exc=e,
+            )
             self.report.edition = None
 
     def get_snowsight_url_builder(self) -> Optional[SnowsightUrlBuilder]:

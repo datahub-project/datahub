@@ -1,6 +1,6 @@
 import logging
-from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from dataclasses import dataclass, field
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
@@ -20,8 +20,10 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTask,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    MAX_DEFINITION_LENGTH,
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -32,12 +34,9 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-# Truncate the task definition stored in customProperties to stay well within
-# DataHub's aspect size limits.
-_MAX_DEFINITION_LENGTH = 4000
 
 
 @dataclass
@@ -46,6 +45,8 @@ class SnowflakeTasksExtractor:
     report: SnowflakeV2Report
     data_dictionary: SnowflakeDataDictionary
     identifiers: SnowflakeIdentifierBuilder
+    schema_resolver: SchemaResolver
+    is_temp_table: Callable[[str], bool] = field(default=lambda _: False)
 
     def get_workunits(
         self,
@@ -84,14 +85,21 @@ class SnowflakeTasksExtractor:
 
         for task in allowed_tasks:
             self.report.tasks_scanned += 1
-
-            yield from self._gen_data_job(
-                task=task,
-                flow_urn=flow_urn,
-                db_name=db_name,
-                schema_name=schema_name,
-                task_name_map=task_name_map,
-            )
+            try:
+                yield from self._gen_data_job(
+                    task=task,
+                    flow_urn=flow_urn,
+                    db_name=db_name,
+                    schema_name=schema_name,
+                    task_name_map=task_name_map,
+                )
+            except Exception as e:
+                self.report.warning(
+                    title="Task Extraction Failed",
+                    message="Failed to extract metadata for task; skipping remaining aspects",
+                    context=f"{db_name}.{schema_name}.{task.name}",
+                    exc=e,
+                )
 
     def _gen_data_flow(
         self,
@@ -134,6 +142,7 @@ class SnowflakeTasksExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         job_id = self.identifiers.snowflake_identifier(task.name)
         job_urn = make_data_job_urn_with_flow(flow_urn, job_id)
+        task_fqn = f"{db_name}.{schema_name}.{task.name}"
 
         custom_properties: Dict[str, str] = {
             "state": task.state.value,
@@ -147,7 +156,7 @@ class SnowflakeTasksExtractor:
         if task.allow_overlapping_execution:
             custom_properties["allow_overlapping_execution"] = "true"
         if task.definition:
-            custom_properties["definition"] = task.definition[:_MAX_DEFINITION_LENGTH]
+            custom_properties["definition"] = task.definition[:MAX_DEFINITION_LENGTH]
 
         yield MetadataChangeProposalWrapper(
             entityUrn=job_urn,
@@ -172,24 +181,59 @@ class SnowflakeTasksExtractor:
         ).as_workunit()
 
         input_datajobs: List[str] = []
+        unresolved_predecessors: List[str] = []
         for predecessor_name in task.predecessors:
             pred_name_upper = predecessor_name.strip().upper()
             # Predecessors may be fully qualified or just task names
             # Handle both: "DB.SCHEMA.TASK" or just "TASK"
-            simple_name = pred_name_upper.split(".")[-1]
-            if simple_name in task_name_map:
+            pred_name_parts = pred_name_upper.split(".")
+            simple_name = pred_name_parts[-1]
+            # A fully-qualified name only resolves against the current schema's
+            # task list if it actually points at this db/schema; otherwise a
+            # same-named task in another schema would wrongly match on leaf name
+            # alone.
+            is_current_schema = len(pred_name_parts) == 1 or (
+                len(pred_name_parts) == 3
+                and pred_name_parts[0] == db_name.upper()
+                and pred_name_parts[1] == schema_name.upper()
+            )
+            if is_current_schema and simple_name in task_name_map:
                 pred_job_id = self.identifiers.snowflake_identifier(simple_name)
                 pred_job_urn = make_data_job_urn_with_flow(flow_urn, pred_job_id)
                 input_datajobs.append(pred_job_urn)
+            else:
+                unresolved_predecessors.append(predecessor_name)
+
+        if unresolved_predecessors:
+            # Snowflake allows cross-schema task DAGs via fully-qualified
+            # predecessor names; those land here when we can't find the
+            # predecessor in the current schema's task list.
+            self.report.warning(
+                title="Predecessor Task Not Found",
+                message="Predecessor task not in current schema; input lineage incomplete",
+                context=f"{task_fqn} -> {', '.join(unresolved_predecessors)}",
+            )
+
+        datajob_input_output = self._parse_task_definition_for_lineage(
+            task, task_fqn, db_name, schema_name
+        )
 
         if input_datajobs:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=job_urn,
-                aspect=DataJobInputOutputClass(
+            if datajob_input_output is None:
+                datajob_input_output = DataJobInputOutputClass(
                     inputDatasets=[],
                     outputDatasets=[],
                     inputDatajobs=input_datajobs,
-                ),
+                )
+            else:
+                datajob_input_output.inputDatajobs = (
+                    list(datajob_input_output.inputDatajobs or []) + input_datajobs
+                )
+
+        if datajob_input_output is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=datajob_input_output,
             ).as_workunit()
 
         if task.owner:
@@ -204,3 +248,41 @@ class SnowflakeTasksExtractor:
                     ]
                 ),
             ).as_workunit()
+
+    def _parse_task_definition_for_lineage(
+        self,
+        task: SnowflakeTask,
+        task_fqn: str,
+        db_name: str,
+        schema_name: str,
+    ) -> Optional[DataJobInputOutputClass]:
+        """Parse task SQL to extract dataset-level inputs/outputs and column lineage.
+
+        Delegates to the same statement-splitting + SqlParsingAggregator path used
+        for stored procedures, so multi-statement task bodies are handled naturally
+        instead of being rejected outright.
+        """
+        if not task.definition or not self.config.include_table_lineage:
+            return None
+
+        datajob_input_output = parse_procedure_code(
+            schema_resolver=self.schema_resolver,
+            default_db=db_name,
+            default_schema=schema_name,
+            code=task.definition,
+            is_temp_table=self.is_temp_table,
+            procedure_name=task_fqn,
+        )
+
+        if datajob_input_output is None:
+            self.report.warning(
+                title="Task Lineage Extraction Failed",
+                message="Failed to extract lineage from task definition",
+                context=task_fqn,
+            )
+            return None
+
+        if not self.config.include_column_lineage:
+            datajob_input_output.fineGrainedLineages = None
+
+        return datajob_input_output
