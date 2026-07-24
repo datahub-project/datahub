@@ -205,12 +205,15 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Analysis Services Server",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default via extract_column_level_lineage",
+          "description": "Enabled by default, configure using `extract_column_level_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -240,7 +243,13 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default via extract_lineage",
+          "description": "Enabled by default, configure using `extract_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }

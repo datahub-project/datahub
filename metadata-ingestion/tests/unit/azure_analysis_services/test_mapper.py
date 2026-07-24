@@ -1,3 +1,5 @@
+from typing import Dict
+
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure_analysis_services.config import (
@@ -20,8 +22,8 @@ from datahub.metadata.schema_classes import ViewPropertiesClass
 _SERVER = "asazure://westeurope.asazure.windows.net/myserver"
 
 
-def _mapper(**config_overrides: str) -> AasMapper:
-    payload = {
+def _mapper(**config_overrides: object) -> AasMapper:
+    payload: Dict[str, object] = {
         "server": _SERVER,
         "tenant_id": "t",
         "client_id": "c",
@@ -108,6 +110,23 @@ def test_powerbi_urn_alignment() -> None:
     assert (
         pbi_mapper._table_dataset_name("Sales Model", "My Table")
         == "Sales_Model.My_Table"
+    )
+
+
+def test_powerbi_workspace_prefix_alignment() -> None:
+    prefixed = _mapper(platform="powerbi", include_workspace_name_in_dataset_urn=True)
+    # server_name="myserver" stands in for the workspace segment; Power BI
+    # lowercases it and swaps spaces, matching workspace-prefixed Power BI URNs.
+    assert (
+        prefixed._table_dataset_name("Sales Model", "My Table")
+        == "myserver.Sales_Model.My_Table"
+    )
+
+    # The prefix only applies in Power BI-aligned mode.
+    aas_prefixed = _mapper(include_workspace_name_in_dataset_urn=True)
+    assert (
+        aas_prefixed._table_dataset_name("Sales Model", "My Table")
+        == "Sales Model.My Table"
     )
 
 

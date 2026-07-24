@@ -91,9 +91,12 @@ COLUMN_TYPE_DATA = 1
 COLUMN_TYPE_CALCULATED = 2
 COLUMN_TYPE_ROW_NUMBER = 3
 
-# TMSCHEMA_PARTITIONS.Type: 4 = M/Power Query, 7 = calculated (DAX), etc.
+# TMSCHEMA_PARTITIONS.Type is the TOM PartitionSourceType enum:
+# 1 = Query, 2 = Calculated (DAX), 4 = M/Power Query, 7 = CalculationGroup.
+# Verified against a live Azure Analysis Services server (an M partition reports
+# 4, a DAX calculated-table partition reports 2).
 PARTITION_TYPE_QUERY = 4
-PARTITION_TYPE_CALCULATED = 7
+PARTITION_TYPE_CALCULATED = 2
 
 # --- Native-type labels ---------------------------------------------------
 

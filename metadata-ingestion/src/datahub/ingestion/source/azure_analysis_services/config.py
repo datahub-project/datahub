@@ -52,6 +52,17 @@ class AzureAnalysisServicesConfig(
         ),
     )
     platform: HiddenFromDocs[str] = Field(default=constants.PLATFORM_AAS)
+    include_workspace_name_in_dataset_urn: bool = Field(
+        default=False,
+        description=(
+            "Only applies when ``platform`` is aligned to ``powerbi`` (a Power BI "
+            "Premium XMLA endpoint). Prefixes table dataset URNs with the workspace "
+            "name so they stitch to a Power BI ingestion that also sets "
+            "``include_workspace_name_in_dataset_urn``. The workspace GUID variant "
+            "(Power BI's ``workspace_id_as_urn_part``) is not derivable from the XMLA "
+            "endpoint, so only the workspace name is used."
+        ),
+    )
 
     auth_type: AasAuthType = Field(
         default=AasAuthType.SERVICE_PRINCIPAL,
