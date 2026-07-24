@@ -66,7 +66,10 @@ class DataplexAspectPlatformResource(ExternalEntity):
         return self.managed_by_datahub
 
     def datahub_linked_resources(self) -> LinkedResourceSet:
-        return LinkedResourceSet(urns=[self.datahub_urn])
+        # A default (not-yet-linked) entity has an empty ``datahub_urn``; return an
+        # empty set rather than [""] so a "" never masquerades as a URN (which would
+        # blow up LinkedResourceSet.add / Urn.from_string). Mirrors Unity Catalog.
+        return LinkedResourceSet(urns=[self.datahub_urn] if self.datahub_urn else [])
 
     def as_platform_resource(self) -> PlatformResource:
         return PlatformResource.create(
