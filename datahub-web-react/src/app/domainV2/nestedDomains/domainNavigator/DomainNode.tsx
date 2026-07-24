@@ -15,6 +15,7 @@ import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon'
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';
+import { SelectedMark } from '@app/sharedV2/icons/SelectedMark';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -271,6 +272,7 @@ interface Props {
      */
     level?: number;
     variant?: DomainNavigatorVariant;
+    selectedUrns?: string[];
 }
 
 export default function DomainNode({
@@ -282,6 +284,7 @@ export default function DomainNode({
     $paddingLeft = 0,
     level = 0,
     variant = 'select',
+    selectedUrns,
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const { t: tc } = useTranslation('common.actions');
@@ -293,6 +296,7 @@ export default function DomainNode({
         closeDelay: 250,
     });
     const isInSelectMode = !!selectDomainOverride;
+    const isPickerSelected = isInSelectMode && !!selectedUrns?.includes(domain.urn);
     const isSidebarVariant = variant === 'sidebar';
     // Propagate the sidebar's owner selection down into every level of the
     // tree so child-domain scrolls are filtered server-side too (mirrors how
@@ -495,6 +499,7 @@ export default function DomainNode({
                             </DisplayName>
                             {deprecationBadge}
                         </Text>
+                        {isPickerSelected && <SelectedMark />}
                         {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
                 </Tooltip>
@@ -512,6 +517,7 @@ export default function DomainNode({
                                     selectDomainOverride={selectDomainOverride}
                                     $paddingLeft={paddingLeft}
                                     variant={variant}
+                                    selectedUrns={selectedUrns}
                                 />
                             ))}
                             {loading && (

@@ -5,7 +5,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import { DomainSelector } from '@app/permissions/policy/DomainSelector';
 import GlossarySelector from '@app/permissions/policy/GlossarySelector';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
@@ -20,17 +20,15 @@ import {
     mapResourceTypeToPrivileges,
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
-import ClickOutside from '@app/shared/ClickOutside';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
+import { Container, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -95,7 +93,6 @@ export default function PolicyPrivilegeForm({
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
-    const [domainInputValue, setDomainInputValue] = useState('');
     const [containerInputValue, setContainerInputValue] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -131,16 +128,6 @@ export default function PolicyPrivilegeForm({
     const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const resourceSearchResults = resourcesSearchData?.searchAcrossEntities?.searchResults;
 
-    // Same for domains
-    const domains = getFieldValues(resources.filter, 'DOMAIN') || [];
-    const domainUrnToDisplayName = new Map();
-    domains.forEach((domainEntity) => {
-        domainUrnToDisplayName[domainEntity.value] = getDisplayName(domainEntity.entity);
-    });
-    // Search for domains
-    const [searchDomains, { data: domainsSearchData }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults = domainsSearchData?.search?.searchResults;
-
     // Search for containers
     const containers = getFieldValues(resources.filter, 'CONTAINER') || [];
     const [searchContainers, { data: containersSearchData }] = useGetSearchResultsLazyQuery();
@@ -156,12 +143,10 @@ export default function PolicyPrivilegeForm({
     // Current Select dropdown values
     const resourceTypeSelectValue = resourceTypes.map((criterionValue) => criterionValue.value);
     const resourceSelectValue = resourceEntities.map((criterionValue) => criterionValue.value);
-    const domainSelectValue = getFieldValues(resources.filter, 'DOMAIN').map((criterionValue) => criterionValue.value);
     const containerSelectValue = getFieldValues(resources.filter, 'CONTAINER').map(
         (criterionValue) => criterionValue.value,
     );
     const privilegesSelectValue = privileges;
-    const isShowingDomainNavigator = !domainInputValue && isFocusedOnInput;
     const isShowingContainerNavigator = !containerInputValue && isFocusedOnInput;
 
     // Construct privilege options for dropdown
@@ -265,42 +250,6 @@ export default function PolicyPrivilegeForm({
         });
     };
 
-    // When a domain is selected, add its urn to the list of domains
-    const onSelectDomain = (domainUrn, domainObj?: Domain) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        const domainEntity = domainObj || getEntityFromSearchResults(domainSearchResults, domainUrn);
-        const updatedFilter = setFieldValues(filter, 'DOMAIN', [
-            ...domains,
-            createCriterionValueWithEntity(domainUrn, domainEntity || null),
-        ]);
-        setResources({
-            ...resources,
-            filter: updatedFilter,
-        });
-    };
-
-    function selectDomainFromBrowser(domain: Domain) {
-        onSelectDomain(domain.urn, domain);
-        setIsFocusedOnInput(false);
-    }
-
-    // When a domain is deselected, remove its urn from the list of domains
-    const onDeselectDomain = (domain) => {
-        const filter = resources.filter || {
-            criteria: [],
-        };
-        setResources({
-            ...resources,
-            filter: setFieldValues(
-                filter,
-                'DOMAIN',
-                domains?.filter((criterionValue) => criterionValue.value !== domain),
-            ),
-        });
-    };
-
     // Add new container selection handler
     const onSelectContainer = (containerUrn, containerObj?: Container) => {
         const filter = resources.filter || {
@@ -349,22 +298,6 @@ export default function PolicyPrivilegeForm({
         });
     };
 
-    // Handle domain search, if the domain type has an associated EntityType mapping.
-    const handleDomainSearch = (text: string) => {
-        const trimmedText: string = text.trim();
-        setDomainInputValue(trimmedText);
-        searchDomains({
-            variables: {
-                input: {
-                    type: EntityType.Domain,
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
-                },
-            },
-        });
-    };
-
     const handleContainerSearch = (text: string) => {
         const trimmedText: string = text.trim();
         setContainerInputValue(trimmedText);
@@ -400,15 +333,6 @@ export default function PolicyPrivilegeForm({
             ? `${displayStr.substring(0, Math.min(length, displayStr.length))}...`
             : displayStr;
     };
-
-    function handleCLickOutside() {
-        // delay closing the domain navigator so we don't get a UI "flash" between showing search results and navigator
-        setTimeout(() => setIsFocusedOnInput(false), 0);
-    }
-
-    function handleBlur() {
-        setDomainInputValue('');
-    }
 
     function handleBlurContainer() {
         setContainerInputValue('');
@@ -643,38 +567,7 @@ export default function PolicyPrivilegeForm({
                     <Typography.Paragraph>
                         <Trans t={t} i18nKey="privilegeForm.domainsDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
-                    <ClickOutside onClickOutside={handleCLickOutside}>
-                        <Select
-                            showSearch
-                            value={domainSelectValue}
-                            mode="multiple"
-                            filterOption={false}
-                            placeholder={t('privilegeForm.domainPlaceholder')}
-                            onSelect={(value) => onSelectDomain(value)}
-                            onDeselect={onDeselectDomain}
-                            onSearch={handleDomainSearch}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            tagRender={(tagProps) => (
-                                <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                    {displayStringWithMaxLength(
-                                        domainUrnToDisplayName[tagProps.value.toString()] || tagProps.value.toString(),
-                                        75,
-                                    )}
-                                </Tag>
-                            )}
-                            dropdownStyle={isShowingDomainNavigator ? { display: 'none' } : {}}
-                        >
-                            {domainSearchResults?.map((result) => (
-                                <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                    {renderSearchResult(result)}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator} width="100%" maxHeight={300}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
+                    <DomainSelector resources={resources} setResources={setResources} />
                 </Form.Item>
             )}
             {showResourceFilterInput && (
