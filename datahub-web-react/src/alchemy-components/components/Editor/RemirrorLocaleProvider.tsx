@@ -38,7 +38,8 @@ type Props = {
  * English for languages we don't ship a bundle for.
  */
 export default function RemirrorLocaleProvider({ children }: Props) {
-    const { i18n: appI18n } = useTranslation();
+    // Empty ns list: only subscribe to language changes (defaultNS is false at app init).
+    const { i18n: appI18n } = useTranslation([]);
     const appLanguage = (appI18n.resolvedLanguage || appI18n.language || 'en').split('-')[0];
     const locale = REMIRROR_SUPPORTED_LOCALES.includes(appLanguage) ? appLanguage : 'en';
     // Only activate once the bundle is loaded, so labels never flash raw message ids. Until then
