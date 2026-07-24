@@ -1,13 +1,11 @@
 import re
+from enum import IntEnum
 from typing import Pattern
 
 # --- XMLA / SOAP protocol -------------------------------------------------
 
 XMLA_NAMESPACE = "urn:schemas-microsoft-com:xml-analysis"
-XMLA_ROWSET_NAMESPACE = "urn:schemas-microsoft-com:xml-analysis:rowset"
 SOAP_ENVELOPE_NAMESPACE = "http://schemas.xmlsoap.org/soap/envelope/"
-XSI_NAMESPACE = "http://www.w3.org/2001/XMLSchema-instance"
-XSD_NAMESPACE = "http://www.w3.org/2001/XMLSchema"
 
 SOAP_ACTION_EXECUTE = "urn:schemas-microsoft-com:xml-analysis:Execute"
 SOAP_ACTION_DISCOVER = "urn:schemas-microsoft-com:xml-analysis:Discover"
@@ -32,7 +30,52 @@ PROPERTY_CATALOG = "Catalog"
 PROPERTY_FORMAT = "Format"
 PROPERTY_CONTENT = "Content"
 FORMAT_TABULAR = "Tabular"
-CONTENT_SCHEMA_DATA = "SchemaData"
+
+# --- Request-body templates -----------------------------------------------
+# Kept as named templates rather than inline f-strings so the SOAP/XMLA wire
+# format lives in one place (and out of the transport code).
+
+XML_ELEMENT_TEMPLATE = "<{tag}>{value}</{tag}>"
+PROPERTY_LIST_TEMPLATE = (
+    "<Properties><PropertyList>{properties}</PropertyList></Properties>"
+)
+SOAP_ENVELOPE_TEMPLATE = (
+    '<soap:Envelope xmlns:soap="{namespace}">'
+    "<soap:Body>{body}</soap:Body></soap:Envelope>"
+)
+EXECUTE_REQUEST_TEMPLATE = (
+    '<Execute xmlns="{namespace}">'
+    "<Command><Statement>{statement}</Statement></Command>"
+    "{properties}</Execute>"
+)
+DISCOVER_METADATA_REQUEST_TEMPLATE = (
+    '<Discover xmlns="{namespace}">'
+    "<RequestType>{request_type}</RequestType>"
+    "<Restrictions><RestrictionList>"
+    "<{database_id_tag}>{database_id}</{database_id_tag}>"
+    "<{expansion_tag}>{expansion}</{expansion_tag}>"
+    "</RestrictionList></Restrictions>"
+    "{properties}</Discover>"
+)
+
+# --- Response element / rowset key names ----------------------------------
+# Rowset elements are namespace-qualified and matched on their local name.
+
+ELEMENT_ROOT = "root"
+ELEMENT_ROW = "row"
+ELEMENT_FAULT = "Fault"
+ELEMENT_FAULT_STRING = "faultstring"
+ELEMENT_FAULT_DESCRIPTION = "Description"
+ELEMENT_METADATA = "METADATA"
+ELEMENT_METADATA_ALT = "Metadata"
+
+ROW_KEY_CATALOG_NAME = "CATALOG_NAME"
+ROW_KEY_NAME = "Name"
+
+# A rootless but fault-free 200 response is ambiguous (gateway HTML, redirect,
+# empty <return/>); this many characters of the body are surfaced in the
+# warning so operators can tell "no models" from "parse failed".
+ROOTLESS_SNIPPET_LEN = 200
 
 # --- Endpoints ------------------------------------------------------------
 
@@ -43,14 +86,10 @@ ASAZURE_XMLA_URL = "https://{fqdn}/webapi/xmla"
 ASAZURE_DEFAULT_SCOPE = "https://{region}.asazure.windows.net/.default"
 ASAZURE_SERVER_NAME_KEY = "serverName"
 ASAZURE_CLUSTER_FQDN_KEY = "clusterFQDN"
-ASAZURE_CORE_SERVER_KEY = "coreServerName"
-ASAZURE_TENANT_ID_KEY = "tenantId"
 
 # Power BI Premium XMLA endpoint (used when connecting to a Premium workspace
 # exposed as an AS-compatible endpoint).
-POWERBI_XMLA_HOST = "https://api.powerbi.com"
 POWERBI_XMLA_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
-POWERBI_AZURE_AD_AUTHORITY = "https://login.microsoftonline.com/{tenant_id}"
 
 # --- DMV / rowset queries -------------------------------------------------
 # Tabular metadata DMVs. Selecting explicit columns keeps the rowset stable
@@ -77,26 +116,32 @@ OBJECT_EXPANSION_RESTRICTION = "ObjectExpansion"
 OBJECT_EXPANSION_EXPAND_FULL = "ExpandFull"
 DATABASE_ID_RESTRICTION = "DatabaseID"
 
-# Column data-type family reported by TMSCHEMA_COLUMNS.ExplicitDataType /
-# InferredDataType (Tabular Object Model DataType enumeration).
-TOM_DATA_TYPE_STRING = 1
-TOM_DATA_TYPE_INT64 = 6
-TOM_DATA_TYPE_DOUBLE = 8
-TOM_DATA_TYPE_DECIMAL = 10
-TOM_DATA_TYPE_BOOLEAN = 11
-TOM_DATA_TYPE_DATETIME = 9
 
-# TMSCHEMA_COLUMNS.Type: 1 = data column, 2 = calculated, 3 = row-number.
-COLUMN_TYPE_DATA = 1
-COLUMN_TYPE_CALCULATED = 2
-COLUMN_TYPE_ROW_NUMBER = 3
+class TomDataType(IntEnum):
+    # TMSCHEMA_COLUMNS.ExplicitDataType / InferredDataType (Tabular Object Model
+    # DataType enumeration).
+    STRING = 1
+    INT64 = 6
+    DATETIME = 9
+    DOUBLE = 8
+    DECIMAL = 10
+    BOOLEAN = 11
 
-# TMSCHEMA_PARTITIONS.Type is the TOM PartitionSourceType enum:
-# 1 = Query, 2 = Calculated (DAX), 4 = M/Power Query, 7 = CalculationGroup.
-# Verified against a live Azure Analysis Services server (an M partition reports
-# 4, a DAX calculated-table partition reports 2).
-PARTITION_TYPE_QUERY = 4
-PARTITION_TYPE_CALCULATED = 2
+
+class ColumnType(IntEnum):
+    # TMSCHEMA_COLUMNS.Type.
+    DATA = 1
+    CALCULATED = 2
+    ROW_NUMBER = 3
+
+
+class PartitionType(IntEnum):
+    # TMSCHEMA_PARTITIONS.Type is the TOM PartitionSourceType enum. Verified
+    # against a live Azure Analysis Services server: an M partition reports 4, a
+    # DAX calculated-table partition reports 2.
+    CALCULATED = 2
+    QUERY = 4
+
 
 # --- Native-type labels ---------------------------------------------------
 
@@ -135,16 +180,4 @@ ASAZURE_ENDPOINT_RE: Pattern[str] = re.compile(
 POWERBI_ENDPOINT_RE: Pattern[str] = re.compile(
     r"^powerbi://api\.powerbi\.com/v1\.0/myorg/(?P<workspace>[^/?#]+)",
     re.IGNORECASE,
-)
-
-# A DAX calc-dependency reference such as ``'Sales'[Amount]`` or ``Sales[Amount]``
-# split into its table and object parts.
-DAX_OBJECT_REFERENCE_RE: Pattern[str] = re.compile(
-    r"'?(?P<table>[^'\[\]]+)'?\[(?P<object>[^\[\]]+)\]"
-)
-
-# Bearer tokens must never be logged in full; this matches the value after the
-# scheme so it can be truncated in debug output.
-BEARER_TOKEN_REDACT_RE: Pattern[str] = re.compile(
-    r"(Bearer\s+)(?P<token>[A-Za-z0-9\-._~+/]+=*)", re.IGNORECASE
 )

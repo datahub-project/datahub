@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -15,33 +15,35 @@ DataHubFieldType = Union[
     BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
 ]
 
+_UNKNOWN_TYPE_NAME = "Unknown"
+
 
 def tom_data_type_to_datahub(data_type: Optional[int]) -> DataHubFieldType:
     # Maps a Tabular Object Model DataType enumeration value to the DataHub
     # schema-field type. Unknown/blank types fall back to NullType so the field
     # still emits rather than being dropped.
-    if data_type == constants.TOM_DATA_TYPE_STRING:
+    if data_type == constants.TomDataType.STRING:
         return StringTypeClass()
     if data_type in (
-        constants.TOM_DATA_TYPE_INT64,
-        constants.TOM_DATA_TYPE_DOUBLE,
-        constants.TOM_DATA_TYPE_DECIMAL,
+        constants.TomDataType.INT64,
+        constants.TomDataType.DOUBLE,
+        constants.TomDataType.DECIMAL,
     ):
         return NumberTypeClass()
-    if data_type == constants.TOM_DATA_TYPE_BOOLEAN:
+    if data_type == constants.TomDataType.BOOLEAN:
         return BooleanTypeClass()
-    if data_type == constants.TOM_DATA_TYPE_DATETIME:
+    if data_type == constants.TomDataType.DATETIME:
         return DateTypeClass()
     return NullTypeClass()
 
 
-TOM_DATA_TYPE_NAMES = {
-    constants.TOM_DATA_TYPE_STRING: "String",
-    constants.TOM_DATA_TYPE_INT64: "Int64",
-    constants.TOM_DATA_TYPE_DOUBLE: "Double",
-    constants.TOM_DATA_TYPE_DECIMAL: "Decimal",
-    constants.TOM_DATA_TYPE_BOOLEAN: "Boolean",
-    constants.TOM_DATA_TYPE_DATETIME: "DateTime",
+TOM_DATA_TYPE_NAMES: Dict[int, str] = {
+    constants.TomDataType.STRING: "String",
+    constants.TomDataType.INT64: "Int64",
+    constants.TomDataType.DOUBLE: "Double",
+    constants.TomDataType.DECIMAL: "Decimal",
+    constants.TomDataType.BOOLEAN: "Boolean",
+    constants.TomDataType.DATETIME: "DateTime",
 }
 
 
@@ -169,7 +171,9 @@ class AasColumn(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
-    data_type: int = 0
+    # None when the engine reported no data type; surfaces as the "Unknown"
+    # native type rather than being coerced to a real TOM code.
+    data_type: Optional[int] = None
     datahub_data_type: DataHubFieldType
     is_calculated: bool = False
     expression: Optional[str] = None
@@ -180,7 +184,9 @@ class AasColumn(BaseModel):
     # Aliases required by the shared M-Query engine's MQueryColumn protocol.
     @property
     def dataType(self) -> str:
-        return TOM_DATA_TYPE_NAMES.get(self.data_type, "Unknown")
+        if self.data_type is None:
+            return _UNKNOWN_TYPE_NAME
+        return TOM_DATA_TYPE_NAMES.get(self.data_type, _UNKNOWN_TYPE_NAME)
 
     @property
     def datahubDataType(self) -> DataHubFieldType:
@@ -247,6 +253,18 @@ class AasDataSource(BaseModel):
     connection_string: Optional[str] = None
 
 
+class AasCalcDependency(BaseModel):
+    # A resolved intra-model dependency edge: one object (measure / calculated
+    # column / calculated table) referencing another. Assembled from the raw
+    # DISCOVER_CALC_DEPENDENCY row once the object/reference pair is complete.
+    object_type: str
+    table: str
+    object_name: str
+    referenced_object_type: str
+    referenced_table: str
+    referenced_object: str
+
+
 class AasTabularModel(BaseModel):
     catalog: str
     name: str
@@ -256,7 +274,7 @@ class AasTabularModel(BaseModel):
     relationships: List[AasRelationship] = Field(default_factory=list)
     roles: List[AasRole] = Field(default_factory=list)
     data_sources: List[AasDataSource] = Field(default_factory=list)
-    calc_dependencies: List[AasCalcDependencyRow] = Field(default_factory=list)
+    calc_dependencies: List[AasCalcDependency] = Field(default_factory=list)
     # Full TMSL/TMDL model definition (DISCOVER_XML_METADATA), attached to the
     # model-level cube dataset's ViewProperties when extraction is enabled.
     definition: Optional[str] = None

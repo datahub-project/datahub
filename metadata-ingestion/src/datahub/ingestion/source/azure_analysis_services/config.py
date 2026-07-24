@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Union
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
@@ -33,10 +33,17 @@ class AthenaPlatformOverride(ConfigModel):
     # Structural match for the shared engine's AthenaTableOverride protocol,
     # used only when an M/Power Query partition reaches an Athena federated
     # source and lineage should point at the real upstream platform.
-    database: str = Field(min_length=1)
-    table: str = Field(min_length=1)
-    platform: str = Field(min_length=1)
-    dsn: Optional[str] = Field(default=None)
+    database: str = Field(
+        min_length=1, description="Athena database matched in the M/Power Query source."
+    )
+    table: str = Field(min_length=1, description="Athena table to override.")
+    platform: str = Field(
+        min_length=1,
+        description="DataHub platform the Athena federated table actually resolves to.",
+    )
+    dsn: Optional[str] = Field(
+        default=None, description="Optional DSN qualifier for the override."
+    )
 
 
 class AzureAnalysisServicesConfig(
@@ -92,7 +99,7 @@ class AzureAnalysisServicesConfig(
         description="Whether to verify SSL certificates when calling the XMLA endpoint.",
     )
     request_timeout: int = Field(
-        default=60, description="Per-request timeout in seconds for XMLA calls."
+        default=60, gt=0, description="Per-request timeout in seconds for XMLA calls."
     )
 
     database_pattern: AllowDenyPattern = Field(
@@ -146,6 +153,7 @@ class AzureAnalysisServicesConfig(
     )
     m_query_parse_timeout: int = Field(
         default=30,
+        gt=0,
         description="Timeout in seconds for parsing a single M/Power Query expression.",
     )
     dsn_to_platform_name: HiddenFromDocs[Dict[str, str]] = Field(default_factory=dict)
@@ -158,6 +166,19 @@ class AzureAnalysisServicesConfig(
         default=None,
         description="Stateful ingestion / stale-entity removal configuration.",
     )
+
+    @field_validator("server")
+    @classmethod
+    def _validate_server(cls, value: str) -> str:
+        if constants.ASAZURE_ENDPOINT_RE.match(
+            value
+        ) or constants.POWERBI_ENDPOINT_RE.match(value):
+            return value
+        raise ValueError(
+            "server must be an 'asazure://<region>.asazure.windows.net/<server>' or "
+            "'powerbi://api.powerbi.com/v1.0/myorg/<workspace>' endpoint; "
+            f"got: {value}"
+        )
 
     @model_validator(mode="after")
     def _validate_auth(self) -> "AzureAnalysisServicesConfig":

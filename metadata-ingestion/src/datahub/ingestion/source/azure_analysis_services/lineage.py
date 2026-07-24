@@ -8,7 +8,7 @@ from datahub.ingestion.source.azure_analysis_services.config import (
     AzureAnalysisServicesConfig,
 )
 from datahub.ingestion.source.azure_analysis_services.models import (
-    AasCalcDependencyRow,
+    AasCalcDependency,
     AasTable,
     AasTabularModel,
 )
@@ -178,19 +178,15 @@ class AasLineageExtractor:
 
     def _resolve_dependency_edge(
         self,
-        dependency: AasCalcDependencyRow,
+        dependency: AasCalcDependency,
         dataset_urn_by_table: Dict[str, str],
     ) -> Optional[_DependencyEdge]:
-        object_type = (dependency.object_type or "").upper()
-        referenced_type = (dependency.referenced_object_type or "").upper()
+        object_type = dependency.object_type.upper()
+        referenced_type = dependency.referenced_object_type.upper()
         if (
             object_type not in _FIELD_DEPENDENCY_TYPES
             or referenced_type not in _FIELD_DEPENDENCY_TYPES
         ):
-            return None
-        if not (dependency.table and dependency.object_name):
-            return None
-        if not (dependency.referenced_table and dependency.referenced_object):
             return None
         # Self-reference (a column depending on itself) carries no useful edge.
         if (

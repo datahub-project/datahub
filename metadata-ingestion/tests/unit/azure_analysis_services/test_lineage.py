@@ -8,7 +8,7 @@ from datahub.ingestion.source.azure_analysis_services.config import (
 )
 from datahub.ingestion.source.azure_analysis_services.lineage import AasLineageExtractor
 from datahub.ingestion.source.azure_analysis_services.models import (
-    AasCalcDependencyRow,
+    AasCalcDependency,
     AasColumn,
     AasPartition,
     AasTable,
@@ -38,8 +38,8 @@ def _calc_dep(
     ref_type: str,
     ref_table: str,
     ref_obj: str,
-) -> AasCalcDependencyRow:
-    return AasCalcDependencyRow(
+) -> AasCalcDependency:
+    return AasCalcDependency(
         object_type=object_type,
         table=table,
         object_name=obj,
@@ -121,6 +121,31 @@ def test_upstream_lineage_via_engine() -> None:
     # convert_lineage_urns_to_lowercase defaults True.
     assert result.upstreams[0].dataset == upstream_urn.lower()
     assert len(result.fine_grained) == 1
+
+
+def test_upstream_lineage_engine_failure_degrades() -> None:
+    # A table's lineage extraction must never abort the model: an engine
+    # exception is downgraded to a warning and an empty result.
+    extractor = _extractor()
+    table = AasTable(
+        name="Sales",
+        partitions=[
+            AasPartition(name="p", query_definition="let Source = 1 in Source")
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.Sales"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_analysis_services.lineage.parser.get_upstream_tables",
+        side_effect=RuntimeError("engine boom"),
+    ):
+        result = extractor.extract_upstream_for_table(table, dataset_urn)
+
+    assert result.upstreams == []
+    assert result.fine_grained == []
+    assert len(extractor.report.warnings) == 1
 
 
 def test_upstream_skipped_when_disabled() -> None:

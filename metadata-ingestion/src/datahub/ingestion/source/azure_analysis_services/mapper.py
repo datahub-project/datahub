@@ -43,6 +43,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 
 logger = logging.getLogger(__name__)
 
@@ -115,24 +116,43 @@ class AasMapper:
             return full_table_name
         return f"{catalog}.{table_name}"
 
-    def _table_dataset_urn(self, catalog: str, table_name: str) -> str:
+    def _dataset_urn(self, name: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(
             platform=self.config.platform,
-            name=self._table_dataset_name(catalog, table_name),
+            name=name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+
+    def _table_dataset_urn(self, catalog: str, table_name: str) -> str:
+        return self._dataset_urn(self._table_dataset_name(catalog, table_name))
 
     def _cube_dataset_name(self, catalog: str) -> str:
         return catalog
 
     def _cube_dataset_urn(self, catalog: str) -> str:
-        return builder.make_dataset_urn_with_platform_instance(
-            platform=self.config.platform,
-            name=self._cube_dataset_name(catalog),
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        return self._dataset_urn(self._cube_dataset_name(catalog))
+
+    # --- Shared dataset aspects -------------------------------------------
+
+    @staticmethod
+    def _status_wu(dataset_urn: str) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+
+    def _platform_instance_wus(self, dataset_urn: str) -> Iterable[MetadataWorkUnit]:
+        if not self.config.platform_instance:
+            return
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=builder.make_data_platform_urn(self.config.platform),
+                instance=builder.make_dataplatform_instance_urn(
+                    self.config.platform, self.config.platform_instance
+                ),
+            ),
+        ).as_workunit()
 
     # --- Top-level entry --------------------------------------------------
 
@@ -224,25 +244,14 @@ class AasMapper:
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
+        yield self._status_wu(dataset_urn)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=self._table_subtypes(table)),
         ).as_workunit()
 
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=builder.make_data_platform_urn(self.config.platform),
-                    instance=builder.make_dataplatform_instance_urn(
-                        self.config.platform, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
+        yield from self._platform_instance_wus(dataset_urn)
 
         view_properties = self._table_view_properties(table)
         if view_properties is not None:
@@ -337,39 +346,39 @@ class AasMapper:
             or None,
         )
 
+    @staticmethod
+    def _describe_with_expression(
+        description: Optional[str], expression: Optional[str]
+    ) -> Optional[str]:
+        # A DAX/M expression is the substance of a calculated field, so it goes
+        # into the description; keep any human description ahead of it.
+        if not expression:
+            return description
+        if description:
+            return f"{description}\n\n{expression}"
+        return expression
+
     def _field_for_column(self, column: AasColumn) -> SchemaFieldClass:
         native_type = (
             constants.NATIVE_TYPE_CALCULATED_COLUMN
             if column.is_calculated
             else column.dataType
         )
-        description = column.description
-        if column.is_calculated and column.expression:
-            # A calculated column's DAX is the most useful thing to surface; keep
-            # any human description ahead of it.
-            description = (
-                f"{description}\n\n{column.expression}"
-                if description
-                else column.expression
-            )
+        # Only calculated columns carry a DAX expression worth surfacing.
+        expression = column.expression if column.is_calculated else None
         return SchemaFieldClass(
             fieldPath=column.name,
             type=SchemaFieldDataTypeClass(type=column.datahubDataType),
             nativeDataType=native_type,
-            description=description,
+            description=self._describe_with_expression(column.description, expression),
             isPartOfKey=False,
         )
 
     def _field_for_measure(self, measure: AasMeasure) -> SchemaFieldClass:
-        # Measures have no stored data type; they evaluate to a number. The DAX
-        # expression is the substance, so it goes into the description.
-        description = measure.description
-        if measure.expression:
-            description = (
-                f"{description}\n\n{measure.expression}"
-                if description
-                else measure.expression
-            )
+        # Measures have no stored data type; they evaluate to a number.
+        description = self._describe_with_expression(
+            measure.description, measure.expression
+        )
         return SchemaFieldClass(
             fieldPath=measure.name,
             type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
@@ -422,9 +431,7 @@ class AasMapper:
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
+        yield self._status_wu(dataset_urn)
 
         # Dual subtypes mirror Tableau's cube-with-definition pattern: the model
         # is both a Cube and a Semantic Model.
@@ -435,16 +442,7 @@ class AasMapper:
             ),
         ).as_workunit()
 
-        if self.config.platform_instance:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=builder.make_data_platform_urn(self.config.platform),
-                    instance=builder.make_dataplatform_instance_urn(
-                        self.config.platform, self.config.platform_instance
-                    ),
-                ),
-            ).as_workunit()
+        yield from self._platform_instance_wus(dataset_urn)
 
         if model.definition:
             yield MetadataChangeProposalWrapper(
@@ -500,9 +498,8 @@ class AasMapper:
 
     @staticmethod
     def _dataset_urn_of_field(field_urn: str) -> Optional[str]:
-        # A schemaField URN is ``urn:li:schemaField:(<datasetUrn>,<field>)``.
-        prefix = "urn:li:schemaField:("
-        if not field_urn.startswith(prefix):
+        # SchemaFieldUrn.parent is the parent dataset URN as a string.
+        try:
+            return SchemaFieldUrn.from_string(field_urn).parent
+        except Exception:
             return None
-        inner = field_urn[len(prefix) : field_urn.rfind(")")]
-        return inner.rsplit(",", 1)[0]
