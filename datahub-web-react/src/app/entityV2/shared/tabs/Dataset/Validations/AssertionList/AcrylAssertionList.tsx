@@ -252,11 +252,7 @@ export const AcrylAssertionList = () => {
         return (
             <Empty
                 description={
-                    hasRefinements
-                        ? t('assertionList.noAssertionsMatchFilters', {
-                              defaultValue: 'No assertions match the selected filters.',
-                          })
-                        : t('assertionList.noAssertionsRun')
+                    hasRefinements ? t('assertionList.noAssertionsMatchFilters') : t('assertionList.noAssertionsRun')
                 }
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
             />

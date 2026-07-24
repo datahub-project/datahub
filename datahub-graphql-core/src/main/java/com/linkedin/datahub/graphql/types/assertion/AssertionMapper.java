@@ -47,8 +47,10 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.schema.SchemaField;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -68,7 +70,9 @@ public class AssertionMapper {
       final AssertionInfo assertionInfo =
           new AssertionInfo(envelopedAssertionInfo.getValue().data());
       result.setInfo(mapAssertionInfo(context, assertionInfo));
-      final Urn datasetUrn = assertionInfo.hasEntityUrn() ? assertionInfo.getEntityUrn() : null;
+      final Urn datasetUrn =
+          Optional.ofNullable(assertionInfo.getEntityUrn())
+              .orElse(AssertionUtils.getEntityFromAssertionInfo(assertionInfo));
       if (datasetUrn != null && Constants.DATASET_ENTITY_NAME.equals(datasetUrn.getEntityType())) {
         final Dataset dataset = new Dataset();
         dataset.setUrn(datasetUrn.toString());

@@ -189,7 +189,7 @@ export const AcrylAssertionSummaryTab = () => {
                         history.replace(`${basePath}/List?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`)
                     }
                 >
-                    {t('assertionSummary.goToAssertions', { defaultValue: 'Go to assertions' })}
+                    {t('assertionSummary.goToAssertions')}
                     <ArrowRight />
                 </Button>
             </EmptyContainer>

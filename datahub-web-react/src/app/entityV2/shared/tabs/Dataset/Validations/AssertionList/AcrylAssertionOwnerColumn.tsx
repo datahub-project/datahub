@@ -165,17 +165,11 @@ export const AcrylAssertionOwnerColumn = ({ record, refetch }: Props) => {
                     },
                 });
             }
-            message.success(t('assertionList.ownersUpdated', { defaultValue: 'Owners updated' }), 2);
+            message.success(t('builder.details.ownersUpdated'), 2);
             setPopoverVisible(false);
             refetch?.();
         } catch (e) {
-            message.error(
-                handleBatchError(
-                    [record.urn],
-                    e,
-                    t('assertionList.failedUpdateOwners', { defaultValue: 'Failed to update owners' }),
-                ),
-            );
+            message.error(handleBatchError([record.urn], e, t('builder.details.failedUpdateOwners')));
         } finally {
             isSaving.current = false;
         }
@@ -201,11 +195,7 @@ export const AcrylAssertionOwnerColumn = ({ record, refetch }: Props) => {
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <Container onClick={handleContainerClick}>
                 {ownerAvatars}
-                <Tooltip
-                    title={t('assertionList.ownersTooltip', {
-                        defaultValue: 'Add or edit owners for this assertion',
-                    })}
-                >
+                <Tooltip title={t('builder.details.ownersTooltip')}>
                     <AddButton>{owners.length > 0 ? <PencilSimple /> : <Plus />}</AddButton>
                 </Tooltip>
             </Container>
