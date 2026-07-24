@@ -1,7 +1,12 @@
 from datahub.ingestion.api.registry import PluginRegistry
 from datahub.ingestion.api.source import Source
+from datahub.plugin.plugin_config import PluginCapabilityType
+from datahub.plugin.plugin_loader import get_plugin_loader
 
-source_registry = PluginRegistry[Source]()
+source_registry = PluginRegistry[Source](
+    plugin_loader=get_plugin_loader(),
+    registry_type=PluginCapabilityType.SOURCE,
+)
 source_registry.register_from_entrypoint("datahub.ingestion.source.plugins")
 
 # Deprecations.

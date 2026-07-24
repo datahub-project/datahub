@@ -327,6 +327,13 @@ def run(
     required=False,
     default=None,
 )
+@click.option(
+    "--datahub-plugins",
+    type=str,
+    help="External DataHub plugin specs as JSON list. e.g. '[\"github:owner/repo\"]'",
+    required=False,
+    default=None,
+)
 @upgrade.check_upgrade
 def deploy(
     name: Optional[str],
@@ -338,6 +345,7 @@ def deploy(
     time_zone: Optional[str],
     extra_pip: Optional[str],
     extra_env: Optional[str],
+    datahub_plugins: Optional[str] = None,
     debug: bool = False,
 ) -> None:
     """
@@ -360,6 +368,7 @@ def deploy(
         extra_pip=extra_pip,
         debug=debug,
         extra_env=extra_env,
+        datahub_plugins=datahub_plugins,
     )
 
     # The updateIngestionSource endpoint can actually do upserts as well.

@@ -1,15 +1,21 @@
+from __future__ import annotations
+
 import importlib
 import inspect
+import logging
 import sys
 import threading
+import types
 import unittest.mock
 from importlib.metadata import entry_points
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
     Generic,
     List,
+    Mapping,
     Optional,
     Tuple,
     Type,
@@ -17,10 +23,16 @@ from typing import (
     Union,
 )
 
+if TYPE_CHECKING:
+    from datahub.plugin.plugin_config import PluginCapabilityType
+    from datahub.plugin.plugin_loader import PluginLoader
+
 import typing_inspect
 
 from datahub._version import __package_name__
 from datahub.configuration.common import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -58,18 +70,23 @@ def import_path(path: str) -> Any:
 
 
 class PluginRegistry(Generic[T]):
-    _entrypoints: List[str]
-    _mapping: Dict[str, Union[str, Type[T], Exception]]
-    _aliases: Dict[str, Tuple[str, Callable[[], None]]]
-
     def __init__(
-        self, extra_cls_check: Optional[Callable[[Type[T]], None]] = None
+        self,
+        extra_cls_check: Optional[Callable[[Type[T]], None]] = None,
+        plugin_loader: Optional[PluginLoader] = None,
+        registry_type: Optional[PluginCapabilityType] = None,
     ) -> None:
-        self._entrypoints = []
-        self._mapping = {}
-        self._aliases = {}
+        if (plugin_loader is None) != (registry_type is None):
+            raise ValueError(
+                "plugin_loader and registry_type must be provided together or not at all"
+            )
+        self._entrypoints: List[str] = []
+        self._mapping: Dict[str, Union[str, Type[T], Exception]] = {}
+        self._aliases: Dict[str, Tuple[str, Callable[[], None]]] = {}
         self._extra_cls_check = extra_cls_check
         self._lock = threading.Lock()
+        self._plugin_loader = plugin_loader
+        self._registry_type = registry_type
 
     def _get_registered_type(self) -> Type[T]:
         cls = typing_inspect.get_generic_type(self)
@@ -148,9 +165,74 @@ class PluginRegistry(Generic[T]):
             self._entrypoints = []
 
     @property
-    def mapping(self) -> Dict[str, Union[str, Type[T], Exception]]:
+    def mapping(self) -> Mapping[str, Union[str, Type[T], Exception]]:
         self._materialize_entrypoints()
-        return self._mapping
+        return types.MappingProxyType(self._mapping)
+
+    def _try_load_external(self, key: str) -> Optional[Type[T]]:
+        """Attempt to load *key* from an external plugin via the PluginLoader.
+
+        This is a deliberate *fallback*, reached from ``get()`` only when *key*
+        is not already registered — so entry-point-based plugins (the primary
+        mechanism, materialized first) always take precedence. The manifest
+        scan exists for plugins that ship a ``datahub-plugin.yaml`` without also
+        declaring a packaging entry point; it is not redundant with the
+        entry-point path.
+
+        Returns the loaded class or ``None`` if no external plugin provides it.
+        Raises ``ConfigurationError`` when a plugin is found but fails to import.
+        """
+        if self._plugin_loader is None or self._registry_type is None:
+            return None
+        try:
+            cls = self._plugin_loader.try_load(key, self._registry_type)
+        except Exception as e:
+            logger.warning(
+                "Plugin '%s' was found but failed to load: %s",
+                key,
+                e,
+                exc_info=True,
+            )
+            raise ConfigurationError(
+                f"Plugin '{key}' is installed but failed to load: {e}. "
+                f"Check that all plugin dependencies are installed."
+            ) from e
+        if cls is None:
+            return None
+        try:
+            self._check_cls(cls)
+        except Exception as check_err:
+            # The one defensible reason _check_cls fails for an otherwise-valid
+            # plugin is import identity: the plugin subclasses a differently
+            # imported copy of the base class, so issubclass() is False even
+            # though the class is the right shape. Tolerate only that case; an
+            # abstract or genuinely-wrong class is rejected loudly here rather
+            # than crashing later at a more confusing call site.
+            try:
+                base_name: Optional[str] = self._get_registered_type().__name__
+            except Exception:
+                # A registry that can't report its base type (unusual) can't be
+                # validated strictly — fall back to accepting the class.
+                base_name = None
+            mro_names = {c.__name__ for c in getattr(cls, "__mro__", [])}
+            identity_ok = base_name is not None and base_name in mro_names
+            if not inspect.isabstract(cls) and (identity_ok or base_name is None):
+                logger.warning(
+                    "External plugin '%s' class %s did not pass strict type "
+                    "validation (%s); proceeding.",
+                    key,
+                    cls,
+                    check_err,
+                )
+                # Cache it so we don't re-import on every lookup.
+                self._register(key, cls, override=True)
+                return cls
+            raise ConfigurationError(
+                f"Plugin '{key}' declares class {cls} which is not a valid "
+                f"{base_name or 'plugin'}: {check_err}."
+            ) from check_err
+        self._register(key, cls, override=True)
+        return cls
 
     def get(self, key: str) -> Type[T]:
         self._materialize_entrypoints()
@@ -168,7 +250,19 @@ class PluginRegistry(Generic[T]):
             return self.get(real_key)
 
         if key not in self._mapping:
-            raise KeyError(f"Did not find a registered class for {key}")
+            ext_cls = self._try_load_external(key)
+            if ext_cls is not None:
+                return ext_cls
+            msg = (
+                f"Did not find a registered class for {key}.\n"
+                f"  Built-in: pip install '{__package_name__}[{key}]'"
+            )
+            # Only registries wired to the external plugin loader (source/sink/
+            # transformer) can be satisfied by a community plugin — don't point
+            # classifier/token-provider/etc. users at `datahub plugin search`.
+            if self._plugin_loader is not None:
+                msg += f"\n  Community plugin: datahub plugin search {key}"
+            raise KeyError(msg)
 
         tp = self._ensure_not_lazy(key)
         if isinstance(tp, ModuleNotFoundError):
@@ -188,7 +282,10 @@ class PluginRegistry(Generic[T]):
     def get_optional(self, key: str) -> Optional[Type[T]]:
         try:
             return self.get(key)
+        except KeyError:
+            return None
         except Exception:
+            logger.warning("Failed to load optional plugin '%s'", key, exc_info=True)
             return None
 
     def summary(
@@ -217,5 +314,15 @@ class PluginRegistry(Generic[T]):
                 line += self.get(key).__name__
 
             lines.append(line)
+
+        # Append external plugin capabilities
+        if self._plugin_loader is not None and self._registry_type is not None:
+            ext = self._plugin_loader.get_all_capabilities(self._registry_type)
+            for ext_key in sorted(ext.keys()):
+                if ext_key not in self._mapping:
+                    line = f"{ext_key}"
+                    line += " " * max(1, col_width - len(ext_key))
+                    line += "(external plugin)"
+                    lines.append(line)
 
         return "\n".join(lines)
