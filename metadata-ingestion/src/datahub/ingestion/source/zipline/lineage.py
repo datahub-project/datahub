@@ -1,4 +1,3 @@
-import logging
 import re
 from typing import List, Optional
 
@@ -8,8 +7,6 @@ from datahub.ingestion.source.zipline.config import ZiplineConfig
 from datahub.ingestion.source.zipline.models import Source
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
-
-logger = logging.getLogger(__name__)
 
 # Chronon SQL embeds Jinja macros (`{{ start_date }}`) that aren't valid SQL.
 # Replace them with a bare, unquoted token: templates are often already quoted
@@ -83,7 +80,7 @@ class StagingQueryLineageExtractor:
         self.report = report
         self.graph = graph
 
-    def extract_input_urns(self, query: str) -> List[str]:
+    def extract_input_urns(self, query: str, name: Optional[str] = None) -> List[str]:
         cleaned = strip_sql_templates(query)
         try:
             result = create_lineage_from_sql_statements(
@@ -99,13 +96,25 @@ class StagingQueryLineageExtractor:
             self.report.warning(
                 title="StagingQuery SQL parse failure",
                 message="Could not parse StagingQuery SQL for lineage",
+                context=name,
                 exc=exc,
             )
             return []
 
+        # sqlglot's common failure mode is a result object carrying an error
+        # rather than a raised exception; surface it or the DataJob silently
+        # loses all input lineage.
         if result.debug_info and result.debug_info.error:
             self.report.sql_lineage_failures += 1
-            logger.debug("StagingQuery SQL parse error: %s", result.debug_info.error)
+            self.report.warning(
+                title="StagingQuery SQL parse failure",
+                message="sqlglot could not derive lineage from StagingQuery SQL",
+                context=(
+                    f"{name}: {result.debug_info.error}"
+                    if name
+                    else str(result.debug_info.error)
+                ),
+            )
             return []
 
         self.report.sql_lineage_parsed += 1

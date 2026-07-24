@@ -126,7 +126,11 @@ class ZiplineSource(StatefulIngestionSourceBase):
         if not self.reader.is_valid():
             self.report.failure(
                 title="Compiled config directory not found",
-                message="The configured `path` does not contain a compiled Zipline output directory",
+                message=(
+                    "`path` exists but contains no compiled Zipline output "
+                    "(no group_bys/, joins/ or staging_queries/). Point it at the "
+                    "`production/` output of compile.py, not the Python config repo."
+                ),
                 context=self.config.path,
             )
             return
@@ -160,6 +164,14 @@ class ZiplineSource(StatefulIngestionSourceBase):
         with self.report.new_stage(_STAGE_JOINS):
             for join in self.reader.read_joins():
                 if not self._team_allowed(join.meta_data.team):
+                    self.report.filtered_joins += 1
+                    continue
+                if join.meta_data.name is None:
+                    self.report.warning(
+                        title="Join missing name",
+                        message="Skipped a compiled Join with no metaData.name — cannot form a DataJob URN",
+                        context=join.source_file,
+                    )
                     continue
                 yield from self._emit_join(join)
                 self.report.report_join_scanned()
@@ -168,6 +180,14 @@ class ZiplineSource(StatefulIngestionSourceBase):
         with self.report.new_stage(_STAGE_STAGING_QUERIES):
             for staging_query in self.reader.read_staging_queries():
                 if not self._team_allowed(staging_query.meta_data.team):
+                    self.report.filtered_staging_queries += 1
+                    continue
+                if staging_query.meta_data.name is None:
+                    self.report.warning(
+                        title="StagingQuery missing name",
+                        message="Skipped a compiled StagingQuery with no metaData.name — cannot form a DataJob URN",
+                        context=staging_query.source_file,
+                    )
                     continue
                 yield from self._emit_staging_query(staging_query)
                 self.report.report_staging_query_scanned()
@@ -213,6 +233,13 @@ class ZiplineSource(StatefulIngestionSourceBase):
             )
             if group_by_table:
                 inlets.append(self.source_resolver.resolve_table_urn(group_by_table))
+            else:
+                self.report.unresolved_join_part_inlets += 1
+                self.report.warning(
+                    title="Unresolved join-part inlet",
+                    message="A Join part's GroupBy has no resolvable output table; its upstream edge was omitted",
+                    context=f"{name} (part: {part_name})",
+                )
 
         outlets: List[str] = []
         output_table = join.meta_data.output_table_name()
@@ -243,7 +270,9 @@ class ZiplineSource(StatefulIngestionSourceBase):
 
         inlets: List[str] = []
         if self.config.include_staging_query_lineage and staging_query.query:
-            inlets.extend(self.staging_lineage.extract_input_urns(staging_query.query))
+            inlets.extend(
+                self.staging_lineage.extract_input_urns(staging_query.query, name)
+            )
 
         outlets: List[str] = []
         output_table = staging_query.meta_data.output_table_name()

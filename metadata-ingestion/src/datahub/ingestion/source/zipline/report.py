@@ -15,13 +15,15 @@ class ZiplineSourceReport(StaleEntityRemovalSourceReport):
     joins_scanned: int = 0
     staging_queries_scanned: int = 0
 
-    source_datasets_emitted: int = 0
     teams_scanned: int = 0
 
     filtered_teams: int = 0
     filtered_feature_tables: int = 0
+    filtered_joins: int = 0
+    filtered_staging_queries: int = 0
 
     join_sources_skipped: int = 0
+    unresolved_join_part_inlets: int = 0
     unparseable_files: LossyList[str] = field(default_factory=LossyList)
     unmapped_source_namespaces: Set[str] = field(default_factory=set)
 
@@ -47,4 +49,18 @@ class ZiplineSourceReport(StaleEntityRemovalSourceReport):
         self.unparseable_files.append(path)
 
     def report_unmapped_namespace(self, namespace: str) -> None:
+        # An unmapped namespace falls back to default_source_platform, so its URN
+        # may point at a non-existent dataset and fail to stitch to the upstream
+        # connector. Warn once per namespace so the gap is actionable.
+        if namespace in self.unmapped_source_namespaces:
+            return
         self.unmapped_source_namespaces.add(namespace)
+        self.warning(
+            title="Unmapped source namespace",
+            message=(
+                "Table namespace is not in source_platform_map; used "
+                "default_source_platform. Add it to source_platform_map so URNs "
+                "resolve to the correct platform and lineage stitches."
+            ),
+            context=namespace,
+        )

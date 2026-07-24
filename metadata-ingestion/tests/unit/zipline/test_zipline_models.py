@@ -130,6 +130,22 @@ def test_metadata_column_tags():
     }
 
 
+def test_metadata_has_malformed_custom_json():
+    # Absent or valid customJson is not malformed; a broken blob is (so the
+    # mapper can warn instead of silently dropping tags).
+    assert MetaData(name="gb").has_malformed_custom_json() is False
+    assert (
+        MetaData(
+            name="gb", customJson='{"groupby_tags": {}}'
+        ).has_malformed_custom_json()
+        is False
+    )
+    assert (
+        MetaData(name="gb", customJson="{not valid json").has_malformed_custom_json()
+        is True
+    )
+
+
 def test_metadata_output_table_name_sanitized():
     meta = MetaData(name="my_team.user_features.v1", outputNamespace="my_team_features")
     assert meta.output_table_name() == "my_team_features.my_team_user_features_v1"

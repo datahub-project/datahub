@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from typing import Iterable, List, Optional, Type, TypeVar
 
@@ -13,8 +12,6 @@ from datahub.ingestion.source.zipline.constants import (
 )
 from datahub.ingestion.source.zipline.models import GroupBy, Join, StagingQuery
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
-
-logger = logging.getLogger(__name__)
 
 _ModelT = TypeVar("_ModelT", GroupBy, Join, StagingQuery)
 
@@ -42,7 +39,16 @@ class ZiplineRepositoryReader:
         return expanded
 
     def is_valid(self) -> bool:
-        return os.path.isdir(self.root)
+        # An existing directory isn't enough: pointing at the Python config repo
+        # (instead of the compiled `production/` output) is an easy mistake that
+        # would otherwise emit nothing silently. Require at least one compiled
+        # object sub-directory.
+        if not os.path.isdir(self.root):
+            return False
+        return any(
+            os.path.isdir(os.path.join(self.root, subdir))
+            for subdir in (GROUP_BYS_DIR, JOINS_DIR, STAGING_QUERIES_DIR)
+        )
 
     def read_group_bys(self) -> Iterable[GroupBy]:
         yield from self._read_dir(GROUP_BYS_DIR, GroupBy)
@@ -56,7 +62,11 @@ class ZiplineRepositoryReader:
     def _read_dir(self, subdir: str, model: Type[_ModelT]) -> Iterable[_ModelT]:
         directory = os.path.join(self.root, subdir)
         if not os.path.isdir(directory):
-            logger.debug("Zipline %s directory not found at %s", subdir, directory)
+            self.report.info(
+                title="No compiled objects of a type found",
+                message="A compiled-object subdirectory is absent; no objects of this type were ingested.",
+                context=directory,
+            )
             return
 
         for file_path in self._iter_files(directory):
@@ -90,7 +100,7 @@ class ZiplineRepositoryReader:
             return None
 
         try:
-            return model.model_validate(payload)
+            parsed = model.model_validate(payload)
         except ValidationError as exc:
             self.report.report_unparseable_file(file_path)
             self.report.warning(
@@ -100,3 +110,6 @@ class ZiplineRepositoryReader:
                 exc=exc,
             )
             return None
+
+        parsed._source_file = file_path
+        return parsed

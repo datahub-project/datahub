@@ -57,7 +57,25 @@ class ZiplineMapper:
     def map_group_by(self, group_by: GroupBy) -> Iterable[MetadataWorkUnit]:
         table_name = group_by.meta_data.name
         if table_name is None:
+            # extra="ignore" tolerates schema drift, so a renamed/absent name key
+            # surfaces here as None. Without a name there is no feature-table URN,
+            # so the whole GroupBy (and its features) would vanish silently.
+            self.report.warning(
+                title="GroupBy missing name",
+                message="Skipped a compiled GroupBy with no metaData.name — cannot form a feature-table URN",
+                context=group_by.source_file,
+            )
             return
+
+        if (
+            self.config.enable_tag_extraction
+            and group_by.meta_data.has_malformed_custom_json()
+        ):
+            self.report.warning(
+                title="Unparseable customJson",
+                message="Could not decode MetaData.customJson; tags for this feature table were dropped",
+                context=table_name,
+            )
 
         table_urn = make_ml_feature_table_urn(PLATFORM_NAME, table_name)
         source_urns = self._resolve_sources(group_by)

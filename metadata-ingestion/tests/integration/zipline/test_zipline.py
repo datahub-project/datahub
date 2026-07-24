@@ -51,17 +51,36 @@ def _base_config(path: str, **overrides: Any) -> Dict[str, Any]:
     return config
 
 
-def _run_pipeline(source_config: Dict[str, Any], output_path: pathlib.Path) -> Pipeline:
-    pipeline = Pipeline.create(
+def _build_pipeline(
+    source_config: Dict[str, Any], output_path: pathlib.Path
+) -> Pipeline:
+    return Pipeline.create(
         {
             "run_id": "zipline-test",
             "source": {"type": "zipline", "config": source_config},
             "sink": {"type": "file", "config": {"filename": str(output_path)}},
         }
     )
+
+
+def _run_pipeline(source_config: Dict[str, Any], output_path: pathlib.Path) -> Pipeline:
+    pipeline = _build_pipeline(source_config, output_path)
     pipeline.run()
     pipeline.raise_from_status()
     return pipeline
+
+
+def _run_pipeline_no_raise(
+    source_config: Dict[str, Any], output_path: pathlib.Path
+) -> Pipeline:
+    pipeline = _build_pipeline(source_config, output_path)
+    pipeline.run()
+    return pipeline
+
+
+def _write_json(path: pathlib.Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload))
 
 
 def _report(pipeline: Pipeline) -> ZiplineSourceReport:
@@ -164,6 +183,8 @@ def test_zipline_team_and_feature_filtering(pytestconfig, tmp_path):
     # risk_team's join/staging jobs are also team-filtered; only my_team remains.
     assert report.joins_scanned == 1
     assert report.staging_queries_scanned == 1
+    # risk_team's staging query is team-filtered and counted (issue #7).
+    assert report.filtered_staging_queries == 1
 
     urns = {r.get("entityUrn") for r in _records(output_path)}
     assert not any(urn and "risk_team" in urn for urn in urns)
@@ -297,6 +318,53 @@ def test_zipline_missing_path_reports_failure(tmp_path):
     report = _report(pipeline)
     assert report.failures
     assert report.feature_tables_scanned == 0
+
+
+def test_zipline_path_without_compiled_output_fails(tmp_path):
+    """Pointing at an existing dir that isn't compiled Zipline output (e.g. the
+    Python config repo) must fail loudly rather than emit nothing silently."""
+    decoy = tmp_path / "python_repo"
+    (decoy / "src").mkdir(parents=True)
+    output_path = tmp_path / "out.json"
+
+    pipeline = _run_pipeline_no_raise(_base_config(str(decoy)), output_path)
+
+    report = _report(pipeline)
+    assert report.failures
+    assert report.feature_tables_scanned == 0
+
+
+def test_zipline_nameless_objects_warn_and_are_not_miscounted(tmp_path):
+    """Compiled objects missing metaData.name are dropped with a warning, and a
+    nameless Join/StagingQuery is NOT counted as scanned (issues #2 and #5)."""
+    production = tmp_path / "production"
+    _write_json(
+        production / "group_bys" / "team_x" / "nameless",
+        {"metaData": {"team": "team_x"}, "keyColumns": ["id"], "aggregations": []},
+    )
+    _write_json(
+        production / "joins" / "team_x" / "nameless",
+        {"metaData": {"team": "team_x"}, "joinParts": []},
+    )
+    _write_json(
+        production / "staging_queries" / "team_x" / "nameless",
+        {"metaData": {"team": "team_x"}, "query": "SELECT 1"},
+    )
+    output_path = tmp_path / "out.json"
+
+    pipeline = _run_pipeline(_base_config(str(production)), output_path)
+
+    report = _report(pipeline)
+    assert report.feature_tables_scanned == 0
+    # The misleading-counter bug: a nameless object emits nothing, so it must not
+    # inflate the scanned counters.
+    assert report.joins_scanned == 0
+    assert report.staging_queries_scanned == 0
+    # One warning per dropped object (GroupBy, Join, StagingQuery).
+    warning_titles = [w.title for w in report.warnings]
+    assert warning_titles.count("GroupBy missing name") == 1
+    assert warning_titles.count("Join missing name") == 1
+    assert warning_titles.count("StagingQuery missing name") == 1
 
 
 def _compile_chronon_repo(repo: pathlib.Path) -> pathlib.Path:

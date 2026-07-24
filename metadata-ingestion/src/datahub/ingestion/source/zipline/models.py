@@ -1,8 +1,7 @@
 import json
-import logging
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from datahub.ingestion.source.zipline.constants import (
     CUSTOM_JSON_COLUMN_TAGS_KEY,
@@ -13,13 +12,19 @@ from datahub.ingestion.source.zipline.constants import (
     sanitize,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class _ZiplineBaseModel(BaseModel):
     # Ignore unmapped fields so schema drift across chronon/zipline releases
     # doesn't fail the run.
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    # Set by the reader to the originating file, so downstream warnings about a
+    # dropped object (e.g. missing name) can point at an actionable location.
+    _source_file: Optional[str] = PrivateAttr(default=None)
+
+    @property
+    def source_file(self) -> Optional[str]:
+        return self._source_file
 
 
 class Window(_ZiplineBaseModel):
@@ -139,9 +144,19 @@ class MetaData(_ZiplineBaseModel):
         try:
             parsed = json.loads(self.custom_json)
         except json.JSONDecodeError:
-            logger.debug("Could not parse customJson for %s", self.name)
             return {}
         return parsed if isinstance(parsed, dict) else {}
+
+    def has_malformed_custom_json(self) -> bool:
+        """True when customJson is present but not decodable — the caller (which
+        holds the report) surfaces this, since the model itself cannot warn."""
+        if not self.custom_json:
+            return False
+        try:
+            json.loads(self.custom_json)
+        except json.JSONDecodeError:
+            return True
+        return False
 
     def tags(self, key: str) -> Dict[str, str]:
         """Read a tag bag (e.g. groupby_tags) from the customJson blob."""
