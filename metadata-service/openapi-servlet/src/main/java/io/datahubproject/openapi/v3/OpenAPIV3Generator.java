@@ -9,6 +9,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.AspectSpec;
@@ -33,6 +38,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenAPIV3Generator {
@@ -1138,6 +1144,20 @@ public class OpenAPIV3Generator {
   private static void addAspectSchemas(final Components components, final AspectSpec aspect) {
     final org.apache.avro.Schema avroSchema =
         SchemaTranslator.dataToAvroSchema(aspect.getPegasusSchema().getDereferencedDataSchema());
+
+    // Build map of PegaSus field names → UnionDataSchema for union-typed fields.
+    // This is used to correct the Avro→JSON Schema conversion which flattens unions.
+    final Map<String, UnionDataSchema> unionFields = new HashMap<>();
+    final DataSchema pegasusSchema = aspect.getPegasusSchema().getDereferencedDataSchema();
+    if (pegasusSchema instanceof RecordDataSchema) {
+      for (RecordDataSchema.Field field : ((RecordDataSchema) pegasusSchema).getFields()) {
+        UnionDataSchema unionType = resolveUnionType(field.getType());
+        if (unionType != null) {
+          unionFields.put(field.getName(), unionType);
+        }
+      }
+    }
+
     try {
       final JsonNode apiSchema = ProcessingUtil.buildResult(avroSchema.toString());
       final JsonNode definitions = apiSchema.get("definitions");
@@ -1171,6 +1191,15 @@ public class OpenAPIV3Generator {
                       String name = entry.getKey();
                       Schema<?> prop = entry.getValue();
                       prop.specVersion(SpecVersion.V31);
+
+                      // ---- union type correction: replace flattened scalar with oneOf ----
+                      if (unionFields.containsKey(name) && TYPE_ARRAY.equals(prop.getType())) {
+                        Schema<?> items = prop.getItems();
+                        if (items != null) {
+                          prop.setItems(buildUnionOneOfArraySchema(unionFields.get(name)));
+                        }
+                        continue;
+                      }
 
                       String $ref = prop.get$ref();
                       boolean isRequired = requiredNames.contains(name);
@@ -2219,6 +2248,49 @@ public class OpenAPIV3Generator {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, (existing, replacement) -> existing)));
+  }
+
+  /**
+   * Resolve a field's type through ArrayDataSchema and TyperefDataSchema to find the ultimate
+   * UnionDataSchema. Returns null if the field is not union-typed.
+   */
+  @Nullable
+  private static UnionDataSchema resolveUnionType(DataSchema fieldSchema) {
+    DataSchema current = fieldSchema;
+    // Unwrap array to get items type
+    if (current instanceof ArrayDataSchema) {
+      current = ((ArrayDataSchema) current).getItems();
+    }
+    // Unwrap typeref to get referenced type
+    if (current instanceof TyperefDataSchema) {
+      current = ((TyperefDataSchema) current).getDereferencedDataSchema();
+    }
+    if (current instanceof UnionDataSchema) {
+      return (UnionDataSchema) current;
+    }
+    return null;
+  }
+
+  /**
+   * Build a union-to-oneOf replacement schema for array items that are Pegasus union types. Maps
+   * each union member to an object schema matching the Pegasus wire format: {@code {"string":
+   * {"type": "string"}}, {"double": {"type": "number", "format": "double"}}}.
+   */
+  private static Schema<?> buildUnionOneOfArraySchema(UnionDataSchema unionSchema) {
+    List<Schema> schemas = new ArrayList<>();
+    for (UnionDataSchema.Member member : unionSchema.getMembers()) {
+      String memberType = member.getType().getUnionMemberKey();
+      Schema<?> memberSchema = newSchema().type(TYPE_OBJECT).additionalProperties(false);
+      if ("double".equals(memberType)) {
+        memberSchema.addProperty(memberType, newSchema().type("number").format("double"));
+      } else {
+        memberSchema.addProperty(memberType, newSchema().type(memberType));
+      }
+      schemas.add(memberSchema);
+    }
+    Schema<?> result = newSchema();
+    result.setOneOf(schemas);
+    return result;
   }
 
   private static Schema newSchema() {
