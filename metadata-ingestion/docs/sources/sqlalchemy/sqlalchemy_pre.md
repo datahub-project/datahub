@@ -11,6 +11,8 @@ This plugin extracts the following:
 - Column types associated with each table
 - Table, row, and column statistics via optional SQL profiling.
 
+> **SQLite + profiling.** SQLite uses SQLAlchemy's `NullPool`, which does not accept connection-pool sizing arguments. Because the profiler passes `max_overflow`, ingesting a SQLite database with `profiling.enabled: true` fails with `TypeError: Invalid argument(s) 'max_overflow' sent to create_engine(...)`. Ingest SQLite with `profiling.enabled: false` — schema and lineage are unaffected.
+
 ### Prerequisites
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
