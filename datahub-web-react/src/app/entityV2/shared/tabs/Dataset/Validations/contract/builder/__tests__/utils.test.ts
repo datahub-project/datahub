@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildUpsertDataContractMutationVariables,
+    createBuilderState,
     partitionAssertionsByContractCategory,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 
-import { Assertion, AssertionType } from '@types';
+import { Assertion, AssertionType, DataContract } from '@types';
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:postgres,quality_demo.orders,PROD)';
 
@@ -50,6 +51,28 @@ describe('data contract builder utils', () => {
                 schema: [{ assertionUrn: 'urn:li:assertion:schema' }],
                 dataQuality: [{ assertionUrn: 'urn:li:assertion:custom' }],
             },
+        });
+    });
+
+    it('creates selected builder state from an existing contract', () => {
+        const contract = {
+            properties: {
+                freshness: [{ assertion: { urn: 'urn:li:assertion:freshness' } }],
+                schema: [{ assertion: { urn: 'urn:li:assertion:schema' } }],
+                dataQuality: [
+                    { assertion: { urn: 'urn:li:assertion:quality-1' } },
+                    { assertion: { urn: 'urn:li:assertion:quality-2' } },
+                ],
+            },
+        } as unknown as DataContract;
+
+        expect(createBuilderState(contract)).toEqual({
+            freshness: { assertionUrn: 'urn:li:assertion:freshness' },
+            schema: { assertionUrn: 'urn:li:assertion:schema' },
+            dataQuality: [
+                { assertionUrn: 'urn:li:assertion:quality-1' },
+                { assertionUrn: 'urn:li:assertion:quality-2' },
+            ],
         });
     });
 });
