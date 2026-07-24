@@ -48,6 +48,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -100,6 +101,9 @@ public class AuthServiceController {
   // Retained for backwards compatibility
   private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
   private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
+  private static final String REQUIRED_GROUPS = "requiredGroups";
+  private static final String ACCESS_DENIED_MESSAGE = "accessDeniedMessage";
+  private static final String ACCESS_DENIED_REDIRECT_URL = "accessDeniedRedirectUrl";
 
   @Autowired private StatelessTokenService _statelessTokenService;
 
@@ -821,6 +825,15 @@ public class AuthServiceController {
     }
     if (oidcSettings.hasPreferredJwsAlgorithm2()) {
       json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
+    }
+    if (oidcSettings.hasRequiredGroups()) {
+      json.put(REQUIRED_GROUPS, new JSONArray(oidcSettings.getRequiredGroups()));
+    }
+    if (oidcSettings.hasAccessDeniedMessage()) {
+      json.put(ACCESS_DENIED_MESSAGE, oidcSettings.getAccessDeniedMessage());
+    }
+    if (oidcSettings.hasAccessDeniedRedirectUrl()) {
+      json.put(ACCESS_DENIED_REDIRECT_URL, oidcSettings.getAccessDeniedRedirectUrl());
     }
   }
 }
