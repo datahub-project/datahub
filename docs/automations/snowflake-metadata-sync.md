@@ -120,12 +120,6 @@ and then click "Initialize".
 This one-time step will kick off the back-filling process for existing terms. If you only want to begin propagating
 terms going forward, you can skip this step.
 
-:::info
-
-The back-filling of tags will be available in a future release.
-
-:::
-
 ## Viewing Synced Metadata
 
 You can view propagated Tags, Terms, and updated Comments (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.
