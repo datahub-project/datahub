@@ -9,3 +9,13 @@ services:
       LICENSE: accept
     ports:
       - "9088:9088"
+    # The image's built-in healthcheck uses start_period=60s + retries=1, which
+    # flips to "unhealthy" before this 2.23GB privileged image finishes starting
+    # on slower CI runners (causing `docker compose up --wait` to abort). Override
+    # with a generous start_period + retries so startup is tolerated.
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/ibm/scripts/informix_status.sh || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 300s
