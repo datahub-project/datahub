@@ -8,8 +8,11 @@ import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -22,6 +25,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -38,6 +42,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,8 +66,16 @@ import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.TopHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.SortBuilders;
+import org.opensearch.search.sort.SortOrder;
 
 /** A search DAO for Elasticsearch backend. */
 @Slf4j
@@ -548,6 +562,110 @@ public class ESSearchDAO {
       searchRequest.indices(stream.toArray(String[]::new));
     }
     return searchRequest;
+  }
+
+  static final String INCIDENT_ENTITIES_FIELD = "entities.keyword";
+  static final String INCIDENT_STATE_FIELD = "state";
+  static final String INCIDENT_LAST_UPDATED_FIELD = "lastUpdated";
+  static final String INCIDENT_ACTIVE_STATE = "ACTIVE";
+  static final String BY_ENTITY_AGG = "byEntity";
+  static final String LATEST_INCIDENT_AGG = "latestIncident";
+
+  /**
+   * Max entity URNs per active-incident-stats request. The batch size on the health {@code
+   * DataLoader} that calls this is unbounded, so a large search page would otherwise send its whole
+   * URN set in one request. Both ES limits this query is exposed to default to 65536: {@code
+   * index.max_terms_count} (the {@code entities.keyword} terms filter) and {@code
+   * search.max_buckets} (the by-entity aggregation materialises one bucket, with a {@code top_hits}
+   * sub-agg, per URN). Partitioning keeps each request comfortably under both, mirroring {@code
+   * LineageSearchService.MAX_TERMS} and the assertion-run batch path.
+   */
+  @VisibleForTesting static final int INCIDENT_STATS_URN_BATCH_SIZE = 1000;
+
+  @WithSpan
+  @Nonnull
+  public Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+    if (entityUrns.isEmpty()) {
+      return Map.of();
+    }
+    return opContext.withSpan(
+        "getActiveIncidentStats_search",
+        () -> {
+          try {
+            final Map<Urn, IncidentStats> result = new HashMap<>();
+            for (List<Urn> batch :
+                Lists.partition(new ArrayList<>(entityUrns), INCIDENT_STATS_URN_BATCH_SIZE)) {
+              final SearchRequest searchRequest =
+                  buildActiveIncidentStatsRequest(opContext, new HashSet<>(batch));
+              final SearchResponse searchResponse =
+                  client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+              result.putAll(extractIncidentStats(searchResponse));
+            }
+            return result;
+          } catch (Exception e) {
+            log.error("Active incident stats query failed", e);
+            throw new ESQueryException("Active incident stats query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getActiveIncidentStats_search"));
+  }
+
+  @VisibleForTesting
+  public SearchRequest buildActiveIncidentStatsRequest(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+    final String[] urnStrings = entityUrns.stream().map(Urn::toString).toArray(String[]::new);
+
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery()
+            .filter(QueryBuilders.termQuery(INCIDENT_STATE_FIELD, INCIDENT_ACTIVE_STATE))
+            .filter(QueryBuilders.termsQuery(INCIDENT_ENTITIES_FIELD, urnStrings));
+
+    final TermsAggregationBuilder byEntity =
+        AggregationBuilders.terms(BY_ENTITY_AGG)
+            .field(INCIDENT_ENTITIES_FIELD)
+            .includeExclude(new IncludeExclude(urnStrings, null))
+            .size(entityUrns.size())
+            .subAggregation(
+                AggregationBuilders.topHits(LATEST_INCIDENT_AGG)
+                    .size(1)
+                    .sort(SortBuilders.fieldSort(INCIDENT_LAST_UPDATED_FIELD).order(SortOrder.DESC))
+                    .fetchSource("urn", null));
+
+    final SearchSourceBuilder source =
+        new SearchSourceBuilder().size(0).query(query).aggregation(byEntity);
+
+    final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    final SearchRequest request =
+        new SearchRequest(indexConvention.getEntityIndexName(Constants.INCIDENT_ENTITY_NAME));
+    request.source(source);
+    return request;
+  }
+
+  private static Map<Urn, IncidentStats> extractIncidentStats(
+      @Nonnull SearchResponse searchResponse) {
+    final Map<Urn, IncidentStats> result = new HashMap<>();
+    if (searchResponse.getAggregations() == null) {
+      return result;
+    }
+    final Terms byEntity = searchResponse.getAggregations().get(BY_ENTITY_AGG);
+    if (byEntity == null) {
+      return result;
+    }
+    for (Terms.Bucket bucket : byEntity.getBuckets()) {
+      final Urn entityUrn = UrnUtils.getUrn(bucket.getKeyAsString());
+      Urn latestIncidentUrn = null;
+      final TopHits topHits = bucket.getAggregations().get(LATEST_INCIDENT_AGG);
+      if (topHits != null && topHits.getHits().getHits().length > 0) {
+        final Object urnValue = topHits.getHits().getHits()[0].getSourceAsMap().get("urn");
+        if (urnValue != null) {
+          latestIncidentUrn = UrnUtils.getUrn(urnValue.toString());
+        }
+      }
+      result.put(entityUrn, new IncidentStats((int) bucket.getDocCount(), latestIncidentUrn));
+    }
+    return result;
   }
 
   /**
