@@ -158,7 +158,7 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="github-tree-truncated",
                 message=(
-                    f"GitHub returned a truncated tree for {owner_repo}@{branch}; "
+                    "GitHub returned a truncated tree; "
                     "only a subset of files will be imported. "
                     "Narrow path_prefix or split across multiple ingestion sources."
                 ),
@@ -175,11 +175,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="github-files-truncated",
                 message=(
-                    f"Found {total_matches} matching files in {owner_repo}@{branch} but "
-                    f"max_files is {self.config.max_files}; only the first "
-                    f"{self.config.max_files} will be imported."
+                    "Found more matching files than max_files allows; "
+                    "only the first batch will be imported."
                 ),
-                context=f"repository={owner_repo}, branch={branch}",
+                context=f"repository={owner_repo}, branch={branch}, "
+                f"total_matches={total_matches}, max_files={self.config.max_files}",
             )
 
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)

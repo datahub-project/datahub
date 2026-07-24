@@ -300,7 +300,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 yield from self._process_batch_mode()
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
-            self.report.failure(str(e))
+            self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
         finally:
             # Save state after processing
             if self.config.incremental.enabled:

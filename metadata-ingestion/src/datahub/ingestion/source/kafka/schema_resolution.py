@@ -82,9 +82,9 @@ class KafkaSchemaResolver:
         if isinstance(error, OSError) and self.report is not None:
             self.report.schema_registry_connectivity_failures += 1
             self.report.warning(
-                "schema-registry",
-                f"Schema registry was unreachable while resolving subject "
-                f"{subject_name}: {error}",
+                message="Schema registry was unreachable while resolving subject",
+                context=subject_name,
+                exc=error,
                 log=False,
             )
 
