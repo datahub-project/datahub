@@ -89,7 +89,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
           // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
           // catches it without needing a new keyword in SENSITIVE_PATTERNS.
-          "ingestion.cliVersionMatrix.http.authToken");
+          "ingestion.cliVersionMatrix.http.authToken",
+          // S3/GCS object key for the CLI version matrix JSON. Property name ends with "key" which
+          // triggers keyword-based redaction — classified SENSITIVE to match that behaviour.
+          "ingestion.cliVersionMatrix.s3.key",
+          "ingestion.cliVersionMatrix.gcs.key");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -829,6 +833,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestion.maxSerializedStringLength",
           "ingestion.cliVersionMatrix.http.refreshSeconds",
           "ingestion.cliVersionMatrix.http.url",
+          "ingestion.cliVersionMatrix.s3.bucket",
+          "ingestion.cliVersionMatrix.s3.refreshSeconds",
+          "ingestion.cliVersionMatrix.gcs.bucket",
+          "ingestion.cliVersionMatrix.gcs.refreshSeconds",
           "ingestion.cliVersionMatrix.source",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",

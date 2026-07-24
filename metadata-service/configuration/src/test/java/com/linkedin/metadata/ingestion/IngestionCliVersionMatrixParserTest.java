@@ -12,7 +12,7 @@ import org.testng.annotations.Test;
 
 /**
  * Direct unit tests for the JSON-schema validation rules in {@link
- * HttpUrlIngestionCliVersionMatrixSource#parseMatrix}.
+ * IngestionCliVersionMatrixParser#parseMatrix}.
  *
  * <p>Two layers of validation are tested:
  *
@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
  *       {@link IngestionCliVersionMatrix} shape.
  * </ul>
  */
-public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
+public class IngestionCliVersionMatrixParserTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -36,20 +36,17 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
   public void rootNotObjectThrowsAndCallerRetainsCache() throws Exception {
     // A JSON array at the root is the realistic operator-error case (e.g. they
     // exported a list of versions instead of the keyed object). We refuse to swap.
-    // The thrown IllegalArgumentException is the signal
-    // HttpUrlIngestionCliVersionMatrixSource.refresh()
-    // uses to retain the last-known-good cache.
+    // The thrown IllegalArgumentException is the signal the matrix sources'
+    // refresh() use to retain the last-known-good cache.
     JsonNode root = MAPPER.readTree("[ {\"snowflake\": {} } ]");
     assertThrows(
-        IllegalArgumentException.class,
-        () -> HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root));
+        IllegalArgumentException.class, () -> IngestionCliVersionMatrixParser.parseMatrix(root));
   }
 
   @Test
   public void rootNullThrows() {
     assertThrows(
-        IllegalArgumentException.class,
-        () -> HttpUrlIngestionCliVersionMatrixSource.parseMatrix(null));
+        IllegalArgumentException.class, () -> IngestionCliVersionMatrixParser.parseMatrix(null));
   }
 
   // ---------------------------------------------------------------------------
@@ -67,7 +64,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"_default\": \"not a version\","
                 + "\"cohorts\": [{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}]"
                 + "}}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertNotNull(snowflake);
     assertNull(
@@ -85,7 +82,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "{\"deployments\": [\"acme\"]},"
                 + "{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertEquals(snowflake.getCohorts().size(), 1, "first cohort (no version) should be dropped");
     assertEquals(snowflake.getCohorts().get(0).getVersion(), "1.5.0.6");
@@ -99,7 +96,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
             "{\"1.5.0\": {\"snowflake\": {\"cohorts\": ["
                 + "{\"version\": \"<script>alert(1)</script>\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertTrue(
         snowflake.getCohorts().isEmpty(), "cohort with invalid version pattern should be dropped");
@@ -124,7 +121,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
     }
     JsonNode root =
         MAPPER.readTree("{\"1.5.0\": {\"snowflake\": {\"cohorts\": [" + cohorts + "]}}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     assertEquals(
         m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake").getCohorts().size(),
         realVersions.length,
@@ -141,7 +138,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"_default\": \"bundled\","
                 + "\"cohorts\": [{\"version\": \"no-acryl-datahub\", \"deployments\": [\"acme\"]}]"
                 + "}}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertEquals(snowflake.getDefaultVersion(), "bundled", "'bundled' sentinel must be accepted");
     assertEquals(snowflake.getCohorts().size(), 1);
@@ -160,7 +157,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"snowflake\": [\"oops\", \"this is wrong\"],"
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     assertNull(
         m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake"),
         "malformed connector entry should be dropped");
@@ -186,7 +183,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "},"
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
-    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = IngestionCliVersionMatrixParser.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertEquals(snowflake.getDefaultVersion(), "1.5.0.5");
     assertEquals(snowflake.getCohorts().size(), 1);

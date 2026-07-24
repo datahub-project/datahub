@@ -185,6 +185,25 @@ public class S3Util {
   }
 
   /**
+   * Read an S3 object's full body as a UTF-8 string. Intended for small objects (config / metadata
+   * documents) fetched with the client's configured credentials — not for streaming large files.
+   *
+   * @param bucket The S3 bucket name
+   * @param key The S3 object key
+   * @return The object body decoded as UTF-8
+   */
+  public String getObjectAsString(@Nonnull String bucket, @Nonnull String key) {
+    try {
+      GetObjectRequest getObjectRequest =
+          GetObjectRequest.builder().bucket(bucket).key(key).build();
+      return s3Client.getObjectAsBytes(getObjectRequest).asUtf8String();
+    } catch (Exception e) {
+      log.error("Failed to read object from S3. Bucket: {}, Key: {}", bucket, key, e);
+      throw new RuntimeException("Failed to read object from S3: " + e.getMessage(), e);
+    }
+  }
+
+  /**
    * Delete an object from S3
    *
    * @param bucket The S3 bucket name

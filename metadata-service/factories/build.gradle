@@ -61,7 +61,7 @@ dependencies {
   implementation 'software.amazon.awssdk:bedrockruntime'
   // Google Auth library for Vertex AI embedding provider
   implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.0'
-  implementation 'com.google.cloud:google-cloud-storage:2.46.0'
+  implementation externalDependency.googleCloudStorage
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
