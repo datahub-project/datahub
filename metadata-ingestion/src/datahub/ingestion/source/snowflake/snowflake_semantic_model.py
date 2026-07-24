@@ -561,6 +561,28 @@ class SnowflakeSemanticModelMapper:
     ) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_tags_for_entity(model_urn, semantic_view.tags or [])
 
+    def _tag_associations(self, tags: List[SnowflakeTag]) -> List[TagAssociationClass]:
+        return [
+            TagAssociationClass(
+                tag=make_tag_urn(
+                    self.identifiers.snowflake_identifier(tag.tag_identifier())
+                )
+            )
+            for tag in tags
+        ]
+
+    def _structured_property_values(
+        self, tags: List[SnowflakeTag]
+    ) -> Dict[StructuredPropertyUrn, str]:
+        return {
+            StructuredPropertyUrn(
+                self.identifiers.snowflake_identifier(
+                    tag.structured_property_identifier()
+                )
+            ): tag.value
+            for tag in tags
+        }
+
     def _emit_tags_for_entity(
         self, entity_urn: str, tags: List[SnowflakeTag]
     ) -> Iterable[MetadataWorkUnit]:
@@ -571,31 +593,13 @@ class SnowflakeSemanticModelMapper:
         if self.config.extract_tags_as_structured_properties:
             yield from add_structured_properties_to_entity_wu(
                 entity_urn,
-                {
-                    StructuredPropertyUrn(
-                        self.identifiers.snowflake_identifier(
-                            tag.structured_property_identifier()
-                        )
-                    ): tag.value
-                    for tag in tags
-                },
+                self._structured_property_values(tags),
                 write_mode=self.config.structured_properties_write_mode,
             )
         else:
             yield MetadataChangeProposalWrapper(
                 entityUrn=entity_urn,
-                aspect=GlobalTagsClass(
-                    tags=[
-                        TagAssociationClass(
-                            tag=make_tag_urn(
-                                self.identifiers.snowflake_identifier(
-                                    tag.tag_identifier()
-                                )
-                            )
-                        )
-                        for tag in tags
-                    ]
-                ),
+                aspect=GlobalTagsClass(tags=self._tag_associations(tags)),
             ).as_workunit()
 
     def _column_tags(
@@ -607,14 +611,7 @@ class SnowflakeSemanticModelMapper:
         ):
             return None
         return GlobalTagsClass(
-            tags=[
-                TagAssociationClass(
-                    tag=make_tag_urn(
-                        self.identifiers.snowflake_identifier(tag.tag_identifier())
-                    )
-                )
-                for tag in semantic_view.column_tags[column_name]
-            ]
+            tags=self._tag_associations(semantic_view.column_tags[column_name])
         )
 
     def _gen_field_structured_property_workunits(
@@ -643,14 +640,9 @@ class SnowflakeSemanticModelMapper:
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,
-                {
-                    StructuredPropertyUrn(
-                        self.identifiers.snowflake_identifier(
-                            tag.structured_property_identifier()
-                        )
-                    ): tag.value
-                    for tag in semantic_view.column_tags[representative.name]
-                },
+                self._structured_property_values(
+                    semantic_view.column_tags[representative.name]
+                ),
                 write_mode=self.config.structured_properties_write_mode,
             )
 

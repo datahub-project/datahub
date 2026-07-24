@@ -28,7 +28,7 @@ _FIELD_UNDEFINED_MARKER = "FieldUndefined"
 _METRICS_ENABLED_FIELD = "metricsEnabled"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ResolvedEmitDecision:
     enabled: bool
     reason: str
