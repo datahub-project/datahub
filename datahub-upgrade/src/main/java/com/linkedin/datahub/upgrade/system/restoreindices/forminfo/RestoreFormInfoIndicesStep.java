@@ -3,20 +3,17 @@ package com.linkedin.datahub.upgrade.system.restoreindices.forminfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.restoreindices.RestoreIndicesStreamUtil;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -25,11 +22,6 @@ import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -45,10 +37,13 @@ public class RestoreFormInfoIndicesStep implements UpgradeStep {
   private static final Integer BATCH_SIZE = 1000;
 
   private final EntityService<?> _entityService;
+  private final AspectDao _aspectDao;
   private final Urn _upgradeUrn;
 
-  public RestoreFormInfoIndicesStep(@Nonnull final EntityService<?> entityService) {
+  public RestoreFormInfoIndicesStep(
+      @Nonnull final EntityService<?> entityService, @Nonnull final AspectDao aspectDao) {
     _entityService = entityService;
+    _aspectDao = aspectDao;
     _upgradeUrn =
         EntityKeyUtils.convertEntityKeyToUrn(
             new DataHubUpgradeKey().setId(STEP_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
@@ -143,92 +138,17 @@ public class RestoreFormInfoIndicesStep implements UpgradeStep {
     _entityService.ingestProposal(opContext, proposal, auditStamp, false);
   }
 
-  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
-
-    final int totalFormCount = getAndRestoreFormInfoIndices(systemOperationContext, 0, auditStamp);
-    int formCount = BATCH_SIZE;
-    while (formCount < totalFormCount) {
-      getAndRestoreFormInfoIndices(systemOperationContext, formCount, auditStamp);
-      formCount += BATCH_SIZE;
-    }
-  }
-
-  private int getAndRestoreFormInfoIndices(
-      @Nonnull OperationContext systemOperationContext, int start, AuditStamp auditStamp) {
-    final AspectSpec formInfoAspectSpec =
-        systemOperationContext
-            .getEntityRegistry()
-            .getEntitySpec(Constants.FORM_ENTITY_NAME)
-            .getAspectSpec(Constants.FORM_INFO_ASPECT_NAME);
-
-    final ListResult<RecordTemplate> latestAspects =
-        _entityService.listLatestAspects(
-            systemOperationContext,
-            Constants.FORM_ENTITY_NAME,
-            Constants.FORM_INFO_ASPECT_NAME,
-            start,
-            BATCH_SIZE);
-
-    if (latestAspects.getTotalCount() == 0
-        || latestAspects.getValues() == null
-        || latestAspects.getMetadata() == null) {
-      log.debug("Found 0 formInfo aspects for forms. Skipping migration.");
-      return 0;
-    }
-
-    if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
-      log.warn(
-          "Failed to match formInfo aspects with corresponding urns. Found mismatched length between aspects ({})"
-              + "and metadata ({}) for metadata {}",
-          latestAspects.getValues().size(),
-          latestAspects.getMetadata().getExtraInfos().size(),
-          latestAspects.getMetadata());
-      return latestAspects.getTotalCount();
-    }
-
-    List<Future<?>> futures = new LinkedList<>();
-    for (int i = 0; i < latestAspects.getValues().size(); i++) {
-      ExtraInfo info = latestAspects.getMetadata().getExtraInfos().get(i);
-      RecordTemplate formInfoRecord = latestAspects.getValues().get(i);
-      Urn urn = info.getUrn();
-      FormInfo formInfo = (FormInfo) formInfoRecord;
-      if (formInfo == null) {
-        log.warn("Received null formInfo for urn {}", urn);
-        continue;
-      }
-
-      futures.add(
-          _entityService
-              .alwaysProduceMCLAsync(
-                  systemOperationContext,
-                  urn,
-                  Constants.FORM_ENTITY_NAME,
-                  Constants.FORM_INFO_ASPECT_NAME,
-                  formInfoAspectSpec,
-                  null,
-                  formInfo,
-                  null,
-                  null,
-                  auditStamp,
-                  ChangeType.RESTATE)
-              .getFirst());
-    }
-
-    futures.stream()
-        .filter(Objects::nonNull)
-        .forEach(
-            f -> {
-              try {
-                f.get();
-              } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-              }
-            });
-
-    return latestAspects.getTotalCount();
+  /** Re-emits formInfo aspects (RESTATE) to rebuild their search documents. */
+  private void execute(@Nonnull final OperationContext systemOperationContext) {
+    RestoreIndicesStreamUtil.reindexAspect(
+        systemOperationContext,
+        _entityService,
+        _aspectDao,
+        Constants.FORM_INFO_ASPECT_NAME,
+        "urn:li:" + Constants.FORM_ENTITY_NAME + ":%",
+        BATCH_SIZE,
+        0,
+        0,
+        ChangeType.RESTATE);
   }
 }

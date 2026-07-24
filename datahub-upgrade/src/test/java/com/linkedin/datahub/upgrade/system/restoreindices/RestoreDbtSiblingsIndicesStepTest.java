@@ -19,17 +19,18 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -44,28 +45,24 @@ public class RestoreDbtSiblingsIndicesStepTest {
           Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
 
   @Mock private EntityService<?> mockEntityService;
+  @Mock private AspectDao mockAspectDao;
   @Mock private OperationContext mockOpContext;
   @Mock private UpgradeContext mockUpgradeContext;
-  @Mock private EntityRegistry mockEntityRegistry;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
     when(mockUpgradeContext.opContext()).thenReturn(mockOpContext);
-    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
   }
 
   @Test
   public void testIsOptional() {
-    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
-    assertTrue(step.isOptional());
+    assertTrue(newStep(true).isOptional());
   }
 
   @Test
   public void testSkipsWhenDisabled() {
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, false);
-    assertTrue(step.skip(mockUpgradeContext));
+    assertTrue(newStep(false).skip(mockUpgradeContext));
     verify(mockEntityService, never()).exists(any(), any(Urn.class), anyString(), anyBoolean());
   }
 
@@ -77,9 +74,7 @@ public class RestoreDbtSiblingsIndicesStepTest {
             eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME),
             eq(true)))
         .thenReturn(true);
-
-    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
-    assertTrue(step.skip(mockUpgradeContext));
+    assertTrue(newStep(true).skip(mockUpgradeContext));
   }
 
   @Test
@@ -90,30 +85,27 @@ public class RestoreDbtSiblingsIndicesStepTest {
             eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME),
             eq(true)))
         .thenReturn(false);
-
-    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
-    assertFalse(step.skip(mockUpgradeContext));
+    assertFalse(newStep(true).skip(mockUpgradeContext));
   }
 
   @Test
-  public void testSuccessfulExecutionWithNoDatasets() throws Exception {
-    ListUrnsResult mockListResult = mock(ListUrnsResult.class);
-    when(mockListResult.getTotal()).thenReturn(0);
-    when(mockEntityService.listUrns(
-            eq(mockOpContext), eq(Constants.DATASET_ENTITY_NAME), eq(0), eq(10)))
-        .thenReturn(mockListResult);
-    EntitySpec mockEntitySpec = mock(EntitySpec.class);
-    AspectSpec mockAspectSpec = mock(AspectSpec.class);
-    when(mockEntitySpec.getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME))
-        .thenReturn(mockAspectSpec);
-    when(mockEntityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME))
-        .thenReturn(mockEntitySpec);
+  public void testExecutableScansUpstreamLineageAndSucceeds() {
+    PartitionedStream<EbeanAspectV2> emptyStream = mock(PartitionedStream.class);
+    when(mockAspectDao.streamAspectBatches(any(), any(RestoreIndicesArgs.class)))
+        .thenReturn(emptyStream);
+    when(emptyStream.partition(anyInt())).thenReturn(Stream.empty());
 
-    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
-    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+    UpgradeStepResult result = newStep(true).executable().apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
+    ArgumentCaptor<RestoreIndicesArgs> scanCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(mockAspectDao).streamAspectBatches(any(), scanCaptor.capture());
+    assertEquals(scanCaptor.getValue().aspectName(), Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+    assertEquals(scanCaptor.getValue().urnLike(), "urn:li:dataset:%");
+
+    // Request marker then result marker are recorded against the upgrade urn.
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     verify(mockEntityService, times(2))
@@ -127,12 +119,17 @@ public class RestoreDbtSiblingsIndicesStepTest {
   }
 
   @Test
-  public void testFailureHandling() throws Exception {
-    when(mockEntityService.listUrns(any(), anyString(), anyInt(), anyInt()))
+  public void testFailureHandling() {
+    when(mockAspectDao.streamAspectBatches(any(), any(RestoreIndicesArgs.class)))
         .thenThrow(new RuntimeException("Test exception"));
-    RestoreDbtSiblingsIndicesStep step = new RestoreDbtSiblingsIndicesStep(mockEntityService, true);
-    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+
+    UpgradeStepResult result = newStep(true).executable().apply(mockUpgradeContext);
+
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
     verify(mockEntityService, times(1)).deleteUrn(eq(mockOpContext), eq(SIBLING_UPGRADE_URN));
+  }
+
+  private RestoreDbtSiblingsIndicesStep newStep(boolean enabled) {
+    return new RestoreDbtSiblingsIndicesStep(mockEntityService, mockAspectDao, enabled);
   }
 }

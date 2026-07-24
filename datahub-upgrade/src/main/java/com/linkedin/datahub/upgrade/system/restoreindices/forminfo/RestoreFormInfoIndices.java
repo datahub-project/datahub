@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.restoreindices.forminfo;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -14,10 +15,12 @@ public class RestoreFormInfoIndices implements NonBlockingSystemUpgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreFormInfoIndices(
-      @Nonnull final EntityService<?> entityService, final boolean enabled) {
+      @Nonnull final EntityService<?> entityService,
+      @Nonnull final AspectDao aspectDao,
+      final boolean enabled) {
     _steps =
         enabled
-            ? ImmutableList.of(new RestoreFormInfoIndicesStep(entityService))
+            ? ImmutableList.of(new RestoreFormInfoIndicesStep(entityService, aspectDao))
             : ImmutableList.of();
   }
 
