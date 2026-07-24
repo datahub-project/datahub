@@ -328,11 +328,17 @@ class DataplexGlossaryProcessor:
             )
             return None
 
-    def _record_external_link(self, entry_name: str, native_term_urn: str) -> None:
-        """Persist a ``managed_by_datahub=false`` platform resource for an
+    def _record_external_link(
+        self, entry_name: str, native_term_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a ``managed_by_datahub=false`` platform-resource workunit for an
         externally-authored term link so the sync-back guard won't overwrite it.
 
-        Best-effort: never aborts ingestion on failure.
+        Emitted through the sink (like the Unity Catalog and Glue connectors)
+        rather than written directly to the graph, so it respects dry-run/file
+        sinks and stateful ingestion. Best-effort: a failure is reported and
+        never aborts ingestion. No-op when there is no platform-resource
+        repository (nothing to reconcile against).
         """
         if self._platform_resource_repository is None:
             return
@@ -340,13 +346,20 @@ class DataplexGlossaryProcessor:
             resource = DataplexAspectPlatformResource.from_external(
                 entry_name=entry_name, native_term_urn=native_term_urn
             )
-            self._platform_resource_repository.create(resource.as_platform_resource())
+            platform_resource = resource.as_platform_resource()
+            mcps = list(platform_resource.to_mcps())
         except Exception as exc:
             self._source_report.warning(
                 title="Failed to record external glossary term link",
                 message="Sync-back may overwrite this externally-owned term link.",
                 context=f"{entry_name} -> {native_term_urn}",
                 exc=exc,
+            )
+            return
+        for mcp in mcps:
+            yield MetadataWorkUnit(
+                id=f"platform_resource-{platform_resource.id}",
+                mcp=mcp,
             )
 
     def _process_single_glossary(
@@ -572,7 +585,7 @@ class DataplexGlossaryProcessor:
                         )
                         if links.datahub_term_urn is None:
                             # Externally-authored link: mark it unmanaged for the guard.
-                            self._record_external_link(
+                            yield from self._record_external_link(
                                 asset_link.entry_name, links.native_term_urn
                             )
 
