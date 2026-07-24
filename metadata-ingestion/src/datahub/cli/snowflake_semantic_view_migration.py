@@ -29,6 +29,8 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
 from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.metadata.schema_classes import (
     DocumentationAssociationClass,
     DocumentationClass,
@@ -52,14 +54,16 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 log = logging.getLogger(__name__)
 
 SNOWFLAKE_PLATFORM = "snowflake"
-SEMANTIC_VIEW_SUBTYPE = "Semantic View"
+SEMANTIC_VIEW_SUBTYPE = DatasetSubTypes.SEMANTIC_VIEW
 
 # Connector-synthesized column classification tags on legacy schemaMetadata.
 # Not customer tags — remodeled as SemanticField.type / metric entities.
+# Lowercase variants have no connector-enum equivalent (SemanticViewColumnSubtype
+# is uppercase-only), so those stay as literals.
 _SYNTHETIC_SUBTYPE_TAG_URNS: Set[str] = {
-    make_tag_urn("DIMENSION"),
-    make_tag_urn("FACT"),
-    make_tag_urn("METRIC"),
+    make_tag_urn(SemanticViewColumnSubtype.DIMENSION),
+    make_tag_urn(SemanticViewColumnSubtype.FACT),
+    make_tag_urn(SemanticViewColumnSubtype.METRIC),
     make_tag_urn("dimension"),
     make_tag_urn("fact"),
     make_tag_urn("metric"),
@@ -694,21 +698,13 @@ def migrate_semantic_model_field_governance(
         if path_note is not None:
             notes.append(path_note)
         prior = by_path.get(field_path)
+        prior_tags = prior.globalTags if prior is not None else None
+        prior_terms = prior.glossaryTerms if prior is not None else None
         by_path[field_path] = EditableSchemaFieldInfoClass(
             fieldPath=field_path,
             description=prior.description if prior is not None else None,
-            globalTags=_union_global_tags(
-                prior.globalTags if prior is not None else None,
-                field_gov.global_tags,
-            )
-            if field_gov.global_tags is not None
-            else (prior.globalTags if prior is not None else None),
-            glossaryTerms=_union_glossary_terms(
-                prior.glossaryTerms if prior is not None else None,
-                field_gov.glossary_terms,
-            )
-            if field_gov.glossary_terms is not None
-            else (prior.glossaryTerms if prior is not None else None),
+            globalTags=_union_global_tags(prior_tags, field_gov.global_tags),
+            glossaryTerms=_union_glossary_terms(prior_terms, field_gov.glossary_terms),
         )
         if field_gov.global_tags is not None:
             migrated.append(f"globalTags:{field_gov.column_name}->{dataset_urn}")
