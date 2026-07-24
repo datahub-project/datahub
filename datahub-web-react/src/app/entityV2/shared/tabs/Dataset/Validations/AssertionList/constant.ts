@@ -27,11 +27,9 @@ export const ASSERTION_DEFAULT_RAW_DATA: AssertionTable = {
     searchMatchesCount: 0,
 };
 
-export const ASSERTION_SOURCES = [
-    AssertionSourceType.Native,
-    AssertionSourceType.Inferred,
-    AssertionSourceType.External,
-];
+// In OSS every assertion is external (produced via API / ingestion sources). Native and inferred
+// ("smart") assertions are DataHub Cloud only, so External is the only source shown.
+export const ASSERTION_SOURCES = [AssertionSourceType.External];
 
 export const ASSERTION_FILTER_TYPES = {
     TAG: 'tags',

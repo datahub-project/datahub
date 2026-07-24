@@ -1,13 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -17,6 +10,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
@@ -29,15 +23,10 @@ import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonPatch;
-import jakarta.json.JsonReader;
 import jakarta.json.JsonString;
-import jakarta.json.JsonStructure;
 import jakarta.json.JsonValue;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -52,26 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 @Builder(toBuilder = true)
 public class PatchItemImpl implements PatchMCP {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  static {
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    int maxNameLength =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
-    OBJECT_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(
-            StreamReadConstraints.builder()
-                .maxStringLength(maxSize)
-                .maxNameLength(maxNameLength)
-                .build());
-  }
-
   // A JSON property name (patch key) longer than this previously failed with a Jackson
   // StreamConstraintsException (default maxNameLength=50000). Such names are now accepted, but we
   // log which entity/aspect/key was oversized — the exception never included the offending name, so
@@ -405,7 +374,8 @@ public class PatchItemImpl implements PatchMCP {
       this.auditStamp = auditStamp;
       this.aspectName = mcp.getAspectName();
       systemMetadata(mcp.getSystemMetadata());
-      Pair<JsonPatch, Optional<GenericJsonPatch>> parsedJson = convertToJsonPatch(mcp);
+      Pair<JsonPatch, Optional<GenericJsonPatch>> parsedJson =
+          PatchOperationUtils.convertToJsonPatch(mcp);
       patch(parsedJson.getFirst());
       parsedJson.getSecond().ifPresent(generic -> this.genericJsonPatch = generic);
 
@@ -422,45 +392,6 @@ public class PatchItemImpl implements PatchMCP {
           this.metadataChangeProposal,
           this.entitySpec,
           this.aspectSpec);
-    }
-
-    private static Pair<JsonPatch, Optional<GenericJsonPatch>> convertToJsonPatch(
-        MetadataChangeProposal mcp) {
-      try {
-        String jsonString = mcp.getAspect().getValue().asString(StandardCharsets.UTF_8);
-        JsonReader reader = Json.createReader(new StringReader(jsonString));
-
-        // Check if the JSON contains a "patch" key
-        JsonStructure jsonStructure = reader.read();
-        JsonPatch jsonPatch;
-        Optional<GenericJsonPatch> genericJsonPatch = Optional.empty();
-
-        if (jsonStructure.getValueType() == JsonValue.ValueType.OBJECT) {
-          JsonObject jsonObject = (JsonObject) jsonStructure;
-
-          if (jsonObject.containsKey("patch")) {
-            // If "patch" key exists, read the array from this key
-            jsonPatch = Json.createPatch(jsonObject.getJsonArray("patch"));
-
-            // Convert to GenericJsonPatch
-            genericJsonPatch =
-                Optional.of(OBJECT_MAPPER.readValue(jsonString, GenericJsonPatch.class));
-
-            return Pair.of(jsonPatch, genericJsonPatch);
-          }
-        }
-
-        // If no "patch" key or not an object, fallback to original behavior
-        jsonPatch = Json.createPatch(Json.createReader(new StringReader(jsonString)).readArray());
-
-        return Pair.of(jsonPatch, genericJsonPatch);
-      } catch (RuntimeException e) {
-        throw new IllegalArgumentException(
-            "Invalid JSON Patch: " + mcp.getAspect().getValue().asString(StandardCharsets.UTF_8),
-            e);
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
-      }
     }
   }
 
