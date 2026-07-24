@@ -87,3 +87,87 @@ def test_to_dict_shape():
         "description": "help",
         "params": [{"name": "a", "type": "str", "required": True, "default": None}],
     }
+
+
+def test_iter_specs_walks_mro_sorted():
+    from datahub.ingestion.agent.probe_methods import _iter_specs
+
+    class Base:
+        @probe_method()
+        def a(self, x: str) -> list:
+            "a"
+            return []
+
+    class Sub(Base):
+        @probe_method()
+        def b(self, y: int = 1) -> list:
+            "b"
+            return []
+
+    assert [c for c, _ in _iter_specs(Sub)] == ["a", "b"]
+
+
+class _FakeProvider:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    @probe_method()
+    def foreign_keys(self, schema: str, table: str) -> list:
+        "FKs."
+        return [{"schema": schema, "table": table}]
+
+
+class _FakeConfig:
+    @classmethod
+    def probe_provider_class(cls):
+        return _FakeProvider
+
+    @classmethod
+    def model_validate(cls, d):
+        return cls()
+
+    def build_probe_provider(self):
+        return _FakeProvider()
+
+
+def _patch(monkeypatch):
+    import datahub.ingestion.agent.probe_methods as pm
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProvider)
+    monkeypatch.setattr(pm, "_config_class", lambda st: _FakeConfig)
+    return pm
+
+
+def test_list_probe_methods(monkeypatch):
+    pm = _patch(monkeypatch)
+    assert [s.command for s in pm.list_probe_methods("x")] == ["foreign_keys"]
+
+
+def test_run_probe_method_dispatches_and_coerces(monkeypatch):
+    pm = _patch(monkeypatch)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.result == [{"schema": "s", "table": "t"}]
+    assert res.to_dict()["command"] == "foreign_keys"
+
+
+def test_run_probe_method_missing_required(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s"})
+
+
+def test_run_probe_method_unknown_command(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method("x", {}, "nope", {})
+
+
+def test_run_probe_method_unknown_param(monkeypatch):
+    pm = _patch(monkeypatch)
+    with pytest.raises(ValueError):
+        pm.run_probe_method(
+            "x", {}, "foreign_keys", {"schema": "s", "table": "t", "z": "1"}
+        )

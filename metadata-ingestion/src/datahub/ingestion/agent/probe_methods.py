@@ -1,6 +1,18 @@
 import inspect
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union, get_args, get_origin
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+    runtime_checkable,
+)
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -66,7 +78,7 @@ class ProbeMethodSpec:
 
 def _resolve_annotation(
     fn_name: str, pname: str, p: inspect.Parameter
-) -> "tuple[str, bool]":
+) -> Tuple[str, bool]:
     ann = p.annotation
     required = p.default is inspect.Parameter.empty
     if get_origin(ann) is Union:
@@ -99,3 +111,115 @@ def probe_method(name: Optional[str] = None) -> Callable[[Callable], Callable]:
         return fn
 
     return deco
+
+
+@runtime_checkable
+class ProbeProvider(Protocol):
+    def __enter__(self) -> "ProbeProvider": ...
+
+    def __exit__(self, *exc: object) -> None: ...
+
+
+@dataclass
+class ProbeMethodResult:
+    source_type: str
+    command: str
+    params: Dict[str, object]
+    result: object
+    truncated: bool = False
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "source_type": self.source_type,
+            "command": self.command,
+            "params": self.params,
+            "result": self.result,
+            "truncated": self.truncated,
+        }
+
+
+# Returns the connector's config class. Typed Any because get_config_class is
+# injected by the @config_class decorator at runtime — mypy can't see it, nor the
+# pydantic model API (model_validate) / probe_provider_class contract on the result.
+def _config_class(source_type: str) -> Any:
+    from datahub.ingestion.source.source_registry import source_registry
+
+    source_cls = source_registry.get(source_type)
+    get_config_class = getattr(source_cls, "get_config_class", None)
+    return get_config_class() if get_config_class is not None else None
+
+
+def _provider_class(source_type: str) -> Optional[type]:
+    getter = getattr(_config_class(source_type), "probe_provider_class", None)
+    return getter() if callable(getter) else None
+
+
+def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
+    found: Dict[str, ProbeMethodSpec] = {}
+    for attr in dir(provider_cls):
+        spec = getattr(getattr(provider_cls, attr, None), "__probe_command__", None)
+        if isinstance(spec, ProbeMethodSpec):
+            found[spec.command] = spec
+    return sorted(found.items())
+
+
+def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
+    provider_cls = _provider_class(source_type)
+    return [spec for _, spec in _iter_specs(provider_cls)] if provider_cls else []
+
+
+def _coerce(param: ProbeParam, value: object) -> object:
+    if param.type == "int":
+        # CLI/agent kwargs arrive as arbitrary objects (usually str); route through
+        # str() first so this matches int()'s `str` overload instead of requiring
+        # `value` to satisfy SupportsInt.
+        return int(str(value))
+    if param.type == "bool":
+        return str(value).lower() in ("1", "true", "yes", "on")
+    return str(value)
+
+
+def _coerce_kwargs(spec: ProbeMethodSpec, raw: Dict[str, object]) -> Dict[str, object]:
+    by_name = {p.name: p for p in spec.params}
+    unknown = set(raw) - set(by_name)
+    if unknown:
+        raise ValueError(f"unknown parameter(s): {', '.join(sorted(unknown))}")
+    out: Dict[str, object] = {}
+    for p in spec.params:
+        if p.name in raw:
+            out[p.name] = _coerce(p, raw[p.name])
+        elif p.required:
+            raise ValueError(f"missing required parameter '--{p.name}'")
+    return out
+
+
+def _bound_method(provider: object, command: str) -> Callable:
+    for attr in dir(type(provider)):
+        spec = getattr(getattr(type(provider), attr, None), "__probe_command__", None)
+        if isinstance(spec, ProbeMethodSpec) and spec.command == command:
+            return getattr(provider, attr)
+    raise ValueError(f"no probe method bound for command '{command}'")
+
+
+def run_probe_method(
+    source_type: str,
+    config_dict: Dict[str, object],
+    command: str,
+    kwargs: Dict[str, object],
+) -> ProbeMethodResult:
+    provider_cls = _provider_class(source_type)
+    if provider_cls is None:
+        raise ValueError(f"source '{source_type}' has no probe methods")
+    specs = dict(_iter_specs(provider_cls))
+    if command not in specs:
+        raise ValueError(
+            f"unknown probe method '{command}' for source '{source_type}'; "
+            f"available: {', '.join(sorted(specs)) or '(none)'}"
+        )
+    call_kwargs = _coerce_kwargs(specs[command], kwargs)
+    config = _config_class(source_type).model_validate(config_dict)
+    with config.build_probe_provider() as provider:
+        result = _bound_method(provider, command)(**call_kwargs)
+    return ProbeMethodResult(
+        source_type=source_type, command=command, params=call_kwargs, result=result
+    )
