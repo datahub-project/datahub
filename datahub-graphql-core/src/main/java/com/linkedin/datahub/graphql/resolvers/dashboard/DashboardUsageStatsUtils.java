@@ -193,7 +193,7 @@ public class DashboardUsageStatsUtils {
           throw new IllegalArgumentException("Failed to convert viewsCount from ES to int", e);
         }
       }
-      if (!row.get(3).equals(ES_NULL_VALUE) && !row.get(5).equals(ES_NULL_VALUE)) {
+      if (!row.get(3).equals(ES_NULL_VALUE) && !row.get(6).equals(ES_NULL_VALUE)) {
         try {
           if (Integer.valueOf(row.get(6)) != 0) {
             usageAggregationMetrics.setExecutionsCount(Integer.valueOf(row.get(3)));
