@@ -786,7 +786,7 @@ plugins: Dict[str, Set[str]] = {
     "s3-slim": {*s3_base, *file_profiling},
     "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
     "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "abs": {*abs_base, *data_lake_profiling},
+    "abs": {*abs_base, *file_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
