@@ -2,7 +2,14 @@ from typing import Callable
 
 import pytest
 
-from datahub.ingestion.agent.probe_methods import ProbeMethodSpec, probe_method
+from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodSpec,
+    ProbeParam,
+    _coerce,
+    list_probe_methods,
+    probe_method,
+    run_probe_method,
+)
 
 
 def _spec(fn: Callable) -> ProbeMethodSpec:
@@ -171,3 +178,28 @@ def test_run_probe_method_unknown_param(monkeypatch):
         pm.run_probe_method(
             "x", {}, "foreign_keys", {"schema": "s", "table": "t", "z": "1"}
         )
+
+
+def test_list_probe_methods_unknown_source_raises_value_error():
+    # Exercises the real registry (no _config_class/_provider_class monkeypatch)
+    # so the KeyError -> ValueError guard in _config_class is actually hit.
+    with pytest.raises(ValueError):
+        list_probe_methods("definitely_not_a_source")
+
+
+def test_run_probe_method_unknown_source_raises_value_error():
+    with pytest.raises(ValueError):
+        run_probe_method("definitely_not_a_source", {}, "x", {})
+
+
+def test_coerce_int_accepts_native_int_float_and_numeric_string():
+    param = ProbeParam(name="limit", type="int", required=True)
+    assert _coerce(param, 5) == 5
+    assert _coerce(param, 5.0) == 5
+    assert _coerce(param, "7") == 7
+
+
+def test_coerce_bool_from_string():
+    param = ProbeParam(name="flag", type="bool", required=True)
+    assert _coerce(param, "true") is True
+    assert _coerce(param, "no") is False

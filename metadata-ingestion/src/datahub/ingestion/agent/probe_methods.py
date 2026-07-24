@@ -144,7 +144,15 @@ class ProbeMethodResult:
 def _config_class(source_type: str) -> Any:
     from datahub.ingestion.source.source_registry import source_registry
 
-    source_cls = source_registry.get(source_type)
+    try:
+        # registry.get raises KeyError (unknown source_type) or ConfigurationError
+        # (plugin failed to load) — neither is in the framework's ValueError/
+        # TypeError/AssertionError contract, so normalize to ValueError.
+        source_cls = source_registry.get(source_type)
+    except Exception as exc:
+        raise ValueError(
+            f"unknown or unloadable source type '{source_type}': {exc}"
+        ) from exc
     get_config_class = getattr(source_cls, "get_config_class", None)
     return get_config_class() if get_config_class is not None else None
 
@@ -170,10 +178,14 @@ def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
 
 def _coerce(param: ProbeParam, value: object) -> object:
     if param.type == "int":
-        # CLI/agent kwargs arrive as arbitrary objects (usually str); route through
-        # str() first so this matches int()'s `str` overload instead of requiring
-        # `value` to satisfy SupportsInt.
-        return int(str(value))
+        # Agent kwargs may arrive as native int/float/bool or a numeric string
+        # (CLI flags); bool is an int subclass so it is covered here too. Assert
+        # rather than str()-route so `int(5.0)` and `int(True)` don't break.
+        assert isinstance(value, (int, float, str)), (
+            f"parameter '{param.name}' expects an int-coercible value, got "
+            f"{type(value).__name__}"
+        )
+        return int(value)
     if param.type == "bool":
         return str(value).lower() in ("1", "true", "yes", "on")
     return str(value)
