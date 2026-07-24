@@ -75,42 +75,6 @@ public class UpgradeSummaryFormatterTest {
   }
 
   @Test
-  public void testFormatSucceededWithWarningsShowsWarningLabel() {
-    List<UpgradeSummaryFormatter.StepLine> steps =
-        List.of(
-            new UpgradeSummaryFormatter.StepLine(
-                1,
-                1,
-                "BuildIndicesStep",
-                UpgradeSummaryFormatter.SUCCEEDED_WITH_WARNINGS,
-                0,
-                "index foo reindexed with document failures: documentFailures=2"));
-
-    String summary =
-        UpgradeSummaryFormatter.format("SystemUpdate", DataHubUpgradeState.SUCCEEDED, steps, 50L);
-
-    assertTrue(
-        summary.contains(
-            "Step 1/1: BuildIndicesStep - " + UpgradeSummaryFormatter.SUCCEEDED_WITH_WARNINGS));
-    assertTrue(
-        summary.contains(
-            "    Warning: index foo reindexed with document failures: documentFailures=2"));
-    // Overall upgrade result stays SUCCEEDED (soft-pass).
-    assertTrue(summary.startsWith("UPGRADE SUMMARY: SystemUpdate SUCCEEDED"));
-  }
-
-  @Test
-  public void testFindSoftPassNoteForStep() {
-    List<String> lines =
-        List.of("BuildIndicesStep: index foo reindexed with document failures: documentFailures=1");
-
-    String note = UpgradeSummaryFormatter.findSoftPassNoteForStep("BuildIndicesStep", lines);
-    assertEquals(note, "index foo reindexed with document failures: documentFailures=1");
-    // Full cause scanner ignores soft-pass lines (succeeded path uses soft helper only).
-    assertNull(UpgradeSummaryFormatter.findCauseForStep("BuildIndicesStep", lines));
-  }
-
-  @Test
   public void testFindCauseForStepBreaksOnRootCause() {
     List<String> lines =
         List.of(

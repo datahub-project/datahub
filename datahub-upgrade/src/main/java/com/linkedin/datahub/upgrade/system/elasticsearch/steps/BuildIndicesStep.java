@@ -186,55 +186,29 @@ public class BuildIndicesStep implements UpgradeStep {
               context.opContext(), services.get(0).getIndexBuilder(), config, circuitBreakerState);
       results.putAll(orchestrator.reindexAll(reindexConfigs));
       var documentFailures = orchestrator.getDocumentFailuresByIndex();
-      // Check results for hard failures and soft REINDEXED_WITH_FAILURES
       Map<String, ReindexResult> failures =
           results.entrySet().stream()
-              .filter(
-                  (entry) ->
-                      entry.getValue().isFailure()
-                          || entry.getValue() == ReindexResult.REINDEXED_WITH_FAILURES)
+              .filter((entry) -> entry.getValue().isFailure())
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       if (!failures.isEmpty()) {
-        boolean hardFailure = failures.values().stream().anyMatch(ReindexResult::isFailure);
-        // Soft-pass (REINDEXED_WITH_FAILURES only) is warn; hard failures stay error.
-        // Per-doc details already logged at capture time — report lines only here.
-        if (hardFailure) {
-          log.error(
-              "Parallel reindex completed with {} failures out of {} indices",
-              failures.size(),
-              results.size());
-        } else {
-          log.warn(
-              "Parallel reindex completed with {} soft-pass (REINDEXED_WITH_FAILURES) of {} indices",
-              failures.size(),
-              results.size());
-        }
+        log.error(
+            "Parallel reindex completed with {} failures out of {} indices",
+            failures.size(),
+            results.size());
         failures.forEach(
             (key, value) -> {
               TaskFailureParseResult indexFailures =
                   documentFailures.getOrDefault(key, TaskFailureParseResult.EMPTY);
               String formatted = TaskFailureParser.formatForLog(indexFailures, 5);
-              if (value.isFailure()) {
-                log.error("Failure index alias {} reason :{}", key, value);
-                context
-                    .report()
-                    .addLine(
-                        String.format(
-                            "%s failed: Failure index alias %s reason: %s%s",
-                            id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
-              } else if (value == ReindexResult.REINDEXED_WITH_FAILURES) {
-                log.warn("Index {} completed as REINDEXED_WITH_FAILURES (soft-pass)", key);
-                context
-                    .report()
-                    .addLine(
-                        String.format(
-                            "%s: index %s reindexed with document failures%s",
-                            id(), key, formatted.isEmpty() ? "" : ": " + formatted));
-              }
+              log.error("Failure index alias {} reason :{}", key, value);
+              context
+                  .report()
+                  .addLine(
+                      String.format(
+                          "%s failed: Failure index alias %s reason: %s%s",
+                          id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
             });
-        if (hardFailure) {
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-        }
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
       log.info("Parallel reindex completed successfully for {} indices", results.size());
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);

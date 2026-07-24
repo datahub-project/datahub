@@ -146,6 +146,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -1493,36 +1494,46 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper))));
   }
 
+  /**
+   * Uses the low-level REST client so we retain raw JSON (including {@code response.failures[]})
+   * that the ES8 typed {@link GetTasksResponse} path may strip on serialize/deserialize.
+   */
   @Nonnull
   @Override
   public Optional<TaskResultWithFailures> getTaskWithFailures(
       GetTaskRequest request, RequestOptions options) throws IOException {
     String taskId = request.getNodeId() + ":" + request.getTaskId();
-    GetTasksRequest esGetTaskRequest =
-        new GetTasksRequest.Builder()
-            .taskId(taskId)
-            .waitForCompletion(request.getWaitForCompletion())
-            .timeout(
-                request.getTimeout() != null
-                    ? new Time.Builder().time(request.getTimeout().getStringRep()).build()
-                    : null)
-            .build();
-    GetTasksResponse esTaskResponse;
+    Request lowLevelReq = new Request("GET", "/_tasks/" + taskId);
+    if (request.getWaitForCompletion()) {
+      lowLevelReq.addParameter("wait_for_completion", "true");
+    }
+    if (request.getTimeout() != null) {
+      lowLevelReq.addParameter("timeout", request.getTimeout().getStringRep());
+    }
+    if (options != null) {
+      lowLevelReq.setOptions(options);
+    }
     try {
-      esTaskResponse = withTransportOptions(options).tasks().get(esGetTaskRequest);
-    } catch (ElasticsearchException ee) {
-      if (ee.status() == HttpStatus.SC_NOT_FOUND) {
+      Response response =
+          ElasticsearchRestClientAdapter.performRequest(
+              ((RestClientTransport) client._transport()).restClient(),
+              new OpenSearchRestRequest(lowLevelReq));
+      if (response.getEntity() == null) {
         return Optional.empty();
       }
-      throw ee;
+      String rawJson = EntityUtils.toString(response.getEntity(), "UTF-8");
+      GetTaskResponse parsed =
+          GetTaskResponse.fromXContent(
+              XContentType.JSON
+                  .xContent()
+                  .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
+      return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
+    } catch (org.elasticsearch.client.ResponseException e) {
+      if (e.getResponse().getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
+        return Optional.empty();
+      }
+      throw e;
     }
-    String rawJson = JsonpUtils.toJsonString(esTaskResponse, jacksonJsonpMapper);
-    GetTaskResponse parsed =
-        GetTaskResponse.fromXContent(
-            XContentType.JSON
-                .xContent()
-                .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
-    return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
   }
 
   // Metadata and introspection

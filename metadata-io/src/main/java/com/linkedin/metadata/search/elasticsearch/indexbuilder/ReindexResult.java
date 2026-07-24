@@ -5,7 +5,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
  *
  * <p>Values reflect the outcome of a reindex attempt: whether it succeeded, was skipped, or failed
  * due to timeouts, document mismatches, or operational errors. Includes intermediate states
- * (REINDEXING, REINDEXED_WITH_FAILURES) for partial success scenarios.
+ * (REINDEXING) for in-progress reindex operations.
  */
 public enum ReindexResult {
   CREATED_NEW(false),
@@ -27,9 +27,6 @@ public enum ReindexResult {
 
   // reindex completed successfully
   REINDEXED(false),
-
-  // reindex completed with some failures
-  REINDEXED_WITH_FAILURES(false),
 
   // reindex failed due to timeout
   FAILED_TIMEOUT(true),

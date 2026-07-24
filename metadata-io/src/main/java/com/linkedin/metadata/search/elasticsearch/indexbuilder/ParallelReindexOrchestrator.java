@@ -781,9 +781,8 @@ public class ParallelReindexOrchestrator {
   }
 
   /**
-   * Determine if a reindex result indicates success. Success includes both complete success
-   * (REINDEXED) and partial success scenarios (REINDEXED_WITH_FAILURES, or skipped/not-required
-   * cases).
+   * Determine if a reindex result indicates success. Success includes complete success (REINDEXED)
+   * and skipped/not-required cases.
    *
    * @param result The reindex result to evaluate
    * @return true if the result indicates successful completion (not a FAILED_* status)

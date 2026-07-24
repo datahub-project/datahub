@@ -1044,6 +1044,12 @@ public class ESIndexBuilder {
           taskStatus.map(GetTaskResponse::isCompleted).orElse(false)
               && documentCounts.getSecond() < documentCounts.getFirst();
 
+      // Completed task with short dest → likely mapper/bulk drops. Fetch failures[] once for
+      // diagnosis only (timeout path also fetches). Log-only here; retry/outcome logic unchanged.
+      if (completedButShort) {
+        fetchTaskFailuresBestEffort(opContext, activeTaskId, sourceIndex, destIndex);
+      }
+
       final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
       final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
       if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
@@ -1291,8 +1297,6 @@ public class ESIndexBuilder {
 
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
     Map<String, Object> reinfo = new HashMap<>();
-    List<TaskFailureDetail> documentFailures = List.of();
-    int documentFailureTotal = 0;
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(opContext, indexState.name());
 
@@ -1346,8 +1350,6 @@ public class ESIndexBuilder {
         reindexTaskCompleted = pollResult.completed();
         reinfo = pollResult.latestReindexInfo();
         Pair<Long, Long> documentCounts = pollResult.finalDocumentCounts();
-        documentFailures = pollResult.failures();
-        documentFailureTotal = pollResult.totalFailureCount();
 
         if (!reindexTaskCompleted) {
           if (config.getBuildIndices().isAllowDocCountMismatch()
@@ -1407,10 +1409,6 @@ public class ESIndexBuilder {
         true,
         requestOptionsLong);
     log.info("Finished setting up {}", indexState.name());
-    if (!documentFailures.isEmpty()) {
-      // Details already logged in fetchTaskFailuresBestEffort on the timeout path.
-      return ReindexResult.REINDEXED_WITH_FAILURES;
-    }
     return result;
   }
 

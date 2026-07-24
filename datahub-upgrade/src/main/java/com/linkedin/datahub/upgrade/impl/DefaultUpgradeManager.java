@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -99,7 +100,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
                 step.id(),
                 "ABORTED",
                 step.retryCount(),
-                UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines())));
+                safeFindCauseForStep(step.id(), upgradeReport.lines())));
         appendNotExecuted(stepLines, steps, i + 1);
         return finishWithSummary(
             upgrade, DataHubUpgradeState.ABORTED, upgradeReport, stepLines, startMs);
@@ -107,7 +108,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
       // Handle Results
       if (DataHubUpgradeState.FAILED.equals(stepResult.result())) {
-        String cause = UpgradeSummaryFormatter.findCauseForStep(step.id(), upgradeReport.lines());
+        String cause = safeFindCauseForStep(step.id(), upgradeReport.lines());
         if (step.isOptional()) {
           upgradeReport.addLine(
               String.format(
@@ -135,15 +136,9 @@ public class DefaultUpgradeManager implements UpgradeManager {
 
       upgradeReport.addLine(
           String.format("Completed Step %s/%s: %s successfully.", i + 1, steps.size(), step.id()));
-      // Soft-pass note only (not full findCauseForStep) — avoids O(steps × lines) on clean
-      // succeeds.
-      String softPassNote =
-          UpgradeSummaryFormatter.findSoftPassNoteForStep(step.id(), upgradeReport.lines());
-      String status =
-          softPassNote != null ? UpgradeSummaryFormatter.SUCCEEDED_WITH_WARNINGS : "SUCCEEDED";
       stepLines.add(
           new UpgradeSummaryFormatter.StepLine(
-              stepIndex, total, step.id(), status, step.retryCount(), softPassNote));
+              stepIndex, total, step.id(), "SUCCEEDED", step.retryCount(), null));
     }
 
     upgradeReport.addLine(
@@ -168,14 +163,33 @@ public class DefaultUpgradeManager implements UpgradeManager {
       UpgradeReport upgradeReport,
       List<UpgradeSummaryFormatter.StepLine> stepLines,
       long startMs) {
-    long durationMs = System.currentTimeMillis() - startMs;
-    String summary = UpgradeSummaryFormatter.format(upgrade.id(), overall, stepLines, durationMs);
-    if (UpgradeSummaryFormatter.isFailureOrAbort(overall)) {
-      log.error(summary);
-    } else {
-      log.info(summary);
+    try {
+      long durationMs = System.currentTimeMillis() - startMs;
+      String summary = UpgradeSummaryFormatter.format(upgrade.id(), overall, stepLines, durationMs);
+      if (UpgradeSummaryFormatter.isFailureOrAbort(overall)) {
+        log.error(summary);
+      } else {
+        log.info(summary);
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to format upgrade summary for {} — not failing upgrade: {}",
+          upgrade.id(),
+          e.toString());
     }
     return new DefaultUpgradeResult(overall, upgradeReport);
+  }
+
+  @Nullable
+  private static String safeFindCauseForStep(String stepId, List<String> reportLines) {
+    try {
+      return UpgradeSummaryFormatter.findCauseForStep(stepId, reportLines);
+    } catch (Exception e) {
+      // Logging must not fail the upgrade.
+      log.warn(
+          "Failed to extract cause for step {} — not failing upgrade: {}", stepId, e.toString());
+      return null;
+    }
   }
 
   private UpgradeStepResult executeStepInternal(UpgradeContext context, UpgradeStep step) {

@@ -294,19 +294,6 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                         id(), config.name(), formatted.isEmpty() ? "" : " " + formatted));
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
-          if (!pollResult.failures().isEmpty()) {
-            String formatted =
-                TaskFailureParser.formatForLog(
-                    pollResult.failures(), 5, pollResult.totalFailureCount());
-            if (!formatted.isEmpty()) {
-              context
-                  .report()
-                  .addLine(
-                      String.format(
-                          "%s: index %s reindexed with document failures: %s",
-                          id(), config.name(), formatted));
-            }
-          }
           // Restore normal index settings after successful reindex
           indexBuilder.undoReindexOptimalSettings(
               opContext, result.nextIndexName(), config, pollResult.latestReindexInfo());
