@@ -17,6 +17,10 @@ REPOSITORY=""
 ARTIFACT_PREFIX="Test Results (smoke tests)"
 ALLOW_FAILED=false
 NO_FAIL_ON_EMPTY=false
+# When fewer than RUN_COUNT qualifying runs are found in the recent page, widen
+# the lookback window to at least this many days so a quiet stretch doesn't
+# starve the weight harvest.
+MIN_LOOKBACK_DAYS=3
 
 # Parse arguments
 usage() {
@@ -165,10 +169,36 @@ else
 fi
 
 # Fetch recent successful workflow runs from master branch.
+#
+# We want RUN_COUNT qualifying runs, but also look back at least
+# MIN_LOOKBACK_DAYS so a quiet few days don't under-harvest. Strategy: grab the
+# most recent page of runs first (cheap, ~30 items, already newest-first). If
+# it already yields RUN_COUNT qualifying runs, use them; otherwise widen to the
+# last MIN_LOOKBACK_DAYS (paginated) and take what's available.
+#
+# Limiting is done inside jq (not via `head`) so `gh api` is never killed by
+# SIGPIPE under `set -o pipefail`.
 echo "Fetching recent workflow runs from master branch..."
 RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
     | jq -r --argjson n "$RUN_COUNT" \
         '[.workflow_runs[] | '"$RUN_FILTER"' | .id][0:$n] | .[]')
+
+QUALIFYING_COUNT=$(printf '%s\n' "$RUN_IDS" | grep -c . || true)
+
+if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
+    # date fallback: GNU (`-d`) on the runner, BSD (`-v`) for local macOS dev.
+    SINCE_DATE=$(date -u -d "$MIN_LOOKBACK_DAYS days ago" +%Y-%m-%d 2>/dev/null \
+        || date -u -v-${MIN_LOOKBACK_DAYS}d +%Y-%m-%d)
+    echo "Only $QUALIFYING_COUNT qualifying run(s) in the recent page; widening to runs since $SINCE_DATE..."
+    # `gh api --paginate` streams one JSON object per page; `jq -s` slurps them
+    # into a single array so we can sort and slice across the whole window.
+    # The `created>=` filter goes in the URL query string (not `-f`): gh's field
+    # flag URL-encodes `>` and GitHub 404s on the encoded form.
+    RUN_IDS=$(gh api --paginate "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?created=>=$SINCE_DATE" \
+        | jq -sr --argjson n "$RUN_COUNT" \
+            '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
+             | sort_by(.created) | reverse | .[0:$n] | .[].id')
+fi
 
 if [[ -z "$RUN_IDS" ]]; then
     if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
