@@ -102,6 +102,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     EdmxParseResult,
     FlowColumnMapping,
     FlowEndpoint,
+    JsonDict,
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
@@ -346,7 +347,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
         def _emit_asset_with_isolation(
-            asset: Dict,
+            asset: JsonDict,
         ) -> Iterable[MetadataWorkUnit]:
             asset_name = (
                 asset.get(CATALOG_FIELD_NAME, "<unknown>")
@@ -458,10 +459,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             if isinstance(elements, dict):
                 csn_schema = parse_csn_elements_to_schema_fields(elements)
-                schema_fields = csn_schema.fields
                 self._report_unknown_cds_types(
                     space_name, technical_name, csn_schema.unknown_types
                 )
+                # Honor column_pattern here too, so a Local Table's columns are
+                # filtered consistently with views / remote tables rather than
+                # being the one schema path that ignores the pattern.
+                schema_fields = self._apply_column_pattern(csn_schema.fields) or None
             else:
                 # 200 OK but not a parseable CSN shape — record it so a parse
                 # miss isn't mistaken for a genuine no-schema base table.
@@ -573,7 +577,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _bump_report(self, attr: str) -> None:
         setattr(self.report, attr, getattr(self.report, attr) + 1)
 
-    def _iter_allowed_technical_names(self, entries: Iterable[dict]) -> Iterator[str]:
+    def _iter_allowed_technical_names(
+        self, entries: Iterable[JsonDict]
+    ) -> Iterator[str]:
         # Shared entry-validation for the dwaas-core list endpoints (local tables,
         # remote tables, flows): skip non-dict records and blank names, and drop
         # anything filtered out by asset_pattern. Callers own their per-type
@@ -925,6 +931,26 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 schema_fields,
                 downstream_urn,
             )
+        elif csn_obj is not None:
+            # 200 OK but the CSN had no definition for this table. Federated
+            # lineage — the whole point of a remote table — is silently absent
+            # and the stub is indistinguishable from a healthy scanned==emitted
+            # run, so record it (mirrors the local-table assets_csn_unparseable
+            # branch). csn_obj is None means the fetch itself failed and is
+            # already tracked via assets_csn_fetch_failed.
+            self.report.remote_tables_csn_unparseable.append(
+                f"{space_name}.{technical_name}"
+            )
+            self.report.warning(
+                title="Remote Table emitted without schema or lineage",
+                message=(
+                    "Fetched the Remote Table definition but it contained no "
+                    "parseable CSN definition for this table; emitting a bare "
+                    "stub with neither column schema nor federated upstream "
+                    "lineage."
+                ),
+                context=f"{space_name}.{technical_name}",
+            )
 
         dataset = Dataset(
             platform=local_resolved.platform,
@@ -947,7 +973,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self.report.remote_tables_emitted += 1
 
     def _remote_table_schema(
-        self, space_name: str, technical_name: str, definition: Dict
+        self, space_name: str, technical_name: str, definition: JsonDict
     ) -> Optional[List[SchemaFieldClass]]:
         elements = definition.get(CSN_KEY_ELEMENTS)
         if not isinstance(elements, dict) or not elements:
@@ -956,18 +982,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self._report_unknown_cds_types(
             space_name, technical_name, csn_schema.unknown_types
         )
-        filtered = [
-            f
-            for f in csn_schema.fields
-            if self.config.column_pattern.allowed(f.fieldPath)
-        ]
-        return filtered or None
+        return self._apply_column_pattern(csn_schema.fields) or None
 
     def _remote_table_upstream(
         self,
         space_name: str,
         technical_name: str,
-        definition: Dict,
+        definition: JsonDict,
         resolver: PlatformMappingResolver,
         schema_fields: Optional[List[SchemaFieldClass]],
         downstream_urn: str,
@@ -1168,7 +1189,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_skipped_unknown_typeid.append(qualified)
 
     def _base_asset_custom_properties(
-        self, space_name: str, asset_name: str, asset: dict, metadata_url: str
+        self, space_name: str, asset_name: str, asset: JsonDict, metadata_url: str
     ) -> Dict[str, str]:
         # Catalog-derived properties every View / Analytic Model carries; the
         # EDMX parse_result's entity_custom_props are merged on top by the caller.
@@ -1190,7 +1211,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         space_name: str,
         asset_name: str,
         parse_result: Optional[EdmxParseResult],
-        csn_def: Optional[Dict],
+        csn_def: Optional[JsonDict],
     ) -> Optional[List[SchemaFieldClass]]:
         # Prefer the relational EDMX schema; fall back to the CSN elements map for
         # analytic models, which expose no relational metadata URL for EDMX.
@@ -1201,7 +1222,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return self._schema_fields_from_csn(space_name, asset_name, csn_def)
         return None
 
-    def _emit_asset(self, space_name: str, asset: dict) -> Iterable[MetadataWorkUnit]:
+    def _emit_asset(
+        self, space_name: str, asset: JsonDict
+    ) -> Iterable[MetadataWorkUnit]:
         asset_name_opt = asset.get(CATALOG_FIELD_NAME)
         if not asset_name_opt:
             # Mirror the malformed-space-record guard: a record missing 'name'
@@ -1227,8 +1250,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         # Fetch CSN for lineage, view definitions, or @remote.source detection.
-        csn_def: Optional[Dict] = None
-        csn_obj: Optional[Dict] = None
+        csn_def: Optional[JsonDict] = None
+        csn_obj: Optional[JsonDict] = None
         if self.config.include_lineage or self.config.include_view_definitions:
             object_type = (
                 OBJECT_TYPE_ANALYTIC_MODELS
@@ -1363,7 +1386,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self._check_scale_warning()
 
     def _build_view_properties(
-        self, csn_def: Optional[Dict]
+        self, csn_def: Optional[JsonDict]
     ) -> Optional[ViewPropertiesClass]:
         # SQL views store the modeler's raw SQL in @DataWarehouse.sqlEditor.query;
         # that wins. Graphical/modeled views instead emit their CSN/CQN query tree.
@@ -1771,8 +1794,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
 
+    def _apply_column_pattern(
+        self, fields: List[SchemaFieldClass]
+    ) -> List[SchemaFieldClass]:
+        # Single place that honors column_pattern and counts drops, so every
+        # schema-producing path (EDMX, CSN asset, local table, remote table)
+        # filters consistently instead of some silently ignoring the pattern.
+        column_pattern = self.config.column_pattern
+        kept: List[SchemaFieldClass] = []
+        for f in fields:
+            if not column_pattern.allowed(f.fieldPath):
+                self.report.columns_filtered += 1
+                continue
+            kept.append(f)
+        return kept
+
     def _schema_fields_from_csn(
-        self, space_name: str, asset_name: str, csn_def: Dict
+        self, space_name: str, asset_name: str, csn_def: JsonDict
     ) -> Optional[List[SchemaFieldClass]]:
         # Analytic models expose no OData $metadata, so the EDMX path yields
         # nothing; their CSN still carries a full elements map. column_pattern is
@@ -1782,13 +1820,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         csn_schema = parse_csn_elements_to_schema_fields(elements)
         self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
-        column_pattern = self.config.column_pattern
-        filtered = []
-        for f in csn_schema.fields:
-            if not column_pattern.allowed(f.fieldPath):
-                self.report.columns_filtered += 1
-                continue
-            filtered.append(f)
+        filtered = self._apply_column_pattern(csn_schema.fields)
         if not filtered:
             return None
         self.report.assets_schema_from_csn += 1

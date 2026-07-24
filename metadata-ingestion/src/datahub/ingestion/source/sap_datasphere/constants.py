@@ -51,6 +51,11 @@ OBJECT_TYPE_REPLICATION_FLOWS: Final[str] = "replicationflows"
 OBJECT_TYPE_TRANSFORMATION_FLOWS: Final[str] = "transformationflows"
 OBJECT_TYPE_TASK_CHAINS: Final[str] = "taskchains"
 
+# dwaas-core design-time API base. Both the per-type list endpoint
+# ({base}/{space}/{type}) and the per-object fetch ({base}/{space}/{type}/{name})
+# hang off this; hoisted so the three call sites in client.py can't drift.
+DWAAS_SPACES_BASE: Final[str] = "/dwaas-core/api/v1/spaces"
+
 # The catalog's supportsAnalyticalQueries flag routes a CSN fetch to views vs
 # analyticmodels, but it is not a reliable indicator of the design-time type, so
 # a 404 on the primary route is retried under the sibling type. localtables has
@@ -67,6 +72,7 @@ GRANT_CLIENT_CREDENTIALS: Final[str] = "client_credentials"
 # keys. Hoisted so the two grant flows and the response parser can't drift.
 OAUTH_TOKEN_PATH: Final[str] = "/oauth/token"
 HEADER_CONTENT_TYPE: Final[str] = "Content-Type"
+HEADER_ACCEPT: Final[str] = "Accept"
 PARAM_GRANT_TYPE: Final[str] = "grant_type"
 PARAM_REFRESH_TOKEN: Final[str] = "refresh_token"
 PARAM_CLIENT_ID: Final[str] = "client_id"

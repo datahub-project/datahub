@@ -84,6 +84,10 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     remote_tables_emitted: int = 0
     # A remote table whose @DataWarehouse.remote connection could not be mapped.
     remote_table_source_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # HTTP 200 but the CSN carried no parseable definition for the table, so it
+    # emitted as a bare stub with neither schema nor federated upstream lineage
+    # (mirrors assets_csn_unparseable for the local-table path).
+    remote_tables_csn_unparseable: LossyList[str] = field(default_factory=LossyList)
 
     # Per-operation timing aggregates, keyed by logical operation
     # (oauth_token / catalog_list / connections / csn_fetch / edmx_fetch).

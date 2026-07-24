@@ -163,8 +163,11 @@ class PlatformMappingResolver:
 
         default = self._type_defaults_by_upper.get(typeid.upper())
         if default is None:
-            if typeid not in self.unknown_typeids_seen:
-                self.unknown_typeids_seen.add(typeid)
+            # Dedup on the case-folded typeId so a tenant mixing BIGQUERY and
+            # bigQuery for the same unknown type only warns once.
+            typeid_key = typeid.upper()
+            if typeid_key not in self.unknown_typeids_seen:
+                self.unknown_typeids_seen.add(typeid_key)
                 logger.warning(
                     "SAP Datasphere connection %r has typeId %r which is not in "
                     "platform_type_defaults; assets routed to this connection will be "

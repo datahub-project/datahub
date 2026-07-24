@@ -5422,3 +5422,116 @@ def test_asset_pattern_filters_flows_and_remote_tables(requests_mock):
     assert source.report.data_flows_emitted == 1
     assert source.report.remote_tables_scanned == 1
     assert source.report.remote_tables_emitted == 1
+
+
+def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_mock):
+    """A transport error enumerating spaces must be softened to a warning and
+    yield zero spaces — never a silent empty 'success', which would let stateful
+    ingestion soft-delete every prior entity."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="spaces-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list spaces" in titles
+    assert source.report.spaces_scanned == 0
+
+
+def test_local_table_list_request_exception_is_reported_and_degrades(requests_mock):
+    """A transport error listing Local Tables must be downgraded to a warning and
+    let ingestion continue (mirrors the flow / remote-table degradation)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_local_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        exc=requests.exceptions.ConnectionError,
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="lt-list-fail"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Failed to list Local Tables in space" in titles
+
+
+def test_local_table_managed_connection_unresolvable_skips_space(requests_mock):
+    """When the _managed connection is disabled, Local Tables can't be emitted
+    (they live in managed HANA); the space is skipped with a warning and no
+    per-table CSN fetch happens (the LT1 detail endpoint is intentionally
+    unmocked, so a fetch would surface as an unmocked-call error)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_local_tables": True,
+            "connection_to_platform_map": {
+                "_managed": {"platform": "hana", "enabled": False},
+            },
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "LT1"}],
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="lt-managed-unresolved"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Cannot emit Local Tables — _managed connection unresolvable" in titles
+    assert source.report.local_tables_emitted == 0
+
+
+def test_remote_table_200_without_definition_is_reported_not_silent(requests_mock):
+    """A Remote Table whose CSN fetch returns 200 but carries no definition for
+    the table must be recorded (counter + warning) rather than emitting a silent
+    bare stub — federated lineage is the whole point of a remote table. The
+    proxy Dataset still emits, but with no upstream lineage."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "RT1"}],
+    )
+    # 200 OK but the CSN has no definition for RT1.
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables/RT1",
+        json={"definitions": {}},
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-no-def"), cfg)
+    workunits = list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Remote Table emitted without schema or lineage" in titles
+    assert "S1.RT1" in list(source.report.remote_tables_csn_unparseable)
+    assert source.report.remote_tables_emitted == 1
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]

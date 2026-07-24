@@ -30,6 +30,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineagePair,
     CsnSelectEnvelope,
+    JsonDict,
     RemoteTableSource,
     TransformOp,
     UnionMergeSlot,
@@ -232,7 +233,7 @@ class CsnLineageExtractor:
         alias_map: Dict[str, str],
         out: List[UpstreamColRef],
         unresolved: List[str],
-        projection_map: Optional[Dict[str, dict]] = None,
+        projection_map: Optional[Dict[str, JsonDict]] = None,
         visited: Optional[Set[str]] = None,
         association_map: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -347,7 +348,7 @@ class CsnLineageExtractor:
         alias_map: Dict[str, str],
         out: List[UpstreamColRef],
         unresolved: List[str],
-        projection_map: Optional[Dict[str, dict]],
+        projection_map: Optional[Dict[str, JsonDict]],
         visited: Optional[Set[str]],
         association_map: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -401,7 +402,7 @@ class CsnLineageExtractor:
         self,
         col: dict,
         alias_map: Dict[str, str],
-        projection_map: Optional[Dict[str, dict]] = None,
+        projection_map: Optional[Dict[str, JsonDict]] = None,
         association_map: Optional[Dict[str, str]] = None,
     ) -> Optional[ColumnLineagePair]:
         downstream_name = self._resolve_output_name(col)
@@ -476,7 +477,7 @@ class CsnLineageExtractor:
 
         # output-column name -> its CSN column dict, so ``$projection`` refs can be
         # followed to real upstream refs. First definition wins.
-        projection_map: Dict[str, dict] = {}
+        projection_map: Dict[str, JsonDict] = {}
         for col in columns:
             if not isinstance(col, dict):
                 continue

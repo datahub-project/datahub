@@ -24,9 +24,11 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CONNECTIONS_TRUNCATION_THRESHOLD,
     CSN_CONTENT_TYPE,
     DEFAULT_PAGE_SIZE,
+    DWAAS_SPACES_BASE,
     FORM_URLENCODED,
     GRANT_CLIENT_CREDENTIALS,
     GRANT_REFRESH_TOKEN,
+    HEADER_ACCEPT,
     HEADER_CONTENT_TYPE,
     OAUTH_TOKEN_PATH,
     OBJECT_TYPE_LOCAL_TABLES,
@@ -44,6 +46,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ConnectionRecord,
     EdmxFetchReason,
     EdmxFetchResult,
+    JsonDict,
 )
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -262,7 +265,7 @@ class SapDatasphereClient:
 
     def _paginate(
         self, url: str, page_size: int = DEFAULT_PAGE_SIZE
-    ) -> Generator[Dict, None, None]:
+    ) -> Generator[JsonDict, None, None]:
         """Yield items from a list endpoint, transparently paginating.
 
         Handles both shapes the tenant uses: OData ``{"value": [...]}`` (paginated)
@@ -333,10 +336,10 @@ class SapDatasphereClient:
                 return
             skip += len(items)
 
-    def list_spaces(self) -> Generator[Dict, None, None]:
+    def list_spaces(self) -> Generator[JsonDict, None, None]:
         yield from self._paginate(f"{self.config.base_url}{CATALOG_BASE}/spaces")
 
-    def list_assets(self, space_name: str) -> Generator[Dict, None, None]:
+    def list_assets(self, space_name: str) -> Generator[JsonDict, None, None]:
         # OData URL-quote the space name so names containing apostrophes don't break.
         quoted = quote(space_name, safe="")
         url = f"{self.config.base_url}{CATALOG_BASE}/spaces('{quoted}')/assets"
@@ -448,13 +451,36 @@ class SapDatasphereClient:
                 self._connections_cache[space] = []
         return self._connections_cache[space]
 
+    def _dwaas_object_url(
+        self, space: str, object_type: str, technical_name: Optional[str] = None
+    ) -> str:
+        # {base}/{space}/{type} for a list, or .../{name} for a single object.
+        quoted_space = quote(space, safe="")
+        url = f"{self.config.base_url}{DWAAS_SPACES_BASE}/{quoted_space}/{object_type}"
+        if technical_name is not None:
+            url = f"{url}/{quote(technical_name, safe='')}"
+        return url
+
+    def _warn_unexpected_list_response(self, url: str, detail: str) -> None:
+        # Shared reporting for the dwaas-core list endpoints, which must degrade
+        # to "empty list" (never abort the space) on any non-array body.
+        logger.warning("Unexpected response from %s: %s", url, detail)
+        if self._report is not None:
+            self._report.warning(
+                title="Unexpected response from SAP Datasphere list endpoint",
+                message=(
+                    f"Expected a JSON array from the SAP Datasphere list endpoint "
+                    f"but {detail}; this list will be treated as empty."
+                ),
+                context=url,
+            )
+
     def _list_dwaas_objects(
         self, space: str, object_type: str
-    ) -> Generator[Dict, None, None]:
+    ) -> Generator[JsonDict, None, None]:
         # dwaas-core per-type endpoint returning bare-array {"technicalName": ...}
         # entries. HTTP 403 means the principal is not a member of the space.
-        quoted = quote(space, safe="")
-        url = f"{self.config.base_url}/dwaas-core/api/v1/spaces/{quoted}/{object_type}"
+        url = self._dwaas_object_url(space, object_type)
         try:
             resp = self._get(url, operation="dwaas_list")
         except requests.HTTPError as e:
@@ -465,33 +491,14 @@ class SapDatasphereClient:
         try:
             data = resp.json()
         except ValueError:
-            logger.warning("Non-JSON response from %s", url)
-            if self._report is not None:
-                self._report.warning(
-                    title="Unexpected response from SAP Datasphere list endpoint",
-                    message=(
-                        "Expected a JSON array but got a non-JSON response "
-                        "(possibly a proxy/login HTML page); this list will be "
-                        "treated as empty."
-                    ),
-                    context=url,
-                )
+            self._warn_unexpected_list_response(
+                url, "got a non-JSON response (possibly a proxy/login HTML page)"
+            )
             return
         if not isinstance(data, list):
-            logger.warning(
-                "Unexpected response shape from %s: got %s, expected list",
-                url,
-                type(data).__name__,
+            self._warn_unexpected_list_response(
+                url, f"got a {type(data).__name__} instead of a list"
             )
-            if self._report is not None:
-                self._report.warning(
-                    title="Unexpected response from SAP Datasphere list endpoint",
-                    message=(
-                        "Expected a JSON array but got a wrong-shape response "
-                        "(not a list); this list will be treated as empty."
-                    ),
-                    context=url,
-                )
             return
         yield from data
 
@@ -510,12 +517,14 @@ class SapDatasphereClient:
                 context=space,
             )
 
-    def list_local_tables(self, space: str) -> Generator[Dict, None, None]:
+    def list_local_tables(self, space: str) -> Generator[JsonDict, None, None]:
         # Base tables not exposed for consumption; bare-array {"technicalName": ...}.
         # No schema is available via this endpoint — consumers treat them as stubs.
         yield from self._list_dwaas_objects(space, OBJECT_TYPE_LOCAL_TABLES)
 
-    def list_objects(self, space: str, object_type: str) -> Generator[Dict, None, None]:
+    def list_objects(
+        self, space: str, object_type: str
+    ) -> Generator[JsonDict, None, None]:
         # Generic bare-array {"technicalName": ...} listing for any dwaas-core
         # object type (flows, task chains, remote tables). 403 is downgraded to a
         # not-a-member warning by _list_dwaas_objects.
@@ -523,20 +532,17 @@ class SapDatasphereClient:
 
     def fetch_flow_definition(
         self, space: str, object_type: str, technical_name: str
-    ) -> Optional[Dict]:
+    ) -> Optional[JsonDict]:
         """Fetch a flow / task-chain design-time definition. Same dwaas-core
         surface + CSN content type as fetch_object_definition, but with no
         views<->analyticmodels sibling retry (flows have no sibling) and flow-
         scoped failure reporting. Returns the parsed body or None on any error."""
-        quoted_space = quote(space, safe="")
-        quoted_name = quote(technical_name, safe="")
-        url = (
-            f"{self.config.base_url}/dwaas-core/api/v1/spaces/"
-            f"{quoted_space}/{object_type}/{quoted_name}"
-        )
+        url = self._dwaas_object_url(space, object_type, technical_name)
         try:
             with self._timed_api("flow_fetch", url):
-                resp = self._get_with_refresh(url, headers={"Accept": CSN_CONTENT_TYPE})
+                resp = self._get_with_refresh(
+                    url, headers={HEADER_ACCEPT: CSN_CONTENT_TYPE}
+                )
             resp.raise_for_status()
             return resp.json()
         except requests.HTTPError as e:
@@ -563,7 +569,7 @@ class SapDatasphereClient:
         object_type: str,
         technical_name: str,
         _try_alternate: bool = True,
-    ) -> Optional[Dict]:
+    ) -> Optional[JsonDict]:
         """Fetch the design-time CSN of a Datasphere object via the dwaas-core
         per-type endpoint. Returns the parsed CSN body on success, or ``None`` on
         any HTTP failure (the source then emits without lineage). Failures
@@ -574,15 +580,12 @@ class SapDatasphereClient:
         method retries once under the sibling with it set to ``False``. The retry
         reports nothing so a genuinely-missing object is counted exactly once.
         """
-        quoted_space = quote(space, safe="")
-        quoted_name = quote(technical_name, safe="")
-        url = (
-            f"{self.config.base_url}/dwaas-core/api/v1/spaces/"
-            f"{quoted_space}/{object_type}/{quoted_name}"
-        )
+        url = self._dwaas_object_url(space, object_type, technical_name)
         try:
             with self._timed_api("csn_fetch", url):
-                resp = self._get_with_refresh(url, headers={"Accept": CSN_CONTENT_TYPE})
+                resp = self._get_with_refresh(
+                    url, headers={HEADER_ACCEPT: CSN_CONTENT_TYPE}
+                )
             resp.raise_for_status()
             return resp.json()
         except requests.HTTPError as e:
