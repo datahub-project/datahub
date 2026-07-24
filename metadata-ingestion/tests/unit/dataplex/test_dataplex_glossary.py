@@ -1,10 +1,13 @@
 """Unit tests for Dataplex Business Glossary ingestion."""
 
+from typing import List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from google.cloud import dataplex_v1
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_external_entities import (
@@ -23,6 +26,7 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     _term_urn_id,
 )
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.metadata.schema_classes import GlossaryTermsClass
 from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
 
 # ---------------------------------------------------------------------------
@@ -476,10 +480,7 @@ class TestProcessTermAssociations:
                 processor.process_term_associations(["my-project"], max_workers=1)
             )
 
-        glossary_terms_wu = next(
-            wu for wu in workunits if wu.metadata.aspectName == "glossaryTerms"
-        )
-        term_urns = [t.urn for t in glossary_terms_wu.metadata.aspect.terms]
+        term_urns = _glossary_term_urns(workunits)
         assert term_urns == ["urn:li:glossaryTerm:pii"]
         repo.create.assert_not_called()
 
@@ -517,10 +518,7 @@ class TestProcessTermAssociations:
                 processor.process_term_associations(["my-project"], max_workers=1)
             )
 
-        glossary_terms_wu = next(
-            wu for wu in workunits if wu.metadata.aspectName == "glossaryTerms"
-        )
-        term_urns = [t.urn for t in glossary_terms_wu.metadata.aspect.terms]
+        term_urns = _glossary_term_urns(workunits)
         assert term_urns == [native_term_urn]
         assert repo.create.call_count == 1
 
@@ -530,7 +528,20 @@ class TestProcessTermAssociations:
 # ---------------------------------------------------------------------------
 
 
-def _make_processor(repo: Mock) -> DataplexGlossaryProcessor:
+def _glossary_term_urns(workunits: List[MetadataWorkUnit]) -> List[str]:
+    """Extract the term URNs from the single glossaryTerms workunit (with narrowing)."""
+    for wu in workunits:
+        mcp = wu.metadata
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspectName == (
+            "glossaryTerms"
+        ):
+            aspect = mcp.aspect
+            assert isinstance(aspect, GlossaryTermsClass)
+            return [t.urn for t in aspect.terms]
+    raise AssertionError("no glossaryTerms workunit emitted")
+
+
+def _make_processor(repo: Optional[Mock]) -> DataplexGlossaryProcessor:
     return DataplexGlossaryProcessor(
         ctx=MagicMock(),
         glossary_client=MagicMock(),
