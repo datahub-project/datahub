@@ -35,7 +35,7 @@ class InformixClient:
         from jdk4py import JAVA_HOME
 
         os.environ.setdefault("JAVA_HOME", str(JAVA_HOME))
-        import jpype
+        import jpype  # type: ignore[import-untyped]
 
         if not jpype.isJVMStarted():
             jpype.startJVM(classpath=jars)
