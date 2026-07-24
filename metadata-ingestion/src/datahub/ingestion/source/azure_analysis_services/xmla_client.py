@@ -1,13 +1,14 @@
 import logging
 import time
 from typing import Dict, List, Optional, Type, TypeVar
-
-# tostring is XML *serialization* (not parsing) and carries none of the
-# entity-expansion risks that make stdlib XML parsing unsafe; parsing is done
-# exclusively via defusedxml below.
-from xml.etree.ElementTree import Element, tostring
+from xml.etree.ElementTree import (  # nosec B405 - only the Element / ParseError types and tostring (serialization) are imported; all parsing goes through defusedxml
+    Element,
+    ParseError,
+    tostring,
+)
 from xml.sax.saxutils import escape
 
+import defusedxml.ElementTree as DET
 import requests
 from azure.core.credentials import AccessToken, TokenCredential
 from azure.identity import (
@@ -16,7 +17,7 @@ from azure.identity import (
     InteractiveBrowserCredential,
     UsernamePasswordCredential,
 )
-from defusedxml.ElementTree import fromstring
+from defusedxml.common import DefusedXmlException
 from pydantic import ValidationError
 
 from datahub.ingestion.source.azure_analysis_services import constants
@@ -66,6 +67,16 @@ def _strip_ns(tag: str) -> str:
     # ElementTree qualifies tags as ``{namespace}local``; the rowset namespace
     # varies by engine version, so we match on the local name only.
     return tag.rsplit("}", 1)[-1]
+
+
+def _parse_xml(response_text: str) -> Element:
+    # All untrusted XML is parsed through defusedxml so entity-expansion and
+    # external-entity attacks are rejected; malformed or malicious payloads are
+    # surfaced as XmlaClientError so callers can degrade gracefully.
+    try:
+        return DET.fromstring(response_text)
+    except (ParseError, DefusedXmlException) as e:
+        raise XmlaClientError(f"Failed to parse XMLA response: {e}") from e
 
 
 class XmlaClient:
@@ -305,7 +316,7 @@ class XmlaClient:
 
     @staticmethod
     def _find_root(response_text: str) -> Optional[Element]:
-        envelope = fromstring(response_text)
+        envelope = _parse_xml(response_text)
         # Walk to the ``root`` element holding the rowset regardless of the
         # SOAP/response namespaces, which differ between Execute and Discover.
         for element in envelope.iter():
@@ -344,7 +355,7 @@ class XmlaClient:
 
     @staticmethod
     def _raise_on_soap_fault(response_text: str) -> None:
-        envelope = fromstring(response_text)
+        envelope = _parse_xml(response_text)
         for element in envelope.iter():
             if _strip_ns(element.tag) == "Fault":
                 fault_strings = [
