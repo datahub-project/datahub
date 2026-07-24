@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Azure Analysis Services">
+  <defs>
+    <linearGradient id="aasGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#32BEDD"/>
+      <stop offset="1" stop-color="#0078D4"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#aasGrad)" d="M24 4 42 13v22L24 44 6 35V13z"/>
+  <path fill="#FFFFFF" fill-opacity="0.92" d="M24 8.6 37.6 15.4 24 22.2 10.4 15.4z"/>
+  <path fill="#FFFFFF" fill-opacity="0.55" d="M24 24.4 38 17.4v16.2L24 40.6z"/>
+  <path fill="#FFFFFF" fill-opacity="0.35" d="M24 24.4 10 17.4v16.2L24 40.6z"/>
+</svg>

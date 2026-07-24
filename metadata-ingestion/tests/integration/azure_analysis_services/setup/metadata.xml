@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <DiscoverResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <METADATA>{"name":"Sales Model","compatibilityLevel":1600,"model":{"tables":[{"name":"Sales"},{"name":"Product"},{"name":"SalesSummary"}]}}</METADATA>
+          </row>
+        </root>
+      </return>
+    </DiscoverResponse>
+  </soap:Body>
+</soap:Envelope>

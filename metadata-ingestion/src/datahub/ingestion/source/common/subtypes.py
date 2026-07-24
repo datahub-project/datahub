@@ -61,6 +61,9 @@ class DatasetSubTypes(StrEnum):
     CUBE = "Cube"
     # Langfuse
     LANGFUSE_PROMPT = "Langfuse Prompt"
+    # Analysis Services / tabular model table whose rows are produced by a DAX
+    # expression rather than loaded from an upstream source.
+    CALCULATED_TABLE = "Calculated Table"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -115,6 +118,8 @@ class DatasetContainerSubTypes(StrEnum):
     PINECONE_NAMESPACE = "Pinecone Namespace"
     # Cube
     CUBE_DEPLOYMENT = "Cube Deployment"
+    # Azure Analysis Services / SSAS server hosting one or more tabular models.
+    ANALYSIS_SERVICES_SERVER = "Analysis Services Server"
 
 
 class BIContainerSubTypes(StrEnum):

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>100</ID>
+            <TableID>10</TableID>
+            <ExplicitName>Amount</ExplicitName>
+            <ExplicitDataType>8</ExplicitDataType>
+            <Type>1</Type>
+          </row>
+          <row>
+            <ID>101</ID>
+            <TableID>10</TableID>
+            <ExplicitName>ProductKey</ExplicitName>
+            <ExplicitDataType>6</ExplicitDataType>
+            <Type>1</Type>
+          </row>
+          <row>
+            <ID>102</ID>
+            <TableID>10</TableID>
+            <InferredName>RowNumber</InferredName>
+            <InferredDataType>6</InferredDataType>
+            <Type>3</Type>
+          </row>
+          <row>
+            <ID>110</ID>
+            <TableID>11</TableID>
+            <ExplicitName>ProductKey</ExplicitName>
+            <ExplicitDataType>6</ExplicitDataType>
+            <Type>1</Type>
+          </row>
+          <row>
+            <ID>111</ID>
+            <TableID>11</TableID>
+            <ExplicitName>ProductName</ExplicitName>
+            <ExplicitDataType>1</ExplicitDataType>
+            <Type>1</Type>
+          </row>
+          <row>
+            <ID>120</ID>
+            <TableID>12</TableID>
+            <ExplicitName>TotalAmount</ExplicitName>
+            <ExplicitDataType>8</ExplicitDataType>
+            <Type>2</Type>
+            <Expression>SUMX(Sales, Sales[Amount])</Expression>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>
