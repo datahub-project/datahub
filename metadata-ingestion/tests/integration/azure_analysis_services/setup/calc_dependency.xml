@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <DATABASE_NAME>SalesModel</DATABASE_NAME>
+            <OBJECT_TYPE>MEASURE</OBJECT_TYPE>
+            <TABLE>Sales</TABLE>
+            <OBJECT>Total Sales</OBJECT>
+            <EXPRESSION>SUM(Sales[Amount])</EXPRESSION>
+            <REFERENCED_OBJECT_TYPE>COLUMN</REFERENCED_OBJECT_TYPE>
+            <REFERENCED_TABLE>Sales</REFERENCED_TABLE>
+            <REFERENCED_OBJECT>Amount</REFERENCED_OBJECT>
+          </row>
+          <row>
+            <DATABASE_NAME>SalesModel</DATABASE_NAME>
+            <OBJECT_TYPE>CALC_COLUMN</OBJECT_TYPE>
+            <TABLE>SalesSummary</TABLE>
+            <OBJECT>TotalAmount</OBJECT>
+            <EXPRESSION>SUMX(Sales, Sales[Amount])</EXPRESSION>
+            <REFERENCED_OBJECT_TYPE>COLUMN</REFERENCED_OBJECT_TYPE>
+            <REFERENCED_TABLE>Sales</REFERENCED_TABLE>
+            <REFERENCED_OBJECT>Amount</REFERENCED_OBJECT>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

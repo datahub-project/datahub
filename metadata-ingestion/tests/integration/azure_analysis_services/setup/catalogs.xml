@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <CATALOG_NAME>SalesModel</CATALOG_NAME>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

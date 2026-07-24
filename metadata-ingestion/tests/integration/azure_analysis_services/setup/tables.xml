@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>10</ID>
+            <ModelID>1</ModelID>
+            <Name>Sales</Name>
+            <Description>Sales fact table</Description>
+            <IsHidden>false</IsHidden>
+          </row>
+          <row>
+            <ID>11</ID>
+            <ModelID>1</ModelID>
+            <Name>Product</Name>
+            <Description>Product dimension</Description>
+            <IsHidden>false</IsHidden>
+          </row>
+          <row>
+            <ID>12</ID>
+            <ModelID>1</ModelID>
+            <Name>SalesSummary</Name>
+            <Description>Calculated summary table</Description>
+            <IsHidden>false</IsHidden>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

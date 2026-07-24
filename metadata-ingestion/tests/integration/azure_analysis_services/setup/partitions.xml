@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>300</ID>
+            <TableID>10</TableID>
+            <Name>Sales-Partition</Name>
+            <Type>4</Type>
+            <QueryDefinition>let Source = Sql.Database("myserver.database.windows.net", "salesdb", [Query="SELECT * FROM dbo.sales"]) in Source</QueryDefinition>
+            <DataSourceID>600</DataSourceID>
+          </row>
+          <row>
+            <ID>301</ID>
+            <TableID>11</TableID>
+            <Name>Product-Partition</Name>
+            <Type>4</Type>
+            <QueryDefinition>let Source = Sql.Database("myserver.database.windows.net", "salesdb", [Query="SELECT * FROM dbo.product"]) in Source</QueryDefinition>
+            <DataSourceID>600</DataSourceID>
+          </row>
+          <row>
+            <ID>302</ID>
+            <TableID>12</TableID>
+            <Name>SalesSummary-Partition</Name>
+            <Type>7</Type>
+            <QueryDefinition>SUMMARIZE(Sales, Sales[ProductKey], "Total", SUM(Sales[Amount]))</QueryDefinition>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>
