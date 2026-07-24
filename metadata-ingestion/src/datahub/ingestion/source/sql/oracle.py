@@ -7,8 +7,10 @@ import platform
 import re
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -16,6 +18,7 @@ from typing import (
     Optional,
     Tuple,
     Type,
+    TypeVar,
     Union,
     cast,
 )
@@ -94,6 +97,8 @@ from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
+_T = TypeVar("_T")
+
 # Pre-compiled regex pattern for extracting Oracle error codes
 _ORACLE_ERROR_CODE_PATTERN = re.compile(r"ORA-(\d{5})")
 
@@ -125,11 +130,20 @@ class DataDictionaryMode(StrEnum):
 
 
 class OracleObjectType(StrEnum):
-    """Oracle database object types."""
+    """Oracle database object types.
+
+    Also used to build the SQL IN-lists below via ``_sql_type_list``, so the
+    query text can't drift from the Python-side comparisons.
+    """
 
     TABLE = "TABLE"
     VIEW = "VIEW"
     MATERIALIZED_VIEW = "MATERIALIZED VIEW"
+    PROCEDURE = "PROCEDURE"
+    FUNCTION = "FUNCTION"
+    PACKAGE = "PACKAGE"
+    PACKAGE_BODY = "PACKAGE BODY"
+    SYNONYM = "SYNONYM"
 
 
 class VSqlPrerequisiteCheckResult(BaseModel):
@@ -163,14 +177,6 @@ class OracleSQLCommandType:
     MERGE = 189
 
 
-class UpstreamTableInfo(BaseModel):
-    """Structure for upstream table dependency information."""
-
-    schema_name: str
-    table: str
-    type: OracleObjectType
-
-
 class ProcedureDependencies(BaseModel):
     """Structure for stored procedure dependencies.
 
@@ -178,7 +184,6 @@ class ProcedureDependencies(BaseModel):
     """
 
     upstream: Optional[List[str]] = None
-    upstream_tables: Optional[List[UpstreamTableInfo]] = None
     downstream: Optional[List[str]] = None
 
 
@@ -200,6 +205,38 @@ ORACLE_SYSTEM_SCHEMAS = (
 # Format system schemas for SQL IN clause
 _SYSTEM_SCHEMAS_SQL = ", ".join(f"'{schema}'" for schema in ORACLE_SYSTEM_SCHEMAS)
 
+
+def _sql_type_list(*types: OracleObjectType) -> str:
+    """Render OracleObjectType members as a SQL IN-list, e.g. "'TABLE', 'VIEW'"."""
+    return ", ".join(f"'{t.value}'" for t in types)
+
+
+# Object types that PROCEDURES_QUERY yields and that the enrichment queries
+# key their results by. Other IN-lists below extend this base set instead of
+# repeating its members.
+PROCEDURE_LIKE_TYPES = (
+    OracleObjectType.PROCEDURE,
+    OracleObjectType.FUNCTION,
+    OracleObjectType.PACKAGE,
+)
+TABLE_LIKE_TYPES = (
+    OracleObjectType.TABLE,
+    OracleObjectType.VIEW,
+    OracleObjectType.MATERIALIZED_VIEW,
+)
+
+_PROCEDURE_LIKE_TYPES_SQL = _sql_type_list(*PROCEDURE_LIKE_TYPES)
+# ALL_SOURCE/DBA_SOURCE splits packages into a spec ('PACKAGE') and a body
+# ('PACKAGE BODY') row; both are merged under 'PACKAGE' in
+# _get_procedure_source_codes_for_schema.
+_PROCEDURE_SOURCE_TYPES_SQL = _sql_type_list(
+    *PROCEDURE_LIKE_TYPES, OracleObjectType.PACKAGE_BODY
+)
+_DEPENDENT_OBJECT_TYPES_SQL = _sql_type_list(*TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES)
+_UPSTREAM_REFERENCED_TYPES_SQL = _sql_type_list(
+    *TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES, OracleObjectType.SYNONYM
+)
+
 # SQL Query Constants
 # Note: System schemas are explicitly excluded to prevent ingesting internal Oracle objects,
 # even if they match the user's schema_pattern. This is a defense-in-depth measure.
@@ -213,7 +250,9 @@ PROCEDURES_QUERY = (
         o.status
     FROM {tables_prefix}_OBJECTS o
     WHERE o.owner = :schema
-        AND o.object_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
+        AND o.object_type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
         AND o.status = 'VALID'
         AND o.owner NOT IN ("""
     + _SYSTEM_SCHEMAS_SQL
@@ -222,51 +261,73 @@ PROCEDURES_QUERY = (
 """
 )
 
-PROCEDURE_SOURCE_QUERY = """
-    SELECT text
+# Schema-scoped enrichment queries.
+#
+# Earlier versions of this source ran three queries per procedure to hydrate
+# source body, argument signature, and dependency graph. On schemas with
+# hundreds of procedures those round-trips dominated ingestion time. The
+# queries below fetch the same data for every procedure in the schema in one
+# round-trip each; per-procedure dicts are then built in Python.
+PROCEDURE_SOURCES_FOR_SCHEMA_QUERY = (
+    """
+    SELECT name, type, line, text
     FROM {tables_prefix}_SOURCE
     WHERE owner = :schema
-        AND name = :procedure_name
-        AND type = :object_type
-    ORDER BY line
+        AND type IN ("""
+    + _PROCEDURE_SOURCE_TYPES_SQL
+    + """)
+    ORDER BY name, type, line
 """
+)
 
-PROCEDURE_ARGUMENTS_QUERY = """
+PROCEDURE_ARGUMENTS_FOR_SCHEMA_QUERY = """
     SELECT
+        object_name,
         argument_name,
         data_type,
         in_out,
         position
     FROM {tables_prefix}_ARGUMENTS
     WHERE owner = :schema
-        AND object_name = :procedure_name
         AND argument_name IS NOT NULL
-    ORDER BY position
+    ORDER BY object_name, position
 """
 
-PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY = """
+PROCEDURE_UPSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY = (
+    """
     SELECT DISTINCT 
+        name,
         referenced_owner,
         referenced_name,
         referenced_type
     FROM {tables_prefix}_DEPENDENCIES
     WHERE owner = :schema
-        AND name = :procedure_name
-        AND type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
-        AND referenced_type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM')
+        AND type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
+        AND referenced_type IN ("""
+    + _UPSTREAM_REFERENCED_TYPES_SQL
+    + """)
 """
+)
 
-PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY = """
+PROCEDURE_DOWNSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY = (
+    """
     SELECT DISTINCT 
+        referenced_name,
         owner,
         name,
         type
     FROM {tables_prefix}_DEPENDENCIES
     WHERE referenced_owner = :schema
-        AND referenced_name = :procedure_name
-        AND referenced_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
-        AND type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE')
+        AND referenced_type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
+        AND type IN ("""
+    + _DEPENDENT_OBJECT_TYPES_SQL
+    + """)
 """
+)
 
 MATERIALIZED_VIEWS_QUERY = (
     """
@@ -1309,6 +1370,18 @@ def _parse_oracle_procedure_dependencies(
     return input_jobs
 
 
+@dataclass
+class OracleSourceReport(SQLSourceReport):
+    """Report for the Oracle source, tracking stored-procedure enrichment health."""
+
+    # Incremented once per batched enrichment query (source code, arguments, or
+    # dependencies) that fails, per schema — not per affected procedure, since a
+    # single failed query drops enrichment for every procedure in that schema.
+    # Affected procedures are still emitted, just without that enrichment.
+    # Should be 0 on a clean run.
+    procedure_enrichment_query_failures: int = 0
+
+
 @platform_name("Oracle")
 @config_class(OracleConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -1368,6 +1441,12 @@ class OracleSource(SQLAlchemySource):
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
+
+        self.report: OracleSourceReport = OracleSourceReport()
+        # The base class built classification_handler against the report it
+        # created in super().__init__(); re-point it at our subclass report so
+        # classification warnings/counters land on the report we actually use.
+        self.classification_handler.report = self.report
 
         # if connecting to oracle with enable_thick_mode, it must be initialized before calling
         # create_engine, which is called in get_inspectors()
@@ -1661,49 +1740,50 @@ class OracleSource(SQLAlchemySource):
             try:
                 self._validate_tables_prefix(tables_prefix)
                 procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
-                procedures = conn.execute(
-                    sql.text(procedures_query), dict(schema=normalized_schema)
+                procedures = list(
+                    conn.execute(
+                        sql.text(procedures_query), dict(schema=normalized_schema)
+                    )
                 )
 
+                # Fetch enrichment data for every procedure in the schema in a single
+                # round-trip each, rather than three queries per procedure. On schemas
+                # with hundreds of procedures this turns O(N) queries into O(1).
+                source_codes = self._get_procedure_source_codes_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+                argument_signatures = self._get_procedure_arguments_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+                dependencies_by_name = self._get_procedure_dependencies_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+
+                default_db = self._get_procedure_default_db()
+
                 for row in procedures:
-                    source_code = self._get_procedure_source_code(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        object_type=row.type,
-                        tables_prefix=tables_prefix,
-                    )
-
-                    arguments = self._get_procedure_arguments(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
-
-                    dependencies = self._get_procedure_dependencies(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
+                    source_code = source_codes.get((row.name, row.type))
+                    arguments = argument_signatures.get(row.name)
+                    dependencies = dependencies_by_name.get(row.name)
 
                     extra_props = {"object_type": row.type, "status": row.status}
 
-                    # Add dependency information if available (flatten to strings)
                     if dependencies:
                         if dependencies.upstream:
+                            # sort for deterministic test output
                             extra_props["upstream_dependencies"] = ", ".join(
-                                sorted(
-                                    dependencies.upstream
-                                )  # sort for deterministic test output
+                                sorted(dependencies.upstream)
                             )
                         if dependencies.downstream:
                             extra_props["downstream_dependencies"] = ", ".join(
                                 sorted(dependencies.downstream)
                             )
-
-                    default_db = self._get_procedure_default_db()
 
                     subtype = (
                         JobContainerSubTypes.FUNCTION
@@ -1742,133 +1822,174 @@ class OracleSource(SQLAlchemySource):
 
         return base_procedures
 
-    def _get_procedure_source_code(
+    def _run_schema_enrichment_query(
         self,
-        conn: sqlalchemy.engine.Connection,
+        operation: str,
         schema: str,
-        procedure_name: str,
-        object_type: str,
         tables_prefix: str,
-    ) -> Optional[str]:
-        """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
+        fetch: Callable[[], _T],
+        default: _T,
+    ) -> _T:
+        """Shared validate -> execute -> handle-failure skeleton for the
+        per-schema stored procedure enrichment helpers below.
+
+        A single query failure here now drops enrichment for every procedure
+        in the schema (batching traded per-procedure blast radius for speed),
+        so failures are routed through ``self.report`` rather than a bare
+        ``logger.warning`` to keep them visible to operators.
+        """
         try:
             self._validate_tables_prefix(tables_prefix)
-            source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
-
-            source_data = conn.execute(
-                sql.text(source_query),
-                dict(
-                    schema=schema,
-                    procedure_name=procedure_name,
-                    object_type=object_type,
+            return fetch()
+        except Exception as e:
+            # ``fetch`` runs both the query and the in-memory shaping
+            # (e.g. PACKAGE/PACKAGE BODY merge), so this isn't necessarily a
+            # permissions problem — keep the grant hint but defer to the
+            # attached exception rather than asserting the cause.
+            self.report.warning(
+                title="Failed to Fetch Stored Procedure Enrichment",
+                message=(
+                    f"Failed to {operation}. Affected procedures in this schema "
+                    "will be emitted without this enrichment. Often caused by "
+                    f"missing SELECT on {tables_prefix}_SOURCE/ARGUMENTS/DEPENDENCIES "
+                    "(grant it or set 'include_stored_procedures: false' to "
+                    "disable); see the attached error for the actual cause."
                 ),
+                context=f"schema={schema}",
+                exc=e,
             )
+            self.report.procedure_enrichment_query_failures += 1
+            return default
 
-            source_lines = []
-            for row in source_data:
-                source_lines.append(row.text)
-
-            return "".join(source_lines) if source_lines else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get source code for {object_type} {schema}.{procedure_name}: {e}"
-            )
-            return None
-
-    def _get_procedure_arguments(
+    def _get_procedure_source_codes_for_schema(
         self,
         conn: sqlalchemy.engine.Connection,
         schema: str,
-        procedure_name: str,
         tables_prefix: str,
-    ) -> Optional[str]:
-        """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS."""
-        try:
-            # Validate tables_prefix to prevent injection
-            self._validate_tables_prefix(tables_prefix)
-            args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
+    ) -> Dict[Tuple[str, str], str]:
+        """Fetch all procedure/function/package source code in the schema.
 
-            args_data = conn.execute(
-                sql.text(args_query), dict(schema=schema, procedure_name=procedure_name)
+        Returns a mapping from ``(object_name, object_type)`` to the joined
+        source text. PACKAGE BODY rows are merged under the PACKAGE key (spec
+        text first, then body, per the query's ``ORDER BY name, type, line``)
+        so a package's definition carries its full source, not just the spec.
+        """
+
+        def _fetch() -> Dict[Tuple[str, str], str]:
+            source_query = PROCEDURE_SOURCES_FOR_SCHEMA_QUERY.format(
+                tables_prefix=tables_prefix
             )
 
-            arguments = []
-            for row in args_data:
-                arg_str = f"{row.in_out} {row.argument_name} {row.data_type}"
-                arguments.append(arg_str)
+            texts_by_type: Dict[Tuple[str, str], str] = {}
+            for row in conn.execute(sql.text(source_query), dict(schema=schema)):
+                key = (row.name, row.type)
+                texts_by_type[key] = texts_by_type.get(key, "") + row.text
 
-            return ", ".join(arguments) if arguments else None
+            merged: Dict[Tuple[str, str], str] = {}
+            for (name, obj_type), text in texts_by_type.items():
+                if obj_type != OracleObjectType.PACKAGE_BODY.value:
+                    merged[(name, obj_type)] = text
+                    continue
+                spec_key = (name, OracleObjectType.PACKAGE.value)
+                spec_text = merged.get(spec_key, "")
+                # Oracle doesn't guarantee the spec's last source line ends
+                # with a newline, so force a boundary before the body.
+                if spec_text and not spec_text.endswith("\n"):
+                    spec_text += "\n"
+                merged[spec_key] = spec_text + text
+            return merged
 
-        except Exception as e:
-            logger.warning(
-                f"Failed to get arguments for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure source code for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
 
-    def _get_procedure_dependencies(
+    def _get_procedure_arguments_for_schema(
         self,
         conn: sqlalchemy.engine.Connection,
         schema: str,
-        procedure_name: str,
         tables_prefix: str,
-    ) -> Optional[ProcedureDependencies]:
-        """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES."""
-        try:
-            self._validate_tables_prefix(tables_prefix)
+    ) -> Dict[str, str]:
+        """Fetch argument signatures for every procedure in the schema.
 
-            upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
+        Returns a mapping from procedure name to its rendered argument
+        signature (e.g. ``"IN p1 VARCHAR2, OUT p2 NUMBER"``).
+        """
+
+        def _fetch() -> Dict[str, str]:
+            args_query = PROCEDURE_ARGUMENTS_FOR_SCHEMA_QUERY.format(
                 tables_prefix=tables_prefix
             )
-            upstream_data = conn.execute(
-                sql.text(upstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
-            )
 
-            downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
+            args_by_proc: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(args_query), dict(schema=schema)):
+                args_by_proc[row.object_name].append(
+                    f"{row.in_out} {row.argument_name} {row.data_type}"
+                )
+
+            return {name: ", ".join(args) for name, args in args_by_proc.items()}
+
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure arguments for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
+
+    def _get_procedure_dependencies_for_schema(
+        self,
+        conn: sqlalchemy.engine.Connection,
+        schema: str,
+        tables_prefix: str,
+    ) -> Dict[str, ProcedureDependencies]:
+        """Fetch upstream and downstream dependencies for every procedure in the schema.
+
+        Returns a mapping from procedure name to its ``ProcedureDependencies``.
+        Procedures with no dependencies are not present in the result.
+        """
+
+        def _fetch() -> Dict[str, ProcedureDependencies]:
+            upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY.format(
                 tables_prefix=tables_prefix
             )
-            downstream_data = conn.execute(
-                sql.text(downstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
+            downstream_query = (
+                PROCEDURE_DOWNSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY.format(
+                    tables_prefix=tables_prefix
+                )
             )
 
-            upstream_deps: List[str] = []
-            upstream_tables: List[UpstreamTableInfo] = []
-            for row in upstream_data:
-                dep_str = f"{row.referenced_owner}.{row.referenced_name} ({row.referenced_type})"
-                upstream_deps.append(dep_str)
-                if row.referenced_type in (
-                    OracleObjectType.TABLE.value,
-                    OracleObjectType.VIEW.value,
-                    OracleObjectType.MATERIALIZED_VIEW.value,
-                ):
-                    table_info = UpstreamTableInfo(
-                        schema_name=row.referenced_owner,
-                        table=row.referenced_name,
-                        type=OracleObjectType(row.referenced_type),
-                    )
-                    upstream_tables.append(table_info)
+            upstream_strs: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(upstream_query), dict(schema=schema)):
+                upstream_strs[row.name].append(
+                    f"{row.referenced_owner}.{row.referenced_name} "
+                    f"({row.referenced_type})"
+                )
 
-            downstream_deps: List[str] = []
-            for row in downstream_data:
-                dep_str = f"{row.owner}.{row.name} ({row.type})"
-                downstream_deps.append(dep_str)
+            downstream_strs: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(downstream_query), dict(schema=schema)):
+                downstream_strs[row.referenced_name].append(
+                    f"{row.owner}.{row.name} ({row.type})"
+                )
 
-            if not upstream_deps and not downstream_deps:
-                return None
+            result: Dict[str, ProcedureDependencies] = {}
+            for name in set(upstream_strs) | set(downstream_strs):
+                result[name] = ProcedureDependencies(
+                    upstream=upstream_strs.get(name) or None,
+                    downstream=downstream_strs.get(name) or None,
+                )
+            return result
 
-            return ProcedureDependencies(
-                upstream=upstream_deps if upstream_deps else None,
-                upstream_tables=upstream_tables if upstream_tables else None,
-                downstream=downstream_deps if downstream_deps else None,
-            )
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get dependencies for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure dependencies for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
 
     def loop_materialized_views(
         self,
