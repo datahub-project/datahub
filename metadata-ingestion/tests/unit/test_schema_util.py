@@ -270,6 +270,32 @@ def test_avro_schema_with_recursion():
     assert_field_paths_match(fields, expected_field_paths)
 
 
+def test_avro_schema_with_recursion_inside_optional_union():
+    # Regression test for https://github.com/datahub-project/datahub/issues/17699:
+    # a recursive record reference wrapped in an optional union like
+    # ["null", "RecordName"] used to hit RecursionError because the visited-record
+    # guard only checked the outer schema, not the union-unwrapped type.
+    schema = """
+{
+    "type": "record",
+    "name": "TreeNode",
+    "namespace": "demo",
+    "fields": [
+        { "name": "value", "type": "string" },
+        { "name": "left", "type": ["null", "demo.TreeNode"], "default": null },
+        { "name": "right", "type": ["null", "demo.TreeNode"], "default": null }
+    ]
+}
+"""
+    fields = avro_schema_to_mce_fields(schema, swallow_exceptions=False)
+    expected_field_paths = [
+        "[version=2.0].[type=TreeNode].[type=string].value",
+        "[version=2.0].[type=TreeNode].[type=TreeNode].left",
+        "[version=2.0].[type=TreeNode].[type=TreeNode].right",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+
+
 def test_avro_sample_payment_schema_to_mce_fields_with_nesting():
     schema = """
 {
