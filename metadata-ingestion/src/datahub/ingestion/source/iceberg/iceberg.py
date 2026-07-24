@@ -189,13 +189,57 @@ class IcebergSource(StatefulIngestionSourceBase):
             AutoStaleEntityRemovalProcessor,
         ]
 
-    def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:
-        namespaces = catalog.list_namespaces()
-        LOGGER.debug(
-            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
-        )
-        self.report.report_no_listed_namespaces(len(namespaces))
+    def _collect_namespaces(
+        self,
+        catalog: Catalog,
+        discovered_namespaces: List[Identifier],
+        parent: Optional[Identifier] = None,
+    ) -> None:
+        try:
+            namespaces = (
+                catalog.list_namespaces(parent)
+                if parent is not None
+                else catalog.list_namespaces()
+            )
+        except NoSuchNamespaceError as e:
+            self.report.warning(
+                title="No such namespace",
+                message="Skipping the missing namespace while listing child namespaces.",
+                context=str(parent),
+                exc=e,
+            )
+            return
+        except RESTError as e:
+            self.report.warning(
+                title="Iceberg REST Server Error",
+                message="Iceberg REST Server returned error status when trying to list namespaces, skipping it.",
+                context=str(parent),
+                exc=e,
+            )
+            return
+        except Exception as e:
+            self.report.report_failure(
+                title="Error while listing namespaces",
+                message="Skipping the namespace branch due to errors while listing child namespaces.",
+                context=str(parent),
+                exc=e,
+            )
+            return
+
         for namespace in namespaces:
+            discovered_namespaces.append(namespace)
+            self._collect_namespaces(catalog, discovered_namespaces, namespace)
+
+    def _get_namespaces(self, catalog: Catalog) -> Iterable[Identifier]:
+        discovered_namespaces: List[Identifier] = []
+        self._collect_namespaces(catalog, discovered_namespaces)
+
+        LOGGER.debug(
+            f"Retrieved {len(discovered_namespaces)} namespaces, first 10: {discovered_namespaces[:10]}"
+        )
+        self.report.report_no_listed_namespaces(len(discovered_namespaces))
+
+        for namespace in discovered_namespaces:
             namespace_repr = ".".join(namespace)
             if not self.config.namespace_pattern.allowed(namespace_repr):
                 LOGGER.info(
