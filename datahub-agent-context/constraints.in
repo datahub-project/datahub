@@ -1,0 +1,10 @@
+# Input for generating constraints.txt.
+#
+# Covers the widest install performed by the gradle tasks in build.gradle
+# (installDevTest), so the generated pins apply to every install this module
+# does. Regenerate with:
+#
+#   ../gradlew :datahub-agent-context:updateConstraints
+#
+-e ../metadata-ingestion
+-e .[dev,langchain]

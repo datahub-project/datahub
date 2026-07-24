@@ -20,13 +20,23 @@ apply from: "../gradle/coverage/python-coverage.gradle"
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
+  // Resolve against a pinned tree rather than whatever PyPI serves at build time, so a
+  // third-party release (or yank) cannot break this module's CI on an unrelated commit.
+  // Regenerate constraints.txt with :datahub-agent-context:updateConstraints.
+  //
+  // build-constraints.txt is shared with metadata-ingestion: we install that project from
+  // source here, so its build isolation environments need the same setuptools bound.
+  uv_constraints = '--constraint constraints.txt --build-constraint ../metadata-ingestion/build-constraints.txt'
+  // Floor for the universal resolution in constraints.txt. Matches the version CI runs and
+  // the real floor of acryl-datahub, which requires >=3.10.
+  constraints_python_version = '3.10'
 }
 
 if (!project.hasProperty("extra_pip_requirements")) {
   ext.extra_pip_requirements = ""
 }
 
-def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../metadata-ingestion"
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install ${uv_constraints} -e ../metadata-ingestion"
 
 task checkPythonVersion(type: Exec) {
   commandLine python_executable, '-c',
@@ -46,6 +56,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
 task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
+  inputs.file file('constraints.txt')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
@@ -58,6 +69,7 @@ task install(dependsOn: [installPackage])
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
+  inputs.file file('constraints.txt')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
@@ -83,12 +95,25 @@ task lintFix(type: Exec, dependsOn: installDev) {
 task installDevTest(type: Exec, dependsOn: [installDev]) {
   def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
   inputs.file file('setup.py')
+  inputs.file file('constraints.txt')
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
       "source ${venv_name}/bin/activate && set -x && " +
       "${pip_install_command} -e .[dev,langchain] ${extra_pip_requirements} && " +
       "touch ${sentinel_file}"
+}
+
+// Refresh the pinned tree in constraints.txt. Run this whenever setup.py's dependencies
+// change, or deliberately to pick up upstream releases; installs fail loudly if the two
+// drift out of sync, which is the signal to run this.
+task updateConstraints(type: Exec, dependsOn: environmentSetup) {
+  commandLine 'bash', '-c',
+      "source ${venv_name}/bin/activate && set -x && " +
+      "uv pip compile constraints.in --universal " +
+      "--python-version ${constraints_python_version} " +
+      "--no-emit-package acryl-datahub --no-emit-package datahub-agent-context " +
+      "-o constraints.txt"
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
