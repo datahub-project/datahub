@@ -33,7 +33,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
 
-@platform_name("Informix")
+@platform_name("Informix", id="informix")
 @config_class(InformixSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
