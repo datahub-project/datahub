@@ -266,12 +266,11 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self.report.warning(
             title="Taskflow step DAG missing for some Taskflows",
             message=(
-                f"Resolved {with_steps}/{total} Taskflow step DAGs; "
-                f"{missing} Taskflow(s) emitted as DataFlow-only. "
+                "Some Taskflows emitted as DataFlow-only. "
                 "Common cause: service account lacks 'Asset - export' "
                 "privilege. Grant it to enable MT chaining via inputDatajobs."
             ),
-            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}",
+            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}, missing={missing}",
         )
 
     def _extract_containers(self) -> Iterable[Entity]:

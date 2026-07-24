@@ -497,6 +497,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:odcs",
+        "name": "odcs",
+        "displayName": "Open Data Contract Standard",
+        "description": "Import Open Data Contract Standard (ODCS) v3.x YAML files as logical datasets, with schema, ownership, tags, and quality assertions.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/odcs",
+        "recipe": "source:\n    type: odcs\n    config:\n        # Path to an ODCS YAML file, a directory of them, or a glob pattern\n        path: /path/to/contracts\n        emit_assertions: true\n        emit_schema_assertion: true\n        emit_logical_parent: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:sac",
         "name": "sac",
         "displayName": "SAP Analytics Cloud",

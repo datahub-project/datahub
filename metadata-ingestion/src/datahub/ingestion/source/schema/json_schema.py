@@ -468,7 +468,9 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                         )
                     except Exception as e:
                         self.report.failure(
-                            f"{root}/{file_name}", f"Failed to process due to {e}"
+                            message="Failed to process file",
+                            context=f"{root}/{file_name}",
+                            exc=e,
                         )
                         logger.error(
                             f"Failed to process file {root}/{file_name}", exc_info=e
@@ -485,7 +487,9 @@ class JsonSchemaSource(StatefulIngestionSourceBase):
                 )
             except Exception as e:
                 self.report.failure(
-                    str(self.config.path), f"Failed to process due to {e}"
+                    message="Failed to process file",
+                    context=str(self.config.path),
+                    exc=e,
                 )
                 logger.error(f"Failed to process file {self.config.path}", exc_info=e)
 

@@ -1100,8 +1100,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract source column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                message="Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
                 f"source={source_dataset}, target={target_dataset}",
                 exc=e,
             )
@@ -1201,8 +1201,8 @@ class BaseConnector:
 
         except Exception as e:
             self.report.warning(
-                "Failed to extract sink column-level lineage — asset-level lineage is unaffected",
-                f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                message="Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
                 f"target_platform={target_platform}, target={target_dataset}",
                 exc=e,
             )

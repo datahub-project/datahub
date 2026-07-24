@@ -106,8 +106,10 @@ class StandardSchemaProcessor(EntityProcessor):
                 )
                 self.report.warning(
                     title="Failed to extract standard schema from Iglu Central",
-                    message=f"Failed to extract standard schema {iglu_uri}: {e}. "
+                    message="Failed to extract standard schema. "
                     "Lineage from event specs to this schema may be incomplete.",
+                    context=iglu_uri,
+                    exc=e,
                     log=False,
                 )
 
