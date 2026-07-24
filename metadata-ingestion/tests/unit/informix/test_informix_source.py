@@ -302,7 +302,9 @@ def test_source_emits_view_lineage():
     assert mcp.entityUrn == view_dataset.urn.urn()
     upstream_lineage = mcp.aspect
     assert isinstance(upstream_lineage, UpstreamLineageClass)
-    upstream_names = sorted(u.dataset.split(",")[-2] for u in upstream_lineage.upstreams)
+    upstream_names = sorted(
+        u.dataset.split(",")[-2] for u in upstream_lineage.upstreams
+    )
     assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
     assert upstream_lineage.fineGrainedLineages
     assert source.report.views_with_lineage == 1

@@ -13,7 +13,8 @@ def _resolver() -> SchemaResolver:
         urn("customers"), {"id": "INTEGER", "name": "VARCHAR", "email": "VARCHAR"}
     )
     sr.add_raw_schema_info(
-        urn("orders"), {"order_id": "INTEGER", "customer_id": "INTEGER", "amount": "DECIMAL"}
+        urn("orders"),
+        {"order_id": "INTEGER", "customer_id": "INTEGER", "amount": "DECIMAL"},
     )
     return sr
 
