@@ -437,13 +437,6 @@ azure_data_factory = {
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
 }
 
-data_lake_profiling = {
-    "pydeequ>=1.1.0,<2.0.0",
-    "pyspark~=3.5.6,<4.0.0",
-    # cachetools is used by the profiling config
-    *cachetools_lib,
-}
-
 file_profiling = {
     # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
     # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.

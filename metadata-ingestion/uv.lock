@@ -74,11 +74,10 @@ abs = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "cachetools" },
+    { name = "datasketches" },
     { name = "more-itertools" },
     { name = "parse" },
     { name = "pyarrow" },
-    { name = "pydeequ" },
-    { name = "pyspark" },
     { name = "smart-open", extra = ["azure"] },
     { name = "tableschema" },
     { name = "ujson" },
@@ -183,7 +182,6 @@ all = [
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
-    { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -191,7 +189,6 @@ all = [
     { name = "pymysql" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
-    { name = "pyspark" },
     { name = "python-ldap" },
     { name = "python-liquid" },
     { name = "rdflib" },
@@ -576,7 +573,6 @@ dev = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
-    { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -584,7 +580,6 @@ dev = [
     { name = "pymysql" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
-    { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -769,7 +764,6 @@ docs = [
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
     { name = "pydantic" },
-    { name = "pydeequ" },
     { name = "pydruid" },
     { name = "pyiceberg", extra = ["adlfs", "dynamodb", "glue", "hive", "pyarrow", "s3fs", "snappy"] },
     { name = "pymetastore" },
@@ -777,7 +771,6 @@ docs = [
     { name = "pymysql" },
     { name = "pyodbc" },
     { name = "pyopenssl" },
-    { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1885,6 +1878,7 @@ requires-dist = [
     { name = "databricks-sql-connector", marker = "extra == 'docs'", specifier = ">=2.8.0,<3.0.0" },
     { name = "databricks-sql-connector", marker = "extra == 'fivetran'", specifier = ">=2.8.0,<3.0.0" },
     { name = "databricks-sql-connector", marker = "extra == 'unity-catalog'", specifier = ">=2.8.0,<3.0.0" },
+    { name = "datasketches", marker = "extra == 'abs'", specifier = ">=5.0.0,<6.0.0" },
     { name = "datasketches", marker = "extra == 'all'", specifier = ">=5.0.0,<6.0.0" },
     { name = "datasketches", marker = "extra == 'dev'", specifier = ">=5.0.0,<6.0.0" },
     { name = "datasketches", marker = "extra == 'docs'", specifier = ">=5.0.0,<6.0.0" },
@@ -2324,10 +2318,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
-    { name = "pydeequ", marker = "extra == 'abs'", specifier = ">=1.1.0,<2.0.0" },
-    { name = "pydeequ", marker = "extra == 'all'", specifier = ">=1.1.0,<2.0.0" },
-    { name = "pydeequ", marker = "extra == 'dev'", specifier = ">=1.1.0,<2.0.0" },
-    { name = "pydeequ", marker = "extra == 'docs'", specifier = ">=1.1.0,<2.0.0" },
     { name = "pydruid", marker = "extra == 'all'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'dev'", specifier = ">=0.6.2,<=0.6.9" },
     { name = "pydruid", marker = "extra == 'docs'", specifier = ">=0.6.2,<=0.6.9" },
@@ -2372,10 +2362,6 @@ requires-dist = [
     { name = "pyopenssl", marker = "extra == 'integration-tests'", specifier = ">=26.0.0,<27.0.0" },
     { name = "pyopenssl", marker = "extra == 'mssql'", specifier = ">=26.0.0,<27.0.0" },
     { name = "pyopenssl", marker = "extra == 'mssql-odbc'", specifier = ">=26.0.0,<27.0.0" },
-    { name = "pyspark", marker = "extra == 'abs'", specifier = "~=3.5.6,<4.0.0" },
-    { name = "pyspark", marker = "extra == 'all'", specifier = "~=3.5.6,<4.0.0" },
-    { name = "pyspark", marker = "extra == 'dev'", specifier = "~=3.5.6,<4.0.0" },
-    { name = "pyspark", marker = "extra == 'docs'", specifier = "~=3.5.6,<4.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=6.2.2,<10.0.0" },
     { name = "pytest", marker = "extra == 'docs'", specifier = ">=6.2.2,<10.0.0" },
     { name = "pytest", marker = "extra == 'testing-utils'", specifier = ">=6.2.2,<10.0.0" },
@@ -9270,15 +9256,6 @@ wheels = [
 ]
 
 [[package]]
-name = "py4j"
-version = "0.10.9.9"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
-]
-
-[[package]]
 name = "pyarrow"
 version = "18.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -9552,19 +9529,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/75/c1/1c55272f49d761cec38ddb80be9817935b9c91ebd6a8988e10f532868d56/pydash-8.0.6.tar.gz", hash = "sha256:b2821547e9723f69cf3a986be4db64de41730be149b2641947ecd12e1e11025a", size = 164338, upload-time = "2026-01-17T16:42:56.576Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a5/b7/cc5e7974699db40014d58c7dd7c4ad4ffc244d36930dc9ec7d06ee67d7a9/pydash-8.0.6-py3-none-any.whl", hash = "sha256:ee70a81a5b292c007f28f03a4ee8e75c1f5d7576df5457b836ec7ab2839cc5d0", size = 101561, upload-time = "2026-01-17T16:42:55.448Z" },
-]
-
-[[package]]
-name = "pydeequ"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pandas" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/03/4a/6388c746fd93dce87a473fe817190498801beb2556a55bce4f020a1e58be/pydeequ-1.5.0.tar.gz", hash = "sha256:81f943e93723bba3258cdfde4641de5cca28e228775c87ad84ee2f74fcdacce8", size = 35522, upload-time = "2025-04-01T20:25:22.469Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/66/ab5c84ec4ab22923addc5d1126231af1a05e767ac29bd13cb4c6a7eb2b1d/pydeequ-1.5.0-py3-none-any.whl", hash = "sha256:1735256c6506ca9ecac9406fce3a0a0ed6bce4daef2fca1abe901d96a4ae3edd", size = 37737, upload-time = "2025-04-01T20:25:21.388Z" },
 ]
 
 [[package]]
@@ -10005,15 +9969,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/92/3600486936eebab747ae1462d231d7f87d234da24a04e82e1915c00f4427/pyroaring-1.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:428c3bb384fe4c483feb5cf7aa3aef1621fb0a5c4f3d391da67b2c4a43f08a10", size = 260349, upload-time = "2025-10-09T09:07:46.524Z" },
     { url = "https://files.pythonhosted.org/packages/77/96/8dde074f1ad2a1c3d2091b22de80d1b3007824e649e06eeeebded83f4d48/pyroaring-1.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:9c0c856e8aa5606e8aed5f30201286e404fdc9093f81fefe82d2e79e67472bb2", size = 218775, upload-time = "2025-10-09T09:07:47.558Z" },
 ]
-
-[[package]]
-name = "pyspark"
-version = "3.5.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "py4j" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/80/5a/3806f44eb47387e8af803508cdd6bbc0df784febf4dc010700be04a1ff89/pyspark-3.5.8.tar.gz", hash = "sha256:54cca0767b21b40e3953ad1d30f8601c53abf9cbda763653289cdcfcac52313c", size = 317817299, upload-time = "2026-01-15T11:46:14.487Z" }
 
 [[package]]
 name = "pyspnego"
