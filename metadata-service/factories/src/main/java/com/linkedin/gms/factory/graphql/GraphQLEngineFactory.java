@@ -35,6 +35,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
@@ -116,6 +117,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("timeseriesAspectService")
   private TimeseriesAspectService timeseriesAspectService;
+
+  @Autowired
+  @Qualifier("entitySearchService")
+  private EntitySearchService entitySearchService;
 
   @Autowired
   @Qualifier("recommendationsService")
@@ -275,6 +280,7 @@ public class GraphQLEngineFactory {
     args.setRecommendationsService(recommendationsService);
     args.setStatefulTokenService(statefulTokenService);
     args.setTimeseriesAspectService(timeseriesAspectService);
+    args.setEntitySearchService(entitySearchService);
     args.setEntityRegistry(entityRegistry);
     args.setSecretService(secretService);
     args.setNativeUserService(nativeUserService);

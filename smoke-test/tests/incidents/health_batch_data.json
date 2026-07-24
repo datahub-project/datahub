@@ -1,0 +1,134 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"health_batch_ds_1\", \"description\": \"health batch loader test dataset 1\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"health_batch_ds_2\", \"description\": \"health batch loader test dataset 2\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"health_batch_ds_3\", \"description\": \"health batch loader test dataset 3\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"health_batch_ds_4\", \"description\": \"health batch loader test dataset 4\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-1a",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds1 incident A\", \"description\": \"older active incident on ds1\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_1,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 1000, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 1000, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-1b",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds1 incident B\", \"description\": \"newer active incident on ds1\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_1,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 2000, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 2000, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-2a",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds2 incident\", \"description\": \"single active incident on ds2\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_2,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 500, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 500, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-3a",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds3 resolved incident\", \"description\": \"resolved incident on ds3 must not count as active\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_3,PROD)\"], \"status\": { \"state\": \"RESOLVED\", \"lastUpdated\": { \"time\": 3000, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 3000, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"health_batch_ds_5\", \"description\": \"health batch loader test dataset 5\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-5a",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds5 active incident\", \"description\": \"active incident on ds5\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_5,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 400, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 400, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:health-batch-5r",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"ds5 resolved incident\", \"description\": \"newer resolved incident on ds5 must be excluded from count and latest\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,health_batch_ds_5,PROD)\"], \"status\": { \"state\": \"RESOLVED\", \"lastUpdated\": { \"time\": 5000, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"MANUAL\" }, \"created\": { \"time\": 5000, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]
