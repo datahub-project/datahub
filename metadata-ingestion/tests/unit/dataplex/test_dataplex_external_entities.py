@@ -37,3 +37,17 @@ def test_entity_exposes_linked_resource_and_managed_flag():
     pr = entity.as_platform_resource()
     assert pr.resource_info is not None
     assert pr.resource_info.secondary_keys == ["urn:li:glossaryTerm:pii"]
+
+
+def test_default_entity_has_no_linked_resources():
+    # A not-yet-linked default entity must expose an empty linked-resource set,
+    # never [""] (which would let "" masquerade as a URN).
+    entity = DataplexAspectPlatformResource.create_default(
+        DataplexAspectId(
+            aspect_key=GLOSSARY_TERMS_ASPECT_KEY,
+            entry_name="e",
+            field_key="urn:li:glossaryTerm:x",
+        ),
+        managed_by_datahub=False,
+    )
+    assert entity.datahub_linked_resources().urns == []
