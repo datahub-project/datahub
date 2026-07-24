@@ -1,0 +1,106 @@
+{
+  "metaData": {
+    "name": "my_team.user_activity.training_set",
+    "online": 0,
+    "production": 0,
+    "customJson": "{\"check_consistency\": false, \"lag\": 0, \"join_tags\": {\"tier\": \"gold\"}, \"join_part_tags\": {}}",
+    "dependencies": [
+      "{\"name\": \"wait_for_data.checkout_events_ds\", \"spec\": \"data.checkout_events/ds={{ ds }}\", \"start\": null, \"end\": null}",
+      "{\"name\": \"wait_for_data.user_purchases_ds\", \"spec\": \"data.user_purchases/ds={{ ds }}\", \"start\": null, \"end\": null}"
+    ],
+    "tableProperties": {},
+    "outputNamespace": "my_team_features",
+    "team": "my_team",
+    "offlineSchedule": "@daily",
+    "description": "Training set joining checkout events with rolling user purchase features"
+  },
+  "left": {
+    "events": {
+      "table": "data.checkout_events",
+      "query": {
+        "selects": {
+          "user_id": "user_id",
+          "ts": "ts"
+        },
+        "timeColumn": "ts",
+        "setups": []
+      }
+    }
+  },
+  "joinParts": [
+    {
+      "groupBy": {
+        "metaData": {
+          "name": "my_team.user_features.v1",
+          "online": 0,
+          "customJson": "{\"lag\": 0, \"groupby_tags\": {\"tier\": \"gold\", \"pii\": \"false\"}, \"column_tags\": {}}",
+          "dependencies": [
+            "{\"name\": \"wait_for_data.user_purchases_ds\", \"spec\": \"data.user_purchases/ds={{ ds }}\", \"start\": null, \"end\": null}"
+          ],
+          "team": "my_team",
+          "offlineSchedule": "@daily",
+          "description": "Rolling purchase behaviour features keyed on user_id"
+        },
+        "sources": [
+          {
+            "events": {
+              "table": "data.user_purchases",
+              "topic": "events.user_purchases",
+              "query": {
+                "selects": {
+                  "user_id": "user_id",
+                  "purchase_amount": "purchase_amount",
+                  "item_id": "item_id"
+                },
+                "timeColumn": "ts",
+                "setups": []
+              }
+            }
+          }
+        ],
+        "keyColumns": [
+          "user_id"
+        ],
+        "aggregations": [
+          {
+            "inputColumn": "purchase_amount",
+            "operation": 7,
+            "argMap": {},
+            "windows": [
+              {
+                "length": 3,
+                "timeUnit": 1
+              },
+              {
+                "length": 7,
+                "timeUnit": 1
+              }
+            ]
+          },
+          {
+            "inputColumn": "purchase_amount",
+            "operation": 8,
+            "argMap": {},
+            "windows": [
+              {
+                "length": 7,
+                "timeUnit": 1
+              }
+            ]
+          },
+          {
+            "inputColumn": "item_id",
+            "operation": 5,
+            "argMap": {},
+            "windows": [
+              {
+                "length": 30,
+                "timeUnit": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

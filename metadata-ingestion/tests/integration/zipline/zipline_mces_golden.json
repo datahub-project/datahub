@@ -1,0 +1,1356 @@
+[
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_3d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717598,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_3d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717599,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_3d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717599,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717599,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717599,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717599,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_average_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_average_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_average_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,item_id_approx_unique_count_30d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "COUNT",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,item_id_approx_unique_count_30d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(my_team.user_features.v1,item_id_approx_unique_count_30d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(my_team.user_features.v1,user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "mlPrimaryKeyProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "UNKNOWN",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717600,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(my_team.user_features.v1,user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717601,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(my_team.user_features.v1,user_id)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Primary Key"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717601,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Rolling purchase behaviour features keyed on user_id",
+            "mlFeatures": [
+                "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_3d)",
+                "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_sum_7d)",
+                "urn:li:mlFeature:(my_team.user_features.v1,purchase_amount_average_7d)",
+                "urn:li:mlFeature:(my_team.user_features.v1,item_id_approx_unique_count_30d)"
+            ],
+            "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(my_team.user_features.v1,user_id)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/zipline/my_team"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:pii:false"
+                },
+                {
+                    "tag": "urn:li:tag:tier:gold"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:my_team",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_team"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717602,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717603,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_team",
+            "description": "Zipline/Chronon jobs owned by team my_team",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717603,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,risk_score_top5_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "SEQUENCE",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.account_updates,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410148,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Zipline Team"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717603,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,status_last)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "UNKNOWN",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.account_updates,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410148,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,risk_score_top5_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410148,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,status_last)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,status_last)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,risk_score_top5_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:sensitivity:high"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410148,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,risk_score_top5_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410148,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717894,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,balance_sum_30d_by_country)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "CONTINUOUS",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.account_updates,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_team.user_activity.training_set",
+            "description": "Training set joining checkout events with rolling user purchase features",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717894,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,balance_sum_30d_by_country)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(risk_team.account_risk.v1,balance_sum_30d_by_country)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Join"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717894,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.checkout_events,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810851388,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(risk_team.account_risk.v1,account_id)",
+    "changeType": "UPSERT",
+    "aspectName": "mlPrimaryKeyProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "dataType": "UNKNOWN",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.account_updates,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_team",
+                    "urn": "urn:li:dataFlow:(zipline,my_team,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(risk_team.account_risk.v1,account_id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410149,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(risk_team.account_risk.v1,account_id)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Primary Key"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410150,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_team.user_staging.v1",
+            "description": "Cleans raw purchase events into a curated table for downstream GroupBys",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Staging Query"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810791090,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Account risk features keyed on account_id, backed by the warehouse snapshot",
+            "mlFeatures": [
+                "urn:li:mlFeature:(risk_team.account_risk.v1,risk_score_top5_7d)",
+                "urn:li:mlFeature:(risk_team.account_risk.v1,status_last)",
+                "urn:li:mlFeature:(risk_team.account_risk.v1,balance_sum_30d_by_country)"
+            ],
+            "mlPrimaryKeys": [
+                "urn:li:mlPrimaryKey:(risk_team.account_risk.v1,account_id)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_team",
+                    "urn": "urn:li:dataFlow:(zipline,my_team,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePaths",
+    "aspect": {
+        "json": {
+            "paths": [
+                "/zipline/risk_team"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717895,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_activity.training_set)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717896,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "risk_team"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410152,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:risk_team",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tier:silver"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717896,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pii:false",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "pii:false"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717896,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:tier:gold",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "tier:gold"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784810717896,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410591,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410590,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Zipline Team"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410590,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "risk_team",
+            "description": "Zipline/Chronon jobs owned by team risk_team",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410590,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sensitivity:high",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "sensitivity:high"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410592,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Staging Query"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410591,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784901426256,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410590,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410592,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "risk_team.risk_staging.v1",
+            "description": "Joins warehouse accounts with raw purchases to build a risk staging table",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410591,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.risk_staging.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "risk_team",
+                    "urn": "urn:li:dataFlow:(zipline,risk_team,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410591,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:tier:silver",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "tier:silver"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784815410592,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
