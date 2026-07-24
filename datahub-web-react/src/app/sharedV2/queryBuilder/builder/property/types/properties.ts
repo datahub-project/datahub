@@ -8,6 +8,7 @@ import {
     OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
     STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
 } from '@app/sharedV2/queryBuilder/builder/property/constants';
+import { OperatorId } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
 import { EntityType } from '@types';
@@ -23,6 +24,10 @@ export type Property = {
     description?: string;
     valueType?: ValueTypeId;
     valueOptions?: any;
+    // Overrides the default operators derived from valueType. Lets a specific
+    // builder (e.g. Views) offer operators like NOT_EQUAL without changing the
+    // global valueType operator lists used elsewhere.
+    operators?: OperatorId[];
     children?: Property[]; // Child Properties.
 };
 

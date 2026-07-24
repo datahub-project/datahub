@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
+import { OperatorId } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
 import { SelectInputMode, ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
 
 import { EntityType } from '@types';
@@ -25,6 +26,23 @@ describe('viewBuilderProperties', () => {
         expect(entityTypeProp?.valueOptions?.mode).toBe(SelectInputMode.MULTIPLE);
         expect(Array.isArray(entityTypeProp?.valueOptions?.options)).toBe(true);
         expect(entityTypeProp?.valueOptions?.options.length).toBeGreaterThan(0);
+        // Option ids must be EntityType enum values so they map 1:1 to the view's
+        // top-level entityTypes field with no translation.
+        const optionIds = entityTypeProp?.valueOptions?.options.map((o: { id: string }) => o.id) ?? [];
+        expect(optionIds).toContain(EntityType.Dataset);
+        expect(optionIds).toContain(EntityType.Dashboard);
+    });
+
+    it('should offer the not-equals operator on reference/enum filters but not on entity type', () => {
+        const tagsProp = viewBuilderProperties.find((p) => p.id === 'tags');
+        expect(tagsProp?.operators).toContain(OperatorId.NOT_EQUAL);
+
+        const domainsProp = viewBuilderProperties.find((p) => p.id === 'domains');
+        expect(domainsProp?.operators).toContain(OperatorId.NOT_EQUAL);
+
+        // Entity type is lifted to the top-level scope; it keeps the default operators.
+        const entityTypeProp = viewBuilderProperties.find((p) => p.id === '_entityType');
+        expect(entityTypeProp?.operators).toBeUndefined();
     });
 
     it('should include typeNames property with correct display name and aggregation', () => {

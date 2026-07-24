@@ -5,7 +5,7 @@ import OperatorSelect from '@app/sharedV2/queryBuilder/OperatorSelect';
 import PropertySelect from '@app/sharedV2/queryBuilder/PropertySelect';
 import ValuesSelect from '@app/sharedV2/queryBuilder/ValuesSelect';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
-import { getOperatorOptions, getValueOptions } from '@app/sharedV2/queryBuilder/builder/property/utils';
+import { getOperatorOptionsForProperty, getValueOptions } from '@app/sharedV2/queryBuilder/builder/property/utils';
 import { PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import {
     CardIcons,
@@ -35,7 +35,7 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
             properties.find((prop) => prop.id === selectedPredicate.property)) ||
         undefined;
 
-    const operatorOptions = (property?.valueType && getOperatorOptions(property.valueType)) || undefined;
+    const operatorOptions = (property && getOperatorOptionsForProperty(property)) || undefined;
     const valueOptions = (property && selectedPredicate && getValueOptions(property, selectedPredicate)) || undefined;
 
     const handlePropertyChange = (propertyId?: string) => {

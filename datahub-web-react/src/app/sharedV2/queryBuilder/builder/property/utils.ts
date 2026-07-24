@@ -90,6 +90,18 @@ export const getOperatorOptions = (valueType: ValueTypeId): Operator[] | undefin
 };
 
 /**
+ * Returns the operators supported for a specific property. A property may
+ * override the default valueType-derived operators via its `operators` field;
+ * otherwise we fall back to the operators for its value type.
+ */
+export const getOperatorOptionsForProperty = (property: Property): Operator[] | undefined => {
+    if (property.operators?.length) {
+        return property.operators.map((op) => OPERATOR_ID_TO_DETAILS.get(op));
+    }
+    return property.valueType ? getOperatorOptions(property.valueType) : undefined;
+};
+
+/**
  * Returns a set of ValueOptions which determines how to render
  * the value selector for a particular well-supported Property.
  */

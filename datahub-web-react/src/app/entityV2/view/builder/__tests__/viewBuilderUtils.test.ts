@@ -12,7 +12,7 @@ import {
 } from '@app/entityV2/view/builder/utils';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { FilterOperator, LogicalOperator } from '@types';
+import { EntityType, FilterOperator, LogicalOperator } from '@types';
 
 describe('View builder conversion utils', () => {
     describe('selectedUrnsToFilters', () => {
@@ -168,6 +168,24 @@ describe('View builder conversion utils', () => {
             expect(result.filters).toHaveLength(1);
             expect(result.filters[0].negated).toBe(true);
         });
+
+        it('should cancel negation when a NOT group wraps a not_equals row (double negation)', () => {
+            // A "None" group over a "does not equal" row is NOT(NOT x), which must
+            // collapse back to a plain equals — the group NOT and the per-row
+            // not_equals cancel via XOR rather than stacking.
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [{ type: 'property', property: 'tags', operator: 'not_equals', values: ['urn:li:tag:pii'] }],
+            };
+
+            const result = logicalPredicateToFilters(predicate);
+
+            expect(result.filters).toHaveLength(1);
+            expect(result.filters[0].field).toBe('tags');
+            expect(result.filters[0].condition).toBe(FilterOperator.Equal);
+            expect(result.filters[0].negated).toBeUndefined();
+        });
     });
 
     describe('filtersToSelectedUrns', () => {
@@ -250,15 +268,40 @@ describe('View builder conversion utils', () => {
             expect(op1.operator).toBe('exists');
         });
 
-        it('should use NOT operator when all filters are negated', () => {
+        it('should represent negated filters with the per-row not_equals operator', () => {
             const filters = [
-                { field: 'domains', values: ['urn:li:domain:marketing'], negated: true },
-                { field: 'tags', values: ['urn:li:tag:pii'], negated: true },
+                {
+                    field: 'domains',
+                    values: ['urn:li:domain:marketing'],
+                    condition: FilterOperator.Equal,
+                    negated: true,
+                },
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
             ];
 
             const result = filtersToLogicalPredicate(LogicalOperator.And, filters);
 
-            expect(result.operator).toBe(LogicalOperatorType.NOT);
+            // Group operator stays AND; negation is carried per-row, not as a NOT group.
+            expect(result.operator).toBe(LogicalOperatorType.AND);
+            const op0 = result.operands[0] as { operator?: string };
+            const op1 = result.operands[1] as { operator?: string };
+            expect(op0.operator).toBe('not_equals');
+            expect(op1.operator).toBe('equals');
+        });
+
+        it('should seed a leading _entityType row from the top-level entityTypes', () => {
+            const filters = [{ field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal }];
+
+            const result = filtersToLogicalPredicate(LogicalOperator.And, filters, [
+                EntityType.Dataset,
+                EntityType.Dashboard,
+            ]);
+
+            expect(result.operands).toHaveLength(2);
+            const entityTypeRow = result.operands[0] as { property?: string; operator?: string; values?: string[] };
+            expect(entityTypeRow.property).toBe('_entityType');
+            expect(entityTypeRow.operator).toBe('equals');
+            expect(entityTypeRow.values).toEqual([EntityType.Dataset, EntityType.Dashboard]);
         });
 
         it('should default to equals when condition is undefined', () => {
@@ -328,6 +371,19 @@ describe('View builder conversion utils', () => {
             expect(result.filter?.operator).toBe(LogicalOperator.And);
             expect(result.filter?.filters).toHaveLength(1);
         });
+
+        it('should lift _entityType rows into the top-level entityTypes and drop them from filters', () => {
+            const filters = [
+                { field: '_entityType', values: [EntityType.Dataset, EntityType.Container] },
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal },
+            ];
+
+            const result = buildViewDefinition(LogicalOperator.And, filters);
+
+            expect(result.entityTypes).toEqual([EntityType.Dataset, EntityType.Container]);
+            expect(result.filter?.filters).toHaveLength(1);
+            expect(result.filter?.filters?.[0]?.field).toBe('tags');
+        });
     });
 
     describe('mapUiOperatorToCondition', () => {
@@ -342,6 +398,10 @@ describe('View builder conversion utils', () => {
         it('should map boolean operators to Equal', () => {
             expect(mapUiOperatorToCondition('is_true')).toBe(FilterOperator.Equal);
             expect(mapUiOperatorToCondition('is_false')).toBe(FilterOperator.Equal);
+        });
+
+        it('should map not_equals to Equal (negation carried by the negated flag)', () => {
+            expect(mapUiOperatorToCondition('not_equals')).toBe(FilterOperator.Equal);
         });
 
         it('should return undefined for undefined input', () => {
@@ -378,6 +438,14 @@ describe('View builder conversion utils', () => {
             expect(mapConditionToUiOperator(null)).toBe('equals');
             expect(mapConditionToUiOperator(undefined)).toBe('equals');
         });
+
+        it('should map a negated Equal condition to not_equals', () => {
+            expect(mapConditionToUiOperator(FilterOperator.Equal, ['urn:li:tag:pii'], true)).toBe('not_equals');
+        });
+
+        it('should not treat a non-negated Equal as not_equals', () => {
+            expect(mapConditionToUiOperator(FilterOperator.Equal, ['urn:li:tag:pii'], false)).toBe('equals');
+        });
     });
 
     describe('round-trip: logicalPredicateToFilters → filtersToLogicalPredicate', () => {
@@ -403,6 +471,83 @@ describe('View builder conversion utils', () => {
             expect(op0.values).toEqual(['urn:li:domain:finance']);
             expect(op1.property).toBe('platform');
             expect(op1.operator).toBe('exists');
+        });
+
+        it('should preserve entityTypes and per-row negation across a full load → save cycle', () => {
+            // Mirrors the reported regression: a view scoped to several entity
+            // types with a single "tag does not equal" filter.
+            const savedEntityTypes = [
+                EntityType.Dataset,
+                EntityType.Dashboard,
+                EntityType.Chart,
+                EntityType.Container,
+                EntityType.DataProduct,
+            ];
+            const savedFilters = [
+                {
+                    field: 'tags',
+                    values: ['urn:li:tag:private'],
+                    condition: FilterOperator.Equal,
+                    negated: true,
+                },
+            ];
+
+            // Load into the builder.
+            const predicate = filtersToLogicalPredicate(LogicalOperator.Or, savedFilters, savedEntityTypes);
+            const entityTypeRow = predicate.operands[0] as { property?: string; operator?: string; values?: string[] };
+            const tagRow = predicate.operands[1] as { property?: string; operator?: string };
+            expect(entityTypeRow.property).toBe('_entityType');
+            expect(entityTypeRow.values).toEqual(savedEntityTypes);
+            expect(tagRow.property).toBe('tags');
+            expect(tagRow.operator).toBe('not_equals');
+
+            // Save back out.
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.entityTypes).toEqual(savedEntityTypes);
+            expect(definition.filter?.operator).toBe(LogicalOperator.Or);
+            expect(definition.filter?.filters).toHaveLength(1);
+            const savedTag = definition.filter?.filters?.[0];
+            expect(savedTag?.field).toBe('tags');
+            expect(savedTag?.condition).toBe(FilterOperator.Equal);
+            expect(savedTag?.negated).toBe(true);
+            expect(savedTag?.values).toEqual(['urn:li:tag:private']);
+        });
+
+        it('should preserve a mix of negated and non-negated filters across a load → save cycle', () => {
+            // The exact master regression: the old "wrap in NOT only if every
+            // filter is negated" heuristic dropped negation on load whenever the
+            // set was mixed, so re-saving lost the per-row negated flags.
+            const savedFilters = [
+                {
+                    field: 'domains',
+                    values: ['urn:li:domain:marketing'],
+                    condition: FilterOperator.Equal,
+                    negated: true,
+                },
+                { field: 'tags', values: ['urn:li:tag:pii'], condition: FilterOperator.Equal, negated: false },
+            ];
+
+            // Load: negation is carried per-row via not_equals, group stays AND.
+            const predicate = filtersToLogicalPredicate(LogicalOperator.And, savedFilters);
+            expect(predicate.operator).toBe(LogicalOperatorType.AND);
+            const domainRow = predicate.operands[0] as { property?: string; operator?: string };
+            const tagRow = predicate.operands[1] as { property?: string; operator?: string };
+            expect(domainRow.operator).toBe('not_equals');
+            expect(tagRow.operator).toBe('equals');
+
+            // Save: each row keeps its own negation independently.
+            const { operator, filters } = logicalPredicateToFilters(predicate);
+            const definition = buildViewDefinition(operator, filters);
+
+            expect(definition.filter?.filters).toHaveLength(2);
+            const domain = definition.filter?.filters?.find((f) => f.field === 'domains');
+            const tag = definition.filter?.filters?.find((f) => f.field === 'tags');
+            expect(domain?.condition).toBe(FilterOperator.Equal);
+            expect(domain?.negated).toBe(true);
+            expect(tag?.condition).toBe(FilterOperator.Equal);
+            expect(tag?.negated).toBeFalsy();
         });
 
         it('should round-trip boolean is_true/is_false operators correctly', () => {
