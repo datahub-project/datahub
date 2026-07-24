@@ -1,6 +1,7 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
@@ -38,6 +39,7 @@ export default function SelectActionButtons({
     fontSize = 'md',
     handleClearSelection,
 }: ActionButtonsProps) {
+    const { t } = useTranslation('alchemy');
     const onClearClickHandler = useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
             handleClearSelection?.();
@@ -54,6 +56,7 @@ export default function SelectActionButtons({
                     isCircle
                     size={fontSize}
                     onClick={onClearClickHandler}
+                    aria-label={t('select.clearSelection')}
                     data-testid="button-clear"
                 />
             )}

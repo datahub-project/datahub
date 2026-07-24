@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -62,6 +62,17 @@ export const Card = ({
         </SubTitle>
     );
 
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (!onClick || !isCardClickable || (!button && !onClick)) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+            }
+        },
+        [button, isCardClickable, onClick],
+    );
+
     return (
         <>
             {isEmpty ? (
@@ -75,6 +86,10 @@ export const Card = ({
                 <CardContainer
                     isClickable={(!!button || onClick) && isCardClickable}
                     onClick={onClick}
+                    role={onClick ? 'button' : undefined}
+                    tabIndex={onClick && isCardClickable ? 0 : undefined}
+                    aria-label={typeof title === 'string' ? title : undefined}
+                    onKeyDown={handleKeyDown}
                     maxWidth={maxWidth}
                     height={height}
                     width={width}

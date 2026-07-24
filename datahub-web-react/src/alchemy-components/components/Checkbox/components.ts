@@ -16,7 +16,7 @@ export const CheckboxContainer = styled.div<{ justifyContent?: 'center' | 'flex-
     }),
 );
 
-export const Label = styled.div<{ clickable?: boolean }>(({ clickable, theme }) => ({
+export const Label = styled.label<{ clickable?: boolean }>(({ clickable, theme }) => ({
     ...formLabelTextStyles,
     color: theme.colors.text,
     ...(clickable ? { cursor: 'pointer' } : {}),

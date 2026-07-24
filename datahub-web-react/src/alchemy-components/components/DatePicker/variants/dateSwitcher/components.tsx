@@ -1,6 +1,8 @@
+import { Button } from '@components';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExtendedInputRenderProps } from '@components/components/DatePicker/types';
@@ -51,16 +53,19 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
     }
 `;
 
-const CaretWrapper = styled.div<{ $disabled?: boolean }>`
+const CaretWrapper = styled(Button)<{ $disabled?: boolean }>`
+    padding: 0;
+    min-width: unset;
+
     & svg {
         color: ${(props) => props.theme.colors.textTertiary};
         display: flex;
         align-items: start;
-        cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
+    }
 
-        :hover {
-            ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
-        }
+    &:hover svg,
+    &:focus-visible svg {
+        ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
     }
 `;
 
@@ -72,6 +77,8 @@ type SwitcherButtonProps = {
 
 function SwitcherButton({ direction, onClick, disabled }: SwitcherButtonProps) {
     const Icon = direction === SwitcherDirection.Left ? CaretLeft : CaretRight;
+    const { t } = useTranslation('alchemy');
+    const ariaLabel = direction === SwitcherDirection.Left ? t('datePicker.previousDay') : t('datePicker.nextDay');
 
     const onClickHandler = useCallback(() => {
         if (disabled) return null;
@@ -79,13 +86,21 @@ function SwitcherButton({ direction, onClick, disabled }: SwitcherButtonProps) {
     }, [direction, disabled, onClick]);
 
     return (
-        <CaretWrapper $disabled={disabled} onClick={onClickHandler} tabIndex={0}>
+        <CaretWrapper
+            type="button"
+            variant="text"
+            color="gray"
+            $disabled={disabled}
+            onClick={onClickHandler}
+            aria-label={ariaLabel}
+        >
             <Icon size="20px" />
         </CaretWrapper>
     );
 }
 
 export function DateSwitcherInput({ datePickerProps, datePickerState, ...props }: ExtendedInputRenderProps) {
+    const { t } = useTranslation('alchemy');
     const { disabled } = datePickerProps;
     const { setValue, open } = datePickerState;
 
@@ -106,18 +121,27 @@ export function DateSwitcherInput({ datePickerProps, datePickerState, ...props }
     );
 
     const isDateSwitchingDisabled = useMemo(() => disabled || !props.title, [disabled, props.title]);
+    const ariaLabel =
+        typeof props.title === 'string' && props.title ? props.title : props.placeholder || t('datePicker.placeholder');
 
     return (
-        <StyledContainer $opened={open} $disabled={disabled} tabIndex={0}>
+        <StyledContainer
+            $opened={open}
+            $disabled={disabled}
+            tabIndex={0}
+            role="button"
+            aria-label={ariaLabel}
+            aria-disabled={disabled}
+            onMouseDown={props.onMouseDown}
+            onKeyDown={props.onKeyDown}
+        >
             <SwitcherButton
                 disabled={isDateSwitchingDisabled}
                 direction={SwitcherDirection.Left}
                 onClick={onSwitcherClick}
             />
 
-            <Content $disabled={disabled} onMouseDown={props.onMouseDown} onKeyDown={props.onKeyDown}>
-                {props.title ? props.title : props.placeholder}
-            </Content>
+            <Content $disabled={disabled}>{props.title ? props.title : props.placeholder}</Content>
 
             <SwitcherButton
                 disabled={isDateSwitchingDisabled}

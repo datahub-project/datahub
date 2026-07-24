@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LoginFormValues } from '@app/auth/shared/types';
-import { FieldLabel } from '@app/sharedV2/forms/FieldLabel';
 
 const FormContainer = styled.div`
     display: flex;
@@ -40,18 +39,27 @@ export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDi
         <FormContainer>
             <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
-                    <FieldLabel label={t('usernameLabel')} required />
                     <Form.Item rules={[{ required: true, message: t('usernameRequired') }]} name="username">
-                        <Input placeholder={t('usernamePlaceholder')} inputTestId="username" />
+                        <Input
+                            label={t('usernameLabel')}
+                            placeholder={t('usernamePlaceholder')}
+                            inputTestId="username"
+                        />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
-                    <FieldLabel label={t('passwordLabel')} required />
                     <Form.Item rules={[{ required: true, message: t('passwordRequired') }]} name="password">
-                        <Input placeholder="********" type="password" inputTestId="password" />
+                        <Input
+                            label={t('passwordLabel')}
+                            placeholder="********"
+                            type="password"
+                            inputTestId="password"
+                        />
                     </Form.Item>
                 </ItemContainer>
+
+                <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
             </Form>
         </FormContainer>
     );

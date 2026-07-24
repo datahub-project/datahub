@@ -26,7 +26,7 @@ export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ 
 
 export const RadioBase = styled.div({});
 
-export const Label = styled.div(({ theme }) => ({
+export const Label = styled.label(({ theme }) => ({
     ...formLabelTextStyles,
     color: theme.colors.text,
     display: 'flex',

@@ -19,6 +19,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     isRequired?: boolean;
     errorOnHover?: boolean;
     id?: string;
+    ariaLabel?: string;
     type?: string;
     styles?: React.CSSProperties;
     inputStyles?: React.CSSProperties;

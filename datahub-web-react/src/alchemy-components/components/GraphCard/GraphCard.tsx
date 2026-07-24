@@ -1,3 +1,4 @@
+import { Button } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -21,11 +22,10 @@ const EmptyMessageWrapper = styled.div`
     text-align: center;
 `;
 
-const LinkText = styled(Text)`
+const LinkButton = styled(Button)`
     display: inline;
-    :hover {
-        cursor: pointer;
-    }
+    padding: 0;
+    min-width: unset;
 `;
 
 export function GraphCard({
@@ -87,9 +87,13 @@ export function GraphCard({
                                     )}
                                     <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
+                                        <LinkButton
+                                            variant="text"
+                                            color="primary"
+                                            onClick={() => setShowInfoModal(true)}
+                                        >
                                             {t('graphCard.moreInfo')}
-                                        </LinkText>
+                                        </LinkButton>
                                     )}
                                 </EmptyMessageWrapper>
                                 <MoreInfoModal

@@ -93,7 +93,7 @@ export const Required = styled.span(({ theme }) => ({
     color: theme.colors.textError,
 }));
 
-export const Label = styled.div(({ theme }) => ({
+export const Label = styled.label(({ theme }) => ({
     ...formLabelTextStyles,
     color: theme.colors.text,
     marginBottom: spacing.xxsm,

@@ -127,6 +127,17 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
         }
     }, [toggleDropdown, isDisabled, isReadOnly]);
 
+    const handleSelectKeyDown = useCallback(
+        (event: React.KeyboardEvent<HTMLElement>) => {
+            if (isDisabled || isReadOnly) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleDropdown();
+            }
+        },
+        [isDisabled, isReadOnly, toggleDropdown],
+    );
+
     const handleSearch = useCallback(
         (query: string) => {
             setSearchQuery(query);
@@ -251,6 +262,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     });
 
     const rootOptions = parentValueToOptions[NO_PARENT_VALUE] || [];
+    const dropdownListId = dataTestId ? `${dataTestId}-listbox` : undefined;
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width || 255} $minWidth={props.minWidth}>
@@ -274,7 +286,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                     size={size}
                                 />
                             )}
-                            <OptionList>
+                            <OptionList id={dropdownListId}>
                                 {rootOptions.map((option) => {
                                     const isParentOptionLabelExpanded = stagedOptions.find(
                                         (opt) => opt.parentValue === option.value,
@@ -317,6 +329,13 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         isRequired={isRequired}
                         isOpen={isOpen}
                         onClick={handleSelectClick}
+                        onKeyDown={handleSelectKeyDown}
+                        role="button"
+                        tabIndex={isDisabled || isReadOnly ? -1 : 0}
+                        aria-haspopup="listbox"
+                        aria-expanded={isOpen}
+                        aria-controls={dropdownListId}
+                        aria-disabled={isDisabled || isReadOnly}
                         fontSize={size}
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         width={props.width}

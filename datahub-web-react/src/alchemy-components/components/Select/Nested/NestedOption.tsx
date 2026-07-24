@@ -1,6 +1,7 @@
 import { Icon } from '@components';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { Checkbox } from '@components/components/Checkbox';
@@ -58,6 +59,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     implicitlySelectChildren,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(isParentOptionLabelExpanded);
 
@@ -91,6 +93,23 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
         }
     }, [isLoadingParentChildList]);
 
+    const handleOptionKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        if (isImplicitlySelected) {
+            return;
+        }
+        if (isParentMissingChildren) {
+            setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
+            loadData?.(option);
+        }
+        if (option.isParent) {
+            setIsOpen(!isOpen);
+        } else {
+            selectOption();
+        }
+    };
+
     return (
         <div>
             <ParentOption>
@@ -111,6 +130,10 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             selectOption();
                         }
                     }}
+                    onKeyDown={handleOptionKeyDown}
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={option.isParent ? isOpen : undefined}
                     isSelected={!isMultiSelect && isSelected}
                     // added hack to show cursor in wait untill we get the inline spinner
                     style={{
@@ -134,6 +157,18 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         <Icon
                             onClick={(e) => {
                                 e.stopPropagation();
+                                e.preventDefault();
+                                setIsOpen(!isOpen);
+                                if (!isOpen && isParentMissingChildren) {
+                                    setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
+                                    loadData?.(option);
+                                }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={isOpen ? t('select.nestedOption.collapse') : t('select.nestedOption.expand')}
+                            onKeyDown={(e) => {
+                                if (e.key !== 'Enter' && e.key !== ' ') return;
                                 e.preventDefault();
                                 setIsOpen(!isOpen);
                                 if (!isOpen && isParentMissingChildren) {
