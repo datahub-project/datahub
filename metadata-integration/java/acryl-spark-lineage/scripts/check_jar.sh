@@ -31,6 +31,14 @@ for jarFile in ${jarFiles}; do
     exit 1
   fi
 
+  # Positive guard: the extension SPI must stay canonical so connectors implement it at its
+  # canonical name — same "must not be relocated" reason as io.openlineage.sql above.
+  extClasses=$(jar -tf "$jarFile" | grep -E '^io/openlineage/spark/extension/.*\.class$')
+  if [ -z "$extClasses" ]; then
+    echo "💥 Extension SPI missing at canonical io/openlineage/spark/extension/ in ${jarFile}"
+    exit 1
+  fi
+
   jar -tvf $jarFile |\
       grep -v "log4j.xml" |\
       grep -v "log4j2.xml" |\
