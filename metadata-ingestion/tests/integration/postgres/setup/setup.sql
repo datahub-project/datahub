@@ -81,3 +81,28 @@ AS $$
     INSERT INTO processed_orders (order_id, customer_id, total)
     SELECT id AS order_id, customer_id, amount AS total FROM raw_orders;
 $$;
+
+-- Types that previously fell back to NullType / lost their native name (#18575).
+-- pgvector and PostGIS are not available in the test image, so they are
+-- covered by unit tests instead.
+CREATE EXTENSION ltree;
+CREATE EXTENSION citext;
+
+CREATE TABLE special_types (
+    id BIGINT PRIMARY KEY,
+    bbox BOX,
+    seg LSEG,
+    poly POLYGON,
+    pt POINT,
+    pth PATH,
+    circ CIRCLE,
+    ln LINE,
+    doc XML,
+    tree_path LTREE,
+    ci CITEXT,
+    ip_range CIDR,
+    int_range INT4RANGE
+);
+
+-- Populate reltuples so row-count estimates are real values instead of -1.
+ANALYZE;
