@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildAssertionListFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
+import {
+    buildAssertionListFilters,
+    convertSortFieldToQueryField,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { ASSERTION_DEFAULT_FILTERS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import { extractFilterOptionsFromFacets } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import {
+    ASSERTION_CUSTOM_TYPE_FILTER_NAME,
     ASSERTION_FIELD_PATH_FILTER_NAME,
     ASSERTION_STATUS_FILTER_NAME,
+    ASSERTION_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
     TAGS_FILTER_NAME,
@@ -18,6 +23,16 @@ import {
     FacetMetadata,
     FilterOperator,
 } from '@src/types.generated';
+
+describe('convertSortFieldToQueryField', () => {
+    it('sorts standard categories by assertion type', () => {
+        expect(convertSortFieldToQueryField('type')).toBe(ASSERTION_TYPE_FILTER_NAME);
+    });
+
+    it('sorts custom-only categories by their displayed custom type', () => {
+        expect(convertSortFieldToQueryField('type', true)).toBe(ASSERTION_CUSTOM_TYPE_FILTER_NAME);
+    });
+});
 
 describe('buildAssertionListFilters', () => {
     it('builds entity and selected facet filters', () => {

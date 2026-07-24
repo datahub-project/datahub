@@ -16,6 +16,7 @@ import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/V
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import {
+    ASSERTION_CUSTOM_TYPE_FILTER_NAME,
     ASSERTION_FIELD_PATH_FILTER_NAME,
     ASSERTION_SOURCE_FILTER_NAME,
     ASSERTION_STATUS_FILTER_NAME,
@@ -31,6 +32,7 @@ import {
     Assertion,
     AssertionResultType,
     AssertionSourceType,
+    AssertionType,
     DataContract,
     EntityType,
     FacetFilterInput,
@@ -66,9 +68,11 @@ const mapAssertionResultTypeToStatus = (status: AssertionResultType): string => 
     }
 };
 
-const convertSortFieldToQueryField = (field?: string) => {
+export const convertSortFieldToQueryField = (field?: string, sortCustomCategories = false) => {
     if (field === 'lastEvaluation') return DEFAULT_SORT_FIELD;
-    if (field === 'type') return ASSERTION_TYPE_FILTER_NAME;
+    if (field === 'type') {
+        return sortCustomCategories ? ASSERTION_CUSTOM_TYPE_FILTER_NAME : ASSERTION_TYPE_FILTER_NAME;
+    }
     return field || DEFAULT_SORT_FIELD;
 };
 
@@ -205,6 +209,14 @@ export const AcrylAssertionList = () => {
     );
     const totalAssertions = activeData?.searchAcrossEntities?.total || 0;
     const facets = activeData?.searchAcrossEntities?.facets || undefined;
+    const assertionTypeAggregations =
+        facets
+            ?.find((facet) => facet.field === ASSERTION_TYPE_FILTER_NAME)
+            ?.aggregations?.filter((aggregation) => aggregation.count > 0) || [];
+    const onlyCustomAssertions =
+        (selectedFilters.filterCriteria.type.length === 1 &&
+            selectedFilters.filterCriteria.type[0] === AssertionType.Custom) ||
+        (assertionTypeAggregations.length === 1 && assertionTypeAggregations[0].value === AssertionType.Custom);
     const contract = contractData?.dataset?.contract as DataContract | undefined;
     const focusedContract = (focusedContractData?.dataset?.contract || contract) as DataContract | undefined;
     const hasRefinements =
@@ -220,7 +232,7 @@ export const AcrylAssertionList = () => {
         sortColumn: string;
         sortOrder: SortingState;
     }) => {
-        setSortField(convertSortFieldToQueryField(sortColumn));
+        setSortField(convertSortFieldToQueryField(sortColumn, onlyCustomAssertions));
         setSortOrder(nextSortOrder === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending);
         setPage(1);
     };
