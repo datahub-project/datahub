@@ -5,7 +5,7 @@
 # This script uses the GitHub CLI (gh) to fetch workflow runs and download
 # test result artifacts, organizing them by run ID for later processing.
 
-set -euo pipefail
+set -euxo pipefail
 
 # Default values
 OUTPUT_DIR="./dev-artifacts/test-results"
