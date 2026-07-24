@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 from urllib.parse import quote
 
 import pytest
@@ -113,19 +114,32 @@ def test_openapi_v3_entity(auth_session):
             return
         entities = search_result["searchResults"]
 
-        first_urn = entities[0]["entity"]["urn"]
+        # Don't key off searchResults[0]: the top hit can be a transient entity
+        # another module created and is concurrently deleting (search index lags
+        # the entity store under xdist --dist=loadscope), so a by-URN GET races
+        # into a 404. Try each result and accept the first that still resolves;
+        # only fail if none do.
+        last_missing: Optional[str] = None
+        for result in entities:
+            urn = result["entity"]["urn"]
+            encoded_urn = quote(urn, safe="")
+            url = f"{BASE_URL_V3}/entity/{entity_type}/{encoded_urn}"
+            response = auth_session.get(url, headers=default_headers)
+            if response.status_code == 404:
+                # Transient / concurrently-deleted entity — try the next hit.
+                last_missing = urn
+                continue
+            response.raise_for_status()
+            actual_data = response.json()
+            logger.info(f"Entity Data for URN {urn}: {actual_data}")
+            assert actual_data["urn"] == urn, (
+                f"Mismatch: expected {urn}, got {actual_data}"
+            )
+            return
 
-        encoded_urn = quote(first_urn, safe="")
-        url = f"{BASE_URL_V3}/entity/{entity_type}/{encoded_urn}"
-        response = auth_session.get(url, headers=default_headers)
-        response.raise_for_status()
-        actual_data = response.json()
-        logger.info(f"Entity Data for URN {first_urn}: {actual_data}")
-
-        expected_data = {"urn": first_urn}
-
-        assert actual_data["urn"] == expected_data["urn"], (
-            f"Mismatch: expected {expected_data}, got {actual_data}"
+        raise AssertionError(
+            f"No searchResult for {entity_type} resolved via OpenAPI v3 "
+            f"({len(entities)} tried); last missing urn: {last_missing}"
         )
 
     run_concurrent_tests(entity_types, test_entity, test_name="test_openapi_v3_entity")
