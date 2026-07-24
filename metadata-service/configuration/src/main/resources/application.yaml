@@ -1781,6 +1781,8 @@ metadataChangeProposal:
     logicalParent:
       platformValidation:
         enabled: ${MCP_VALIDATION_LOGICAL_PARENT_PLATFORM:false}
+      fieldPathValidation:
+        enabled: ${MCP_VALIDATION_LOGICAL_PARENT_FIELD_PATH:true} # Validates column-level logicalParent edges reference existing schema fields; skips when the schema isn't loaded yet
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
