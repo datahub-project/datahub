@@ -186,8 +186,18 @@ class SnowflakeTasksExtractor:
             pred_name_upper = predecessor_name.strip().upper()
             # Predecessors may be fully qualified or just task names
             # Handle both: "DB.SCHEMA.TASK" or just "TASK"
-            simple_name = pred_name_upper.split(".")[-1]
-            if simple_name in task_name_map:
+            pred_name_parts = pred_name_upper.split(".")
+            simple_name = pred_name_parts[-1]
+            # A fully-qualified name only resolves against the current schema's
+            # task list if it actually points at this db/schema; otherwise a
+            # same-named task in another schema would wrongly match on leaf name
+            # alone.
+            is_current_schema = len(pred_name_parts) == 1 or (
+                len(pred_name_parts) == 3
+                and pred_name_parts[0] == db_name.upper()
+                and pred_name_parts[1] == schema_name.upper()
+            )
+            if is_current_schema and simple_name in task_name_map:
                 pred_job_id = self.identifiers.snowflake_identifier(simple_name)
                 pred_job_urn = make_data_job_urn_with_flow(flow_urn, pred_job_id)
                 input_datajobs.append(pred_job_urn)

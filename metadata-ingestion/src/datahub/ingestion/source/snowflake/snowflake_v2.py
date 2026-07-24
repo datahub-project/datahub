@@ -630,7 +630,7 @@ class SnowflakeV2Source(
                 yield from auto_workunit(self.aggregator.gen_metadata())
 
             with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
-                schema_resolver = self.aggregator._schema_resolver
+                schema_resolver = self.aggregator.schema_resolver
 
                 redundant_queries_run_skip_handler: Optional[
                     RedundantQueriesRunSkipHandler
@@ -754,7 +754,7 @@ class SnowflakeV2Source(
                 report=self.report,
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
-                schema_resolver=self.aggregator._schema_resolver,
+                schema_resolver=self.aggregator.schema_resolver,
                 is_temp_table=self._is_temp_table,
             )
             for db in databases:
@@ -948,8 +948,8 @@ class SnowflakeV2Source(
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-        except Exception as e:
-            logger.warning('Failed to remove OCSP cache file at "%s": %s', file_path, e)
+        except Exception:
+            logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
 
     def close(self) -> None:
         super().close()

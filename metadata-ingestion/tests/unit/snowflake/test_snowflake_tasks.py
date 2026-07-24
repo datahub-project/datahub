@@ -180,6 +180,30 @@ class TestSnowflakeTasksExtractor:
         assert len(input_outputs[0].inputDatajobs) == 1
         assert "task_a" in input_outputs[0].inputDatajobs[0]
 
+    def test_predecessor_fully_qualified_cross_schema_name_collision_is_unresolved(
+        self,
+    ) -> None:
+        """A fully-qualified predecessor pointing at a *different* db/schema must
+        not false-match a same-named task in the current schema's task_name_map;
+        it should be treated as unresolved instead."""
+        task_a = _make_task(name="task_a")
+        task_b = _make_task(
+            name="task_b", predecessors=["OTHER_DB.OTHER_SCHEMA.task_a"]
+        )
+        wus, report = _collect_workunits([task_a, task_b])
+
+        input_outputs = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        # No same-schema match should be made despite the leaf-name collision.
+        assert len(input_outputs) == 0
+
+        contexts = [str(w.context) for w in report.warnings]
+        assert any("OTHER_DB.OTHER_SCHEMA.task_a" in c for c in contexts)
+
     def test_predecessor_not_in_schema_emits_warning(self) -> None:
         """Predecessor referencing a task not in the current schema is skipped
         with a warning so users can see why input lineage is incomplete."""

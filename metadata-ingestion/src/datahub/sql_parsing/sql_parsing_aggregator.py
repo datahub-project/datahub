@@ -601,6 +601,10 @@ class SqlParsingAggregator(Closeable):
         self._exit_stack.close()
 
     @property
+    def schema_resolver(self) -> SchemaResolver:
+        return self._schema_resolver
+
+    @property
     def _need_schemas(self) -> bool:
         # Unless the aggregator is totally disabled, we will need schema information.
         return (
