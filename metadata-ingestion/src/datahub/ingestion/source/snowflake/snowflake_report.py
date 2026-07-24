@@ -64,6 +64,9 @@ class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
     num_external_table_edges_scanned: int = 0
+    # semanticModel lineage is emitted directly, not via the dataset-mode view
+    # lineage path, so it needs its own counter.
+    num_semantic_model_lineage_edges_scanned: int = 0
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: LossyDict[str, List[str]] = field(default_factory=LossyDict)
@@ -123,6 +126,9 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_dynamic_tables_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
+    # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
+    # best-effort, the metric is still emitted without those edges.
+    num_semantic_view_metric_expr_parse_failures: int = 0
 
     marketplace_listings_scanned: int = 0
     marketplace_listings_filtered: int = 0
@@ -153,6 +159,16 @@ class SnowflakeV2Report(
     _scanned_tags: MutableSet[str] = field(default_factory=set)
 
     edition: Optional[SnowflakeEdition] = None
+
+    # Server-aware resolution of semantic_views.emit_semantic_model_entities.
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_model_emission_is_saas: Optional[bool] = None
+    semantic_model_emission_metrics_enabled: Optional[bool] = None
+    # Whether the server can accept semanticModel/metric in structured-property
+    # entityTypes (SaaS: version only; OSS: recipe). Gates the tag extractor's
+    # entityTypes list independently of the emit decision, so it never flaps.
+    semantic_model_entity_types_capable: Optional[bool] = None
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

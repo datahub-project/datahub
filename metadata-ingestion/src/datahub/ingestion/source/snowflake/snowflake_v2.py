@@ -62,6 +62,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
     SemanticViewUsageExtractor,
 )
@@ -264,11 +267,11 @@ class SnowflakeV2Source(
                 )
             )
 
-        # Semantic view usage extractor (separate from main usage due to different data source)
+        # Semantic view usage/query extractor (separate from main usage due to different data source)
         self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
-        if (
-            self.config.semantic_views.enabled
-            and self.config.semantic_views.include_usage
+        if self.config.semantic_views.enabled and (
+            self.config.semantic_views.include_usage
+            or self.config.semantic_views.include_queries
         ):
             self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
                 config=config,
@@ -518,8 +521,74 @@ class SnowflakeV2Source(
             name, SnowflakeObjectDomain.TABLE
         )
 
+    def _resolve_semantic_model_emission(self) -> None:
+        # Resolve the tri-state flag against server signals before any
+        # semantic-view processing reads it. A None graph (file sink / no
+        # connection) is handled by the resolver as the OSS path.
+        recipe_value = self.config.semantic_views.emit_semantic_model_entities
+        decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
+
+        # Single-pass: overwrite the tri-state with the resolved bool so every
+        # downstream call site reads it. Safe to clobber — ConfigModel has no
+        # validate_assignment (no revalidation), the original request is captured
+        # in report.semantic_model_emission_*, and recipe_value must not be read
+        # past this point.
+        self.config.semantic_views.emit_semantic_model_entities = decision.enabled
+
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        self.report.semantic_model_emission_is_saas = decision.is_saas
+        self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
+        self.report.semantic_model_entity_types_capable = decision.entity_types_capable
+
+        logger.info(
+            "Resolved semantic_views.emit_semantic_model_entities: effective=%s "
+            "(recipe=%s, is_saas=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            decision.enabled,
+            recipe_value,
+            decision.is_saas,
+            decision.version,
+            decision.metrics_enabled,
+            decision.reason,
+        )
+
+        # Warn instead of failing when the recipe requested emission but a server
+        # veto forces it off, so ingestion still proceeds in legacy dataset mode.
+        if recipe_value is True and not decision.enabled:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities forced off",
+                message=(
+                    "semantic_views.emit_semantic_model_entities was requested but "
+                    "could not be enabled; falling back to legacy dataset emission."
+                ),
+                context=decision.reason,
+            )
+
+        if decision.enabled and self.config.semantic_views.include_usage:
+            self.report.warning(
+                title="semantic_views.include_usage ignored",
+                message="semanticModel mode emits no usage statistics; include_usage is ignored.",
+                context=decision.reason,
+            )
+
+        # The config-time validator does not fire on the Cloud auto-enable path
+        # (the flag is resolved to True here, after config validation), so warn at
+        # runtime too: semantic-view processing is gated on include_technical_schema.
+        if decision.enabled and not self.config.include_technical_schema:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities requires include_technical_schema",
+                message=(
+                    "emit_semantic_model_entities is enabled but "
+                    "include_technical_schema is False; no semanticModel/metric "
+                    "entities will be emitted. Set include_technical_schema to True."
+                ),
+                context=decision.reason,
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
+
+        self._resolve_semantic_model_emission()
 
         self.inspect_session_metadata(self.connection)
 
@@ -612,11 +681,20 @@ class SnowflakeV2Source(
                     "No tables/views/streams found. Verify dataset permissions in Snowflake.",
                 )
 
+        # When emit_semantic_model_entities is enabled, semantic views are emitted
+        # as semanticModel entities (not datasets), so they are deliberately
+        # excluded from discovered_datasets, which feeds dataset-level
+        # usage/lineage/assertion extraction. In legacy dataset mode they are
+        # datasets like any other and must be included.
         self.discovered_datasets = (
             discovered_tables
             + discovered_views
-            + discovered_semantic_views
             + discovered_streams
+            + (
+                []
+                if self.config.semantic_views.emit_semantic_model_entities
+                else discovered_semantic_views
+            )
         )
 
         if self.config.use_queries_v2:
@@ -701,9 +779,12 @@ class SnowflakeV2Source(
 
         if self.semantic_view_usage_extractor and discovered_semantic_views:
             discovered_semantic_views_set = set(discovered_semantic_views)
-            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
-                discovered_semantic_views_set
-            )
+            # Usage statistics are legacy-dataset-mode only - semanticModel entities
+            # have no usage aspect. Query entities (Queries tab) are emitted in both modes.
+            if not self.config.semantic_views.emit_semantic_model_entities:
+                yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                    discovered_semantic_views_set
+                )
             yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
                 discovered_semantic_views_set
             )

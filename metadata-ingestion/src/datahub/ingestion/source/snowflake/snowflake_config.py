@@ -102,7 +102,24 @@ class SnowflakeShareConfig(ConfigModel):
 class SemanticViewsConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+        description="If enabled, semantic views will be ingested. By default they are ingested as datasets with subtype `Semantic View` (see emit_semantic_model_entities to change this). Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Tri-state control for emitting semantic views as semanticModel entities "
+            "(with their metrics as metric entities) instead of legacy datasets "
+            'subtyped "Semantic View". '
+            "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
+            "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. "
+            "`true`: request emission - on Cloud it is honored unless the server is "
+            "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+            "datasets); on OSS it enables emission (the operator must run a server that "
+            "registers these entities). "
+            "`false`: force legacy dataset behavior."
+        ),
     )
 
     column_lineage: bool = Field(
@@ -113,7 +130,9 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
+        "Ignored when emit_semantic_model_entities is enabled, since semanticModel "
+        "entities carry no usage statistics.",
     )
 
     include_queries: bool = Field(
@@ -149,6 +168,17 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
                 "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_ignored_in_semantic_model_mode(self) -> "SemanticViewsConfig":
+        if self.include_usage and self.emit_semantic_model_entities:
+            logger.warning(
+                "semantic_views.include_usage is ignored because "
+                "semantic_views.emit_semantic_model_entities is enabled: "
+                "semanticModel entities carry no usage statistics. Query entities "
+                "are unaffected (see semantic_views.include_queries)."
             )
         return self
 
@@ -861,6 +891,24 @@ class SnowflakeV2Config(
                 )
                 self.semantic_views.enabled = False
                 self.semantic_views.column_lineage = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_model_entities_requires_technical_schema(
+        self,
+    ) -> "SnowflakeV2Config":
+        # Validated here (not on SemanticViewsConfig) because semantic view
+        # processing is gated on the top-level include_technical_schema, which is
+        # not visible from the nested config.
+        if (
+            self.semantic_views.emit_semantic_model_entities
+            and not self.include_technical_schema
+        ):
+            logger.warning(
+                "semantic_views.emit_semantic_model_entities is set but "
+                "include_technical_schema is False; no semanticModel/metric entities "
+                "will be emitted. Set include_technical_schema to True."
+            )
         return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:

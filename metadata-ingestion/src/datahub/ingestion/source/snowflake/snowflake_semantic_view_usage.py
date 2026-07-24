@@ -1,11 +1,22 @@
-"""Semantic View Usage Extraction for Snowflake.
+"""Semantic view usage and query extraction for Snowflake.
 
 This module extracts usage statistics and query entities for Snowflake Semantic Views.
 It queries QUERY_HISTORY using pattern matching on SEMANTIC_VIEW() function calls.
 
-Emits:
-- DatasetUsageStatistics: Usage metrics per time bucket
-- Query entities: Individual queries for Queries tab
+- DatasetUsageStatistics: usage metrics per time bucket, attached to the dataset URN.
+  Only emitted in legacy dataset mode (semantic_views.emit_semantic_model_entities is
+  disabled): semanticModel entities have no usage aspect, so nothing is emitted
+  here in the new mode.
+- Query entities: individual queries for the Queries tab, emitted in both legacy and
+  semanticModel modes; the subject follows the dataset-vs-semanticModel URN choice.
+
+QUERY_HISTORY-derived semantic view names are matched against discovered semantic
+views case-insensitively, since result casing is not guaranteed. However, the
+emitted dataset/semanticModel URN is always built from the canonical identifier
+discovered during schema generation (see _build_identifier_lookup in
+SemanticViewUsageExtractor), never from the lowercased match key - otherwise, with
+convert_urns_to_lowercase=False, the URN would silently diverge from the one
+schema generation already wrote to the graph.
 """
 
 import json
@@ -68,7 +79,10 @@ class SemanticViewUsageExtractor:
         discovered_semantic_views: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Extract usage statistics for semantic views.
+        Extract usage statistics for semantic views (legacy dataset mode only).
+
+        semanticModel entities have no usage aspect, so this is a no-op when
+        semantic_views.emit_semantic_model_entities is enabled.
 
         Args:
             discovered_semantic_views: Set of discovered semantic view identifiers
@@ -77,6 +91,9 @@ class SemanticViewUsageExtractor:
         Yields:
             MetadataWorkUnit for DatasetUsageStatistics
         """
+        if self.config.semantic_views.emit_semantic_model_entities:
+            return
+
         if not self.config.semantic_views.include_usage:
             return
 
@@ -100,18 +117,23 @@ class SemanticViewUsageExtractor:
                 )
             )
 
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
+
             for record in self._parse_usage_results(results):
-                # Normalize the semantic view name to match discovered datasets
+                # Match case-insensitively, but resolve back to the canonical
+                # (correctly-cased) identifier discovered during schema generation -
+                # see _build_identifier_lookup for why.
                 normalized_name = self._normalize_semantic_view_name(
                     record.semantic_view_name
                 )
-                if normalized_name not in discovered_semantic_views:
+                canonical_identifier = identifier_lookup.get(normalized_name)
+                if canonical_identifier is None:
                     logger.debug(
                         f"Skipping usage for {record.semantic_view_name} - not in discovered semantic views"
                     )
                     continue
 
-                wu = self._build_usage_statistics_workunit(record, normalized_name)
+                wu = self._build_usage_statistics_workunit(record, canonical_identifier)
                 if wu:
                     yield wu
 
@@ -182,10 +204,44 @@ class SemanticViewUsageExtractor:
         """Normalize semantic view name to lowercase for matching."""
         return name.lower()
 
+    def _build_identifier_lookup(
+        self, discovered_semantic_views: Set[str]
+    ) -> Dict[str, str]:
+        """Map a lowercase-normalized identifier to its canonical form.
+
+        QUERY_HISTORY-derived names are matched case-insensitively against
+        discovered_semantic_views (Snowflake session/query-result casing isn't
+        guaranteed), but the semanticModel/dataset URN must be built from the
+        identifier exactly as schema generation produced it (i.e. already passed
+        through SnowflakeIdentifierBuilder.snowflake_identifier for the configured
+        casing mode - see get_dataset_identifier in snowflake_v2.py). Building the
+        URN from a freshly-lowercased match key instead would silently diverge from
+        the schema-gen URN whenever convert_urns_to_lowercase=False, since Snowflake
+        identifiers are commonly uppercase.
+        """
+        return {
+            identifier.lower(): identifier for identifier in discovered_semantic_views
+        }
+
+    def _semantic_model_urn_from_identifier(self, identifier: str) -> str:
+        """Build the semanticModel URN from a db.schema.view identifier.
+
+        `identifier` must be the canonical, already-config-cased identifier (as
+        produced by _build_identifier_lookup), not a freshly-lowercased match key -
+        see that method's docstring for why.
+        """
+        # maxsplit=2 protects the view name (matching existing patterns); assumes
+        # db/schema names contain no dots - the same caveat as dataset URN construction.
+        db_name, schema_name, view_name = identifier.split(".", 2)
+        return self.identifiers.gen_semantic_model_urn(view_name, schema_name, db_name)
+
     def _build_usage_statistics_workunit(
         self, record: SemanticViewUsageRecord, dataset_identifier: str
     ) -> Optional[MetadataWorkUnit]:
-        """Build a DatasetUsageStatistics workunit for a semantic view."""
+        """Build a DatasetUsageStatistics workunit for a semantic view.
+
+        Legacy dataset mode only - see get_semantic_view_usage_workunits.
+        """
         try:
             user_counts = self._map_user_counts(record.user_counts)
 
@@ -202,9 +258,8 @@ class SemanticViewUsageExtractor:
                 else None,
             )
 
-            dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
             return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
+                entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                 aspect=stats,
             ).as_workunit()
 
@@ -282,6 +337,7 @@ class SemanticViewUsageExtractor:
             # Group queries by semantic view, limiting during collection to avoid memory issues
             queries_by_view: Dict[str, List[SemanticViewQuery]] = {}
             max_per_view = self.config.semantic_views.max_queries_per_view
+            identifier_lookup = self._build_identifier_lookup(discovered_semantic_views)
 
             for row in results:
                 # Skip rows where REGEXP_SUBSTR failed to extract a name
@@ -290,7 +346,7 @@ class SemanticViewUsageExtractor:
                     continue
 
                 normalized_name = self._normalize_semantic_view_name(semantic_view_name)
-                if normalized_name not in discovered_semantic_views:
+                if normalized_name not in identifier_lookup:
                     continue
 
                 # Skip if we've already collected enough queries for this view
@@ -317,12 +373,17 @@ class SemanticViewUsageExtractor:
                     queries_by_view[normalized_name] = []
                 queries_by_view[normalized_name].append(query)
 
-            # Emit query entities
-            for view_name, queries in queries_by_view.items():
-                logger.debug(f"Emitting {len(queries)} query entities for {view_name}")
+            # Emit query entities, using the canonical (schema-gen) identifier for
+            # URN construction rather than the lowercased grouping key - see
+            # _build_identifier_lookup.
+            for normalized_name, queries in queries_by_view.items():
+                canonical_identifier = identifier_lookup[normalized_name]
+                logger.debug(
+                    f"Emitting {len(queries)} query entities for {canonical_identifier}"
+                )
 
                 for query in queries:
-                    yield from self._build_query_workunits(query, view_name)
+                    yield from self._build_query_workunits(query, canonical_identifier)
 
         except Exception as e:
             logger.warning(
@@ -334,7 +395,11 @@ class SemanticViewUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         """Build Query entity workunits for a query."""
         query_urn = QueryUrn(query.query_id).urn()
-        dataset_urn = self.identifiers.gen_dataset_urn(dataset_identifier)
+        subject_entity_urn = (
+            self._semantic_model_urn_from_identifier(dataset_identifier)
+            if self.config.semantic_views.emit_semantic_model_entities
+            else self.identifiers.gen_dataset_urn(dataset_identifier)
+        )
         user_urn, _ = self._get_user_urn_and_email(query.user_name)
         timestamp_millis = int(query.start_time.timestamp() * 1000)
 
@@ -368,7 +433,9 @@ class SemanticViewUsageExtractor:
             aspect=query_properties,
         ).as_workunit()
 
-        query_subjects = QuerySubjects(subjects=[QuerySubject(entity=dataset_urn)])
+        query_subjects = QuerySubjects(
+            subjects=[QuerySubject(entity=subject_entity_urn)]
+        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=query_urn,

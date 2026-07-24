@@ -1,4 +1,5 @@
 import datetime
+from typing import Any, Dict, List, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -180,9 +181,13 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     mock_connection_instance.query.side_effect = query_side_effect
 
     report = SnowflakeV2Report()
+    # column_occurrences (asserted below) is only populated when
+    # emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._process_column_occurrences.
     data_dict = SnowflakeDataDictionary(
         connection=mock_connection_instance,
         report=report,
+        emit_semantic_model_entities=True,
     )
 
     semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
@@ -204,6 +209,15 @@ def test_populate_semantic_view_columns_with_dimensions(mock_connection):
     # Verify synonyms were parsed
     assert "CUSTOMER_NAME" in semantic_view.column_synonyms
     assert len(semantic_view.column_synonyms["CUSTOMER_NAME"]) == 2
+
+    # column_occurrences preserves the raw per-logical-table occurrence, which the
+    # semanticModel mapper relies on to group fields by their logical dataset.
+    assert semantic_view.column_occurrences["CUSTOMER_NAME"][0].table_name == (
+        "customers"
+    )
+    assert semantic_view.column_occurrences["PRODUCT_CATEGORY"][0].table_name == (
+        "products"
+    )
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
@@ -275,9 +289,13 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
     mock_connection_instance.query.side_effect = query_side_effect
 
     report = SnowflakeV2Report()
+    # column_occurrences (asserted below) is only populated when
+    # emit_semantic_model_entities is enabled - see
+    # SnowflakeDataDictionary._process_column_occurrences.
     data_dict = SnowflakeDataDictionary(
         connection=mock_connection_instance,
         report=report,
+        emit_semantic_model_entities=True,
     )
 
     semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
@@ -291,6 +309,10 @@ def test_populate_semantic_view_columns_with_duplicates(mock_connection):
 
     # Should have merged subtype
     assert semantic_view.column_subtypes["AMOUNT"] == "DIMENSION,FACT"
+
+    # column_occurrences keeps both raw occurrences (unlike the merged columns list
+    # above), since the semanticModel mapper needs each one's own table/expression.
+    assert len(semantic_view.column_occurrences["AMOUNT"]) == 2
 
     # Should have both table mappings
     assert len(semantic_view.column_table_mappings["AMOUNT"]) == 2
@@ -631,6 +653,223 @@ def test_ddl_fetch_success(mock_connection):
     semantic_view = semantic_views["PUBLIC"][0]
     assert semantic_view.view_definition is not None
     assert "CREATE SEMANTIC VIEW" in semantic_view.view_definition
+
+
+def _make_relationships_data_dict(
+    relationships_rows: List[Dict[str, Any]],
+    emit_semantic_model_entities: bool = True,
+) -> Tuple[SnowflakeDataDictionary, SnowflakeV2Report, MagicMock]:
+    """Build a SnowflakeDataDictionary whose single semantic view's relationships
+    come from the given INFORMATION_SCHEMA.SEMANTIC_RELATIONSHIPS rows."""
+    mock_semantic_views_cursor = MagicMock()
+    mock_semantic_views_cursor.__iter__.return_value = [
+        {
+            "SEMANTIC_VIEW_CATALOG": "TEST_DB",
+            "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+            "SEMANTIC_VIEW_NAME": "sales_view",
+            "CREATED": datetime.datetime.now(),
+            "COMMENT": "Sales view",
+        },
+    ]
+
+    mock_relationships_cursor = MagicMock()
+    mock_relationships_cursor.__iter__.return_value = relationships_rows
+
+    mock_empty_cursor = MagicMock()
+    mock_empty_cursor.__iter__.return_value = []
+    mock_empty_cursor.fetchone.return_value = None
+
+    mock_connection_instance = MagicMock()
+
+    def query_side_effect(query_str: str) -> MagicMock:
+        query_lower = query_str.lower()
+        if "semantic_relationships" in query_lower:
+            return mock_relationships_cursor
+        elif (
+            "semantic_dimensions" in query_lower
+            or "semantic_facts" in query_lower
+            or "semantic_metrics" in query_lower
+            or "semantic_tables" in query_lower
+            or "get_ddl" in query_lower
+        ):
+            return mock_empty_cursor
+        else:
+            return mock_semantic_views_cursor
+
+    mock_connection_instance.query.side_effect = query_side_effect
+
+    report = SnowflakeV2Report()
+    data_dict = SnowflakeDataDictionary(
+        connection=mock_connection_instance,
+        report=report,
+        emit_semantic_model_entities=emit_semantic_model_entities,
+    )
+    return data_dict, report, mock_connection_instance
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_relationships_single(mock_connection):
+    """A single relationship is parsed into a structured
+    SnowflakeSemanticViewRelationship."""
+    data_dict, _, _ = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["customer_id"]',
+                "REF_TABLE_NAME": "customers",
+                "REF_KEYS": '["customer_id"]',
+            },
+        ]
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    relationships = semantic_views["PUBLIC"][0].relationships
+    assert len(relationships) == 1
+    relationship = relationships[0]
+    assert relationship.name == "orders_to_customers"
+    assert relationship.from_table == "orders"
+    assert relationship.from_columns == ["customer_id"]
+    assert relationship.to_table == "customers"
+    assert relationship.to_columns == ["customer_id"]
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_relationships_multiple(mock_connection):
+    """Multiple relationships on the same semantic view are all parsed."""
+    data_dict, _, _ = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["customer_id"]',
+                "REF_TABLE_NAME": "customers",
+                "REF_KEYS": '["customer_id"]',
+            },
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_products",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["product_id"]',
+                "REF_TABLE_NAME": "products",
+                "REF_KEYS": '["product_id"]',
+            },
+        ]
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    relationships = semantic_views["PUBLIC"][0].relationships
+    assert {r.name for r in relationships} == {
+        "orders_to_customers",
+        "orders_to_products",
+    }
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_relationships_multi_column_keys(mock_connection):
+    """A composite (multi-column) join key is parsed preserving column order."""
+    data_dict, _, _ = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "lineitem_to_partsupp",
+                "TABLE_NAME": "lineitem",
+                "FOREIGN_KEYS": '["l_partkey", "l_suppkey"]',
+                "REF_TABLE_NAME": "partsupp",
+                "REF_KEYS": '["ps_partkey", "ps_suppkey"]',
+            },
+        ]
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    relationships = semantic_views["PUBLIC"][0].relationships
+    assert len(relationships) == 1
+    relationship = relationships[0]
+    assert relationship.from_columns == ["l_partkey", "l_suppkey"]
+    assert relationship.to_columns == ["ps_partkey", "ps_suppkey"]
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_populate_semantic_view_relationships_malformed_entry_skipped(
+    mock_connection,
+):
+    """A relationship with non-standard join keys (e.g. a range/ASOF join, whose
+    ref_keys are JSON objects rather than a flat column list) is skipped with a
+    warning, without dropping other, well-formed relationships."""
+    data_dict, report, _ = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["customer_id"]',
+                "REF_TABLE_NAME": "customers",
+                "REF_KEYS": '["customer_id"]',
+            },
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "events_to_sessions_range",
+                "TABLE_NAME": "events",
+                "FOREIGN_KEYS": '["event_time"]',
+                "REF_TABLE_NAME": "sessions",
+                "REF_KEYS": '[{"column": "session_start", "operator": ">="}]',
+            },
+        ]
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    relationships = semantic_views["PUBLIC"][0].relationships
+    assert len(relationships) == 1
+    assert relationships[0].name == "orders_to_customers"
+
+    messages = [w.title for w in report.warnings]
+    assert any("non-standard or missing join keys" in (m or "") for m in messages)
+
+
+@patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")
+def test_semantic_view_relationships_not_fetched_when_flag_disabled(mock_connection):
+    """emit_semantic_model_entities=False (the default, legacy dataset-mode path)
+    must not issue the SEMANTIC_RELATIONSHIPS query at all, and relationships must
+    stay empty."""
+    data_dict, _, mock_connection_instance = _make_relationships_data_dict(
+        [
+            {
+                "SEMANTIC_VIEW_SCHEMA": "PUBLIC",
+                "SEMANTIC_VIEW_NAME": "sales_view",
+                "NAME": "orders_to_customers",
+                "TABLE_NAME": "orders",
+                "FOREIGN_KEYS": '["customer_id"]',
+                "REF_TABLE_NAME": "customers",
+                "REF_KEYS": '["customer_id"]',
+            },
+        ],
+        emit_semantic_model_entities=False,
+    )
+
+    semantic_views = data_dict.get_semantic_views_for_database("TEST_DB")
+
+    assert semantic_views is not None
+    assert semantic_views["PUBLIC"][0].relationships == []
+    issued_queries = [
+        call.args[0].lower() for call in mock_connection_instance.query.call_args_list
+    ]
+    assert not any("semantic_relationships" in q for q in issued_queries)
 
 
 @patch("datahub.ingestion.source.snowflake.snowflake_schema.SnowflakeConnection")

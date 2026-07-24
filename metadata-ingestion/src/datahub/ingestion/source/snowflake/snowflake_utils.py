@@ -1,9 +1,10 @@
 import abc
 from functools import cached_property
-from typing import ClassVar, List, Literal, Optional, Tuple
+from typing import ClassVar, Dict, List, Literal, Optional, Tuple, Type
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
@@ -21,10 +22,61 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    DateType,
+    NullType,
+    NumberType,
+    RecordType,
+    StringType,
+    TimeType,
+)
+from datahub.metadata.urns import MetricUrn, SemanticModelUrn
 
 # Truncate definition strings (e.g. task / pipe SQL bodies) stored in
 # customProperties to stay well within DataHub's aspect size limits.
 MAX_DEFINITION_LENGTH = 4000
+
+# https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
+# TODO: Move to the standardized types in sql_types.py
+SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
+    "DATE": DateType,
+    "BIGINT": NumberType,
+    "BINARY": BytesType,
+    # 'BIT': BIT,
+    "BOOLEAN": BooleanType,
+    "CHAR": NullType,
+    "CHARACTER": NullType,
+    "DATETIME": TimeType,
+    "DEC": NumberType,
+    "DECIMAL": NumberType,
+    "DOUBLE": NumberType,
+    "FIXED": NumberType,
+    "FLOAT": NumberType,
+    "INT": NumberType,
+    "INTEGER": NumberType,
+    "NUMBER": NumberType,
+    # 'OBJECT': ?
+    "REAL": NumberType,
+    "BYTEINT": NumberType,
+    "SMALLINT": NumberType,
+    "STRING": StringType,
+    "TEXT": StringType,
+    "TIME": TimeType,
+    "TIMESTAMP": TimeType,
+    "TIMESTAMP_TZ": TimeType,
+    "TIMESTAMP_LTZ": TimeType,
+    "TIMESTAMP_NTZ": TimeType,
+    "TINYINT": NumberType,
+    "VARBINARY": BytesType,
+    "VARCHAR": StringType,
+    "VARIANT": RecordType,
+    "OBJECT": NullType,
+    "ARRAY": ArrayType,
+    "GEOGRAPHY": NullType,
+}
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
@@ -370,6 +422,40 @@ class SnowflakeIdentifierBuilder:
             platform_instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,
         )
+
+    def gen_semantic_model_urn(
+        self, view_name: str, schema_name: str, db_name: str
+    ) -> str:
+        # The semanticModel key has no env field and no separate platform_instance
+        # field, so the instance is embedded into the path (mirroring how dataset
+        # names are prefixed by make_dataset_urn_with_platform_instance).
+        return str(
+            SemanticModelUrn(
+                platform=make_data_platform_urn(self.platform),
+                path=self._semantic_path(schema_name, db_name),
+                id=self.snowflake_identifier(view_name),
+            )
+        )
+
+    def gen_metric_urn(
+        self, metric_name: str, view_name: str, schema_name: str, db_name: str
+    ) -> str:
+        # Metrics are scoped by their enclosing semantic view, so the view name is
+        # part of the path and the metric name only needs per-view uniqueness.
+        path = f"{self._semantic_path(schema_name, db_name)}.{self.snowflake_identifier(view_name)}"
+        return str(
+            MetricUrn(
+                platform=make_data_platform_urn(self.platform),
+                path=path,
+                id=self.snowflake_identifier(metric_name),
+            )
+        )
+
+    def _semantic_path(self, schema_name: str, db_name: str) -> str:
+        path = self.snowflake_identifier(f"{db_name}.{schema_name}")
+        if self.identifier_config.platform_instance:
+            return f"{self.identifier_config.platform_instance}.{path}"
+        return path
 
     def gen_marketplace_data_product_key(
         self, listing_global_name: str

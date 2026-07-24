@@ -377,6 +377,17 @@ SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
 
 DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
 
+A semantic view is ingested in one of two representations, selected by the `semantic_views.emit_semantic_model_entities` flag (see below):
+
+- **Legacy dataset** (subtype `Semantic View`): its dimension, fact, and metric columns are tagged `DIMENSION`/`FACT`/`METRIC` on the schema, table-level synonyms are stored as custom properties, and table-level (and, with `column_lineage`, column-level) lineage to the underlying base tables is emitted as a standard dataset `upstreamLineage` aspect.
+- **semanticModel / metric entities:** each semantic view becomes its own **semanticModel** entity (name, description, logical dimension/fact fields, and the `CREATE SEMANTIC VIEW` DDL as its native definition), with each `METRIC` column ingested as a separate **metric** entity linked to that semanticModel.
+
+The flag is tri-state and server-aware:
+
+- **Unset (default):** auto-resolved from the server. On DataHub Cloud ≥ `2.1.0` it is enabled unless the Metrics feature is explicitly disabled; it stays off on older Cloud, on OSS/self-hosted (which is recipe-driven — see below), and with no DataHub connection (e.g. a file sink).
+- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0` or with Metrics off, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
+- **`false`:** always force legacy dataset behavior, overriding any server-side auto-enable.
+
 ##### Configuration
 
 Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
@@ -386,6 +397,7 @@ Semantic view ingestion is disabled by default (requires Snowflake Enterprise Ed
 semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
+  include_queries: true # Default: false - emit query entities for queries against semantic views
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -398,10 +410,22 @@ semantic_view_pattern:
 
 ##### Features
 
-- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
-- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Metadata Extraction**: Extracts each semantic view's columns, tags, comments, and timestamps
+- **Lineage Support**: Semantic views participate in table-level lineage extraction like regular views, and column-level lineage when `column_lineage` is enabled
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
-- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+- **External URLs**: Snowsight links are emitted only in the legacy dataset representation; `semanticModel` entities carry no Snowsight URL
+- **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
+
+##### What changes with `emit_semantic_model_entities`
+
+- Views become **semanticModel** entities (plus a **metric** per `METRIC` column) instead of Datasets; the dataset URNs, subtype, and dataset-specific aspects above no longer apply.
+- Lineage is emitted on the semanticModel/metric entities. Metric `metricUpstreams` require `column_lineage: true` (no table-level fallback).
+- `include_usage` is ignored (semanticModel entities carry no usage statistics; usage is emitted only in the legacy dataset representation). `include_queries` still emits query entities, attributed to the semanticModel.
+- Semantic models have no container aspect, so they don't appear on database/schema pages — find them via search, lineage, or the metrics experience.
+- **Requires** a GMS that registers `semanticModel`/`metric`. On Cloud the connector auto-enables only at ≥ `2.1.0` (which implies they're present), else warns and falls back; on OSS it is recipe-driven, so run a compatible server before setting `true`.
+- **Limitation:** a downstream `FROM SEMANTIC_VIEW(...)` can't declare the semanticModel as an upstream (`upstreamLineage` is dataset-URN-typed); with `use_queries_v2`, parsing may resolve it to the old (soft-deleted) dataset URN.
+- **Limitation:** no effect when `include_technical_schema: false` (semantic-view processing is skipped).
+- **Caveat:** the URN has no `env`, so the same account in two environments collides — use a distinct `platform_instance` per environment.
 
 ##### Requirements
 

@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
 import sqlglot.expressions
@@ -67,8 +67,12 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_semantic_model import (
+    SnowflakeSemanticModelMapper,
+)
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SNOWFLAKE_FIELD_TYPE_MAPPINGS,
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
@@ -105,20 +109,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    BooleanType,
-    BytesType,
-    DateType,
     ForeignKeyConstraint,
     MySqlDDL,
     NullType,
-    NumberType,
-    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    StringType,
-    TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.metadata.schema_classes import (
@@ -152,45 +148,6 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 
 logger = logging.getLogger(__name__)
 
-# https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
-# TODO: Move to the standardized types in sql_types.py
-SNOWFLAKE_FIELD_TYPE_MAPPINGS: Dict[str, Type] = {
-    "DATE": DateType,
-    "BIGINT": NumberType,
-    "BINARY": BytesType,
-    # 'BIT': BIT,
-    "BOOLEAN": BooleanType,
-    "CHAR": NullType,
-    "CHARACTER": NullType,
-    "DATETIME": TimeType,
-    "DEC": NumberType,
-    "DECIMAL": NumberType,
-    "DOUBLE": NumberType,
-    "FIXED": NumberType,
-    "FLOAT": NumberType,
-    "INT": NumberType,
-    "INTEGER": NumberType,
-    "NUMBER": NumberType,
-    # 'OBJECT': ?
-    "REAL": NumberType,
-    "BYTEINT": NumberType,
-    "SMALLINT": NumberType,
-    "STRING": StringType,
-    "TEXT": StringType,
-    "TIME": TimeType,
-    "TIMESTAMP": TimeType,
-    "TIMESTAMP_TZ": TimeType,
-    "TIMESTAMP_LTZ": TimeType,
-    "TIMESTAMP_NTZ": TimeType,
-    "TINYINT": NumberType,
-    "VARBINARY": BytesType,
-    "VARCHAR": StringType,
-    "VARIANT": RecordType,
-    "OBJECT": NullType,
-    "ARRAY": ArrayType,
-    "GEOGRAPHY": NullType,
-}
-
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -218,6 +175,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             connection=self.connection,
             report=self.report,
             fetch_views_from_information_schema=fetch_views_from_information_schema,
+            # isinstance guards against SnowflakeSummaryConfig (see the FIXME on the
+            # `config` parameter above), which has no `semantic_views` field.
+            emit_semantic_model_entities=bool(
+                isinstance(config, SnowflakeV2Config)
+                and config.semantic_views.emit_semantic_model_entities
+            ),
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
@@ -229,6 +192,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.profiler: Optional[SnowflakeProfiler] = profiler
         self.snowsight_url_builder: Optional[SnowsightUrlBuilder] = (
             snowsight_url_builder
+        )
+        self.semantic_model_mapper = SnowflakeSemanticModelMapper(
+            config=self.config,
+            report=self.report,
+            identifiers=self.identifiers,
+            domain_registry=self.domain_registry,
         )
 
         # These are populated as side-effects of get_workunits_internal.
@@ -748,17 +717,28 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     context=f"{db_name}.{schema_name}.{semantic_view.name}",
                 )
 
-        # STEP 1: Yield dataset work units first (this registers schemas with the aggregator)
-        # This also registers explicit column lineage LAST to override auto-generation
+        # STEP 1: Yield work units first (this registers schemas with the aggregator
+        # in legacy dataset mode). When emit_semantic_model_entities is enabled,
+        # semantic views are emitted as semanticModel/metric entities instead, so
+        # they are never registered with the SQL aggregator; their lineage is
+        # emitted directly as upstreamLineage / metricUpstreams aspects.
         if self.config.include_technical_schema:
             for semantic_view in semantic_views:
                 yield from self._process_semantic_view(
                     semantic_view, snowflake_schema, db_name
                 )
+                if self.config.semantic_views.emit_semantic_model_entities:
+                    self.report.num_semantic_model_lineage_edges_scanned += len(
+                        semantic_view.resolved_upstream_urns
+                    )
 
-        # STEP 2: Add view definitions to aggregator (for reference/documentation only)
-        # Lineage is now emitted directly as MCPs in STEP 1, bypassing aggregator auto-generation
-        if self.aggregator:
+        # STEP 2 (legacy dataset mode only): add view definitions to the aggregator
+        # (for reference/documentation only). Lineage itself is emitted directly as
+        # MCPs in STEP 1, bypassing aggregator auto-generation.
+        if (
+            not self.config.semantic_views.emit_semantic_model_entities
+            and self.aggregator
+        ):
             logger.info(
                 f"Adding view definitions to aggregator for {len(semantic_views)} semantic views"
             )
@@ -789,7 +769,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
 
         logger.info(
-            f"Completed lineage processing for all {len(semantic_views)} semantic views"
+            f"Completed processing for all {len(semantic_views)} semantic views"
         )
 
     def _process_streams(
@@ -1263,7 +1243,45 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
                 semantic_view.tags = None
 
-        # Emit schema FIRST, then lineage (DataHub needs columns before lineage references)
+        if self.config.semantic_views.emit_semantic_model_entities:
+            # Tag entities referenced by the semantic view / its columns. In legacy
+            # dataset mode these are emitted by gen_dataset_workunits instead.
+            if semantic_view.tags:
+                for tag in semantic_view.tags:
+                    yield from self._process_tag(tag)
+            for column_name in semantic_view.column_tags:
+                for tag in semantic_view.column_tags[column_name]:
+                    yield from self._process_tag(tag)
+
+            # Column lineage is anchored on the semanticModel URN; the mapper splits it
+            # between the model's upstreamLineage and per-metric metricUpstreams.
+            column_lineages: List[FineGrainedLineageClass] = []
+            if self.config.semantic_views.column_lineage:
+                try:
+                    semantic_model_urn = self.identifiers.gen_semantic_model_urn(
+                        semantic_view.name, schema_name, db_name
+                    )
+                    column_lineages = self._generate_column_lineage_for_semantic_view(
+                        semantic_view, semantic_model_urn, db_name
+                    )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        title="Failed to generate column lineage for semantic view",
+                        message=str(e),
+                        context=semantic_view.name,
+                        exc=e,
+                    )
+
+            yield from self.semantic_model_mapper.gen_workunits(
+                semantic_view=semantic_view,
+                schema_name=schema_name,
+                db_name=db_name,
+                fine_grained_lineages=column_lineages,
+            )
+            return
+
+        # Legacy dataset mode: emit schema FIRST, then lineage (DataHub needs
+        # columns before lineage references).
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(semantic_view, schema_name, db_name)
         else:
