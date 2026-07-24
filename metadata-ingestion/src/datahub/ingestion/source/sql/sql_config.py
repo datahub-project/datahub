@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, FrozenSet, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional
 
 import pydantic
 from pydantic import Field, model_validator
@@ -28,6 +28,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -159,6 +162,27 @@ class SQLCommonConfig(
         from datahub.ingestion.source.sql.sql_probe import list_sql_children
 
         return list_sql_children(self, parent_path, limit)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.sql.sqlalchemy_probe import (
+            SqlAlchemyMetadataProbe,
+        )
+
+        return SqlAlchemyMetadataProbe
+
+    def build_probe_provider(self) -> "SqlAlchemyMetadataProbe":
+        # lazy: keep sqlalchemy engine construction off the config import path
+        from sqlalchemy import create_engine
+
+        from datahub.ingestion.source.sql.sql_probe import engine_options
+        from datahub.ingestion.source.sql.sqlalchemy_probe import (
+            SqlAlchemyMetadataProbe,
+        )
+
+        return SqlAlchemyMetadataProbe(
+            create_engine(self.get_sql_alchemy_url(), **engine_options(self))
+        )
 
 
 class SQLAlchemyConnectionConfig(ConfigModel):
