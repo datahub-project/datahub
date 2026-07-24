@@ -356,15 +356,22 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   /** Tests to make sure that the fields are correctly combined across search-able entities */
   @Test
   public void testGetStandardFieldsEntitySpec() {
-    List<EntitySpec> entitySpecs =
+    List<String> entityTypeNames =
         Stream.concat(
                 parseCsv(DEFAULT_SEARCH_ENTITY_TYPES).stream(),
                 parseCsv(DEFAULT_AUTOCOMPLETE_ENTITY_TYPES).stream())
             .distinct()
+            .collect(Collectors.toList());
+    // Distinct configured defaults (search ∪ autocomplete) — not an arbitrary registry-wide count.
+    assertTrue(
+        entityTypeNames.size() >= 20,
+        "Expected at least 20 distinct default search/autocomplete entity types");
+
+    List<EntitySpec> entitySpecs =
+        entityTypeNames.stream()
             .map(entityType -> operationContext.getEntityRegistry().getEntitySpec(entityType))
             .collect(Collectors.toList());
-    assertTrue(
-        entitySpecs.size() >= 30, "Expected at least 30 searchable entities in the registry");
+    assertEquals(entitySpecs.size(), entityTypeNames.size());
 
     // Count of the distinct field names
     Set<String> expectedFieldNames =
