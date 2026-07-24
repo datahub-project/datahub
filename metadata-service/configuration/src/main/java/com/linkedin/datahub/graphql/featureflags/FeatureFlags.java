@@ -76,4 +76,5 @@ public class FeatureFlags {
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
+  private boolean entityHealthBatchLoadEnabled = true;
 }
