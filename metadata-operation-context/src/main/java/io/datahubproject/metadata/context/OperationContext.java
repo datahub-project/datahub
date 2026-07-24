@@ -802,8 +802,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
               this.primaryStorageContext != null
                   ? this.primaryStorageContext
                   : PrimaryStorageContext.EMPTY,
-              new java.util.ArrayList<>(),
-              this.enrichmentBundle);
+              this.enrichmentBundle,
+              new java.util.ArrayList<>());
 
       if (!sessionActor.isActive(authContext, retriever)) {
         throw new ActorAccessException("Actor is not active");

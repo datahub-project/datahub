@@ -116,7 +116,7 @@ public class RequestContext implements ContextInterface {
    * OperationContext.getEnrichment(SomeEnrichment.class)}. Null when no enrichments were provided
    * on this request.
    */
-  @Nullable private final EnrichmentBundle enrichments;
+  @Nullable private final EnrichmentBundle enrichmentBundle;
 
   /** Surface-neutral usage operation registry key (e.g. dimensions.usage_operation). */
   @Nullable private final String usageOperation;
@@ -218,7 +218,7 @@ public class RequestContext implements ContextInterface {
       boolean requestBodyMaterialized,
       boolean responseBodyMaterialized,
       long usageQuantity,
-      @Nullable EnrichmentBundle enrichments) {
+      @Nullable EnrichmentBundle enrichmentBundle) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -268,7 +268,7 @@ public class RequestContext implements ContextInterface {
     this.requestBodyMaterialized = requestBodyMaterialized;
     this.responseBodyMaterialized = responseBodyMaterialized;
     this.usageQuantity = Math.max(1L, usageQuantity);
-    this.enrichments = enrichments;
+    this.enrichmentBundle = enrichmentBundle;
 
     putUsageFieldsInMdc();
 
@@ -425,7 +425,7 @@ public class RequestContext implements ContextInterface {
           this.requestBodyMaterialized,
           this.responseBodyMaterialized,
           this.usageQuantity,
-          this.enrichments);
+          this.enrichmentBundle);
     }
 
     public RequestContextBuilder buildGraphql(
@@ -484,6 +484,7 @@ public class RequestContext implements ContextInterface {
       if (resourceContext != null && peekInputBytes() == null) {
         withWireInput(resourceContext);
       }
+      readEnrichmentBundle(resourceContext);
       return this;
     }
 
@@ -515,7 +516,7 @@ public class RequestContext implements ContextInterface {
 
     /**
      * Read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off {@code request} (if present) and
-     * stash on this builder via the Lombok-generated {@code enrichments(...)} setter. Silently
+     * stash on this builder via the Lombok-generated {@code enrichmentBundle(...)} setter. Silently
      * ignores a null request or a wrong-typed attribute value — either indicates that no upstream
      * filter contributed enrichments for this call.
      */
@@ -527,7 +528,28 @@ public class RequestContext implements ContextInterface {
       if (attr instanceof EnrichmentBundle) {
         final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
         if (!fromRequest.isEmpty()) {
-          enrichments(fromRequest);
+          enrichmentBundle(fromRequest);
+        }
+      }
+    }
+
+    /**
+     * Rest.li equivalent: read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off the R2 local
+     * attrs on {@code resourceContext.getRawRequestContext()}. Requires the R2 servlet layer (see
+     * {@code JakartaServletHelper#readRequestContext}) to have propagated the attribute from the
+     * servlet request; upstream servlet filters set it on the {@code HttpServletRequest} and
+     * JakartaServletHelper copies it into R2 local attrs so Rest.li endpoints see it here.
+     */
+    private void readEnrichmentBundle(@Nullable final ResourceContext resourceContext) {
+      if (resourceContext == null || resourceContext.getRawRequestContext() == null) {
+        return;
+      }
+      final Object attr =
+          resourceContext.getRawRequestContext().getLocalAttr(REQUEST_ENRICHMENTS_ATTR);
+      if (attr instanceof EnrichmentBundle) {
+        final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
+        if (!fromRequest.isEmpty()) {
+          enrichmentBundle(fromRequest);
         }
       }
     }
