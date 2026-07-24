@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    copyTextToClipboard,
     useAssertionURNCopyLink,
     useOpenAssertionDetailModal,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
@@ -25,6 +26,31 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils', () => ({
     getQueryParams: vi.fn(),
 }));
 
+describe('copyTextToClipboard', () => {
+    const originalClipboard = navigator.clipboard;
+    const originalExecCommand = document.execCommand;
+
+    afterEach(() => {
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard, writable: true });
+        Object.defineProperty(document, 'execCommand', {
+            configurable: true,
+            value: originalExecCommand,
+            writable: true,
+        });
+    });
+
+    it('falls back to execCommand when the Clipboard API is unavailable', async () => {
+        const execCommand = vi.fn().mockReturnValue(true);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+        Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+
+        await copyTextToClipboard('urn:li:assertion:test');
+
+        expect(execCommand).toHaveBeenCalledWith('copy');
+        expect(document.querySelector('textarea')).toBeNull();
+    });
+});
+
 // ---------------------------------------------------------------------------
 // useAssertionURNCopyLink
 // ---------------------------------------------------------------------------
@@ -34,7 +60,11 @@ describe('useAssertionURNCopyLink', () => {
     const mockWriteText = vi.fn();
 
     beforeEach(() => {
-        Object.assign(navigator, { clipboard: { writeText: mockWriteText } });
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText: mockWriteText },
+            writable: true,
+        });
     });
 
     afterEach(() => {
@@ -51,7 +81,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         const expectedUrl = new URL(window.location.href);
@@ -64,7 +94,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         expect(message.success).toHaveBeenCalledWith('Link copied to clipboard!');
@@ -76,7 +106,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         expect(message.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');

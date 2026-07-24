@@ -7,6 +7,8 @@
     "action.copyLinkToAssertion": "Copy link to this assertion",
     "action.copyUrn": "Copy urn",
     "action.copyUrnToAssertion": "Copy urn for this assertion",
+    "action.urnCopied": "URN copied to clipboard!",
+    "action.urnCopyFailed": "Failed to copy URN to clipboard.",
     "action.failedAddToContract": "Failed to add Assertion to Contract. An unexpected error occurred",
     "action.failedRemoveFromContract": "Failed to remove Assertion from Contract. An unexpected error occurred",
     "action.noPermissionEditContract": "You do not have permission to edit the contract",
