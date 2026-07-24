@@ -18,7 +18,7 @@ _LICENSE_URL = (
 
 
 def _download(url: str) -> bytes:
-    with urlopen(url) as resp:
+    with urlopen(url, timeout=30) as resp:
         return resp.read()
 
 
@@ -26,12 +26,18 @@ def _fetch_verified(base_url: str, filename: str, cache: Path) -> str:
     jar_path = cache / filename
     sha_path = cache / (filename + ".sha1")
     if jar_path.exists() and sha_path.exists():
-        expected = sha_path.read_text().strip().split()[0]
+        sha_text = sha_path.read_text().strip().split()
+        if not sha_text:
+            raise ConfigurationError(f"Malformed .sha1 file for {filename}")
+        expected = sha_text[0]
         if hashlib.sha1(jar_path.read_bytes()).hexdigest() == expected:
             return str(jar_path)
         logger.warning("Cached %s failed checksum; re-downloading.", filename)
 
-    expected = _download(base_url + ".sha1").decode().strip().split()[0]
+    sha_text = _download(base_url + ".sha1").decode().strip().split()
+    if not sha_text:
+        raise ConfigurationError(f"Malformed .sha1 payload for {filename}")
+    expected = sha_text[0]
     data = _download(base_url)
     actual = hashlib.sha1(data).hexdigest()
     if actual != expected:

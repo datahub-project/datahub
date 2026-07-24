@@ -48,3 +48,35 @@ def test_cache_hit_skips_download(tmp_path, monkeypatch):
         _cfg(accept_ibm_jdbc_license=True, driver_cache_dir=str(cache))
     )
     assert sorted(p.split("/")[-1] for p in result) == ["bson-4.11.1.jar", "jdbc-4.50.10.jar"]
+
+
+def test_checksum_mismatch_raises_and_cleans_cache(tmp_path, monkeypatch):
+    # Monkeypatch _download to return a valid sha1 hex for .sha1 URLs,
+    # but jar-bytes that do NOT hash to it. Should raise ConfigurationError
+    # and clean up the cache.
+    cache = tmp_path / "cache"
+    cache.mkdir()
+
+    fake_checksum = b"a" * 40  # Fixed invalid hex digest
+    mismatched_jar_bytes = b"wrong-jar-content"
+
+    def _mock_download(url: str) -> bytes:
+        if url.endswith(".sha1"):
+            return fake_checksum
+        else:
+            return mismatched_jar_bytes
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.informix.driver._download", _mock_download
+    )
+
+    with pytest.raises(ConfigurationError, match="Checksum mismatch"):
+        resolve_driver_jars(
+            _cfg(accept_ibm_jdbc_license=True, driver_cache_dir=str(cache))
+        )
+
+    # Verify jar and .sha1 sidecar were NOT left in cache
+    assert not (cache / "jdbc-4.50.10.jar").exists()
+    assert not (cache / "jdbc-4.50.10.jar.sha1").exists()
+    assert not (cache / "bson-4.11.1.jar").exists()
+    assert not (cache / "bson-4.11.1.jar.sha1").exists()
