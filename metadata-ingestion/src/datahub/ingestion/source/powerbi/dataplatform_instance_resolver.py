@@ -1,35 +1,39 @@
 import logging
-from abc import ABC, abstractmethod
 
 from datahub.configuration.source_common import PlatformDetail
-from datahub.ingestion.source.powerbi.config import (
-    PowerBiDashboardSourceConfig,
-    PowerBIPlatformDetail,
+from datahub.ingestion.source.common.m_query.config import PowerBIPlatformDetail
+from datahub.ingestion.source.common.m_query.instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+    ServerToPlatformInstanceResolver,
 )
+from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceConfig
 
 logger = logging.getLogger(__name__)
 
+# Re-exported so existing importers keep working after the resolver moved into
+# the shared M-Query engine.
+__all__ = [
+    "AbstractDataPlatformInstanceResolver",
+    "ServerToPlatformInstanceResolver",
+    "ResolvePlatformInstanceFromServerToPlatformInstance",
+    "ResolvePlatformInstanceFromDatasetTypeMapping",
+    "create_dataplatform_instance_resolver",
+]
 
-class AbstractDataPlatformInstanceResolver(ABC):
-    @abstractmethod
-    def get_platform_instance(
-        self, data_platform_detail: PowerBIPlatformDetail
-    ) -> PlatformDetail:
-        pass
-
-
-class BaseAbstractDataPlatformInstanceResolver(
-    AbstractDataPlatformInstanceResolver, ABC
-):
-    config: PowerBiDashboardSourceConfig
-
-    def __init__(self, config):
-        self.config = config
+# The server-based resolver moved into the shared M-Query engine and was renamed;
+# keep the original name importable from here for backward compatibility.
+ResolvePlatformInstanceFromServerToPlatformInstance = ServerToPlatformInstanceResolver
 
 
 class ResolvePlatformInstanceFromDatasetTypeMapping(
-    BaseAbstractDataPlatformInstanceResolver
+    AbstractDataPlatformInstanceResolver
 ):
+    # Legacy PowerBI resolver backed by the deprecated ``dataset_type_mapping``
+    # recipe field. Retained only for backward compatibility; new recipes should
+    # use ``server_to_platform_instance``.
+    def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
+        self.config = config
+
     def get_platform_instance(
         self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
@@ -52,30 +56,6 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
         return PlatformDetail.model_validate({})
 
 
-class ResolvePlatformInstanceFromServerToPlatformInstance(
-    BaseAbstractDataPlatformInstanceResolver
-):
-    def get_platform_instance(
-        self, data_platform_detail: PowerBIPlatformDetail
-    ) -> PlatformDetail:
-        server = data_platform_detail.data_platform_server
-        if not server:
-            return PlatformDetail.model_validate({})
-
-        mapping = self.config.server_to_platform_instance
-        if server in mapping:
-            return mapping[server]
-
-        # Oracle TNS aliases are case-insensitive in the source system but recipe
-        # keys are case-sensitive strings; fall back to case-insensitive match.
-        server_lower = server.lower()
-        for key, value in mapping.items():
-            if key.lower() == server_lower:
-                return value
-
-        return PlatformDetail.model_validate({})
-
-
 def create_dataplatform_instance_resolver(
     config: PowerBiDashboardSourceConfig,
 ) -> AbstractDataPlatformInstanceResolver:
@@ -83,7 +63,7 @@ def create_dataplatform_instance_resolver(
         logger.debug(
             "Creating resolver to resolve platform instance from server_to_platform_instance"
         )
-        return ResolvePlatformInstanceFromServerToPlatformInstance(config)
+        return ServerToPlatformInstanceResolver(config)
 
     logger.debug(
         "Creating resolver to resolve platform instance from dataset_type_mapping"

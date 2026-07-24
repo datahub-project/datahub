@@ -1,4 +1,4 @@
-"""Unit tests for ``powerbi.m_query.pattern_handler`` Oracle-related helpers.
+"""Unit tests for ``common.m_query.pattern_handler`` Oracle-related helpers.
 
 These tests live under ``tests/unit/`` (not ``tests/integration/``) so they are
 picked up by ``./gradlew :metadata-ingestion:testQuick`` and contribute to the
@@ -16,6 +16,17 @@ import sqlglot.errors
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.m_query.data_classes import (
+    DataAccessFunctionDetail,
+    DataPlatformTable,
+    IdentifierAccessor,
+    Lineage,
+)
+from datahub.ingestion.source.common.m_query.pattern_handler import (
+    OdbcLineage,
+    OracleLineage,
+    _remap_column_lineage_to_pbi_fields,
+)
 from datahub.ingestion.source.powerbi.config import (
     DataPlatformPair,
     OraclePlatformDetail,
@@ -26,17 +37,6 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     ResolvePlatformInstanceFromServerToPlatformInstance,
-)
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    DataAccessFunctionDetail,
-    DataPlatformTable,
-    IdentifierAccessor,
-    Lineage,
-)
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
-    OdbcLineage,
-    OracleLineage,
-    _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
@@ -135,7 +135,7 @@ def test_oracle_sql_has_unqualified_tables_treats_unparseable_as_unqualified():
     dialect happens to reject."""
     instance = _build_oracle_lineage(config=_build_config())
     with patch(
-        "datahub.ingestion.source.powerbi.m_query.pattern_handler.sqlglot.parse",
+        "datahub.ingestion.source.common.m_query.pattern_handler.sqlglot.parse",
         side_effect=sqlglot.errors.ParseError("boom"),
     ):
         assert instance._sql_has_unqualified_tables("SELECT 1") is True
@@ -148,7 +148,7 @@ def test_oracle_sql_has_unqualified_tables_lets_unexpected_exceptions_propagate(
     instance = _build_oracle_lineage(config=_build_config())
     with (
         patch(
-            "datahub.ingestion.source.powerbi.m_query.pattern_handler.sqlglot.parse",
+            "datahub.ingestion.source.common.m_query.pattern_handler.sqlglot.parse",
             side_effect=RuntimeError("unexpected"),
         ),
         pytest.raises(RuntimeError, match="unexpected"),
@@ -371,7 +371,7 @@ def test_parse_custom_sql_remaps_downstream_columns_to_pbi_field_casing():
     ]
 
     with patch(
-        "datahub.ingestion.source.powerbi.m_query.pattern_handler."
+        "datahub.ingestion.source.common.m_query.pattern_handler."
         "native_sql_parser.parse_custom_sql",
         return_value=parsed_result,
     ):
@@ -434,7 +434,7 @@ def _patch_arg_helpers(
     """Context manager that patches both ``_get_arg_values`` and
     ``_get_record_args`` at the pattern_handler module level."""
     return patch.multiple(
-        "datahub.ingestion.source.powerbi.m_query.pattern_handler",
+        "datahub.ingestion.source.common.m_query.pattern_handler",
         _get_arg_values=MagicMock(return_value=args),
         _get_record_args=MagicMock(return_value=record_fields),
     )
