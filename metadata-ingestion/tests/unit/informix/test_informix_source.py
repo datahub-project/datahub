@@ -287,7 +287,8 @@ def test_source_applies_table_pattern_deny():
         {
             "server": "informix",
             "database": "testdb",
-            "table_pattern": {"deny": ["orders"]},
+            # table_pattern matches the full database.owner.table identifier.
+            "table_pattern": {"deny": [".*orders"]},
         }
     )
     source = InformixSource(
@@ -356,3 +357,139 @@ def test_source_emits_view_lineage():
     assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
     assert upstream_lineage.fineGrainedLineages
     assert source.report.views_with_lineage == 1
+
+
+def test_source_applies_schema_pattern_deny():
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "schema_pattern": {"deny": ["informix"]},
+        }
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_TwoTableClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    assert not [e for e in entities if isinstance(e, Dataset)]
+    assert source.report.filtered == 2
+
+
+def test_source_applies_view_pattern_deny():
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "view_pattern": {"deny": [".*active"]},
+        }
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    names = sorted(d.urn.name for d in entities if isinstance(d, Dataset))
+    assert names == ["testdb.informix.customers"]
+    assert source.report.filtered == 1
+
+
+def test_source_respects_include_tables_false():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_tables": False}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    names = sorted(d.urn.name for d in entities if isinstance(d, Dataset))
+    assert names == ["testdb.informix.active"]
+
+
+def test_source_respects_include_views_false():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_views": False}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    names = sorted(d.urn.name for d in entities if isinstance(d, Dataset))
+    assert names == ["testdb.informix.customers"]
+
+
+def test_source_skips_foreign_keys_when_disabled():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_foreign_keys": False}
+    )
+    source = InformixSource(PipelineContext(run_id="test"), config, client=_FkClient())
+    entities = list(source.get_workunits_internal())
+
+    orders = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "orders"
+    )
+    schema_metadata = orders._get_aspect(SchemaMetadataClass)
+    assert schema_metadata is not None
+    assert not schema_metadata.foreignKeys
+
+
+class _CompositeFkClient(_FkClient):
+    def get_columns(self, table):
+        if table.name == "orders":
+            return [
+                InformixColumn(name="region", coltype=2, length=4, colno=1),
+                InformixColumn(name="customer_id", coltype=2, length=4, colno=2),
+            ]
+        return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
+
+    def get_foreign_keys(self, table):
+        if table.name == "orders":
+            return [
+                InformixForeignKey(
+                    name="fk_orders_customer",
+                    child_columns=["region", "customer_id"],
+                    parent_table="customers",
+                    parent_owner="informix",
+                    parent_columns=["region", "id"],
+                )
+            ]
+        return []
+
+
+def test_source_warns_on_composite_foreign_key():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_CompositeFkClient()
+    )
+    list(source.get_workunits_internal())
+
+    assert any("Composite foreign key" in str(w.title) for w in source.report.warnings)
+
+
+def test_source_assigns_domain_from_pattern():
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "domain": {"urn:li:domain:sales": {"allow": [".*customers"]}},
+        }
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    customers = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "customers"
+    )
+    active = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "active"
+    )
+    assert customers.domain is not None
+    assert str(customers.domain) == "urn:li:domain:sales"
+    # the view does not match the pattern, so it gets no domain
+    assert active.domain is None

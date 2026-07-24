@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -62,21 +62,36 @@ class InformixSourceConfig(
         "~/.datahub/jars/informix.",
     )
 
-    database_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for databases (owners layer is schema).",
-    )
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for owners/schemas to filter.",
+        description="Regex patterns for owners/schemas to filter in ingestion. "
+        "Specify regex to only match the owner (schema) name.",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter.",
+        description="Regex patterns for tables to filter in ingestion. Specify regex "
+        "to match the entire table name in database.owner.table format.",
     )
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for views to filter.",
+        description="Regex patterns for views to filter in ingestion. Note: defaults "
+        "to table_pattern if not specified. Specify regex to match the entire view "
+        "name in database.owner.view format.",
+    )
+    include_tables: bool = Field(
+        default=True, description="Whether tables should be ingested."
+    )
+    include_views: bool = Field(
+        default=True, description="Whether views should be ingested."
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
+        description="Attach domains to databases, schemas or tables during ingestion "
+        "using regex patterns. Domain key can be a guid like "
+        "*urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "
+        '"Marketing". If you provide strings, then datahub will attempt to resolve '
+        "this name to a guid, and will error out if this fails. There can be multiple "
+        "domain keys specified.",
     )
     include_row_counts: bool = Field(
         default=True,
@@ -93,3 +108,17 @@ class InformixSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion / stale-entity removal config."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def view_pattern_is_table_pattern_unless_specified(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        # Mirrors datahub.ingestion.source.sql.sql_config.SQLFilterConfig so view
+        # filtering matches every other SQL source (can't import it directly: that
+        # module pulls in sqlalchemy, which this dialect-less connector avoids).
+        view_pattern = values.get("view_pattern")
+        table_pattern = values.get("table_pattern")
+        if table_pattern and not view_pattern:
+            values["view_pattern"] = table_pattern
+        return values

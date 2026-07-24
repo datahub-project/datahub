@@ -22,6 +22,7 @@ Auto-download requires accepting the [IBM Informix JDBC Driver Software License 
 The connecting user needs `SELECT` on the Informix system catalog to enumerate metadata:
 
 - `systables`, `syscolumns` — tables, views, and columns.
-- `sysconstraints`, `sysindexes` — primary key detection.
+- `sysconstraints`, `sysindexes`, `sysreferences` — primary- and foreign-key detection.
+- `sysviews` — view definitions (used for view lineage).
 
 No access to user table data is required; row counts are approximate values read from the system catalog (`systables.nrows`), not row scans or sampling.

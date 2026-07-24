@@ -36,6 +36,7 @@ from datahub.ingestion.source.informix.mapping import (
 )
 from datahub.ingestion.source.informix.models import InformixTable
 from datahub.ingestion.source.informix.report import InformixSourceReport
+from datahub.ingestion.source.sql.sql_utils import gen_domain_urn
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -48,6 +49,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
 @platform_name("Informix", id="informix")
@@ -56,6 +58,7 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
@@ -87,6 +90,11 @@ class InformixSource(StatefulIngestionSourceBase):
         self.platform = PLATFORM
         self.report = InformixSourceReport()
         self._client = client
+        self.domain_registry: Optional[DomainRegistry] = None
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.config.domain], graph=ctx.graph
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "InformixSource":
@@ -104,6 +112,15 @@ class InformixSource(StatefulIngestionSourceBase):
             instance=self.config.platform_instance,
             env=self.config.env,
             database=self.config.database,
+        )
+
+    def _domain_urn(self, name: str) -> Optional[str]:
+        if not self.domain_registry:
+            return None
+        return gen_domain_urn(
+            name,
+            domain_config=self.config.domain,
+            domain_registry=self.domain_registry,
         )
 
     def _schema_key(self, owner: str) -> ContainerKey:
@@ -127,6 +144,7 @@ class InformixSource(StatefulIngestionSourceBase):
                 db_key,
                 display_name=self.config.database,
                 subtype=DatasetContainerSubTypes.DATABASE,
+                domain=self._domain_urn(self.config.database),
             )
 
             # Pass 1 populates this resolver with every emitted dataset's schema so
@@ -144,12 +162,21 @@ class InformixSource(StatefulIngestionSourceBase):
                 if not self.config.schema_pattern.allowed(table.owner):
                     self.report.filtered += 1
                     continue
+                if table.is_view and not self.config.include_views:
+                    self.report.filtered += 1
+                    continue
+                if not table.is_view and not self.config.include_tables:
+                    self.report.filtered += 1
+                    continue
+                name = make_table_identifier(
+                    self.config.database, table.owner, table.name
+                )
                 pattern = (
                     self.config.view_pattern
                     if table.is_view
                     else self.config.table_pattern
                 )
-                if not pattern.allowed(table.name):
+                if not pattern.allowed(name):
                     self.report.filtered += 1
                     continue
 
@@ -160,6 +187,7 @@ class InformixSource(StatefulIngestionSourceBase):
                         display_name=table.owner,
                         subtype=DatasetContainerSubTypes.SCHEMA,
                         parent_container=db_key,
+                        domain=self._domain_urn(table.owner),
                     )
 
                 # Isolate per-table failures: one broken/inaccessible object
@@ -167,9 +195,6 @@ class InformixSource(StatefulIngestionSourceBase):
                 try:
                     columns = client.get_columns(table)
                     fields = columns_to_schema_fields(columns, self.report)
-                    name = make_table_identifier(
-                        self.config.database, table.owner, table.name
-                    )
                     if table.is_view:
                         subtype = DatasetSubTypes.VIEW
                     else:
@@ -220,6 +245,7 @@ class InformixSource(StatefulIngestionSourceBase):
                         parent_container=self._schema_key(table.owner),
                         schema=schema,
                         display_name=table.name,
+                        domain=self._domain_urn(name),
                     )
                     yield dataset
                     dataset_urn = dataset.urn.urn()

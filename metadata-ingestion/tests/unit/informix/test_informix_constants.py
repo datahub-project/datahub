@@ -38,4 +38,18 @@ def test_config_minimal_parses():
     )
     assert cfg.host_port == "localhost:9088"
     assert cfg.accept_ibm_jdbc_license is False
-    assert cfg.database_pattern.allowed("anything") is True
+    assert cfg.include_tables is True
+    assert cfg.include_views is True
+
+
+def test_view_pattern_inherits_table_pattern_unless_specified():
+    from datahub.ingestion.source.informix.config import InformixSourceConfig
+
+    cfg = InformixSourceConfig.model_validate(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "table_pattern": {"deny": ["testdb.informix.tmp.*"]},
+        }
+    )
+    assert cfg.view_pattern.deny == ["testdb.informix.tmp.*"]

@@ -11,16 +11,18 @@ INFORMIX_PORT = 9088
 INFORMIX_PASSWORD = "in4mix"
 
 
-def _is_healthy(container: str) -> bool:
-    # The image's own HEALTHCHECK only reports "healthy" once the Informix
-    # server has finished its multi-minute first-boot initialization, which
-    # is a more reliable readiness signal than any single log line.
+def _informix_ready(container: str) -> bool:
+    # Probe the server directly with onstat rather than the image's Docker
+    # HEALTHCHECK: on slow CI runners the healthcheck flaps to "unhealthy"
+    # before the multi-minute first-boot init finishes, aborting the wait.
+    # `onstat -` prints "On-Line" once the server accepts connections. Mirrors
+    # the db2/mysql "run a readiness command in the container" pattern.
     result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Health.Status}}", container],
+        ["docker", "exec", "-u", "informix", container, "bash", "-lc", "onstat -"],
         capture_output=True,
         text=True,
     )
-    return result.stdout.strip() == "healthy"
+    return "On-Line" in result.stdout
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +40,7 @@ def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             "testinformix",
             INFORMIX_PORT,
             timeout=600,
-            checker=lambda: _is_healthy("testinformix"),
+            checker=lambda: _informix_ready("testinformix"),
         )
 
         subprocess.run(

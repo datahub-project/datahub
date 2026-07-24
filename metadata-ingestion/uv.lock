@@ -1058,6 +1058,7 @@ informatica = [
 informix = [
     { name = "jdk4py" },
     { name = "jpype1" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 integration-tests = [
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
@@ -2670,6 +2671,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hex'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'informix'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.12.0" },
