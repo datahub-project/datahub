@@ -1,6 +1,5 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -9,7 +8,6 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -586,24 +584,12 @@ public class PropertyDefinitionValidatorTest {
   @Test
   public void testRejectsElasticsearchFieldNameCollisionWithExistingProperty()
       throws URISyntaxException, IOException {
-    // A DIFFERENT, live property (certification.status) already maps to the same ES field, so
-    // creating certification_status is a genuine collision.
     Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
     StructuredPropertyDefinition newDefinition =
         createCollisionTestDefinition("certification_status");
 
-    Urn otherUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
-    StructuredPropertyDefinition otherDefinition =
-        createCollisionTestDefinition("certification.status");
     when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
         .thenReturn(true);
-    when(mockAspectRetriever.getLatestAspectObjects(any(), eq(Set.of(otherUrn)), any()))
-        .thenReturn(
-            Map.of(
-                otherUrn,
-                Map.of(
-                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-                    new Aspect(otherDefinition.data()))));
 
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
@@ -613,87 +599,6 @@ public class PropertyDefinitionValidatorTest {
                 mockStructuredPropertyMappingLookup)
             .count(),
         1);
-  }
-
-  @Test
-  public void testAllowsRecreateWhenCollidingFieldIsOrphaned()
-      throws URISyntaxException, IOException {
-    // The ES field exists (additive mappings retain it after delete), but no live property owns
-    // it — this is a recreate of a previously-deleted property, which must be allowed.
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition newDefinition =
-        createCollisionTestDefinition("certification_status");
-
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
-        .thenReturn(true);
-    // No live owner for any '.'/'_' variant (default getLatestAspectObjects -> emptyMap).
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        0);
-  }
-
-  @Test
-  public void testAllowsRecreateWhenCollidingOwnerIsSoftDeleted()
-      throws URISyntaxException, IOException {
-    // The colliding '.'/'_' variant owner exists in the primary store but is soft-deleted
-    // (status.removed=true), so it is not a live collision — the create must be allowed.
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition newDefinition =
-        createCollisionTestDefinition("certification_status");
-
-    Urn otherUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
-    StructuredPropertyDefinition otherDefinition =
-        createCollisionTestDefinition("certification.status");
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
-        .thenReturn(true);
-    when(mockAspectRetriever.getLatestAspectObjects(any(), eq(Set.of(otherUrn)), any()))
-        .thenReturn(
-            Map.of(
-                otherUrn,
-                Map.of(
-                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-                    new Aspect(otherDefinition.data()),
-                    STATUS_ASPECT_NAME,
-                    new Aspect(new Status().setRemoved(true).data()))));
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        0);
-  }
-
-  @Test
-  public void testRejectsConservativelyWhenTooManySeparatorPositions()
-      throws URISyntaxException, IOException {
-    // >MAX_SEPARATOR_PERMUTATION_BITS (12) separator positions: variant enumeration is skipped and
-    // the check falls back to a conservative reject without a primary-store lookup.
-    String qualifiedName = "a.b.c.d.e.f.g.h.i.j.k.l.m.n"; // 13 '.' separators
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:" + qualifiedName);
-    StructuredPropertyDefinition newDefinition = createCollisionTestDefinition(qualifiedName);
-
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), any())).thenReturn(true);
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        1);
-    // Fallback must not consult the primary store for candidate owners.
-    Mockito.verify(mockAspectRetriever, Mockito.never())
-        .getLatestAspectObjects(any(), Mockito.argThat(urns -> urns.size() > 1), any());
   }
 
   @Test
