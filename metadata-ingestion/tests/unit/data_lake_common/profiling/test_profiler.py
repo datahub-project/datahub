@@ -453,3 +453,61 @@ def test_profiles_abs_file_via_azure_branch() -> None:
     profile = get_profile(work_units[0])
     assert profile.rowCount == 200
     assert report_of(profiler).warnings.total_elements == 0
+
+
+def test_profiles_partitioned_abs_table_lists_blobs() -> None:
+    # Partitioned abs table: the FileProfiler lists blobs under the container
+    # prefix (Azure branch of _iter_table_paths) and profiles each. Mock the
+    # container client's list_blobs + smart_open (no azurite in tests).
+    azure_config = MagicMock()
+    container_client = azure_config.get_blob_service_client.return_value.get_container_client.return_value
+    blob1 = MagicMock()
+    blob1.name = "data/year=2023/part.parquet"
+    blob2 = MagicMock()
+    blob2.name = "data/year=2024/part.parquet"
+    container_client.list_blobs.return_value = [blob1, blob2]
+
+    profiler = FileProfiler(
+        aws_config=None,
+        verify_ssl=None,
+        report=DataLakeSourceReport(),
+        profiling_times_taken=[],
+        profiling_config=DataLakeProfilerConfig(enabled=True),
+        azure_config=azure_config,
+    )
+
+    base = "https://acct.blob.core.windows.net/my-container"
+    table_data = StubTableData(
+        display_name="events",
+        full_path=f"{base}/data/year=2023/part.parquet",
+        table_path=f"{base}/data",
+        partitions=["year=2023", "year=2024"],  # truthy -> enumerate the prefix
+    )
+
+    with patch(
+        "datahub.ingestion.source.data_lake_common.profiling.profiler.smart_open",
+        side_effect=lambda *a, **k: io.BytesIO(parquet_bytes()),
+    ):
+        work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    # Listed under the container-relative prefix parsed from the https URI.
+    container_client.list_blobs.assert_called_once()
+    assert container_client.list_blobs.call_args.kwargs["name_starts_with"] == "data"
+    # Both partition files (200 rows each) streamed into one profile.
+    assert get_profile(work_units[0]).rowCount == 400
+
+
+def test_abs_path_without_azure_config_reports_warning() -> None:
+    profiler = make_profiler()  # azure_config=None
+    abs_path = "https://acct.blob.core.windows.net/my-container/data/demo.parquet"
+    table_data = StubTableData(
+        display_name="demo",
+        full_path=abs_path,
+        table_path=abs_path,
+        partitions=None,
+    )
+
+    work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
+
+    assert work_units == []
+    assert report_of(profiler).warnings.total_elements > 0

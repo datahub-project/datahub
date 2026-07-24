@@ -222,3 +222,43 @@ def test_sas_token_authentication():
     credential = config.get_credentials()
     assert isinstance(credential, str)
     assert credential == "test-sas-token"
+
+
+@patch("datahub.ingestion.source.azure.azure_common.BlobServiceClient")
+def test_abs_source_wires_file_profiler_when_profiling_enabled(mock_blob_client):
+    """With profiling enabled, ABSSource wires the pure-Python FileProfiler
+    (no PySpark) and hands it the Azure connection config."""
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.abs.config import DataLakeSourceConfig
+    from datahub.ingestion.source.abs.source import ABSSource
+    from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+    from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+        FileProfiler,
+    )
+
+    azure_config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        account_key="test-account-key",
+    )
+    source_config = DataLakeSourceConfig(
+        platform="abs",
+        azure_config=azure_config,
+        path_specs=[
+            PathSpec(
+                include="https://testaccount.blob.core.windows.net/testcontainer/test/*.*",
+                exclude=[],
+                file_types=["csv"],
+                sample_files=False,
+            )
+        ],
+        profiling={"enabled": True},
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="abs-source")
+    ctx.graph = Mock()
+    source = ABSSource(source_config, ctx)
+
+    assert source.source_config.is_profiling_enabled()
+    assert isinstance(source.profiler, FileProfiler)
+    assert source.profiler.azure_config is azure_config
