@@ -681,7 +681,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, UPSERT, DELETE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
