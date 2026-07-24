@@ -16,9 +16,9 @@ import org.testng.annotations.Test;
  * resourceContext.getRawRequestContext().getLocalAttr(...)}.
  *
  * <p>This is the only production code that owns servlet→R2 attribute propagation. If it silently
- * stops copying, every Rest.li endpoint loses whatever enrichment the servlet filter chain
- * stamped — including tenant routing in the cloud fork. Cloud E2E tests seed the R2 attr
- * directly, so they can't catch a regression here.
+ * stops copying, every Rest.li endpoint loses whatever enrichment the servlet filter chain stamped
+ * — including tenant routing in the cloud fork. Cloud E2E tests seed the R2 attr directly, so they
+ * can't catch a regression here.
  */
 public class JakartaServletHelperEnrichmentTest {
 
