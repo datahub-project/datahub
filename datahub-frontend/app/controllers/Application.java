@@ -211,7 +211,8 @@ public class Application extends Controller {
         return script.isEmpty() ? null : script;
       }
     } catch (Exception e) {
-      // Leave cachedInitialFlagsScript as null so the next request retries — GMS may not be ready yet.
+      // Leave cachedInitialFlagsScript as null so the next request retries — GMS may not be ready
+      // yet.
       logger.warn("Could not fetch GMS /config for initial flags injection: {}", e.getMessage());
     }
 
