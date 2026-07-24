@@ -486,10 +486,14 @@ class AwsConnectionConfig(ConfigModel):
         return resource
 
     def get_glue_client(self) -> "GlueClient":
-        return self.get_session().client("glue", config=self._aws_config())
+        return self.get_session().client(
+            "glue", endpoint_url=self.aws_endpoint_url, config=self._aws_config()
+        )
 
     def get_dynamodb_client(self) -> "DynamoDBClient":
-        return self.get_session().client("dynamodb", config=self._aws_config())
+        return self.get_session().client(
+            "dynamodb", endpoint_url=self.aws_endpoint_url, config=self._aws_config()
+        )
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())

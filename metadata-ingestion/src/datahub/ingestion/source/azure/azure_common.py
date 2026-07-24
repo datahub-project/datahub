@@ -46,6 +46,13 @@ class AzureConnectionConfig(ConfigModel):
         description="Azure tenant (Directory) ID required when a `client_secret` is used as a credential.",
         default=None,
     )
+    connection_string: Optional[TransparentSecretStr] = Field(
+        description="Azure storage account connection string. When set, it takes precedence over "
+        "the other credential fields and its `BlobEndpoint`/`DataLakeEndpoint` override the default "
+        "`*.core.windows.net` account URLs. Primarily useful for pointing at a local storage "
+        "emulator (e.g. Azurite).",
+        default=None,
+    )
 
     def get_abfss_url(self, folder_path: str = "") -> str:
         if not folder_path.startswith("/"):
@@ -59,12 +66,20 @@ class AzureConnectionConfig(ConfigModel):
         )
 
     def get_blob_service_client(self):
+        if self.connection_string is not None:
+            return BlobServiceClient.from_connection_string(
+                self.connection_string.get_secret_value()
+            )
         return BlobServiceClient(
             account_url=f"https://{self.account_name}.blob.core.windows.net",
             credential=self.get_credentials(),
         )
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
+        if self.connection_string is not None:
+            return DataLakeServiceClient.from_connection_string(
+                self.connection_string.get_secret_value()
+            )
         return DataLakeServiceClient(
             account_url=f"https://{self.account_name}.dfs.core.windows.net",
             credential=self.get_credentials(),
@@ -88,11 +103,12 @@ class AzureConnectionConfig(ConfigModel):
     @model_validator(mode="after")
     def _check_credential_values(self) -> "AzureConnectionConfig":
         if (
-            self.account_key
+            self.connection_string
+            or self.account_key
             or self.sas_token
             or (self.client_id and self.client_secret and self.tenant_id)
         ):
             return self
         raise ConfigurationError(
-            "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
+            "credentials missing, requires one combination of connection_string or account_key or sas_token or (client_id and client_secret and tenant_id)"
         )
