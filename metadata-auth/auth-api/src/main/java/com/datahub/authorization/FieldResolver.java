@@ -21,7 +21,8 @@ public class FieldResolver {
   @Getter(lazy = true)
   private final CompletableFuture<FieldValue> fieldValuesFuture = resolveField.get();
 
-  private static final FieldValue EMPTY = new FieldValue(Collections.emptySet());
+  private static final FieldValue EMPTY =
+      FieldValue.builder().values(Collections.emptySet()).build();
 
   /** Helper function that returns FieldResolver for precomputed values */
   public static FieldResolver getResolverFromValues(Set<String> values) {
@@ -47,6 +48,14 @@ public class FieldResolver {
   @Value
   @Builder
   public static class FieldValue {
+    /** Canonical string representation, used for policy criterion matching. */
     Set<String> values;
+
+    /**
+     * Optional typed projection of the same field (e.g. {@code Urn} or typed owners) for consumers
+     * that need structured data without re-parsing {@link #values}. Empty when a resolver provides
+     * only string values. Retrieved type-safely via {@link ResolvedEntitySpec#getTypedValues}.
+     */
+    @Builder.Default Set<?> typedValues = Set.of();
   }
 }
