@@ -482,7 +482,8 @@ class TestProcessTermAssociations:
 
         term_urns = _glossary_term_urns(workunits)
         assert term_urns == ["urn:li:glossaryTerm:pii"]
-        repo.create.assert_not_called()
+        # DataHub-authored term: no external-ownership marker emitted.
+        assert not _platform_resource_wus(workunits)
 
     def test_external_term_uses_native_urn_and_records_link(
         self,
@@ -520,7 +521,8 @@ class TestProcessTermAssociations:
 
         term_urns = _glossary_term_urns(workunits)
         assert term_urns == [native_term_urn]
-        assert repo.create.call_count == 1
+        # External term: an unmanaged platform-resource marker is emitted (workunit).
+        assert _platform_resource_wus(workunits)
 
 
 # ---------------------------------------------------------------------------
@@ -539,6 +541,13 @@ def _glossary_term_urns(workunits: List[MetadataWorkUnit]) -> List[str]:
             assert isinstance(aspect, GlossaryTermsClass)
             return [t.urn for t in aspect.terms]
     raise AssertionError("no glossaryTerms workunit emitted")
+
+
+def _platform_resource_wus(
+    workunits: List[MetadataWorkUnit],
+) -> List[MetadataWorkUnit]:
+    """The emitted managed_by_datahub=false platform-resource marker workunits."""
+    return [wu for wu in workunits if wu.id.startswith("platform_resource-")]
 
 
 def _make_processor(repo: Optional[Mock]) -> DataplexGlossaryProcessor:
@@ -592,20 +601,61 @@ class TestReconcileTerm:
         assert result is None
         assert source_report.warning.called
 
+    def test_reconcile_term_returns_none_when_found_but_unmanaged(self) -> None:
+        native = "urn:li:glossaryTerm:dataplex.p.global.g.native"
+        repo = MagicMock()
+        repo.search_entity_by_urn.return_value = DataplexAspectId(
+            aspect_key=GLOSSARY_TERMS_ASPECT_KEY, entry_name="e", field_key=native
+        )
+        repo.get_entity_from_datahub.return_value = DataplexAspectPlatformResource(
+            datahub_urn=native,
+            managed_by_datahub=False,
+            aspect_key=GLOSSARY_TERMS_ASPECT_KEY,
+            entry_name="e",
+            field_key=native,
+        )
+        assert _make_processor(repo)._reconcile_term(native) is None
+
 
 class TestRecordExternalLink:
     def test_records_external_link_when_not_managed(self) -> None:
         repo = MagicMock()
         proc = _make_processor(repo)
-        proc._record_external_link(
-            entry_name="projects/p/locations/l/entryGroups/@bigquery/entries/e",
-            native_term_urn="urn:li:glossaryTerm:dataplex.p.global.g.pii",
+        wus = list(
+            proc._record_external_link(
+                entry_name="projects/p/locations/l/entryGroups/@bigquery/entries/e",
+                native_term_urn="urn:li:glossaryTerm:dataplex.p.global.g.pii",
+            )
         )
-        assert repo.create.call_count == 1
+        assert len(wus) >= 1
+        assert all(wu.id.startswith("platform_resource-") for wu in wus)
+        # Emitted as workunits, not written directly to the graph.
+        repo.create.assert_not_called()
 
     def test_no_external_write_without_repo(self) -> None:
         proc = _make_processor(None)
-        # Must not raise when there is no repository.
-        proc._record_external_link(
-            entry_name="e", native_term_urn="urn:li:glossaryTerm:x"
+        # No repository -> no workunits, and must not raise.
+        wus = list(
+            proc._record_external_link(
+                entry_name="e", native_term_urn="urn:li:glossaryTerm:x"
+            )
         )
+        assert wus == []
+
+
+class TestNormalizeEntryProjectId:
+    def test_maps_project_number_prefix_to_id(self) -> None:
+        proc = _make_processor(None)
+        proc._ctx.project_numbers = {"my-project": "123456789"}
+        result = proc._normalize_entry_project_id(
+            "projects/123456789/locations/us/entryGroups/@bigquery/entries/foo"
+        )
+        assert result == (
+            "projects/my-project/locations/us/entryGroups/@bigquery/entries/foo"
+        )
+
+    def test_returns_unchanged_when_no_number_matches(self) -> None:
+        proc = _make_processor(None)
+        proc._ctx.project_numbers = {"my-project": "123456789"}
+        entry = "projects/my-project/locations/us/entryGroups/@bigquery/entries/foo"
+        assert proc._normalize_entry_project_id(entry) == entry

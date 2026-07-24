@@ -189,7 +189,7 @@ def test_managed_term_reconciles_to_datahub_urn_and_suppresses_native_entity() -
     assert NATIVE_TERM_URN not in _entity_urns(glossary_workunits)
 
     # No new platform resource was written for an already-managed term.
-    repo.create.assert_not_called()
+    assert not any(wu.id.startswith("platform_resource-") for wu in assoc_workunits)
 
 
 def test_external_term_keeps_native_urn_and_records_unmanaged_resource() -> None:
@@ -207,4 +207,4 @@ def test_external_term_keeps_native_urn_and_records_unmanaged_resource() -> None
     assert NATIVE_TERM_URN in _entity_urns(glossary_workunits)
 
     # One unmanaged platform resource is recorded per linked asset.
-    repo.create.assert_called_once()
+    assert any(wu.id.startswith("platform_resource-") for wu in assoc_workunits)
