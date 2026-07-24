@@ -485,7 +485,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -631,7 +630,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
-    "delta-lake": {*data_lake_profiling, *delta_lake},
+    "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
         "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
@@ -654,7 +653,6 @@ plugins: Dict[str, Set[str]] = {
         *aws_common,
         *abs_base,
         *cachetools_lib,
-        *data_lake_profiling,
     },
     "cassandra": {
         "cassandra-driver>=3.28.0,<4.0.0",
