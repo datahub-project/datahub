@@ -32,6 +32,25 @@ Federated routing is driven by `connection_to_platform_map` (per connection
 name) and `platform_type_defaults` (per typeId fallback). See the recipe for
 examples.
 
+Two per-connection knobs matter for URN stitching with the native connector:
+
+- **`convert_urns_to_lowercase`** (per connection; defaults to `true`) — set it
+  to `false` when the sibling native connector preserves source case, so the
+  URNs match. Needed for BigQuery (`project.dataset.MyTable`) and for a HANA
+  connector left at its uppercase default. This is independent of the
+  connector's top-level `convert_urns_to_lowercase`, which governs managed
+  `sap-datasphere` assets.
+- **`database`** (per connection) — a leading name segment prepended ahead of
+  the schema/dataset the flow reports. Chiefly the **BigQuery GCP project**,
+  which the Datasphere API never exposes: with `database: my-gcp-project`, a
+  replication-flow target in dataset `staging` becomes
+  `my-gcp-project.staging.<table>`. Set it on the per-connection entry (keyed by
+  connection name), not on `platform_type_defaults`, since different connections
+  of the same type can point at different projects.
+
+typeId matching in `platform_type_defaults` is **case-insensitive** (`BIGQUERY`,
+`BigQuery`, and `bigquery` all match the same entry).
+
 #### Built-in typeId routing
 
 The following SAP Datasphere connection typeIds ship with built-in platform
