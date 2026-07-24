@@ -32,6 +32,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     create_deny_regex_sql_filter,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -43,6 +44,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowsightUrlBuilder,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import TableRename, TableSwap
 from datahub.testing.doctest import assert_doctest
 from tests.integration.snowflake.common import inject_rowcount
@@ -1345,3 +1347,53 @@ def test_get_tables_for_schema_pushes_down_when_filter_fits():
 
     _, kwargs = gen.data_dictionary.get_tables_for_database.call_args
     assert kwargs["table_filter"] == fitting
+
+
+def test_get_procedures_for_database_maps_rows_to_base_procedure():
+    """``get_procedures_for_database`` groups SHOW PROCEDURES rows by schema and
+    maps each into a ``BaseProcedure``.
+
+    Also pins two behaviours the Pydantic model now enforces at construction:
+    real driver ``datetime`` values for ``created``/``last_altered`` round-trip
+    unchanged, and an ``argument_signature`` (Snowflake overloads procedures by
+    signature) produces a hash-suffixed identifier so overloads get distinct
+    DataJob URNs.
+    """
+    created = datetime.datetime(2024, 1, 2, 3, 4, 5)
+    altered = datetime.datetime(2024, 6, 7, 8, 9, 10)
+    connection = MagicMock()
+    connection.query.return_value = [
+        {
+            "PROCEDURE_SCHEMA": "ANALYTICS",
+            "PROCEDURE_NAME": "load_facts",
+            "PROCEDURE_LANGUAGE": "SQL",
+            "ARGUMENT_SIGNATURE": "(START_DATE DATE)",
+            "PROCEDURE_RETURN_TYPE": "VARCHAR",
+            "PROCEDURE_DEFINITION": "BEGIN CALL child(); END",
+            "CREATED": created,
+            "LAST_ALTERED": altered,
+            "COMMENT": "loads the fact tables",
+        }
+    ]
+
+    data_dictionary = SnowflakeDataDictionary(
+        connection=connection, report=SnowflakeV2Report()
+    )
+
+    procedures = data_dictionary.get_procedures_for_database("MYDB")
+
+    assert list(procedures.keys()) == ["ANALYTICS"]
+    (proc,) = procedures["ANALYTICS"]
+    assert isinstance(proc, BaseProcedure)
+    assert proc.name == "load_facts"
+    assert proc.language == "SQL"
+    assert proc.argument_signature == "(START_DATE DATE)"
+    assert proc.return_type == "VARCHAR"
+    assert proc.procedure_definition == "BEGIN CALL child(); END"
+    assert proc.comment == "loads the fact tables"
+    # Driver datetimes round-trip unchanged (Pydantic does not reformat them).
+    assert proc.created == created
+    assert proc.last_altered == altered
+    # An argument signature disambiguates overloaded procedures via a hash suffix.
+    assert proc.get_procedure_identifier() != "load_facts"
+    assert proc.get_procedure_identifier().startswith("load_facts_")

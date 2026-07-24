@@ -8,7 +8,7 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import (
+from datahub.ingestion.source.sql.stored_procedures.models import (
     get_procedure_flow_name,
 )
 from datahub.ingestion.source.sql.two_tier_sql_source import (
