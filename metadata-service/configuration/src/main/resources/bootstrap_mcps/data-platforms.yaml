@@ -689,6 +689,16 @@
     displayName: Power BI
     type: OTHERS
     logoUrl: "assets/platforms/powerbilogo.svg"
+- entityUrn: urn:li:dataPlatform:azure-analysis-services
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: azure-analysis-services
+    displayName: Azure Analysis Services
+    type: OLAP_DATASTORE
+    logoUrl: "assets/platforms/azure-analysis-services.svg"
 - entityUrn: urn:li:dataPlatform:presto-on-hive
   entityType: dataPlatform
   aspectName: dataPlatformInfo

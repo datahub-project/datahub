@@ -824,6 +824,19 @@ plugins: Dict[str, Set[str]] = {
         | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
+    # Shares the Power BI M-query lineage engine, so it carries the same M/DAX
+    # parsing dependencies plus azure-identity for XMLA-over-HTTP auth and
+    # defusedxml for safe rowset parsing.
+    "azure-analysis-services": (
+        {
+            "azure-identity>=1.21.0,<2.0.0",
+            "requests<3.0.0",
+            "defusedxml>=0.7.1,<0.8.0",
+        }
+        | {"sqlparse<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
+        | sqlglot_lib
+        | threading_timeout_common
+    ),
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
@@ -978,6 +991,7 @@ base_dev_requirements = {
             "aerospike",
             "airbyte",
             "athena",
+            "azure-analysis-services",
             "bigquery",
             "clickhouse",
             "clickhouse-usage",
@@ -1131,6 +1145,7 @@ entry_points = {
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "airbyte = datahub.ingestion.source.airbyte.source:AirbyteSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
+        "azure-analysis-services = datahub.ingestion.source.azure_analysis_services.source:AzureAnalysisServicesSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",

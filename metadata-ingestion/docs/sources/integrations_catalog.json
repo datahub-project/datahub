@@ -340,6 +340,17 @@
       "Status Aspect"
     ]
   },
+  "azure-analysis-services": {
+    "platform_type": "BI Tool",
+    "connection_type": "Pull",
+    "description": "Azure Analysis Services is a fully managed platform-as-a-service that hosts SQL Server Analysis Services tabular models in Azure.",
+    "img_path": "img/logos/platforms/azure-analysis-services.svg",
+    "extra_features": [
+      "Detect Deleted Entities",
+      "Column Level Lineage",
+      "Status Aspect"
+    ]
+  },
   "prefect": {
     "external": true,
     "platform_type": "Orchestrator",
