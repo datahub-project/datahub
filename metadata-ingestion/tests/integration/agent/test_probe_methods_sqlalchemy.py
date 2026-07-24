@@ -8,7 +8,10 @@ from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProb
 def engine(tmp_path):
     eng = create_engine(f"sqlite:///{tmp_path}/t.db")
     with eng.begin() as c:
-        c.exec_driver_sql("CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT)")
+        c.exec_driver_sql(
+            "CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, "
+            "status TEXT DEFAULT 'active')"
+        )
         c.exec_driver_sql(
             "CREATE TABLE orders (id INTEGER PRIMARY KEY, "
             "customer_id INTEGER REFERENCES customers(id))"
@@ -27,6 +30,15 @@ def test_columns_returns_types_no_values(engine):
     names = {c["name"] for c in cols}
     assert names == {"id", "customer_id"}
     assert all("type" in c and "nullable" in c for c in cols)
+
+
+def test_columns_default_is_string_or_none(engine):
+    with SqlAlchemyMetadataProbe(engine) as p:
+        customers = {c["name"]: c for c in p.columns(schema="main", table="customers")}
+        orders = {c["name"]: c for c in p.columns(schema="main", table="orders")}
+    assert isinstance(customers["status"]["default"], str)
+    assert "active" in customers["status"]["default"]
+    assert orders["id"]["default"] is None
 
 
 def test_foreign_keys(engine):

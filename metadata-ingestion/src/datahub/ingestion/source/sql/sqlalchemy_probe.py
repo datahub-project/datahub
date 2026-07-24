@@ -57,7 +57,7 @@ class SqlAlchemyMetadataProbe:
                 "name": c["name"],
                 "type": str(c["type"]),
                 "nullable": c.get("nullable"),
-                "default": c.get("default"),
+                "default": str(c["default"]) if c.get("default") is not None else None,
             }
             for c in self._insp.get_columns(table, schema=schema)
         ]

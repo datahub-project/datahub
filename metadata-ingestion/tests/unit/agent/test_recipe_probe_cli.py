@@ -73,3 +73,44 @@ def test_collect_nested_secret_values():
     cfg = {"connection": {"consumer_config": {"sasl.password": "hunter2", "x": "ok"}}}
     vals = collect_nested_secret_values(cfg, ("password", "sasl"))
     assert "hunter2" in vals and "ok" not in vals
+
+
+def test_probe_methods_redacts_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda r: ("kafka", {}, {"topsecret"})
+    )
+
+    def fake_list(st):
+        raise ValueError("boom topsecret")
+
+    monkeypatch.setattr(rc, "list_probe_methods", fake_list)
+    res = CliRunner().invoke(
+        recipe, ["probe", "methods", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code != 0
+    assert "topsecret" not in res.output
+    assert "***" in res.output
+
+
+def test_probe_run_normalizes_then_redacts(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda r: ("postgres", {}, {"topsecret"})
+    )
+
+    def fake_run(st, cfg, cmd, kwargs):
+        return ProbeMethodResult(st, cmd, kwargs, {"value": "has topsecret inside"})
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "run",
+            "foreign_keys",
+            "--recipe",
+            _recipe_file(tmp_path),
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert "topsecret" not in res.output
+    assert "***" in res.output

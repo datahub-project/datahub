@@ -461,12 +461,19 @@ def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, str]:
 def probe_methods_cmd(recipe_path: str) -> None:
     # Connection-free: lists each command, its params, and its docstring (the
     # help the agent reads to decide which method to call).
+    secret_values: Set[str] = set()
     try:
-        source_type, _resolved, _secrets = _resolve_for_probe(_load_recipe(recipe_path))
+        source_type, _resolved, secret_values = _resolve_for_probe(
+            _load_recipe(recipe_path)
+        )
         specs = list_probe_methods(source_type)
         _emit({"source_type": source_type, "methods": [s.to_dict() for s in specs]})
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
+        # SECURITY: see test_connection -- exception text may embed a resolved
+        # secret (validation input_value / connection string password).
+        redacted = redact(str(exc), secret_values)
+        assert isinstance(redacted, str)
+        _fail(redacted, EXIT_USER)
 
 
 @probe_group.command(
@@ -484,7 +491,11 @@ def probe_run_cmd(command: str, recipe_path: str, params: Tuple[str, ...]) -> No
         )
         call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
         result = run_probe_method(source_type, resolved, command, call_kwargs)
-        _emit(redact(result.to_dict(), secret_values))
+        # SECURITY: normalize to pure JSON types before redacting, so a raw
+        # exception/driver object nested in the result cannot smuggle a secret
+        # past the redactor (which only inspects str/dict/list values).
+        safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
+        _emit(redact(safe, secret_values))
     except (ValueError, TypeError, AssertionError, KeyError) as exc:
         # SECURITY: exception text may embed a resolved secret (e.g. a
         # connection-string password) surfaced by a failed provider call.

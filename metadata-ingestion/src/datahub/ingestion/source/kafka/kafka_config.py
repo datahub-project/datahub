@@ -109,6 +109,9 @@ class KafkaSourceConfig(
             build_registry_client,
         )
 
+        # 10s is a floor, not a default: admin/registry calls need enough time
+        # against a possibly-slow broker, so a lower configured timeout is
+        # deliberately overridden rather than honored as-is.
         timeout = max(10, getattr(self.connection, "client_timeout_seconds", 10))
         return KafkaMetadataProbe(
             consumer=get_kafka_consumer(self.connection),
