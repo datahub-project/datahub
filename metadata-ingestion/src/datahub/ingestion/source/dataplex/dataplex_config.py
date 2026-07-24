@@ -1,7 +1,7 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -108,6 +108,67 @@ class DataplexFilterConfig(ConfigModel):
     )
 
 
+class DataplexExportConfig(ConfigModel):
+    """Configuration for the metadata-export extraction method.
+
+    When ``extraction_method: export`` is set, one Dataplex ``metadataJobs.create``
+    EXPORT job is submitted per configured entries location, writing JSONL to a
+    per-location Cloud Storage bucket. The bucket for each location is resolved
+    from ``export_bucket_config[location]`` first, falling back to
+    ``{bucket_base_name}-{location}``.
+    """
+
+    export_job_runner_project: str = Field(
+        description="GCP project that runs the Dataplex metadata export jobs. "
+        "The service account needs roles/dataplex.metadataJobOwner on this project.",
+    )
+
+    export_bucket_config: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Explicit mapping of GCP location to GCS bucket name. "
+        "Example: {us: my-bucket-us, us-east5: my-bucket-east5}. "
+        "Entries here take priority over 'bucket_base_name'.",
+    )
+
+    bucket_base_name: Optional[str] = Field(
+        default=None,
+        description="Fallback base GCS bucket name used when a location is not "
+        "listed in 'export_bucket_config'. The bucket name is derived as "
+        "'{bucket_base_name}-{location}'.",
+    )
+
+    prefix: Optional[str] = Field(
+        default=None,
+        description="Optional folder prefix inside each export bucket (max 128 chars).",
+    )
+
+    export_poll_seconds: int = Field(
+        default=15,
+        ge=1,
+        description="Polling interval (seconds) while waiting for export jobs to finish.",
+    )
+
+    export_timeout_seconds: int = Field(
+        default=3600,
+        ge=1,
+        description="Total wait timeout (seconds) for all export jobs to finish.",
+    )
+
+    def bucket_for_location(self, location: str) -> str:
+        """Resolve the GCS bucket for a given location.
+
+        Precedence: ``export_bucket_config[location]`` > ``{bucket_base_name}-{location}``.
+        """
+        if location in self.export_bucket_config:
+            return self.export_bucket_config[location]
+        if self.bucket_base_name:
+            return f"{self.bucket_base_name}-{location}"
+        raise ValueError(
+            f"No bucket configured for location '{location}'. Add it to "
+            "'export_bucket_config' or set 'bucket_base_name'."
+        )
+
+
 class DataplexConfig(
     GcpProjectFilterConfig,
     EnvConfigMixin,
@@ -128,6 +189,25 @@ class DataplexConfig(
     credential: Optional[GCPCredential] = Field(
         default=None,
         description="GCP credential information. If not specified, uses Application Default Credentials.",
+    )
+
+    extraction_method: Literal["api", "export"] = Field(
+        default="api",
+        description="How entries are fetched from the Universal Catalog. "
+        "'api' (default) lists entries per project via list_entry_groups / "
+        "list_entries / get_entry — this only sees entries physically created in "
+        "the configured projects. 'export' submits a Dataplex metadata EXPORT job "
+        "per entries location (scoped to the configured projects) that writes "
+        "JSONL to a GCS bucket, then reads entries from that bucket. Use 'export' "
+        "for central-catalog / federated architectures where assets surface in a "
+        "catalog project via Dataplex catalog linking and are invisible to "
+        "list_entries. Requires 'export_config' to be set.",
+    )
+
+    export_config: Optional[DataplexExportConfig] = Field(
+        default=None,
+        description="Export-method settings (job runner project, GCS buckets, "
+        "polling). Required when extraction_method is 'export'.",
     )
 
     entries_locations: List[str] = Field(
@@ -327,6 +407,31 @@ class DataplexConfig(
                 "when include_glossaries is enabled."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_export_configuration(self) -> "DataplexConfig":
+        """Validate export-method configuration when extraction_method is 'export'."""
+        if self.extraction_method != "export":
+            return self
+        if self.export_config is None:
+            raise ValueError(
+                "export_config must be set when extraction_method is 'export'."
+            )
+        # Every entries location must resolve to a bucket up front, so a
+        # misconfiguration fails at recipe validation rather than mid-run.
+        missing = [
+            loc
+            for loc in self.entries_locations
+            if loc not in self.export_config.export_bucket_config
+            and not self.export_config.bucket_base_name
+        ]
+        if missing:
+            raise ValueError(
+                f"Locations {missing} have no export bucket configured. Either add "
+                "them to 'export_config.export_bucket_config' or set "
+                "'export_config.bucket_base_name' as a fallback."
+            )
         return self
 
     def get_credentials(self) -> Optional[Dict[str, str]]:

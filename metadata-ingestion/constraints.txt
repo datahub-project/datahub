@@ -511,6 +511,7 @@ google-cloud-secret-manager==2.27.0
     # via acryl-datahub
 google-cloud-storage==3.4.1
     # via
+    #   acryl-datahub
     #   google-cloud-aiplatform
     #   smart-open
 google-crc32c==1.8.0
