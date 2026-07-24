@@ -47,6 +47,7 @@ import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
 import notionLogo from '@images/notionlogo.png';
+import odcsLogo from '@images/odcslogo.png';
 import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
@@ -189,6 +190,8 @@ const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 const DATAPLEX = 'dataplex';
 const DATAPLEX_URN = `urn:li:dataPlatform:${DATAPLEX}`;
+const ODCS = 'odcs';
+const ODCS_URN = `urn:li:dataPlatform:${ODCS}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DATAPROC_METASTORE = 'dataproc-metastore';
@@ -299,6 +302,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
     [DATAPLEX_URN]: dataplexLogo,
+    [ODCS_URN]: odcsLogo,
     [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,

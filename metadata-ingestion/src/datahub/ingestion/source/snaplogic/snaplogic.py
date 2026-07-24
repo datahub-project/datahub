@@ -114,7 +114,7 @@ class SnaplogicSource(StatefulIngestionSourceBase):
                             title="Lineage Ingestion Progress",
                         )
                 except Exception as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         message="Failed to process lineage record",
                         context=str(lineage),
                         exc=e,
@@ -126,7 +126,7 @@ class SnaplogicSource(StatefulIngestionSourceBase):
             self.snaplogic_lineage_extractor.report_status("lineage_ingestion", True)
             self.snaplogic_lineage_extractor.update_stats()
         except Exception as e:
-            self.report.report_failure(message="Failed to fetch lineages", exc=e)
+            self.report.failure(message="Failed to fetch lineages", exc=e)
             self.snaplogic_lineage_extractor.report_status("lineage_ingestion", False)
 
     def _process_lineage_record(self, lineage: dict) -> Iterable[MetadataWorkUnit]:

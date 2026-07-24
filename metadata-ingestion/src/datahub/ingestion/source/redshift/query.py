@@ -1303,6 +1303,11 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
         # (sequence-capped for the LISTAGG size limit). Validated against a live
         # serverless cluster.
         #
+        # NOTE: unlike provisioned STL_QUERYTEXT (which stores newlines as literal
+        # "\n" escapes, unescaped in _populate_unified_queries), SYS_QUERY_TEXT
+        # strips linebreaks from the reconstructed text. That is a separate failure
+        # surface (stripped breaks can merge adjacent tokens) not addressed here.
+        #
         # The time window and database are bound as query parameters (%s) by
         # RedshiftDataDictionary.get_query_result, so config/catalog-derived
         # values never enter the SQL string. Order: start_time, end_time, database.

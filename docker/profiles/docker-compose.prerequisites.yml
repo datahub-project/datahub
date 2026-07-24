@@ -239,7 +239,7 @@ services:
   kafka-broker:
     profiles: *kafka-broker-profiles
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.2.2}
     command:
       - /bin/bash
       - -c
@@ -274,11 +274,16 @@ services:
       KAFKA_LOG4J_LOGGERS: 'org.apache.kafka.image.loader.MetadataLoader=WARN'
       KAFKA_ZOOKEEPER_CONNECT: null
     healthcheck:
-      test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
+      # cp-kafka 8.2+ no longer ships nc; probe the internal BROKER listener instead.
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server broker:29092 >/dev/null 2>&1",
+        ]
       start_period: 60s
-      interval: 1s
-      retries: 5
-      timeout: 5s
+      interval: 5s
+      retries: 12
+      timeout: 10s
     volumes:
       - broker:/var/lib/kafka/data/
   kafka-connect:

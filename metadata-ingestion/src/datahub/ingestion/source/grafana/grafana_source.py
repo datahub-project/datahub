@@ -150,10 +150,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 )
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Dashboard Search Error",
                     message="Failed to fetch dashboards in basic mode",
-                    context=str(e),
                     exc=e,
                 )
                 return

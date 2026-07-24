@@ -1,13 +1,18 @@
 package com.linkedin.metadata.structuredproperties.validation;
 
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getValueTypeId;
 import static com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator.softDeleteCheck;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,12 +25,17 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationUtils;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -34,8 +44,12 @@ import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.ObjectMapperContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -64,7 +78,8 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class StructuredPropertiesValidator extends AspectPayloadValidator {
   private static final Set<ChangeType> CHANGE_TYPES =
-      ImmutableSet.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT);
+      ImmutableSet.of(
+          ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT, ChangeType.UPDATE);
 
   private static final Set<LogicalValueType> VALID_VALUE_STORED_AS_STRING =
       new HashSet<>(
@@ -83,18 +98,47 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    */
   private boolean dropMissingPropertyValuesWithWarning = false;
 
+  /** Max UTF-8 bytes for string-backed SP values; defaults to Lucene keyword term limit. */
+  private int keywordMaxLength = ESUtils.KEYWORD_MAXLENGTH;
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
-    return validateProposedUpserts(
-        operationContext,
+    AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+    ObjectMapper objectMapper = resolveObjectMapper(operationContext);
+
+    List<BatchItem> upsertItems =
         mcpItems.stream()
             .filter(i -> CHANGE_TYPES.contains(i.getChangeType()))
-            .collect(Collectors.toList()),
-        retrieverContext.getAspectRetriever(),
-        dropMissingPropertyValuesWithWarning);
+            .filter(i -> i.getRecordTemplate() != null)
+            .collect(Collectors.toList());
+
+    // PATCH has no record template until applyPatch (inside the DB tx). Validate ADD ops here at
+    // request time by inspecting the patch payload — ignore REMOVE (no values to check). Route on
+    // the change type, not the item class: with alternate MCP validation (the quickstart/docker
+    // default, ALTERNATE_MCP_VALIDATION=true) a patch arrives as a ProposedItem carrying the raw
+    // proposal rather than a PatchItemImpl.
+    List<BatchItem> patchAddItems =
+        mcpItems.stream()
+            .filter(i -> ChangeType.PATCH.equals(i.getChangeType()))
+            .filter(i -> i instanceof MCPItem)
+            .map(i -> (MCPItem) i)
+            .map(patchItem -> materializePatchAddUpsert(patchItem, aspectRetriever, objectMapper))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toList());
+
+    List<BatchItem> toValidate = new ArrayList<>(upsertItems.size() + patchAddItems.size());
+    toValidate.addAll(upsertItems);
+    toValidate.addAll(patchAddItems);
+
+    return validateProposedUpserts(
+        operationContext,
+        toValidate,
+        aspectRetriever,
+        dropMissingPropertyValuesWithWarning,
+        keywordMaxLength);
   }
 
   @Override
@@ -102,6 +146,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
+    // Immutability needs previous aspect state; value checks stay in validateProposed (including
+    // PATCH ADD inspection) so they do not run under the write transaction.
     return validateImmutable(
         operationContext,
         changeMCPs.stream()
@@ -113,11 +159,93 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         retrieverContext.getAspectRetriever());
   }
 
+  /**
+   * Builds a synthetic UPSERT item whose {@link StructuredProperties} contains only assignments
+   * from PATCH {@code add} ops, for request-time value validation.
+   */
+  private static Optional<BatchItem> materializePatchAddUpsert(
+      @Nonnull MCPItem patchItem,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull ObjectMapper objectMapper) {
+    List<StructuredPropertyValueAssignment> adds =
+        extractPatchAddAssignments(patchItem, objectMapper);
+    if (adds.isEmpty()) {
+      return Optional.empty();
+    }
+    StructuredProperties props =
+        new StructuredProperties().setProperties(new StructuredPropertyValueAssignmentArray(adds));
+    AuditStamp auditStamp = patchItem.getAuditStamp();
+    if (auditStamp == null) {
+      auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(0L);
+    }
+    return Optional.of(
+        ChangeItemImpl.builder()
+            .urn(patchItem.getUrn())
+            .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .recordTemplate(props)
+            .auditStamp(auditStamp)
+            .systemMetadata(patchItem.getSystemMetadata())
+            .build(aspectRetriever));
+  }
+
+  @Nonnull
+  public static List<StructuredPropertyValueAssignment> extractPatchAddAssignments(
+      @Nonnull MCPItem patchItem, @Nonnull ObjectMapper objectMapper) {
+    GenericJsonPatch genericJsonPatch = PatchOperationUtils.resolveGenericJsonPatch(patchItem);
+    if (genericJsonPatch == null || genericJsonPatch.getPatch() == null) {
+      return List.of();
+    }
+    List<StructuredPropertyValueAssignment> assignments = new ArrayList<>();
+    for (GenericJsonPatch.PatchOp op : genericJsonPatch.getPatch()) {
+      if (op.getOp() == null || !"add".equalsIgnoreCase(op.getOp()) || op.getValue() == null) {
+        continue;
+      }
+      if (op.getPath() == null || !op.getPath().startsWith("/properties")) {
+        continue;
+      }
+      StructuredPropertyValueAssignment assignment =
+          parseAssignmentFromPatchValue(op.getValue(), objectMapper);
+      if (assignment != null) {
+        assignments.add(assignment);
+      } else {
+        log.warn(
+            "Skipping unparseable structured property PATCH add on {} path={}",
+            patchItem.getUrn(),
+            op.getPath());
+      }
+    }
+    return assignments;
+  }
+
+  @Nonnull
+  private static ObjectMapper resolveObjectMapper(@Nonnull OperationFingerprint fingerprint) {
+    if (fingerprint instanceof OperationContext) {
+      return ((OperationContext) fingerprint).getObjectMapper();
+    }
+    return ObjectMapperContext.DEFAULT.getObjectMapper();
+  }
+
+  @Nullable
+  private static StructuredPropertyValueAssignment parseAssignmentFromPatchValue(
+      @Nonnull Object value, @Nonnull ObjectMapper objectMapper) {
+    try {
+      String json = objectMapper.writeValueAsString(value);
+      return RecordUtils.toRecordTemplate(StructuredPropertyValueAssignment.class, json);
+    } catch (Exception e) {
+      // Skip here: value checks are best-effort on the canonical full-assignment add shape.
+      // Non-canonical values are still rejected by applyPatch / schema when the patch is merged.
+      log.debug("Failed to parse structured property patch ADD value: {}", e.toString());
+      return null;
+    }
+  }
+
   public static Stream<AspectValidationException> validateProposedUpserts(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<BatchItem> mcpItems,
       @Nonnull AspectRetriever aspectRetriever) {
-    return validateProposedUpserts(operationContext, mcpItems, aspectRetriever, false);
+    return validateProposedUpserts(
+        operationContext, mcpItems, aspectRetriever, false, ESUtils.KEYWORD_MAXLENGTH);
   }
 
   public static Stream<AspectValidationException> validateProposedUpserts(
@@ -125,6 +253,20 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       @Nonnull Collection<BatchItem> mcpItems,
       @Nonnull AspectRetriever aspectRetriever,
       boolean dropMissingPropertyValuesWithWarning) {
+    return validateProposedUpserts(
+        operationContext,
+        mcpItems,
+        aspectRetriever,
+        dropMissingPropertyValuesWithWarning,
+        ESUtils.KEYWORD_MAXLENGTH);
+  }
+
+  public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean dropMissingPropertyValuesWithWarning,
+      int keywordMaxLength) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
@@ -156,9 +298,11 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         final int assignmentCountBefore =
             structuredProperties.hasProperties() ? structuredProperties.getProperties().size() : 0;
         if (assignmentCountBefore > 0) {
+          // Reuse aspects from fetchPropertyAspects — do not call the retriever overload
+          // (re-reads).
           final Pair<StructuredProperties, Set<Urn>> filtered =
               StructuredPropertyUtils.filterMissingPropertyDefinitions(
-                  operationContext, structuredProperties, aspectRetriever);
+                  structuredProperties, allStructuredPropertiesAspects);
           missingPropertyUrns = filtered.getSecond();
           final boolean noValidAssignmentsRemain =
               filtered.getFirst().getProperties() == null
@@ -225,6 +369,9 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
           validateType(i, propertyUrn, structuredPropertyDefinition, value)
               .ifPresent(exceptions::addException);
           validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
+              .ifPresent(exceptions::addException);
+          validateKeywordByteLength(
+                  i, propertyUrn, structuredPropertyDefinition, value, keywordMaxLength)
               .ifPresent(exceptions::addException);
         }
 
@@ -377,6 +524,36 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
                     "Property: %s, value: %s should be one of %s",
                     propertyUrn, value, definedValues)));
       }
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Rejects string-backed structured property values whose UTF-8 encoding exceeds the configured
+   * keyword max length (default {@link ESUtils#KEYWORD_MAXLENGTH}). Oversized values otherwise fail
+   * Elasticsearch / OpenSearch indexing with {@code max_bytes_length_exceeded_exception}.
+   */
+  private static Optional<AspectValidationException> validateKeywordByteLength(
+      BatchItem item,
+      Urn propertyUrn,
+      StructuredPropertyDefinition definition,
+      PrimitivePropertyValue value,
+      int keywordMaxLength) {
+    LogicalValueType typeDefinition = getLogicalValueType(definition.getValueType());
+    if (!VALID_VALUE_STORED_AS_STRING.contains(typeDefinition) || value.getString() == null) {
+      return Optional.empty();
+    }
+    int maxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
+    int byteLength = value.getString().getBytes(StandardCharsets.UTF_8).length;
+    if (byteLength > maxLength) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Property: %s, value is %d bytes which exceeds the maximum of %d UTF-8 bytes"
+                      + " for structured property values indexed as Elasticsearch keywords"
+                      + " (structuredProperties.keywordMaxLength)",
+                  propertyUrn, byteLength, maxLength)));
     }
     return Optional.empty();
   }

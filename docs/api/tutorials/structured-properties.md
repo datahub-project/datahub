@@ -14,6 +14,10 @@ Structured properties have values that are typed and support constraints.
 
 Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
+:::note Value size limit
+String-backed structured property values (`string`, `rich_text`, `date`, and `urn` types) are indexed as Elasticsearch / OpenSearch keywords. Each value may be at most **32,766 UTF-8 bytes** by default (configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength`). Writes that exceed this Lucene keyword term limit are rejected by `StructuredPropertiesValidator`. Prefer shorter values for searchable properties; store large free-form content as entity documentation instead. Number values are not subject to this limit. See the [feature guide limitations](../../../docs/features/feature-guides/properties/overview.md#value-size-for-text-and-rich-text-properties).
+:::
+
 ### Goal Of This Guide
 
 This guide will show you how to execute the following actions with structured properties.

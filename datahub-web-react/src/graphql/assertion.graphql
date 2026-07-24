@@ -1,5 +1,3 @@
-#import "./assertion_monitor_shared.graphql"
-
 fragment assertionInfo on AssertionInfo {
     type
     description

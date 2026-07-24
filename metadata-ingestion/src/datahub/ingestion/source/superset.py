@@ -641,9 +641,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             self.report.warning(
                 message="Network error.",
                 context=self._warning_context(
-                    **{**base_context, "error": str(e), "error_type": type(e).__name__}
+                    **{
+                        **base_context,
+                        "endpoint": endpoint,
+                        "error_type": type(e).__name__,
+                    }
                 ),
-                title=f"{endpoint} network error",
+                title="Superset API network error",
+                exc=e,
             )
             return None
         if response.status_code != 200:
@@ -657,11 +662,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 context=self._warning_context(
                     **{
                         **base_context,
+                        "endpoint": endpoint,
                         "status_code": response.status_code,
                         "body_preview": self._safe_body_preview(response),
                     }
                 ),
-                title=f"{endpoint} failed",
+                title="Superset API request failed",
             )
             return None
         try:
@@ -677,11 +683,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                 context=self._warning_context(
                     **{
                         **base_context,
-                        "error": str(e),
+                        "endpoint": endpoint,
                         "body_preview": self._safe_body_preview(response),
                     }
                 ),
-                title=f"{endpoint} decode error",
+                title="Superset API decode error",
+                exc=e,
             )
             return None
 

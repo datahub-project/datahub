@@ -9,7 +9,7 @@ import { getAssertionGroupsByDisplayOrder } from '@app/entityV2/shared/tabs/Data
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     createAssertionGroups,
-    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+    extractAssertionsFromQuery,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
@@ -39,9 +39,8 @@ export const AcrylAssertionSummaryTab = () => {
 
     useEffect(() => {
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-        const assertionsWithMonitorsDetails: Assertion[] =
-            tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
-        const assertionGroup = createAssertionGroups(assertionsWithMonitorsDetails);
+        const assertions: Assertion[] = extractAssertionsFromQuery(combinedData) ?? [];
+        const assertionGroup = createAssertionGroups(assertions);
         const orderedAssertionGroups = getAssertionGroupsByDisplayOrder(assertionGroup);
         setGroupedAssertions(orderedAssertionGroups);
         // eslint-disable-next-line react-hooks/exhaustive-deps

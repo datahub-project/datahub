@@ -966,8 +966,8 @@ def optimized_get_columns(
                 self.report.increment_column_extraction_failures()
                 self.report.warning(
                     title="Column extraction failed",
-                    message=f"Failed to process column {column_name!r}. The column will be omitted from the schema.",
-                    context=str(e),
+                    message="Failed to process column. The column will be omitted from the schema.",
+                    context=column_name,
                     exc=e,
                 )
             else:
@@ -2087,11 +2087,11 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                         env=self.config.env,
                     )
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Failed to bulk-load schemas from DataHub for SQL lineage. "
                         "Lineage resolution will fall back to lazy on-demand schema fetching.",
-                        context=str(e),
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.warning(
@@ -2157,12 +2157,13 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                     self.report.warning(
                         title="Configured database not found on source",
                         message=(
-                            f"Database {db!r} is listed in the connector config but no "
+                            "Database is listed in the connector config but no "
                             "tables or views were found for it in dbc.TablesV. Skipping "
                             "to avoid emitting a container URN for a database that does "
                             "not exist (or that exists but is empty). Check for typos or "
                             "remove the entry."
                         ),
+                        context=db,
                     )
                     continue
                 try:
@@ -2171,9 +2172,8 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
                 except Exception as e:
                     self.report.warning(
                         title="Failed to inspect database",
-                        message=f"Could not acquire a connection to database {db!r} "
-                        f"after {self.config.retry_max_attempts} attempts. Skipping.",
-                        context=str(e),
+                        message="Could not acquire a connection to database. Skipping.",
+                        context=db,
                         exc=e,
                     )
                     continue  # do not fall through to yield with an invalid connection

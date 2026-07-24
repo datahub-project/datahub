@@ -71,7 +71,9 @@ class DataHubSource(StatefulIngestionSourceBase):
                 f"Ensure your configuration excludes these sensitive entity patterns: {', '.join(DEFAULT_URN_DENY_PATTERNS)}. "
                 "These defaults prevent copying credentials and creating invalid entities."
             )
-            self.report.report_warning("urn_pattern_override", warning_msg)
+            self.report.warning(
+                message=warning_msg, context="urn_pattern_override", log=False
+            )
 
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
@@ -213,9 +215,9 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     def _get_api_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph is None:
-            self.report.report_failure(
-                "datahub_api",
-                "Specify datahub_api on your ingestion recipe to ingest from the DataHub API",
+            self.report.failure(
+                message="Specify datahub_api on your ingestion recipe to ingest from the DataHub API",
+                context="datahub_api",
             )
             return
 

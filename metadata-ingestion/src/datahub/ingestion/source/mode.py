@@ -356,13 +356,13 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
         with self._lock:
             self.filtered_reports.append(ent_name)
 
-    def report_warning(self, *args: Any, **kwargs: Any) -> None:
+    def warning(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
-            super().report_warning(*args, **kwargs)
+            super().warning(*args, **kwargs)
 
-    def report_failure(self, *args: Any, **kwargs: Any) -> None:
+    def failure(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
-            super().report_failure(*args, **kwargs)
+            super().failure(*args, **kwargs)
 
     def info(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
@@ -454,7 +454,7 @@ class ModeSource(StatefulIngestionSourceBase):
             key_info = self._get_request_json(f"{self.config.connect_uri}/api/verify")
             logger.debug(f"Auth info: {key_info}")
         except ModeRequestError as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Connect",
                 message="Unable to verify connection to mode.",
                 context=f"Error: {str(e)}",
@@ -522,16 +522,20 @@ class ModeSource(StatefulIngestionSourceBase):
         # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
 
         if not report_token:
-            self.report.report_warning(
+            self.report.warning(
                 title="Missing Report Token",
-                message=f"Report token is missing for {report_info.get('id', '')}",
+                message="Report token is missing",
+                context=f"report_id={report_info.get('id', '')}",
+                log=False,
             )
             return None
 
         if not report_info.get("id"):
-            self.report.report_warning(
+            self.report.warning(
                 title="Missing Report ID",
-                message=f"Report id is missing for {report_info.get('token', '')}",
+                message="Report id is missing",
+                context=f"report_token={report_info.get('token', '')}",
+                log=False,
             )
             return None
 
@@ -578,11 +582,12 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
             except HTTPError as http_error:
                 if _is_http_404(http_error):
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Report Not Found",
                         message="Referenced report for reusable dataset was not found.",
                         context=f"Report: {report_info.get('id')}, "
                         f"Imported Dataset Report: {imported_dataset_name.get('token')}",
+                        log=False,
                     )
                     continue
                 else:
@@ -660,10 +665,12 @@ class ModeSource(StatefulIngestionSourceBase):
         try:
             return self._fetch_creator(href)
         except ModeRequestError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve Mode creator",
-                message=f"Unable to retrieve user for {href}",
-                context=f"Reason: {str(e)}",
+                message="Unable to retrieve user",
+                context=f"href={href}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -721,7 +728,7 @@ class ModeSource(StatefulIngestionSourceBase):
                             continue
                         space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Retrieve Spaces",
                 message="Unable to retrieve spaces / collections for workspace.",
                 context=f"Workspace: {self.workspace_uri}, Error: {str(e)}",
@@ -856,10 +863,11 @@ class ModeSource(StatefulIngestionSourceBase):
         if adapter in platform_mapping:
             return platform_mapping[adapter]
         else:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unrecognized Platform Found",
-                message=f"Platform was not found in DataHub. "
-                f"Using {platform} name as is",
+                message="Platform was not found in DataHub, using raw name as is",
+                context=f"platform={platform}",
+                log=False,
             )
 
         return platform
@@ -885,10 +893,10 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             return self._data_sources_by_id_cache
         except ModeRequestError as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to retrieve Data Sources",
                 message="Unable to retrieve data sources from Mode.",
-                context=f"Error: {str(e)}",
+                exc=e,
             )
             return {}
 
@@ -898,7 +906,7 @@ class ModeSource(StatefulIngestionSourceBase):
         data_sources_by_id = self._get_data_sources_by_id()
 
         if not data_sources_by_id:
-            self.report.report_failure(
+            self.report.failure(
                 title="No Data Sources Found",
                 message="Could not find data sources matching some ids",
                 context=f"Data Source ID: {data_source_id}",
@@ -908,14 +916,15 @@ class ModeSource(StatefulIngestionSourceBase):
         data_source = data_sources_by_id.get(data_source_id)
         if data_source is None:
             available_ids = sorted(data_sources_by_id.keys())
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to construct upstream lineage",
-                message=f"Data source ID {data_source_id} not found among "
-                f"the {len(available_ids)} data sources in the workspace "
-                f"(available IDs: {available_ids}). This typically means the "
-                f"database connection was deleted from Mode but queries still "
-                f"reference it. Lineage will be skipped for affected queries.",
-                context=f"Data Source ID: {data_source_id}",
+                message="Data source ID not found among workspace data sources. "
+                "This typically means the database connection was deleted from "
+                "Mode but queries still reference it. Lineage will be skipped "
+                "for affected queries.",
+                context=f"data_source_id={data_source_id}, "
+                f"available_ids={available_ids}",
+                log=False,
             )
             return None, None
 
@@ -1029,7 +1038,7 @@ class ModeSource(StatefulIngestionSourceBase):
             }
             return self._definitions_map_cache
         except ModeRequestError as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Retrieve Definitions",
                 message="Unable to retrieve definitions from Mode.",
                 context=f"Error: {str(e)}",
@@ -1642,13 +1651,14 @@ class ModeSource(StatefulIngestionSourceBase):
                     yield reports_page
         except ModeRequestError as e:
             if _is_http_404(e):
-                self.report.report_warning(
+                self.report.warning(
                     title="No Reports Found in Space",
                     message="No reports were found in the space. It may have been recently deleted.",
                     context=f"Space Token: {space_token}, Error: {str(e)}",
+                    log=False,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Failed to Retrieve Reports for Space",
                     message="Unable to retrieve reports for space token.",
                     context=f"Space Token: {space_token}, Error: {str(e)}",
@@ -1669,16 +1679,19 @@ class ModeSource(StatefulIngestionSourceBase):
                     yield dataset_page
         except ModeRequestError as e:
             if _is_http_404(e):
-                self.report.report_warning(
+                self.report.warning(
                     title="No Datasets Found in Space",
                     message="No datasets were found in the space. It may have been recently deleted.",
-                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                    context=f"space_token={space_token}",
+                    exc=e,
+                    log=False,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Failed to Retrieve Datasets for Space",
-                    message=f"Unable to retrieve datasets for space token {space_token}.",
-                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                    message="Unable to retrieve datasets for space.",
+                    context=f"space_token={space_token}",
+                    exc=e,
                 )
 
     def _get_queries(self, report_token: str) -> List[dict]:
@@ -1696,13 +1709,14 @@ class ModeSource(StatefulIngestionSourceBase):
             return queries.get("_embedded", {}).get("queries", [])
         except ModeRequestError as e:
             if _is_http_404(e):
-                self.report.report_warning(
+                self.report.warning(
                     title="No Queries Found",
                     message="No queries found for the report token. Maybe the report is deleted...",
                     context=f"Report Token: {report_token}, Error: {str(e)}",
+                    log=False,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Failed to Retrieve Queries",
                     message="Unable to retrieve queries for report token.",
                     context=f"Report Token: {report_token}, Error: {str(e)}",
@@ -1728,13 +1742,14 @@ class ModeSource(StatefulIngestionSourceBase):
             return charts.get("_embedded", {}).get("charts", [])
         except ModeRequestError as e:
             if _is_http_404(e):
-                self.report.report_warning(
+                self.report.warning(
                     title="No Charts Found for Query",
                     message="No charts were found for the query. The query may have been recently deleted.",
                     context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
+                    log=False,
                 )
             else:
-                self.report.report_failure(
+                self.report.failure(
                     title="Failed to Retrieve Charts",
                     message="Unable to retrieve charts from Mode.",
                     context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
@@ -1882,17 +1897,18 @@ class ModeSource(StatefulIngestionSourceBase):
                     exc_info=True,
                 )
                 if is_timeout:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Report Processing Timeout",
-                        message=f"Timed out processing report {report_name} ({report_token}).",
-                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        message="Timed out processing report.",
+                        context=f"report={report_name} ({report_token}), space_token={space_token}",
                         exc=e,
+                        log=False,
                     )
                 else:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Failed to Process Report",
-                        message=f"Unexpected error processing report {report_name} ({report_token}).",
-                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        message="Unexpected error processing report.",
+                        context=f"report={report_name} ({report_token}), space_token={space_token}",
                         exc=e,
                     )
             except Exception:
@@ -1924,10 +1940,10 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"Failed to process dataset {dataset_token} in space {space_token}",
                 exc_info=True,
             )
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Process Dataset",
-                message=f"Unexpected error processing dataset {dataset_token}.",
-                context=f"Space Token: {space_token}, Error: {str(e)}",
+                message="Unexpected error processing dataset.",
+                context=f"dataset_token={dataset_token}, space_token={space_token}",
                 exc=e,
             )
 

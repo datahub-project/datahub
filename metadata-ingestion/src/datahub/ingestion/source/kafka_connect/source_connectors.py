@@ -326,7 +326,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         else:
             # Failed to resolve schema - warn and exclude dataset
             self.report.warning(
-                f"Could not find schema for table {self.connector_manifest.name} : {source_table}"
+                message="Could not find schema for table",
+                context=f"{self.connector_manifest.name} : {source_table}",
             )
             return source_table, False
 
@@ -1009,9 +1010,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             )
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             predicted_topic = (
@@ -1269,9 +1271,9 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         """Forward pipeline approach for complex transform scenarios."""
         if self._has_complex_transforms(parser.transforms):
             self.report.warning(
-                f"Connector {self.connector_manifest.name} uses complex transforms "
-                f"that cannot be reliably predicted. For accurate lineage, consider using "
-                f"'generic_connectors' config to specify explicit source mappings."
+                message="Connector uses complex transforms that cannot be reliably predicted. "
+                "For accurate lineage, consider using 'generic_connectors' config to specify explicit source mappings.",
+                context=self.connector_manifest.name,
             )
 
         # Use basic extraction as forward pipeline fallback
@@ -1303,8 +1305,8 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             lineages.append(lineage)
 
         self.report.warning(
-            "Could not find input dataset, the connector has query configuration set",
-            self.connector_manifest.name,
+            message="Could not find input dataset, the connector has query configuration set",
+            context=self.connector_manifest.name,
         )
         return lineages
 
@@ -1892,8 +1894,10 @@ class SnowflakeSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
-                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                self.report.failure(
+                    message="Failed to connect to DataHub for pattern expansion",
+                    context=self.connector_manifest.name,
+                    exc=e,
                 )
             return []
         except Exception as e:
@@ -1947,10 +1951,10 @@ class SnowflakeSourceConnector(BaseConnector):
             # If patterns exist but schema resolver is not available, skip processing
             if has_patterns and not self.schema_resolver:
                 self.report.warning(
-                    f"Snowflake Source connector '{self.connector_manifest.name}' has table patterns "
-                    f"in table.include.list but DataHub schema resolver is not available. "
-                    f"Skipping lineage extraction to avoid generating invalid URNs. "
-                    f"Enable 'use_schema_resolver' in config to support pattern expansion."
+                    message="Snowflake Source connector has table patterns in table.include.list but DataHub schema resolver is not available. "
+                    "Skipping lineage extraction to avoid generating invalid URNs. "
+                    "Enable 'use_schema_resolver' in config to support pattern expansion.",
+                    context=self.connector_manifest.name,
                 )
                 logger.warning(
                     f"Skipping lineage extraction for connector '{self.connector_manifest.name}' - "
@@ -2719,8 +2723,8 @@ class DebeziumSourceConnector(BaseConnector):
 
         except Exception as e:
             self.report.warning(
-                "Error resolving lineage for connector",
-                self.connector_manifest.name,
+                message="Error resolving lineage for connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []
@@ -3428,8 +3432,10 @@ class DebeziumSourceConnector(BaseConnector):
         except (ConnectionError, TimeoutError) as e:
             logger.error(f"Failed to connect to DataHub for pattern '{pattern}': {e}")
             if self.report:
-                self.report.report_failure(
-                    f"datahub_connection_{self.connector_manifest.name}", str(e)
+                self.report.failure(
+                    message="Failed to connect to DataHub for pattern expansion",
+                    context=self.connector_manifest.name,
+                    exc=e,
                 )
             return []
         except Exception as e:

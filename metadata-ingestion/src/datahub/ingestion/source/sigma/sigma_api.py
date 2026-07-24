@@ -848,8 +848,8 @@ class SigmaAPI:
                     break
                 if cursor_key in seen_cursors:
                     self.report.warning(
-                        message=f"{error_ctx} Pagination cursor repeated; aborting.",
-                        context=f"url={base_url}, cursor={cursor}, "
+                        message="Pagination cursor repeated; aborting",
+                        context=f"{error_ctx} url={base_url}, cursor={cursor}, "
                         f"entries_so_far={len(raw_entries)}",
                     )
                     break
@@ -917,8 +917,8 @@ class SigmaAPI:
                 self.report.pagination_malformed_entries_dropped += 1
                 if malformed_warned < self._MAX_MALFORMED_WARNINGS_PER_ENDPOINT:
                     self.report.warning(
-                        message=f"{error_ctx} Dropped malformed entry.",
-                        context=f"entry={entry!r}",
+                        message="Dropped malformed entry",
+                        context=f"{error_ctx} entry={entry!r}",
                         exc=ve,
                     )
                     malformed_warned += 1

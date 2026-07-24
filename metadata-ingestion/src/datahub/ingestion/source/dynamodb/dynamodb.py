@@ -486,10 +486,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         table_fields = list(schema.values())
         if schema_size > self.config.max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Schema Size Too Large",
-                message=f"Downsampling the table schema because `max_schema_size` threshold is {self.config.max_schema_size}",
-                context=f"Collection: {dataset_urn}",
+                message="Downsampling the table schema because max_schema_size threshold was exceeded",
+                context=f"collection={dataset_urn}, max_schema_size={self.config.max_schema_size}",
+                log=False,
             )
 
             # Add this information to the custom properties so user can know they are looking at down sampled schema
@@ -559,10 +560,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             attribute_type
         )
         if type_string is None:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Map Attribute Type",
-                message=f"Unable to map type {attribute_type} to native data type",
-                context=f"Collection: {table_name}",
+                message="Unable to map attribute type to native data type",
+                context=f"attribute_type={attribute_type}, collection={table_name}",
+                log=False,
             )
             return _attribute_type_to_native_type_mapping[attribute_type]
         return type_string
@@ -576,10 +578,11 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         )
 
         if type_class is None:
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to Map Field Type",
-                message=f"Unable to map type {attribute_type} to metadata schema field type",
-                context=f"Collection: {table_name}",
+                message="Unable to map attribute type to metadata schema field type",
+                context=f"attribute_type={attribute_type}, collection={table_name}",
+                log=False,
             )
             type_class = NullTypeClass
         return SchemaFieldDataType(type=type_class())

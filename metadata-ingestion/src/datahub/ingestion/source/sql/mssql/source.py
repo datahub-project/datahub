@@ -726,7 +726,7 @@ class SQLServerSource(SQLAlchemySource):
                 logger.error("Job structure error %s: %s", method_name, e)
                 last_exception = e
                 self.report.failure(
-                    message=f"Job structure error: {e}",
+                    message="Job structure error",
                     title="SQL Server Jobs Extraction",
                     context=f"job_structure_error_{context_suffix}",
                     exc=e,
@@ -735,7 +735,7 @@ class SQLServerSource(SQLAlchemySource):
                 logger.error("Unexpected error %s: %s", method_name, e, exc_info=True)
                 last_exception = e
                 self.report.failure(
-                    message=f"Unexpected error: {e}",
+                    message="Unexpected error during job extraction",
                     title="SQL Server Jobs Extraction",
                     context=f"job_extraction_error_{context_suffix}",
                     exc=e,
@@ -928,9 +928,9 @@ class SQLServerSource(SQLAlchemySource):
                             "Failed to process job %s: %s", job_name, job_error
                         )
                         self.report.warning(
-                            message=f"Failed to process job {job_name}",
+                            message="Failed to process job",
                             title="SQL Server Jobs Extraction",
-                            context="Error occurred while processing individual job",
+                            context=job_name,
                             exc=job_error,
                         )
                         continue
@@ -1331,8 +1331,11 @@ class SQLServerSource(SQLAlchemySource):
                             logger.warning(
                                 f"Error logging in to database {db['name']}: {e}"
                             )
-                            self.report.report_warning(
-                                "Error logging in to database", db["name"], exc=e
+                            self.report.warning(
+                                message="Error logging in to database",
+                                context=db["name"],
+                                exc=e,
+                                log=False,
                             )
                             continue
                         raise
@@ -1409,15 +1412,15 @@ class SQLServerSource(SQLAlchemySource):
                         db_name,
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Query lineage extraction failed for database '{db_name}' "
-                            f"with unexpected error: {e}. "
+                            "Query lineage extraction failed. "
                             "Check that Query Store is enabled or VIEW SERVER STATE permission is granted. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/mssql"
                         ),
-                        context=f"query_lineage_extraction_failed: {db_name}",
+                        context=db_name,
+                        exc=e,
                     )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:

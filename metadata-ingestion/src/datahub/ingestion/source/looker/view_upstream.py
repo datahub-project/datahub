@@ -212,10 +212,11 @@ def _generate_fully_qualified_name(
         dataset_name = f"{connection_def.default_db}.{sql_table_name}"
         return dataset_name.lower()
 
-    reporter.report_warning(
+    reporter.warning(
         title="Malformed Table Name",
         message="Table name has more than 3 parts.",
         context=f"view-name: {view_name}, table-name: {sql_table_name}",
+        log=False,
     )
     return sql_table_name.lower()
 
@@ -542,11 +543,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             logger.debug(
                 f"Table parsing error for view '{self.view_context.name()}': {table_error}"
             )
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Table Level Lineage Extraction Failed",
                 message="Error in parsing derived sql",
                 context=f"View-name: {self.view_context.name()}",
                 exc=table_error,
+                log=False,
             )
             if not allow_partial:
                 raise ValueError(
@@ -561,11 +563,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             logger.debug(
                 f"Column parsing error for view '{self.view_context.name()}': {column_error}"
             )
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Column Level Lineage Extraction Failed",
                 message="Error in parsing derived sql",
                 context=f"View-name: {self.view_context.name()}",
                 exc=column_error,
+                log=False,
             )
             if not allow_partial:
                 raise ValueError(
@@ -633,11 +636,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             logger.warning(
                 f"Failed to process field chunk {chunk_idx + 1} for view '{self.view_context.name()}': {e}"
             )
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Field Chunk Processing Failed",
                 message="Failed to process field chunk with fields",
                 context=f"View-name: {self.view_context.name()}, Chunk: {chunk_idx + 1}, Field count: {len(field_chunk)}",
                 exc=e,
+                log=False,
             )
 
             return (
@@ -718,10 +722,11 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 f"Identified {len(problematic_fields)} problematic fields for view '{self.view_context.name()}': "
                 f"{problematic_fields}"
             )
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Problematic Fields Identified in LookMl View Processing",
                 message=f"Identified problematic fields that cannot be processed, View-name: {self.view_context.name()}",
                 context=str(problematic_fields),
+                log=False,
             )
 
         logger.debug(
@@ -767,11 +772,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             logger.warning(
                 f"Failed to process individual field '{field_name}' for view '{self.view_context.name()}'': {e}"
             )
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Individual Field Processing Failed",
                 message="Failed to process individual field",
                 context=f"View-name: {self.view_context.name()}, Field: {field_name}",
                 exc=e,
+                log=False,
             )
             return set(), [], False
 
@@ -924,17 +930,19 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
         elif success_rate > 0:
             # Partial success
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Field Splitting Statistics - Partial Success",
                 message="Field splitting completed with partial results",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, Successful queries: {successful_queries}, Failed queries: {failed_queries}, Upstream tables: {upstream_tables}, Column lineages: {column_lineages}{fallback_info}",
+                log=False,
             )
         else:
             # Complete failure
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Field Splitting Statistics - Complete Failure",
                 message="Field splitting failed completely",
                 context=f"View-name: {self.view_context.name()}, Success rate: {success_rate:.1f}%, Total fields: {total_fields}, Chunks: {total_chunks}, All {failed_queries} queries failed{fallback_info}",
+                log=False,
             )
 
     def _get_time_dim_group_field_name(self, dim_group: dict) -> str:
@@ -1474,11 +1482,12 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             return []
 
         if sql_parsing_result.debug_info.table_error is not None:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Table Level Lineage Missing",
                 message="Error in parsing derived sql",
                 context=f"view-name: {self.view_context.name()}, platform: {self.view_context.view_connection.platform}",
                 exc=sql_parsing_result.debug_info.table_error,
+                log=False,
             )
             return []
 
@@ -1503,11 +1512,12 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             return []
 
         if spr.debug_info.column_error is not None:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Column Level Lineage Missing",
                 message="Error in parsing derived sql for CLL",
                 context=f"View-name: {self.view_context.name()}",
                 exc=spr.debug_info.column_error,
+                log=False,
             )
             return []
 
@@ -1544,11 +1554,12 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
             return []
 
         if sql_parsing_result.debug_info.column_error is not None:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Column Level Lineage Missing",
                 message="Error in parsing derived sql for CLL",
                 context=f"View-name: {self.view_context.name()}. "
                 f"Error: {sql_parsing_result.debug_info.column_error}",
+                log=False,
             )
             return []
 
@@ -1848,11 +1859,12 @@ def create_view_upstream(
             )
         except Exception as e:
             # Falling back to custom regex-based parsing - best effort approach
-            reporter.report_warning(
+            reporter.warning(
                 title="Looker Query API based View Upstream Failed",
                 message="Error in getting upstream lineage for view using Looker Query API",
                 context=f"View-name: {view_context.name()}",
                 exc=e,
+                log=False,
             )
 
     if view_context.is_regular_case():
@@ -1918,10 +1930,11 @@ def create_view_upstream(
             looker_view_id_cache=looker_view_id_cache,
         )
 
-    reporter.report_warning(
+    reporter.warning(
         title="ViewUpstream Implementation Not Found",
         message="No implementation found to resolve upstream of the view",
         context=f"view_name={view_context.name()} , view_file_name={view_context.view_file_name()}",
+        log=False,
     )
 
     return EmptyImplementation(
