@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveV
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
@@ -84,8 +85,11 @@ public class SearchDocumentsResolver
             // Build filter that combines user filters with ownership constraints
             // Filter logic: (PUBLISHED) OR (UNPUBLISHED AND owned-by-user-or-groups)
             List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            // Users with MANAGE_DOCUMENTS privilege can see all unpublished documents
+            final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             Filter filter =
-                DocumentSearchFilterUtils.buildCombinedFilter(baseUserCriteria, userAndGroupUrns);
+                DocumentSearchFilterUtils.buildCombinedFilter(
+                    baseUserCriteria, userAndGroupUrns, true, canManageDocuments);
 
             // Scope results to the active View, if one is provided. We combine the View's filter
             // (domains, ownership, etc.) with the document filter so the Documents overview and

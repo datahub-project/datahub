@@ -26,7 +26,8 @@ public class DefaultEntityFiltersUtilTest {
     // When DOCUMENT is not in the entity types, no filters should be added
     List<String> entityTypes = ImmutableList.of(DATASET_ENTITY_NAME);
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, false);
 
     assertNull(result);
   }
@@ -37,48 +38,60 @@ public class DefaultEntityFiltersUtilTest {
     List<String> entityTypes = ImmutableList.of(DATASET_ENTITY_NAME);
     Filter baseFilter = new Filter();
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(baseFilter, entityTypes, true);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(baseFilter, entityTypes, true, false);
 
     assertSame(result, baseFilter);
   }
 
   @Test
   public void testAddDefaultEntityFilters_WithDocumentAndShowInGlobalContext() {
-    // When DOCUMENT is in entity types with showInGlobalContext=true,
-    // should add document filters using negated EQUAL for cross-entity compatibility
+    // Should produce two OR clauses: lifecycleStage = PUBLISHED, legacy fallback
     List<String> entityTypes = ImmutableList.of(DATASET_ENTITY_NAME, DOCUMENT_ENTITY_NAME);
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, false);
 
     assertNotNull(result);
     assertNotNull(result.getOr());
-    assertEquals(result.getOr().size(), 1); // Single AND clause with negated conditions
+    assertEquals(result.getOr().size(), 2);
 
-    ConjunctiveCriterion clause = result.getOr().get(0);
-    assertEquals(clause.getAnd().size(), 2); // state, showInGlobalContext
+    // Clause 1: lifecycleStage = PUBLISHED AND showInGlobalContext != false
+    ConjunctiveCriterion publishedClause = result.getOr().get(0);
+    assertEquals(publishedClause.getAnd().size(), 2);
+    assertTrue(hasFieldWithCondition(publishedClause, "lifecycleStage", Condition.EQUAL));
+    assertTrue(
+        hasNegatedFieldWithCondition(publishedClause, "showInGlobalContext", Condition.EQUAL));
 
-    // Verify negated EQUAL conditions (these pass for non-documents since field doesn't exist)
-    assertTrue(hasNegatedFieldWithCondition(clause, "state", Condition.EQUAL));
-    assertTrue(hasNegatedFieldWithCondition(clause, "showInGlobalContext", Condition.EQUAL));
+    // Clause 2: lifecycleStage IS_NULL AND state != UNPUBLISHED AND showInGlobalContext != false
+    ConjunctiveCriterion legacyClause = result.getOr().get(1);
+    assertEquals(legacyClause.getAnd().size(), 3);
+    assertTrue(hasFieldWithCondition(legacyClause, "lifecycleStage", Condition.IS_NULL));
+    assertTrue(hasNegatedFieldWithCondition(legacyClause, "state", Condition.EQUAL));
+    assertTrue(hasNegatedFieldWithCondition(legacyClause, "showInGlobalContext", Condition.EQUAL));
   }
 
   @Test
   public void testAddDefaultEntityFilters_WithDocumentWithoutShowInGlobalContext() {
-    // When DOCUMENT is in entity types with showInGlobalContext=false,
-    // should add document filters without showInGlobalContext criterion
+    // Without showInGlobalContext, clauses should omit that criterion
     List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, false);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, false, false);
 
     assertNotNull(result);
     assertNotNull(result.getOr());
-    assertEquals(result.getOr().size(), 1); // Single AND clause
+    assertEquals(result.getOr().size(), 2);
 
-    ConjunctiveCriterion clause = result.getOr().get(0);
-    assertEquals(clause.getAnd().size(), 1); // state only (no showInGlobalContext)
+    // Clause 1: lifecycleStage = PUBLISHED (no showInGlobalContext)
+    ConjunctiveCriterion publishedClause = result.getOr().get(0);
+    assertEquals(publishedClause.getAnd().size(), 1);
+    assertFalse(hasField(publishedClause, "showInGlobalContext"));
 
-    assertTrue(hasNegatedFieldWithCondition(clause, "state", Condition.EQUAL));
-    assertFalse(hasField(clause, "showInGlobalContext"));
+    // Clause 2: lifecycleStage IS_NULL AND state != UNPUBLISHED (no showInGlobalContext)
+    ConjunctiveCriterion legacyClause = result.getOr().get(1);
+    assertEquals(legacyClause.getAnd().size(), 2);
+    assertFalse(hasField(legacyClause, "showInGlobalContext"));
   }
 
   @Test
@@ -86,10 +99,11 @@ public class DefaultEntityFiltersUtilTest {
     // When only DOCUMENT is being searched
     List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, false);
 
     assertNotNull(result);
-    assertEquals(result.getOr().size(), 1); // Single AND clause
+    assertEquals(result.getOr().size(), 2);
   }
 
   @Test
@@ -97,23 +111,57 @@ public class DefaultEntityFiltersUtilTest {
     // Verify the actual filter values are correct
     List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
 
-    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true);
+    Filter result =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, false);
 
-    ConjunctiveCriterion clause = result.getOr().get(0);
+    // Clause 1: lifecycleStage = PUBLISHED
+    ConjunctiveCriterion publishedClause = result.getOr().get(0);
+    Criterion lifecycleCriterion =
+        findCriterionByCondition(publishedClause, "lifecycleStage", Condition.EQUAL);
+    assertNotNull(lifecycleCriterion);
+    assertFalse(lifecycleCriterion.isNegated());
+    assertTrue(lifecycleCriterion.getValues().contains("urn:li:lifecycleStageType:PUBLISHED"));
 
-    // Verify state != UNPUBLISHED (negated EQUAL)
-    Criterion stateCriterion = findCriterion(clause, "state");
+    Criterion showCtx1 = findNegatedCriterion(publishedClause, "showInGlobalContext");
+    assertNotNull(showCtx1);
+    assertTrue(showCtx1.getValues().contains("false"));
+
+    // Clause 2: lifecycleStage IS_NULL AND state != UNPUBLISHED
+    ConjunctiveCriterion legacyClause = result.getOr().get(1);
+    Criterion isNullCriterion =
+        findCriterionByCondition(legacyClause, "lifecycleStage", Condition.IS_NULL);
+    assertNotNull(isNullCriterion);
+
+    Criterion stateCriterion = findNegatedCriterion(legacyClause, "state");
     assertNotNull(stateCriterion);
-    assertEquals(stateCriterion.getCondition(), Condition.EQUAL);
-    assertTrue(stateCriterion.isNegated());
     assertTrue(stateCriterion.getValues().contains("UNPUBLISHED"));
 
-    // Verify showInGlobalContext != false (negated EQUAL)
-    Criterion showInGlobalContextCriterion = findCriterion(clause, "showInGlobalContext");
-    assertNotNull(showInGlobalContextCriterion);
-    assertEquals(showInGlobalContextCriterion.getCondition(), Condition.EQUAL);
-    assertTrue(showInGlobalContextCriterion.isNegated());
-    assertTrue(showInGlobalContextCriterion.getValues().contains("false"));
+    Criterion showCtx2 = findNegatedCriterion(legacyClause, "showInGlobalContext");
+    assertNotNull(showCtx2);
+    assertTrue(showCtx2.getValues().contains("false"));
+  }
+
+  @Test
+  public void testAddDefaultEntityFilters_CanManageDocumentsProducesTwoClauses() {
+    List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
+
+    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, true);
+
+    assertNotNull(result);
+    // 2 clauses: published, legacy (no state filter). ES-level hideInSearch handles hidden stages.
+    assertEquals(result.getOr().size(), 2);
+  }
+
+  @Test
+  public void testAddDefaultEntityFilters_CanManageDocumentsLegacyClauseNoStateFilter() {
+    List<String> entityTypes = ImmutableList.of(DOCUMENT_ENTITY_NAME);
+
+    Filter result = DefaultEntityFiltersUtil.addDefaultEntityFilters(null, entityTypes, true, true);
+
+    // Clause 2 (legacy): lifecycleStage IS_NULL, no state != UNPUBLISHED filter
+    ConjunctiveCriterion legacyClause = result.getOr().get(1);
+    assertTrue(hasFieldWithCondition(legacyClause, "lifecycleStage", Condition.IS_NULL));
+    assertNull(findNegatedCriterion(legacyClause, "state"));
   }
 
   private static boolean hasField(ConjunctiveCriterion clause, String field) {
@@ -122,21 +170,38 @@ public class DefaultEntityFiltersUtilTest {
 
   private static boolean hasFieldWithCondition(
       ConjunctiveCriterion clause, String field, Condition condition) {
-    Criterion criterion = findCriterion(clause, field);
-    return criterion != null
-        && condition.equals(criterion.getCondition())
-        && !criterion.isNegated();
+    Criterion criterion = findCriterionByCondition(clause, field, condition);
+    return criterion != null && !criterion.isNegated();
   }
 
   private static boolean hasNegatedFieldWithCondition(
       ConjunctiveCriterion clause, String field, Condition condition) {
-    Criterion criterion = findCriterion(clause, field);
-    return criterion != null && condition.equals(criterion.getCondition()) && criterion.isNegated();
+    Criterion criterion = findCriterionByCondition(clause, field, condition);
+    return criterion != null && criterion.isNegated();
   }
 
   private static Criterion findCriterion(ConjunctiveCriterion clause, String field) {
     for (Criterion criterion : clause.getAnd()) {
       if (field.equals(criterion.getField())) {
+        return criterion;
+      }
+    }
+    return null;
+  }
+
+  private static Criterion findCriterionByCondition(
+      ConjunctiveCriterion clause, String field, Condition condition) {
+    for (Criterion criterion : clause.getAnd()) {
+      if (field.equals(criterion.getField()) && condition.equals(criterion.getCondition())) {
+        return criterion;
+      }
+    }
+    return null;
+  }
+
+  private static Criterion findNegatedCriterion(ConjunctiveCriterion clause, String field) {
+    for (Criterion criterion : clause.getAnd()) {
+      if (field.equals(criterion.getField()) && criterion.isNegated()) {
         return criterion;
       }
     }
@@ -299,8 +364,9 @@ public class DefaultEntityFiltersUtilTest {
   public void testDefaultFilterFieldsConstant() {
     // Verify the expected fields are in the constant
     assertTrue(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.contains("state"));
+    assertTrue(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.contains("lifecycleStage"));
     assertTrue(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.contains("showInGlobalContext"));
-    assertEquals(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.size(), 2);
+    assertEquals(DefaultEntityFiltersUtil.DEFAULT_FILTER_FIELDS.size(), 3);
   }
 
   // ============================================================================

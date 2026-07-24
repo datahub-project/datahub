@@ -87,16 +87,24 @@ public class AggregateAcrossEntitiesResolver
           }
 
           try {
+            Filter effectiveFilter =
+                maybeResolvedView != null
+                    ? SearchUtils.combineFilters(
+                        inputFilter, maybeResolvedView.getDefinition().getFilter())
+                    : inputFilter;
+
+            // Add default entity filters (e.g. showInGlobalContext for documents)
+            effectiveFilter =
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    effectiveFilter, finalEntities, searchFlags, context);
+
             return mapAggregateResults(
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                    effectiveFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     Collections.emptyList(),
