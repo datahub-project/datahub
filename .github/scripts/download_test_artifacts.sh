@@ -164,11 +164,11 @@ else
     RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
 fi
 
-# Fetch recent successful workflow runs from master branch
+# Fetch recent successful workflow runs from master branch.
 echo "Fetching recent workflow runs from master branch..."
 RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | $RUN_FILTER | .id" \
-    | head -n "$RUN_COUNT")
+    | jq -r --argjson n "$RUN_COUNT" \
+        '[.workflow_runs[] | '"$RUN_FILTER"' | .id][0:$n] | .[]')
 
 if [[ -z "$RUN_IDS" ]]; then
     if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
