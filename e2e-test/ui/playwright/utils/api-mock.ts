@@ -11,6 +11,16 @@
 
 import type { Page, Route } from '@playwright/test';
 
+/**
+ * Match DataHub GraphQL requests with or without `?operationName=...`.
+ * Playwright globs like `**/api/v2/graphql` only match the bare path; after the
+ * UI started appending operation names for Chrome Network filtering, those
+ * patterns stopped intercepting browser GraphQL calls.
+ */
+export function isDataHubGraphqlUrl(url: URL): boolean {
+  return url.pathname.endsWith('/api/v2/graphql');
+}
+
 // ── Public interface ──────────────────────────────────────────────────────────
 
 export interface ApiMocker {
@@ -62,7 +72,7 @@ export class PageApiMocker implements ApiMocker {
 
     // Register a SINGLE route handler that checks all mocked operations
     if (!this.mockRouteRegistered) {
-      await this.page.route('**/api/v2/graphql', async (route) => {
+      await this.page.route(isDataHubGraphqlUrl, async (route) => {
         const postData = route.request().postDataJSON() as { operationName?: string } | null;
         const op = postData?.operationName;
 
@@ -90,7 +100,7 @@ export class PageApiMocker implements ApiMocker {
 
     // Register a SINGLE route handler that checks all intercepted operations
     if (!this.interceptRouteRegistered) {
-      await this.page.route('**/api/v2/graphql', async (route) => {
+      await this.page.route(isDataHubGraphqlUrl, async (route) => {
         const postData = route.request().postDataJSON() as { operationName?: string } | null;
         const op = postData?.operationName;
 
@@ -161,7 +171,7 @@ export class PageApiMocker implements ApiMocker {
       }
     }
 
-    await this.page.route('**/api/v2/graphql', async (route) => {
+    await this.page.route(isDataHubGraphqlUrl, async (route) => {
       const postData = route.request().postDataJSON() as { operationName?: string } | null;
       const op = postData?.operationName;
 
@@ -243,7 +253,7 @@ export class PageApiMocker implements ApiMocker {
   }
 
   async suppressOnboardingModals(): Promise<void> {
-    await this.page.route('**/api/v2/graphql', async (route) => {
+    await this.page.route(isDataHubGraphqlUrl, async (route) => {
       const postData = route.request().postDataJSON() as {
         operationName?: string;
         variables?: { input?: { ids?: string[] } };
