@@ -260,3 +260,23 @@ def test_ingest_explicit_static_token_wins_over_env_auth(
     assert "401" in str(exc_info.value) or "Unauthorized" in str(exc_info.value), (
         f"expected an authentication failure, got: {exc_info.value!r}"
     )
+
+
+@requires_env_auth
+def test_version_check_config_fetch_uses_env_auth(monkeypatch):
+    # The CLI version check fetches /config through DataHubGraph
+    # (upgrade.fetch_server_config_via_graph), minting a real token from the
+    # env-configured provider on the way. GMS serves /config unauthenticated
+    # (it's in authentication.excludedPaths), so this does NOT prove GMS
+    # accepted the token — it gates that the version-check path itself
+    # (env auth -> load_client_config -> DataHubGraph -> token mint -> /config)
+    # works when auth= replaces a static token, instead of crashing or hanging.
+    upgrade = pytest.importorskip("datahub.upgrade.upgrade")
+    if not hasattr(upgrade, "fetch_server_config_via_graph"):
+        pytest.skip(
+            "installed acryl-datahub predates upgrade.fetch_server_config_via_graph"
+        )
+
+    _set_env_auth(monkeypatch)
+    server_config = upgrade.fetch_server_config_via_graph()
+    assert server_config.service_version
