@@ -483,3 +483,19 @@ def test_tsql_digit_leading_temp_table_lineage() -> None:
     )
     assert result.debug_info.table_error is None, result.debug_info.table_error
     assert any("real_src" in t for t in result.in_tables), result.in_tables
+
+
+def test_block_with_semicolon_node() -> None:
+    """Block([Create, Semicolon]) must unwrap to the Create node.
+
+    A trailing semicolon can cause sqlglot to produce a Block containing both
+    the real statement and a Semicolon node. Without filtering the Semicolon,
+    parse_statement raises "Block contains 2 statements".
+    """
+    dialect = get_dialect("snowflake")
+    create_node = sqlglot.exp.Create(this=sqlglot.exp.Table(this="t"))
+    semicolon_node = sqlglot.exp.Semicolon()
+    block = sqlglot.exp.Block(expressions=[create_node, semicolon_node])
+
+    result = sqlglot_utils._parse_statement.__wrapped__(block, dialect)
+    assert isinstance(result, sqlglot.exp.Create)
