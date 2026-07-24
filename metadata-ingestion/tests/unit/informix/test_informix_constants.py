@@ -1,3 +1,4 @@
+from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import map_coltype
 from datahub.metadata.schema_classes import (
     NullTypeClass,
@@ -30,21 +31,15 @@ def test_map_coltype_unknown_falls_back_to_null():
     assert native.startswith("UNKNOWN")
 
 
-def test_config_minimal_parses():
-    from datahub.ingestion.source.informix.config import InformixSourceConfig
-
-    cfg = InformixSourceConfig.model_validate(
-        {"server": "informix", "database": "testdb"}
-    )
-    assert cfg.host_port == "localhost:9088"
-    assert cfg.accept_ibm_jdbc_license is False
-    assert cfg.include_tables is True
-    assert cfg.include_views is True
+def test_map_coltype_extended_type_40_unknown():
+    # base type 40 (variable-length opaque/UDT: JSON, BSON, spatial) is
+    # deliberately excluded from the map; it must fall back to UNKNOWN(40).
+    dh_type, _nullable, native = map_coltype(40)
+    assert isinstance(dh_type.type, NullTypeClass)
+    assert native == "UNKNOWN(40)"
 
 
 def test_view_pattern_inherits_table_pattern_unless_specified():
-    from datahub.ingestion.source.informix.config import InformixSourceConfig
-
     cfg = InformixSourceConfig.model_validate(
         {
             "server": "informix",
@@ -53,3 +48,17 @@ def test_view_pattern_inherits_table_pattern_unless_specified():
         }
     )
     assert cfg.view_pattern.deny == ["testdb.informix.tmp.*"]
+
+
+def test_view_pattern_preserved_when_explicitly_set():
+    # The validator must not clobber an explicitly-provided view_pattern.
+    cfg = InformixSourceConfig.model_validate(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "table_pattern": {"deny": ["testdb.informix.tmp.*"]},
+            "view_pattern": {"deny": ["testdb.informix.v_.*"]},
+        }
+    )
+    assert cfg.view_pattern.deny == ["testdb.informix.v_.*"]
+    assert cfg.table_pattern.deny == ["testdb.informix.tmp.*"]

@@ -18,8 +18,15 @@ _LICENSE_URL = (
 
 
 def _download(url: str) -> bytes:
-    with urlopen(url, timeout=30) as resp:
-        return resp.read()
+    try:
+        with urlopen(url, timeout=30) as resp:
+            return resp.read()
+    except OSError as e:
+        raise ConfigurationError(
+            f"Failed to download the Informix JDBC driver from {url}. For "
+            "air-gapped or network-restricted environments, pre-provision the "
+            "jars and set 'driver_jar_paths' instead."
+        ) from e
 
 
 def _fetch_verified(base_url: str, filename: str, cache: Path) -> str:

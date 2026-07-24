@@ -1,5 +1,6 @@
 import time
-from typing import Iterable, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Iterable, List, Optional, Union
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -52,6 +53,14 @@ from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
+@dataclass
+class _PendingView:
+    # A view emitted in pass 1, carried to pass 2 for lineage parsing.
+    table: InformixTable
+    urn: str
+    columns: List[str]
+
+
 @platform_name("Informix", id="informix")
 @config_class(InformixSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -93,7 +102,7 @@ class InformixSource(StatefulIngestionSourceBase):
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=ctx.graph
+                cached_domains=list(self.config.domain), graph=ctx.graph
             )
 
     @classmethod
@@ -155,7 +164,7 @@ class InformixSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
-            views: List[Tuple[InformixTable, str, List[str]]] = []
+            views: List[_PendingView] = []
 
             seen_owners = set()
             for table in client.get_tables():
@@ -255,7 +264,11 @@ class InformixSource(StatefulIngestionSourceBase):
                     if table.is_view:
                         self.report.views_scanned += 1
                         views.append(
-                            (table, dataset_urn, [f.fieldPath for f in fields])
+                            _PendingView(
+                                table=table,
+                                urn=dataset_urn,
+                                columns=[f.fieldPath for f in fields],
+                            )
                         )
                     else:
                         self.report.tables_scanned += 1
@@ -277,22 +290,22 @@ class InformixSource(StatefulIngestionSourceBase):
                     )
 
             if self.config.include_view_lineage:
-                for table, view_urn, view_cols in views:
+                for pending in views:
                     try:
-                        sql = client.get_view_definition(table)
+                        sql = client.get_view_definition(pending.table)
                         if not sql:
                             continue
                         upstream_lineage = build_view_upstream_lineage(
-                            view_urn,
+                            pending.urn,
                             sql,
                             resolver,
                             self.config.database,
-                            table.owner,
-                            view_cols,
+                            pending.table.owner,
+                            pending.columns,
                         )
                         if upstream_lineage is not None:
                             yield MetadataChangeProposalWrapper(
-                                entityUrn=view_urn, aspect=upstream_lineage
+                                entityUrn=pending.urn, aspect=upstream_lineage
                             ).as_workunit()
                             self.report.views_with_lineage += 1
                     except Exception as e:
@@ -301,7 +314,7 @@ class InformixSource(StatefulIngestionSourceBase):
                             title="Failed to parse view lineage",
                             message="Skipping view lineage due to an error during "
                             "SQL parsing.",
-                            context=f"{table.owner}.{table.name}",
+                            context=f"{pending.table.owner}.{pending.table.name}",
                             exc=e,
                         )
         finally:

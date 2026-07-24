@@ -1,3 +1,6 @@
+import pytest
+from sqlglot.errors import SqlglotError
+
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.informix.lineage import build_view_upstream_lineage
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -52,3 +55,13 @@ def test_view_lineage_join_table_and_column_level() -> None:
     assert lineage_map["customer_id"] == "id"
     assert lineage_map["customer_name"] == "name"
     assert "id" not in lineage_map  # the inner projection name must NOT leak downstream
+
+
+def test_view_lineage_raises_on_unparseable_sql() -> None:
+    # A table-level parse error must propagate (so the source records a warning +
+    # view_lineage_failures) rather than being silently swallowed into None.
+    view_urn = make_dataset_urn("informix", "testdb.informix.bad", "PROD")
+    with pytest.raises(SqlglotError):
+        build_view_upstream_lineage(
+            view_urn, "not valid sql at all ((", _resolver(), "testdb", "informix"
+        )

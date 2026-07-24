@@ -61,12 +61,19 @@ class InformixClient:
         jpype.JClass(_DRIVER_CLASS)  # force-load the Informix driver
         try:
             self._conn = driver_manager.getConnection(build_jdbc_url(config))
-        except Exception:
-            # build_jdbc_url embeds the password in cleartext; the JVM's SQLException
-            # can echo the full URL back, so re-raise sanitized and drop __cause__.
+        except Exception as e:
+            # build_jdbc_url embeds the password in cleartext and the JVM's
+            # SQLException can echo the full URL back, so re-raise sanitized and
+            # drop __cause__. Keep the SQLSTATE / error code (neither contains the
+            # URL) so operators can distinguish auth vs host vs missing-database.
+            detail = ""
+            try:
+                detail = f" (SQLSTATE={e.getSQLState()}, code={e.getErrorCode()})"  # type: ignore[attr-defined]
+            except Exception:
+                pass
             raise RuntimeError(
                 f"Failed to connect to Informix server '{config.server}' at "
-                f"{config.host_port}, database '{config.database}'"
+                f"{config.host_port}, database '{config.database}'.{detail}"
             ) from None
 
     def _query(self, sql: str, params: List[str]) -> List[List[object]]:

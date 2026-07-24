@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -27,8 +27,8 @@ class InformixSourceConfig(
     server: str = Field(description="Informix server name (INFORMIXSERVER).")
     database: str = Field(description="Informix database to ingest from.")
     username: Optional[str] = Field(default=None, description="Login user.")
-    password: Optional[TransparentSecretStr] = Field(
-        default=None, description="Login password."
+    password: Optional[SecretStr] = Field(
+        default=None, exclude=True, description="Login password."
     )
     extra_props: str = Field(
         default="",

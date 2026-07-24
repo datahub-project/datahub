@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -493,3 +495,65 @@ def test_source_assigns_domain_from_pattern():
     assert str(customers.domain) == "urn:li:domain:sales"
     # the view does not match the pattern, so it gets no domain
     assert active.domain is None
+
+
+def test_source_respects_include_view_lineage_false():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_view_lineage": False}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_ViewLineageClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    lineage_mcps = [
+        e
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, UpstreamLineageClass)
+    ]
+    assert not lineage_mcps
+    assert source.report.views_with_lineage == 0
+
+
+class _UnparseableViewClient(_ViewLineageClient):
+    def get_view_definition(self, table):
+        # Return SQL that cannot be parsed so the lineage pass hits a table_error.
+        return "not valid sql at all ((" if table.name == "customer_orders" else None
+
+
+def test_source_counts_unparseable_view_lineage():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_UnparseableViewClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    # datasets still emit; the parse failure is surfaced (counted + warned),
+    # not silently swallowed.
+    assert any(isinstance(e, Dataset) for e in entities)
+    assert source.report.views_with_lineage == 0
+    assert source.report.view_lineage_failures == 1
+    assert any("view lineage" in str(w.title).lower() for w in source.report.warnings)
+
+
+def test_stale_entity_removal_processor_wired_when_stateful_enabled():
+    config = InformixSourceConfig.parse_obj(
+        {
+            "server": "informix",
+            "database": "testdb",
+            "stateful_ingestion": {"enabled": True, "remove_stale_metadata": True},
+        }
+    )
+    ctx = PipelineContext(
+        run_id="test", pipeline_name="test_pipeline", graph=MagicMock()
+    )
+    source = InformixSource(ctx, config, client=_FakeClient())
+    processor_owners = [
+        type(getattr(p, "__self__", None)).__name__
+        for p in source.get_workunit_processors()
+    ]
+    assert "AutoStaleEntityRemovalProcessor" in processor_owners

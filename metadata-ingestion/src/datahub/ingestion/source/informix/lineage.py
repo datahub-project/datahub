@@ -32,8 +32,12 @@ def build_view_upstream_lineage(
         default_schema=owner,
         override_dialect=_DIALECT,
     )
-    if result.debug_info.error:
-        return None
+    # A table-level parse error means the view's sources couldn't be resolved at
+    # all; re-raise so the caller records a warning + view_lineage_failures rather
+    # than silently emitting nothing. A column-only error still leaves usable
+    # coarse (table) lineage, so fall through and emit what did parse.
+    if result.debug_info.table_error:
+        raise result.debug_info.table_error
     if not result.in_tables:
         return None
 

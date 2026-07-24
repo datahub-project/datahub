@@ -7,10 +7,11 @@ The test seeds a `testdb` database via `dbaccess` against `setup/setup.sql`,
 then runs the `informix` source and diffs the output against the committed
 `informix_mces_golden.json`.
 
-Readiness is detected via the container's own Docker `HEALTHCHECK`
-(`docker inspect -f '{{.State.Health.Status}}' testinformix` == `healthy`),
-which only reports healthy once the server has finished its first-boot
-initialization — more reliable than matching a specific log line.
+Readiness is detected by probing the server directly with `onstat -` (waiting
+for `On-Line` in its output) rather than the image's Docker `HEALTHCHECK`, which
+flaps to `unhealthy` on slower CI runners before the multi-minute first-boot
+initialization finishes. This mirrors the db2/mysql "run a readiness command in
+the container" pattern.
 
 The Informix JDBC driver (`com.ibm.informix:jdbc`) and its `org.mongodb:bson`
 dependency are proprietary and are **not** vendored in this repo. On first
