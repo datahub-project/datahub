@@ -420,6 +420,7 @@ datahub-rest = [
     { name = "requests" },
 ]
 dataplex = [
+    { name = "cachetools" },
     { name = "google-cloud-datacatalog-lineage" },
     { name = "google-cloud-dataplex" },
     { name = "google-cloud-resource-manager" },
@@ -1785,6 +1786,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'cockroachdb'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'databricks'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'datahub'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'dataplex'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'db2'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'delta-lake'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'dev'", specifier = "<6.0.0" },

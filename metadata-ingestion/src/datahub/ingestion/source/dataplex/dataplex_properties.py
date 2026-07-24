@@ -4,20 +4,30 @@ from typing import Any, Mapping
 
 from google.cloud import dataplex_v1
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.dataplex.dataplex_helpers import serialize_field_value
 
 
 def extract_aspects_to_custom_properties(
-    aspects: Mapping[Any, Any], custom_properties: dict[str, str]
+    aspects: Mapping[Any, Any],
+    custom_properties: dict[str, str],
+    aspect_type_pattern: AllowDenyPattern,
 ) -> None:
-    """Extract aspects as custom properties.
+    """Extract aspects as custom properties, skipping aspect types denied by
+    ``aspect_type_pattern`` (defaults to denying DataHub-authored ``datahub-*`` aspects).
 
     Args:
         aspects: Dictionary of aspects from entry
         custom_properties: Dictionary to update with aspect properties
+        aspect_type_pattern: Allow/deny pattern matched against aspect type names
     """
     for aspect_key, aspect_value in aspects.items():
-        aspect_type = aspect_key.split("/")[-1]
+        # Dataplex aspect keys arrive as "<project>.<location>.<aspect_type>"
+        # (and occasionally as a ".../aspectTypes/<aspect_type>" path); take the
+        # final segment either way so the pattern matches the bare aspect type.
+        aspect_type = aspect_key.replace("/", ".").split(".")[-1]
+        if not aspect_type_pattern.allowed(aspect_type):
+            continue
         custom_properties[f"dataplex_aspect_{aspect_type}"] = aspect_type
 
         if hasattr(aspect_value, "data") and aspect_value.data:
@@ -27,7 +37,10 @@ def extract_aspects_to_custom_properties(
 
 
 def extract_entry_custom_properties(
-    entry: dataplex_v1.Entry, entry_id: str, entry_group_id: str
+    entry: dataplex_v1.Entry,
+    entry_id: str,
+    entry_group_id: str,
+    aspect_type_pattern: AllowDenyPattern,
 ) -> dict[str, str]:
     """Extract custom properties from a Dataplex entry.
 
@@ -35,6 +48,7 @@ def extract_entry_custom_properties(
         entry: Entry object from Catalog API
         entry_id: Entry ID
         entry_group_id: Entry group ID
+        aspect_type_pattern: Allow/deny pattern matched against aspect type names
 
     Returns:
         Dictionary of custom properties
@@ -61,6 +75,8 @@ def extract_entry_custom_properties(
             custom_properties["dataplex_source_platform"] = entry.entry_source.platform
 
     if entry.aspects:
-        extract_aspects_to_custom_properties(entry.aspects, custom_properties)
+        extract_aspects_to_custom_properties(
+            entry.aspects, custom_properties, aspect_type_pattern
+        )
 
     return custom_properties

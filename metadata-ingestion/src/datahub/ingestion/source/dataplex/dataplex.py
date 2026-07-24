@@ -48,6 +48,9 @@ from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
 )
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
+from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
+    DataplexPlatformResourceRepository,
+)
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -57,6 +60,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# OAuth2 scope required for the lookupEntryLinks REST session; service-account
+# credentials must be scoped explicitly or AuthorizedSession token refresh fails.
+_DATAPLEX_OAUTH_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
 
 def _resolve_project_numbers(
@@ -229,7 +236,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         creds = self.config.get_credentials()
         credentials = (
-            service_account.Credentials.from_service_account_info(creds)
+            service_account.Credentials.from_service_account_info(
+                creds, scopes=_DATAPLEX_OAUTH_SCOPES
+            )
             if creds
             else None
         )
@@ -281,6 +290,25 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             ctx=self.ctx_data,
         )
 
+        # Reconciles synced-back glossary terms against previously ingested
+        # platform resources. Requires a DataHub graph connection to read/write
+        # the side-index, so it is unavailable in dry-run / file-sink pipelines.
+        self.platform_resource_repository: Optional[
+            DataplexPlatformResourceRepository
+        ] = None
+        if self.ctx.graph is not None:
+            self.platform_resource_repository = DataplexPlatformResourceRepository(
+                self.ctx.graph
+            )
+        elif self.config.include_glossary_term_associations:
+            self.report.warning(
+                title="Glossary term reconciliation disabled",
+                message="No DataHub graph connection is available, so synced-back "
+                "glossary terms cannot be reconciled. Ingesting native Dataplex term "
+                "URNs as-is. Provide a datahub-rest sink or stateful ingestion to "
+                "enable reconciliation.",
+            )
+
         # Glossary processor — only instantiated when glossary ingestion is enabled.
         self.glossary_processor: Optional[DataplexGlossaryProcessor] = None
         if self.config.include_glossaries:
@@ -325,6 +353,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 glossary_client=glossary_client,
                 report=self.report.glossary_report,
                 source_report=self.report,
+                platform_resource_repository=self.platform_resource_repository,
             )
 
     @staticmethod
@@ -342,7 +371,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             config = DataplexConfig.model_validate(config_dict)
             creds = config.get_credentials()
             credentials = (
-                service_account.Credentials.from_service_account_info(creds)
+                service_account.Credentials.from_service_account_info(
+                    creds, scopes=_DATAPLEX_OAUTH_SCOPES
+                )
                 if creds
                 else None
             )

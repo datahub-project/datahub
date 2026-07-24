@@ -13,7 +13,7 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
@@ -22,6 +22,12 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
+from datahub.ingestion.source.dataplex.dataplex_external_entities import (
+    DataplexAspectPlatformResource,
+)
+from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
+    DataplexPlatformResourceRepository,
+)
 from datahub.metadata.urns import DatasetUrn, GlossaryNodeUrn, GlossaryTermUrn
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
@@ -111,6 +117,26 @@ class GlossaryTermRef:
     location: str
     glossary_id: str
     term_id: str
+    # Original DataHub term URN when this native term was authored in DataHub and
+    # reconciled via the platform-resource side-index; None otherwise.
+    datahub_term_urn: Optional[str] = None
+
+
+@dataclass
+class AssetLink:
+    """A single asset entry linked to a term."""
+
+    asset_urn: str
+    entry_name: str
+
+
+@dataclass
+class TermAssetLinks:
+    """All asset links for one term, with the reconciled DataHub URN if any."""
+
+    native_term_urn: str
+    datahub_term_urn: Optional[str]
+    asset_links: List[AssetLink]
 
 
 # ---------------------------------------------------------------------------
@@ -132,6 +158,7 @@ class DataplexGlossaryReport(Report):
     glossary_terms_processed: int = 0
     glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
+    terms_reconciled: int = 0
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -162,6 +189,10 @@ class DataplexGlossaryReport(Report):
         with self._lock:
             self.term_associations_emitted += 1
 
+    def report_term_reconciled(self) -> None:
+        with self._lock:
+            self.terms_reconciled += 1
+
 
 # ---------------------------------------------------------------------------
 # Processor
@@ -185,6 +216,9 @@ class DataplexGlossaryProcessor:
         glossary_client: dataplex_v1.BusinessGlossaryServiceClient,
         report: DataplexGlossaryReport,
         source_report: SourceReport,
+        platform_resource_repository: Optional[
+            DataplexPlatformResourceRepository
+        ] = None,
     ) -> None:
         self._ctx = ctx
         self._glossary_client = glossary_client
@@ -192,6 +226,7 @@ class DataplexGlossaryProcessor:
         self._source_report = source_report
         self._emitted_terms: List[GlossaryTermRef] = []
         self._emitted_terms_lock = threading.Lock()
+        self._platform_resource_repository = platform_resource_repository
 
     # ------------------------------------------------------------------
     # Phase 1: Glossary ingestion
@@ -262,6 +297,70 @@ class DataplexGlossaryProcessor:
         )
         logger.debug("list_glossaries payload: %s", response)
         return response
+
+    def _reconcile_term(self, native_term_urn: str) -> Optional[str]:
+        """Return the original DataHub term URN if this native term was authored in
+        DataHub (has a ``managed_by_datahub`` platform resource); otherwise None.
+
+        Best-effort: any lookup failure is reported and treated as "not reconciled".
+        """
+        if self._platform_resource_repository is None:
+            return None
+        try:
+            entity_id = self._platform_resource_repository.search_entity_by_urn(
+                native_term_urn
+            )
+            if entity_id is None:
+                return None
+            entity = self._platform_resource_repository.get_entity_from_datahub(
+                entity_id
+            )
+            if not entity.is_managed_by_datahub():
+                return None
+            linked = entity.datahub_linked_resources().urns
+            return linked[0] if linked else None
+        except Exception as exc:
+            self._source_report.warning(
+                title="Glossary term reconciliation lookup failed",
+                message="Falling back to the native Dataplex term URN.",
+                context=native_term_urn,
+                exc=exc,
+            )
+            return None
+
+    def _record_external_link(
+        self, entry_name: str, native_term_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a ``managed_by_datahub=false`` platform-resource workunit for an
+        externally-authored term link so the sync-back guard won't overwrite it.
+
+        Emitted through the sink (like the Unity Catalog and Glue connectors)
+        rather than written directly to the graph, so it respects dry-run/file
+        sinks and stateful ingestion. Best-effort: a failure is reported and
+        never aborts ingestion. No-op when there is no platform-resource
+        repository (nothing to reconcile against).
+        """
+        if self._platform_resource_repository is None:
+            return
+        try:
+            resource = DataplexAspectPlatformResource.from_external(
+                entry_name=entry_name, native_term_urn=native_term_urn
+            )
+            platform_resource = resource.as_platform_resource()
+            mcps = list(platform_resource.to_mcps())
+        except Exception as exc:
+            self._source_report.warning(
+                title="Failed to record external glossary term link",
+                message="Sync-back may overwrite this externally-owned term link.",
+                context=f"{entry_name} -> {native_term_urn}",
+                exc=exc,
+            )
+            return
+        for mcp in mcps:
+            yield MetadataWorkUnit(
+                id=f"platform_resource-{platform_resource.id}",
+                mcp=mcp,
+            )
 
     def _process_single_glossary(
         self,
@@ -346,7 +445,19 @@ class DataplexGlossaryProcessor:
                     "term_id": term_id,
                 },
             )
-            yield glossary_term
+            native_term_urn = str(
+                GlossaryTermUrn(
+                    _term_urn_id(project_id, location, glossary_id, term_id)
+                )
+            )
+            original_term_urn = self._reconcile_term(native_term_urn)
+
+            if original_term_urn is None:
+                # Externally-authored (or no side-index): emit as before.
+                yield glossary_term
+            else:
+                # DataHub-authored round-trip: suppress the duplicate native term.
+                self._report.report_term_reconciled()
 
             with self._emitted_terms_lock:
                 self._emitted_terms.append(
@@ -355,6 +466,7 @@ class DataplexGlossaryProcessor:
                         location=location,
                         glossary_id=glossary_id,
                         term_id=term_id,
+                        datahub_term_urn=original_term_urn,
                     )
                 )
 
@@ -446,17 +558,14 @@ class DataplexGlossaryProcessor:
                         ref.term_id,
                         location_pairs,
                         entry_name_to_urn,
+                        ref.datahub_term_urn,
                     ): ref
                     for ref in batch
                 }
                 for future in as_completed(futures):
                     ref = futures[future]
                     try:
-                        term_urn_str, linked_asset_urns = future.result()
-                        for asset_urn in linked_asset_urns:
-                            asset_to_terms.setdefault(asset_urn, []).append(
-                                term_urn_str
-                            )
+                        links = future.result()
                     except Exception as exc:
                         self._source_report.warning(
                             title="Term association lookup failed",
@@ -467,6 +576,18 @@ class DataplexGlossaryProcessor:
                             ),
                             exc=exc,
                         )
+                        continue
+
+                    resolved_urn = links.datahub_term_urn or links.native_term_urn
+                    for asset_link in links.asset_links:
+                        asset_to_terms.setdefault(asset_link.asset_urn, []).append(
+                            resolved_urn
+                        )
+                        if links.datahub_term_urn is None:
+                            # Externally-authored link: mark it unmanaged for the guard.
+                            yield from self._record_external_link(
+                                asset_link.entry_name, links.native_term_urn
+                            )
 
         logger.info(
             "Term-asset scan complete: %d assets linked to at least one term",
@@ -493,8 +614,9 @@ class DataplexGlossaryProcessor:
         term_id: str,
         location_pairs: List[Tuple[str, str]],
         entry_name_to_urn: Dict[str, str],
-    ) -> Tuple[str, List[str]]:
-        """Return (term_urn_str, asset_urns) for this term across all locations.
+        datahub_term_urn: Optional[str],
+    ) -> TermAssetLinks:
+        """Return the asset links for this term across all locations.
 
         De-duplicates asset URNs within the scan so the same asset is not
         returned more than once even if multiple location scans return it.
@@ -510,7 +632,7 @@ class DataplexGlossaryProcessor:
         )
 
         seen_asset_urns: set = set()
-        linked_asset_urns: List[str] = []
+        asset_links: List[AssetLink] = []
         for lookup_project_id, location in location_pairs:
             try:
                 links = self._lookup_entry_links(
@@ -537,7 +659,7 @@ class DataplexGlossaryProcessor:
                 for ref in link.get("entryReferences", []):
                     if ref.get("type") != _SOURCE_ROLE:
                         continue
-                    entry_name = ref.get("name", "")
+                    entry_name = self._normalize_entry_project_id(ref.get("name", ""))
                     asset_urn = entry_name_to_urn.get(entry_name)
                     if asset_urn is None:
                         logger.debug(
@@ -547,9 +669,29 @@ class DataplexGlossaryProcessor:
                         continue
                     if asset_urn not in seen_asset_urns:
                         seen_asset_urns.add(asset_urn)
-                        linked_asset_urns.append(asset_urn)
+                        asset_links.append(
+                            AssetLink(asset_urn=asset_urn, entry_name=entry_name)
+                        )
 
-        return term_urn_str, linked_asset_urns
+        return TermAssetLinks(
+            native_term_urn=term_urn_str,
+            datahub_term_urn=datahub_term_urn,
+            asset_links=asset_links,
+        )
+
+    def _normalize_entry_project_id(self, entry_name: str) -> str:
+        """Map a leading ``projects/{number}`` segment back to ``projects/{id}``.
+
+        ``lookupEntryLinks`` returns the source entry's entry-group project as a
+        project *number*, but entries ingested in the entries stage key
+        ``entry_name_to_urn`` by the project *id*. Without this the asset lookup
+        silently misses and no term association is emitted.
+        """
+        for project_id, project_number in self._ctx.project_numbers.items():
+            prefix = f"projects/{project_number}/"
+            if entry_name.startswith(prefix):
+                return f"projects/{project_id}/" + entry_name[len(prefix) :]
+        return entry_name
 
     def _lookup_entry_links(
         self, project_id: str, location: str, term_entry_path: str

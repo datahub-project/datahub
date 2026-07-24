@@ -144,6 +144,15 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
+    aspect_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(deny=["datahub-.*"]),
+        description="Regex allow/deny patterns matched against Dataplex aspect type "
+        "names to decide which aspects are flattened into DataHub custom properties. "
+        "Defaults to denying DataHub-authored aspects (those prefixed 'datahub-' that "
+        "the DataHub sync-back writes, e.g. 'datahub-tags' / 'datahub-properties') so "
+        "synced-back metadata does not return as custom-property noise.",
+    )
+
     include_schema: bool = Field(
         default=True,
         description="Whether to extract and ingest schema metadata (columns, types, descriptions). "
