@@ -252,6 +252,14 @@ class ExternalConnectionConfig(ConfigModel):
             "``convert_urns_to_lowercase: false``, or ``true`` if your "
             "warehouse connector (e.g. MSSQL, Teradata) was run with "
             "lowercasing turned on."
+            "\n\n"
+            "Note: this only controls casing, not URN shape. Oracle "
+            "upstream URNs are always built as schema.table (matching "
+            "Oracle's own ``add_database_name_to_urn`` default of False) "
+            "— if your Oracle source was run with "
+            "``add_database_name_to_urn: true`` instead, its URNs will be "
+            "database.schema.table and won't match; there is currently no "
+            "override for this."
         ),
     )
 
