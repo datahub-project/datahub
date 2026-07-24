@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import analytics, { DocumentEditType, EventType } from '@app/analytics';
 
 import {
+    useSetLifecycleStageMutation,
     useUpdateDocumentContentsMutation,
     useUpdateDocumentRelatedEntitiesMutation,
     useUpdateDocumentStatusMutation,
@@ -35,6 +36,11 @@ export interface UpdateDocumentRelatedEntitiesInput {
     relatedDocuments?: string[];
 }
 
+export interface UpdateDocumentLifecycleStageInput {
+    urn: string;
+    lifecycleStageUrn: string | null;
+}
+
 export function useUpdateDocument() {
     const { t } = useTranslation('misc');
     const [updateContentsMutation, { loading: updatingContents }] = useUpdateDocumentContentsMutation();
@@ -42,6 +48,7 @@ export function useUpdateDocument() {
     const [updateSubTypeMutation, { loading: updatingSubType }] = useUpdateDocumentSubTypeMutation();
     const [updateRelatedEntitiesMutation, { loading: updatingRelatedEntities }] =
         useUpdateDocumentRelatedEntitiesMutation();
+    const [setLifecycleStageMutation, { loading: updatingLifecycleStage }] = useSetLifecycleStageMutation();
 
     const updateContents = useCallback(
         async (input: UpdateDocumentContentsInput) => {
@@ -180,11 +187,42 @@ export function useUpdateDocument() {
         [updateRelatedEntitiesMutation, t],
     );
 
+    const updateLifecycleStage = useCallback(
+        async (input: UpdateDocumentLifecycleStageInput) => {
+            try {
+                const result = await setLifecycleStageMutation({
+                    variables: {
+                        urn: input.urn,
+                        lifecycleStageUrn: input.lifecycleStageUrn,
+                    },
+                });
+
+                if (result.data?.setLifecycleStage) {
+                    analytics.event({
+                        type: EventType.EditDocumentEvent,
+                        documentUrn: input.urn,
+                        editType: DocumentEditType.PublishState,
+                    });
+                    return true;
+                }
+
+                throw new Error('Failed to update document lifecycle stage');
+            } catch (error) {
+                console.error('Failed to update document lifecycle stage:', error);
+                message.error(t('document.updateStatusError'));
+                return false;
+            }
+        },
+        [setLifecycleStageMutation, t],
+    );
+
     return {
         updateContents,
         updateStatus,
+        updateLifecycleStage,
         updateSubType,
         updateRelatedEntities,
-        loading: updatingContents || updatingStatus || updatingSubType || updatingRelatedEntities,
+        loading:
+            updatingContents || updatingStatus || updatingSubType || updatingRelatedEntities || updatingLifecycleStage,
     };
 }

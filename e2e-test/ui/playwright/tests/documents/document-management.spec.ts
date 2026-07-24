@@ -15,7 +15,8 @@ import { DocumentPage } from '../../pages/entity/document.page';
 import { TIMEOUTS, LOAD_STATES, KEYS } from '../../utils/constants';
 
 // Test constants
-const STATUS_PUBLISHED = 'PUBLISHED';
+const STATUS_PUBLISHED = 'urn:li:lifecycleStageType:PUBLISHED';
+const STATUS_PUBLISHED_LABEL = 'Published';
 const TYPE_RUNBOOK = 'Runbook';
 
 test.use({ featureName: 'documents' });
@@ -108,7 +109,7 @@ test.describe('Document Management', () => {
     const docUrn = await documentPage.createDocumentWithTitle(statusTestDoc);
     cleanup.track(docUrn);
 
-    await documentPage.updateDocumentStatus(STATUS_PUBLISHED);
+    await documentPage.updateDocumentStatus(STATUS_PUBLISHED, STATUS_PUBLISHED_LABEL);
 
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);

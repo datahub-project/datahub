@@ -108,6 +108,13 @@ type Document implements Entity {
   info: DocumentInfo
 
   """
+  The lifecycle status of this Document, sourced from the generic Status aspect.
+  Prefer this over documentInfo.status for lifecycle stage information.
+  When lifecycleStage is null, the document is in its default active state.
+  """
+  status: Status
+
+  """
   Settings specific to the Document
   """
   settings: DocumentSettings
@@ -246,6 +253,7 @@ type DocumentInfo {
   Status of the Document (published, unpublished, etc.)
   """
   status: DocumentStatus
+    @deprecated(reason: "Use Document.status with lifecycleStage instead")
 
   """
   Content of the Document

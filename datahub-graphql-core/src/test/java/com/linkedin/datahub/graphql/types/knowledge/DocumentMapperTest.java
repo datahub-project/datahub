@@ -517,6 +517,10 @@ public class DocumentMapperTest {
       // Verify exists is set to false when removed
       assertNotNull(result.getExists());
       assertFalse(result.getExists());
+
+      // Verify the generic status aspect is also mapped to result.status
+      assertNotNull(result.getStatus());
+      assertTrue(result.getStatus().getRemoved());
     }
   }
 
@@ -552,6 +556,51 @@ public class DocumentMapperTest {
       // Verify exists is set to true when not removed
       assertNotNull(result.getExists());
       assertTrue(result.getExists());
+
+      // Verify the generic status aspect is also mapped, with no lifecycle stage skeleton
+      assertNotNull(result.getStatus());
+      assertFalse(result.getStatus().getRemoved());
+      assertNull(result.getStatus().getLifecycleStage());
+    }
+  }
+
+  @Test
+  public void testMapDocumentStatusLifecycleStageIsPopulated() throws URISyntaxException {
+    // When the Status aspect carries a lifecycleStage URN, DocumentMapper must set a skeleton
+    // LifecycleStageType on result.status so the StatusLifecycleStageResolver can enrich it.
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    // Add minimal document info
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    // Add Status aspect with a lifecycle stage URN
+    com.linkedin.common.Status status = new com.linkedin.common.Status();
+    status.setRemoved(false);
+    Urn lifecycleStageUrn = Urn.createFromString("urn:li:lifecycleStageType:PUBLISHED");
+    status.setLifecycleStage(lifecycleStageUrn);
+    addAspectToResponse(entityResponse, STATUS_ASPECT_NAME, status);
+
+    // Mock authorization
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(documentUrn))).thenReturn(true);
+
+      // Execute mapping
+      Document result = DocumentMapper.map(mockQueryContext, entityResponse);
+
+      // Verify the lifecycle stage skeleton is populated on result.status
+      assertNotNull(result.getStatus());
+      assertNotNull(result.getStatus().getLifecycleStage());
+      assertEquals(
+          result.getStatus().getLifecycleStage().getUrn(), "urn:li:lifecycleStageType:PUBLISHED");
     }
   }
 
