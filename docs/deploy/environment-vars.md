@@ -783,7 +783,6 @@ Reference Links:
 | `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                               | GMS        |
 | `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                               | GMS        |
 | `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                               | GMS        |
-| `LINEAGE_GRAPH_V2`                      | `true`  | Enable new lineage visualization                                                                | GMS        |
 | `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                                                 | GMS        |
 | `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                                                      | GMS        |
 | `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                        | GMS        |
@@ -813,7 +812,6 @@ Reference Links:
 | `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                 | GMS        |
 | `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                        | GMS        |
 | `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                      | GMS        |
-| `LINEAGE_GRAPH_V3`                      | `true`  | Enable redesign of lineage v2 graph                                                             | GMS        |
 | `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
 | `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |

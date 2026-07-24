@@ -550,8 +550,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
           "featureFlags.graphServiceDiffModeEnabled",
           "featureFlags.hideDbtSourceInLineage",
-          "featureFlags.lineageGraphV2",
-          "featureFlags.lineageGraphV3",
           "featureFlags.lineageSearchCacheEnabled",
           "featureFlags.logicalModelsEnabled",
           "featureFlags.metricsEnabled",
