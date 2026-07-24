@@ -2,13 +2,60 @@
 
 import pytest
 
-from datahub.ingestion.source.kafka_connect.common import ConnectorManifest
+from datahub.ingestion.source.kafka_connect.common import (
+    ConnectorManifest,
+    normalize_jdbc_url,
+    validate_jdbc_url,
+)
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     JdbcSinkParserFactory,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     JdbcParserFactory,
 )
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("jdbc:postgresql://host:5432/db", "postgresql://host:5432/db"),
+        ("jdbc:mysql://host:3306/db", "mysql://host:3306/db"),
+        ("jdbc:oracle:thin:@//host:1521/svc", "oracle://host:1521/svc"),
+        (
+            "oracle:thin:@host:1521/svc.corp.example.com",
+            "oracle://host:1521/svc.corp.example.com",
+        ),
+        ("jdbc:oracle:thin:@host:1521:ORCL", "oracle://host:1521/ORCL"),
+        ("jdbc:oracle:oci:@//host:1521/svc", "oracle://host:1521/svc"),
+        (
+            "jdbc:sqlserver://host:1433;databaseName=mydb;integratedSecurity=false",
+            "mssql://host:1433/mydb",
+        ),
+        ("jdbc:sqlserver://host;databaseName=mydb", "mssql://host:1433/mydb"),
+        ("jdbc:sqlserver://host:1433", "mssql://host:1433/"),
+        ("jdbc:jtds:sqlserver://host:1433/mydb", "mssql://host:1433/mydb"),
+        ("jdbc:jtds:sqlserver://host:1433", "mssql://host:1433/"),
+    ],
+)
+def test_normalize_jdbc_url(url: str, expected: str) -> None:
+    assert normalize_jdbc_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url,valid",
+    [
+        ("jdbc:postgresql://host:5432/db", True),
+        ("oracle:thin:@host:1521/svc", True),
+        ("jdbc:oracle:thin:@//host:1521/svc", True),
+        ("jdbc:sqlserver://host:1433;databaseName=db", True),
+        ("jdbc:jtds:sqlserver://host:1433/db", True),
+        ("", False),
+        ("not-a-url", False),
+        ("http://host:8080/path", False),
+    ],
+)
+def test_validate_jdbc_url(url: str, valid: bool) -> None:
+    assert validate_jdbc_url(url) is valid
 
 
 class TestJdbcParserFactorySource:
