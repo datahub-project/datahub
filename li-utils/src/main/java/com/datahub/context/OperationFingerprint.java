@@ -92,12 +92,14 @@ public interface OperationFingerprint {
    * Return the {@link Enrichment} of the given concrete class stamped onto this operation, or
    * {@link Optional#empty()} if no such enrichment is present.
    *
-   * <p>Abstract — every implementation must decide explicitly whether it carries enrichments.
-   * {@code OperationContext} propagates enrichments from its request-side {@link
-   * io.datahubproject.metadata.context.RequestContext}; other implementations (e.g. the {@link
-   * #EMPTY} bootstrap singleton) return {@link Optional#empty()}. See {@link Enrichment} for the
-   * extension pattern.
+   * <p>Defaults to {@link Optional#empty()} so shim/test implementations that don't participate in
+   * the enrichment SPI don't need boilerplate overrides. {@code OperationContext} overrides this to
+   * propagate enrichments from its request-side {@link
+   * io.datahubproject.metadata.context.RequestContext}. See {@link Enrichment} for the extension
+   * pattern.
    */
   @Nonnull
-  <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type);
+  default <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
+    return Optional.empty();
+  }
 }

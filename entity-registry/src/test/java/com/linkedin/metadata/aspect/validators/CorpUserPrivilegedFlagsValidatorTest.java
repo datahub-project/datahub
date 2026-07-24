@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.datahub.context.Enrichment;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -28,7 +27,6 @@ import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -442,11 +440,6 @@ public class CorpUserPrivilegedFlagsValidatorTest {
       @Override
       public String getEntityContextId() {
         return "test-entity";
-      }
-
-      @Override
-      public <T extends Enrichment> Optional<T> getEnrichment(Class<T> type) {
-        return Optional.empty();
       }
     };
   }

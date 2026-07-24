@@ -119,4 +119,21 @@ public final class EnrichmentBundle {
       return byType.isEmpty() ? EMPTY : new EnrichmentBundle(byType);
     }
   }
+
+  // ---------- equals / hashCode ----------
+  // Value equality by contents — enrichment records already implement equals/hashCode by value,
+  // so map-of-Class-to-Enrichment equality gives sensible bundle comparison. Without these,
+  // assertEquals(bundle1, bundle2) in tests would silently compare by identity and always fail.
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) return true;
+    if (!(o instanceof EnrichmentBundle other)) return false;
+    return byType.equals(other.byType);
+  }
+
+  @Override
+  public int hashCode() {
+    return byType.hashCode();
+  }
 }

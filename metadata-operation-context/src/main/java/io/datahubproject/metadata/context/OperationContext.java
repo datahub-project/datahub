@@ -701,15 +701,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   @Nonnull
   public OperationContext withEnrichment(@Nonnull final Enrichment enrichment) {
-    try {
-      final EnrichmentBundle current =
-          this.enrichmentBundle == null ? EnrichmentBundle.EMPTY : this.enrichmentBundle;
-      return this.toBuilder()
-          .enrichmentBundle(current.plus(enrichment))
-          .build(getSessionActorContext(), false);
-    } catch (OperationContextException e) {
-      throw new RuntimeException(e);
-    }
+    // build(ActorContext, boolean) does not declare `throws OperationContextException` and this
+    // path modifies only enrichmentBundle — no actor/auth invariant can trip. No wrapping needed;
+    // any RuntimeException propagates with its original type intact.
+    final EnrichmentBundle current =
+        this.enrichmentBundle == null ? EnrichmentBundle.EMPTY : this.enrichmentBundle;
+    return this.toBuilder()
+        .enrichmentBundle(current.plus(enrichment))
+        .build(getSessionActorContext(), false);
   }
 
   @Override
