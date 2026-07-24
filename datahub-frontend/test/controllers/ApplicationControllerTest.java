@@ -358,8 +358,20 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void mapPath_apiV2Graphql_preservesOperationNameQuery() throws Exception {
+    assertEquals(
+        "/api/graphql?operationName=appConfig",
+        invokeMapPath("/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
   void mapPath_apiGmsPrefix_stripsGmsPrefix() throws Exception {
     assertEquals("/entities", invokeMapPath("/api/gms/entities"));
+  }
+
+  @Test
+  void mapPath_apiGmsPrefix_preservesQueryString() throws Exception {
+    assertEquals("/entities?aspects=List", invokeMapPath("/api/gms/entities?aspects=List"));
   }
 
   @Test

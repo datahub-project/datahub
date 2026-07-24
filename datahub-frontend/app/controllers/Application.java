@@ -467,21 +467,28 @@ public class Application extends Controller {
    * GMS, streaming) use this stripped path. When using a base path, set datahub.basePath to the
    * same value as play.http.context so that stripping works (Play may already strip context from
    * request.uri(); stripBasePath returns the path unchanged if the prefix is not present).
+   *
+   * <p>Query strings are preserved after path rewriting so callers can attach non-routing metadata
+   * (e.g. {@code ?operationName=...} for Chrome DevTools Network filtering) without breaking the
+   * GraphQL / GMS path maps.
    */
   private String mapPath(@Nonnull final String path) {
+    final int queryIndex = path.indexOf('?');
+    final String pathOnly = queryIndex >= 0 ? path.substring(0, queryIndex) : path;
+    final String query = queryIndex >= 0 ? path.substring(queryIndex) : "";
 
     final String strippedPath;
 
     // Cannot strip base path from swagger urls
-    if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
-      strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
+    if (SWAGGER_PATHS.stream().noneMatch(pathOnly::contains)) {
+      strippedPath = BasePathUtils.stripBasePath(pathOnly, this.basePath);
     } else {
-      strippedPath = path;
+      strippedPath = pathOnly;
     }
 
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
     if (strippedPath.equals("/api/v2/graphql")) {
-      return "/api/graphql";
+      return "/api/graphql" + query;
     }
 
     // Case 2: Map requests to /gms to / (Rest.li API)
@@ -491,11 +498,11 @@ public class Application extends Controller {
       if (!newPath.startsWith("/")) {
         newPath = "/" + newPath;
       }
-      return newPath;
+      return newPath + query;
     }
 
     // Otherwise, return the stripped path
-    return strippedPath;
+    return strippedPath + query;
   }
 
   /**
