@@ -132,7 +132,7 @@ def test_fetch_tabular_model_assembly(client: XmlaClient) -> None:
                 "ID": "302",
                 "TableID": "12",
                 "Name": "c",
-                "Type": "7",
+                "Type": "2",
                 "QueryDefinition": "SUMMARIZE(Sales)",
             },
         ],
@@ -171,7 +171,7 @@ def test_fetch_tabular_model_assembly(client: XmlaClient) -> None:
     assert [c.name for c in tables["Sales"].columns] == ["Amount", "ProductKey"]
     assert [m.name for m in tables["Sales"].measures] == ["Total Sales"]
 
-    # A type-7 partition marks the table as calculated.
+    # A type-2 (Calculated / DAX) partition marks the table as calculated.
     assert tables["SalesSummary"].is_calculated is True
     assert tables["Sales"].is_calculated is False
 

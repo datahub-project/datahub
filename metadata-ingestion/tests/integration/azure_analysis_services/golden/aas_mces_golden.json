@@ -116,17 +116,16 @@
                 "server": "salesws",
                 "model": "SalesModel",
                 "catalog": "SalesModel",
-                "table_count": "3",
+                "table_count": "4",
                 "culture": "en-US",
-                "role.Reader": "Read-only access"
+                "role.Reader": ""
             },
-            "name": "Sales Model",
-            "description": "Sales tabular model",
+            "name": "Model",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259439,
+        "lastObserved": 1784931377787,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -214,12 +213,11 @@
                 "measure_count": "1"
             },
             "name": "Sales",
-            "description": "Sales fact table",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259440,
+        "lastObserved": 1784931377788,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -267,12 +265,12 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let Source = Sql.Database(\"myserver.database.windows.net\", \"salesdb\", [Query=\"SELECT * FROM dbo.sales\"]) in Source",
+            "viewLogic": "let Source = #table(type table [Amount = number, ProductKey = Int64.Type], {{100, 1}, {200, 2}}) in Source",
             "viewLanguage": "M"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259440,
+        "lastObserved": 1784931377789,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -329,7 +327,7 @@
                 {
                     "fieldPath": "Total Sales",
                     "nullable": false,
-                    "description": "Sum of all sales amounts\n\nSUM(Sales[Amount])",
+                    "description": "SUM('Sales'[Amount])",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -355,7 +353,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259440,
+        "lastObserved": 1784931377789,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -442,12 +440,11 @@
                 "measure_count": "0"
             },
             "name": "Product",
-            "description": "Product dimension",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259441,
+        "lastObserved": 1784931377790,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -495,12 +492,12 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "let Source = Sql.Database(\"myserver.database.windows.net\", \"salesdb\", [Query=\"SELECT * FROM dbo.product\"]) in Source",
+            "viewLogic": "let Source = #table(type table [ProductKey = Int64.Type, ProductName = text], {{1, \"A\"}, {2, \"B\"}}) in Source",
             "viewLanguage": "M"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259441,
+        "lastObserved": 1784931377790,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -547,10 +544,10 @@
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "String",
+                    "nativeDataType": "Unknown",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -558,7 +555,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259442,
+        "lastObserved": 1784931377790,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -606,6 +603,27 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_hidden": "False",
+                "measure_count": "0"
+            },
+            "name": "SalesRemote",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377791,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -616,12 +634,46 @@
                 "measure_count": "0"
             },
             "name": "SalesSummary",
-            "description": "Calculated summary table",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259442,
+        "lastObserved": 1784931377792,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377791,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377791,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -638,6 +690,86 @@
     },
     "systemMetadata": {
         "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let Source = Sql.Database(\"myserver.database.windows.net\", \"my_db\"), tbl = Source{[Schema = \"my_schema\", Item = \"sales_remote\"]}[Data] in tbl",
+            "viewLanguage": "M"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377791,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377792,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "SalesRemote",
+            "platform": "urn:li:dataPlatform:azure-analysis-services",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Amount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377792,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -669,12 +801,12 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "SUMMARIZE(Sales, Sales[ProductKey], \"Total\", SUM(Sales[Amount]))",
+            "viewLogic": "SUMMARIZECOLUMNS('Product'[ProductName], \"Amt\", SUM('Sales'[Amount]))",
             "viewLanguage": "DAX"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259443,
+        "lastObserved": 1784931377793,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -707,7 +839,7 @@
                 {
                     "fieldPath": "TotalAmount",
                     "nullable": false,
-                    "description": "SUMX(Sales, Sales[Amount])",
+                    "description": "SUM('Sales'[Amount])",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -716,12 +848,61 @@
                     "nativeDataType": "calculated_column",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ProductName",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Amt",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259443,
+        "lastObserved": 1784931377793,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                },
+                {
+                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784931377792,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -754,6 +935,8 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),RowNumber-11111111-1111-1111-1111-111111111111)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),SalesSummary)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)"
                     ],
                     "downstreamType": "FIELD",
@@ -761,12 +944,25 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),TotalAmount)"
                     ],
                     "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),RowNumber-11111111-1111-1111-1111-111111111111)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),SalesSummary)"
+                    ],
+                    "confidenceScore": 1.0
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259443,
+        "lastObserved": 1784931377793,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -805,17 +1001,16 @@
         "json": {
             "customProperties": {
                 "catalog": "SalesModel",
-                "table_count": "3",
+                "table_count": "4",
                 "culture": "en-US",
-                "role.Reader": "Read-only access"
+                "role.Reader": ""
             },
-            "name": "Sales Model",
-            "description": "Sales tabular model",
+            "name": "Model",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259444,
+        "lastObserved": 1784931377794,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -863,12 +1058,12 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "{\"name\":\"Sales Model\",\"compatibilityLevel\":1600,\"model\":{\"tables\":[{\"name\":\"Sales\"},{\"name\":\"Product\"},{\"name\":\"SalesSummary\"}]}}",
+            "viewLogic": "<ns0:Database xmlns:ns0=\"http://schemas.microsoft.com/analysisservices/2003/engine\" xmlns:ns1=\"http://schemas.microsoft.com/analysisservices/2010/engine/200/200\"><ns0:Name>SalesModel</ns0:Name><ns0:ID>SalesModel</ns0:ID><ns0:CreatedTimestamp>2026-07-24T22:13:05.796667</ns0:CreatedTimestamp><ns0:LastSchemaUpdate>2026-07-24T22:13:05.796667</ns0:LastSchemaUpdate><ns0:Description /><ns0:LastProcessed>2026-07-24T22:13:13.03</ns0:LastProcessed><ns0:State>Unprocessed</ns0:State><ns0:LastUpdate>2026-07-24T22:13:13.313333</ns0:LastUpdate><ns0:AggregationPrefix /><ns0:Language>1033</ns0:Language><ns0:Collation>Latin1_General_CI_AS</ns0:Collation><ns0:Visible>true</ns0:Visible><ns0:MasterDataSourceID /><ns0:ProcessingPriority>0</ns0:ProcessingPriority><ns1:StorageEngineUsed>InMemory</ns1:StorageEngineUsed><ns0:EstimatedSize>372884</ns0:EstimatedSize><ns0:Translations /><ns0:DataSourceImpersonationInfo><ns0:ImpersonationMode>Default</ns0:ImpersonationMode><ns0:Account /><ns0:Password /><ns0:ImpersonationInfoSecurity>Unchanged</ns0:ImpersonationInfoSecurity></ns0:DataSourceImpersonationInfo></ns0:Database>",
             "viewLanguage": "TMSL"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259444,
+        "lastObserved": 1784931377794,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -880,7 +1075,7 @@
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "Sales Model",
+            "schemaName": "Model",
             "platform": "urn:li:dataPlatform:azure-analysis-services",
             "version": 0,
             "created": {
@@ -901,7 +1096,7 @@
                 {
                     "fieldPath": "Sales.Total Sales",
                     "nullable": false,
-                    "description": "Sum of all sales amounts\n\nSUM(Sales[Amount])",
+                    "description": "SUM('Sales'[Amount])",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -915,7 +1110,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784924259444,
+        "lastObserved": 1784931377794,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }

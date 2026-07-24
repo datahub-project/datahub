@@ -1,17 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
-      <return>
-        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
-          <row>
-            <ID>500</ID>
-            <Name>Reader</Name>
-            <Description>Read-only access</Description>
-            <ModelPermission>1</ModelPermission>
-          </row>
-        </root>
-      </return>
-    </ExecuteResponse>
-  </soap:Body>
-</soap:Envelope>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis"><return><root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msxmla="http://schemas.microsoft.com/analysisservices/2003/xmla" name="Role"><xsd:schema targetNamespace="urn:schemas-microsoft-com:xml-analysis:rowset" xmlns:sql="urn:schemas-microsoft-com:xml-sql" elementFormDefault="qualified"><xsd:element name="root"><xsd:complexType><xsd:sequence minOccurs="0" maxOccurs="unbounded"><xsd:element name="row" type="row"/></xsd:sequence></xsd:complexType></xsd:element><xsd:simpleType name="uuid"><xsd:restriction base="xsd:string"><xsd:pattern value="[0-9a-zA-Z]{8}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{4}-[0-9a-zA-Z]{12}"/></xsd:restriction></xsd:simpleType><xsd:complexType name="xmlDocument"><xsd:sequence><xsd:any/></xsd:sequence></xsd:complexType><xsd:complexType name="row"><xsd:sequence><xsd:element sql:field="ID" name="ID" type="xsd:unsignedLong" minOccurs="0"/><xsd:element sql:field="ModelID" name="ModelID" type="xsd:unsignedLong" minOccurs="0"/><xsd:element sql:field="Name" name="Name" type="xsd:string" minOccurs="0"/><xsd:element sql:field="Description" name="Description" type="xsd:string" minOccurs="0"/><xsd:element sql:field="ModelPermission" name="ModelPermission" type="xsd:long" minOccurs="0"/><xsd:element sql:field="ModifiedTime" name="ModifiedTime" type="xsd:dateTime" minOccurs="0"/></xsd:sequence></xsd:complexType></xsd:schema><row><ID>23</ID><ModelID>1</ModelID><Name>Reader</Name><ModelPermission>2</ModelPermission><ModifiedTime>2026-07-24T22:13:06.92</ModifiedTime></row></root></return></ExecuteResponse></soap:Body></soap:Envelope>
