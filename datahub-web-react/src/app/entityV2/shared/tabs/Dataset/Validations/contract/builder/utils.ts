@@ -2,8 +2,34 @@ import {
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { LEGACY_ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 
-import { DataContract } from '@types';
+import { DataContract, EntityType, FilterOperator, SearchAcrossEntitiesInput } from '@types';
+
+export const buildDataContractAssertionSearchInput = (
+    entityUrn: string,
+    start: number,
+    count: number,
+): SearchAcrossEntitiesInput => ({
+    types: [EntityType.Assertion],
+    query: '*',
+    start,
+    count,
+    orFilters: [
+        {
+            and: [
+                {
+                    field: LEGACY_ENTITY_FILTER_NAME,
+                    values: [entityUrn],
+                    condition: FilterOperator.Equal,
+                },
+            ],
+        },
+    ],
+    searchFlags: {
+        skipCache: true,
+    },
+});
 
 /**
  * Constructs the input variables required for upserting a data contract using graphql
