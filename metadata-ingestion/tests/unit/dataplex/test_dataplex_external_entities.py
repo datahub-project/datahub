@@ -35,4 +35,5 @@ def test_entity_exposes_linked_resource_and_managed_flag():
     assert isinstance(entity.get_id(), DataplexAspectId)
     # Round-trips through PlatformResource with the term URN as a secondary key.
     pr = entity.as_platform_resource()
+    assert pr.resource_info is not None
     assert pr.resource_info.secondary_keys == ["urn:li:glossaryTerm:pii"]
