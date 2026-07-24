@@ -74,6 +74,13 @@ def test_soap_fault_raises(client: XmlaClient) -> None:
         client._parse_rowset(_FAULT)
 
 
+def test_malformed_xml_raises(client: XmlaClient) -> None:
+    # A truncated/invalid response is rejected as XmlaClientError (not a bare
+    # parse error) so _fetch_rows can downgrade it to a warning and continue.
+    with pytest.raises(XmlaClientError, match="Failed to parse"):
+        client._parse_rowset("<not-valid-xml")
+
+
 def test_extract_metadata_definition(client: XmlaClient) -> None:
     assert client._extract_metadata_definition(_METADATA) == '{"name":"Sales Model"}'
 
