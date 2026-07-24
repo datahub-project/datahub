@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.CustomAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -64,8 +65,16 @@ public class AssertionMapper {
     final EnvelopedAspect envelopedAssertionInfo =
         aspects.get(Constants.ASSERTION_INFO_ASPECT_NAME);
     if (envelopedAssertionInfo != null) {
-      result.setInfo(
-          mapAssertionInfo(context, new AssertionInfo(envelopedAssertionInfo.getValue().data())));
+      final AssertionInfo assertionInfo =
+          new AssertionInfo(envelopedAssertionInfo.getValue().data());
+      result.setInfo(mapAssertionInfo(context, assertionInfo));
+      final Urn datasetUrn = assertionInfo.hasEntityUrn() ? assertionInfo.getEntityUrn() : null;
+      if (datasetUrn != null && Constants.DATASET_ENTITY_NAME.equals(datasetUrn.getEntityType())) {
+        final Dataset dataset = new Dataset();
+        dataset.setUrn(datasetUrn.toString());
+        dataset.setType(EntityType.DATASET);
+        result.setDataset(dataset);
+      }
     }
 
     final EnvelopedAspect envelopedAssertionActions =

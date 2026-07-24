@@ -18,7 +18,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { safeUrl } from '@app/shared/urlUtils';
 
-import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent } from '@types';
+import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
 
 const EXPAND_SYMBOL = 'more';
 const UNKNOWN_PLATFORM_NAME = 'unknown';
@@ -199,7 +199,30 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
     );
 };
 
-const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: boolean }) => {
+const getRecommendedAction = (errorType?: AssertionResultErrorType) => {
+    switch (errorType) {
+        case AssertionResultErrorType.SourceConnectionError:
+        case AssertionResultErrorType.SourceQueryFailed:
+            return 'Check the source connection, credentials, and query permissions.';
+        case AssertionResultErrorType.InvalidParameters:
+            return 'Review the assertion configuration and required parameters.';
+        case AssertionResultErrorType.UnsupportedPlatform:
+        case AssertionResultErrorType.InvalidSourceType:
+            return 'Choose a supported platform and assertion source.';
+        default:
+            return 'Review the error details and update the assertion before running it again.';
+    }
+};
+
+const MessageSection = ({
+    errorMessage,
+    recommendedAction,
+    show,
+}: {
+    errorMessage?: string;
+    recommendedAction?: string;
+    show: boolean;
+}) => {
     const { t } = useTranslation('entity.profile.validations');
     if (!show || !errorMessage) return null;
     return (
@@ -218,6 +241,14 @@ const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: b
                     {errorMessage}
                 </Typography.Paragraph>
             </ContextRow>
+            {recommendedAction && (
+                <ContextRow>
+                    <SecondaryHeader>
+                        {t('resultPopover.recommendedAction', { defaultValue: 'Recommended action' })}
+                    </SecondaryHeader>
+                    <Typography.Paragraph>{recommendedAction}</Typography.Paragraph>
+                </ContextRow>
+            )}
         </>
     );
 };
@@ -295,6 +326,10 @@ export const AssertionResultPopoverContent = ({
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
     const hasDetailedError = run?.result?.type === AssertionResultType.Error && !!errorMessage;
+    const recommendedAction =
+        run?.result?.type === AssertionResultType.Error
+            ? getRecommendedAction(run.result.error?.type || undefined)
+            : undefined;
 
     return (
         <>
@@ -309,7 +344,7 @@ export const AssertionResultPopoverContent = ({
             {hasReason && <ReasonSection reasonText={reasonText} />}
             <SeveritySection result={result} />
             <ExpectedSection expectedText={expectedText} />
-            <MessageSection errorMessage={errorMessage} show={hasDetailedError} />
+            <MessageSection errorMessage={errorMessage} recommendedAction={recommendedAction} show={hasDetailedError} />
             <ExternalResultsSection assertion={assertion} result={result} />
         </>
     );
