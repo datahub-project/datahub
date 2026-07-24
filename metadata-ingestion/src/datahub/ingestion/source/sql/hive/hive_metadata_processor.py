@@ -451,7 +451,9 @@ class HiveMetadataProcessor:
             )
             if len(columns) == 0:
                 self.report.warning(
-                    dataset_name, "missing column information", log=False
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
                 )
 
             dataset_urn: str = make_dataset_urn_with_platform_instance(
@@ -589,7 +591,9 @@ class HiveMetadataProcessor:
 
             if len(columns) == 0:
                 self.report.warning(
-                    dataset_name, "missing column information", log=False
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
                 )
 
             yield ViewDataset(
@@ -634,15 +638,18 @@ class HiveMetadataProcessor:
             except Exception as e:
                 # A single malformed Presto view must not abort the whole database.
                 self.report.warning(
-                    dataset_name,
-                    f"Failed to decode Presto view definition: {e}",
+                    message="Failed to decode Presto view definition",
+                    context=dataset_name,
+                    exc=e,
                     log=False,
                 )
                 continue
 
             if len(columns) == 0:
                 self.report.warning(
-                    dataset_name, "missing column information", log=False
+                    message="Missing column information",
+                    context=dataset_name,
+                    log=False,
                 )
 
             yield ViewDataset(

@@ -678,9 +678,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
                 self.report.warning(
                     title="DBT Cloud Jobs Skipped Processing",
-                    message=f"Job from account_id: {self.config.account_id}, project_id: {self.config.project_id}, "
-                    f"environment_id: {production_env.id} was skipped because {reason_str}",
-                    context=str(job.id),
+                    message="Job was skipped during auto-discovery",
+                    context=f"job_id={job.id}, account_id={self.config.account_id}, project_id={self.config.project_id}, environment_id={production_env.id}, reason={reason_str}",
                 )
 
         logger.info(
@@ -811,9 +810,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             if not compiled_code:
                 self.report.warning(
                     title="Missing compiled_code",
-                    message=f"compiled_code is missing (materialization={materialization}). "
-                    "Column-level lineage will not be available for this model.",
-                    context=key,
+                    message="compiled_code is missing, column-level lineage will not be available for this model",
+                    context=f"{key}: materialization={materialization}",
                 )
             return raw_code, compiled_code
 

@@ -203,7 +203,11 @@ class VerticaSource(SQLAlchemySource):
             return custom_properties
 
         except Exception as ex:
-            self.report.failure(f"{database}", f"unable to get extra_properties : {ex}")
+            self.report.failure(
+                message="Unable to get extra_properties",
+                context=f"{database}",
+                exc=ex,
+            )
         return None
 
     def get_schema_properties(
@@ -214,7 +218,9 @@ class VerticaSource(SQLAlchemySource):
             return custom_properties
         except Exception as ex:
             self.report.failure(
-                f"{database}.{schema}", f"unable to get extra_properties : {ex}"
+                message="Unable to get extra_properties",
+                context=f"{database}.{schema}",
+                exc=ex,
             )
         return None
 
@@ -274,8 +280,9 @@ class VerticaSource(SQLAlchemySource):
                         f"Unable to ingest view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                     )
                     self.report.warning(
-                        f"{schema}.{view}",
-                        f"Ingestion error: {e}",
+                        message="Ingestion error",
+                        context=f"{schema}.{view}",
+                        exc=e,
                         log=False,
                     )
                 if self.config.include_view_lineage:
@@ -310,12 +317,17 @@ class VerticaSource(SQLAlchemySource):
                             f"Unable to get lineage of view {schema}.{view} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.warning(
-                            f"{schema}.{view}",
-                            f"Ingestion error: {e}",
+                            message="Ingestion error",
+                            context=f"{schema}.{view}",
+                            exc=e,
                             log=False,
                         )
         except Exception as e:
-            self.report.failure(f"{schema}", f"Views error: {e}")
+            self.report.failure(
+                message="Views error",
+                context=f"{schema}",
+                exc=e,
+            )
 
     def _process_view(
         self,
@@ -409,8 +421,9 @@ class VerticaSource(SQLAlchemySource):
                         ex,
                     )
                     self.report.warning(
-                        f"{schema}.{projection}",
-                        f"Ingestion error: {ex}",
+                        message="Ingestion error",
+                        context=f"{schema}.{projection}",
+                        exc=ex,
                         log=False,
                     )
                 if self.config.include_projection_lineage:
@@ -440,10 +453,17 @@ class VerticaSource(SQLAlchemySource):
                             f"Unable to get lineage of projection {projection} due to an exception.\n {traceback.format_exc()}"
                         )
                         self.report.warning(
-                            f"{schema}", f"Ingestion error: {e}", log=False
+                            message="Ingestion error",
+                            context=f"{schema}",
+                            exc=e,
+                            log=False,
                         )
         except Exception as ex:
-            self.report.failure(f"{schema}", f"Projection error: {ex}")
+            self.report.failure(
+                message="Projection error",
+                context=f"{schema}",
+                exc=ex,
+            )
 
     def _process_projections(
         self,
@@ -570,8 +590,8 @@ class VerticaSource(SQLAlchemySource):
                 database=None, schema=schema, table=projection
             ):
                 self.report.warning(
-                    "profile skipped as partitioned table is empty or partition id was invalid",
-                    dataset_name,
+                    message="Profile skipped as partitioned table is empty or partition id was invalid",
+                    context=dataset_name,
                     log=False,
                 )
                 continue
@@ -648,12 +668,17 @@ class VerticaSource(SQLAlchemySource):
                         f"Unable to ingest {schema}.{models} due to an exception. %s {traceback.format_exc()}"
                     )
                     self.report.warning(
-                        f"{schema}.{models}",
-                        f"Ingestion error: {error}",
+                        message="Ingestion error",
+                        context=f"{schema}.{models}",
+                        exc=error,
                         log=False,
                     )
         except Exception as error:
-            self.report.failure(f"{schema}", f"Model error: {error}")
+            self.report.failure(
+                message="Model error",
+                context=f"{schema}",
+                exc=error,
+            )
 
     def _process_models(
         self,

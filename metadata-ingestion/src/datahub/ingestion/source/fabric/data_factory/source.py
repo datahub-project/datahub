@@ -618,9 +618,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 missing_side = "source (input)" if missing_source else "sink (output)"
                 self.report.warning(
                     title="Copy Activity Lineage Partially Resolved",
-                    message=f"Missing {missing_side} dataset. "
-                    f"Check the activity's {missing_side} connection type and settings.",
-                    context=activity_key,
+                    message="Missing dataset on one side of copy activity. "
+                    "Check the activity's connection type and settings.",
+                    context=f"{activity_key}, missing_side={missing_side}",
                     log=False,
                 )
             return input_urns, output_urns
