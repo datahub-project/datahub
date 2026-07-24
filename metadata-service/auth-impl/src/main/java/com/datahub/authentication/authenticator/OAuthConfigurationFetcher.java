@@ -212,6 +212,9 @@ public class OAuthConfigurationFetcher {
     // Load optional algorithm and userIdClaim for static providers
     String staticAlgorithm = (String) config.getOrDefault("algorithm", "RS256");
     String staticUserIdClaim = (String) config.getOrDefault("userIdClaim", "sub");
+    boolean staticMapToCorpUser =
+        Boolean.parseBoolean(config.getOrDefault("mapToCorpUser", "false").toString());
+    String staticUserIdClaimRegex = (String) config.getOrDefault("userIdClaimRegex", "(.*)");
 
     // Only create static providers if we have sufficient configuration
     if (!trustedIssuers.isEmpty()
@@ -228,6 +231,8 @@ public class OAuthConfigurationFetcher {
           provider.setJwksUri(jwksUri.trim());
           provider.setAlgorithm(staticAlgorithm);
           provider.setUserIdClaim(staticUserIdClaim);
+          provider.setMapToCorpUser(staticMapToCorpUser);
+          provider.setUserIdClaimRegex(staticUserIdClaimRegex);
           provider.setEnabled(true);
           this.oauthProviders.add(provider);
         }
