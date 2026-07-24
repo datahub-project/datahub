@@ -211,6 +211,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                 return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
               }
               log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
+              // Only now is Phase 1 truly complete: mark COMPLETED so subsequent runs skip it. A
+              // failed swap above returns before reaching here, leaving the index IN_PROGRESS for
+              // retry.
+              upgradeState =
+                  IncrementalReindexState.setPhase1Completed(upgradeState, config.name());
+              checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
               continue;
             }
           }
@@ -258,6 +264,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             }
             log.info(
                 "Index {} had 0 docs, next index created as empty, alias swapped", config.name());
+            upgradeState = IncrementalReindexState.setPhase1Completed(upgradeState, config.name());
+            checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
             continue;
           }
 
@@ -297,6 +305,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
           log.info("Alias swapped: {} -> {}", config.name(), result.nextIndexName());
+          // Only now is Phase 1 truly complete: mark COMPLETED so subsequent runs skip it. A
+          // failed swap above returns before reaching here, leaving the index IN_PROGRESS for
+          // retry.
+          upgradeState = IncrementalReindexState.setPhase1Completed(upgradeState, config.name());
+          checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
         }
 
         // Also handle indices that don't need reindex but need mapping/settings updates, note that
@@ -339,6 +352,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       ESIndexBuilder indexBuilder,
       boolean completed) {
     if (completed) {
+      // Record only the reindex (data copy) completion time and keep the status IN_PROGRESS. The
+      // caller flips it to COMPLETED via IncrementalReindexState.setPhase1Completed ONLY after the
+      // alias swap succeeds. This is the swap-pending intermediate state: a failed swap leaves the
+      // index IN_PROGRESS so a resumed run re-polls and retries the swap, instead of hitting the
+      // "already COMPLETED, skipping" branch and silently succeeding while the alias still points
+      // at the stale index.
       upgradeState =
           IncrementalReindexState.setReindexCompleteTime(
               upgradeState, indexName, System.currentTimeMillis());
