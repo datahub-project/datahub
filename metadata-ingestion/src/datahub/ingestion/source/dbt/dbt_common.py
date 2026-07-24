@@ -104,6 +104,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ChangeAuditStampsClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
@@ -571,6 +573,13 @@ class DBTCommonConfig(
     target_platform_instance: Optional[str] = Field(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
+    emit_target_platform_instance_aspects: bool = Field(
+        default=True,
+        description="When target_platform_instance is set, emit dataPlatformInstance and "
+        "browsePathsV2 aspects for target-platform sibling entities so they are correctly "
+        "grouped under their platform instance in browse and filters. Browse paths written "
+        "by the warehouse connector are never overwritten.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -2986,6 +2995,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for mcp in target_patch.build()
                     )
 
+                # Deliberately NOT gated by _should_create_sibling_relationships:
+                # lineage emission below also auto-creates target entities, so
+                # these aspects are needed whenever the target URN is referenced,
+                # not only when this source emits the sibling patch itself.
+                for mcp in self._create_target_platform_instance_mcps(
+                    node, node_datahub_urn
+                ):
+                    yield mcp.as_workunit(is_primary_source=False)
+
                 # This code block is run when we are generating entities of platform type.
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
@@ -3026,6 +3044,87 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to emit target-platform metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
+
+    def _create_target_platform_instance_mcps(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
+
+        Only active when target_platform_instance is configured. The
+        dataPlatformInstance value is identical to what the warehouse connector
+        writes for the same entity, so the upsert is a no-op for entities the
+        warehouse connector owns and a fix for sibling-only "stub" entities.
+        """
+        if not self.config.target_platform_instance:
+            return
+        if not self.config.emit_target_platform_instance_aspects:
+            return
+
+        platform_urn = mce_builder.make_data_platform_urn(self.config.target_platform)
+        instance_urn = mce_builder.make_dataplatform_instance_urn(
+            platform_urn, self.config.target_platform_instance
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node_datahub_urn,
+            aspect=DataPlatformInstanceClass(
+                platform=platform_urn,
+                instance=instance_urn,
+            ),
+        )
+
+        # With neither database nor schema we would emit a single-entry path,
+        # flattening the entity directly under the instance folder; the
+        # server's name-derived default is at least as good, so skip.
+        if node.database is None and node.schema is None:
+            return
+
+        if self._should_write_target_browse_path(node_datahub_urn):
+            path = [BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
+            for segment in (node.database, node.schema):
+                if segment:
+                    path.append(BrowsePathEntryClass(id=segment))
+            yield MetadataChangeProposalWrapper(
+                entityUrn=node_datahub_urn,
+                aspect=BrowsePathsV2Class(path=path),
+            )
+
+    def _should_write_target_browse_path(self, node_datahub_urn: str) -> bool:
+        """Whether it is safe to write a browsePathsV2 aspect for a target entity.
+
+        The warehouse connector is authoritative for browse paths of entities it
+        ingests (container-based, entries are URNs). Overwrite only when the
+        entity has no browse path yet or carries a plain name-derived default
+        (server-generated for auto-created stub entities). Without a graph
+        connection we cannot distinguish the two, so we skip the write.
+
+        The first-entry discriminator works because every non-default writer
+        produces a URN first entry: the warehouse connectors' auto_browse_path_v2
+        emits a platform-instance or container URN, and the server's default
+        generation post datahub-project/datahub#17263 resolves the first segment
+        to a dataPlatformInstance URN when one exists. Only pre-#17263
+        server-generated defaults have a plain-name first entry, and those are
+        exactly the paths this method is meant to replace.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return False
+        try:
+            existing = graph.get_aspect(node_datahub_urn, BrowsePathsV2Class)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read existing browse path",
+                message="Could not determine whether the entity's browse path is "
+                "safe to replace; skipping browsePathsV2 emission for this entity.",
+                context=node_datahub_urn,
+                exc=e,
+            )
+            return False
+        if existing is None or not existing.path:
+            return True
+        first_entry_id = existing.path[0].id
+        return not first_entry_id.startswith("urn:")
 
     def extract_query_tag_aspects(
         self,
