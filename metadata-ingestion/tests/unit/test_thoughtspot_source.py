@@ -6738,6 +6738,55 @@ class TestResolveExternalUpstream:
         assert source._resolve_external_upstream(table) is None
         assert source.report.num_external_lineage_skipped_missing_database == 1
 
+    def test_missing_schema_returns_none_for_schema_required_platform(self):
+        """Snowflake's key builder joins schema unconditionally
+        (``f"{db}.{sch}.{tbl}"``). Without this guard, a table with a
+        database and table name but no schema (and no connection-level
+        default) would silently emit a corrupt URN containing the literal
+        string "None" instead of failing loudly like the missing-database
+        case does."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod SF", data_source_type="SNOWFLAKE")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="SNOWFLAKE",
+        )
+        table.physical_database_name = "mydb"
+        table.physical_table_name = "orders"
+        assert table.physical_schema_name is None
+
+        assert source._resolve_external_upstream(table) is None
+        assert source.report.num_external_lineage_skipped_missing_database == 1
+
+    def test_missing_schema_is_fine_for_schema_less_platform(self):
+        """MySQL's key builder never references schema
+        (``f"{db}.{tbl}"``), so a missing schema there is not an error —
+        confirms the schema-required guard is platform-aware, not a
+        blanket ``not schema`` check."""
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = [
+            ConnectionResponse(id="c1", name="Prod MySQL", data_source_type="MYSQL")
+        ]
+        table = LogicalTableResponse(
+            id="t1",
+            name="orders",
+            type="LOGICAL_TABLE",
+            data_source_id="c1",
+            data_source_type="MYSQL",
+        )
+        table.physical_database_name = "mydb"
+        table.physical_table_name = "orders"
+        assert table.physical_schema_name is None
+
+        ref = source._resolve_external_upstream(table)
+        assert ref is not None
+        assert ref.urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)"
+
     def test_in_memory_table_returns_none(self):
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = [

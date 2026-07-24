@@ -206,6 +206,13 @@ def normalize_ts_table_type(data_source_type: Optional[str]) -> str:
 # source has no ``get_identifier`` override, so it falls back to
 # ``sql_common.py``'s default ``schema.table`` — a 3-part key here would
 # never match either platform's own emitted URN.
+#
+# Known limitation: Oracle's ``add_database_name_to_urn`` is operator-
+# configurable. If a tenant's Oracle source was run with that flag set to
+# True, it emits ``database.schema.table`` and the 2-part key below won't
+# match. There's no way to detect that from ThoughtSpot's own API data;
+# this connector assumes Oracle's default (False / 2-part). HANA has no
+# equivalent config, so its 2-part shape always applies.
 _KEY_BUILDERS: Dict[str, Callable[[Optional[str], Optional[str], str], str]] = {
     "databricks": lambda db, sch, tbl: ".".join(p for p in (db, sch, tbl) if p),
     "snowflake": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
@@ -222,6 +229,15 @@ _KEY_BUILDERS: Dict[str, Callable[[Optional[str], Optional[str], str], str]] = {
     "hana": lambda db, sch, tbl: f"{sch}.{tbl}" if sch else tbl,
     "denodo": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
 }
+
+# Internal invariant: every platform this connector can resolve to must
+# have a key builder, or that platform's lineage silently drops with zero
+# signal (see ``_resolve_external_upstream``'s ``builder is None`` guard).
+# Fail fast at import time instead of relying on the runtime guard alone.
+_missing_builders = set(_TS_TO_DATAHUB_PLATFORM.values()) - set(_KEY_BUILDERS)
+assert not _missing_builders, (
+    f"platforms mapped without a key builder: {sorted(_missing_builders)}"
+)
 
 
 # Per-platform default casing applied to database/schema/table components
@@ -256,6 +272,51 @@ _CASE_NORMALIZERS: Dict[str, Callable[[str], str]] = {
     "oracle": _lower_if_upper,
     "hana": _lower_if_upper,
 }
+
+
+def select_case_normalizer(
+    platform: str, convert_urns_to_lowercase: Optional[bool]
+) -> Callable[[str], str]:
+    """Pick the casing function to apply to a database/schema/table
+    component before ``_KEY_BUILDERS`` joins it into a key.
+
+    ``convert_urns_to_lowercase=None`` uses the verified per-platform
+    default in ``_CASE_NORMALIZERS`` (identity if unlisted); an explicit
+    True/False always overrides it (e.g. a connection-level TS config
+    override for a tenant whose target source's own casing config
+    differs from that platform's default).
+    """
+    if convert_urns_to_lowercase is None:
+        return _CASE_NORMALIZERS.get(platform, _identity)
+    return str.lower if convert_urns_to_lowercase else _identity
+
+
+# Platforms whose ``_KEY_BUILDERS`` entry joins schema unconditionally
+# (``f"{db}.{sch}.{tbl}"``) — a missing schema there would silently emit a
+# corrupt URN containing the literal string "None" instead of a real
+# component. Excluded: mysql/teradata/athena (schema-less by design,
+# ``_KEY_BUILDERS`` never references schema for them), oracle/hana (already
+# fall back to just the table name when schema is absent), and databricks
+# (joins only the non-None parts).
+_SCHEMA_REQUIRED_PLATFORMS = frozenset(
+    {
+        "snowflake",
+        "bigquery",
+        "redshift",
+        "mssql",
+        "postgres",
+        "presto",
+        "trino",
+        "denodo",
+    }
+)
+
+
+def platform_requires_schema(platform: str) -> bool:
+    """Whether ``platform``'s ``_KEY_BUILDERS`` entry needs a non-empty
+    schema component to avoid emitting a corrupt (``"None"``-containing)
+    URN."""
+    return platform in _SCHEMA_REQUIRED_PLATFORMS
 
 
 class _TMLYamlLoader(yaml.SafeLoader):

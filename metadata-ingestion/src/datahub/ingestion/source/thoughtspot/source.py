@@ -60,15 +60,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.thoughtspot.client import (
-    _CASE_NORMALIZERS,
     _KEY_BUILDERS,
     _TS_TO_DATAHUB_PLATFORM,
     ThoughtSpotAPIError,
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
-    _identity,
     normalize_ts_table_type,
+    platform_requires_schema,
+    select_case_normalizer,
 )
 from datahub.ingestion.source.thoughtspot.config import (
     ExternalConnectionConfig,
@@ -2158,12 +2158,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         needs to know the warehouse dialect so sqlglot can parse the
         SQL — the upstream URNs come out of the parsed SQL itself.
 
-        Primary source: the connection lookup. Reading
-        ``conn.data_source_type`` is canonical (no ``RDBMS_`` prefix
-        to strip), and ``conn.default_database`` feeds sqlglot's
-        ``default_db`` for unqualified table refs. The same
-        ``_external_connection_overrides(conn)`` path the cross-
-        platform lineage uses gives ``platform_instance`` / ``env``.
+        Primary source: the connection lookup. ``conn.data_source_type``
+        is expected to report the bare name (no ``RDBMS_`` prefix), but
+        we run it through ``normalize_ts_table_type`` anyway to mirror
+        ``_resolve_external_upstream``'s hardening — there's no contract
+        guaranteeing a connection's type can never carry that prefix on
+        some TS version/tenant, and the call is a no-op otherwise.
+        ``conn.default_database`` feeds sqlglot's ``default_db`` for
+        unqualified table refs. The same ``_external_connection_overrides(conn)``
+        path the cross-platform lineage uses gives ``platform_instance`` / ``env``.
 
         Fallback: if the connection isn't in the lookup (rare —
         observed only on tenants with very restrictive ACLs), read
@@ -2186,8 +2189,9 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             conn = self._get_connection_lookup().get(table.data_source_id)
 
         if conn is not None:
-            ts_type = (conn.data_source_type or "").upper()
-            platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
+            platform = _TS_TO_DATAHUB_PLATFORM.get(
+                normalize_ts_table_type(conn.data_source_type)
+            )
             if not platform:
                 return None  # in-memory, FALCON, or unmapped warehouse
             overrides = self._external_connection_overrides(conn)
@@ -2275,7 +2279,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         database = table.physical_database_name or conn.default_database
         schema = table.physical_schema_name or conn.default_schema
         physical_name = table.physical_table_name or table.name
-        if not database or not physical_name:
+        # ``_SCHEMA_REQUIRED_PLATFORMS`` joins schema unconditionally
+        # (``f"{db}.{sch}.{tbl}"``) — without this check, a missing schema
+        # on one of those platforms would silently emit a corrupt URN
+        # containing the literal string "None" instead of failing loudly.
+        if (
+            not database
+            or not physical_name
+            or (not schema and platform_requires_schema(platform))
+        ):
             self.report.report_external_lineage_skipped_missing_database()
             return None  # incomplete physical mapping
 
@@ -2287,12 +2299,9 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # only all-uppercase names), not a blanket lower() on the whole key.
         # An explicit per-connection override always wins over the platform
         # default.
-        if overrides.convert_urns_to_lowercase is None:
-            normalize = _CASE_NORMALIZERS.get(platform, _identity)
-        elif overrides.convert_urns_to_lowercase:
-            normalize = str.lower
-        else:
-            normalize = _identity
+        normalize = select_case_normalizer(
+            platform, overrides.convert_urns_to_lowercase
+        )
         database = normalize(database)
         schema = normalize(schema) if schema else schema
         physical_name = normalize(physical_name)
