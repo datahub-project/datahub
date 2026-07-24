@@ -127,12 +127,17 @@ source:
 
 Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
 DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
-allows for 2 parameters:
+allows for 3 parameters:
 
 - `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
 - `retry` is a complex object representing parameters used to create [urllib3 Retry object](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#module-urllib3.util.retry).
   There are many possible parameters, most important would be `total` (total retries) and `backoff_factor`. See the linked docs
   for the details.
+- `headers` is a dictionary of extra HTTP headers to send with every request made to the REST catalog, including the
+  initial OAuth token request. This is useful for catalogs requiring custom headers on all traffic, for example
+  Apache Polaris deployments requiring a `Polaris-Realm` header. Headers are applied via pyiceberg's native
+  `header.<name>` properties; an explicitly configured `header.<name>` catalog property takes precedence over
+  the same header defined here.
 
 ```yaml
 source:
@@ -147,6 +152,8 @@ source:
             backoff_factor: 0.5
             total: 3
           timeout: 120
+          headers:
+            Polaris-Realm: my-realm
 ```
 
 #### Google BigLake REST Catalog + GCS warehouse
