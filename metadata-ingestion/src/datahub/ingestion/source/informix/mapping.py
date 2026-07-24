@@ -1,5 +1,6 @@
 from typing import List
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import map_coltype
 from datahub.ingestion.source.informix.models import InformixColumn
@@ -25,7 +26,7 @@ def make_table_identifier(database: str, owner: str, table: str) -> str:
 
 
 def columns_to_schema_fields(
-    columns: List[InformixColumn], report
+    columns: List[InformixColumn], report: SourceReport
 ) -> List[SchemaFieldClass]:
     fields: List[SchemaFieldClass] = []
     for col in columns:

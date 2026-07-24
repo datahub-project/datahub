@@ -27,13 +27,36 @@ def test_build_jdbc_url():
     )
 
 
+def test_build_jdbc_url_password_none():
+    cfg = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb",
+         "host_port": "ifx:9088", "username": "u"}
+    )
+    url = build_jdbc_url(cfg)
+    assert "password=" in url
+    assert url == (
+        "jdbc:informix-sqli://ifx:9088/testdb:"
+        "INFORMIXSERVER=informix;user=u;password="
+    )
+
+
+def test_build_jdbc_url_appends_extra_props():
+    cfg = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb",
+         "host_port": "ifx:9088", "username": "u", "password": "p",
+         "extra_props": "DB_LOCALE=en_US.utf8"}
+    )
+    url = build_jdbc_url(cfg)
+    assert url.endswith(";DB_LOCALE=en_US.utf8")
+
+
 def test_make_table_identifier():
     assert make_table_identifier("testdb", "informix", "customers") == (
         "testdb.informix.customers"
     )
 
 
-def test_columns_to_schema_fields_maps_types_and_pk():
+def test_columns_to_schema_fields_maps_types_and_nullable():
     cols = [
         InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True),
         InformixColumn(name="name", coltype=13, length=100, colno=2, is_pk=False),
