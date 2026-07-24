@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 import pydantic
 from pydantic import Field, model_validator
@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -28,9 +29,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -171,7 +169,7 @@ class SQLCommonConfig(
 
         return SqlAlchemyMetadataProbe
 
-    def build_probe_provider(self) -> "SqlAlchemyMetadataProbe":
+    def build_probe_provider(self) -> ProbeProvider:
         # lazy: keep sqlalchemy engine construction off the config import path
         from sqlalchemy import create_engine
 
