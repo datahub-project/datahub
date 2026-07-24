@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -23,9 +24,15 @@ public class DashboardUsageBucketsBatchLoaderTest {
 
   private static final Urn URN_1 = UrnUtils.getUrn("urn:li:dashboard:(looker,d1)");
   private static final Urn URN_2 = UrnUtils.getUrn("urn:li:dashboard:(looker,d2)");
+  private static final Urn URN_3 = UrnUtils.getUrn("urn:li:dashboard:(looker,d3)");
+  private static final Urn URN_4 = UrnUtils.getUrn("urn:li:dashboard:(looker,d4)");
 
   private static DashboardUsageBucketsBatchLoader.Key key(Urn urn) {
     return new DashboardUsageBucketsBatchLoader.Key(urn.toString(), 0L, 100L);
+  }
+
+  private static DashboardUsageBucketsBatchLoader.Key key(Urn urn, long start, long end) {
+    return new DashboardUsageBucketsBatchLoader.Key(urn.toString(), start, end);
   }
 
   private static GenericTable emptyTable() {
@@ -77,5 +84,50 @@ public class DashboardUsageBucketsBatchLoaderTest {
         .batchGetAggregatedStats(any(), any(), any(), any(), any(), any(), any());
     Mockito.verify(ts, Mockito.never())
         .getAggregatedStats(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testDistinctWindowsProduceSeparateBatchCalls() {
+    // Dashboards queried with different time windows must land in separate batch groups: one
+    // batchGetAggregatedStats per window over exactly that window's URNs (the loader documents
+    // this invariant because batchGetAggregatedStats applies one shared filter per call).
+    TimeseriesAspectService ts = Mockito.mock(TimeseriesAspectService.class);
+    Map<Urn, GenericTable> batchResult = new HashMap<>();
+    batchResult.put(URN_1, emptyTable());
+    batchResult.put(URN_2, emptyTable());
+    batchResult.put(URN_3, emptyTable());
+    batchResult.put(URN_4, emptyTable());
+    Mockito.when(ts.batchGetAggregatedStats(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(batchResult);
+
+    QueryContext context = getMockAllowContext();
+    DashboardUsageBucketsBatchLoader loader = new DashboardUsageBucketsBatchLoader(ts);
+
+    // URN_1/URN_2 share window [0,100); URN_3/URN_4 share window [200,300).
+    List<List<DashboardUsageAggregation>> out =
+        loader.batchLoad(
+            List.of(
+                key(URN_1, 0L, 100L),
+                key(URN_2, 0L, 100L),
+                key(URN_3, 200L, 300L),
+                key(URN_4, 200L, 300L)),
+            context);
+
+    Assert.assertEquals(out.size(), 4);
+    // Two distinct windows → exactly two batch calls; never the per-URN fallback.
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Urn>> urnsCaptor = ArgumentCaptor.forClass(List.class);
+    Mockito.verify(ts, Mockito.times(2))
+        .batchGetAggregatedStats(any(), any(), any(), any(), urnsCaptor.capture(), any(), any());
+    Mockito.verify(ts, Mockito.never())
+        .getAggregatedStats(any(), any(), any(), any(), any(), any());
+
+    // Each window's call covered exactly that window's URNs (windows iterate in first-seen order).
+    List<List<Urn>> calls = urnsCaptor.getAllValues();
+    Assert.assertEquals(calls.size(), 2);
+    Assert.assertEquals(calls.get(0).size(), 2);
+    Assert.assertTrue(calls.get(0).containsAll(List.of(URN_1, URN_2)));
+    Assert.assertEquals(calls.get(1).size(), 2);
+    Assert.assertTrue(calls.get(1).containsAll(List.of(URN_3, URN_4)));
   }
 }

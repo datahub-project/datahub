@@ -24,24 +24,33 @@ import pytest
 import requests as _requests
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import (
-    execute_graphql,
-    get_timestampmillis_at_start_of_day,
-    with_test_retry,
-)
+from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
 
 _DASHBOARD_URNS = [f"urn:li:dashboard:(looker,usageStatsTest{i})" for i in range(3)]
 _OLD_USER_URN = "urn:li:corpuser:usageStatsTestOldUser"
 
-# In-window days (covered by the query window below) and out-of-window days (must be excluded).
+# Day offsets from a FIXED anchor (not "now") — in-window days and out-of-window days (excluded).
 _RECENT_DAYS = [-20, -10, -3]
 _OLD_DAYS = [-60, -55, -50]
 
-# Query window: [start_of_day(-40), start_of_day(+1)) — includes the recent days, excludes the old.
+# Query window: [anchor-40d, anchor+1d) — includes the recent days, excludes the old.
 _WINDOW_START_OFFSET = -40
 _WINDOW_END_OFFSET = 1
+
+# Fixed, UTC-midnight-aligned anchor so records land at deterministic timestamps. Re-running the
+# test overwrites the same timeseries doc ids (keyed by urn + aspect + timestamp + granularity)
+# rather than accumulating fresh "now"-relative records — keeping the exact-value assertions
+# idempotent across days without having to purge timeseries aspects on teardown (the entity delete
+# does not remove them).
+_DAY_MS = 86_400_000
+_ANCHOR_MS = 1_700_000_000_000 // _DAY_MS * _DAY_MS  # 2023-11-14 00:00 UTC
+
+
+def _day_ts(day_offset: int) -> int:
+    return _ANCHOR_MS + day_offset * _DAY_MS
+
 
 # Inflated views/executions on the out-of-window records: if the window filter regressed, the
 # rolled-up totals (and bucket count) would jump far above the expected in-window values.
@@ -106,7 +115,7 @@ def _day_payload(
     url = f"{{GMS_URL}}/openapi/v3/entity/dashboard/{_encode(urn)}/dashboardUsageStatistics"
     payload = {
         "value": {
-            "timestampMillis": get_timestampmillis_at_start_of_day(day_offset),
+            "timestampMillis": _day_ts(day_offset),
             "eventGranularity": {"unit": "DAY", "multiple": 1},
             "viewsCount": views,
             "executionsCount": executions,
@@ -196,8 +205,8 @@ query GetOneDashboardUsageStats($urn0: String!, $start: Long!, $end: Long!) {
 
 def _window() -> Dict[str, int]:
     return {
-        "start": get_timestampmillis_at_start_of_day(_WINDOW_START_OFFSET),
-        "end": get_timestampmillis_at_start_of_day(_WINDOW_END_OFFSET),
+        "start": _day_ts(_WINDOW_START_OFFSET),
+        "end": _day_ts(_WINDOW_END_OFFSET),
     }
 
 
