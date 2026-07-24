@@ -103,7 +103,16 @@ class AasMapper:
             # Power BI's ``form_full_table_name``: ``<dataset>.<table>`` with
             # spaces replaced by underscores. Matching it lets an AAS-backed
             # Power BI dataset stitch to the Power BI connector's tables.
-            return f"{catalog.replace(' ', '_')}.{table_name.replace(' ', '_')}"
+            full_table_name = (
+                f"{catalog.replace(' ', '_')}.{table_name.replace(' ', '_')}"
+            )
+            if self.config.include_workspace_name_in_dataset_urn:
+                # Mirror Power BI's optional workspace prefix. The workspace name
+                # is the ``<workspace>`` segment of the XMLA endpoint, exposed as
+                # ``server_name``; Power BI lowercases it and swaps spaces.
+                workspace_identifier = self.server_name.replace(" ", "_").lower()
+                full_table_name = f"{workspace_identifier}.{full_table_name}"
+            return full_table_name
         return f"{catalog}.{table_name}"
 
     def _table_dataset_urn(self, catalog: str, table_name: str) -> str:
