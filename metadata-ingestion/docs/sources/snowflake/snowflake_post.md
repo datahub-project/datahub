@@ -398,7 +398,6 @@ semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
   include_queries: true # Default: false - emit query entities for queries against semantic views
-  # emit_semantic_model_entities: true # Default: auto-resolved from server (DataHub Cloud >= 2.1.0 unless Metrics is explicitly disabled). Set true to request, false to force legacy datasets.
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
