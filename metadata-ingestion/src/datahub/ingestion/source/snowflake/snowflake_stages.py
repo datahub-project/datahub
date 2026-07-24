@@ -18,12 +18,11 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
-from datahub.ingestion.source.azure.abs_utils import make_abs_urn
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.data_lake_common.config import PathMode
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
@@ -213,25 +212,14 @@ class SnowflakeStagesExtractor:
     def _resolve_external_stage_url(self, url: Optional[str]) -> Optional[str]:
         if not url:
             return None
-        if url.startswith("s3://"):
-            return make_s3_urn_for_lineage(url, self.config.env)
-        if url.startswith("gcs://"):
-            # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
-            path = url[len("gcs://") :]
-            if path.endswith("/"):
-                path = path[:-1]
-            return make_dataset_urn_with_platform_instance(
-                platform="gcs",
-                name=path,
-                env=self.config.env,
-                platform_instance=None,
-            )
-        if url.startswith("azure://"):
-            # Snowflake stores azure://<account>.blob.core.windows.net/<container>/<path>
-            abs_url = url.replace("azure://", "https://", 1)
-            return make_abs_urn(abs_url, self.config.env)
-        logger.debug(f"Unsupported external stage URL scheme: {url}")
-        return None
+        urn = self.config.datalake_lineage_config.get_urn_for_lineage(
+            url, self.config.env, mode=PathMode.DIRECTORY
+        )
+        if urn is None:
+            self.report.num_stage_external_lineage_dropped += 1
+        else:
+            self.report.num_stage_external_lineage_resolved += 1
+        return urn
 
     def get_stage_lookup_entry(self, stage_fqn: str) -> Optional[StageLookupEntry]:
         return self.stage_lookup.get(stage_fqn.upper())
