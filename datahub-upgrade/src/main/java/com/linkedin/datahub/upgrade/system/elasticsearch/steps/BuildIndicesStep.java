@@ -185,33 +185,7 @@ public class BuildIndicesStep implements UpgradeStep {
           new ParallelReindexOrchestrator(
               context.opContext(), services.get(0).getIndexBuilder(), config, circuitBreakerState);
       results.putAll(orchestrator.reindexAll(reindexConfigs));
-      var documentFailures = orchestrator.getDocumentFailuresByIndex();
-      Map<String, ReindexResult> failures =
-          results.entrySet().stream()
-              .filter((entry) -> entry.getValue().isFailure())
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      if (!failures.isEmpty()) {
-        log.error(
-            "Parallel reindex completed with {} failures out of {} indices",
-            failures.size(),
-            results.size());
-        failures.forEach(
-            (key, value) -> {
-              TaskFailureParseResult indexFailures =
-                  documentFailures.getOrDefault(key, TaskFailureParseResult.EMPTY);
-              String formatted = TaskFailureParser.formatForLog(indexFailures, 5);
-              log.error("Failure index alias {} reason :{}", key, value);
-              context
-                  .report()
-                  .addLine(
-                      String.format(
-                          "%s failed: Failure index alias %s reason: %s%s",
-                          id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
-            });
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-      }
-      log.info("Parallel reindex completed successfully for {} indices", results.size());
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      return finishParallelReindex(context, results, orchestrator.getDocumentFailuresByIndex());
     } finally {
       // Shutdown the health check executor gracefully
       log.info("Shutting down HealthCheckPoller executor");
@@ -231,5 +205,37 @@ public class BuildIndicesStep implements UpgradeStep {
         orchestrator.shutdown();
       }
     }
+  }
+
+  UpgradeStepResult finishParallelReindex(
+      UpgradeContext context,
+      Map<String, ReindexResult> results,
+      Map<String, TaskFailureParseResult> documentFailures) {
+    Map<String, ReindexResult> failures =
+        results.entrySet().stream()
+            .filter((entry) -> entry.getValue().isFailure())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (!failures.isEmpty()) {
+      log.error(
+          "Parallel reindex completed with {} failures out of {} indices",
+          failures.size(),
+          results.size());
+      failures.forEach(
+          (key, value) -> {
+            TaskFailureParseResult indexFailures =
+                documentFailures.getOrDefault(key, TaskFailureParseResult.EMPTY);
+            String formatted = TaskFailureParser.formatForLog(indexFailures, 5);
+            log.error("Failure index alias {} reason :{}", key, value);
+            context
+                .report()
+                .addLine(
+                    String.format(
+                        "%s failed: Failure index alias %s reason: %s%s",
+                        id(), key, value, formatted.isEmpty() ? "" : " " + formatted));
+          });
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+    }
+    log.info("Parallel reindex completed successfully for {} indices", results.size());
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
   }
 }

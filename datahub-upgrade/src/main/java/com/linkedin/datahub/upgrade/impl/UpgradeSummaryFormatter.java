@@ -113,12 +113,13 @@ final class UpgradeSummaryFormatter {
       if (line == null) {
         continue;
       }
-      if (line.contains(rootCausePrefix)) {
+      String trimmed = line.trim();
+      if (trimmed.startsWith(rootCausePrefix)) {
         // Highest priority — stop scanning.
-        best = extractAfter(line, rootCausePrefix);
+        best = extractAfter(trimmed, rootCausePrefix);
         break;
-      } else if (line.contains(failurePrefix)) {
-        best = extractAfter(line, failurePrefix);
+      } else if (trimmed.startsWith(failurePrefix)) {
+        best = extractAfter(trimmed, failurePrefix);
       } else if (line.contains("Caught exception") && line.contains(caughtMarker)) {
         best = extractAfter(line, caughtMarker);
       }

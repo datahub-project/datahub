@@ -83,4 +83,13 @@ public class UpgradeSummaryFormatterTest {
 
     assertEquals(UpgradeSummaryFormatter.findCauseForStep("BuildIndicesStep", lines), "first");
   }
+
+  @Test
+  public void testFindCauseForStepRequiresPrefixMatchNotSubstring() {
+    List<String> lines = List.of("BuildIndicesIncrementalStep failed: boom");
+
+    assertNull(UpgradeSummaryFormatter.findCauseForStep("BuildIndicesStep", lines));
+    assertEquals(
+        UpgradeSummaryFormatter.findCauseForStep("BuildIndicesIncrementalStep", lines), "boom");
+  }
 }

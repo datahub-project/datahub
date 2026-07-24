@@ -119,57 +119,6 @@ public final class TaskFailureParser {
     }
   }
 
-  /**
-   * Logs document failures at warn (detail capped at {@value #DEFAULT_LOG_LIMIT}). Never throws.
-   */
-  public static void logFailures(
-      @Nullable Logger logger,
-      @Nullable String context,
-      @Nullable List<TaskFailureDetail> failures) {
-    logFailures(logger, context, failures, failures == null ? 0 : failures.size());
-  }
-
-  /** Logs document failures at warn with an explicit total count. Never throws. */
-  public static void logFailures(
-      @Nullable Logger logger,
-      @Nullable String context,
-      @Nullable List<TaskFailureDetail> failures,
-      int totalCount) {
-    try {
-      if (logger == null || failures == null || failures.isEmpty()) {
-        return;
-      }
-      String formatted = formatForLog(failures, DEFAULT_LOG_LIMIT, totalCount);
-      if (formatted.isEmpty()) {
-        return;
-      }
-      String prefix = context == null || context.isEmpty() ? "Document failures" : context;
-      logger.warn("{}: {}", prefix, formatted);
-    } catch (Exception ignored) {
-      // never abort callers
-    }
-  }
-
-  /** Logs document failures from a parse result (structured or raw fallback). Never throws. */
-  public static void logFailures(
-      @Nullable Logger logger,
-      @Nullable String context,
-      @Nullable TaskFailureParseResult parseResult) {
-    try {
-      if (logger == null || parseResult == null) {
-        return;
-      }
-      String formatted = formatForLog(parseResult, DEFAULT_LOG_LIMIT);
-      if (formatted.isEmpty()) {
-        return;
-      }
-      String prefix = context == null || context.isEmpty() ? "Document failures" : context;
-      logger.warn("{}: {}", prefix, formatted);
-    } catch (Exception ignored) {
-      // never abort callers
-    }
-  }
-
   @Nonnull
   private static TaskFailureDetail parseOne(@Nonnull JsonNode failure) {
     return new TaskFailureDetail(

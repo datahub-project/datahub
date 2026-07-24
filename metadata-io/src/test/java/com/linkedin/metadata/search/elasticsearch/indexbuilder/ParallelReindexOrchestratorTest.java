@@ -268,9 +268,6 @@ public class ParallelReindexOrchestratorTest {
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
 
-    // Wait for finalization to complete
-    Thread.sleep(200);
-
     assertEquals(results.size(), 1, "Should have result for test_index");
     assertEquals(
         results.get("test_index"), ReindexResult.REINDEXED, "test_index should be reindexed");
@@ -316,7 +313,6 @@ public class ParallelReindexOrchestratorTest {
         .thenReturn(Optional.of(new TaskResultWithFailures(failureTaskResponse, List.of(failure))));
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
-    Thread.sleep(200);
 
     assertEquals(results.size(), 1);
     assertEquals(
@@ -365,7 +361,6 @@ public class ParallelReindexOrchestratorTest {
                 Map.of("node1:12345", mockCompletedTask), Collections.emptySet()));
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
-    Thread.sleep(200);
 
     assertEquals(results.size(), 1);
     assertEquals(
@@ -412,7 +407,6 @@ public class ParallelReindexOrchestratorTest {
         .thenThrow(new RuntimeException("task lookup failed"));
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
-    Thread.sleep(200);
 
     assertEquals(results.size(), 1);
     assertEquals(
@@ -544,9 +538,6 @@ public class ParallelReindexOrchestratorTest {
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
 
-    // Wait for finalization to complete
-    Thread.sleep(200);
-
     // Should succeed without timeout since task completes
     assertEquals(
         results.get("timeout_test"),
@@ -584,9 +575,6 @@ public class ParallelReindexOrchestratorTest {
     Thread.sleep(100);
 
     Map<String, ReindexResult> results = orchestrator.reindexAll(List.of(config));
-
-    // Wait for finalization to complete
-    Thread.sleep(200);
 
     assertEquals(
         results.get("mismatch_test"),

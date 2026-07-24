@@ -1,7 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
-import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
-
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,7 +10,6 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
-import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -55,7 +52,6 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.EntityUtils;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -119,8 +115,6 @@ import org.opensearch.client.indices.ResizeResponse;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.LoggingDeprecationHandler;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
@@ -613,21 +607,10 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     }
     try {
       Response response = client.getLowLevelClient().performRequest(lowLevelReq);
-      if (response.getEntity() == null) {
-        return Optional.empty();
-      }
-      String rawJson = EntityUtils.toString(response.getEntity(), "UTF-8");
-      GetTaskResponse parsed =
-          GetTaskResponse.fromXContent(
-              XContentType.JSON
-                  .xContent()
-                  .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
-      return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
+      return TaskWithFailuresRawResponse.fromEntity(response.getEntity());
     } catch (ResponseException e) {
-      if (e.getResponse().getStatusLine().getStatusCode() == 404) {
-        return Optional.empty();
-      }
-      throw e;
+      return TaskWithFailuresRawResponse.emptyIfNotFound(
+          e.getResponse().getStatusLine().getStatusCode(), e);
     }
   }
 

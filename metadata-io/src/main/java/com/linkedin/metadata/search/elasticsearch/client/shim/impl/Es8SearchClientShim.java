@@ -92,7 +92,6 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8Sem
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
-import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -146,7 +145,6 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -1518,21 +1516,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           ElasticsearchRestClientAdapter.performRequest(
               ((RestClientTransport) client._transport()).restClient(),
               new OpenSearchRestRequest(lowLevelReq));
-      if (response.getEntity() == null) {
-        return Optional.empty();
-      }
-      String rawJson = EntityUtils.toString(response.getEntity(), "UTF-8");
-      GetTaskResponse parsed =
-          GetTaskResponse.fromXContent(
-              XContentType.JSON
-                  .xContent()
-                  .createParser(X_CONTENT_REGISTRY, LoggingDeprecationHandler.INSTANCE, rawJson));
-      return Optional.of(new TaskResultWithFailures(parsed, TaskFailureParser.parse(rawJson)));
+      return TaskWithFailuresRawResponse.fromEntity(response.getEntity());
     } catch (org.elasticsearch.client.ResponseException e) {
-      if (e.getResponse().getStatusLine().getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-        return Optional.empty();
-      }
-      throw e;
+      return TaskWithFailuresRawResponse.emptyIfNotFound(
+          e.getResponse().getStatusLine().getStatusCode(), e);
     }
   }
 
