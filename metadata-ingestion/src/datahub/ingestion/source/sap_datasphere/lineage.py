@@ -334,6 +334,11 @@ class CsnLineageExtractor:
     def _is_qualified(name: str) -> bool:
         # A dotted target is already space-qualified (cross-space or a built-in
         # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
+        # KNOWN EDGE CASE: this is a dot-heuristic, not a real parse. A same-space
+        # object whose technical name legitimately contains a dot would be treated
+        # as already-qualified and not space-prefixed. Datasphere technical names
+        # are effectively alphanumeric/underscore, so a dotted bare name is not
+        # observed in practice; accepted as low risk.
         return "." in name
 
     def _resolve_projection_ref(

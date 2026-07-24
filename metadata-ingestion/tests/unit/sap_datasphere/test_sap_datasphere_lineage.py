@@ -1337,3 +1337,17 @@ def test_parse_remote_table_source_returns_none_when_not_federated():
     assert parse_remote_table_source({"elements": {}}) is None
     assert parse_remote_table_source({REMOTE_CONNECTION_KEY: "C"}) is None
     assert parse_remote_table_source({REMOTE_ENTITY_KEY: "a\x7fb"}) is None
+
+
+def test_parse_remote_table_source_strips_sql_quoted_identifier():
+    """Some adapters (e.g. HANA DP Agent) encode the origin as a single
+    SQL-quoted dotted identifier ('"SCHEMA"."/BIC/TABLE"') instead of the
+    delimiter form. The quotes must be stripped so the upstream URN matches the
+    native HANA connector's unquoted SCHEMA./BIC/TABLE and stitches."""
+    entity = {
+        REMOTE_CONNECTION_KEY: "HANA_DP_AGENT",
+        REMOTE_ENTITY_KEY: '"SAPTCH"."/BIC/AEADOSCM282"',
+    }
+    source = parse_remote_table_source(entity)
+    assert source is not None
+    assert source.qualified_name == "SAPTCH./BIC/AEADOSCM282"

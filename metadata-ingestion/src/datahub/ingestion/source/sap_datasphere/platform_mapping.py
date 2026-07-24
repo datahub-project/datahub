@@ -44,6 +44,17 @@ class PlatformMappingResolver:
         self._report = report
         self.unknown_typeids_seen: Set[str] = set()
         self.unknown_connection_names_seen: Set[str] = set()
+        # typeId matching is case-insensitive: SAP returns canonical uppercase
+        # typeIds (BIGQUERY, HANA) from the connections API, but a flow endpoint's
+        # connectionType or a differently-cased tenant response must still match
+        # the builtin/user platform_type_defaults entry. Folding to upper here
+        # (user overrides win, since merged defaults put them last) keeps the two
+        # lookup sites below trivial. Connection *names* stay case-sensitive —
+        # they're user-defined identifiers, not types.
+        self._type_defaults_by_upper: Dict[str, ConnectionPlatformConfig] = {
+            type_id.upper(): cfg
+            for type_id, cfg in config.platform_type_defaults.items()
+        }
 
     def _result_from_config(self, cfg: ConnectionPlatformConfig) -> ResolveResult:
         return ResolveResult(
@@ -104,7 +115,7 @@ class PlatformMappingResolver:
                     )
                 return self._result_from_config(raw)
         if connection_type:
-            default = self._config.platform_type_defaults.get(connection_type)
+            default = self._type_defaults_by_upper.get(connection_type.upper())
             if default is not None:
                 # A disabled type-default is an explicit "skip", not an unknown
                 # connection — report it as such instead of falling through to
@@ -150,7 +161,7 @@ class PlatformMappingResolver:
             # Literal key required: TypedDict.get only type-narrows with a literal.
             typeid = conn.get("typeId", "")
 
-        default = self._config.platform_type_defaults.get(typeid)
+        default = self._type_defaults_by_upper.get(typeid.upper())
         if default is None:
             if typeid not in self.unknown_typeids_seen:
                 self.unknown_typeids_seen.add(typeid)

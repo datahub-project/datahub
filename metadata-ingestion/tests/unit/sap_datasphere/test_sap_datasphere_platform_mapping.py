@@ -424,3 +424,43 @@ def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
     result = resolver.resolve_external("NOT_IN_LIST", "S3")
     assert result.platform is None
     assert result.skip_reason == ResolveSkipReason.DISABLED
+
+
+# ---------------------------------------------------------------------------
+# typeId / connectionType matching is case-insensitive
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_external_connection_type_is_case_insensitive():
+    """A flow endpoint may report connectionType in any case; it must still match
+    the canonical (uppercase) platform_type_defaults key."""
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    for connection_type in ("bigquery", "BigQuery", "BIGQUERY"):
+        resolved = resolver.resolve_external("NOT_IN_LIST", connection_type).platform
+        assert resolved is not None, connection_type
+        assert resolved.platform == "bigquery"
+
+
+def test_typeid_default_matches_regardless_of_typeid_case():
+    """The connections-list typeId can arrive lowercased; the resolver must fold
+    case before matching type defaults so the connection isn't skipped."""
+    cfg = _config_with()
+    connections = {
+        "GBQ": ConnectionRecord(name="GBQ", typeId="bigquery"),
+    }
+    resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
+    result = resolver.resolve("GBQ")
+    assert result.platform is not None
+    assert result.platform.platform == "bigquery"
+    assert not resolver.unknown_typeids_seen
+
+
+def test_user_supplied_lowercase_type_default_key_matches_uppercase_typeid():
+    """A user who adds a lowercased key under platform_type_defaults must still
+    match SAP's canonical uppercase typeId."""
+    cfg = _config_with(type_defaults_overrides={"snowflake": {"platform": "snowflake"}})
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved = resolver.resolve_external("NOT_IN_LIST", "SNOWFLAKE").platform
+    assert resolved is not None
+    assert resolved.platform == "snowflake"

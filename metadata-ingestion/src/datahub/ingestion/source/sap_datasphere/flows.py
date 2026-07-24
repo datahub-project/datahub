@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.common.subtypes import DataJobSubTypes
 from datahub.ingestion.source.sap_datasphere.constants import (
@@ -38,6 +38,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     FlowColumnMapping,
     FlowEndpoint,
     FlowTableMapping,
+    JsonDict,
     ParsedFlow,
     ProducerColumns,
     SystemIdentity,
@@ -51,10 +52,17 @@ _SUBTYPE_BY_OBJECT_TYPE: Dict[str, str] = {
 }
 
 
-def _flow_body(payload: Dict, object_type: str, technical_name: str) -> Optional[Dict]:
+def _flow_body(
+    payload: JsonDict, object_type: str, technical_name: str
+) -> Optional[JsonDict]:
     # The payload wraps the single object under a top key equal to its object
     # type segment, e.g. {"dataflows": {<name>: {...}}}. Prefer the exact name;
     # fall back to the sole entry so a naming mismatch doesn't lose the flow.
+    if not isinstance(payload, dict):
+        # A 200 with a valid-JSON-but-non-object body (list/str/number) would
+        # otherwise raise AttributeError on .get and abort the whole space's
+        # flow loop; route it to flows_unparseable instead.
+        return None
     top = payload.get(object_type)
     if not isinstance(top, dict) or not top:
         return None
@@ -72,7 +80,7 @@ def _column_from_expression(expression: object) -> Optional[str]:
 
 
 def _dedup_endpoints(endpoints: List[FlowEndpoint]) -> List[FlowEndpoint]:
-    seen: set = set()
+    seen: Set[Tuple[str, Optional[str]]] = set()
     out: List[FlowEndpoint] = []
     for ep in endpoints:
         key = (ep.object_name, ep.connection)
@@ -82,7 +90,7 @@ def _dedup_endpoints(endpoints: List[FlowEndpoint]) -> List[FlowEndpoint]:
     return out
 
 
-def _process_endpoint(config: Dict) -> Optional[FlowEndpoint]:
+def _process_endpoint(config: JsonDict) -> Optional[FlowEndpoint]:
     entity = config.get(FLOW_CONFIG_DWC_ENTITY) or config.get(
         FLOW_CONFIG_QUALIFIED_NAME
     )
@@ -100,7 +108,7 @@ def _process_endpoint(config: Dict) -> Optional[FlowEndpoint]:
     )
 
 
-def _attribute_mappings(config: Dict) -> List[AttrMapping]:
+def _attribute_mappings(config: JsonDict) -> List[AttrMapping]:
     # (downstream_col, upstream_col) pairs for bare column expressions.
     mappings = config.get(FLOW_CONFIG_ATTR_MAPPINGS)
     if not isinstance(mappings, list):
@@ -117,7 +125,7 @@ def _attribute_mappings(config: Dict) -> List[AttrMapping]:
 
 
 def _parse_process_flow(
-    payload: Dict, object_type: str, technical_name: str
+    payload: JsonDict, object_type: str, technical_name: str
 ) -> Optional[ParsedFlow]:
     # Process graph: ``*.consumer`` nodes are inputs, ``*.producer`` nodes are
     # outputs, and a producer's attributeMappings give column-level lineage.
@@ -190,7 +198,9 @@ def _parse_process_flow(
     )
 
 
-def _parse_replication_flow(payload: Dict, technical_name: str) -> Optional[ParsedFlow]:
+def _parse_replication_flow(
+    payload: JsonDict, technical_name: str
+) -> Optional[ParsedFlow]:
     """Parse a replication flow: one or more (sourceObject -> targetObject) tasks
     piping data between two external systems, with per-task column mappings."""
     body = _flow_body(payload, OBJECT_TYPE_REPLICATION_FLOWS, technical_name)
@@ -287,7 +297,7 @@ def _object_name(obj: object) -> Optional[str]:
     return None
 
 
-def _parse_task_chain(payload: Dict, technical_name: str) -> Optional[ParsedFlow]:
+def _parse_task_chain(payload: JsonDict, technical_name: str) -> Optional[ParsedFlow]:
     # EXPERIMENTAL: no live task-chain payload was available to reverse-engineer
     # the member/reference grammar, so the chain is surfaced as an IO-less job
     # (its subtype + presence) rather than guessing lineage edges. Extend once a
@@ -302,7 +312,7 @@ def _parse_task_chain(payload: Dict, technical_name: str) -> Optional[ParsedFlow
 
 
 def parse_flow(
-    payload: Dict, object_type: str, technical_name: str
+    payload: JsonDict, object_type: str, technical_name: str
 ) -> Optional[ParsedFlow]:
     """Reduce a flow definition to its IO datasets + column mappings.
 

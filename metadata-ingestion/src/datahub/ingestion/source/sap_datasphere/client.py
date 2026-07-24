@@ -27,7 +27,18 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     FORM_URLENCODED,
     GRANT_CLIENT_CREDENTIALS,
     GRANT_REFRESH_TOKEN,
+    HEADER_CONTENT_TYPE,
+    OAUTH_TOKEN_PATH,
     OBJECT_TYPE_LOCAL_TABLES,
+    ODATA_NEXT_LINK_KEY,
+    ODATA_VALUE_KEY,
+    PARAM_CLIENT_ID,
+    PARAM_CLIENT_SECRET,
+    PARAM_GRANT_TYPE,
+    PARAM_REFRESH_TOKEN,
+    TOKEN_RESP_ACCESS_TOKEN,
+    TOKEN_RESP_ERROR,
+    TOKEN_RESP_ERROR_DESCRIPTION,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     ConnectionRecord,
@@ -119,13 +130,13 @@ class SapDatasphereClient:
             raise ValueError(
                 "xsuaa_url is required for OAuth; set it explicitly or use a standard SAP tenant URL."
             )
-        token_url = f"{cfg.xsuaa_url}/oauth/token"
+        token_url = f"{cfg.xsuaa_url}{OAUTH_TOKEN_PATH}"
         try:
             with self._timed_api("oauth_token", token_url):
                 resp = requests.post(
                     token_url,
                     data=payload,
-                    headers={"Content-Type": FORM_URLENCODED},
+                    headers={HEADER_CONTENT_TYPE: FORM_URLENCODED},
                     timeout=cfg.request_timeout_sec,
                 )
         except requests.RequestException as e:
@@ -143,14 +154,14 @@ class SapDatasphereClient:
                 err_body = resp.json()
             except ValueError:
                 err_body = None
-            if isinstance(err_body, dict) and "error" in err_body:
-                error = err_body.get("error")
-                error_description = err_body.get("error_description")
+            if isinstance(err_body, dict) and TOKEN_RESP_ERROR in err_body:
+                error = err_body.get(TOKEN_RESP_ERROR)
+                error_description = err_body.get(TOKEN_RESP_ERROR_DESCRIPTION)
                 detail = (
                     f"{error}: {error_description}" if error_description else str(error)
                 )
             raise ValueError(
-                f"OAuth token request to {cfg.xsuaa_url}/oauth/token failed "
+                f"OAuth token request to {token_url} failed "
                 f"({resp.status_code}): {detail}"
             )
         try:
@@ -161,11 +172,11 @@ class SapDatasphereClient:
                 f"OAuth response from {token_url} was not valid JSON "
                 f"(possibly a proxy/login HTML page): {e}"
             ) from e
-        token = body.get("access_token")
+        token = body.get(TOKEN_RESP_ACCESS_TOKEN)
         if not token:
             raise ValueError(
                 f"OAuth response from {token_url} did not include "
-                f"`access_token`. Response body: {body}"
+                f"`{TOKEN_RESP_ACCESS_TOKEN}`. Response body: {body}"
             )
         return token
 
@@ -177,9 +188,9 @@ class SapDatasphereClient:
             raise ValueError("refresh_token is not set.")
         return self._post_token(
             {
-                "grant_type": GRANT_REFRESH_TOKEN,
-                "refresh_token": cfg.refresh_token.get_secret_value(),
-                "client_id": cfg.client_id,
+                PARAM_GRANT_TYPE: GRANT_REFRESH_TOKEN,
+                PARAM_REFRESH_TOKEN: cfg.refresh_token.get_secret_value(),
+                PARAM_CLIENT_ID: cfg.client_id,
             }
         )
 
@@ -191,9 +202,9 @@ class SapDatasphereClient:
             )
         return self._post_token(
             {
-                "grant_type": GRANT_CLIENT_CREDENTIALS,
-                "client_id": cfg.client_id,
-                "client_secret": cfg.client_secret.get_secret_value(),
+                PARAM_GRANT_TYPE: GRANT_CLIENT_CREDENTIALS,
+                PARAM_CLIENT_ID: cfg.client_id,
+                PARAM_CLIENT_SECRET: cfg.client_secret.get_secret_value(),
             }
         )
 
@@ -205,31 +216,47 @@ class SapDatasphereClient:
         with self._timed_api(operation, url):
             return self._get_inner(url, params)
 
-    def _get_inner(self, url: str, params: Optional[Dict] = None) -> requests.Response:
+    def _get_with_refresh(
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict] = None,
+    ) -> requests.Response:
+        """GET that transparently refreshes the OAuth bearer once on a 401 and
+        retries. Returns the final response (which may itself still be a 401 if
+        the refreshed credentials are also rejected); each caller decides how to
+        treat a surviving 401 / non-2xx. ``_get_token`` uses ``requests.post``
+        directly, so a 401 from the token endpoint can't loop back in here."""
         self._ensure_auth()
         resp = self.session.get(
-            url, params=params, timeout=self.config.request_timeout_sec
+            url, headers=headers, params=params, timeout=self.config.request_timeout_sec
         )
         if resp.status_code == 401:
-            # The bearer may have expired mid-run. _get_token uses requests.post
-            # directly, so a 401 from the token endpoint can't loop here.
             logger.info(
                 "Got 401 from %s; refreshing OAuth token and retrying once", url
             )
             self._refresh_auth()
             resp = self.session.get(
-                url, params=params, timeout=self.config.request_timeout_sec
+                url,
+                headers=headers,
+                params=params,
+                timeout=self.config.request_timeout_sec,
             )
-            if resp.status_code == 401:
-                # A 401 surviving a successful refresh means the credentials are
-                # genuinely rejected, not a stale bearer.
-                raise ValueError(
-                    "SAP Datasphere rejected the request with 401 even after "
-                    "refreshing the token — the credentials appear invalid. "
-                    "Verify the OAuth client_id/client_secret or token, and that "
-                    "the principal has access. "
-                    f"URL: {url}"
-                )
+        return resp
+
+    def _get_inner(self, url: str, params: Optional[Dict] = None) -> requests.Response:
+        resp = self._get_with_refresh(url, params=params)
+        if resp.status_code == 401:
+            # A 401 surviving a successful refresh means the credentials are
+            # genuinely rejected, not a stale bearer.
+            raise ValueError(
+                "SAP Datasphere rejected the request with 401 even after "
+                "refreshing the token — the credentials appear invalid. "
+                "Verify the OAuth client_id/client_secret or token, and that "
+                "the principal has access. "
+                f"URL: {url}"
+            )
         resp.raise_for_status()
         return resp
 
@@ -292,11 +319,11 @@ class SapDatasphereClient:
                         context=url,
                     )
                 return
-            items = body.get("value", []) or []
+            items = body.get(ODATA_VALUE_KEY, []) or []
             if not items:
                 return
             yield from items
-            next_link = body.get("@odata.nextLink")
+            next_link = body.get(ODATA_NEXT_LINK_KEY)
             if next_link:
                 # Resolve relative links against the endpoint URL.
                 next_url = urljoin(url, next_link)
@@ -321,30 +348,15 @@ class SapDatasphereClient:
         OData-exposed), FORBIDDEN (403 — already warned here, caller must not
         re-warn), ERROR (network / non-2xx / other).
         """
-        self._ensure_auth()
-        edmx_headers = {"Accept": ACCEPT_XML}
         try:
             # Time the whole fetch (incl. refresh+retry) as one sample so the
-            # edmx_fetch metric isn't double-counted on a 401 refresh.
+            # edmx_fetch metric isn't double-counted on a 401 refresh. A token
+            # expiring mid-EDMX-phase would otherwise lose schema for every
+            # remaining asset — _get_with_refresh recovers it.
             with self._timed_api("edmx_fetch", metadata_url):
-                resp = self.session.get(
-                    metadata_url,
-                    headers=edmx_headers,
-                    timeout=self.config.request_timeout_sec,
+                resp = self._get_with_refresh(
+                    metadata_url, headers={"Accept": ACCEPT_XML}
                 )
-                if resp.status_code == 401:
-                    # Without this refresh, a token expiring during the EDMX phase
-                    # would lose schema for every remaining asset.
-                    logger.info(
-                        "Got 401 from EDMX %s; refreshing OAuth token and retrying once",
-                        metadata_url,
-                    )
-                    self._refresh_auth()
-                    resp = self.session.get(
-                        metadata_url,
-                        headers=edmx_headers,
-                        timeout=self.config.request_timeout_sec,
-                    )
             if resp.status_code == 403:
                 msg = (
                     f"EDMX metadata forbidden (HTTP 403) for {metadata_url}; the "
@@ -522,21 +534,9 @@ class SapDatasphereClient:
             f"{self.config.base_url}/dwaas-core/api/v1/spaces/"
             f"{quoted_space}/{object_type}/{quoted_name}"
         )
-        self._ensure_auth()
         try:
             with self._timed_api("flow_fetch", url):
-                resp = self.session.get(
-                    url,
-                    headers={"Accept": CSN_CONTENT_TYPE},
-                    timeout=self.config.request_timeout_sec,
-                )
-                if resp.status_code == 401:
-                    self._refresh_auth()
-                    resp = self.session.get(
-                        url,
-                        headers={"Accept": CSN_CONTENT_TYPE},
-                        timeout=self.config.request_timeout_sec,
-                    )
+                resp = self._get_with_refresh(url, headers={"Accept": CSN_CONTENT_TYPE})
             resp.raise_for_status()
             return resp.json()
         except requests.HTTPError as e:
@@ -580,21 +580,9 @@ class SapDatasphereClient:
             f"{self.config.base_url}/dwaas-core/api/v1/spaces/"
             f"{quoted_space}/{object_type}/{quoted_name}"
         )
-        self._ensure_auth()
         try:
             with self._timed_api("csn_fetch", url):
-                resp = self.session.get(
-                    url,
-                    headers={"Accept": CSN_CONTENT_TYPE},
-                    timeout=self.config.request_timeout_sec,
-                )
-                if resp.status_code == 401:
-                    self._refresh_auth()
-                    resp = self.session.get(
-                        url,
-                        headers={"Accept": CSN_CONTENT_TYPE},
-                        timeout=self.config.request_timeout_sec,
-                    )
+                resp = self._get_with_refresh(url, headers={"Accept": CSN_CONTENT_TYPE})
             resp.raise_for_status()
             return resp.json()
         except requests.HTTPError as e:

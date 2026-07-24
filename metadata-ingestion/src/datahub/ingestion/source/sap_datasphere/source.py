@@ -79,6 +79,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
+    SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
     SEMANTIC_CURRENCY,
     SEMANTIC_UNIT,
@@ -413,32 +414,19 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         # Local Tables always live in the tenant's own HANA Cloud (_managed).
-        resolver = self._get_resolver(space_name)
-        result = resolver.resolve(MANAGED_CONNECTION_KEY)
-        resolved = result.platform
-        skip_reason = result.skip_reason
+        resolved = self._resolve_managed_or_warn(
+            space_name,
+            "Local Tables",
+            extra_hint=(
+                " Configure connection_to_platform_map to enable Local Table discovery."
+            ),
+        )
         if resolved is None:
-            self.report.warning(
-                title="Cannot emit Local Tables — _managed connection unresolvable",
-                message=(
-                    f"Space {space_name} has {len(local_tables)} Local Tables but "
-                    f"the _managed connection's platform mapping is missing/disabled "
-                    f"(reason={skip_reason}). Configure connection_to_platform_map "
-                    f"to enable Local Table discovery."
-                ),
-            )
             return
 
         space_key = self._space_key(space_name)
 
-        for entry in local_tables:
-            if not isinstance(entry, dict):
-                continue
-            technical_name = entry.get(FIELD_TECHNICAL_NAME)
-            if not isinstance(technical_name, str) or not technical_name:
-                continue
-            if not self.config.asset_pattern.allowed(technical_name):
-                continue
+        for technical_name in self._iter_allowed_technical_names(local_tables):
             yield from self._isolate(
                 f"{space_name}.{OBJECT_TYPE_LOCAL_TABLES}.{technical_name}",
                 self._emit_one_local_table(
@@ -558,14 +546,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=str(e),
                 )
                 continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                technical_name = entry.get(FIELD_TECHNICAL_NAME)
-                if not isinstance(technical_name, str) or not technical_name:
-                    continue
-                if not self.config.asset_pattern.allowed(technical_name):
-                    continue
+            for technical_name in self._iter_allowed_technical_names(entries):
                 self._bump_report(_FLOW_SCANNED_ATTR[object_type])
                 payload = self._client.fetch_flow_definition(
                     space_name, object_type, technical_name
@@ -592,6 +573,39 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _bump_report(self, attr: str) -> None:
         setattr(self.report, attr, getattr(self.report, attr) + 1)
 
+    def _iter_allowed_technical_names(self, entries: Iterable[dict]) -> Iterator[str]:
+        # Shared entry-validation for the dwaas-core list endpoints (local tables,
+        # remote tables, flows): skip non-dict records and blank names, and drop
+        # anything filtered out by asset_pattern. Callers own their per-type
+        # scanned/emitted counters.
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            technical_name = entry.get(FIELD_TECHNICAL_NAME)
+            if not isinstance(technical_name, str) or not technical_name:
+                continue
+            if not self.config.asset_pattern.allowed(technical_name):
+                continue
+            yield technical_name
+
+    def _resolve_managed_or_warn(
+        self, space_name: str, entity_label: str, extra_hint: str = ""
+    ) -> Optional[ResolvedPlatform]:
+        # Local and Remote Tables both live in the tenant's own managed HANA
+        # Cloud, so both resolve the _managed connection and warn identically when
+        # its platform mapping is missing/disabled.
+        result = self._get_resolver(space_name).resolve(MANAGED_CONNECTION_KEY)
+        if result.platform is None:
+            self.report.warning(
+                title=f"Cannot emit {entity_label} — _managed connection unresolvable",
+                message=(
+                    f"Space {space_name} has {entity_label} but the _managed "
+                    f"connection's platform mapping is missing/disabled "
+                    f"(reason={result.skip_reason}).{extra_hint}"
+                ),
+            )
+        return result.platform
+
     def _build_space_dataflow(self, space_name: str) -> DataFlow:
         return DataFlow(
             platform=PLATFORM,
@@ -607,23 +621,28 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_flow_job(
         self, space_name: str, dataflow: DataFlow, parsed: ParsedFlow
     ) -> Iterable[MetadataWorkUnit]:
-        urn_by_object: Dict[str, str] = {}
+        # Keyed separately by side: a replication task usually replicates an
+        # object to a same-named target (CUSTOMER -> CUSTOMER), so a single
+        # name->urn map would let the output URN clobber the input's and corrupt
+        # per-task upstream pairing (dropping the target's lineage entirely).
+        input_urn_by_object: Dict[str, str] = {}
+        output_urn_by_object: Dict[str, str] = {}
         inlets: List[Union[str, DatasetUrn]] = []
         outlets: List[Union[str, DatasetUrn]] = []
-        output_urn_by_object: Dict[str, str] = {}
         for endpoint in parsed.inputs:
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
-                urn_by_object[endpoint.object_name] = urn
+                input_urn_by_object[endpoint.object_name] = urn
                 inlets.append(urn)
         for endpoint in parsed.outputs:
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
-                urn_by_object[endpoint.object_name] = urn
                 output_urn_by_object[endpoint.object_name] = urn
                 outlets.append(urn)
 
-        fine_grained = self._build_flow_fine_grained(parsed, urn_by_object)
+        fine_grained = self._build_flow_fine_grained(
+            parsed, input_urn_by_object, output_urn_by_object
+        )
         job = DataJob(
             name=self._maybe_lower(f"{space_name}.{parsed.technical_name}"),
             flow=dataflow,
@@ -646,7 +665,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # *full* UpstreamLineage aspect, so we merge them and emit once per target
         # at the end of the run (see _emit_flow_downstream_lineage).
         for downstream_urn, lineage in self._build_flow_downstream_lineage(
-            parsed, urn_by_object, output_urn_by_object, inlets
+            parsed, input_urn_by_object, output_urn_by_object, inlets
         ).items():
             self._merge_flow_downstream_lineage(downstream_urn, lineage)
 
@@ -705,6 +724,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             # A local endpoint's object_name is usually the bare technical name,
             # but a qualifiedName-derived one may already be "SPACE.OBJECT";
             # don't prefix the space twice.
+            # KNOWN EDGE CASE: this only guards against re-prefixing the *current*
+            # space. A cross-space local reference "OTHER_SPACE.OBJECT" would get
+            # the current space prepended ("SPACE.OTHER_SPACE.OBJECT"). Flows
+            # referencing another space's managed object are not observed in
+            # practice (managed objects are space-scoped); accepted as low risk.
             prefix = f"{space_name}."
             if endpoint.object_name.startswith(prefix):
                 name = self._maybe_lower(endpoint.object_name)
@@ -729,12 +753,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return self._dataset_urn(resolved, name)
 
     def _build_flow_fine_grained(
-        self, parsed: ParsedFlow, urn_by_object: Dict[str, str]
+        self,
+        parsed: ParsedFlow,
+        input_urn_by_object: Dict[str, str],
+        output_urn_by_object: Dict[str, str],
     ) -> List[FineGrainedLineageClass]:
         fine_grained: List[FineGrainedLineageClass] = []
         for mapping in parsed.column_mappings:
-            upstream_dataset_urn = urn_by_object.get(mapping.upstream_object)
-            downstream_dataset_urn = urn_by_object.get(mapping.downstream_object)
+            upstream_dataset_urn = input_urn_by_object.get(mapping.upstream_object)
+            downstream_dataset_urn = output_urn_by_object.get(mapping.downstream_object)
             if upstream_dataset_urn is None or downstream_dataset_urn is None:
                 continue
             fine_grained.append(
@@ -750,7 +777,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _build_flow_downstream_lineage(
         self,
         parsed: ParsedFlow,
-        urn_by_object: Dict[str, str],
+        input_urn_by_object: Dict[str, str],
         output_urn_by_object: Dict[str, str],
         inlets: List[Union[str, DatasetUrn]],
     ) -> Dict[str, UpstreamLineageClass]:
@@ -771,7 +798,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # target is never attributed to sibling tasks' sources.
         paired_upstreams_by_downstream: Dict[str, List[str]] = {}
         for table_mapping in parsed.table_mappings:
-            upstream_urn = urn_by_object.get(table_mapping.upstream_object)
+            upstream_urn = input_urn_by_object.get(table_mapping.upstream_object)
             paired_downstream_urn = output_urn_by_object.get(
                 table_mapping.downstream_object
             )
@@ -788,7 +815,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             upstream_urns: List[str] = []
             fine_grained: List[FineGrainedLineageClass] = []
             for mapping in mappings_by_downstream.get(object_name, []):
-                upstream_urn = urn_by_object.get(mapping.upstream_object)
+                upstream_urn = input_urn_by_object.get(mapping.upstream_object)
                 if upstream_urn is None:
                     continue
                 if upstream_urn not in upstream_urns:
@@ -848,31 +875,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not entries:
             return
 
-        resolver = self._get_resolver(space_name)
         # The remote-table proxy object itself lives in the tenant's managed HANA.
-        result = resolver.resolve(MANAGED_CONNECTION_KEY)
-        local_resolved = result.platform
-        skip_reason = result.skip_reason
+        local_resolved = self._resolve_managed_or_warn(space_name, "Remote Tables")
         if local_resolved is None:
-            self.report.warning(
-                title="Cannot emit Remote Tables — _managed connection unresolvable",
-                message=(
-                    f"Space {space_name} has Remote Tables but the _managed "
-                    f"connection's platform mapping is missing/disabled "
-                    f"(reason={skip_reason})."
-                ),
-            )
             return
 
+        resolver = self._get_resolver(space_name)
         space_key = self._space_key(space_name)
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            technical_name = entry.get(FIELD_TECHNICAL_NAME)
-            if not isinstance(technical_name, str) or not technical_name:
-                continue
-            if not self.config.asset_pattern.allowed(technical_name):
-                continue
+        for technical_name in self._iter_allowed_technical_names(entries):
             self.report.remote_tables_scanned += 1
             yield from self._isolate(
                 f"{space_name}.{OBJECT_TYPE_REMOTE_TABLES}.{technical_name}",
@@ -1157,6 +1167,40 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             # UNKNOWN_TYPEID + a catch-all so an asset is never dropped silently.
             self.report.assets_skipped_unknown_typeid.append(qualified)
 
+    def _base_asset_custom_properties(
+        self, space_name: str, asset_name: str, asset: dict, metadata_url: str
+    ) -> Dict[str, str]:
+        # Catalog-derived properties every View / Analytic Model carries; the
+        # EDMX parse_result's entity_custom_props are merged on top by the caller.
+        return {
+            PROP_SPACE_NAME: space_name,
+            CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: str(
+                asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES, False)
+            ).lower(),
+            CATALOG_FIELD_HAS_PARAMETERS: str(
+                asset.get(CATALOG_FIELD_HAS_PARAMETERS, False)
+            ).lower(),
+            PROP_EXPOSED_FOR_CONSUMPTION: str(bool(metadata_url)).lower(),
+            PROP_SAP_DATASPHERE_SPACE: space_name,
+            PROP_SAP_DATASPHERE_ASSET: asset_name,
+        }
+
+    def _resolve_asset_schema_fields(
+        self,
+        space_name: str,
+        asset_name: str,
+        parse_result: Optional[EdmxParseResult],
+        csn_def: Optional[Dict],
+    ) -> Optional[List[SchemaFieldClass]]:
+        # Prefer the relational EDMX schema; fall back to the CSN elements map for
+        # analytic models, which expose no relational metadata URL for EDMX.
+        if parse_result is not None and parse_result.fields:
+            self.report.assets_schema_fetched += 1
+            return self._decorate_fields(parse_result)
+        if csn_def is not None:
+            return self._schema_fields_from_csn(space_name, asset_name, csn_def)
+        return None
+
     def _emit_asset(self, space_name: str, asset: dict) -> Iterable[MetadataWorkUnit]:
         asset_name_opt = asset.get(CATALOG_FIELD_NAME)
         if not asset_name_opt:
@@ -1234,18 +1278,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             parse_result = self._parse_schema(space_name, asset_name, metadata_url)
 
         description: Optional[str] = None
-        custom_properties = {
-            PROP_SPACE_NAME: space_name,
-            CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: str(
-                asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES, False)
-            ).lower(),
-            CATALOG_FIELD_HAS_PARAMETERS: str(
-                asset.get(CATALOG_FIELD_HAS_PARAMETERS, False)
-            ).lower(),
-            PROP_EXPOSED_FOR_CONSUMPTION: str(bool(metadata_url)).lower(),
-            PROP_SAP_DATASPHERE_SPACE: space_name,
-            PROP_SAP_DATASPHERE_ASSET: asset_name,
-        }
+        custom_properties = self._base_asset_custom_properties(
+            space_name, asset_name, asset, metadata_url
+        )
         if parse_result is not None:
             if parse_result.entity_label:
                 description = parse_result.entity_label
@@ -1256,16 +1291,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         else:
             sub_type = DatasetSubTypes.VIEW
 
-        schema_fields = None
-        if parse_result is not None and parse_result.fields:
-            self.report.assets_schema_fetched += 1
-            schema_fields = self._decorate_fields(parse_result)
-        elif csn_def is not None:
-            # Analytic models expose no relational metadata URL, so EDMX yields
-            # nothing; recover their schema from the CSN elements map instead.
-            schema_fields = self._schema_fields_from_csn(
-                space_name, asset_name, csn_def
-            )
+        schema_fields = self._resolve_asset_schema_fields(
+            space_name, asset_name, parse_result, csn_def
+        )
 
         dataset_name = self._build_dataset_name(space_name, asset_name)
 
@@ -1861,7 +1889,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # can switch to manual cleanup or partition the run.
         if (
             not self._scale_warning_emitted
-            and self._datasets_emitted >= 50000
+            and self._datasets_emitted >= SCALE_WARNING_URN_THRESHOLD
             and self.config.stateful_ingestion is not None
             and self.config.stateful_ingestion.enabled
         ):

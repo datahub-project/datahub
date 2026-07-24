@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datahub.ingestion.source.sap_datasphere.config import ConnectionPlatformConfig
 from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
+    REMOTE_IDENTIFIER_QUOTE,
     REMOTE_NULL_SEGMENT,
     UNNAMED_COL_SENTINEL,
 )
@@ -22,6 +23,11 @@ from datahub.metadata.schema_classes import SchemaFieldClass
 from datahub.utilities.str_enum import StrEnum
 
 _T = TypeVar("_T")
+
+# A parsed JSON object at an API boundary (response body / CSN node). Values are
+# arbitrary JSON, so callers must narrow before use; this alias just documents
+# the shape and replaces bare ``Dict`` at those boundaries.
+JsonDict = Dict[str, Any]
 
 
 def dedup_preserving_order(items: Iterable[_T]) -> List[_T]:
@@ -295,6 +301,17 @@ class FlowEndpoint(BaseModel):
                 "FlowEndpoint.is_local must match connection being None "
                 f"(is_local={self.is_local}, connection={self.connection!r})"
             )
+        # A local endpoint has no external routing metadata; carrying a
+        # connection_type/container while local would mean the parser leaked the
+        # external system identity onto a managed object.
+        if self.is_local and (
+            self.connection_type is not None or self.container is not None
+        ):
+            raise ValueError(
+                "FlowEndpoint marked local must not carry connection_type/container "
+                f"(connection_type={self.connection_type!r}, "
+                f"container={self.container!r})"
+            )
         return self
 
 
@@ -380,10 +397,15 @@ class RemoteTableSource(BaseModel):
 
     @property
     def qualified_name(self) -> str:
-        # Drop the "<NULL>" database sentinel (and empties) so the external URN
-        # name is "schema.table".
+        # Drop the "<NULL>" database sentinel (and empties), then strip SQL
+        # identifier quotes so the external URN name is the unquoted
+        # "schema.table" the sibling connector emits. The quoted single-segment
+        # form ('"SCHEMA"."/BIC/TABLE"') reduces to SCHEMA./BIC/TABLE, matching
+        # the delimiter form (<NULL>\x7fSCHEMA\x7f/BIC/TABLE).
         meaningful = [p for p in self.path_parts if p and p != REMOTE_NULL_SEGMENT]
-        return ".".join(meaningful)
+        return ".".join(
+            part.replace(REMOTE_IDENTIFIER_QUOTE, "") for part in meaningful
+        )
 
 
 class UnionMergeSlot(BaseModel):

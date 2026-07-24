@@ -30,6 +30,11 @@ CONNECTIONS_TRUNCATION_THRESHOLD: Final[int] = 100
 # How many of the slowest individual API calls to retain for outlier spotting.
 SLOWEST_API_CALLS_RETAINED: Final[int] = 10
 
+# At default GMS/Kafka payload limits the soft-delete checkpoint MCP approaches
+# its ~80K-URN ceiling around here; warn once the emitted-dataset count crosses
+# this so operators can partition the run or switch to manual cleanup.
+SCALE_WARNING_URN_THRESHOLD: Final[int] = 50000
+
 ACCEPT_JSON: Final[str] = "application/json"
 ACCEPT_XML: Final[str] = "application/xml"
 # Content type that makes the dwaas-core object endpoint return full CSN.
@@ -57,6 +62,22 @@ ALT_OBJECT_TYPE: Final[Dict[str, str]] = {
 
 GRANT_REFRESH_TOKEN: Final[str] = "refresh_token"
 GRANT_CLIENT_CREDENTIALS: Final[str] = "client_credentials"
+
+# XSUAA token endpoint path (appended to xsuaa_url) + OAuth request/response body
+# keys. Hoisted so the two grant flows and the response parser can't drift.
+OAUTH_TOKEN_PATH: Final[str] = "/oauth/token"
+HEADER_CONTENT_TYPE: Final[str] = "Content-Type"
+PARAM_GRANT_TYPE: Final[str] = "grant_type"
+PARAM_REFRESH_TOKEN: Final[str] = "refresh_token"
+PARAM_CLIENT_ID: Final[str] = "client_id"
+PARAM_CLIENT_SECRET: Final[str] = "client_secret"
+TOKEN_RESP_ACCESS_TOKEN: Final[str] = "access_token"
+TOKEN_RESP_ERROR: Final[str] = "error"
+TOKEN_RESP_ERROR_DESCRIPTION: Final[str] = "error_description"
+
+# OData list-response body keys ({"value": [...], "@odata.nextLink": "..."}).
+ODATA_VALUE_KEY: Final[str] = "value"
+ODATA_NEXT_LINK_KEY: Final[str] = "@odata.nextLink"
 
 # Reserved CDS/CQN pseudo-alias: {"ref": ["$projection", "<col>"]} references
 # another OUTPUT column of the same query (a calculated column layered on a
@@ -227,13 +248,19 @@ RF_OBJECT_NAME: Final[str] = "name"
 
 # --- Remote-table federation annotations (on the CSN entity) ----------------
 # A remote table's CSN entity names its external origin: the source connection
-# plus a 0x7f-delimited "<db>\x7f<schema>\x7f<table>" locator.
+# plus a locator that SAP encodes one of two ways depending on the source
+# adapter: a 0x7f-delimited "<db>\x7f<schema>\x7f<table>" form, or a single
+# SQL-quoted dotted identifier ('"SCHEMA"."/BIC/TABLE"').
 REMOTE_CONNECTION_KEY: Final[str] = "@DataWarehouse.remote.connection"
 REMOTE_ENTITY_KEY: Final[str] = "@DataWarehouse.remote.entity"
 REMOTE_ENTITY_DELIMITER: Final[str] = "\x7f"
 # SAP encodes an absent database segment in the remote-entity locator as this
 # literal; it is dropped when assembling the external URN name.
 REMOTE_NULL_SEGMENT: Final[str] = "<NULL>"
+# The SQL identifier quote SAP wraps schema/table names in for some adapters
+# (e.g. HANA DP Agent -> '"SCHEMA"."TABLE"'). Stripped so the external URN name
+# is the unquoted "schema.table" the sibling connector emits.
+REMOTE_IDENTIFIER_QUOTE: Final[str] = '"'
 
 # Kind discriminators seen at flow[<name>]["kind"]; used only for defensive
 # validation / logging, not routing (the object_type path segment routes).
