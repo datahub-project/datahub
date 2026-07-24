@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>1</ID>
+            <Name>Sales Model</Name>
+            <Description>Sales tabular model</Description>
+            <Culture>en-US</Culture>
+            <DefaultMode>1</DefaultMode>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

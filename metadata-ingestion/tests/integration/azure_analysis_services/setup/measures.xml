@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>200</ID>
+            <TableID>10</TableID>
+            <Name>Total Sales</Name>
+            <Expression>SUM(Sales[Amount])</Expression>
+            <Description>Sum of all sales amounts</Description>
+            <FormatString>0.00</FormatString>
+            <IsHidden>false</IsHidden>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

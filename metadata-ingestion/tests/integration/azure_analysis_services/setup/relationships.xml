@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteResponse xmlns="urn:schemas-microsoft-com:xml-analysis">
+      <return>
+        <root xmlns="urn:schemas-microsoft-com:xml-analysis:rowset">
+          <row>
+            <ID>400</ID>
+            <Name>Sales_Product</Name>
+            <IsActive>true</IsActive>
+            <FromTableID>10</FromTableID>
+            <FromColumnID>101</FromColumnID>
+            <ToTableID>11</ToTableID>
+            <ToColumnID>110</ToColumnID>
+            <CrossFilteringBehavior>1</CrossFilteringBehavior>
+          </row>
+        </root>
+      </return>
+    </ExecuteResponse>
+  </soap:Body>
+</soap:Envelope>

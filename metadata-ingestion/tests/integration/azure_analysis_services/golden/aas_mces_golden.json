@@ -1,0 +1,964 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "azure-analysis-services",
+                "env": "PROD",
+                "server": "salesws"
+            },
+            "name": "salesws",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259438,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259438,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-analysis-services"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259438,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Analysis Services Server"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259438,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259438,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "azure-analysis-services",
+                "env": "PROD",
+                "server": "salesws",
+                "model": "SalesModel",
+                "catalog": "SalesModel",
+                "table_count": "3",
+                "culture": "en-US",
+                "role.Reader": "Read-only access"
+            },
+            "name": "Sales Model",
+            "description": "Sales tabular model",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-analysis-services"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259439,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_hidden": "False",
+                "measure_count": "1"
+            },
+            "name": "Sales",
+            "description": "Sales fact table",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259440,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259440,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259440,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let Source = Sql.Database(\"myserver.database.windows.net\", \"salesdb\", [Query=\"SELECT * FROM dbo.sales\"]) in Source",
+            "viewLanguage": "M"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259440,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Sales",
+            "platform": "urn:li:dataPlatform:azure-analysis-services",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Amount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ProductKey",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Total Sales",
+                    "nullable": false,
+                    "description": "Sum of all sales amounts\n\nSUM(Sales[Amount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Sales.ProductKey->Product.ProductKey",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductKey)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),ProductKey)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259440,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Total Sales)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                },
+                {
+                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_hidden": "False",
+                "measure_count": "0"
+            },
+            "name": "Product",
+            "description": "Product dimension",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let Source = Sql.Database(\"myserver.database.windows.net\", \"salesdb\", [Query=\"SELECT * FROM dbo.product\"]) in Source",
+            "viewLanguage": "M"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259441,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Product",
+            "platform": "urn:li:dataPlatform:azure-analysis-services",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ProductKey",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ProductName",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                },
+                {
+                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_hidden": "False",
+                "measure_count": "0"
+            },
+            "name": "SalesSummary",
+            "description": "Calculated summary table",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table",
+                "Calculated Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259442,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SUMMARIZE(Sales, Sales[ProductKey], \"Total\", SUM(Sales[Amount]))",
+            "viewLanguage": "DAX"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259443,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "SalesSummary",
+            "platform": "urn:li:dataPlatform:azure-analysis-services",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "TotalAmount",
+                    "nullable": false,
+                    "description": "SUMX(Sales, Sales[Amount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "calculated_column",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259443,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259443,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),TotalAmount)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259443,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                },
+                {
+                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259443,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "catalog": "SalesModel",
+                "table_count": "3",
+                "culture": "en-US",
+                "role.Reader": "Read-only access"
+            },
+            "name": "Sales Model",
+            "description": "Sales tabular model",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Cube",
+                "Semantic Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "{\"name\":\"Sales Model\",\"compatibilityLevel\":1600,\"model\":{\"tables\":[{\"name\":\"Sales\"},{\"name\":\"Product\"},{\"name\":\"SalesSummary\"}]}}",
+            "viewLanguage": "TMSL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Sales Model",
+            "platform": "urn:li:dataPlatform:azure-analysis-services",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Sales.Total Sales",
+                    "nullable": false,
+                    "description": "Sum of all sales amounts\n\nSUM(Sales[Amount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
+                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
+                },
+                {
+                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
+                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784924259444,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

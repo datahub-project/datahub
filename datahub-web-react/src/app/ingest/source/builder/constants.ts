@@ -1,6 +1,7 @@
 import aerospikeLogo from '@images/aerospike.png';
 import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
+import azureAnalysisServicesLogo from '@images/azureanalysisserviceslogo.svg';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigidLogo from '@images/bigidlogo.png';
@@ -73,6 +74,8 @@ export const AIRBYTE = 'airbyte';
 export const AIRBYTE_URN = `urn:li:dataPlatform:${AIRBYTE}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
+const AZURE_ANALYSIS_SERVICES = 'azure-analysis-services';
+const AZURE_ANALYSIS_SERVICES_URN = `urn:li:dataPlatform:${AZURE_ANALYSIS_SERVICES}`;
 export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
@@ -226,6 +229,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [AEROSPIKE_URN]: aerospikeLogo,
     [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
+    [AZURE_ANALYSIS_SERVICES_URN]: azureAnalysisServicesLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGQUERY_URN]: bigqueryLogo,
