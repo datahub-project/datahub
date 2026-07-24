@@ -1,5 +1,6 @@
 import { PageTitle } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -17,6 +18,8 @@ const Container = styled.div`
 `;
 
 export default function GreetingText() {
+    // Ensure home.v2 is loaded before getGreetingText()'s sync i18next.t() calls.
+    useTranslation('home.v2');
     const greetingText = getGreetingText();
     const { user } = useUserContext();
     const entityRegistry = useEntityRegistryV2();

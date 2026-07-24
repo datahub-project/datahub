@@ -1,6 +1,7 @@
 import { Tabs } from '@components';
 import { Skeleton } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DEFAULT_TAB } from '@app/homeV2/content/tabs/tabs';
@@ -25,6 +26,8 @@ const SkeletonButton = styled(Skeleton.Button)`
 `;
 
 export const CenterTabs = () => {
+    // Tab name/tooltip getters call sync i18next.t('home.v2:...'); load the ns first.
+    useTranslation('home.v2');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const activeTabs = useGetActiveTabs();
     const [selectedTab, setSelectedTab] = useState<string>(activeTabs[0].key || DEFAULT_TAB);

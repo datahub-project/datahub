@@ -68,3 +68,7 @@ export const NAMESPACES = [
     'shared.tags',
     'shared.time',
 ] as const;
+
+// Namespaces requested on i18n init. Empty so boot does not fetch every locale JSON /
+// dynamic-import chunk; useTranslation() / loadNamespaces() pull them on demand.
+export const INITIAL_NAMESPACES: readonly string[] = [];

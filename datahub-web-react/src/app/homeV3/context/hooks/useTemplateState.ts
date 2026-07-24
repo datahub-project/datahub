@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
@@ -16,6 +17,8 @@ import { PageTemplateFragment } from '@graphql/template.generated';
 import { PageTemplateSurfaceType } from '@types';
 
 export function useTemplateState(templateType: PageTemplateSurfaceType) {
+    // DEFAULT_TEMPLATE module name getters call sync i18next.t('modules:...'); load first.
+    useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
     const [areTemplatesInitialized, setAreTemplatesInitialized] = useState(false);
     const [personalTemplate, setPersonalTemplate] = useState<PageTemplateFragment | null>(null);

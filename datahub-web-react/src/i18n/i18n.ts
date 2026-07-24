@@ -3,9 +3,9 @@ import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend';
 import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
-import { NAMESPACES } from '@src/i18n/namespaces';
+import { INITIAL_NAMESPACES, NAMESPACES } from '@src/i18n/namespaces';
 
-export { NAMESPACES };
+export { INITIAL_NAMESPACES, NAMESPACES };
 
 if (import.meta.env.DEV) {
     const { HMRPlugin } = await import('i18next-hmr/plugin');
@@ -16,7 +16,9 @@ if (import.meta.env.DEV) {
 
 i18n.use(initReactI18next).init({
     fallbackLng: 'en',
-    ns: NAMESPACES,
+    ns: [...INITIAL_NAMESPACES],
+    // No default NS — every call site must pass an explicit namespace (useTranslation(ns) or ns:).
+    defaultNS: false,
     ...(import.meta.env.DEV && {
         backend: { loadPath: '/assets/locales/{{lng}}/{{ns}}.json' } satisfies HttpBackendOptions,
     }),
