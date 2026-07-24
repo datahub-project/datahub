@@ -755,6 +755,7 @@ class SnowflakeV2Source(
                 data_dictionary=self.data_dictionary,
                 identifiers=self.identifiers,
                 schema_resolver=self.aggregator._schema_resolver,
+                is_temp_table=self._is_temp_table,
             )
             for db in databases:
                 for schema in db.schemas:

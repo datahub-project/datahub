@@ -1,12 +1,11 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
     make_data_job_urn_with_flow,
     make_group_urn,
-    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -24,39 +23,20 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     MAX_DEFINITION_LENGTH,
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     StatusClass,
     SubTypesClass,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    Urn,
-    sqlglot_lineage,
-)
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TaskLineage:
-    """Dataset-level inputs/outputs and column lineage parsed from a task body."""
-
-    input_datasets: Tuple[Urn, ...] = field(default_factory=tuple)
-    output_datasets: Tuple[Urn, ...] = field(default_factory=tuple)
-    fine_grained: Tuple[FineGrainedLineageClass, ...] = field(default_factory=tuple)
-
-    def has_any(self) -> bool:
-        return bool(self.input_datasets or self.output_datasets or self.fine_grained)
 
 
 @dataclass
@@ -65,7 +45,8 @@ class SnowflakeTasksExtractor:
     report: SnowflakeV2Report
     data_dictionary: SnowflakeDataDictionary
     identifiers: SnowflakeIdentifierBuilder
-    schema_resolver: SchemaResolverInterface
+    schema_resolver: SchemaResolver
+    is_temp_table: Callable[[str], bool] = field(default=lambda _: False)
 
     def get_workunits(
         self,
@@ -223,19 +204,26 @@ class SnowflakeTasksExtractor:
                 context=f"{task_fqn} -> {', '.join(unresolved_predecessors)}",
             )
 
-        lineage = self._parse_task_definition_for_lineage(
+        datajob_input_output = self._parse_task_definition_for_lineage(
             task, task_fqn, db_name, schema_name
         )
 
-        if lineage.has_any() or input_datajobs:
+        if input_datajobs:
+            if datajob_input_output is None:
+                datajob_input_output = DataJobInputOutputClass(
+                    inputDatasets=[],
+                    outputDatasets=[],
+                    inputDatajobs=input_datajobs,
+                )
+            else:
+                datajob_input_output.inputDatajobs = (
+                    list(datajob_input_output.inputDatajobs or []) + input_datajobs
+                )
+
+        if datajob_input_output is not None:
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
-                aspect=DataJobInputOutputClass(
-                    inputDatasets=list(lineage.input_datasets),
-                    outputDatasets=list(lineage.output_datasets),
-                    inputDatajobs=input_datajobs,
-                    fineGrainedLineages=list(lineage.fine_grained) or None,
-                ),
+                aspect=datajob_input_output,
             ).as_workunit()
 
         if task.owner:
@@ -257,121 +245,34 @@ class SnowflakeTasksExtractor:
         task_fqn: str,
         db_name: str,
         schema_name: str,
-    ) -> TaskLineage:
+    ) -> Optional[DataJobInputOutputClass]:
         """Parse task SQL to extract dataset-level inputs/outputs and column lineage.
 
-        Multi-statement bodies (e.g. ``stmt1; stmt2``) and unsupported syntax
-        like ``CALL <procedure>`` are handled by sqlglot; when sqlglot cannot
-        extract table lineage, a warning is emitted and an empty TaskLineage is
-        returned. Single-statement INSERT / MERGE / CREATE TABLE AS are cleanly
-        supported.
+        Delegates to the same statement-splitting + SqlParsingAggregator path used
+        for stored procedures, so multi-statement task bodies are handled naturally
+        instead of being rejected outright.
         """
         if not task.definition or not self.config.include_table_lineage:
-            return TaskLineage()
+            return None
 
-        parsed = self._run_sql_parser(task, task_fqn, db_name, schema_name)
-        if parsed is None:
-            return TaskLineage()
-
-        fine_grained: Tuple[FineGrainedLineageClass, ...] = ()
-        if self.config.include_column_lineage:
-            fine_grained = self._build_fine_grained_lineages(parsed, task_fqn)
-
-        return TaskLineage(
-            input_datasets=tuple(parsed.in_tables),
-            output_datasets=tuple(parsed.out_tables),
-            fine_grained=fine_grained,
+        datajob_input_output = parse_procedure_code(
+            schema_resolver=self.schema_resolver,
+            default_db=db_name,
+            default_schema=schema_name,
+            code=task.definition,
+            is_temp_table=self.is_temp_table,
+            procedure_name=task_fqn,
         )
 
-    def _run_sql_parser(
-        self,
-        task: SnowflakeTask,
-        task_fqn: str,
-        db_name: str,
-        schema_name: str,
-    ) -> Optional[SqlParsingResult]:
-        try:
-            result = sqlglot_lineage(
-                sql=task.definition,
-                schema_resolver=self.schema_resolver,
-                default_db=db_name,
-                default_schema=schema_name,
-            )
-            if result.debug_info.table_error:
-                self.report.warning(
-                    title="Task Table Lineage Extraction Failed",
-                    message="Failed to extract table lineage from task definition",
-                    context=task_fqn,
-                    exc=result.debug_info.table_error,
-                )
-                return None
-        except Exception as e:
+        if datajob_input_output is None:
             self.report.warning(
-                title="Task SQL Parsing Failed",
-                message="Failed to parse task definition for lineage",
+                title="Task Lineage Extraction Failed",
+                message="Failed to extract lineage from task definition",
                 context=task_fqn,
-                exc=e,
             )
             return None
 
-        return result
+        if not self.config.include_column_lineage:
+            datajob_input_output.fineGrainedLineages = None
 
-    def _build_fine_grained_lineages(
-        self, parsed: SqlParsingResult, task_fqn: str
-    ) -> Tuple[FineGrainedLineageClass, ...]:
-        # Surface column-lineage parser failures so users can tell that table
-        # lineage worked but column-level extraction did not.
-        if parsed.debug_info.column_error:
-            self.report.warning(
-                title="Task Column Lineage Extraction Failed",
-                message="Failed to extract column lineage from task definition",
-                context=task_fqn,
-                exc=parsed.debug_info.column_error,
-            )
-            return ()
-        if not parsed.column_lineage:
-            return ()
-
-        fine_grained: List[FineGrainedLineageClass] = []
-        for col_lineage in parsed.column_lineage:
-            if (
-                not col_lineage.downstream
-                or not col_lineage.downstream.table
-                or not col_lineage.downstream.column
-            ):
-                continue
-            downstream_field = make_schema_field_urn(
-                col_lineage.downstream.table, col_lineage.downstream.column
-            )
-            upstream_fields = [
-                make_schema_field_urn(ref.table, ref.column)
-                for ref in col_lineage.upstreams
-                if ref.table and ref.column
-            ]
-            if not upstream_fields:
-                # An entry with no resolvable upstreams has no lineage value.
-                continue
-            fine_grained.append(
-                FineGrainedLineageClass(
-                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[downstream_field],
-                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                    upstreams=upstream_fields,
-                )
-            )
-
-        total = len(parsed.column_lineage)
-        dropped = total - len(fine_grained)
-        if dropped and not fine_grained:
-            self.report.warning(
-                title="All Column Lineage Entries Dropped",
-                message="All column-lineage entries dropped (missing downstream table/column or upstream fields)",
-                context=f"{task_fqn} ({dropped}/{total} entries)",
-            )
-        elif dropped:
-            self.report.warning(
-                title="Partial Column Lineage Dropped",
-                message="Some column-lineage entries dropped (missing downstream table/column or upstream fields)",
-                context=f"{task_fqn} ({dropped}/{total} entries)",
-            )
-        return tuple(fine_grained)
+        return datajob_input_output
