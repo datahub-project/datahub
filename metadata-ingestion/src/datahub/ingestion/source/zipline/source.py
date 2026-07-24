@@ -213,14 +213,32 @@ class ZiplineSource(StatefulIngestionSourceBase):
             self.report.teams_scanned += 1
             yield from flow.as_workunits()
 
-    def _emit_join(self, join: Join) -> Iterable[MetadataWorkUnit]:
-        name = join.meta_data.name
-        team = join.meta_data.team or PLATFORM_NAME
-        if name is None:
-            return
-
+    def _emit_datajob(
+        self,
+        name: str,
+        team: str,
+        subtype: str,
+        description: Optional[str],
+        inlets: List[str],
+        outlets: List[str],
+    ) -> Iterable[MetadataWorkUnit]:
         flow = self._get_or_create_flow(team)
         yield from self._emit_flow_once(flow)
+        datajob = DataJob(
+            name=name,
+            flow=flow,
+            display_name=name,
+            description=description,
+            subtype=subtype,
+            inlets=list(dict.fromkeys(inlets)) or None,
+            outlets=list(dict.fromkeys(outlets)) or None,
+        )
+        yield from datajob.as_workunits()
+
+    def _emit_join(self, join: Join) -> Iterable[MetadataWorkUnit]:
+        name = join.meta_data.name
+        if name is None:
+            return
 
         inlets: List[str] = []
         if join.left is not None:
@@ -246,27 +264,21 @@ class ZiplineSource(StatefulIngestionSourceBase):
         if output_table:
             outlets.append(self.source_resolver.resolve_table_urn(output_table))
 
-        datajob = DataJob(
+        yield from self._emit_datajob(
             name=name,
-            flow=flow,
-            display_name=name,
-            description=join.meta_data.description,
+            team=join.meta_data.team or PLATFORM_NAME,
             subtype=DataJobSubTypes.ZIPLINE_JOIN,
-            inlets=list(dict.fromkeys(inlets)) or None,
-            outlets=list(dict.fromkeys(outlets)) or None,
+            description=join.meta_data.description,
+            inlets=inlets,
+            outlets=outlets,
         )
-        yield from datajob.as_workunits()
 
     def _emit_staging_query(
         self, staging_query: StagingQuery
     ) -> Iterable[MetadataWorkUnit]:
         name = staging_query.meta_data.name
-        team = staging_query.meta_data.team or PLATFORM_NAME
         if name is None:
             return
-
-        flow = self._get_or_create_flow(team)
-        yield from self._emit_flow_once(flow)
 
         inlets: List[str] = []
         if self.config.include_staging_query_lineage and staging_query.query:
@@ -279,16 +291,14 @@ class ZiplineSource(StatefulIngestionSourceBase):
         if output_table:
             outlets.append(self.source_resolver.resolve_table_urn(output_table))
 
-        datajob = DataJob(
+        yield from self._emit_datajob(
             name=name,
-            flow=flow,
-            display_name=name,
-            description=staging_query.meta_data.description,
+            team=staging_query.meta_data.team or PLATFORM_NAME,
             subtype=DataJobSubTypes.ZIPLINE_STAGING_QUERY,
-            inlets=list(dict.fromkeys(inlets)) or None,
-            outlets=list(dict.fromkeys(outlets)) or None,
+            description=staging_query.meta_data.description,
+            inlets=inlets,
+            outlets=outlets,
         )
-        yield from datajob.as_workunits()
 
     def get_report(self) -> ZiplineSourceReport:
         return self.report

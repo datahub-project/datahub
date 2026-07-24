@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
+    _Aspect,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,12 @@ class ZiplineMapper:
         self.config = config
         self.report = report
         self.source_resolver = source_resolver
+
+    @staticmethod
+    def _wu(entity_urn: str, aspect: _Aspect) -> MetadataWorkUnit:
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn, aspect=aspect
+        ).as_workunit()
 
     def map_group_by(self, group_by: GroupBy) -> Iterable[MetadataWorkUnit]:
         table_name = group_by.meta_data.name
@@ -144,25 +151,18 @@ class ZiplineMapper:
         source_urns: List[str],
         tags: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=feature_urn,
-            aspect=MLFeaturePropertiesClass(
+        yield self._wu(
+            feature_urn,
+            MLFeaturePropertiesClass(
                 dataType=data_type,
                 sources=source_urns or None,
             ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=feature_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=feature_urn,
-            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.FEATURE]),
-        ).as_workunit()
+        )
+        yield self._wu(feature_urn, StatusClass(removed=False))
+        yield self._wu(feature_urn, SubTypesClass(typeNames=[MLAssetSubTypes.FEATURE]))
         tags_aspect = self._tags_aspect(tags)
         if tags_aspect is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=feature_urn, aspect=tags_aspect
-            ).as_workunit()
+            yield self._wu(feature_urn, tags_aspect)
 
     def _emit_primary_key(
         self,
@@ -170,26 +170,19 @@ class ZiplineMapper:
         source_urns: List[str],
         tags: Dict[str, str],
     ) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=key_urn,
-            aspect=MLPrimaryKeyPropertiesClass(
+        yield self._wu(
+            key_urn,
+            MLPrimaryKeyPropertiesClass(
                 # The compiled config does not carry key column types.
                 dataType=DataType.UNKNOWN,
                 sources=source_urns,
             ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=key_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=key_urn,
-            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.PRIMARY_KEY]),
-        ).as_workunit()
+        )
+        yield self._wu(key_urn, StatusClass(removed=False))
+        yield self._wu(key_urn, SubTypesClass(typeNames=[MLAssetSubTypes.PRIMARY_KEY]))
         tags_aspect = self._tags_aspect(tags)
         if tags_aspect is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=key_urn, aspect=tags_aspect
-            ).as_workunit()
+            yield self._wu(key_urn, tags_aspect)
 
     def _emit_feature_table(
         self,
@@ -199,38 +192,31 @@ class ZiplineMapper:
         primary_key_urns: List[str],
         tags_key: str,
     ) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=table_urn,
-            aspect=MLFeatureTablePropertiesClass(
+        yield self._wu(
+            table_urn,
+            MLFeatureTablePropertiesClass(
                 description=meta_data.description,
                 mlFeatures=feature_urns,
                 mlPrimaryKeys=primary_key_urns,
             ),
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=table_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
-        yield MetadataChangeProposalWrapper(
-            entityUrn=table_urn,
-            aspect=SubTypesClass(typeNames=[MLAssetSubTypes.FEATURE_TABLE]),
-        ).as_workunit()
+        )
+        yield self._wu(table_urn, StatusClass(removed=False))
+        yield self._wu(
+            table_urn, SubTypesClass(typeNames=[MLAssetSubTypes.FEATURE_TABLE])
+        )
         if meta_data.team:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=table_urn,
-                aspect=BrowsePathsClass(paths=[f"/{PLATFORM_NAME}/{meta_data.team}"]),
-            ).as_workunit()
+            yield self._wu(
+                table_urn,
+                BrowsePathsClass(paths=[f"/{PLATFORM_NAME}/{meta_data.team}"]),
+            )
 
         tags_aspect = self._tags_aspect(meta_data.tags(tags_key))
         if tags_aspect is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=table_urn, aspect=tags_aspect
-            ).as_workunit()
+            yield self._wu(table_urn, tags_aspect)
 
         ownership = self._ownership_aspect(meta_data.team)
         if ownership is not None:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=table_urn, aspect=ownership
-            ).as_workunit()
+            yield self._wu(table_urn, ownership)
 
     def _tags_aspect(self, tags: Dict[str, str]) -> Optional[GlobalTagsClass]:
         if not self.config.enable_tag_extraction or not tags:
