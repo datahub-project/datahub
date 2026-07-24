@@ -101,10 +101,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
-            // Add default entity filters that should be applied to all queries
+            // Add default entity filters (e.g. showInGlobalContext for documents).
             combinedFilter =
-                DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                    combinedFilter, finalEntities, true);
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    combinedFilter, finalEntities, searchFlags, context);
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
