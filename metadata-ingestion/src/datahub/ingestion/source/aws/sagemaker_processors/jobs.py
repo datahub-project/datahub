@@ -395,8 +395,8 @@ class JobProcessor:
             mapped_status = JobStatusClass.UNKNOWN
 
             self.report.warning(
-                name,
-                f"Unknown status for {name} ({arn}): {sagemaker_status}",
+                message="Unknown SageMaker job status",
+                context=f"{name} ({arn}): {sagemaker_status}",
                 log=False,
             )
 
@@ -563,8 +563,8 @@ class JobProcessor:
                 )
             else:
                 self.report.warning(
-                    name,
-                    f"Unable to find ARN for training job {training_job['DefinitionName']} produced by hyperparameter tuning job {arn}",
+                    message="Unable to find ARN for training job produced by hyperparameter tuning job",
+                    context=f"{name}: training_job={training_job['DefinitionName']}, tuning_job={arn}",
                     log=False,
                 )
 

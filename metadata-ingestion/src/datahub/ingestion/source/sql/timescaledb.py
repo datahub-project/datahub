@@ -628,12 +628,13 @@ class TimescaleDBSource(PostgresSource):
                 self.report.warning(
                     title="Continuous aggregate missing view definition",
                     message=(
-                        f"Continuous aggregate {schema}.{view} has no "
-                        f"view_definition in timescaledb_information; falling "
-                        f"back to PostgreSQL's rewritten definition. Lineage "
-                        f"may reference internal materialized hypertables "
-                        f"rather than the source hypertable."
+                        "Continuous aggregate has no "
+                        "view_definition in timescaledb_information; falling "
+                        "back to PostgreSQL's rewritten definition. Lineage "
+                        "may reference internal materialized hypertables "
+                        "rather than the source hypertable."
                     ),
+                    context=f"{schema}.{view}",
                 )
 
         return super()._get_view_definition(inspector, schema, view)
@@ -753,28 +754,29 @@ class TimescaleDBSource(PostgresSource):
 
             if "permission denied" in error_msg or "access denied" in error_msg:
                 self.report.warning(
-                    title=f"Permission Denied for {operation_name}",
-                    message=f"User lacks permissions to query TimescaleDB metadata for {operation_name}. "
-                    f"Grant SELECT on timescaledb_information schema or disable TimescaleDB metadata extraction. "
-                    f"Schema: {params.get('schema', 'unknown')}",
+                    title="Permission denied for TimescaleDB metadata query",
+                    message="User lacks permissions to query TimescaleDB metadata. "
+                    "Grant SELECT on timescaledb_information schema or disable TimescaleDB metadata extraction.",
+                    context=f"{operation_name} (schema: {params.get('schema', 'unknown')})",
                     exc=e,
                 )
             elif "does not exist" in error_msg:
                 self.report.warning(
-                    title=f"TimescaleDB metadata missing for {operation_name}",
+                    title="TimescaleDB metadata missing",
                     message=(
-                        f"Schema or table referenced by the query does not "
-                        f"exist (schema: {params.get('schema', 'unknown')}). "
-                        f"This may indicate missing permissions or schema "
-                        f"changes; {operation_name} will be skipped."
+                        "Schema or table referenced by the query does not "
+                        "exist. This may indicate missing permissions or schema "
+                        "changes; the operation will be skipped."
                     ),
+                    context=f"{operation_name} (schema: {params.get('schema', 'unknown')})",
                     exc=e,
                 )
             else:
                 self.report.warning(
-                    title=f"Failed to execute {operation_name}",
-                    message=f"Could not fetch {operation_name} for schema {params.get('schema', 'unknown')}. "
+                    title="Failed to execute TimescaleDB metadata query",
+                    message="Could not fetch TimescaleDB metadata. "
                     "The connector will continue but TimescaleDB-specific metadata may be incomplete.",
+                    context=f"{operation_name} (schema: {params.get('schema', 'unknown')})",
                     exc=e,
                 )
 
@@ -860,9 +862,10 @@ class TimescaleDBSource(PostgresSource):
                         self.report.warning(
                             title="Could not parse continuous aggregate config",
                             message=(
-                                f"{cagg.name}: refresh_policy.config is not "
-                                f"valid JSON; refresh offsets will be missing."
+                                "refresh_policy.config is not "
+                                "valid JSON; refresh offsets will be missing."
                             ),
+                            context=cagg.name,
                             exc=e,
                         )
                         config = {}
@@ -1142,12 +1145,13 @@ class TimescaleDBSource(PostgresSource):
         env = self._detect_timescaledb_environment(inspector)
         if env == TimescaleDBEnvironment.UNKNOWN:
             self.report.warning(
-                title=f"Skipping {operation} — TimescaleDB environment unknown",
+                title="Skipping operation - TimescaleDB environment unknown",
                 message=(
-                    f"Could not detect TimescaleDB on schema '{schema}'. "
-                    f"Ensure TimescaleDB is installed and the user has access "
-                    f"to the timescaledb_information schema."
+                    "Could not detect TimescaleDB on schema. "
+                    "Ensure TimescaleDB is installed and the user has access "
+                    "to the timescaledb_information schema."
                 ),
+                context=f"{operation} (schema: {schema})",
             )
             return False
         return True
@@ -1176,7 +1180,8 @@ class TimescaleDBSource(PostgresSource):
             except (ValidationError, KeyError, TypeError, ValueError) as e:
                 self.report.warning(
                     title="Failed to parse hypertable metadata",
-                    message=f"Skipping a hypertable row in schema '{schema}'.",
+                    message="Skipping a hypertable row.",
+                    context=schema,
                     exc=e,
                 )
 
@@ -1210,10 +1215,11 @@ class TimescaleDBSource(PostgresSource):
                 self.report.warning(
                     title="Failed to parse continuous aggregate metadata",
                     message=(
-                        f"Skipping a continuous aggregate row in schema "
-                        f"'{schema}'. Affected datasets may be missing from "
-                        f"the catalog."
+                        "Skipping a continuous aggregate row. "
+                        "Affected datasets may be missing from "
+                        "the catalog."
                     ),
+                    context=schema,
                     exc=e,
                 )
 
@@ -1244,9 +1250,10 @@ class TimescaleDBSource(PostgresSource):
                 self.report.warning(
                     title="Failed to parse job metadata",
                     message=(
-                        f"Skipping a background-job row in schema '{schema}'. "
-                        f"Affected jobs will not appear as DataJob entities."
+                        "Skipping a background-job row. "
+                        "Affected jobs will not appear as DataJob entities."
                     ),
+                    context=schema,
                     exc=e,
                 )
 
@@ -1271,9 +1278,10 @@ class TimescaleDBSource(PostgresSource):
                 self.report.warning(
                     title="Failed to parse job execution history",
                     message=(
-                        f"Skipping an execution-history row for job {job_id}. "
-                        f"Run timestamps for this job may be incomplete."
+                        "Skipping an execution-history row. "
+                        "Run timestamps for this job may be incomplete."
                     ),
+                    context=str(job_id),
                     exc=e,
                 )
 
@@ -1373,11 +1381,11 @@ class TimescaleDBSource(PostgresSource):
         self.report.warning(
             title="Unknown TimescaleDB job run status",
             message=(
-                f"last_run_status={last_run_status!r} is not a recognized "
-                f"value; reporting the run as STARTED / UP_FOR_RETRY. If this "
-                f"is a new TimescaleDB status, the connector mapping needs "
-                f"updating."
+                "Unrecognized last_run_status value; reporting the run as "
+                "STARTED / UP_FOR_RETRY. If this is a new TimescaleDB status, "
+                "the connector mapping needs updating."
             ),
+            context=last_run_status,
         )
         return DataProcessRunStatusClass.STARTED, DataProcessInstanceRunResultClass(
             type=RunResultTypeClass.UP_FOR_RETRY, nativeResultType="TimescaleDB"

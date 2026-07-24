@@ -2342,9 +2342,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     if node.dbt_adapter is None or node.dbt_adapter != "snowflake":
                         self.report.warning(
                             title="Semantic View CLL Unsupported Adapter",
-                            message=f"Column-level lineage for semantic views is only supported for Snowflake. "
-                            f"Adapter '{node.dbt_adapter}' is not supported.",
-                            context=node.dbt_name,
+                            message="Column-level lineage for semantic views is only supported for Snowflake",
+                            context=f"{node.dbt_name}: adapter={node.dbt_adapter}",
                         )
                     elif node.compiled_code:
                         try:
@@ -2364,7 +2363,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         except Exception as e:
                             self.report.warning(
                                 title="Semantic View CLL Parsing Failed",
-                                message=f"Failed to parse column-level lineage: {str(e)}",
+                                message="Failed to parse column-level lineage",
                                 context=node.dbt_name,
                                 exc=e,
                             )
@@ -2814,9 +2813,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         if not isinstance(queries, list):
-            msg = f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
-            logger.warning(msg)
-            self.report.warning(node.dbt_name, msg, log=False)
+            logger.warning(
+                f"Invalid meta.queries in {node.dbt_name}: expected list, got {type(queries).__name__}"
+            )
+            self.report.warning(
+                message="Invalid meta.queries: expected list",
+                context=f"{node.dbt_name}: got {type(queries).__name__}",
+                log=False,
+            )
             return
 
         # Ephemeral models don't exist in target platform, so queries can't be linked
@@ -2873,9 +2877,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             # Skip duplicates (can occur when different names sanitize to same URN)
             if query_urn_str in seen_urns:
-                msg = f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
-                logger.warning(msg)
-                self.report.warning(node.dbt_name, msg, log=False)
+                logger.warning(
+                    f"Query '{query_name}' in {node.dbt_name} skipped: URN collision with '{seen_urns[query_urn_str]}'"
+                )
+                self.report.warning(
+                    message="Query skipped due to URN collision",
+                    context=f"{node.dbt_name}: query={query_name}, collides_with={seen_urns[query_urn_str]}",
+                    log=False,
+                )
                 self.report.num_queries_failed += 1
                 self.report.queries_failed_list.append(
                     f"{node.dbt_name}.{query_name}: URN collision"

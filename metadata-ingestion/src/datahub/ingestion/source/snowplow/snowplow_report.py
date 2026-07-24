@@ -391,38 +391,39 @@ class SnowplowSourceReport(StaleEntityRemovalSourceReport):
         # Add to warnings if significant filtering occurred
         if self.num_event_schemas_filtered > 0:
             self.warning(
-                "schema_filtering",
-                f"Filtered out {self.num_event_schemas_filtered} event schemas. "
-                f"Check schema_pattern configuration.",
+                message="Filtered out event schemas. Check schema_pattern configuration.",
+                context=f"schema_filtering: {self.num_event_schemas_filtered} event schemas filtered",
                 log=False,
             )
 
         if self.num_entity_schemas_filtered > 0:
             self.warning(
-                "schema_filtering",
-                f"Filtered out {self.num_entity_schemas_filtered} entity schemas. "
-                f"Check schema_pattern configuration.",
+                message="Filtered out entity schemas. Check schema_pattern configuration.",
+                context=f"schema_filtering: {self.num_entity_schemas_filtered} entity schemas filtered",
                 log=False,
             )
 
         # Report hidden schemas
         if self.num_hidden_schemas_skipped > 0:
             self.warning(
-                "hidden_schemas",
-                f"Skipped {self.num_hidden_schemas_skipped} hidden schemas. "
-                f"Set include_hidden_schemas=true to include them.",
+                message="Skipped hidden schemas. Set include_hidden_schemas=true to include them.",
+                context=f"hidden_schemas: {self.num_hidden_schemas_skipped} schemas skipped",
                 log=False,
             )
 
         # Report schema parsing errors
         if self.schema_parsing_errors:
             for error in self.schema_parsing_errors[:5]:  # Limit to 5 errors
-                self.warning("schema_parsing", error, log=False)
+                self.warning(
+                    message="Schema parsing error",
+                    context=error,
+                    log=False,
+                )
 
         # Report API errors
         for api_name, errors in self.api_errors.items():
             for error in errors[:3]:  # Limit to 3 errors per API
-                self.failure(api_name, error)
+                self.failure(message="API error", context=f"{api_name}: {error}")
 
         # Log API metrics summary for performance tuning
         self._log_api_metrics_summary()
