@@ -130,10 +130,8 @@ class InformixSource(StatefulIngestionSourceBase):
                         self.config.database, table.owner, table.name
                     )
                     if table.is_view:
-                        self.report.views_scanned += 1
                         subtype = DatasetSubTypes.VIEW
                     else:
-                        self.report.tables_scanned += 1
                         subtype = DatasetSubTypes.TABLE
                     yield Dataset(
                         platform=self.platform,
@@ -145,6 +143,10 @@ class InformixSource(StatefulIngestionSourceBase):
                         schema=fields,
                         display_name=table.name,
                     )
+                    if table.is_view:
+                        self.report.views_scanned += 1
+                    else:
+                        self.report.tables_scanned += 1
                 except Exception as e:
                     self.report.warning(
                         title="Failed to ingest table",
