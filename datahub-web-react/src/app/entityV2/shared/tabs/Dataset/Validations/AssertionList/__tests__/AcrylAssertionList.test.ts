@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     buildAssertionListFilters,
+    buildAssertionSortCriteria,
     convertSortFieldToQueryField,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { ASSERTION_DEFAULT_FILTERS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
@@ -22,6 +23,7 @@ import {
     EntityType,
     FacetMetadata,
     FilterOperator,
+    SortOrder,
 } from '@src/types.generated';
 
 describe('convertSortFieldToQueryField', () => {
@@ -29,8 +31,17 @@ describe('convertSortFieldToQueryField', () => {
         expect(convertSortFieldToQueryField('type')).toBe(ASSERTION_TYPE_FILTER_NAME);
     });
 
-    it('sorts custom-only categories by their displayed custom type', () => {
-        expect(convertSortFieldToQueryField('type', true)).toBe(ASSERTION_CUSTOM_TYPE_FILTER_NAME);
+    it('uses custom type as a secondary category sort', () => {
+        expect(buildAssertionSortCriteria(ASSERTION_TYPE_FILTER_NAME, SortOrder.Ascending)).toEqual([
+            {
+                field: ASSERTION_TYPE_FILTER_NAME,
+                sortOrder: SortOrder.Ascending,
+            },
+            {
+                field: ASSERTION_CUSTOM_TYPE_FILTER_NAME,
+                sortOrder: SortOrder.Ascending,
+            },
+        ]);
     });
 });
 
