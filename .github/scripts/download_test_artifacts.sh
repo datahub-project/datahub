@@ -174,31 +174,75 @@ fi
 # MIN_LOOKBACK_DAYS so a quiet few days don't under-harvest. Strategy: grab the
 # most recent page of runs first (cheap, ~30 items, already newest-first). If
 # it already yields RUN_COUNT qualifying runs, use them; otherwise widen to the
-# last MIN_LOOKBACK_DAYS (paginated) and take what's available.
+# last MIN_LOOKBACK_DAYS (paginated) and merge with what we already have.
 #
 # Limiting is done inside jq (not via `head`) so `gh api` is never killed by
-# SIGPIPE under `set -o pipefail`.
+# SIGPIPE under `set -o pipefail`. Phase 2 is best-effort: transient GitHub API
+# failures (5xx/timeout) are retried, and if phase 2 still fails we fall back to
+# the phase 1 runs instead of aborting.
 echo "Fetching recent workflow runs from master branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    | jq -r --argjson n "$RUN_COUNT" \
-        '[.workflow_runs[] | '"$RUN_FILTER"' | .id][0:$n] | .[]')
 
-QUALIFYING_COUNT=$(printf '%s\n' "$RUN_IDS" | grep -c . || true)
+# gh api with retry on transient failures (5xx, timeouts). Returns non-zero
+# only if every attempt fails.
+gh_api_retry() {
+    local max_attempts=3 attempt=1 delay=5 rc=0
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if gh api "$@"; then
+            return 0
+        fi
+        rc=$?
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "gh api call failed (exit $rc); retrying in ${delay}s..." >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    return "$rc"
+}
+
+# Phase 1: most recent page (cheap, ~30 items, already newest-first).
+PHASE1_FILE=$(mktemp)
+if ! gh_api_retry "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" > "$PHASE1_FILE"; then
+    rm -f "$PHASE1_FILE"
+    echo "Error: Failed to fetch workflow runs from GitHub API" >&2
+    exit 1
+fi
+RUNS_JSON=$(jq -c --argjson n "$RUN_COUNT" \
+    '[.workflow_runs[] | '"$RUN_FILTER"' | {id: .id, created: .created_at}][0:$n]' \
+    "$PHASE1_FILE")
+rm -f "$PHASE1_FILE"
+
+QUALIFYING_COUNT=$(printf '%s' "$RUNS_JSON" | jq 'length')
 
 if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
     # date fallback: GNU (`-d`) on the runner, BSD (`-v`) for local macOS dev.
     SINCE_DATE=$(date -u -d "$MIN_LOOKBACK_DAYS days ago" +%Y-%m-%d 2>/dev/null \
         || date -u -v-${MIN_LOOKBACK_DAYS}d +%Y-%m-%d)
     echo "Only $QUALIFYING_COUNT qualifying run(s) in the recent page; widening to runs since $SINCE_DATE..."
+    PHASE2_FILE=$(mktemp)
     # `gh api --paginate` streams one JSON object per page; `jq -s` slurps them
     # into a single array so we can sort and slice across the whole window.
     # The `created>=` filter goes in the URL query string (not `-f`): gh's field
     # flag URL-encodes `>` and GitHub 404s on the encoded form.
-    RUN_IDS=$(gh api --paginate "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?created=>=$SINCE_DATE" \
-        | jq -sr --argjson n "$RUN_COUNT" \
+    if gh_api_retry --paginate "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?created=>=$SINCE_DATE" > "$PHASE2_FILE"; then
+        PHASE2=$(jq -s --argjson n "$RUN_COUNT" \
             '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
-             | sort_by(.created) | reverse | .[0:$n] | .[].id')
+             | sort_by(.created) | reverse | .[0:$n]' \
+            "$PHASE2_FILE")
+        # Merge phase 1 + phase 2, dedup by id, keep newest RUN_COUNT. Phase 1
+        # runs are preserved even if phase 2 found nothing (e.g. the only
+        # qualifying runs are older than MIN_LOOKBACK_DAYS).
+        RUNS_JSON=$(printf '%s\n%s\n' "$RUNS_JSON" "$PHASE2" \
+            | jq -sr --argjson n "$RUN_COUNT" \
+                'add | unique_by(.id) | sort_by(.created) | reverse | .[0:$n]')
+    else
+        echo "Warning: phase 2 widening fetch failed; falling back to phase 1 ($QUALIFYING_COUNT qualifying run(s))." >&2
+    fi
+    rm -f "$PHASE2_FILE"
 fi
+
+RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
 
 if [[ -z "$RUN_IDS" ]]; then
     if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
