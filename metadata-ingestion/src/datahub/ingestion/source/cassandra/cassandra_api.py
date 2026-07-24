@@ -353,9 +353,7 @@ class CassandraAPI:
             result_set = self._cassandra_session.execute(query).all()
             return result_set
         except DriverException as e:
-            self.report.warning(
-                message="Failed to fetch stats for keyspace", context=str(e), exc=e
-            )
+            self.report.warning(message="Failed to fetch stats for keyspace", exc=e)
             return []
         except Exception:
             self.report.warning(

@@ -261,8 +261,9 @@ class MSSQLLineageExtractor:
                     e,
                 )
                 self.report.failure(
-                    message=f"Database error: {e}",
+                    message="Database error during query history extraction",
                     context="query_history_extraction_database_error",
+                    exc=e,
                 )
                 return []
             except (KeyError, TypeError) as e:
@@ -275,8 +276,9 @@ class MSSQLLineageExtractor:
                     exc_info=True,
                 )
                 self.report.failure(
-                    message=f"Query structure error: {e} - check SQL Server version compatibility",
+                    message="Query structure error - check SQL Server version compatibility",
                     context="query_history_extraction_structure_error",
+                    exc=e,
                 )
                 return []
             except Exception as e:
@@ -289,8 +291,9 @@ class MSSQLLineageExtractor:
                     exc_info=True,
                 )
                 self.report.failure(
-                    message=f"Unexpected error: {e} ({type(e).__name__})",
+                    message="Unexpected error during query history extraction",
                     context="query_history_extraction_unexpected_error",
+                    exc=e,
                 )
                 return []
 

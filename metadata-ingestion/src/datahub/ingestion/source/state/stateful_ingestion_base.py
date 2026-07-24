@@ -232,11 +232,11 @@ class StatefulIngestionSourceBase(Source):
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.warning(key, reason)
+        self.report.warning(message=reason, context=key)
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         # TODO: Remove this method.
-        self.report.failure(key, reason)
+        self.report.failure(message=reason, context=key)
 
     def close(self) -> None:
         self.state_provider.prepare_for_commit()

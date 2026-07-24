@@ -491,7 +491,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
             except Exception as e:
                 logger.error(f"Failed to discover spaces: {e}")
-                self.report.failure("space_discovery", str(e))
+                self.report.failure(message="Failed to discover spaces", exc=e)
                 return []
 
         # Apply spaces.deny filter
@@ -573,7 +573,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         except Exception as e:
             logger.error(f"Failed to fetch page {page_id}: {e}")
-            self.report.failure(f"page_{page_id}", str(e))
+            self.report.failure(message="Failed to fetch page", context=page_id, exc=e)
 
             if not self.config.advanced.continue_on_failure:
                 raise
@@ -653,7 +653,9 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._get_pages_in_space(space_key)
             except Exception as e:
                 logger.error(f"Failed to process space '{space_key}': {e}")
-                self.report.failure(f"space_{space_key}", str(e))
+                self.report.failure(
+                    message="Failed to process space", context=space_key, exc=e
+                )
 
                 if not self.config.advanced.continue_on_failure:
                     raise
@@ -697,7 +699,9 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
             except Exception as e:
                 logger.error(f"Failed to process page '{page_id}': {e}")
-                self.report.failure(f"page_{page_id}", str(e))
+                self.report.failure(
+                    message="Failed to process page", context=page_id, exc=e
+                )
 
                 if not self.config.advanced.continue_on_failure:
                     raise

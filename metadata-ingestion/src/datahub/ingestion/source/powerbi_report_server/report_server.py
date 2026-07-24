@@ -549,7 +549,12 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
                     e, report.name, report.id
                 )
                 LOGGER.exception(message, e)
-                self.report.warning(report.id, message, log=False)
+                self.report.warning(
+                    message="Error occurred while loading User info for report",
+                    context=f"report={report.name} (id={report.id})",
+                    exc=e,
+                    log=False,
+                )
             finally:
                 # Increase Dashboard and tiles count in report
                 self.report.report_scanned(count=1)

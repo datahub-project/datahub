@@ -640,7 +640,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         yield optional_table
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
-                    self.report.warning("table-parse", str(e), log=False)
+                    self.report.warning(
+                        message="Error parsing table",
+                        context="table-parse",
+                        exc=e,
+                        log=False,
+                    )
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
@@ -1516,8 +1521,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return table_info.table_constraints or []
         except Exception as e:
             self.report.warning(
-                "table-constraints-fetch",
-                f"Unable to fetch table constraints for {table.ref}: {e}",
+                message="Unable to fetch table constraints",
+                context=str(table.ref),
+                exc=e,
                 log=False,
             )
             logger.warning(
@@ -1674,9 +1680,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         self.report.warning(
             title="Failed to run SQL query",
-            message=(
-                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
-            ),
+            message="A SQL query against the Databricks warehouse failed. "
+            "Check that the service principal has SELECT on the system.access "
+            "and system.query schemas and that system schemas are enabled for "
+            "this workspace.",
+            exc=error,
             log=False,
         )
         if count_as_fetch_failure:

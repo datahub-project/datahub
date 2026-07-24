@@ -587,8 +587,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         ):
             # Skip this run
             self.report.warning(
-                "lineage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="lineage-extraction",
                 log=False,
             )
             return False
