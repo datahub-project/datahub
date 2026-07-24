@@ -22,6 +22,7 @@ import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
@@ -309,6 +310,41 @@ public class PolicyFieldTypeValidatorTest {
         .setPrivileges(new StringArray("EDIT_ENTITY"))
         .setState("ACTIVE")
         .setType("METADATA");
+  }
+
+  /** A filter set via patch is validated from the patch's own value at the request stage. */
+  @Test
+  public void testPatchFilterFieldTypeValidated() {
+    String invalidOps =
+        "[{\"op\":\"add\",\"path\":\"/resources/filter\",\"value\":"
+            + "{\"criteria\":[{\"field\":\"INVALID_FIELD_TYPE\",\"values\":[\"dataset\"],"
+            + "\"condition\":\"EQUALS\"}]}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, invalidOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Patch setting an invalid filter field type should fail");
+
+    String validOps =
+        "[{\"op\":\"add\",\"path\":\"/resources/filter\",\"value\":"
+            + "{\"criteria\":[{\"field\":\"TYPE\",\"values\":[\"dataset\"],"
+            + "\"condition\":\"EQUALS\"}]}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_POLICY_URN, DATAHUB_POLICY_INFO_ASPECT_NAME, validOps)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "Patch setting a valid filter field type should pass");
   }
 
   private DataHubPolicyInfo createPolicyInfoWithFilter(String fieldType, String value) {

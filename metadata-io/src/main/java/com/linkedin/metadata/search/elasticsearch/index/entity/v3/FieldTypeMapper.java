@@ -10,6 +10,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.keywordIgnoreAboveForMaxBytes;
 
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PrimitiveDataSchema;
@@ -142,13 +143,23 @@ public class FieldTypeMapper {
   /**
    * Creates a mapping configuration for a keyword field with ignore_above set to prevent indexing
    * failures on long TEXT values. The Lucene keyword term limit is 32,766 bytes; ignore_above
-   * silently skips indexing values that exceed the threshold (they remain in _source).
+   * silently skips indexing values that exceed the threshold (they remain in _source). The
+   * threshold is measured in characters, so it is set byte-safe — see ESUtils.KEYWORD_IGNORE_ABOVE.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
+    return getMappingsForKeywordWithIgnoreAbove(KEYWORD_MAXLENGTH);
+  }
+
+  /**
+   * @param keywordMaxBytes Lucene keyword term limit in UTF-8 bytes (e.g. configured structured
+   *     property max). Converted to a byte-safe character {@code ignore_above}.
+   */
+  @Nonnull
+  public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put("ignore_above", KEYWORD_MAXLENGTH);
+    mapping.put("ignore_above", keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
     return mapping;
   }
 
@@ -313,10 +324,18 @@ public class FieldTypeMapper {
   @Nonnull
   public static Map<String, Object> getMappingsForLogicalValueType(
       @Nonnull LogicalValueType valueType) {
+    return getMappingsForLogicalValueType(valueType, KEYWORD_MAXLENGTH);
+  }
+
+  @Nonnull
+  public static Map<String, Object> getMappingsForLogicalValueType(
+      @Nonnull LogicalValueType valueType, int keywordMaxLength) {
     switch (valueType) {
       case STRING:
       case RICH_TEXT:
-        return getMappingsForKeyword();
+        // ignore_above protects reindex from pre-existing values over the keyword limit;
+        // StructuredPropertiesValidator rejects new oversized writes.
+        return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
       case URN:
@@ -325,7 +344,7 @@ public class FieldTypeMapper {
         return Map.of("type", DOUBLE_FIELD_TYPE);
       default:
         log.debug("LogicalValueType {} not supported, defaulting to keyword", valueType);
-        return getMappingsForKeyword();
+        return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
     }
   }
 

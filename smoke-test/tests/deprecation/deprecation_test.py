@@ -2,23 +2,24 @@ from typing import Any, Dict
 
 import pytest
 
-from conftest import _ingest_cleanup_data_impl
+from conftest import _ingest_cleanup_unique_dataset_impl
 from tests.utils import execute_graphql, get_root_urn
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data(auth_session, graph_client):
-    yield from _ingest_cleanup_data_impl(
-        auth_session, graph_client, "tests/deprecation/data.json", "deprecation"
+def dataset_urn(auth_session, graph_client, tmp_path_factory):
+    yield from _ingest_cleanup_unique_dataset_impl(
+        auth_session,
+        graph_client,
+        "tests/deprecation/data.json",
+        "deprecation",
+        "test-tags-terms-sample-kafka",
+        tmp_path_factory.mktemp("deprecation"),
     )
 
 
 @pytest.mark.dependency()
-def test_update_deprecation_all_fields(auth_session):
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
-    )
-
+def test_update_deprecation_all_fields(auth_session, dataset_urn):
     query = """query getDataset($urn: String!) {\n
             dataset(urn: $urn) {\n
                 deprecation {\n
@@ -64,11 +65,7 @@ def test_update_deprecation_all_fields(auth_session):
 
 
 @pytest.mark.dependency(depends=["test_update_deprecation_all_fields"])
-def test_update_deprecation_partial_fields(auth_session, ingest_cleanup_data):
-    dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
-    )
-
+def test_update_deprecation_partial_fields(auth_session, dataset_urn):
     update_query = """mutation updateDeprecation($input: UpdateDeprecationInput!) {\n
             updateDeprecation(input: $input)
         }"""

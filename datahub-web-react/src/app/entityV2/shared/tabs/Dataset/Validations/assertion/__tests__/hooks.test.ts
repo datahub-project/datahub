@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     useAssertionURNCopyLink,
     useOpenAssertionDetailModal,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 vi.mock('antd', () => ({

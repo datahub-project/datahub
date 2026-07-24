@@ -217,15 +217,18 @@ class ABSSource(StatefulIngestionSourceBase):
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"file {table_data.full_path} has unsupported extension",
+                self.report.warning(
+                    message="File has unsupported extension",
+                    context=table_data.full_path,
+                    log=False,
                 )
             file.close()
         except Exception as e:
-            self.report.report_warning(
-                table_data.full_path,
-                f"could not infer schema for file {table_data.full_path}: {e}",
+            self.report.warning(
+                message="Could not infer schema for file",
+                context=table_data.full_path,
+                exc=e,
+                log=False,
             )
             file.close()
         logger.debug(f"Extracted fields in schema: {fields}")
@@ -525,8 +528,10 @@ class ABSSource(StatefulIngestionSourceBase):
                         logger.debug(
                             f"Got NoSuchBucket exception for {container_name}", e
                         )
-                        self.get_report().report_warning(
-                            "Missing bucket", f"No bucket found {container_name}"
+                        self.get_report().warning(
+                            "Missing bucket",
+                            f"No bucket found {container_name}",
+                            log=False,
                         )
                     else:
                         raise e

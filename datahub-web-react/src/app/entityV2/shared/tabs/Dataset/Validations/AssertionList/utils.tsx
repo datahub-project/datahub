@@ -19,6 +19,7 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
     createAssertionGroups,
@@ -27,7 +28,6 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionInfo,
@@ -89,12 +89,6 @@ const getStatusGroupDisplayName = (name: string): string =>
 const RECOMMENDED_FILTER_NAME_MAP = {
     get [AssertionSourceType.External]() {
         return i18next.t('entity.profile.validations:sourceType.external');
-    },
-    get [AssertionSourceType.Native]() {
-        return i18next.t('entity.profile.validations:sourceType.native');
-    },
-    get [AssertionSourceType.Inferred]() {
-        return i18next.t('entity.profile.validations:sourceType.smartAssertions');
     },
 };
 

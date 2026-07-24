@@ -125,6 +125,10 @@ export class SemanticModelEntity implements Entity<SemanticModel> {
                 component: DefinitionTab,
             },
             {
+                name: i18next.t('entity.types:tab.lineage'),
+                component: LineageTab,
+            },
+            {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
                 component: PropertiesTab,
             },

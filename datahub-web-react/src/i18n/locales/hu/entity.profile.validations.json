@@ -539,8 +539,6 @@
     "severity.low": "Alacsony súlyosság",
     "severity.medium": "Közepes súlyosság",
     "sourceType.external": "Külső",
-    "sourceType.native": "Natív",
-    "sourceType.smartAssertions": "Smart Assertions",
     "status.error": "Hiba",
     "status.errors": "Hibák",
     "status.failing": "Sikertelen",

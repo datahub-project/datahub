@@ -325,6 +325,8 @@ dataclasses-json==0.6.7
     #   unstructured-ingest
 dataflows-tabulator==1.54.3
     # via tableschema
+datasketches==5.2.0
+    # via acryl-datahub
 db-dtypes==1.5.0
     # via acryl-datahub
 debugpy==1.8.20
@@ -928,6 +930,7 @@ numpy==1.26.4
     #   altair
     #   dask
     #   databricks-sql-connector
+    #   datasketches
     #   db-dtypes
     #   feast
     #   pandas

@@ -444,6 +444,14 @@ data_lake_profiling = {
     *cachetools_lib,
 }
 
+file_profiling = {
+    # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
+    # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
+    "datasketches>=5.0.0,<6.0.0",
+    # cachetools is used by the profiling config
+    *cachetools_lib,
+}
+
 delta_lake = {
     *s3_base,
     *abs_base,
@@ -477,7 +485,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -623,7 +630,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common,
-    "delta-lake": {*data_lake_profiling, *delta_lake},
+    "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
         "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
@@ -646,7 +653,6 @@ plugins: Dict[str, Set[str]] = {
         *aws_common,
         *abs_base,
         *cachetools_lib,
-        *data_lake_profiling,
     },
     "cassandra": {
         "cassandra-driver>=3.28.0,<4.0.0",
@@ -668,7 +674,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
+    "omni": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
     "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -770,13 +776,14 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
-    "s3": {*s3_base, *data_lake_profiling},
-    "s3-slim": {*s3_base},
-    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    # Profiling is now a lightweight pure-Python profiler (pyarrow + datasketches,
+    # no JVM), so the `-slim` variants no longer differ from the full extras. They
+    # are kept as deprecated aliases and will be removed in a follow-up (along with
+    # their CI/CD and image-building references).
+    "s3": {*s3_base, *file_profiling},
+    "s3-slim": {*s3_base, *file_profiling},
+    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
     "abs": {*abs_base, *data_lake_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
