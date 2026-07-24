@@ -42,7 +42,9 @@ INFORMIX_TYPE_MAP: Dict[int, Tuple[type, str]] = {
     19: (RecordTypeClass, "SET"),
     20: (RecordTypeClass, "MULTISET"),
     21: (RecordTypeClass, "LIST"),
-    40: (StringTypeClass, "LVARCHAR"),
+    # 40 (variable-length opaque/UDT: JSON, BSON, spatial) is intentionally
+    # excluded — it has no single canonical native type, so it falls back to
+    # NullTypeClass + UNKNOWN(40) via map_coltype's .get() default.
     43: (StringTypeClass, "LVARCHAR"),
     45: (BooleanTypeClass, "BOOLEAN"),
     52: (NumberTypeClass, "BIGINT"),
@@ -73,7 +75,11 @@ SQL_PK = (
     "JOIN systables t ON cn.tabid = t.tabid "
     "JOIN sysindexes ix ON cn.idxname = ix.idxname "
     "JOIN syscolumns c ON c.tabid = t.tabid AND c.colno IN "
-    "(ix.part1, ix.part2, ix.part3, ix.part4, ix.part5, ix.part6, ix.part7, ix.part8, "
-    "ix.part9, ix.part10, ix.part11, ix.part12, ix.part13, ix.part14, ix.part15, ix.part16) "
+    # Descending index columns store partN as a negative colno, so ABS() is
+    # required to match ascending and descending PK columns alike.
+    "(ABS(ix.part1), ABS(ix.part2), ABS(ix.part3), ABS(ix.part4), ABS(ix.part5), "
+    "ABS(ix.part6), ABS(ix.part7), ABS(ix.part8), ABS(ix.part9), ABS(ix.part10), "
+    "ABS(ix.part11), ABS(ix.part12), ABS(ix.part13), ABS(ix.part14), ABS(ix.part15), "
+    "ABS(ix.part16)) "
     "WHERE cn.constrtype = 'P' AND TRIM(t.tabname) = ? AND TRIM(t.owner) = ?"
 )

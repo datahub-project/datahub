@@ -224,7 +224,7 @@
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "VARCHAR",
+                    "nativeDataType": "VARCHAR(100)",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -236,7 +236,7 @@
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "VARCHAR",
+                    "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -244,8 +244,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784882571215,
-        "runId": "informix-2026_07_24-10_42_50-rnmkrm",
+        "lastObserved": 1784884360260,
+        "runId": "informix-2026_07_24-11_12_38-604ngs",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -546,7 +546,7 @@
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "VARCHAR",
+                    "nativeDataType": "VARCHAR(100)",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -554,8 +554,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784882571226,
-        "runId": "informix-2026_07_24-10_42_50-rnmkrm",
+        "lastObserved": 1784884360279,
+        "runId": "informix-2026_07_24-11_12_38-604ngs",
         "lastRunId": "no-run-id-provided"
     }
 },

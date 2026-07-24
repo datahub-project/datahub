@@ -5,14 +5,7 @@ from datahub.ingestion.source.informix.mapping import (
     make_table_identifier,
 )
 from datahub.ingestion.source.informix.models import InformixColumn
-
-
-class _Report:
-    def __init__(self):
-        self.warnings = []
-
-    def warning(self, title=None, message=None, context=None, **kwargs):
-        self.warnings.append((message, context))
+from datahub.ingestion.source.informix.report import InformixSourceReport
 
 
 def test_build_jdbc_url():
@@ -73,19 +66,19 @@ def test_columns_to_schema_fields_maps_types_and_nullable():
         InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True),
         InformixColumn(name="name", coltype=13, length=100, colno=2, is_pk=False),
     ]
-    report = _Report()
+    report = InformixSourceReport()
     fields = columns_to_schema_fields(cols, report)
     assert [f.fieldPath for f in fields] == ["id", "name"]
     assert fields[0].nullable is False
     assert fields[0].isPartOfKey is True
-    assert fields[1].nativeDataType == "VARCHAR"
+    assert fields[1].nativeDataType == "VARCHAR(100)"
     assert fields[1].isPartOfKey is False
-    assert report.warnings == []
+    assert len(report.warnings) == 0
 
 
 def test_columns_to_schema_fields_warns_on_unknown_type():
     cols = [InformixColumn(name="weird", coltype=99, length=1, colno=1, is_pk=False)]
-    report = _Report()
+    report = InformixSourceReport()
     fields = columns_to_schema_fields(cols, report)
     assert fields[0].nativeDataType.startswith("UNKNOWN")
     assert len(report.warnings) == 1

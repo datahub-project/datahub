@@ -15,7 +15,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.informix.client import InformixClient
+from datahub.ingestion.source.informix.client import (
+    InformixClient,
+    InformixClientProtocol,
+)
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import PLATFORM
 from datahub.ingestion.source.informix.mapping import (
@@ -49,7 +52,7 @@ class InformixSource(StatefulIngestionSourceBase):
         self,
         ctx: PipelineContext,
         config: InformixSourceConfig,
-        client: Optional[InformixClient] = None,
+        client: Optional[InformixClientProtocol] = None,
     ) -> None:
         super().__init__(config, ctx)
         self.config = config
@@ -62,7 +65,7 @@ class InformixSource(StatefulIngestionSourceBase):
         config = InformixSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def _get_client(self) -> InformixClient:
+    def _get_client(self) -> InformixClientProtocol:
         if self._client is None:
             self._client = InformixClient(self.config)
         return self._client

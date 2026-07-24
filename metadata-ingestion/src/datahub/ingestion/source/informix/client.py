@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Protocol
 
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import SQL_COLUMNS, SQL_PK, SQL_TABLES
@@ -11,6 +11,14 @@ from datahub.ingestion.source.informix.models import InformixColumn, InformixTab
 logger = logging.getLogger(__name__)
 
 _DRIVER_CLASS = "com.informix.jdbc.IfxDriver"
+
+
+class InformixClientProtocol(Protocol):
+    def get_tables(self) -> List[InformixTable]: ...
+
+    def get_columns(self, table: InformixTable) -> List[InformixColumn]: ...
+
+    def close(self) -> None: ...
 
 
 def _safe_close(closeable: object) -> None:

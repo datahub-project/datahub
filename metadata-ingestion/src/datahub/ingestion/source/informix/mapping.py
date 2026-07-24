@@ -6,6 +6,10 @@ from datahub.ingestion.source.informix.constants import map_coltype
 from datahub.ingestion.source.informix.models import InformixColumn
 from datahub.metadata.schema_classes import SchemaFieldClass
 
+# Numeric/DECIMAL types pack precision+scale into collength rather than a
+# plain character length, so length is only meaningful for these string types.
+_LENGTH_TYPES = {"CHAR", "VARCHAR", "NCHAR", "NVARCHAR", "LVARCHAR"}
+
 
 def build_jdbc_url(config: InformixSourceConfig) -> str:
     user = config.username or ""
@@ -29,6 +33,8 @@ def columns_to_schema_fields(
     fields: List[SchemaFieldClass] = []
     for col in columns:
         dh_type, nullable, native = map_coltype(col.coltype)
+        if native in _LENGTH_TYPES and col.length > 0:
+            native = f"{native}({col.length})"
         if native.startswith("UNKNOWN"):
             report.warning(
                 title="Unmapped Informix column type",

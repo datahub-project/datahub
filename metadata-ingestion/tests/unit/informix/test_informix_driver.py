@@ -30,7 +30,7 @@ def test_cache_hit_skips_download(tmp_path, monkeypatch):
     cache = tmp_path / "cache"
     cache.mkdir()
 
-    def _place(name: str, content: bytes):
+    def _place(name: str, content: bytes) -> None:
         p = cache / name
         p.write_bytes(content)
         (cache / (name + ".sha1")).write_text(hashlib.sha1(content).hexdigest())
