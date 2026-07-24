@@ -297,10 +297,23 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   /**
    * Typed, class-keyed enrichments propagated from the request-side {@link RequestContext} at
    * {@link #asSession} time, or stamped programmatically for bootstrap paths that need per-domain
-   * context without an HTTP request. Retrieve via {@link #getEnrichment(Class)}. Null means no
-   * enrichments were carried on this context.
+   * context without an HTTP request. Retrieve via {@link #getEnrichment(Class)}.
+   *
+   * <p>Backing field is nullable (contexts with no enrichments carry a null bundle). Callers must
+   * use {@link #getEnrichmentBundle()} which normalizes null to {@link EnrichmentBundle#EMPTY} —
+   * this closes the {@code opCtx.getEnrichmentBundle().plus(...)} NPE footgun.
    */
   @Nullable private final EnrichmentBundle enrichmentBundle;
+
+  /**
+   * Non-null accessor for the enrichment bundle. Returns {@link EnrichmentBundle#EMPTY} when no
+   * enrichments were stamped, so callers can chain {@code .plus(...)} / {@code .get(...)} without
+   * null checks. Overrides Lombok's generated getter for this field only.
+   */
+  @Nonnull
+  public EnrichmentBundle getEnrichmentBundle() {
+    return enrichmentBundle == null ? EnrichmentBundle.EMPTY : enrichmentBundle;
+  }
 
   // Mutable collection for pending aspect deletions during validation
   // This is per-operation and not shared across threads, so ArrayList is safe
@@ -683,7 +696,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Override
   @Nonnull
   public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
-    return enrichmentBundle == null ? Optional.empty() : enrichmentBundle.get(type);
+    // getEnrichmentBundle() normalizes null → EMPTY, so this is always safe.
+    return getEnrichmentBundle().get(type);
   }
 
   /**
@@ -704,10 +718,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     // build(ActorContext, boolean) does not declare `throws OperationContextException` and this
     // path modifies only enrichmentBundle — no actor/auth invariant can trip. No wrapping needed;
     // any RuntimeException propagates with its original type intact.
-    final EnrichmentBundle current =
-        this.enrichmentBundle == null ? EnrichmentBundle.EMPTY : this.enrichmentBundle;
     return this.toBuilder()
-        .enrichmentBundle(current.plus(enrichment))
+        .enrichmentBundle(getEnrichmentBundle().plus(enrichment))
         .build(getSessionActorContext(), false);
   }
 

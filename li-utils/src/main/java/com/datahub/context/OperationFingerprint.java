@@ -62,12 +62,6 @@ public interface OperationFingerprint {
         public String getEntityContextId() {
           return EMPTY_ID;
         }
-
-        @Nonnull
-        @Override
-        public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
-          return Optional.empty();
-        }
       };
 
   @Nonnull
