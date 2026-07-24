@@ -188,6 +188,22 @@ public class EnrichmentPropagationTest {
   }
 
   @Test
+  public void withEnrichment_onNullBundleContext_bootstrapsBundle() {
+    // A context with no enrichments (typical bootstrap / system context) must accept
+    // withEnrichment without NPE — the getEnrichmentBundle() @Nonnull getter closes the footgun
+    // even when the backing field is null. Without the getter's default, this path would NPE on
+    // the internal .plus(...) call.
+    OperationContext systemCtx = TestOperationContexts.systemContextNoSearchAuthorization();
+    assertTrue(systemCtx.getEnrichment(SampleEnrichment.class).isEmpty());
+
+    OperationContext enhanced = systemCtx.withEnrichment(new SampleEnrichment("bootstrapped"));
+
+    assertEquals(enhanced.getEnrichment(SampleEnrichment.class).get().value(), "bootstrapped");
+    // Original stays clean.
+    assertTrue(systemCtx.getEnrichment(SampleEnrichment.class).isEmpty());
+  }
+
+  @Test
   public void plus_returnsNewInstance_originalUnchanged() {
     EnrichmentBundle original = EnrichmentBundle.of(new SampleEnrichment("a"));
 
