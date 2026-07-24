@@ -49,6 +49,8 @@ export const DEFAULT_APP_CONFIG = {
     },
     searchCardConfig: {
         showDescription: false,
+        summarySourceUrn: null,
+        summaryLabel: 'Summary'
     },
     searchFlagsConfig: {
         defaultSkipHighlighting: false,
