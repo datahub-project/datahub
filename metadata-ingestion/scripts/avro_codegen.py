@@ -342,6 +342,14 @@ KEY_ASPECT_NAMES: Set[str] = {{cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}}
 ENTITY_TYPE_NAMES: List[str] = [
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 ]
+
+# Entity type -> full list of non-key aspect names, sourced verbatim from
+# entity-registry.yml. This is the authoritative set of aspects an entity type
+# may carry (includes timeseries aspects such as datasetProfile).
+ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {{
+    {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['Aspect']['entityAspects']!r}" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
+}}
+
 EntityTypeName = Literal[
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 ]
