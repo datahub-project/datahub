@@ -6,9 +6,13 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.informix.config import InformixSourceConfig
-from datahub.ingestion.source.informix.models import InformixColumn, InformixTable
+from datahub.ingestion.source.informix.models import (
+    InformixColumn,
+    InformixForeignKey,
+    InformixTable,
+)
 from datahub.ingestion.source.informix.source import InformixSource
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.metadata.schema_classes import DatasetProfileClass, SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -23,6 +27,9 @@ class _FakeClient:
     def get_columns(self, table):
         return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
 
+    def get_foreign_keys(self, table):
+        return []
+
     def close(self):
         pass
 
@@ -36,6 +43,9 @@ class _TwoTableClient:
 
     def get_columns(self, table):
         return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
+
+    def get_foreign_keys(self, table):
+        return []
 
     def close(self):
         pass
@@ -52,6 +62,43 @@ class _PartialFailureClient:
         if table.name == "orders":
             raise RuntimeError("boom")
         return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
+
+    def get_foreign_keys(self, table):
+        return []
+
+    def close(self):
+        pass
+
+
+class _FkClient:
+    def get_tables(self):
+        return [
+            InformixTable(name="customers", owner="informix", is_view=False),
+            InformixTable(name="orders", owner="informix", is_view=False),
+        ]
+
+    def get_columns(self, table):
+        if table.name == "orders":
+            return [
+                InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True),
+                InformixColumn(
+                    name="customer_id", coltype=2, length=4, colno=2, is_pk=False
+                ),
+            ]
+        return [InformixColumn(name="id", coltype=258, length=4, colno=1, is_pk=True)]
+
+    def get_foreign_keys(self, table):
+        if table.name == "orders":
+            return [
+                InformixForeignKey(
+                    name="fk_orders_customer",
+                    child_columns=["customer_id"],
+                    parent_table="customers",
+                    parent_owner="informix",
+                    parent_columns=["id"],
+                )
+            ]
+        return []
 
     def close(self):
         pass
@@ -141,3 +188,26 @@ def test_source_applies_table_pattern_deny():
     names = sorted(d.urn.name for d in datasets)
     assert names == ["testdb.informix.customers"]
     assert source.report.filtered == 1
+
+
+def test_source_attaches_foreign_keys_to_schema():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(PipelineContext(run_id="test"), config, client=_FkClient())
+    entities = list(source.get_workunits_internal())
+
+    datasets = [e for e in entities if isinstance(e, Dataset)]
+    orders = next(d for d in datasets if d.display_name == "orders")
+    schema_metadata = orders._get_aspect(SchemaMetadataClass)
+    assert schema_metadata is not None
+    assert schema_metadata.foreignKeys is not None
+    assert len(schema_metadata.foreignKeys) == 1
+    fk = schema_metadata.foreignKeys[0]
+    assert fk.name == "fk_orders_customer"
+    assert fk.foreignDataset.endswith("testdb.informix.customers,PROD)")
+
+    customers = next(d for d in datasets if d.display_name == "customers")
+    customers_schema = customers._get_aspect(SchemaMetadataClass)
+    assert customers_schema is not None
+    assert not customers_schema.foreignKeys

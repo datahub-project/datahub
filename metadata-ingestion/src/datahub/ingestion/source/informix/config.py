@@ -82,6 +82,10 @@ class InformixSourceConfig(
         default=True,
         description="Emit approximate row counts from systables.nrows.",
     )
+    include_foreign_keys: bool = Field(
+        default=True,
+        description="Extract foreign-key relationships from sysconstraints/sysreferences.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion / stale-entity removal config."
     )

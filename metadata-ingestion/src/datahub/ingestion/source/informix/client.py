@@ -1,12 +1,21 @@
 import logging
 import os
-from typing import List, Protocol
+from typing import Dict, List, Protocol
 
 from datahub.ingestion.source.informix.config import InformixSourceConfig
-from datahub.ingestion.source.informix.constants import SQL_COLUMNS, SQL_PK, SQL_TABLES
+from datahub.ingestion.source.informix.constants import (
+    SQL_COLUMNS,
+    SQL_FK,
+    SQL_PK,
+    SQL_TABLES,
+)
 from datahub.ingestion.source.informix.driver import resolve_driver_jars
 from datahub.ingestion.source.informix.mapping import build_jdbc_url
-from datahub.ingestion.source.informix.models import InformixColumn, InformixTable
+from datahub.ingestion.source.informix.models import (
+    InformixColumn,
+    InformixForeignKey,
+    InformixTable,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +26,8 @@ class InformixClientProtocol(Protocol):
     def get_tables(self) -> List[InformixTable]: ...
 
     def get_columns(self, table: InformixTable) -> List[InformixColumn]: ...
+
+    def get_foreign_keys(self, table: InformixTable) -> List[InformixForeignKey]: ...
 
     def close(self) -> None: ...
 
@@ -111,6 +122,33 @@ class InformixClient:
             )
             for r in rows
         ]
+
+    def get_foreign_keys(self, table: InformixTable) -> List[InformixForeignKey]:
+        rows = self._query(SQL_FK, [table.name, table.owner])
+        fks: Dict[str, InformixForeignKey] = {}
+        for r in rows:
+            fkname = str(r[0]).strip()
+            child_col = str(r[1]).strip()
+            parent_table = str(r[2]).strip()
+            parent_owner = str(r[3]).strip()
+            parent_col = str(r[4]).strip()
+            if fkname not in fks:
+                fks[fkname] = InformixForeignKey(
+                    name=fkname,
+                    child_columns=[],
+                    parent_table=parent_table,
+                    parent_owner=parent_owner,
+                    parent_columns=[],
+                )
+            fk = fks[fkname]
+            # The ABS(partN) IN(...) join (see SQL_FK) yields the cross product of
+            # child/parent index columns for composite keys, not pairwise-ordered
+            # rows, so dedup-by-first-seen only pairs single-column FKs exactly.
+            if child_col not in fk.child_columns:
+                fk.child_columns.append(child_col)
+            if parent_col not in fk.parent_columns:
+                fk.parent_columns.append(parent_col)
+        return list(fks.values())
 
     def close(self) -> None:
         try:

@@ -1,10 +1,13 @@
+from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.source.informix.config import InformixSourceConfig
+from datahub.ingestion.source.informix.constants import PLATFORM
 from datahub.ingestion.source.informix.mapping import (
+    build_foreign_key_constraints,
     build_jdbc_url,
     columns_to_schema_fields,
     make_table_identifier,
 )
-from datahub.ingestion.source.informix.models import InformixColumn
+from datahub.ingestion.source.informix.models import InformixColumn, InformixForeignKey
 from datahub.ingestion.source.informix.report import InformixSourceReport
 
 
@@ -82,3 +85,27 @@ def test_columns_to_schema_fields_warns_on_unknown_type():
     fields = columns_to_schema_fields(cols, report)
     assert fields[0].nativeDataType.startswith("UNKNOWN")
     assert len(report.warnings) == 1
+
+
+def test_build_foreign_key_constraints():
+    fk = InformixForeignKey(
+        name="fk_orders_customer",
+        child_columns=["customer_id"],
+        parent_table="customers",
+        parent_owner="informix",
+        parent_columns=["id"],
+    )
+    child_urn = make_dataset_urn(PLATFORM, "testdb.informix.orders", "PROD")
+
+    constraints = build_foreign_key_constraints([fk], child_urn, "testdb", "PROD", None)
+
+    assert len(constraints) == 1
+    constraint = constraints[0]
+    assert constraint.name == "fk_orders_customer"
+    assert constraint.foreignDataset == make_dataset_urn(
+        PLATFORM, "testdb.informix.customers", "PROD"
+    )
+    assert constraint.sourceFields == [make_schema_field_urn(child_urn, "customer_id")]
+    assert constraint.foreignFields == [
+        make_schema_field_urn(constraint.foreignDataset, "id")
+    ]

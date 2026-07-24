@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -16,3 +16,11 @@ class InformixTable(BaseModel):
     owner: str
     is_view: bool = False
     nrows: Optional[int] = None
+
+
+class InformixForeignKey(BaseModel):
+    name: str
+    child_columns: List[str]
+    parent_table: str
+    parent_owner: str
+    parent_columns: List[str]

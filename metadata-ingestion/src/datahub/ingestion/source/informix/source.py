@@ -1,6 +1,10 @@
 import time
-from typing import Iterable, Optional, Union
+from typing import Iterable, List, Optional, Union
 
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey, SchemaKey
 from datahub.ingestion.api.common import PipelineContext
@@ -24,6 +28,7 @@ from datahub.ingestion.source.informix.client import (
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import PLATFORM
 from datahub.ingestion.source.informix.mapping import (
+    build_foreign_key_constraints,
     columns_to_schema_fields,
     make_table_identifier,
 )
@@ -31,7 +36,12 @@ from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import DatasetProfileClass
+from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    SchemaFieldClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+)
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -140,6 +150,43 @@ class InformixSource(StatefulIngestionSourceBase):
                         subtype = DatasetSubTypes.VIEW
                     else:
                         subtype = DatasetSubTypes.TABLE
+
+                    schema: Union[List[SchemaFieldClass], SchemaMetadataClass] = fields
+                    if self.config.include_foreign_keys and not table.is_view:
+                        fks = client.get_foreign_keys(table)
+                        for fk in fks:
+                            if len(fk.child_columns) > 1:
+                                self.report.warning(
+                                    title="Composite foreign key columns may be misaligned",
+                                    message="Informix's catalog does not guarantee "
+                                    "child/parent column pairing order for composite "
+                                    "keys; columns are paired best-effort.",
+                                    context=f"{table.owner}.{table.name} fk={fk.name}",
+                                )
+                        if fks:
+                            child_urn = make_dataset_urn_with_platform_instance(
+                                platform=self.platform,
+                                name=name,
+                                platform_instance=self.config.platform_instance,
+                                env=self.config.env,
+                            )
+                            fk_constraints = build_foreign_key_constraints(
+                                fks,
+                                child_urn,
+                                self.config.database,
+                                self.config.env,
+                                self.config.platform_instance,
+                            )
+                            schema = SchemaMetadataClass(
+                                schemaName="",
+                                platform=make_data_platform_urn(self.platform),
+                                version=0,
+                                hash="",
+                                platformSchema=SchemalessClass(),
+                                fields=fields,
+                                foreignKeys=fk_constraints,
+                            )
+
                     dataset = Dataset(
                         platform=self.platform,
                         name=name,
@@ -147,7 +194,7 @@ class InformixSource(StatefulIngestionSourceBase):
                         platform_instance=self.config.platform_instance,
                         subtype=subtype,
                         parent_container=self._schema_key(table.owner),
-                        schema=fields,
+                        schema=schema,
                         display_name=table.name,
                     )
                     yield dataset
