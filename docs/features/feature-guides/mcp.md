@@ -114,9 +114,15 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 `add_structured_properties` / `remove_structured_properties` — Manage structured properties (typed metadata fields) on entities. Supports string, number, URN, date, and rich text value types.
 
+**Signature:** `add_structured_properties(property_values: Dict[str, List[Union[str, float, int]]], entity_urns: List[str])`
+Note: property keys must be full structured property URNs (e.g. `urn:li:structuredProperty:...`), and each value must be list-wrapped even for single values.
+
 `set_lifecycle_stage` — Set the lifecycle stage (e.g. proposed, approved, deprecated) of an entity or glossary term directly.
 
 `save_document` — Save standalone documents (insights, decisions, FAQs, notes) to DataHub's knowledge base. Documents are organized under a configurable parent folder.
+
+**Signature:** `save_document(document_type, title, content, urn=None, topics=None, related_documents=None, related_assets=None)`
+Note: there is no `parent_folder` parameter — pass the entity URN via `related_assets` to link the document to that entity's own page.
 
 </details>
 
