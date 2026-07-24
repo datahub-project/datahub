@@ -779,8 +779,15 @@ public class ElasticSearchTimeseriesAspectService
       @Nonnull AggregationSpec[] aggregationSpecs,
       @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
-    return esAggregatedStatsDAO.getAggregatedStats(
-        opContext, entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+    return opContext.withSpan(
+        "timeseriesAspectService.getAggregatedStats",
+        () ->
+            esAggregatedStatsDAO.getAggregatedStats(
+                opContext, entityName, aspectName, aggregationSpecs, filter, groupingBuckets),
+        "entity",
+        entityName,
+        "aspect",
+        aspectName);
   }
 
   @Nonnull
@@ -811,26 +818,36 @@ public class ElasticSearchTimeseriesAspectService
           urnFieldPath);
     }
 
-    List<Urn> urnList = new ArrayList<>(urns);
-    int subBatchSize = timeseriesAspectServiceConfig.getBatchAggMaxUrnsPerBatch();
-    List<List<Urn>> subBatches = partitionList(urnList, subBatchSize);
+    return opContext.withSpan(
+        "timeseriesAspectService.batchGetAggregatedStats",
+        () -> {
+          List<Urn> urnList = new ArrayList<>(urns);
+          int subBatchSize = timeseriesAspectServiceConfig.getBatchAggMaxUrnsPerBatch();
+          List<List<Urn>> subBatches = partitionList(urnList, subBatchSize);
 
-    Map<Urn, GenericTable> result = new HashMap<>();
+          Map<Urn, GenericTable> result = new HashMap<>();
 
-    for (List<Urn> subBatch : subBatches) {
-      result.putAll(
-          esAggregatedStatsDAO.getBatchAggregatedStats(
-              opContext,
-              entityName,
-              aspectName,
-              aggregationSpecs,
-              subBatch,
-              sharedFilter,
-              groupingBuckets,
-              urnFieldPath));
-    }
+          for (List<Urn> subBatch : subBatches) {
+            result.putAll(
+                esAggregatedStatsDAO.getBatchAggregatedStats(
+                    opContext,
+                    entityName,
+                    aspectName,
+                    aggregationSpecs,
+                    subBatch,
+                    sharedFilter,
+                    groupingBuckets,
+                    urnFieldPath));
+          }
 
-    return result;
+          return result;
+        },
+        MetricUtils.BATCH_SIZE_ATTR,
+        String.valueOf(urns.size()),
+        "entity",
+        entityName,
+        "aspect",
+        aspectName);
   }
 
   /**
