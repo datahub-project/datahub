@@ -291,9 +291,19 @@ scalaVersions.each { sv ->
     relocate 'org.springframework', 'io.acryl.shaded.org.springframework'
     relocate 'com.fasterxml.jackson', 'io.acryl.shaded.jackson'
     relocate 'org.yaml', 'io.acryl.shaded.org.yaml'
+    // Relocate io.openlineage so this agent can coexist with environments that ship their own
+    // openlineage-spark (Databricks, EMR, Glue, DataZone). DataHub's customized classes in
+    // src/main/java/io/openlineage/ are relocated too, so the override mechanism (project classes
+    // beat dependency classes) still works. Two sub-packages are carved out below.
     relocate('io.openlineage', 'io.acryl.shaded.io.openlineage') {
       // Extension SPI must stay unrelocated: connectors implement it at its canonical name.
       exclude 'io.openlineage.spark.extension.**'
+      // io.openlineage.sql is JNI-backed: its native methods resolve to symbols compiled into the
+      // Rust library as Java_io_openlineage_sql_OpenLineageSql_*, and shading cannot rewrite symbol
+      // names inside a native binary. Relocating the Java class makes the JVM look for
+      // Java_io_acryl_shaded_..._parse and crash with UnsatisfiedLinkError on JDBC/SQL parsing
+      // (issue #18558). Keep the whole package at its canonical name so the symbols resolve.
+      exclude 'io.openlineage.sql.**'
     }
     relocate 'net.jcip.annotations', 'io.acryl.shaded.annotations'
     relocate 'javassist', 'io.acryl.shaded.javassist'
@@ -327,11 +337,6 @@ scalaVersions.each { sv ->
     relocate 'io.confluent', 'io.acryl.shaded.io.confluent'
     relocate 'io.github', 'io.acryl.shaded.io.github'
     relocate 'io.datahubproject', 'io.acryl.shaded.io.datahubproject'
-    // Relocate io.openlineage to prevent conflicts when another openlineage-spark version
-    // is on the classpath (Databricks, EMR, Glue). DataHub's customized classes in
-    // src/main/java/io/openlineage/ are also relocated by the shadow plugin, so the
-    // override mechanism (project classes beat dependency classes) still works.
-    relocate 'io.openlineage', 'io.acryl.shaded.io.openlineage'
     relocate 'com.eclipsesource', 'io.acryl.shaded.com.eclipsesource'
 
     // Relocate packages that conflict with Spark's runtime classpath
