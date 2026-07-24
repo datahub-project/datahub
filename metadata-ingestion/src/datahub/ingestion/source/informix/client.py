@@ -95,8 +95,12 @@ class InformixClient:
             try:
                 while rs.next():
                     # nrows is -1 or 0 when Informix hasn't computed a row estimate yet.
+                    # systables.nrows is catalogued as FLOAT, so the JDBC driver can
+                    # return values like "2.0"; go through float() before int().
                     raw_nrows = rs.getObject(4)
-                    parsed_nrows = int(str(raw_nrows)) if raw_nrows is not None else 0
+                    parsed_nrows = (
+                        int(float(str(raw_nrows))) if raw_nrows is not None else 0
+                    )
                     tables.append(
                         InformixTable(
                             name=str(rs.getString(1)).strip(),

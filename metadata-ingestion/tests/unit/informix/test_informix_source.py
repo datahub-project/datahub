@@ -219,6 +219,54 @@ def test_source_emits_row_count_profile_for_tables_only():
     assert profiles[0].rowCount == 42
 
 
+def test_source_does_not_emit_row_count_for_views_even_with_nrows():
+    class _ViewWithNrowsClient(_FakeClient):
+        def get_tables(self):
+            return [
+                InformixTable(
+                    name="customers", owner="informix", is_view=False, nrows=42
+                ),
+                InformixTable(name="active", owner="informix", is_view=True, nrows=99),
+            ]
+
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_ViewWithNrowsClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    profiles = [
+        e.metadata.aspect
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, DatasetProfileClass)
+    ]
+    assert len(profiles) == 1
+    assert profiles[0].rowCount == 42
+
+
+def test_source_suppresses_row_count_when_disabled():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_row_counts": False}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    profiles = [
+        e.metadata.aspect
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, DatasetProfileClass)
+    ]
+    assert not profiles
+
+
 def test_source_isolates_per_table_failures():
     config = InformixSourceConfig.parse_obj(
         {"server": "informix", "database": "testdb"}

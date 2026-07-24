@@ -2149,6 +2149,20 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level view lineage",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Row counts only, via systables.nrows",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -2164,6 +2178,14 @@
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "View lineage",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         }
       ],

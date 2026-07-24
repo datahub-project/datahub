@@ -1,14 +1,14 @@
 ### Capabilities
 
-Use the **Important Capabilities** table above as the source of truth for supported features. This module emits containers, tables/views, and schema fields, and supports stateful deletion detection.
+Use the **Important Capabilities** table above as the source of truth for supported features. This module emits containers, tables/views, and schema fields; extracts foreign-key relationships; extracts table- and column-level lineage for views by parsing their SQL definitions; emits approximate row counts from `systables.nrows`; and supports stateful deletion detection.
 
 ### Limitations
 
-This v1 module does not support:
+This module does not support:
 
-- **Lineage** — no table/view or query-based lineage is extracted.
-- **Profiling** — approximate row counts only, from `systables.nrows`; no row sampling or column statistics.
+- **Column profiling** — no row sampling, null counts, or other column-level statistics; only approximate row counts from `systables.nrows` are emitted.
 - **Stored procedures** — SPL routines are not ingested as DataJobs.
+- **Usage / query-log lineage** — view lineage is derived only from parsing view SQL definitions, not from query logs or runtime usage.
 
 #### Extended type mapping
 
