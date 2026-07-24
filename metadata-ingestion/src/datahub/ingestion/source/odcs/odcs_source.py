@@ -42,6 +42,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
+    odcs_to_logical_dataset_name,
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
@@ -78,6 +79,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +174,10 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     schema_type_fallbacks: List[str] = field(default_factory=list)
     owners_role_defaulted: List[str] = field(default_factory=list)
     spec_fields_ignored: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
+
+    def report_dropped(self, ent_name: str) -> None:
+        self.filtered.append(ent_name)
 
 
 @platform_name("Open Data Contract Standard", id="odcs")
@@ -242,6 +248,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+
+        if self.config.http_connection and not self.config.http_connection.verify_ssl:
+            self.report.warning(
+                title="HTTP TLS verification disabled",
+                message="http_connection.verify_ssl is false; ODCS files fetched over "
+                "https:// will not have their server certificate verified. Only use "
+                "this for trusted hosts with self-signed certificates.",
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ODCSSource":
@@ -581,6 +595,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 self.config.aws_connection,
                 self.config.gcs_connection,
                 max_bytes=self.config.max_input_file_bytes,
+                http_connection=self.config.http_connection,
             )
         except FileSizeExceededError as e:
             self.report.warning(
@@ -862,6 +877,12 @@ class ODCSSource(StatefulIngestionSourceBase):
         # helper; the physical-binding helper is last because it depends on the
         # logical dataset the first helper emits.
         for binding in bindings:
+            logical_name = odcs_to_logical_dataset_name(
+                contract, binding.schema_entry, self.config
+            )
+            if not self.config.dataset_pattern.allowed(logical_name):
+                self.report.report_dropped(logical_name)
+                continue
             yield from self._emit_logical_dataset(
                 contract, binding, source_uri, source_file
             )
