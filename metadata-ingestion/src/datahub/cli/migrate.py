@@ -754,7 +754,8 @@ def instance2instance(
 
 def _read_urns_from_file(path: str) -> List[str]:
     with open(path) as f:
-        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+        stripped = (line.strip() for line in f)
+        return [line for line in stripped if line and not line.startswith("#")]
 
 
 @migrate.command(name="snowflake-semantic-views")

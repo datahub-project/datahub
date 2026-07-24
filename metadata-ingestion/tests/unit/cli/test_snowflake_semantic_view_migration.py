@@ -12,8 +12,10 @@ from datahub.cli.snowflake_semantic_view_migration import (
     SKIPPED_ASPECTS,
     EntityMigrationResult,
     MigrationDirection,
+    SemanticViewMigrationReport,
     SnowflakeViewIdentity,
     _schema_field_is_metric,
+    _semantic_model_field_path,
     collect_dataset_field_governance,
     collect_semantic_model_field_governance,
     dataset_urn_to_semantic_model_urn,
@@ -23,6 +25,7 @@ from datahub.cli.snowflake_semantic_view_migration import (
     gen_dataset_urn,
     gen_metric_urn,
     gen_semantic_model_urn,
+    migrate_dataset_field_governance,
     migrate_dataset_to_semantic_model,
     migrate_semantic_model_field_governance,
     migrate_semantic_model_to_dataset,
@@ -151,6 +154,18 @@ class TestSnowflakeIdentifier:
 
     def test_preserves_case_when_disabled(self):
         assert snowflake_identifier("Sales_Analytics", False) == "Sales_Analytics"
+
+
+class TestSemanticModelFieldPath:
+    """Pins the schemaField path shape mirrored from SnowflakeSemanticModelMapper
+    (unmerged #18395) so a future casing/quoting change there has a CI signal here.
+    """
+
+    def test_uppercases_and_lowercases_when_configured(self):
+        assert _semantic_model_field_path("customer_id", True) == "customer_id"
+
+    def test_uppercases_and_preserves_case_when_disabled(self):
+        assert _semantic_model_field_path("customer_id", False) == "CUSTOMER_ID"
 
 
 # --- URN parsing (urn -> identity) and round trips ---
@@ -864,6 +879,55 @@ class TestRunMigration:
         assert "Entities skipped" in text
         assert "1" in text
 
+    def test_unexpected_error_for_one_urn_does_not_abort_batch(self):
+        graph = _graph_with_aspects(ownership=OwnershipClass(owners=[]))
+        ok_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.view_a,PROD)"
+        )
+        bad_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.view_b,PROD)"
+        )
+
+        def exists_side_effect(urn):
+            if urn == bad_urn:
+                raise RuntimeError("transient GMS error")
+            return True
+
+        graph.exists.side_effect = exists_side_effect
+
+        report = run_migration(
+            graph=graph,
+            direction=MigrationDirection.DATASET_TO_SM,
+            urns=[ok_urn, bad_urn],
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            env="PROD",
+            dry_run=False,
+            report_inbound_refs=False,
+        )
+
+        assert len(report.results) == 2
+        ok_result = next(r for r in report.results if r.src_urn == ok_urn)
+        bad_result = next(r for r in report.results if r.src_urn == bad_urn)
+        assert ok_result.error is None
+        assert bad_result.error is not None
+        assert "transient GMS error" in bad_result.error
+
+
+class TestSemanticViewMigrationReportRepr:
+    def test_shows_aspects_copied_before_failure(self):
+        result = EntityMigrationResult(src_urn="src", dst_urn="dst", error="boom")
+        result.aspects_copied.append("ownership")
+        result.fields_migrated.append("globalTags:col->dst")
+        report = SemanticViewMigrationReport(
+            direction=MigrationDirection.DATASET_TO_SM, dry_run=False, results=[result]
+        )
+
+        text = repr(report)
+        assert "ERROR: boom" in text
+        assert "aspects copied before failure: ['ownership']" in text
+        assert "field tags/terms copied before failure: globalTags:col->dst" in text
+
 
 class TestEntityMigrationResultDefaults:
     def test_defaults_are_independent_per_instance(self):
@@ -1089,6 +1153,42 @@ class TestFieldGovernanceFanOut:
 
         assert any("total_revenue" in entry for entry in result.fields_migrated)
         graph.emit_mcp.assert_not_called()
+
+    def test_one_field_failure_does_not_discard_others(self):
+        schema = SchemaMetadataClass(
+            schemaName="sales_analytics",
+            platform="urn:li:dataPlatform:snowflake",
+            version=0,
+            hash="",
+            platformSchema=OtherSchemaClass(rawSchema=""),
+            fields=[
+                _schema_field("CUSTOMER_ID", tags=[make_tag_urn("pii")]),
+                _schema_field("REGION", tags=[make_tag_urn("geo")]),
+            ],
+        )
+        graph = _graph_with_aspects(schemaMetadata=schema)
+
+        def emit_side_effect(mcp):
+            if mcp.entityUrn == self.DIM_FIELD:
+                raise RuntimeError("transient write failure")
+
+        graph.emit_mcp.side_effect = emit_side_effect
+
+        migrated, skipped = migrate_dataset_field_governance(
+            graph,
+            self.SRC,
+            self.SM,
+            SnowflakeViewIdentity(
+                db="test_db", schema="public", view="sales_analytics"
+            ),
+            platform_instance=None,
+            convert_urns_to_lowercase=True,
+            dry_run=False,
+        )
+
+        assert any("REGION" in entry for entry in migrated)
+        assert not any("CUSTOMER_ID" in entry for entry in migrated)
+        assert any("CUSTOMER_ID" in note for note in skipped)
 
 
 class TestSchemaFieldIsMetric:

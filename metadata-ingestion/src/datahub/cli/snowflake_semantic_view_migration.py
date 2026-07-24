@@ -17,6 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+from datahub.cli.migration_utils import INBOUND_REFERENCE_RELATIONSHIP_TYPES
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -94,18 +95,6 @@ SKIPPED_ASPECTS: List[str] = [
     "incidentsSummary",
     "testResults",
     "forms",
-]
-
-# Relationship types whose target aspects reference a dataset/semanticModel
-# by urn. We never rewrite these -- we only report them so operators know
-# what still points at the pre-migration urn.
-INBOUND_REFERENCE_RELATIONSHIP_TYPES: List[str] = [
-    "DownstreamOf",
-    "Consumes",
-    "Produces",
-    "ForeignKeyToDataset",
-    "DerivedFrom",
-    "IsPartOf",
 ]
 
 
@@ -550,29 +539,35 @@ def migrate_dataset_field_governance(
     """Fan out DataHub column tags/terms to metric entities or schemaField URNs.
 
     Returns (migrated entries, skip notes). Destination metric / schemaField URNs
-    need not exist yet (migrate-before-ingest).
+    need not exist yet (migrate-before-ingest). Each field is migrated independently
+    so one field's failure doesn't discard progress already made on the others.
     """
     migrated: List[str] = []
     skipped: List[str] = []
     for field_gov in collect_dataset_field_governance(graph, src_dataset_urn):
-        if field_gov.is_metric:
-            dst_urn = gen_metric_urn(
-                identity,
-                field_gov.column_name,
-                platform_instance,
-                convert_urns_to_lowercase,
+        try:
+            if field_gov.is_metric:
+                dst_urn = gen_metric_urn(
+                    identity,
+                    field_gov.column_name,
+                    platform_instance,
+                    convert_urns_to_lowercase,
+                )
+            else:
+                field_path = _semantic_model_field_path(
+                    field_gov.column_name, convert_urns_to_lowercase
+                )
+                dst_urn = make_schema_field_urn(semantic_model_urn, field_path)
+            if field_gov.global_tags is not None:
+                _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
+                migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
+            if field_gov.glossary_terms is not None:
+                _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
+                migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
+        except Exception as e:
+            skipped.append(
+                f"failed to migrate field governance for {field_gov.column_name}: {e}"
             )
-        else:
-            field_path = _semantic_model_field_path(
-                field_gov.column_name, convert_urns_to_lowercase
-            )
-            dst_urn = make_schema_field_urn(semantic_model_urn, field_path)
-        if field_gov.global_tags is not None:
-            _emit_aspect(graph, dst_urn, field_gov.global_tags, dry_run)
-            migrated.append(f"globalTags:{field_gov.column_name}->{dst_urn}")
-        if field_gov.glossary_terms is not None:
-            _emit_aspect(graph, dst_urn, field_gov.glossary_terms, dry_run)
-            migrated.append(f"glossaryTerms:{field_gov.column_name}->{dst_urn}")
     return migrated, skipped
 
 
@@ -813,6 +808,9 @@ def _maybe_fold_documentation_to_editable_dataset(
 
 
 def _fetch_inbound_refs(graph: DataHubGraph, urn: str) -> List[RelatedEntity]:
+    """References into a dataset/semanticModel by urn. We never rewrite these --
+    only report them so operators know what still points at the pre-migration urn.
+    """
     return list(
         graph.get_related_entities(
             entity_urn=urn,
@@ -982,6 +980,16 @@ def migrate_semantic_model_to_dataset(
 # --- Discovery ---
 
 
+def _status_filter(
+    include_soft_deleted: bool, only_soft_deleted: bool
+) -> RemovedStatusFilter:
+    if only_soft_deleted:
+        return RemovedStatusFilter.ONLY_SOFT_DELETED
+    if include_soft_deleted:
+        return RemovedStatusFilter.ALL
+    return RemovedStatusFilter.NOT_SOFT_DELETED
+
+
 def discover_semantic_view_dataset_urns(
     graph: DataHubGraph,
     env: Optional[str] = None,
@@ -997,12 +1005,7 @@ def discover_semantic_view_dataset_urns(
     operators have confirmed that set is intentional. ``only_soft_deleted`` is
     for the empty-discovery hint probe.
     """
-    if only_soft_deleted:
-        status = RemovedStatusFilter.ONLY_SOFT_DELETED
-    elif include_soft_deleted:
-        status = RemovedStatusFilter.ALL
-    else:
-        status = RemovedStatusFilter.NOT_SOFT_DELETED
+    status = _status_filter(include_soft_deleted, only_soft_deleted)
     return list(
         graph.get_urns_by_filter(
             entity_types=["dataset"],
@@ -1031,12 +1034,7 @@ def discover_semantic_model_urns(
     Defaults to live entities only. Use ``include_soft_deleted=True`` for
     flag-OFF rollback after stateful ingest soft-deletes the models.
     """
-    if only_soft_deleted:
-        status = RemovedStatusFilter.ONLY_SOFT_DELETED
-    elif include_soft_deleted:
-        status = RemovedStatusFilter.ALL
-    else:
-        status = RemovedStatusFilter.NOT_SOFT_DELETED
+    status = _status_filter(include_soft_deleted, only_soft_deleted)
     return list(
         graph.get_urns_by_filter(
             entity_types=["semanticModel"],
@@ -1115,6 +1113,15 @@ class SemanticViewMigrationReport:
                 lines.append(f"{prefix}    inbound refs not repointed: {refs}")
         for r in failed:
             lines.append(f"{prefix}  {r.src_urn}: ERROR: {r.error}")
+            if r.aspects_copied:
+                lines.append(
+                    f"{prefix}    aspects copied before failure: {r.aspects_copied}"
+                )
+            if r.fields_migrated:
+                lines.append(
+                    f"{prefix}    field tags/terms copied before failure: "
+                    f"{', '.join(r.fields_migrated)}"
+                )
         return "\n".join(lines)
 
 
@@ -1135,24 +1142,28 @@ def run_migration(
         subtype_skipped=list(subtype_skipped or []),
     )
     for urn in urns:
-        if direction == MigrationDirection.DATASET_TO_SM:
-            result = migrate_dataset_to_semantic_model(
-                graph,
-                urn,
-                platform_instance,
-                convert_urns_to_lowercase,
-                dry_run,
-                report_inbound_refs,
-            )
-        else:
-            result = migrate_semantic_model_to_dataset(
-                graph,
-                urn,
-                platform_instance,
-                convert_urns_to_lowercase,
-                env,
-                dry_run,
-                report_inbound_refs,
-            )
+        try:
+            if direction == MigrationDirection.DATASET_TO_SM:
+                result = migrate_dataset_to_semantic_model(
+                    graph,
+                    urn,
+                    platform_instance,
+                    convert_urns_to_lowercase,
+                    dry_run,
+                    report_inbound_refs,
+                )
+            else:
+                result = migrate_semantic_model_to_dataset(
+                    graph,
+                    urn,
+                    platform_instance,
+                    convert_urns_to_lowercase,
+                    env,
+                    dry_run,
+                    report_inbound_refs,
+                )
+        except Exception as e:
+            log.warning(f"Unexpected error migrating {urn}: {e}")
+            result = EntityMigrationResult(src_urn=urn, dst_urn="", error=str(e))
         report.results.append(result)
     return report
