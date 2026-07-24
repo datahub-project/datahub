@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
@@ -31,6 +32,15 @@ import org.dataloader.DataLoader;
 @Slf4j
 public class DashboardUsageStatsResolver
     implements DataFetcher<CompletableFuture<DashboardUsageQueryResult>> {
+
+  // Default cap for the absolute-metrics list when the caller passes no `limit`. Kept at/below
+  // top_hits' index.max_inner_result_window (OpenSearch default 100) so the null-limit fetch can be
+  // batched into one top_hits aggregation across a page of dashboards. A null (unbounded, up-to-
+  // 5000) default would exceed that cap and force the per-URN path. Callers needing more pass an
+  // explicit larger limit (which reverts to per-URN). Promote to a config property if it needs to
+  // be tunable per deployment.
+  private static final int DEFAULT_ABSOLUTE_METRICS_LIMIT = 100;
+
   private final TimeseriesAspectService timeseriesAspectService;
 
   // When true, the absolute-usage-metrics fetch is routed through the shared
@@ -66,13 +76,29 @@ public class DashboardUsageStatsResolver
     // Max number of aspects to return for absolute dashboard usage.
     final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
+    // The absolute-metrics docs feed only setMetrics() below (getAggregations derives its totals
+    // from the buckets), so skip the fetch entirely unless the caller selected the `metrics` field.
+    final boolean metricsRequested = environment.getSelectionSet().contains("metrics");
+    // Cap a null limit to a batchable default so the fetch collapses to one top_hits aggregation
+    // across the page rather than one getAspectValues per dashboard (see
+    // DEFAULT_ABSOLUTE_METRICS_LIMIT).
+    final Integer effectiveMetricsLimit =
+        maybeLimit != null ? maybeLimit : DEFAULT_ABSOLUTE_METRICS_LIMIT;
+
     // Enqueue the absolute-usage-metrics timeseries load eagerly, during field fetching, so the
     // DataLoader key is queued before graphql-java's dispatch tick. A key queued later (inside the
     // supplyAsync continuation below) would never be dispatched and the request would hang. Null
-    // when batching is disabled or the loader is unregistered; the per-URN fallback handles that.
+    // when metrics aren't selected, batching is disabled, or the loader is unregistered; the
+    // per-URN fallback handles the latter two.
     final CompletableFuture<List<EnvelopedAspect>> metricsFuture =
-        maybeLoadUsageMetrics(
-            environment, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
+        metricsRequested
+            ? maybeLoadUsageMetrics(
+                environment,
+                dashboardUrn,
+                maybeStartTimeMillis,
+                maybeEndTimeMillis,
+                effectiveMetricsLimit)
+            : null;
 
     // Enqueue the daily-buckets aggregation eagerly too, for the same dispatch-timing reason as the
     // metrics load. Null when agg-batching is disabled or the loader is unregistered.
@@ -86,13 +112,15 @@ public class DashboardUsageStatsResolver
             context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, bucketsFuture);
 
     final CompletableFuture<List<DashboardUsageMetrics>> metricsResultFuture =
-        resolveUsageMetrics(
-            context,
-            dashboardUrn,
-            maybeStartTimeMillis,
-            maybeEndTimeMillis,
-            maybeLimit,
-            metricsFuture);
+        metricsRequested
+            ? resolveUsageMetrics(
+                context,
+                dashboardUrn,
+                maybeStartTimeMillis,
+                maybeEndTimeMillis,
+                effectiveMetricsLimit,
+                metricsFuture)
+            : CompletableFuture.completedFuture(Collections.emptyList());
 
     return bucketStatsFuture.thenCombine(
         metricsResultFuture,

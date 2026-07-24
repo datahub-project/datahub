@@ -144,6 +144,8 @@ Requirements:
 
 - #17721: **(Ingestion / Snowplow)** The connector now fetches pipeline enrichments from the supported `pipelines/v1/{pipelineId}/enrichments` endpoint instead of the deprecated `resources/v1/.../configuration/enrichments` endpoint Snowplow is retiring. Because the new payload no longer returns the per-enrichment UUID, enrichment **DataJob URNs are now derived from the enrichment name** (e.g. `...,campaign-attribution)` instead of `...,07409eac-...)`. Existing enrichment DataJobs ingested under the old UUID-based URNs are re-created under the new name-based URNs on the next run. If stateful ingestion is enabled, the old UUID-based DataJobs are soft-deleted by stale-entity removal; otherwise they persist as stale DataJobs and must be cleaned up manually. No recipe changes are required.
 
+- #18266 **(GraphQL / Dashboard.usageStats)** When `Dashboard.usageStats` is queried with the `metrics` field and **no `limit` argument**, the returned list of absolute usage-metric snapshots is now capped at **100** (previously up to 5000). This lets the absolute-metrics fetch batch across a page of dashboards into a single query instead of one per dashboard. Dashboards with 100 or fewer snapshots in the queried window are unaffected; those with more have their `metrics` list truncated to the 100 most recent. The daily `buckets` and the rolled-up `aggregations` are unchanged. **Action:** callers that need more than 100 absolute snapshots must pass an explicit `limit` to `usageStats(limit: ...)`.
+
 ### Known Issues
 
 ### Potential Downtime

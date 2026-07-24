@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.dashboard.DashboardUsageStatistics;
 import com.linkedin.data.template.StringArrayArray;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.timeseries.GenericTable;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.DataFetchingFieldSelectionSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -122,6 +124,33 @@ public class DashboardUsageStatsResolverTest {
         .getAggregatedStats(any(), any(), any(), any(), any(), any());
   }
 
+  @Test
+  public void testMetricsSkippedWhenNotSelected() throws Exception {
+    // When the client does not select the `metrics` field, the resolver must skip the absolute-
+    // metrics fetch entirely (no per-URN getAspectValues, no loader dispatch) while still returning
+    // buckets/aggregations — eliminating the metrics fan-out for buckets-only queries.
+    TimeseriesAspectService tsService = Mockito.mock(TimeseriesAspectService.class);
+    mockEmptyAggregations(tsService);
+
+    QueryContext context = getMockAllowContext();
+    Harness h = harnessWithBucketsLoader(context, Collections.singletonList(usageBucket(0L, 55)));
+    // `metrics` NOT selected — override the default (selected) stub.
+    DataFetchingFieldSelectionSet noMetrics = selectionSet(false);
+    Mockito.when(h.env.getSelectionSet()).thenReturn(noMetrics);
+
+    // batchLoadEnabled=true: metrics WOULD be fetched if selected; prove it isn't.
+    DashboardUsageQueryResult result =
+        drive(new DashboardUsageStatsResolver(tsService, true, true), h);
+
+    assertNotNull(result);
+    assertEquals(result.getBuckets().size(), 1); // buckets still resolved
+    Mockito.verify(tsService, Mockito.never())
+        .getAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
+    assertTrue(
+        result.getMetrics() == null || result.getMetrics().isEmpty(),
+        "metrics must be empty when the field is not selected");
+  }
+
   // ---- helpers ----
 
   private static final class Harness {
@@ -185,7 +214,16 @@ public class DashboardUsageStatsResolverTest {
     Mockito.when(env.getSource()).thenReturn(source);
     Mockito.when(env.getContext()).thenReturn(context);
     Mockito.when(env.getDataLoaderRegistry()).thenReturn(registry);
+    // These tests assert the absolute-metrics path, so treat `metrics` as selected by default.
+    DataFetchingFieldSelectionSet metricsSelected = selectionSet(true);
+    Mockito.when(env.getSelectionSet()).thenReturn(metricsSelected);
     return env;
+  }
+
+  private static DataFetchingFieldSelectionSet selectionSet(boolean metricsSelected) {
+    DataFetchingFieldSelectionSet sel = Mockito.mock(DataFetchingFieldSelectionSet.class);
+    Mockito.when(sel.contains("metrics")).thenReturn(metricsSelected);
+    return sel;
   }
 
   private static void mockEmptyAggregations(TimeseriesAspectService tsService) {
