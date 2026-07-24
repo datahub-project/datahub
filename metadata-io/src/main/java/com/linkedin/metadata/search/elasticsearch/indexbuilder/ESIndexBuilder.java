@@ -19,6 +19,10 @@ import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureDetail;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParseResult;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
@@ -898,7 +902,39 @@ public class ESIndexBuilder {
   public record PollReindexResult(
       boolean completed,
       Map<String, Object> latestReindexInfo,
-      Pair<Long, Long> finalDocumentCounts) {}
+      Pair<Long, Long> finalDocumentCounts,
+      @Nonnull List<TaskFailureDetail> failures,
+      int totalFailureCount) {
+
+    public PollReindexResult {
+      failures = failures == null ? List.of() : failures;
+      if (totalFailureCount < failures.size()) {
+        totalFailureCount = failures.size();
+      }
+    }
+
+    /** No document-failure details (legacy / happy-path callers). */
+    public PollReindexResult(
+        boolean completed,
+        Map<String, Object> latestReindexInfo,
+        Pair<Long, Long> finalDocumentCounts) {
+      this(completed, latestReindexInfo, finalDocumentCounts, List.of(), 0);
+    }
+
+    /** Convenience when total equals the (possibly uncapped) list size. */
+    public PollReindexResult(
+        boolean completed,
+        Map<String, Object> latestReindexInfo,
+        Pair<Long, Long> finalDocumentCounts,
+        @Nullable List<TaskFailureDetail> failures) {
+      this(
+          completed,
+          latestReindexInfo,
+          finalDocumentCounts,
+          failures,
+          failures == null ? 0 : failures.size());
+    }
+  }
 
   /**
    * Polls an in-progress reindex until document counts converge or timeout. Includes stall
@@ -942,6 +978,8 @@ public class ESIndexBuilder {
     final long pollStartTimeMillis = documentCountsLastUpdated;
     final long pollStartDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
+    List<TaskFailureDetail> failures = List.of();
+    int totalFailureCount = 0;
 
     while (System.currentTimeMillis() < timeoutAt) {
       log.info(
@@ -972,7 +1010,8 @@ public class ESIndexBuilder {
             sourceIndex,
             destIndex,
             documentCounts.getFirst());
-        return new PollReindexResult(true, latestReindexInfo, documentCounts);
+        return new PollReindexResult(
+            true, latestReindexInfo, documentCounts, failures, totalFailureCount);
       }
 
       float progressPercentage =
@@ -1004,6 +1043,12 @@ public class ESIndexBuilder {
       final boolean completedButShort =
           taskStatus.map(GetTaskResponse::isCompleted).orElse(false)
               && documentCounts.getSecond() < documentCounts.getFirst();
+
+      // Completed task with short dest → likely mapper/bulk drops. Fetch failures[] once for
+      // diagnosis only (timeout path also fetches). Log-only here; retry/outcome logic unchanged.
+      if (completedButShort) {
+        fetchTaskFailuresBestEffort(opContext, activeTaskId, sourceIndex, destIndex);
+      }
 
       final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
       final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
@@ -1045,15 +1090,56 @@ public class ESIndexBuilder {
       Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
     }
 
-    log.error(
-        "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
-        sourceIndex,
-        destIndex,
-        documentCounts.getSecond(),
-        documentCounts.getFirst(),
-        activeTaskId,
-        describeReindexTaskStatus(tryGetReindexTaskStatus(opContext, activeTaskId)));
-    return new PollReindexResult(false, latestReindexInfo, documentCounts);
+    // Timeout: ONE getTaskWithFailures (not getTask + WithFailures). Counters + failures[] logged
+    // inside.
+    TaskFailureParseResult timeoutFailures =
+        fetchTaskFailuresBestEffort(opContext, activeTaskId, sourceIndex, destIndex);
+    failures = timeoutFailures.details();
+    totalFailureCount = timeoutFailures.totalCount();
+    return new PollReindexResult(
+        false, latestReindexInfo, documentCounts, failures, totalFailureCount);
+  }
+
+  /**
+   * Best-effort single {@code _tasks} failure fetch. Call only from failure/timeout paths. Never
+   * throws.
+   */
+  @Nonnull
+  private TaskFailureParseResult fetchTaskFailuresBestEffort(
+      @Nonnull OperationContext opContext,
+      @Nullable String taskId,
+      @Nullable String sourceIndex,
+      @Nullable String destIndex) {
+    if (taskId == null || taskId.isEmpty()) {
+      return TaskFailureParseResult.EMPTY;
+    }
+    try {
+      Optional<TaskResultWithFailures> taskResult = getTaskStatusWithFailures(opContext, taskId);
+      TaskFailureParseResult parseResult =
+          taskResult.map(TaskResultWithFailures::failureParse).orElse(TaskFailureParseResult.EMPTY);
+      String status =
+          taskResult
+              .map(r -> describeReindexTaskStatus(r.taskResponse()))
+              .orElse("status unavailable");
+      String failurePart = TaskFailureParser.formatForLog(parseResult, 5);
+      // Always log counters (#18549 timeout diagnosis); append failures[] when present.
+      log.error(
+          "Reindex {} -> {} timed out or exhausted retries. Last reindex task [{}]: {}{}",
+          sourceIndex,
+          destIndex,
+          taskId,
+          status,
+          failurePart.isEmpty() ? "" : ", " + failurePart);
+      return parseResult;
+    } catch (Exception e) {
+      log.warn(
+          "Failed to fetch task status with failures for task {} ({} -> {}): {}",
+          taskId,
+          sourceIndex,
+          destIndex,
+          e.toString());
+      return TaskFailureParseResult.EMPTY;
+    }
   }
 
   /**
@@ -1086,20 +1172,16 @@ public class ESIndexBuilder {
    * finished (or stalled) while dropping documents — information the doc-count-only monitoring is
    * blind to.
    *
-   * <p>Note: per-document failure details ({@code failures[]}) live in the task <em>response</em>
-   * body, which {@code GetTaskResponse} does not expose (it parses only the task {@code status}
-   * counters). {@code versionConflicts} is the counter that surfaces the silent-drop case here; the
-   * exhaustive {@code failures[]} array can be retrieved out-of-band via the {@code
-   * /openapi/operations/elasticSearch/getTaskStatus} endpoint or a direct {@code GET
-   * _tasks/<taskId>} against the cluster.
+   * <p>Per-document {@code failures[]} are not on {@link GetTaskResponse}; use {@link
+   * #getTaskStatusWithFailures} when those details are needed (failure/timeout paths only).
    */
   // Package-private for direct unit testing of the counter formatting.
   static String describeReindexTaskStatus(@Nonnull final GetTaskResponse response) {
-    final Task.Status status =
-        response.getTaskInfo() != null ? response.getTaskInfo().getStatus() : null;
-    if (status == null) {
-      return String.format("completed=%s, status=<unavailable>", response.isCompleted());
+    final TaskInfo info = response.getTaskInfo();
+    if (info == null) {
+      return String.format("completed=%s", response.isCompleted());
     }
+    final Task.Status status = info.getStatus();
     if (status instanceof BulkByScrollTask.Status) {
       final BulkByScrollTask.Status s = (BulkByScrollTask.Status) status;
       return String.format(
@@ -1115,8 +1197,13 @@ public class ESIndexBuilder {
           s.getBulkRetries(),
           s.getSearchRetries());
     }
-    // Fallback for any non-reindex status type: Task.Status renders its counters via toString().
-    return String.format("completed=%s, status=%s", response.isCompleted(), status);
+    return String.format(
+        "completed=%s action=%s description=%s runningTimeNanos=%d cancelled=%s",
+        response.isCompleted(),
+        info.getAction(),
+        info.getDescription(),
+        info.getRunningTimeNanos(),
+        info.isCancelled());
   }
 
   // --- Shared helper methods used by both legacy reindex() and incremental path ---
@@ -2014,15 +2101,35 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Get the status of a reindex task using the Task API. Task ID format is "nodeId:taskId"
+   * Formats a {@link GetTaskResponse} plus parsed document failures for diagnostic logging. Limits
+   * detail to the first 5 failures to keep log lines bounded.
+   */
+  @VisibleForTesting
+  static String describeReindexTaskStatus(
+      @Nonnull GetTaskResponse response, @Nonnull List<TaskFailureDetail> failures) {
+    return describeReindexTaskStatus(response, failures, failures.size());
+  }
+
+  @VisibleForTesting
+  static String describeReindexTaskStatus(
+      @Nonnull GetTaskResponse response,
+      @Nonnull List<TaskFailureDetail> failures,
+      int totalFailureCount) {
+    String base = describeReindexTaskStatus(response);
+    String formatted = TaskFailureParser.formatForLog(failures, 5, totalFailureCount);
+    if (formatted.isEmpty()) {
+      return base;
+    }
+    return base + ", " + formatted;
+  }
+
+  /**
+   * Builds and validates a {@link GetTaskRequest} from a "nodeId:taskId" string.
    *
    * @param taskId The full task ID in format "nodeId:taskId"
-   * @return Optional containing GetTaskResponse if task exists
-   * @throws IOException If there's an error communicating with Elasticsearch
+   * @throws IllegalArgumentException If the task ID is malformed
    */
-  public Optional<GetTaskResponse> getTaskStatus(
-      @Nonnull OperationContext opContext, @Nonnull String taskId) throws IOException {
-    // Validate input
+  private static GetTaskRequest buildGetTaskRequest(@Nonnull String taskId) {
     if (taskId == null || taskId.isEmpty()) {
       throw new IllegalArgumentException("Task ID cannot be null or empty");
     }
@@ -2049,12 +2156,53 @@ public class ESIndexBuilder {
           "Task ID must be numeric. Expected 'nodeId:taskId', got: " + taskId, e);
     }
 
-    GetTaskRequest request = new GetTaskRequest(nodeId, numericTaskId);
+    return new GetTaskRequest(nodeId, numericTaskId);
+  }
+
+  /**
+   * Get the status of a reindex task using the Task API. Task ID format is "nodeId:taskId"
+   *
+   * @param taskId The full task ID in format "nodeId:taskId"
+   * @return Optional containing GetTaskResponse if task exists
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  public Optional<GetTaskResponse> getTaskStatus(
+      @Nonnull OperationContext opContext, @Nonnull String taskId) throws IOException {
+    GetTaskRequest request = buildGetTaskRequest(taskId);
     try {
       return taskStatusRetry.executeSupplier(
           () -> {
             try {
               return searchClient.getTask(request, RequestOptions.DEFAULT);
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (RuntimeException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Like {@link #getTaskStatus} but also returns document failures parsed from the raw task API
+   * JSON ({@code response.failures[]}), which {@link GetTaskResponse} does not retain.
+   *
+   * @param taskId The full task ID in format "nodeId:taskId"
+   * @return Optional containing the task response plus any document failures, if the task exists
+   * @throws IOException If there's an error communicating with Elasticsearch
+   */
+  @Nonnull
+  public Optional<TaskResultWithFailures> getTaskStatusWithFailures(
+      @Nonnull OperationContext opContext, @Nonnull String taskId) throws IOException {
+    GetTaskRequest request = buildGetTaskRequest(taskId);
+    try {
+      return taskStatusRetry.executeSupplier(
+          () -> {
+            try {
+              return searchClient.getTaskWithFailures(request, RequestOptions.DEFAULT);
             } catch (IOException e) {
               throw new RuntimeException(e);
             }

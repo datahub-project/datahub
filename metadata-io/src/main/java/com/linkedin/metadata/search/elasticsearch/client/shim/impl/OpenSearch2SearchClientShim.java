@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
@@ -94,6 +95,7 @@ import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 import org.opensearch.client.RestHighLevelClient;
@@ -581,6 +583,35 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   public Optional<GetTaskResponse> getTask(GetTaskRequest request, RequestOptions options)
       throws IOException {
     return client.tasks().get(request, options);
+  }
+
+  /**
+   * Uses the low-level REST client so we retain raw JSON (including {@code response.failures[]})
+   * that the HLRC {@link GetTaskResponse} parser drops.
+   */
+  @Nonnull
+  @Override
+  public Optional<TaskResultWithFailures> getTaskWithFailures(
+      GetTaskRequest request, RequestOptions options) throws IOException {
+    String taskId = request.getNodeId() + ":" + request.getTaskId();
+    org.opensearch.client.Request lowLevelReq =
+        new org.opensearch.client.Request("GET", "/_tasks/" + taskId);
+    if (request.getWaitForCompletion()) {
+      lowLevelReq.addParameter("wait_for_completion", "true");
+    }
+    if (request.getTimeout() != null) {
+      lowLevelReq.addParameter("timeout", request.getTimeout().getStringRep());
+    }
+    if (options != null) {
+      lowLevelReq.setOptions(options);
+    }
+    try {
+      Response response = client.getLowLevelClient().performRequest(lowLevelReq);
+      return TaskWithFailuresRawResponse.fromEntity(response.getEntity());
+    } catch (ResponseException e) {
+      return TaskWithFailuresRawResponse.emptyIfNotFound(
+          e.getResponse().getStatusLine().getStatusCode(), e);
+    }
   }
 
   // Metadata and introspection

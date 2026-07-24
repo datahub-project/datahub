@@ -23,6 +23,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureDetail;
+import com.linkedin.metadata.utils.elasticsearch.TaskResultWithFailures;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
@@ -2220,5 +2222,102 @@ public class ESIndexBuilderTest {
     assertTrue(result.nextIndexName().startsWith(TEST_INDEX_NAME + "_0_13_1-0_"));
     assertTrue(result.reindexStartTime() > 0);
     Assert.assertFalse(result.skippedEmpty());
+  }
+
+  @Test
+  void testPollReindexCompletion_HappyPath_DoesNotFetchTaskFailures() throws Throwable {
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(100L);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    ESIndexBuilder spyBuilder = spy(indexBuilder);
+
+    // Doc counts converge (100 == 100) on the first poll -> completes without any failure fetch.
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:999");
+
+    assertTrue(pollResult.completed());
+    assertTrue(pollResult.failures().isEmpty());
+    assertEquals(pollResult.totalFailureCount(), 0);
+    verify(spyBuilder, never()).getTaskStatusWithFailures(any(OperationContext.class), anyString());
+  }
+
+  @Test
+  void testPollReindexCompletion_TimeoutFetchesFailuresOnce() throws Throwable {
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(50L);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    ESIndexBuilder spyBuilder = spy(indexBuilder);
+    // Timeout already elapsed -> poll loop skipped, single failure fetch on the timeout path.
+    doReturn(System.currentTimeMillis() - 1000L).when(spyBuilder).computeTimeoutAt();
+
+    GetTaskResponse taskResponse = mock(GetTaskResponse.class);
+    when(taskResponse.isCompleted()).thenReturn(true);
+    when(taskResponse.getTaskInfo()).thenReturn(null);
+    TaskFailureDetail failure =
+        new TaskFailureDetail("dest_index", "doc42", "mapper_parsing_exception", "bad field", 1);
+    doReturn(Optional.of(new TaskResultWithFailures(taskResponse, List.of(failure), 3)))
+        .when(spyBuilder)
+        .getTaskStatusWithFailures(any(OperationContext.class), eq("node1:999"));
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:999");
+
+    assertFalse(pollResult.completed());
+    assertEquals(pollResult.failures().size(), 1);
+    assertEquals(pollResult.failures().get(0).documentId(), "doc42");
+    assertEquals(pollResult.failures().get(0).causeType(), "mapper_parsing_exception");
+    assertEquals(pollResult.failures().get(0).index(), "dest_index");
+    assertEquals(pollResult.failures().get(0).shard(), 1);
+    assertEquals(pollResult.totalFailureCount(), 3);
+    verify(spyBuilder, times(1))
+        .getTaskStatusWithFailures(any(OperationContext.class), eq("node1:999"));
+  }
+
+  @Test
+  void testPollReindexCompletion_TimeoutLookupThrowStillReturnsIncomplete() throws Throwable {
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(50L);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    ESIndexBuilder spyBuilder = spy(indexBuilder);
+    doReturn(System.currentTimeMillis() - 1000L).when(spyBuilder).computeTimeoutAt();
+    doThrow(new RuntimeException("task status unavailable"))
+        .when(spyBuilder)
+        .getTaskStatusWithFailures(any(OperationContext.class), eq("node1:888"));
+
+    ESIndexBuilder.PollReindexResult pollResult =
+        spyBuilder.pollReindexCompletion(
+            opContext, "source_index", "dest_index", () -> 100L, 1, new HashMap<>(), "node1:888");
+
+    assertFalse(
+        pollResult.completed(),
+        "timed-out poll stays incomplete; a throwing failure lookup must not abort it");
+    assertTrue(pollResult.failures().isEmpty());
+    assertEquals(pollResult.totalFailureCount(), 0);
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 
+import com.google.common.base.Throwables;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -16,6 +17,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.In
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.TaskFailureParser;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -279,7 +281,17 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.nextIndexName(),
                   indexBuilder,
                   pollResult.completed());
+          // Per-doc details already logged in poll timeout path (fetchTaskFailuresBestEffort).
           if (!pollResult.completed()) {
+            String formatted =
+                TaskFailureParser.formatForLog(
+                    pollResult.failures(), 5, pollResult.totalFailureCount());
+            context
+                .report()
+                .addLine(
+                    String.format(
+                        "%s failed: Incremental reindex timed out for index: %s%s",
+                        id(), config.name(), formatted.isEmpty() ? "" : " " + formatted));
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
           // Restore normal index settings after successful reindex
@@ -321,7 +333,19 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         checkpoint(context, upgradeState, DataHubUpgradeState.SUCCEEDED);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
-        log.error("BuildIndicesIncrementalStep failed", e);
+        Throwable root = Throwables.getRootCause(e);
+        log.error(
+            "{} failed. Root cause: [{}] {}",
+            id(),
+            root.getClass().getSimpleName(),
+            root.getMessage(),
+            e);
+        context
+            .report()
+            .addLine(
+                String.format(
+                    "%s failed. Root cause: [%s] %s",
+                    id(), root.getClass().getSimpleName(), root.getMessage()));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
