@@ -373,7 +373,7 @@ class S3Source(StatefulIngestionSourceBase):
         elif content_type == "text/tab-separated-values":
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/avro":
             return avro.AvroInferrer()
         elif extension == ".parquet":
@@ -387,7 +387,7 @@ class S3Source(StatefulIngestionSourceBase):
                 max_rows=self.source_config.max_rows, format="jsonl"
             )
         elif extension == ".json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".avro":
             return avro.AvroInferrer()
         else:

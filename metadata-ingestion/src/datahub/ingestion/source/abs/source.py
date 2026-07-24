@@ -209,7 +209,9 @@ class ABSSource(StatefulIngestionSourceBase):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
                     max_rows=self.source_config.max_rows, format="jsonl"

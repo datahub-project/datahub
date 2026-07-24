@@ -130,6 +130,61 @@ def test_infer_schema_json_single_object():
         assert_field_types_match(fields, expected_field_types)
 
 
+def test_bounded_json_value_truncates_arrays():
+    """A single JSON object with a huge array must not be fully materialized:
+    arrays are truncated to max_rows while structure and native types survive."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            ujson.dumps(
+                {"big": list(range(1000)), "meta": {"n": 3}, "flag": True}
+            ).encode("utf-8")
+        )
+        file.seek(0)
+
+        result = json._bounded_json_value(file, max_rows=10)
+
+    assert isinstance(result, dict)
+    assert result["big"] == list(range(10))
+    assert isinstance(result["big"][0], int)  # native int, not ijson's Decimal
+    assert result["meta"] == {"n": 3}
+    assert result["flag"] is True
+
+
+def test_bounded_json_value_truncates_array_of_objects():
+    """Array elements beyond max_rows that are themselves objects are skipped
+    without being materialized (exercises the nested-container skip path)."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps({"rows": [{"a": i} for i in range(50)]}).encode("utf-8"))
+        file.seek(0)
+
+        result = json._bounded_json_value(file, max_rows=3)
+
+    assert [r["a"] for r in result["rows"]] == [0, 1, 2]
+
+
+def test_infer_schema_json_single_object_large_array_capped():
+    """Schema inference on a single object with a giant array still works and
+    is bounded (regression guard for the ujson.load whole-file fallback)."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            ujson.dumps(
+                {
+                    "integer_field": 1,
+                    "boolean_field": True,
+                    "string_field": "a",
+                    "big_array": list(range(5000)),
+                }
+            ).encode("utf-8")
+        )
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=10).infer_schema(file)
+
+    field_paths = [f.fieldPath for f in fields]
+    assert "integer_field" in field_paths
+    assert "big_array" in field_paths
+
+
 def test_infer_schema_json_fallback_to_jsonlines():
     """Verify that JSONL content with .json extension falls back correctly."""
     with tempfile.TemporaryFile(mode="w+b") as file:
