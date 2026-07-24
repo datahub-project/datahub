@@ -12,8 +12,8 @@
 import type { Page, Route } from '@playwright/test';
 
 /**
- * Match DataHub GraphQL requests with or without `?operationName=...`.
- * Playwright globs like `**/api/v2/graphql` only match the bare path; after the
+ * Match DataHub GraphQL requests with or without ?operationName=...
+ * Playwright path globs that end at /graphql only match the bare path; after the
  * UI started appending operation names for Chrome Network filtering, those
  * patterns stopped intercepting browser GraphQL calls.
  */
