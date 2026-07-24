@@ -47,6 +47,7 @@ describe('buildAssertionListFilters', () => {
                 expect.objectContaining({
                     field: ASSERTION_STATUS_FILTER_NAME,
                     values: ['FAILING'],
+                    condition: FilterOperator.Equal,
                 }),
                 expect.objectContaining({
                     field: TAGS_FILTER_NAME,
@@ -81,7 +82,7 @@ describe('buildAssertionListFilters', () => {
                 expect.objectContaining({
                     field: 'sourceType',
                     values: [AssertionSourceType.Native, AssertionSourceType.Inferred],
-                    condition: FilterOperator.In,
+                    condition: FilterOperator.Equal,
                     negated: true,
                 }),
             ]),

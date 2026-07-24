@@ -89,20 +89,20 @@ export const buildAssertionListFilters = (
         filters.push({
             field: ASSERTION_STATUS_FILTER_NAME,
             values: status.map(mapAssertionResultTypeToStatus),
-            condition: FilterOperator.In,
+            condition: FilterOperator.Equal,
         });
     }
     if (type.length) {
-        filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: type, condition: FilterOperator.In });
+        filters.push({ field: ASSERTION_TYPE_FILTER_NAME, values: type, condition: FilterOperator.Equal });
     }
     if (tags.length) {
-        filters.push({ field: TAGS_FILTER_NAME, values: tags, condition: FilterOperator.In });
+        filters.push({ field: TAGS_FILTER_NAME, values: tags, condition: FilterOperator.Equal });
     }
     if (column.length) {
-        filters.push({ field: ASSERTION_FIELD_PATH_FILTER_NAME, values: column, condition: FilterOperator.In });
+        filters.push({ field: ASSERTION_FIELD_PATH_FILTER_NAME, values: column, condition: FilterOperator.Equal });
     }
     if (owners.length) {
-        filters.push({ field: OWNERS_FILTER_NAME, values: owners, condition: FilterOperator.In });
+        filters.push({ field: OWNERS_FILTER_NAME, values: owners, condition: FilterOperator.Equal });
     }
 
     const includesExternal = source.includes(AssertionSourceType.External);
@@ -111,7 +111,7 @@ export const buildAssertionListFilters = (
         filters.push({
             field: ASSERTION_SOURCE_FILTER_NAME,
             values: [AssertionSourceType.Native, AssertionSourceType.Inferred],
-            condition: FilterOperator.In,
+            condition: FilterOperator.Equal,
             negated: true,
         });
     } else if (includesExternal && indexedSources.length === 1) {
@@ -129,7 +129,7 @@ export const buildAssertionListFilters = (
         filters.push({
             field: ASSERTION_SOURCE_FILTER_NAME,
             values: indexedSources,
-            condition: FilterOperator.In,
+            condition: FilterOperator.Equal,
         });
     }
 
