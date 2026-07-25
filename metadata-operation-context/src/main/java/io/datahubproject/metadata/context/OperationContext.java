@@ -12,6 +12,8 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.ByteString;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -19,7 +21,9 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -27,6 +31,7 @@ import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -35,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -291,6 +297,17 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   // This is per-operation and not shared across threads, so ArrayList is safe
   @Builder.Default @Nonnull
   private final List<Object> pendingDeletions = new java.util.ArrayList<>();
+
+  // Per-operation cache of deserialized aspects. When multiple MetadataChangeLogHooks process the
+  // same MetadataChangeLog they share a single OperationContext instance, so the aspect bytes are
+  // deserialized once and reused across hooks instead of re-parsed by each. Keyed by the raw aspect
+  // ByteString (which distinguishes current vs previous values and dedups identical payloads) then
+  // by target class. Per-operation and not shared across threads, so HashMap is safe.
+  @Builder.Default
+  @Nonnull
+  @Getter(AccessLevel.NONE)
+  private final Map<ByteString, Map<Class<?>, RecordTemplate>> aspectDecodeCache =
+      new java.util.HashMap<>();
 
   public OperationContext withSearchFlags(
       @Nonnull Function<SearchFlags, SearchFlags> flagDefaults) {
@@ -661,6 +678,70 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     pendingDeletions.clear();
   }
 
+  /**
+   * Deserialize a {@link GenericAspect} into the given aspect class, caching the result for the
+   * lifetime of this OperationContext. Multiple {@link com.linkedin.mxe.MetadataChangeLog} hooks
+   * that process the same event share one OperationContext instance, so this parses the aspect
+   * bytes once and returns the cached instance to subsequent callers instead of re-deserializing
+   * per hook.
+   *
+   * <p>Returns {@code null} when {@code aspect} is {@code null} (e.g. an absent previous value).
+   * The returned {@link RecordTemplate} is shared across callers and MUST be treated as read-only;
+   * use {@link GenericRecordUtils#copy} if a mutable copy is required.
+   *
+   * @param aspect the generic aspect to deserialize, or null
+   * @param clazz the aspect record class to deserialize into
+   * @return the (cached) deserialized aspect, or null if {@code aspect} is null
+   */
+  @Nullable
+  public <T extends RecordTemplate> T getDecodedAspect(
+      @Nullable GenericAspect aspect, @Nonnull Class<T> clazz) {
+    if (aspect == null) {
+      return null;
+    }
+    Map<Class<?>, RecordTemplate> byClass =
+        aspectDecodeCache.computeIfAbsent(aspect.getValue(), k -> new java.util.HashMap<>());
+    RecordTemplate cached = byClass.get(clazz);
+    if (cached != null) {
+      return clazz.cast(cached);
+    }
+    T decoded =
+        GenericRecordUtils.deserializeAspect(aspect.getValue(), aspect.getContentType(), clazz);
+    byClass.put(clazz, decoded);
+    return decoded;
+  }
+
+  /**
+   * Returns a shallow copy of this context carrying a fresh, empty {@link #getDecodedAspect} cache.
+   * All other sub-contexts (including {@code pendingDeletions}) are shared by reference; only the
+   * per-message aspect-decode cache is reset.
+   *
+   * <p>The inbound event path must call this once per message so each message gets an isolated
+   * cache. The base/system OperationContext is a long-lived singleton — caching decoded aspects on
+   * it directly would accumulate for the JVM lifetime (memory leak) and be read/written by multiple
+   * consumer threads concurrently (data race). A per-message copy is thread-confined to the
+   * consumer thread processing that message and is discarded when the message completes.
+   */
+  @Nonnull
+  public OperationContext withFreshAspectDecodeCache() {
+    return new OperationContext(
+        operationContextConfig,
+        sessionActorContext,
+        systemActorContext,
+        searchContext,
+        authorizationContext,
+        entityRegistryContext,
+        servicesRegistryContext,
+        requestContext,
+        retrieverContext,
+        objectMapperContext,
+        validationContext,
+        systemTelemetryContext,
+        primaryStorageContext,
+        pendingDeletions,
+        new java.util.HashMap<>());
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -751,7 +832,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
               this.primaryStorageContext != null
                   ? this.primaryStorageContext
                   : PrimaryStorageContext.EMPTY,
-              new java.util.ArrayList<>());
+              new java.util.ArrayList<>(),
+              new java.util.HashMap<>());
 
       if (!sessionActor.isActive(authContext, retriever)) {
         throw new ActorAccessException("Actor is not active");

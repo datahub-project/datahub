@@ -412,23 +412,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
    */
   private UpstreamLineage getUpstreamLineageFromEvent(
       final OperationContext operationContext, final MetadataChangeLog event) {
-    EntitySpec entitySpec;
     if (!event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       return null;
     }
-
-    try {
-      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException(
-          "Failed to get UpstreamLineage from MetadataChangeLog event. Skipping processing.", e);
-    }
-    return (UpstreamLineage)
-        GenericRecordUtils.deserializeAspect(
-            event.getAspect().getValue(),
-            event.getAspect().getContentType(),
-            entitySpec.getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME));
+    return operationContext.getDecodedAspect(event.getAspect(), UpstreamLineage.class);
   }
 
   /**
@@ -437,23 +424,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
    */
   private SubTypes getSubtypesFromEvent(
       final OperationContext operationContext, final MetadataChangeLog event) {
-    EntitySpec entitySpec;
     if (!event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)) {
       return null;
     }
-
-    try {
-      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException(
-          "Failed to get SubTypes from MetadataChangeLog event. Skipping processing.", e);
-    }
-    return (SubTypes)
-        GenericRecordUtils.deserializeAspect(
-            event.getAspect().getValue(),
-            event.getAspect().getContentType(),
-            entitySpec.getAspectSpec(SUB_TYPES_ASPECT_NAME));
+    return operationContext.getDecodedAspect(event.getAspect(), SubTypes.class);
   }
 
   @SneakyThrows
