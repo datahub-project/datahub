@@ -105,6 +105,24 @@ def test_table_pattern_matches_fully_qualified_name(bq):
     assert by_name["orders"].excluded_by == "table_pattern"
 
 
+def test_excluded_view_reports_table_pattern_as_the_reason(bq):
+    # Quirk: unlike Snowflake (which splits table_pattern/view_pattern), BigQuery's
+    # classify_table always names "table_pattern" as excluded_by, even for a view —
+    # only the node's own pattern_field stays "view_pattern". Pinned here so a
+    # declarative rewrite can't silently "fix" this into two distinct reasons.
+    bq.config.table_pattern = AllowDenyPattern(allow=[".*"], deny=[".*\\.v_orders$"])
+    by_name = {
+        n.name: n
+        for n in list_bigquery_children(
+            bq.config, ["acryl-staging", "smoke_test_db"], 100
+        ).nodes
+    }
+    assert by_name["v_orders"].kind == DatasetSubTypes.VIEW
+    assert by_name["v_orders"].included is False
+    assert by_name["v_orders"].excluded_by == "table_pattern"
+    assert by_name["v_orders"].pattern_field == "view_pattern"
+
+
 def test_columns_are_fully_qualified_leaves(bq):
     result = list_bigquery_children(
         bq.config, ["acryl-staging", "smoke_test_db", "orders"], 100
