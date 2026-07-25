@@ -43,6 +43,7 @@ BIGID_PROBE = ClientProbe(
             "dataset_pattern",
             _catalog_objects,
             classify_on_fqn=True,
+            parent=DatasetSubTypes.CONNECTION,
         ),
     ],
 )

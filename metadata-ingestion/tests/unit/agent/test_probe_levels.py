@@ -201,7 +201,9 @@ def test_hierarchy_never_builds_a_client():
         client_factory=boom,
         levels=[
             ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _lister()),
-            ProbeLevel(ProbeLeafKind.COLUMN, list_names=_lister()),
+            ProbeLevel(
+                ProbeLeafKind.COLUMN, list_names=_lister(), parent=DatasetSubTypes.TABLE
+            ),
         ],
     )
     assert probe.hierarchy() == [DatasetSubTypes.TABLE, ProbeLeafKind.COLUMN]
@@ -215,7 +217,9 @@ def test_list_children_past_declared_depth_never_builds_a_client():
         client_factory=boom,
         levels=[
             ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _lister()),
-            ProbeLevel(ProbeLeafKind.COLUMN, list_names=_lister()),
+            ProbeLevel(
+                ProbeLeafKind.COLUMN, list_names=_lister(), parent=DatasetSubTypes.TABLE
+            ),
         ],
     )
     result = probe.list_children(_CFG, ["db", "orders"], 100)
@@ -323,6 +327,7 @@ def test_classifier_receives_the_parent_path():
                 "view_pattern",
                 _lister("orders"),
                 classify=classify,
+                parent=DatasetSubTypes.TABLE,
             ),
         ],
     )
@@ -331,3 +336,112 @@ def test_classifier_receives_the_parent_path():
     assert seen["name"] == "orders"
     assert seen["fqn"] == "my_db.orders"
     assert seen["pattern_field"] == "view_pattern"
+
+
+def test_hierarchy_is_derived_from_parent_edges_not_list_order():
+    # Declared out of order on purpose: the edges, not the positions, define the shape.
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(
+                ProbeLeafKind.COLUMN, list_names=_lister(), parent=DatasetSubTypes.TABLE
+            ),
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()),
+            ProbeLevel(
+                DatasetSubTypes.TABLE,
+                "table_pattern",
+                _lister(),
+                parent=DatasetContainerSubTypes.SCHEMA,
+            ),
+        ],
+    )
+    assert probe.hierarchy() == [
+        DatasetContainerSubTypes.SCHEMA,
+        DatasetSubTypes.TABLE,
+        ProbeLeafKind.COLUMN,
+    ]
+
+
+def test_single_level_probe_needs_no_parent():
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[ProbeLevel(DatasetSubTypes.TOPIC, "topic_patterns", _lister())],
+    )
+    assert probe.hierarchy() == [DatasetSubTypes.TOPIC]
+
+
+def test_exactly_one_root_required():
+    with pytest.raises(ValueError, match="root"):
+        ClientProbe(
+            client_factory=lambda config: object(),
+            levels=[
+                ProbeLevel(
+                    DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()
+                ),
+                ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _lister()),
+            ],
+        )
+
+
+def test_parent_must_name_a_declared_level():
+    with pytest.raises(ValueError, match="unknown parent|not declared"):
+        ClientProbe(
+            client_factory=lambda config: object(),
+            levels=[
+                ProbeLevel(
+                    DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()
+                ),
+                ProbeLevel(
+                    DatasetSubTypes.TABLE,
+                    "table_pattern",
+                    _lister(),
+                    parent=DatasetContainerSubTypes.DATABASE,
+                ),
+            ],
+        )
+
+
+def test_branching_is_rejected_until_paths_carry_kinds():
+    # Two levels sharing a parent is a tree; parent_path is a list of bare names
+    # and cannot say which sibling a name came from.
+    with pytest.raises(ValueError, match="branch"):
+        ClientProbe(
+            client_factory=lambda config: object(),
+            levels=[
+                ProbeLevel(
+                    DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()
+                ),
+                ProbeLevel(
+                    DatasetSubTypes.TABLE,
+                    "table_pattern",
+                    _lister(),
+                    parent=DatasetContainerSubTypes.SCHEMA,
+                ),
+                ProbeLevel(
+                    DatasetSubTypes.VIEW,
+                    "view_pattern",
+                    _lister(),
+                    parent=DatasetContainerSubTypes.SCHEMA,
+                ),
+            ],
+        )
+
+
+def test_cycle_is_rejected():
+    with pytest.raises(ValueError):
+        ClientProbe(
+            client_factory=lambda config: object(),
+            levels=[
+                ProbeLevel(
+                    DatasetSubTypes.TABLE,
+                    "table_pattern",
+                    _lister(),
+                    parent=ProbeLeafKind.COLUMN,
+                ),
+                ProbeLevel(
+                    ProbeLeafKind.COLUMN,
+                    list_names=_lister(),
+                    parent=DatasetSubTypes.TABLE,
+                ),
+            ],
+        )

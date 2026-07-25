@@ -89,8 +89,11 @@ def _build(top_kind: ProbeNodeKind) -> ClientProbe:
                     LevelSource(_tables, DatasetSubTypes.TABLE),
                     LevelSource(_views, DatasetSubTypes.VIEW),
                 ],
+                parent=top_kind,
             ),
-            ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),
+            ProbeLevel(
+                ProbeLeafKind.COLUMN, list_names=_columns, parent=DatasetSubTypes.TABLE
+            ),
         ],
     )
 

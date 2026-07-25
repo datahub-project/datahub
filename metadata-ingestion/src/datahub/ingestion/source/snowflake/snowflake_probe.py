@@ -121,6 +121,7 @@ SNOWFLAKE_PROBE = ClientProbe(
             DatasetContainerSubTypes.SCHEMA,
             list_names=_schemas,
             classify=_classify_schema,
+            parent=DatasetContainerSubTypes.DATABASE,
         ),
         ProbeLevel(
             DatasetSubTypes.TABLE,
@@ -129,8 +130,11 @@ SNOWFLAKE_PROBE = ClientProbe(
                 LevelSource(_views, DatasetSubTypes.VIEW),
             ],
             classify=_classify_table,
+            parent=DatasetContainerSubTypes.SCHEMA,
         ),
-        ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),
+        ProbeLevel(
+            ProbeLeafKind.COLUMN, list_names=_columns, parent=DatasetSubTypes.TABLE
+        ),
     ],
 )
 

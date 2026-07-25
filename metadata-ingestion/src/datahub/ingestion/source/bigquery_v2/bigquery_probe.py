@@ -99,13 +99,17 @@ BIGQUERY_PROBE = ClientProbe(
             DatasetContainerSubTypes.BIGQUERY_DATASET,
             list_names=_datasets,
             classify=_classify_dataset,
+            parent=DatasetContainerSubTypes.BIGQUERY_PROJECT,
         ),
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_items=_table_items,
             classify=_classify_table,
+            parent=DatasetContainerSubTypes.BIGQUERY_DATASET,
         ),
-        ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),
+        ProbeLevel(
+            ProbeLeafKind.COLUMN, list_names=_columns, parent=DatasetSubTypes.TABLE
+        ),
     ],
 )
 

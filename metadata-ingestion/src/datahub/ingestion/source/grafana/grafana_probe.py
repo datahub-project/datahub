@@ -31,7 +31,11 @@ GRAFANA_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     levels=[
         ProbeLevel(BIContainerSubTypes.GRAFANA_FOLDER, list_names=_folders),
-        ProbeLevel(BIContainerSubTypes.GRAFANA_DASHBOARD, list_names=_dashboards),
+        ProbeLevel(
+            BIContainerSubTypes.GRAFANA_DASHBOARD,
+            list_names=_dashboards,
+            parent=BIContainerSubTypes.GRAFANA_FOLDER,
+        ),
     ],
 )
 

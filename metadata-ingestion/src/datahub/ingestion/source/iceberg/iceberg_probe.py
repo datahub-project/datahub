@@ -24,7 +24,11 @@ ICEBERG_PROBE = ClientProbe(
     client_factory=lambda config: config.get_catalog(),
     levels=[
         ProbeLevel(DatasetContainerSubTypes.NAMESPACE, list_names=_namespaces),
-        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables),
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            list_names=_tables,
+            parent=DatasetContainerSubTypes.NAMESPACE,
+        ),
     ],
 )
 

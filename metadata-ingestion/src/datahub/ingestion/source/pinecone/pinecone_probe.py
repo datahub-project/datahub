@@ -28,6 +28,7 @@ PINECONE_PROBE = ClientProbe(
             DatasetContainerSubTypes.PINECONE_NAMESPACE,
             "namespace_pattern",
             _namespaces,
+            parent=DatasetContainerSubTypes.PINECONE_INDEX,
         ),
     ],
 )

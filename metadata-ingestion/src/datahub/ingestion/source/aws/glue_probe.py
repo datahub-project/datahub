@@ -32,7 +32,11 @@ GLUE_PROBE = ClientProbe(
     client_factory=lambda config: config.glue_client,
     levels=[
         ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
-        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables),
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            list_names=_tables,
+            parent=DatasetContainerSubTypes.DATABASE,
+        ),
     ],
 )
 

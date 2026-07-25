@@ -192,6 +192,10 @@ class ProbeLevel:
     # and pattern_field, like `sources`, but without a second client call.
     # Mutually exclusive with list_names/sources.
     list_items: Optional[LevelItemLister] = None
+    # The level this one hangs off, by kind; None marks the top level. The edges
+    # — not this list's order — define the hierarchy, so a level is self-describing
+    # and reordering the declaration cannot silently change the shape.
+    parent: Optional[ProbeNodeKind] = None
 
     def __post_init__(self) -> None:
         modes = [self.list_names, self.sources, self.list_items]
@@ -271,6 +275,53 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     return pattern_field_for_config_class(config_cls, kind)
 
 
+def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
+    """Order levels by their declared parent edges, validating the shape.
+
+    Today's traversal is a single chain: parent_path is a list of bare names, so
+    two levels sharing a parent could not be told apart. Branching is therefore
+    detected and rejected here rather than mis-dispatched at probe time.
+    """
+    by_kind = {level.kind: level for level in levels}
+    if len(by_kind) != len(levels):
+        raise ValueError("ProbeLevel kinds must be unique within a probe")
+
+    roots = [level for level in levels if level.parent is None]
+    if len(roots) != 1:
+        raise ValueError(
+            f"a probe needs exactly one root level (parent=None); found {len(roots)}: "
+            f"{[str(level.kind) for level in roots]}"
+        )
+
+    children: Dict[ProbeNodeKind, ProbeLevel] = {}
+    for level in levels:
+        if level.parent is None:
+            continue
+        if level.parent not in by_kind:
+            raise ValueError(
+                f"level '{level.kind}' declares unknown parent '{level.parent}'; "
+                f"declared kinds are {[str(k) for k in by_kind]}"
+            )
+        if level.parent in children:
+            raise ValueError(
+                f"levels '{children[level.parent].kind}' and '{level.kind}' both "
+                f"branch off '{level.parent}'. Branching hierarchies are not "
+                f"supported yet: parent_path carries bare names, so siblings "
+                f"cannot be told apart."
+            )
+        children[level.parent] = level
+
+    ordered = [roots[0]]
+    while ordered[-1].kind in children:
+        ordered.append(children[ordered[-1].kind])
+    if len(ordered) != len(levels):
+        unreachable = [str(lvl.kind) for lvl in levels if lvl not in ordered]
+        raise ValueError(
+            f"levels unreachable from the root (orphaned or cyclic): {unreachable}"
+        )
+    return ordered
+
+
 class ClientProbe:
     def __init__(
         self,
@@ -279,7 +330,7 @@ class ClientProbe:
         close: Callable[[Any], None] = lambda client: None,
     ) -> None:
         self._client_factory = client_factory
-        self._levels = levels
+        self._levels = _ordered_levels(levels)
         self._close = close
 
     def hierarchy(self) -> List[ProbeNodeKind]:
