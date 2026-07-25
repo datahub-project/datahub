@@ -31,9 +31,11 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     f"{_WORKSPACE}/spaces/sp1/reports": {
         "reports": [{"name": "Weekly", "token": "r1"}]
     },
-    f"{_WORKSPACE}/spaces/sp1/datasets": {
-        "datasets": [{"name": "Seed", "token": "d1"}]
-    },
+    # Despite the "/datasets" path, Mode embeds this listing under the
+    # "reports" HAL key (see tests/integration/mode/setup/datasets_*.json) --
+    # a Mode "dataset" is implemented as a special kind of report. Keying this
+    # fixture as "datasets" would encode the bug it exists to catch.
+    f"{_WORKSPACE}/spaces/sp1/datasets": {"reports": [{"name": "Seed", "token": "d1"}]},
     # "DupReport" deliberately exists in two different spaces (Archive and
     # SharedSpace, neither of which any hierarchy test descends into) so a
     # dedicated test can prove report_queries/query_charts raise on an

@@ -134,9 +134,16 @@ def _datasets(client: ModeClient, config: Any, parent_path: List[str]) -> Sequen
     )
     if space_token is None:
         return []
-    url = f"{workspace_uri}/spaces/{space_token}/datasets"
+    # Paginated with ?filter=all, same as _reports — mode.py:1701-1708 fetches
+    # this identically (per_page/page walk + filter=all). And despite the
+    # "/datasets" path, Mode embeds the listing under the "reports" HAL key:
+    # a Mode "dataset" is implemented as a special kind of report.
+    url = f"{workspace_uri}/spaces/{space_token}/datasets?filter=all"
     return [
-        _display_name(dataset) for dataset in _get_embedded(session, url, "datasets")
+        _display_name(dataset)
+        for dataset in _get_embedded_paged(
+            session, url, "reports", config.items_per_page
+        )
     ]
 
 
