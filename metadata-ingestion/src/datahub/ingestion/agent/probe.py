@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
+    Set,
     Tuple,
     runtime_checkable,
 )
@@ -65,6 +66,45 @@ def fqn(prefix: Optional[str], name: str) -> str:
     return f"{prefix}.{name}" if prefix else name
 
 
+# (name, kind, pattern_field) for one child at a level.
+LevelItem = Tuple[str, ProbeNodeKind, Optional[str]]
+# verdict_for(name, fqn, pattern_field) -> Verdict
+VerdictFor = Callable[[str, str, Optional[str]], Verdict]
+
+
+def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> Verdict:
+    """The standard allow/deny check: the config's *_pattern field against `target`.
+
+    Exported so a custom level classifier can defer to it after its own
+    structural exclusions.
+    """
+    if pattern_field is None:
+        return _INCLUDED
+    pattern = getattr(config, pattern_field)
+    return _INCLUDED if pattern.allowed(target) else (False, pattern_field)
+
+
+def level_nodes(
+    items: Sequence[LevelItem],
+    limit: int,
+    fqn_prefix: Optional[str],
+    verdict_for: VerdictFor,
+) -> Tuple[List[ProbeNode], bool]:
+    """Build one level's nodes from (name, kind, pattern_field) triples.
+
+    The single node-construction path: fqn prefixing, per-node kind and pattern,
+    the include/exclude verdict, and truncation all happen here.
+    """
+    nodes: List[ProbeNode] = []
+    for name, kind, pattern_field in items[:limit]:
+        node_fqn = fqn(fqn_prefix, name)
+        included, excluded_by = verdict_for(name, node_fqn, pattern_field)
+        nodes.append(
+            ProbeNode(name, kind, node_fqn, pattern_field, included, excluded_by)
+        )
+    return nodes, len(items) > limit
+
+
 def container_nodes(
     names: Sequence[str],
     limit: int,
@@ -79,15 +119,14 @@ def container_nodes(
     # form its pattern matches under match_fully_qualified_names. For 2-level
     # sources it stays bare. kind_for lets a single level carry per-node kinds
     # (e.g. Salesforce custom vs standard objects distinguished by name).
-    nodes: List[ProbeNode] = []
-    for n in names[:limit]:
-        node_fqn = fqn(fqn_prefix, n)
-        included, excluded_by = classify(n, node_fqn) if classify else _INCLUDED
-        node_kind = kind_for(n) if kind_for else kind
-        nodes.append(
-            ProbeNode(n, node_kind, node_fqn, pattern_field, included, excluded_by)
-        )
-    return nodes, len(names) > limit
+    items: List[LevelItem] = [
+        (n, kind_for(n) if kind_for else kind, pattern_field) for n in names
+    ]
+
+    def verdict_for(name: str, node_fqn: str, _pattern_field: Optional[str]) -> Verdict:
+        return classify(name, node_fqn) if classify else _INCLUDED
+
+    return level_nodes(items, limit, fqn_prefix, verdict_for)
 
 
 def table_nodes(
@@ -102,17 +141,21 @@ def table_nodes(
     # Table listings usually exclude views, so merge the two (tables first) to get
     # the full set of children without duplicating a name reported in both.
     combined = list(tables) + [v for v in views if v not in table_names]
-    nodes: List[ProbeNode] = []
-    for name in combined[:limit]:
-        is_view = name in view_names
-        kind = DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE
-        pattern = "view_pattern" if is_view else "table_pattern"
-        node_fqn = f"{fqn_prefix}.{name}"
-        included, excluded_by = (
-            classify(name, node_fqn, is_view) if classify else _INCLUDED
+    items: List[LevelItem] = [
+        (
+            name,
+            DatasetSubTypes.VIEW if name in view_names else DatasetSubTypes.TABLE,
+            "view_pattern" if name in view_names else "table_pattern",
         )
-        nodes.append(ProbeNode(name, kind, node_fqn, pattern, included, excluded_by))
-    return nodes, len(combined) > limit
+        for name in combined
+    ]
+
+    def verdict_for(name: str, node_fqn: str, pattern_field: Optional[str]) -> Verdict:
+        if classify is None:
+            return _INCLUDED
+        return classify(name, node_fqn, pattern_field == "view_pattern")
+
+    return level_nodes(items, limit, fqn_prefix, verdict_for)
 
 
 def column_nodes(
@@ -142,12 +185,29 @@ LevelLister = Callable[[Any, Any, List[str]], Sequence[str]]
 
 
 @dataclass
+class LevelSource:
+    """One lister feeding a level, with the kind and pattern its nodes carry.
+
+    Lets a single level be assembled from several listings that differ in kind
+    and filter (e.g. tables + views).
+    """
+
+    list_names: LevelLister
+    kind: ProbeNodeKind
+    pattern_field: Optional[str] = None
+
+
+# classify(config, name, fqn, pattern_field) -> Verdict
+LevelClassifier = Callable[[Any, str, str, Optional[str]], Verdict]
+
+
+@dataclass
 class ProbeLevel:
     kind: ProbeNodeKind
     # The config *_pattern field that filters this level, or None for a leaf
     # (column) level, which carries no filter.
-    pattern_field: Optional[str]
-    list_names: LevelLister
+    pattern_field: Optional[str] = None
+    list_names: Optional[LevelLister] = None
     # Optional: derive the node kind per-name when a level mixes kinds (e.g.
     # Salesforce custom vs standard objects). `kind` stays the nominal/structural
     # kind reported by hierarchy().
@@ -156,6 +216,17 @@ class ProbeLevel:
     # bare child name (e.g. BigID's dataset_pattern). Set to test the pattern
     # against the node fqn instead of its name.
     classify_on_fqn: bool = False
+    # A level fed by several listers, each contributing its own kind and pattern
+    # (e.g. tables + views). Mutually exclusive with list_names.
+    sources: Optional[List[LevelSource]] = None
+    # Full verdict override, for structural drops the user's patterns don't
+    # express (INFORMATION_SCHEMA, sys$…) or non-standard match semantics.
+    # Defaults to pattern_verdict() when None.
+    classify: Optional[LevelClassifier] = None
+
+    def __post_init__(self) -> None:
+        if (self.list_names is None) == (self.sources is None):
+            raise ValueError("ProbeLevel requires exactly one of list_names or sources")
 
 
 class ClientProbe:
@@ -173,6 +244,31 @@ class ClientProbe:
         # Structural only — never touches the client, so it is connection-free.
         return [level.kind for level in self._levels]
 
+    def _items(
+        self, level: ProbeLevel, client: Any, config: Any, parent_path: List[str]
+    ) -> List[LevelItem]:
+        if level.sources is not None:
+            items: List[LevelItem] = []
+            seen: Set[str] = set()
+            for source in level.sources:
+                for name in source.list_names(client, config, parent_path):
+                    # First source wins, so a name reported by two listings keeps
+                    # the earlier one's kind (tables before views).
+                    if name in seen:
+                        continue
+                    seen.add(name)
+                    items.append((name, source.kind, source.pattern_field))
+            return items
+        assert level.list_names is not None  # guaranteed by ProbeLevel.__post_init__
+        return [
+            (
+                name,
+                level.kind_for(name) if level.kind_for else level.kind,
+                level.pattern_field,
+            )
+            for name in level.list_names(client, config, parent_path)
+        ]
+
     def list_children(
         self, config: Any, parent_path: List[str], limit: int
     ) -> ProbeResult:
@@ -182,29 +278,36 @@ class ClientProbe:
         level = self._levels[len(parent_path)]
         client = self._client_factory(config)
         try:
-            names = list(level.list_names(client, config, parent_path))
             prefix = ".".join(parent_path)
-            if level.pattern_field is None:
+            if (
+                level.sources is None
+                and level.pattern_field is None
+                and level.classify is None
+            ):
+                # Leaf (column) level: no filter, no verdict.
+                assert level.list_names is not None
+                names = list(level.list_names(client, config, parent_path))
                 nodes, truncated = column_nodes(
                     [{"name": n} for n in names], limit, fqn_prefix=prefix
                 )
             else:
-                pattern = getattr(config, level.pattern_field)
-                field = level.pattern_field
+                custom = level.classify
                 on_fqn = level.classify_on_fqn
 
-                def classify(name: str, node_fqn: str) -> Verdict:
-                    target = node_fqn if on_fqn else name
-                    return (True, None) if pattern.allowed(target) else (False, field)
+                def verdict_for(
+                    name: str, node_fqn: str, pattern_field: Optional[str]
+                ) -> Verdict:
+                    if custom is not None:
+                        return custom(config, name, node_fqn, pattern_field)
+                    return pattern_verdict(
+                        config, pattern_field, node_fqn if on_fqn else name
+                    )
 
-                nodes, truncated = container_nodes(
-                    names,
+                nodes, truncated = level_nodes(
+                    self._items(level, client, config, parent_path),
                     limit,
-                    level.kind,
-                    field,
-                    fqn_prefix=prefix or None,
-                    classify=classify,
-                    kind_for=level.kind_for,
+                    prefix or None,
+                    verdict_for,
                 )
             return ProbeResult(
                 source_type="",
