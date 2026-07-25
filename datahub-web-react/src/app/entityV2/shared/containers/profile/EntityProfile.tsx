@@ -31,6 +31,7 @@ import {
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -436,6 +437,19 @@ export const EntityProfile = <T, U>({
                 <VersionsDrawer
                     versionSetUrn={entityData.versionProperties?.versionSet.urn}
                     open={drawer === DrawerType.VERSIONS}
+                />
+            )}
+            {drawer === DrawerType.CHANGE_HISTORY && (
+                <HistorySidebar
+                    open
+                    onClose={() => setDrawer(undefined)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
+                    defaultShowAllVersions={!!entityData?.versionProperties?.versionSet?.urn}
                 />
             )}
         </EntityContext.Provider>
