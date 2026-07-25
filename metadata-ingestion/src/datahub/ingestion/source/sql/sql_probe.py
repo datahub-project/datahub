@@ -1,60 +1,17 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Sequence
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
+    ClientProbe,
+    LevelSource,
+    ProbeLevel,
     Verdict,
-    column_nodes,
-    container_nodes,
-    table_nodes,
+    pattern_verdict,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-
-# Generic SQL sources are a 2-level namespace: schema -> table -> column.
-SQL_PROBE_HIERARCHY: List[ProbeNodeKind] = [
-    DatasetContainerSubTypes.SCHEMA,
-    DatasetSubTypes.TABLE,
-    ProbeLeafKind.COLUMN,
-]
-
-# Two-tier sources (MySQL, Hive, ...) have no schema layer: the database is the
-# top container and is filtered by database_pattern. SQLAlchemy still exposes
-# databases through get_schema_names(), so the listing mechanics are the same.
-TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = [
-    DatasetContainerSubTypes.DATABASE,
-    DatasetSubTypes.TABLE,
-    ProbeLeafKind.COLUMN,
-]
-
-
-def _table_classifier(config: Any) -> Any:
-    table_pattern = config.table_pattern
-    view_pattern = config.view_pattern
-
-    def classify_table(name: str, node_fqn: str, is_view: bool) -> Verdict:
-        pattern = view_pattern if is_view else table_pattern
-        field = "view_pattern" if is_view else "table_pattern"
-        if not pattern.allowed(name):
-            return (False, field)
-        return (True, None)
-
-    return classify_table
-
-
-def _container_classifier(config: Any, pattern: Any, field: str) -> Any:
-    # System catalogs the source drops before the user pattern is even applied.
-    default_schemas = {s.lower() for s in config.default_schemas()}
-
-    def classify_container(name: str, node_fqn: str) -> Verdict:
-        if name.lower() in default_schemas:
-            return (False, "default_schema")
-        if not pattern.allowed(name):
-            return (False, field)
-        return (True, None)
-
-    return classify_container
 
 
 def engine_options(config: object) -> Dict[str, Any]:
@@ -73,77 +30,87 @@ def engine_options(config: object) -> Dict[str, Any]:
     return {}
 
 
-def _list_children(
-    config: Any,
-    parent_path: List[str],
-    limit: int,
-    top_kind: "DatasetContainerSubTypes",
-    top_pattern_field: str,
-) -> ProbeResult:
-    # Shared by the generic (schema-top) and two-tier (database-top) paths — they
-    # differ only in what the top container is called and which pattern filters it.
+def _engine(config: Any) -> Any:
+    # lazy: sqlalchemy is only needed once a probe actually runs
+    from sqlalchemy import create_engine
+
+    return create_engine(config.get_sql_alchemy_url(), **engine_options(config))
+
+
+def _inspector(engine: Any) -> Any:
+    # lazy: sqlalchemy is only needed once a probe actually runs
+    from sqlalchemy import inspect
+
+    return inspect(engine)
+
+
+def _containers(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
     # SQLAlchemy exposes both schemas and two-tier databases via get_schema_names().
-    from sqlalchemy import create_engine, inspect
+    return _inspector(engine).get_schema_names()
 
-    top_pattern = getattr(config, top_pattern_field)
-    classify_container = _container_classifier(config, top_pattern, top_pattern_field)
-    classify_table = _table_classifier(config)
 
-    engine = create_engine(config.get_sql_alchemy_url(), **engine_options(config))
-    try:
-        inspector = inspect(engine)
-        if len(parent_path) == 0:
-            nodes, truncated = container_nodes(
-                inspector.get_schema_names(),
-                limit,
+def _tables(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
+    return _inspector(engine).get_table_names(schema=parent_path[0])
+
+
+def _views(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
+    return _inspector(engine).get_view_names(schema=parent_path[0])
+
+
+def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
+    cols = _inspector(engine).get_columns(parent_path[1], schema=parent_path[0])
+    return [str(col["name"]) for col in cols]
+
+
+def _classify_container(
+    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
+) -> Verdict:
+    # System catalogs the source drops before the user pattern is even applied.
+    if name.lower() in {s.lower() for s in config.default_schemas()}:
+        return (False, "default_schema")
+    return pattern_verdict(config, pattern_field, name)
+
+
+def _build(top_kind: ProbeNodeKind, top_pattern_field: str) -> ClientProbe:
+    # The generic (schema-top) and two-tier (database-top) probes differ only in
+    # what the top container is called and which pattern filters it.
+    return ClientProbe(
+        client_factory=_engine,
+        close=lambda engine: engine.dispose(),
+        levels=[
+            ProbeLevel(
                 top_kind,
                 top_pattern_field,
-                classify=classify_container,
-            )
-        elif len(parent_path) == 1:
-            schema = parent_path[0]
-            nodes, truncated = table_nodes(
-                inspector.get_table_names(schema=schema),
-                inspector.get_view_names(schema=schema),
-                limit,
-                fqn_prefix=schema,
-                classify=classify_table,
-            )
-        else:
-            schema, table = parent_path[0], parent_path[1]
-            nodes, truncated = column_nodes(
-                inspector.get_columns(table, schema=schema),
-                limit,
-                fqn_prefix=f"{schema}.{table}",
-            )
-        return ProbeResult(
-            source_type="",
-            supported=True,
-            parent_path=parent_path,
-            nodes=nodes,
-            truncated=truncated,
-        )
-    finally:
-        engine.dispose()
+                _containers,
+                classify=_classify_container,
+            ),
+            ProbeLevel(
+                DatasetSubTypes.TABLE,
+                sources=[
+                    LevelSource(_tables, DatasetSubTypes.TABLE, "table_pattern"),
+                    LevelSource(_views, DatasetSubTypes.VIEW, "view_pattern"),
+                ],
+            ),
+            ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),
+        ],
+    )
+
+
+# Generic SQL sources are a 2-level namespace: schema -> table -> column.
+SQL_PROBE = _build(DatasetContainerSubTypes.SCHEMA, "schema_pattern")
+# Two-tier sources (MySQL, Hive, ...) have no schema layer: the database is the
+# top container and is filtered by database_pattern.
+TWO_TIER_PROBE = _build(DatasetContainerSubTypes.DATABASE, "database_pattern")
+
+SQL_PROBE_HIERARCHY: List[ProbeNodeKind] = SQL_PROBE.hierarchy()
+TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = TWO_TIER_PROBE.hierarchy()
 
 
 def list_sql_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
-    return _list_children(
-        config,
-        parent_path,
-        limit,
-        DatasetContainerSubTypes.SCHEMA,
-        "schema_pattern",
-    )
+    return SQL_PROBE.list_children(config, parent_path, limit)
 
 
 def list_two_tier_children(
     config: Any, parent_path: List[str], limit: int
 ) -> ProbeResult:
-    return _list_children(
-        config,
-        parent_path,
-        limit,
-        DatasetContainerSubTypes.DATABASE,
-        "database_pattern",
-    )
+    return TWO_TIER_PROBE.list_children(config, parent_path, limit)
