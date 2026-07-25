@@ -1,4 +1,6 @@
+import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import (
     Any,
     Callable,
@@ -178,6 +180,32 @@ class ProbeLevel:
                 raise ValueError("kind_for is per-source when sources is set")
 
 
+# A pattern field is conventionally named after the kind it filters:
+# Schema -> schema_pattern, Topic -> topic_patterns.
+_PATTERN_SUFFIXES = ("_pattern", "_patterns")
+
+
+@lru_cache(maxsize=None)
+def resolve_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str]:
+    """Find the config's AllowDenyPattern field that filters `kind`, by convention.
+
+    Returns None when no such field exists, or when a same-named field is not an
+    AllowDenyPattern — the declaration must then pass `pattern_field` explicitly.
+    Memoized: resolution is per (config class, kind) and never changes at runtime.
+    """
+    # lazy: introspect imports source_registry at module level; keep that off
+    # probe.py's import path.
+    from datahub.ingestion.agent.introspect import is_pattern_field
+
+    base = re.sub(r"[^a-z0-9]+", "_", str(kind).lower()).strip("_")
+    fields = getattr(config_cls, "model_fields", {})
+    for suffix in _PATTERN_SUFFIXES:
+        field = fields.get(base + suffix)
+        if field is not None and is_pattern_field(field.annotation):
+            return base + suffix
+    return None
+
+
 class ClientProbe:
     def __init__(
         self,
@@ -192,6 +220,26 @@ class ClientProbe:
     def hierarchy(self) -> List[ProbeNodeKind]:
         # Structural only — never touches the client, so it is connection-free.
         return [level.kind for level in self._levels]
+
+    def _resolved(self, config: Any, items: List[LevelItem]) -> List[LevelItem]:
+        # Non-leaf items must end up with a real pattern field: either the one the
+        # declaration gave, or the conventional one for their kind.
+        # Narrowed via an annotated local: passing `type(config)` inline infers as
+        # type[Any], which mypy's lru_cache stub rejects as Hashable (a metaclass
+        # __hash__ signature mismatch) even though it is hashable at runtime.
+        config_cls: type = type(config)
+        out: List[LevelItem] = []
+        for name, kind, pattern_field in items:
+            if pattern_field is None:
+                pattern_field = resolve_pattern_field(config_cls, kind)
+                if pattern_field is None:
+                    raise ValueError(
+                        f"no AllowDenyPattern field on "
+                        f"{config_cls.__name__} filters kind '{kind}'; "
+                        f"pass pattern_field= explicitly on the level or source"
+                    )
+            out.append((name, kind, pattern_field))
+        return out
 
     def _items(
         self, level: ProbeLevel, client: Any, config: Any, parent_path: List[str]
@@ -210,9 +258,9 @@ class ClientProbe:
                         continue
                     index[name] = len(items)
                     items.append((name, source.kind, source.pattern_field))
-            return items
+            return self._resolved(config, items)
         assert level.list_names is not None  # guaranteed by ProbeLevel.__post_init__
-        return [
+        items = [
             (
                 name,
                 level.kind_for(name) if level.kind_for else level.kind,
@@ -220,6 +268,7 @@ class ClientProbe:
             )
             for name in level.list_names(client, config, parent_path)
         ]
+        return self._resolved(config, items)
 
     def list_children(
         self, config: Any, parent_path: List[str], limit: int
@@ -232,7 +281,8 @@ class ClientProbe:
         try:
             prefix = ".".join(parent_path)
             if (
-                level.sources is None
+                level.kind == ProbeLeafKind.COLUMN
+                and level.sources is None
                 and level.pattern_field is None
                 and level.classify is None
             ):

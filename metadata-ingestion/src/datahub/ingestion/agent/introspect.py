@@ -42,6 +42,15 @@ def _kind_for(annotation: object) -> FieldKind:
     return FieldKind.PLAIN
 
 
+def is_pattern_field(annotation: object) -> bool:
+    """True when a config field's annotation is an AllowDenyPattern.
+
+    Shared with the probe framework's pattern resolver so both agree on what
+    counts as a filter field.
+    """
+    return _kind_for(annotation) == FieldKind.PATTERN
+
+
 def _type_name(annotation: object) -> str:
     members = _unwrap_optional(annotation)
     names = [getattr(m, "__name__", str(m)) for m in members]
