@@ -136,3 +136,42 @@ def test_a_colon_in_a_name_is_fine_when_unambiguous():
         ],
     )
     assert [n.name for n in probe.list_children(_cfg(), ["a:b"], 100).nodes] == ["r1"]
+
+
+def test_a_path_running_past_a_linear_leaf_returns_no_children_without_a_client():
+    # Regression: a path more than one element past the declared depth used to
+    # raise IndexError from _levels_for's ambiguous-element branch (sorted(kinds)
+    # on an empty dict) instead of returning "no children" like the pre-tree
+    # single len(parent_path) >= len(self._levels) guard did.
+    def boom(config):
+        raise AssertionError("list_children() must not build a client past depth")
+
+    probe = ClientProbe(
+        client_factory=boom,
+        levels=[
+            ProbeLevel(WORKSPACE, "folder_pattern", _names("ws1")),
+            ProbeLevel(REPORT, "report_pattern", _names("r1"), parent=WORKSPACE),
+        ],
+    )
+    result = probe.list_children(_cfg(), ["ws1", "r1", "extra"], 100)
+    assert result.supported is True
+    assert result.nodes == []
+
+
+def test_a_path_running_past_a_branching_leaf_returns_no_children_without_a_client():
+    def boom(config):
+        raise AssertionError("list_children() must not build a client past depth")
+
+    probe = ClientProbe(
+        client_factory=boom,
+        levels=[
+            ProbeLevel(WORKSPACE, "folder_pattern", _names("ws1")),
+            ProbeLevel(REPORT, "report_pattern", _names("r1"), parent=WORKSPACE),
+            ProbeLevel(DASHBOARD, "dashboard_pattern", _names("d1"), parent=WORKSPACE),
+        ],
+    )
+    # "r1" is ambiguous between the two siblings at depth 1, so it must be
+    # qualified; "extra" then runs one element past the (childless) Report leaf.
+    result = probe.list_children(_cfg(), ["ws1", f"{REPORT}:r1", "extra"], 100)
+    assert result.supported is True
+    assert result.nodes == []

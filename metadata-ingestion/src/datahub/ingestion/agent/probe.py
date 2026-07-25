@@ -385,6 +385,11 @@ class ClientProbe:
         candidates = [self._root]
         names: List[str] = []
         for depth, element in enumerate(parent_path):
+            if not candidates:
+                # Past the declared depth: nothing to descend into. Callers treat
+                # an empty level list as "no children", matching the pre-tree
+                # behaviour for over-long paths.
+                return [], names
             if len(candidates) == 1:
                 level, name = candidates[0], element
             else:
