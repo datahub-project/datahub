@@ -1,9 +1,14 @@
+from typing import Any, List, Optional, Tuple
+
 import pytest
 
+from datahub.ingestion.agent.models import ProbeNodeKind
 from datahub.ingestion.agent.probe import (
+    UNNAMED,
     ProbeBranchesError,
     ProbeShapeNode,
     column_nodes,
+    level_nodes,
     probe_hierarchy,
     probe_shape,
 )
@@ -138,3 +143,47 @@ def test_redshift_default_schemas_shared_by_sql_and_probe():
     # The SQL exclusion clause is generated from the same constant.
     for schema in REDSHIFT_DEFAULT_SCHEMAS:
         assert f"schema_name != '{schema}'" in _DEFAULT_SCHEMA_EXCLUSION
+
+
+def test_unnamed_node_is_reported_not_dropped_or_crashed():
+    """A lister is typed Sequence[str], but real APIs return nulls.
+
+    Mode hands back reports with `name: null`; AllowDenyPattern.allowed(None)
+    raises TypeError. A probe is a diagnostic, so the node stays visible —
+    "there are 2 unnamed reports here" is the useful answer.
+    """
+
+    def verdict_for(name, node_fqn, pattern_field):
+        # Would raise TypeError on a null name — must never be reached for one.
+        assert isinstance(name, str) and name
+        return True, None
+
+    # Deliberately off-contract: LevelItem declares `str`, and the point of the
+    # guard is what happens when a connector's API breaks that.
+    items: List[Tuple[Any, ProbeNodeKind, Optional[str]]] = [
+        ("real", DatasetSubTypes.TABLE, "table_pattern"),
+        (None, DatasetSubTypes.TABLE, "table_pattern"),
+        ("", DatasetSubTypes.TABLE, "table_pattern"),
+    ]
+    nodes, truncated = level_nodes(
+        items,
+        limit=10,
+        fqn_prefix="db.s",
+        verdict_for=verdict_for,
+    )
+
+    assert not truncated
+    assert [n.name for n in nodes] == ["real", UNNAMED, UNNAMED]
+    assert [n.included for n in nodes] == [True, False, False]
+    assert [n.excluded_by for n in nodes] == [None, "unnamed", "unnamed"]
+    # The kind survives, so a caller still learns *what* is unnamed.
+    assert all(n.kind == DatasetSubTypes.TABLE for n in nodes)
+
+
+def test_column_with_no_usable_name_is_reported_as_unnamed():
+    nodes, _ = column_nodes(
+        [{"name": "id"}, {"name": None}], limit=10, fqn_prefix="db.s.orders"
+    )
+    assert [n.name for n in nodes] == ["id", UNNAMED]
+    assert nodes[1].included is False
+    assert nodes[1].excluded_by == "unnamed"

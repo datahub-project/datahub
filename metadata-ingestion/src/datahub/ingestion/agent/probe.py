@@ -13,6 +13,8 @@ from typing import (
     runtime_checkable,
 )
 
+from typing_extensions import TypeGuard
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.models import (
     ProbeLeafKind,
@@ -65,6 +67,24 @@ _INCLUDED: Verdict = (True, None)
 # and are always included.
 UNFILTERED: str = "__unfiltered__"
 
+# Stand-in for a node whose lister produced no usable name. Listers are declared
+# to return Sequence[str], but real APIs break that contract — Mode hands back
+# reports with name=null. Such a node can be neither filtered
+# (AllowDenyPattern.allowed raises TypeError on a non-string) nor addressed as a
+# --parent, but it does exist, and a probe is a diagnostic: "two unnamed reports
+# live here" is more useful to a caller than a dropped row or a stack trace.
+UNNAMED: str = "<unnamed>"
+
+# Reported like the connectors' own structural exclusions ("system_object",
+# "default_schema"): a statement about what the probe can address, not a
+# prediction that ingestion would skip the object.
+_UNNAMED_VERDICT: Verdict = (False, "unnamed")
+
+
+def usable_name(name: object) -> TypeGuard[str]:
+    """Whether a lister gave us a name we can filter on and descend into."""
+    return isinstance(name, str) and bool(name.strip())
+
 
 def fqn(prefix: Optional[str], name: str) -> str:
     return f"{prefix}.{name}" if prefix else name
@@ -101,6 +121,17 @@ def level_nodes(
     """
     nodes: List[ProbeNode] = []
     for name, kind, pattern_field in items[:limit]:
+        if not usable_name(name):
+            nodes.append(
+                ProbeNode(
+                    UNNAMED,
+                    kind,
+                    fqn(fqn_prefix, UNNAMED),
+                    pattern_field,
+                    *_UNNAMED_VERDICT,
+                )
+            )
+            continue
         node_fqn = fqn(fqn_prefix, name)
         included, excluded_by = verdict_for(name, node_fqn, pattern_field)
         nodes.append(
@@ -112,15 +143,21 @@ def level_nodes(
 def column_nodes(
     cols: Sequence[Dict[str, object]], limit: int, fqn_prefix: str
 ) -> Tuple[List[ProbeNode], bool]:
-    nodes = [
-        ProbeNode(
-            str(col["name"]),
-            ProbeLeafKind.COLUMN,
-            f"{fqn_prefix}.{col['name']}",
-            None,
-        )
-        for col in cols[:limit]
-    ]
+    nodes: List[ProbeNode] = []
+    for col in cols[:limit]:
+        name = col.get("name")
+        if not usable_name(name):
+            nodes.append(
+                ProbeNode(
+                    UNNAMED,
+                    ProbeLeafKind.COLUMN,
+                    fqn(fqn_prefix, UNNAMED),
+                    None,
+                    *_UNNAMED_VERDICT,
+                )
+            )
+            continue
+        nodes.append(ProbeNode(name, ProbeLeafKind.COLUMN, fqn(fqn_prefix, name), None))
     return nodes, len(cols) > limit
 
 
