@@ -34,16 +34,17 @@ def _table_items(
     # judges everything against table_pattern), and BigQuery's probe fixtures do
     # not define view_pattern for resolution to find.
     items = client.list_tables(f"{parent_path[0]}.{parent_path[1]}")
-    return [
-        (
-            t.table_id,
-            DatasetSubTypes.VIEW
-            if t.table_type in _VIEW_TABLE_TYPES
-            else DatasetSubTypes.TABLE,
-            "view_pattern" if t.table_type in _VIEW_TABLE_TYPES else "table_pattern",
+    result: List[LevelItem] = []
+    for t in items:
+        is_view = t.table_type in _VIEW_TABLE_TYPES
+        result.append(
+            (
+                t.table_id,
+                DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE,
+                "view_pattern" if is_view else "table_pattern",
+            )
         )
-        for t in items
-    ]
+    return result
 
 
 def _columns(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:

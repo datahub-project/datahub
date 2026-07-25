@@ -4,7 +4,7 @@ from typing import Any, Optional
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.ingestion.agent.probe import ClientProbe, resolve_pattern_field
+from datahub.ingestion.agent.probe import ClientProbe, pattern_field_for_config_class
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -21,22 +21,27 @@ class _Cfg(ConfigModel):
 
 def test_resolves_by_convention():
     assert (
-        resolve_pattern_field(_Cfg, DatasetContainerSubTypes.SCHEMA) == "schema_pattern"
+        pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.SCHEMA)
+        == "schema_pattern"
     )
-    assert resolve_pattern_field(_Cfg, DatasetSubTypes.VIEW) == "view_pattern"
+    assert pattern_field_for_config_class(_Cfg, DatasetSubTypes.VIEW) == "view_pattern"
 
 
 def test_resolves_the_plural_form():
-    assert resolve_pattern_field(_Cfg, DatasetSubTypes.TOPIC) == "topic_patterns"
+    assert (
+        pattern_field_for_config_class(_Cfg, DatasetSubTypes.TOPIC) == "topic_patterns"
+    )
 
 
 def test_ignores_a_same_named_non_pattern_field():
     # `table_pattern: str` exists but is not an AllowDenyPattern.
-    assert resolve_pattern_field(_Cfg, DatasetSubTypes.TABLE) is None
+    assert pattern_field_for_config_class(_Cfg, DatasetSubTypes.TABLE) is None
 
 
 def test_returns_none_when_absent():
-    assert resolve_pattern_field(_Cfg, DatasetContainerSubTypes.DATABASE) is None
+    assert (
+        pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.DATABASE) is None
+    )
 
 
 def test_multiword_kind_collapses_to_underscores():
@@ -45,7 +50,7 @@ def test_multiword_kind_collapses_to_underscores():
             default=AllowDenyPattern.allow_all()
         )
 
-    assert resolve_pattern_field(_K, "Flink Job") == "flink_job_pattern"
+    assert pattern_field_for_config_class(_K, "Flink Job") == "flink_job_pattern"
 
 
 _LIST_CHILDREN_IMPORT_RE = re.compile(
@@ -179,7 +184,7 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
             for kind, declared in entries:
                 if declared is not None or kind == ProbeLeafKind.COLUMN:
                     continue
-                if resolve_pattern_field(config_cls, kind) is None:
+                if pattern_field_for_config_class(config_cls, kind) is None:
                     unresolved.append((source_type, str(kind)))
 
     assert not unresolved, (

@@ -8,8 +8,8 @@ from datahub.ingestion.agent.probe import (
     ClientProbe,
     LevelSource,
     ProbeLevel,
+    pattern_field_for_config_class,
     pattern_verdict,
-    resolve_pattern_field,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -152,6 +152,12 @@ def test_level_requires_exactly_one_lister_mode():
             _lister("a"),
             sources=[LevelSource(_lister("b"), DatasetSubTypes.VIEW, "view_pattern")],
         )  # two
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            sources=[LevelSource(_lister("b"), DatasetSubTypes.VIEW, "view_pattern")],
+            list_items=lambda c, cfg, p: [],
+        )  # two
 
 
 def test_list_items_rejects_level_wide_pattern_field_and_kind_for():
@@ -248,13 +254,14 @@ def test_omitted_pattern_field_raises_when_the_kind_has_no_conventional_field():
 
 
 def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
-    # resolve_pattern_field(SimpleNamespace, "Table") is None: SimpleNamespace has
-    # no model_fields for the class-level check to introspect. The instance-aware
-    # path must still find _CFG's own table_pattern attribute directly.
+    # pattern_field_for_config_class(SimpleNamespace, "Table") is None:
+    # SimpleNamespace has no model_fields for the class-level check to
+    # introspect. The instance-aware path must still find _CFG's own
+    # table_pattern attribute directly.
     # Narrowed via an annotated local: passing `type(_CFG)` inline infers as
     # type[Any], which mypy's lru_cache stub rejects as Hashable.
     cfg_cls: type = type(_CFG)
-    assert resolve_pattern_field(cfg_cls, DatasetSubTypes.TABLE) is None
+    assert pattern_field_for_config_class(cfg_cls, DatasetSubTypes.TABLE) is None
     probe = _probe(ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders")))
     by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
     assert by_name["orders"].pattern_field == "table_pattern"
