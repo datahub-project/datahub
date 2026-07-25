@@ -23,10 +23,8 @@ def _tables(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 ICEBERG_PROBE = ClientProbe(
     client_factory=lambda config: config.get_catalog(),
     levels=[
-        ProbeLevel(
-            DatasetContainerSubTypes.NAMESPACE, "namespace_pattern", _namespaces
-        ),
-        ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _tables),
+        ProbeLevel(DatasetContainerSubTypes.NAMESPACE, list_names=_namespaces),
+        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables),
     ],
 )
 

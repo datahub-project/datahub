@@ -19,7 +19,7 @@ def _tables(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 # already exposes (config.dynamodb_client) — no connector refactor.
 DYNAMODB_PROBE = ClientProbe(
     client_factory=lambda config: config.dynamodb_client,
-    levels=[ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _tables)],
+    levels=[ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables)],
 )
 
 DYNAMODB_PROBE_HIERARCHY: List[ProbeNodeKind] = DYNAMODB_PROBE.hierarchy()

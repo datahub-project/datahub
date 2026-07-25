@@ -1,6 +1,6 @@
-from types import SimpleNamespace
+from typing import Any, Callable
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.bigid.bigid_probe import list_bigid_children
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 
@@ -32,6 +32,15 @@ class _BigIDClient:
         self.closed = True
 
 
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for connection_pattern, which the probe now resolves by
+# convention rather than declaring explicitly.
+class _Config(ConfigModel):
+    get_client: Callable[[], Any]
+    connection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    dataset_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+
 def _config():
     client = _BigIDClient(
         connections=[_Connection("snowflake_prod"), _Connection("mysql_dev")],
@@ -41,7 +50,7 @@ def _config():
             _CatalogObject("mysql_dev", "mysql_dev.other_table"),
         ],
     )
-    return SimpleNamespace(
+    return _Config(
         get_client=lambda: client,
         connection_pattern=AllowDenyPattern(allow=[".*"], deny=["^mysql_.*"]),
         # dataset_pattern is matched against the full fqn (connection.object).

@@ -13,7 +13,7 @@ def _indices(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 # through the client the config now exposes via get_client().
 ELASTICSEARCH_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
-    levels=[ProbeLevel(DatasetSubTypes.ELASTIC_INDEX, "index_pattern", _indices)],
+    levels=[ProbeLevel(DatasetSubTypes.ELASTIC_INDEX, list_names=_indices)],
 )
 
 ELASTICSEARCH_PROBE_HIERARCHY: List[ProbeNodeKind] = ELASTICSEARCH_PROBE.hierarchy()

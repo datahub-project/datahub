@@ -1,6 +1,6 @@
-from types import SimpleNamespace
+from typing import Any, Callable, List, Tuple
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
     list_kafka_connect_children,
 )
@@ -29,9 +29,18 @@ class _FakeSession:
         self.closed = True
 
 
-def _config(connector_names):
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for connector_patterns, which the probe now resolves by
+# convention rather than declaring explicitly.
+class _Config(ConfigModel):
+    connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    get_effective_connect_uri: Callable[[], str]
+    get_connect_session: Callable[[], Any]
+
+
+def _config(connector_names: List[str]) -> Tuple[_Config, _FakeSession]:
     session = _FakeSession(connector_names)
-    config = SimpleNamespace(
+    config = _Config(
         connector_patterns=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
         get_effective_connect_uri=lambda: "http://localhost:8083",
         get_connect_session=lambda: session,

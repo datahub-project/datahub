@@ -36,7 +36,8 @@ BIGID_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     close=lambda client: client.close(),
     levels=[
-        ProbeLevel(DatasetSubTypes.CONNECTION, "connection_pattern", _connections),
+        ProbeLevel(DatasetSubTypes.CONNECTION, list_names=_connections),
+        # BigID's own noun ("dataset"); the kind is DataHub's generic Table subtype.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             "dataset_pattern",

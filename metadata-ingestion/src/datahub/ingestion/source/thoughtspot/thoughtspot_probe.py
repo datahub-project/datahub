@@ -34,9 +34,7 @@ THOUGHTSPOT_PROBE = ClientProbe(
     client_factory=_client,
     close=lambda client: client.close(),
     levels=[
-        ProbeLevel(
-            DatasetSubTypes.THOUGHTSPOT_WORKSHEET, "worksheet_pattern", _worksheets
-        ),
+        ProbeLevel(DatasetSubTypes.THOUGHTSPOT_WORKSHEET, list_names=_worksheets),
         ProbeLevel(ProbeLeafKind.COLUMN, None, _columns),
     ],
 )

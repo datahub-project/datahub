@@ -71,19 +71,23 @@ def _classify_container(
     return pattern_verdict(config, pattern_field, name)
 
 
-def _build(top_kind: ProbeNodeKind, top_pattern_field: str) -> ClientProbe:
+def _build(top_kind: ProbeNodeKind) -> ClientProbe:
     # The generic (schema-top) and two-tier (database-top) probes differ only in
-    # what the top container is called and which pattern filters it.
+    # what the top container is called; its filter (schema_pattern/database_pattern)
+    # resolves by convention from top_kind, so it needs no explicit pattern_field.
     return ClientProbe(
         client_factory=_engine,
         close=lambda engine: engine.dispose(),
         levels=[
             ProbeLevel(
                 top_kind,
-                top_pattern_field,
-                _containers,
+                list_names=_containers,
                 classify=_classify_container,
             ),
+            # table_pattern/view_pattern resolve by convention too, but stay explicit:
+            # test_two_tier_probe.py is a guarding test whose config fixture is a
+            # plain SimpleNamespace, which resolve_pattern_field can't introspect (no
+            # model_fields) — only a real pydantic config resolves by convention.
             ProbeLevel(
                 DatasetSubTypes.TABLE,
                 sources=[
@@ -97,10 +101,10 @@ def _build(top_kind: ProbeNodeKind, top_pattern_field: str) -> ClientProbe:
 
 
 # Generic SQL sources are a 2-level namespace: schema -> table -> column.
-SQL_PROBE = _build(DatasetContainerSubTypes.SCHEMA, "schema_pattern")
+SQL_PROBE = _build(DatasetContainerSubTypes.SCHEMA)
 # Two-tier sources (MySQL, Hive, ...) have no schema layer: the database is the
 # top container and is filtered by database_pattern.
-TWO_TIER_PROBE = _build(DatasetContainerSubTypes.DATABASE, "database_pattern")
+TWO_TIER_PROBE = _build(DatasetContainerSubTypes.DATABASE)
 
 SQL_PROBE_HIERARCHY: List[ProbeNodeKind] = SQL_PROBE.hierarchy()
 TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = TWO_TIER_PROBE.hierarchy()

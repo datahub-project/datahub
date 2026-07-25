@@ -45,9 +45,8 @@ AEROSPIKE_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     close=lambda client: client.close(),
     levels=[
-        ProbeLevel(
-            DatasetContainerSubTypes.NAMESPACE, "namespace_pattern", _namespaces
-        ),
+        ProbeLevel(DatasetContainerSubTypes.NAMESPACE, list_names=_namespaces),
+        # Aerospike's own noun for a table-shaped leaf; the kind is DataHub's Table subtype.
         ProbeLevel(DatasetSubTypes.TABLE, "set_pattern", _sets),
     ],
 )

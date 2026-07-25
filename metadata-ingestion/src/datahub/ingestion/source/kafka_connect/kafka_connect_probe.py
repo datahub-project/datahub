@@ -17,7 +17,7 @@ def _connectors(client: Any, config: Any, parent_path: List[str]) -> Sequence[st
 KAFKA_CONNECT_PROBE = ClientProbe(
     client_factory=lambda config: config.get_connect_session(),
     close=lambda session: session.close(),
-    levels=[ProbeLevel("Connector", "connector_patterns", _connectors)],
+    levels=[ProbeLevel("Connector", list_names=_connectors)],
 )
 
 KAFKA_CONNECT_PROBE_HIERARCHY: List[ProbeNodeKind] = KAFKA_CONNECT_PROBE.hierarchy()

@@ -20,7 +20,10 @@ def _namespaces(client: Any, config: Any, parent_path: List[str]) -> Sequence[st
 PINECONE_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     levels=[
+        # Name skew: the kind is "Pinecone Index", but the field follows Pinecone's
+        # own noun ("index"), not a pinecone_index_pattern derived from the kind.
         ProbeLevel(DatasetContainerSubTypes.PINECONE_INDEX, "index_pattern", _indexes),
+        # Same name-skew reason as above, for "Pinecone Namespace" -> namespace_pattern.
         ProbeLevel(
             DatasetContainerSubTypes.PINECONE_NAMESPACE,
             "namespace_pattern",

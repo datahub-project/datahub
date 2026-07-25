@@ -43,3 +43,69 @@ def test_multiword_kind_collapses_to_underscores():
         )
 
     assert resolve_pattern_field(_K, "Flink Job") == "flink_job_pattern"
+
+
+def test_every_probe_level_resolves_to_a_real_pattern_field():
+    """Drift net: every declared level/source must reach an AllowDenyPattern field,
+    explicitly or by convention. Covers all probe-capable connectors, including
+    future ones."""
+    import importlib
+    import pkgutil
+
+    import datahub.ingestion.source as source_pkg
+    from datahub.ingestion.agent.models import ProbeLeafKind
+    from datahub.ingestion.agent.probe import ClientProbe, _config_class
+    from datahub.ingestion.source.source_registry import source_registry
+
+    # source_type -> config class, for every source whose config declares a probe
+    configs = {}
+    for source_type in source_registry.mapping:
+        try:
+            config_cls = _config_class(source_type)
+        except Exception:
+            continue
+        if callable(getattr(config_cls, "probe_hierarchy", None)):
+            configs[source_type] = config_cls
+
+    assert configs, "no probe-capable sources discovered"
+
+    # module name -> the ClientProbe objects it declares
+    probes = {}
+    for mod_info in pkgutil.walk_packages(
+        source_pkg.__path__, "datahub.ingestion.source."
+    ):
+        if not mod_info.name.endswith("_probe"):
+            continue
+        try:
+            mod = importlib.import_module(mod_info.name)
+        except Exception:
+            continue
+        for attr in dir(mod):
+            obj = getattr(mod, attr, None)
+            if isinstance(obj, ClientProbe):
+                probes[f"{mod_info.name}.{attr}"] = obj
+
+    assert probes, "no ClientProbe declarations discovered"
+
+    unresolved = []
+    for label, probe in probes.items():
+        for level in probe._levels:
+            entries = (
+                [(s.kind, s.pattern_field) for s in level.sources]
+                if level.sources
+                else [(level.kind, level.pattern_field)]
+            )
+            for kind, declared in entries:
+                if declared is not None or kind == ProbeLeafKind.COLUMN:
+                    continue
+                # Must resolve against at least one config class that uses this probe.
+                if not any(
+                    resolve_pattern_field(cfg, kind) is not None
+                    for cfg in configs.values()
+                ):
+                    unresolved.append((label, str(kind)))
+
+    assert not unresolved, (
+        "these probe levels declare no pattern_field and no config's conventional "
+        f"field matches their kind: {unresolved}"
+    )

@@ -25,6 +25,8 @@ def _jobs(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 FLINK_PROBE = ClientProbe(
     client_factory=_client,
     close=lambda client: client.close(),
+    # Name skew: the kind is "Flink Job", but the field is job_name_pattern, not
+    # flink_job_pattern.
     levels=[ProbeLevel("Flink Job", "job_name_pattern", _jobs)],
 )
 

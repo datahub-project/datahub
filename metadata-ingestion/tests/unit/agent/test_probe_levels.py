@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.agent.models import ProbeLeafKind
 from datahub.ingestion.agent.probe import (
     ClientProbe,
@@ -16,6 +16,16 @@ _CFG = SimpleNamespace(
     table_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),
     view_pattern=AllowDenyPattern(allow=[".*"]),
 )
+
+
+# resolve_pattern_field needs a real pydantic config (model_fields), unlike the
+# plain SimpleNamespace _CFG above — same table_pattern deny (^tmp_) as _CFG, kept
+# on a config class that carries no view_pattern at all.
+class _ResolvableConfig(ConfigModel):
+    table_pattern: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"])
+
+
+_RESOLVABLE_CFG = _ResolvableConfig()
 
 
 def _probe(*levels):
@@ -172,3 +182,25 @@ def test_pattern_verdict_helper():
     assert pattern_verdict(_CFG, None, "anything") == (True, None)
     assert pattern_verdict(_CFG, "table_pattern", "orders") == (True, None)
     assert pattern_verdict(_CFG, "table_pattern", "tmp_x") == (False, "table_pattern")
+
+
+def test_omitted_pattern_field_resolves_by_convention_and_filters():
+    # No pattern_field declared: the level's kind (Table) must resolve to
+    # table_pattern on _ResolvableConfig, and that field must actually filter.
+    probe = _probe(
+        ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders", "tmp_scratch"))
+    )
+    by_name = {n.name: n for n in probe.list_children(_RESOLVABLE_CFG, [], 100).nodes}
+    assert by_name["orders"].pattern_field == "table_pattern"
+    assert by_name["orders"].included is True
+    assert by_name["tmp_scratch"].pattern_field == "table_pattern"
+    assert by_name["tmp_scratch"].included is False
+    assert by_name["tmp_scratch"].excluded_by == "table_pattern"
+
+
+def test_omitted_pattern_field_raises_when_the_kind_has_no_conventional_field():
+    # DatasetSubTypes.VIEW has no view_pattern on _ResolvableConfig (only
+    # table_pattern), so resolution must fail loudly rather than silently pass.
+    probe = _probe(ProbeLevel(DatasetSubTypes.VIEW, list_names=_lister("v_orders")))
+    with pytest.raises(ValueError, match="View"):
+        probe.list_children(_RESOLVABLE_CFG, [], 100)

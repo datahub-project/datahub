@@ -113,6 +113,11 @@ def _classify_table(
 
 
 # Snowflake is a 3-level namespace: database -> schema -> table -> column.
+# database_pattern/schema_pattern/table_pattern/view_pattern below all match their
+# kind by convention (SnowflakeV2Config), but stay explicit: test_snowflake_probe.py
+# is a guarding test whose config fixture is a plain SimpleNamespace, which
+# resolve_pattern_field can't introspect (no model_fields) — only a real pydantic
+# config resolves by convention.
 SNOWFLAKE_PROBE = ClientProbe(
     client_factory=_engine,
     close=lambda engine: engine.dispose(),

@@ -24,6 +24,11 @@ def _object_kind(name: str) -> ProbeNodeKind:
 SALESFORCE_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     levels=[
+        # Stays explicit: kind_for reclassifies some items to
+        # SALESFORCE_CUSTOM_OBJECT ("Custom Object"), a kind with no
+        # custom_object_pattern field of its own — Salesforce reuses object_pattern
+        # for both custom and standard objects, so the per-item kind can't be
+        # resolved by convention for every item at this level.
         ProbeLevel(
             DatasetSubTypes.SALESFORCE_STANDARD_OBJECT,
             "object_pattern",

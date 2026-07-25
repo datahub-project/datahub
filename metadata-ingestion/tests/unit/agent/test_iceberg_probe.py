@@ -1,6 +1,6 @@
-from types import SimpleNamespace
+from typing import Any, Callable
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -20,8 +20,17 @@ class _Catalog:
         return self._tables.get(namespace, [])
 
 
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for namespace_pattern/table_pattern, which the probe now
+# resolves by convention rather than declaring explicitly.
+class _Config(ConfigModel):
+    get_catalog: Callable[[], Any]
+    namespace_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+
 def _config():
-    return SimpleNamespace(
+    return _Config(
         get_catalog=lambda: _Catalog(
             [("analytics",), ("staging",)],
             {"analytics": [("analytics", "orders"), ("analytics", "tmp_scratch")]},

@@ -24,7 +24,7 @@ def _topics(consumer: Any, config: Any, parent_path: List[str]) -> Sequence[str]
 KAFKA_PROBE = ClientProbe(
     client_factory=_consumer,
     close=lambda consumer: consumer.close(),
-    levels=[ProbeLevel(DatasetSubTypes.TOPIC, "topic_patterns", _topics)],
+    levels=[ProbeLevel(DatasetSubTypes.TOPIC, list_names=_topics)],
 )
 
 KAFKA_PROBE_HIERARCHY: List[ProbeNodeKind] = KAFKA_PROBE.hierarchy()

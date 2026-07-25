@@ -148,8 +148,10 @@ LevelClassifier = Callable[[Any, str, str, Optional[str]], Verdict]
 @dataclass
 class ProbeLevel:
     kind: ProbeNodeKind
-    # The config *_pattern field that filters this level, or None for a leaf
-    # (column) level, which carries no filter.
+    # The config *_pattern field that filters this level. None means one of two
+    # things: for a leaf (column) level, there is no filter to carry; for any other
+    # level, resolve the conventional <kind>_pattern/<kind>_patterns field instead,
+    # raising if the config class has none (see ClientProbe._resolved).
     pattern_field: Optional[str] = None
     list_names: Optional[LevelLister] = None
     # Optional: derive the node kind per-name when a level mixes kinds (e.g.
@@ -235,7 +237,7 @@ class ClientProbe:
                 if pattern_field is None:
                     raise ValueError(
                         f"no AllowDenyPattern field on "
-                        f"{config_cls.__name__} filters kind '{kind}'; "
+                        f"{config_cls.__name__} that filters kind '{kind}'; "
                         f"pass pattern_field= explicitly on the level or source"
                     )
             out.append((name, kind, pattern_field))

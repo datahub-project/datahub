@@ -30,8 +30,8 @@ CASSANDRA_PROBE = ClientProbe(
     client_factory=_build_client,
     close=lambda client: client.close(),
     levels=[
-        ProbeLevel(DatasetContainerSubTypes.KEYSPACE, "keyspace_pattern", _keyspaces),
-        ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _tables),
+        ProbeLevel(DatasetContainerSubTypes.KEYSPACE, list_names=_keyspaces),
+        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables),
     ],
 )
 

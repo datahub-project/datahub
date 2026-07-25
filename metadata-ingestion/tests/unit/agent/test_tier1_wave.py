@@ -1,8 +1,9 @@
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.agent.probe import probe_hierarchy
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dynamodb.dynamodb_probe import list_dynamodb_children
@@ -25,8 +26,16 @@ class _DynClient:
         return _Paginator(self._names)
 
 
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for table_pattern, which the probe now resolves by
+# convention rather than declaring explicitly.
+class _DynConfig(ConfigModel):
+    dynamodb_client: Any
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+
 def test_dynamodb_lists_region_qualified_tables():
-    config = SimpleNamespace(
+    config = _DynConfig(
         dynamodb_client=_DynClient(["orders", "tmp_scratch"]),
         table_pattern=AllowDenyPattern(allow=[".*"], deny=[".*tmp_.*"]),
     )

@@ -1,7 +1,6 @@
-from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.cassandra.cassandra_probe import list_cassandra_children
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -40,11 +39,20 @@ class _FakeCassandraClient:
         self.closed = True
 
 
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for keyspace_pattern/table_pattern, which the probe now
+# resolves by convention rather than declaring explicitly.
+class _Config(ConfigModel):
+    get_client: Callable[[], Any]
+    keyspace_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+
 def _config() -> Any:
     client = _FakeCassandraClient(
         ["analytics", "billing"], {"analytics": ["orders", "tmp_scratch"]}
     )
-    return SimpleNamespace(
+    return _Config(
         get_client=lambda: client,
         keyspace_pattern=AllowDenyPattern(allow=[".*"]),
         table_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),

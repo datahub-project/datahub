@@ -31,8 +31,8 @@ def _tables(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 GLUE_PROBE = ClientProbe(
     client_factory=lambda config: config.glue_client,
     levels=[
-        ProbeLevel(DatasetContainerSubTypes.DATABASE, "database_pattern", _databases),
-        ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _tables),
+        ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
+        ProbeLevel(DatasetSubTypes.TABLE, list_names=_tables),
     ],
 )
 

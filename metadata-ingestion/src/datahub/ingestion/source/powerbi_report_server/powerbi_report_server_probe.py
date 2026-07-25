@@ -14,7 +14,7 @@ def _reports(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 # (config.get_client()). Uses the native BIAssetSubTypes.REPORT subtype ("Report").
 POWERBI_REPORT_SERVER_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
-    levels=[ProbeLevel(BIAssetSubTypes.REPORT, "report_pattern", _reports)],
+    levels=[ProbeLevel(BIAssetSubTypes.REPORT, list_names=_reports)],
 )
 
 POWERBI_REPORT_SERVER_PROBE_HIERARCHY: List[ProbeNodeKind] = (

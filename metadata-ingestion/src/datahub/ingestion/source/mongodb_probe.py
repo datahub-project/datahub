@@ -23,7 +23,8 @@ MONGODB_PROBE = ClientProbe(
     client_factory=lambda config: config.get_mongo_client(),
     close=lambda client: client.close(),
     levels=[
-        ProbeLevel(DatasetContainerSubTypes.DATABASE, "database_pattern", _databases),
+        ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
+        # Mongo's own noun; the kind is DataHub's normalized Table subtype.
         ProbeLevel(DatasetSubTypes.TABLE, "collection_pattern", _collections),
     ],
 )

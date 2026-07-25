@@ -1,7 +1,6 @@
-from types import SimpleNamespace
-from typing import List
+from typing import Any, Callable, List
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.grafana_probe import list_grafana_children
 from datahub.ingestion.source.grafana.models import Dashboard, Folder
@@ -19,6 +18,15 @@ class _FakeGrafanaClient:
         return self._dashboards
 
 
+# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
+# introspect model_fields for folder_pattern/dashboard_pattern, which the probe now
+# resolves by convention rather than declaring explicitly.
+class _Config(ConfigModel):
+    get_client: Callable[[], Any]
+    folder_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+
+
 def _config():
     folders = [Folder(id="1", title="analytics"), Folder(id="2", title="scratch")]
     dashboards = [
@@ -26,7 +34,7 @@ def _config():
         Dashboard(uid="d2", title="tmp_debug", panels=[], folder_id="1"),
         Dashboard(uid="d3", title="unfiled", panels=[]),
     ]
-    return SimpleNamespace(
+    return _Config(
         get_client=lambda: _FakeGrafanaClient(folders, dashboards),
         folder_pattern=AllowDenyPattern(allow=[".*"]),
         dashboard_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),

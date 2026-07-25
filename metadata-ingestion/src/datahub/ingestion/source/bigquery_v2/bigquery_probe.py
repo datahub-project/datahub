@@ -79,12 +79,19 @@ BIGQUERY_PROBE = ClientProbe(
     client_factory=lambda config: config.get_bigquery_client(),
     close=lambda client: client.close(),
     levels=[
+        # Name skew: the kind is "Project", but the field is project_id_pattern, not
+        # project_pattern.
         ProbeLevel(
             DatasetContainerSubTypes.BIGQUERY_PROJECT,
             "project_id_pattern",
             _projects,
             classify=_classify_project,
         ),
+        # dataset_pattern/table_pattern/view_pattern below all match their kind by
+        # convention (BigQueryV2Config), but stay explicit here: test_bigquery_probe.py
+        # is a guarding test whose config fixture is a plain SimpleNamespace, which
+        # resolve_pattern_field can't introspect (no model_fields) — only a real
+        # pydantic config resolves by convention.
         ProbeLevel(
             DatasetContainerSubTypes.BIGQUERY_DATASET,
             "dataset_pattern",
