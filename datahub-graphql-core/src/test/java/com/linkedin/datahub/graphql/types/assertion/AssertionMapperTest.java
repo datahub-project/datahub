@@ -135,8 +135,9 @@ public class AssertionMapperTest {
   }
 
   @Test
-  public void testMapMalformedAssertionWithoutTarget() {
+  public void testMapMalformedAssertionEntityUrn() {
     AssertionInfo input = new AssertionInfo().setType(AssertionType.CUSTOM);
+    input.data().put("entityUrn", "invalid-urn");
 
     Assertion output = AssertionMapper.map(null, createAssertionInfoEntityResponse(input));
 
