@@ -7,7 +7,6 @@ from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
-    DatasetSubTypes,
 )
 
 WORKSPACE = DatasetContainerSubTypes.FOLDER  # stands in for a BI workspace
@@ -37,7 +36,7 @@ def _bi_probe(report_children=None):
     if report_children:
         levels.append(
             ProbeLevel(
-                DatasetSubTypes.CHART if hasattr(DatasetSubTypes, "CHART") else "Chart",
+                BIAssetSubTypes.CHART,
                 "chart_pattern",
                 _names("c1"),
                 parent=REPORT,

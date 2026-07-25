@@ -88,8 +88,10 @@ def _cfg(**over):
 def test_mode_shape_branches_under_space():
     shape = MODE_PROBE.shape().to_dict()
     assert shape["kind"] == "Space"
+    children = shape["children"]
+    assert isinstance(children, list)
     # A Space holds BOTH reports and datasets — the branch.
-    assert sorted(c["kind"] for c in shape["children"]) == ["Dataset", "Report"]
+    assert sorted(c["kind"] for c in children) == ["Dataset", "Report"]
     assert MODE_PROBE.is_linear is False
 
 
