@@ -1,16 +1,17 @@
 import { Page } from '@playwright/test';
-import { test, expect } from '../../fixtures/login-test';
+import { test, expect } from '../../fixtures/base-test';
 import { AssertionListPage } from '../../pages/assertion-list.page';
 
-type DatasetSearchResponse = {
+test.use({ featureName: 'quality' });
+
+const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,playwright_quality_assertion_list,PROD)';
+const PLATFORM_URN = 'urn:li:dataPlatform:hive';
+
+type AssertionSearchResponse = {
   searchAcrossEntities: {
     searchResults: Array<{
       entity: {
         urn: string;
-        platform: {
-          urn: string;
-          name: string;
-        };
       };
     }>;
   };
@@ -34,36 +35,8 @@ async function executeGraphQL<T>(page: Page, query: string, variables: Record<st
   );
 }
 
-test('renders and searches the paginated Quality assertion list', async ({ page, loginPage, logger, logDir }) => {
+test('renders and searches the paginated Quality assertion list', async ({ page, logger, logDir }) => {
   test.setTimeout(120_000);
-  await loginPage.navigateToLogin();
-  await loginPage.usernameInput.fill('datahub');
-  await loginPage.passwordInput.fill('datahub');
-  await Promise.all([
-    page.waitForURL((url) => !url.pathname.includes('login'), { timeout: 30_000 }),
-    loginPage.loginButton.click({ force: true }),
-  ]);
-
-  const datasetData = await executeGraphQL<DatasetSearchResponse>(
-    page,
-    `query BrowserDataset {
-      searchAcrossEntities(input: { types: [DATASET], query: "*", start: 0, count: 1 }) {
-        searchResults {
-          entity {
-            ... on Dataset {
-              urn
-              platform {
-                urn
-                name
-              }
-            }
-          }
-        }
-      }
-    }`,
-  );
-  const dataset = datasetData.searchAcrossEntities.searchResults[0]?.entity;
-  expect(dataset, 'quickstart should contain a dataset').toBeTruthy();
 
   const description = `Headless assertion ${Date.now()}`;
   const created = await executeGraphQL<{ upsertCustomAssertion: { urn: string } }>(
@@ -75,12 +48,12 @@ test('renders and searches the paginated Quality assertion list', async ({ page,
     }`,
     {
       input: {
-        entityUrn: dataset.urn,
+        entityUrn: DATASET_URN,
         type: 'Headless Check',
         description,
         platform: {
-          urn: dataset.platform.urn,
-          name: dataset.platform.name,
+          urn: PLATFORM_URN,
+          name: 'hive',
         },
       },
     },
@@ -94,10 +67,50 @@ test('renders and searches the paginated Quality assertion list', async ({ page,
       }`,
       { urn: created.upsertCustomAssertion.urn },
     );
-    await page.waitForTimeout(5000);
+
+    await expect
+      .poll(
+        async () => {
+          const result = await executeGraphQL<AssertionSearchResponse>(
+            page,
+            `query SearchBrowserAssertion($input: SearchAcrossEntitiesInput!) {
+              searchAcrossEntities(input: $input) {
+                searchResults {
+                  entity {
+                    urn
+                  }
+                }
+              }
+            }`,
+            {
+              input: {
+                types: ['ASSERTION'],
+                query: '*',
+                start: 0,
+                count: 10,
+                orFilters: [
+                  {
+                    and: [{ field: 'entity', values: [DATASET_URN], condition: 'EQUAL' }],
+                  },
+                ],
+                searchFlags: { skipCache: true },
+              },
+            },
+          );
+          return result.searchAcrossEntities.searchResults.some(
+            ({ entity }) => entity.urn === created.upsertCustomAssertion.urn,
+          );
+        },
+        {
+          message: 'created assertion should be available in search',
+          timeout: 30_000,
+          intervals: [500, 1000, 2000],
+        },
+      )
+      .toBe(true);
 
     const assertionList = new AssertionListPage(page, logger, logDir);
-    await assertionList.navigateToDatasetAssertions(dataset.urn);
+    await assertionList.navigateToDatasetAssertions(DATASET_URN);
     await assertionList.expectAssertionVisible(description);
 
     await assertionList.search(description);
