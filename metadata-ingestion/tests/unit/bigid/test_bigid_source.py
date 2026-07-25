@@ -177,7 +177,9 @@ def _make_source(**config_overrides: Any) -> BigIDSource:
     ctx.pipeline_name = "test"
     ctx.run_id = "test-run"
 
-    with patch("datahub.ingestion.source.bigid.bigid_source.BigIDClient") as MockClient:
+    # The client is constructed by BigIDSourceConfig.get_client(), so patch it
+    # where it is looked up (config), not where the source used to import it.
+    with patch("datahub.ingestion.source.bigid.config.BigIDClient") as MockClient:
         instance = MockClient.return_value
         instance.test_connection.return_value = True
         source = BigIDSource(BigIDSourceConfig.model_validate(config_dict), ctx)
