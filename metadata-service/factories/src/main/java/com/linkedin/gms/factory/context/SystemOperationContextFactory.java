@@ -19,8 +19,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.search.utils.EntityTypeListResolver;
-import com.linkedin.metadata.search.utils.ViewUnrestrictedEntityTypesResolver;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.PrimaryStorageContext;
@@ -252,7 +251,7 @@ public class SystemOperationContextFactory {
       @Nonnull String listName,
       @Nullable EntityTypeListConfig config,
       @Nonnull EntityRegistry entityRegistry) {
-    List<String> resolved = EntityTypeListResolver.resolve(config, entityRegistry);
+    List<String> resolved = EntityTypeUtils.resolve(config, entityRegistry);
     if (resolved.isEmpty()) {
       log.warn(
           "Resolved elasticsearch.search.{} to empty; GraphQL will use no entity types for that "
@@ -297,8 +296,7 @@ public class SystemOperationContextFactory {
           com.datahub.authorization.config.ViewAuthorizationConfiguration.builder().build();
     }
     final Set<String> effective =
-        ViewUnrestrictedEntityTypesResolver.resolve(
-            viewConfiguration.getUnrestrictedEntityTypes(), entityRegistry);
+        EntityTypeUtils.resolve(viewConfiguration.getUnrestrictedEntityTypes(), entityRegistry);
     return viewConfiguration.toBuilder().effectiveUnrestrictedEntityTypes(effective).build();
   }
 }

@@ -10,7 +10,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
-import com.linkedin.metadata.search.utils.EntityTypeListResolver;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,7 +77,7 @@ public class ConfigSearchExport extends HttpServlet {
         Optional.ofNullable(systemOpContext.getSearchContext().getDefaultSearchEntityNames())
             .orElseGet(
                 () ->
-                    EntityTypeListResolver.resolve(
+                    EntityTypeUtils.resolve(
                         searchConfiguration.getSearch().getDefaultEntityTypes(), entityRegistry));
 
     searchableEntityNames.stream()

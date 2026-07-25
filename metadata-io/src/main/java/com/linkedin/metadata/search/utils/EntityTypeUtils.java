@@ -1,9 +1,11 @@
 package com.linkedin.metadata.search.utils;
 
+import com.datahub.authorization.config.ViewUnrestrictedEntityTypes;
 import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -16,17 +18,19 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolves an {@link EntityTypeListConfig} into an ordered list of registry entity names, with soft
+ * Turns value/add/remove entity-type configs into effective registry entity names, with soft
  * validation against the entity registry. There is no code baseline — empty config yields an empty
- * list (production defaults come from {@code application.yaml}). An empty resolved list means
- * <em>search no entity types</em> at the GraphQL layer — it must not be treated as "search all".
+ * result (production defaults come from {@code application.yaml}).
  *
  * <p>Order from {@code value} then {@code add} is preserved; duplicates are dropped
  * case-insensitively (first occurrence wins). Unknown registry names are soft-dropped with a warn.
+ *
+ * <p>An empty resolved search list means <em>search no entity types</em> at the GraphQL layer — it
+ * must not be treated as "search all".
  */
 @Slf4j
-public final class EntityTypeListResolver {
-  private EntityTypeListResolver() {}
+public final class EntityTypeUtils {
+  private EntityTypeUtils() {}
 
   @Nonnull
   public static List<String> resolve(
@@ -37,7 +41,23 @@ public final class EntityTypeListResolver {
 
     return validateAndFilter(
         mergeOrdered(config.parsedValue(), config.parsedAdd(), config.parsedRemove()),
-        entityRegistry);
+        entityRegistry,
+        "elasticsearch.search.*EntityTypes / SEARCH_*_ENTITY_TYPES");
+  }
+
+  @Nonnull
+  public static Set<String> resolve(
+      @Nullable ViewUnrestrictedEntityTypes config, @Nullable EntityRegistry entityRegistry) {
+    if (config == null || config.isEmpty()) {
+      return Set.of();
+    }
+
+    return Collections.unmodifiableSet(
+        new LinkedHashSet<>(
+            validateAndFilter(
+                mergeOrdered(config.parsedValue(), config.parsedAdd(), config.parsedRemove()),
+                entityRegistry,
+                "authorization.view.unrestrictedEntityTypes / VIEW_UNRESTRICTED_ENTITY_TYPES")));
   }
 
   /**
@@ -71,7 +91,9 @@ public final class EntityTypeListResolver {
   }
 
   private static List<String> validateAndFilter(
-      @Nonnull List<String> entityNames, @Nullable EntityRegistry entityRegistry) {
+      @Nonnull List<String> entityNames,
+      @Nullable EntityRegistry entityRegistry,
+      @Nonnull String configHint) {
     if (entityRegistry == null) {
       return List.copyOf(entityNames);
     }
@@ -110,17 +132,17 @@ public final class EntityTypeListResolver {
     if (!dropped.isEmpty()) {
       log.warn(
           "Soft-dropped {} unknown configured entity type(s) {}; effective list size {} → {}. "
-              + "Fix typos in elasticsearch.search.*EntityTypes / SEARCH_*_ENTITY_TYPES.",
+              + "Fix typos in {}.",
           dropped.size(),
           dropped,
           entityNames.size(),
-          result.size());
+          result.size(),
+          configHint);
     }
     if (result.isEmpty() && !entityNames.isEmpty()) {
       log.warn(
           "Configured entity-type list resolved to empty after registry validation "
-              + "(input was {}). GraphQL search/autocomplete/browse will match no entity types "
-              + "(not all indices).",
+              + "(input was {}). Callers will treat this as no entity types (not all indices).",
           entityNames);
     }
     return List.copyOf(result);
