@@ -40,6 +40,7 @@ def _show_names(engine: Any, statement: str) -> List[str]:
     # SQLAlchemy's get_schema_names() flattens schemas across all databases to bare
     # names, which can't express database_pattern or match_fully_qualified_names,
     # so enumerate via SHOW instead.
+    # lazy: sqlalchemy is only needed once a probe actually runs
     from sqlalchemy import text
 
     with engine.connect() as conn:

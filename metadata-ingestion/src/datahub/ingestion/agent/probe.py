@@ -7,7 +7,6 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
-    Set,
     Tuple,
     runtime_checkable,
 )
@@ -18,7 +17,6 @@ from datahub.ingestion.agent.models import (
     ProbeNodeKind,
     ProbeResult,
 )
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.source_registry import source_registry
 
 
@@ -55,9 +53,6 @@ class ProbeCapableConfig(Protocol):
 # "system_object"), or None when included. The filtering logic itself lives in the
 # connector (reusing its own ingestion filters); the framework only carries it.
 Verdict = Tuple[bool, Optional[str]]
-# classify(name, fqn) for containers; classify(name, fqn, is_view) for tables.
-ContainerClassifier = Callable[[str, str], Verdict]
-TableClassifier = Callable[[str, str, bool], Verdict]
 
 _INCLUDED: Verdict = (True, None)
 
@@ -103,59 +98,6 @@ def level_nodes(
             ProbeNode(name, kind, node_fqn, pattern_field, included, excluded_by)
         )
     return nodes, len(items) > limit
-
-
-def container_nodes(
-    names: Sequence[str],
-    limit: int,
-    kind: ProbeNodeKind,
-    pattern_field: str,
-    fqn_prefix: Optional[str] = None,
-    classify: Optional[ContainerClassifier] = None,
-    kind_for: Optional[Callable[[str], ProbeNodeKind]] = None,
-) -> Tuple[List[ProbeNode], bool]:
-    # fqn_prefix carries the parent container for 3-level sources (Snowflake
-    # database, BigQuery project), so a schema/dataset fqn is PARENT.CHILD — the
-    # form its pattern matches under match_fully_qualified_names. For 2-level
-    # sources it stays bare. kind_for lets a single level carry per-node kinds
-    # (e.g. Salesforce custom vs standard objects distinguished by name).
-    items: List[LevelItem] = [
-        (n, kind_for(n) if kind_for else kind, pattern_field) for n in names
-    ]
-
-    def verdict_for(name: str, node_fqn: str, _pattern_field: Optional[str]) -> Verdict:
-        return classify(name, node_fqn) if classify else _INCLUDED
-
-    return level_nodes(items, limit, fqn_prefix, verdict_for)
-
-
-def table_nodes(
-    tables: Sequence[str],
-    views: Sequence[str],
-    limit: int,
-    fqn_prefix: str,
-    classify: Optional[TableClassifier] = None,
-) -> Tuple[List[ProbeNode], bool]:
-    view_names = set(views)
-    table_names = set(tables)
-    # Table listings usually exclude views, so merge the two (tables first) to get
-    # the full set of children without duplicating a name reported in both.
-    combined = list(tables) + [v for v in views if v not in table_names]
-    items: List[LevelItem] = [
-        (
-            name,
-            DatasetSubTypes.VIEW if name in view_names else DatasetSubTypes.TABLE,
-            "view_pattern" if name in view_names else "table_pattern",
-        )
-        for name in combined
-    ]
-
-    def verdict_for(name: str, node_fqn: str, pattern_field: Optional[str]) -> Verdict:
-        if classify is None:
-            return _INCLUDED
-        return classify(name, node_fqn, pattern_field == "view_pattern")
-
-    return level_nodes(items, limit, fqn_prefix, verdict_for)
 
 
 def column_nodes(
@@ -227,6 +169,13 @@ class ProbeLevel:
     def __post_init__(self) -> None:
         if (self.list_names is None) == (self.sources is None):
             raise ValueError("ProbeLevel requires exactly one of list_names or sources")
+        if self.sources is not None:
+            # A multi-source level carries its kind/pattern per LevelSource; setting
+            # either here would be silently ignored (_items never reads them).
+            if self.pattern_field is not None:
+                raise ValueError("pattern_field is per-source when sources is set")
+            if self.kind_for is not None:
+                raise ValueError("kind_for is per-source when sources is set")
 
 
 class ClientProbe:
@@ -249,14 +198,17 @@ class ClientProbe:
     ) -> List[LevelItem]:
         if level.sources is not None:
             items: List[LevelItem] = []
-            seen: Set[str] = set()
+            index: Dict[str, int] = {}
             for source in level.sources:
                 for name in source.list_names(client, config, parent_path):
-                    # First source wins, so a name reported by two listings keeps
-                    # the earlier one's kind (tables before views).
-                    if name in seen:
+                    # A name reported by two listings keeps its first position but
+                    # takes the LATER source's kind/pattern: a dialect that reports
+                    # views inside its table listing (Hive) must still classify them
+                    # as views.
+                    if name in index:
+                        items[index[name]] = (name, source.kind, source.pattern_field)
                         continue
-                    seen.add(name)
+                    index[name] = len(items)
                     items.append((name, source.kind, source.pattern_field))
             return items
         assert level.list_names is not None  # guaranteed by ProbeLevel.__post_init__

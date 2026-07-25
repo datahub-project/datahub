@@ -26,7 +26,7 @@ def _lister(*names):
     return lambda client, config, parent_path: list(names)
 
 
-def test_merged_level_dedups_first_source_wins_with_per_node_kind_and_pattern():
+def test_merged_level_keeps_first_position_but_later_source_kind_and_pattern():
     probe = _probe(
         ProbeLevel(
             DatasetSubTypes.TABLE,
@@ -41,10 +41,13 @@ def test_merged_level_dedups_first_source_wins_with_per_node_kind_and_pattern():
         )
     )
     nodes = probe.list_children(_CFG, [], 100).nodes
+    # "shared" keeps its first-sighting position, but a later source's kind/pattern
+    # must win: a dialect that reports a view inside its table listing (Hive) still
+    # needs that name classified as a view.
     assert [n.name for n in nodes] == ["orders", "shared", "v_orders"]
     by_name = {n.name: n for n in nodes}
-    assert by_name["shared"].kind == DatasetSubTypes.TABLE
-    assert by_name["shared"].pattern_field == "table_pattern"
+    assert by_name["shared"].kind == DatasetSubTypes.VIEW
+    assert by_name["shared"].pattern_field == "view_pattern"
     assert by_name["v_orders"].kind == DatasetSubTypes.VIEW
     assert by_name["v_orders"].pattern_field == "view_pattern"
 
@@ -115,6 +118,26 @@ def test_level_requires_exactly_one_of_list_names_or_sources():
         )
 
 
+def test_sources_level_rejects_a_level_wide_pattern_field():
+    # A sources level carries its kind/pattern per LevelSource; a level-wide
+    # pattern_field would be silently ignored otherwise.
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            "table_pattern",
+            sources=[LevelSource(_lister("a"), DatasetSubTypes.TABLE, "table_pattern")],
+        )
+
+
+def test_sources_level_rejects_kind_for():
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            sources=[LevelSource(_lister("a"), DatasetSubTypes.TABLE, "table_pattern")],
+            kind_for=lambda name: DatasetSubTypes.VIEW,
+        )
+
+
 def test_hierarchy_never_builds_a_client():
     def boom(config):
         raise AssertionError("hierarchy() must not build a client")
@@ -127,6 +150,22 @@ def test_hierarchy_never_builds_a_client():
         ],
     )
     assert probe.hierarchy() == [DatasetSubTypes.TABLE, ProbeLeafKind.COLUMN]
+
+
+def test_list_children_past_declared_depth_never_builds_a_client():
+    def boom(config):
+        raise AssertionError("list_children() must not build a client past depth")
+
+    probe = ClientProbe(
+        client_factory=boom,
+        levels=[
+            ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _lister()),
+            ProbeLevel(ProbeLeafKind.COLUMN, list_names=_lister()),
+        ],
+    )
+    result = probe.list_children(_CFG, ["db", "orders"], 100)
+    assert result.supported is True
+    assert result.nodes == []
 
 
 def test_pattern_verdict_helper():

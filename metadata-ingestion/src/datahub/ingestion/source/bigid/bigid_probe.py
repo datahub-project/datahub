@@ -14,7 +14,7 @@ def _catalog_objects(client: Any, config: Any, parent_path: List[str]) -> Sequen
     # and keeps only objects whose source matches the connection just descended into —
     # mirroring _process_catalog's own connection_pattern gate. fully_qualified_name is
     # "{connection}.{rest}"; the connection prefix is stripped here because ClientProbe's
-    # container_nodes re-prefixes with the parent path, reassembling the full fqn — and
+    # level_nodes re-prefixes with the parent path, reassembling the full fqn — and
     # the level sets classify_on_fqn so dataset_pattern is matched against that full fqn,
     # exactly as _process_catalog does.
     connection = parent_path[0]
