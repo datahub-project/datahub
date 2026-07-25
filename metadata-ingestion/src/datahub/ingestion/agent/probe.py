@@ -142,8 +142,20 @@ class LevelSource:
     pattern_field: Optional[str] = None
 
 
-# classify(config, name, fqn, pattern_field) -> Verdict
-LevelClassifier = Callable[[Any, str, str, Optional[str]], Verdict]
+@dataclass(frozen=True)
+class ClassifyContext:
+    """Everything a level classifier needs to judge one child node."""
+
+    config: Any
+    name: str
+    fqn: str
+    pattern_field: Optional[str]
+    # The container names already descended, top-first — the parent of this node.
+    parent_path: Tuple[str, ...]
+
+
+# classify(ctx) -> Verdict
+LevelClassifier = Callable[[ClassifyContext], Verdict]
 
 
 @dataclass
@@ -330,7 +342,15 @@ class ClientProbe:
                     name: str, node_fqn: str, pattern_field: Optional[str]
                 ) -> Verdict:
                     if custom is not None:
-                        return custom(config, name, node_fqn, pattern_field)
+                        return custom(
+                            ClassifyContext(
+                                config=config,
+                                name=name,
+                                fqn=node_fqn,
+                                pattern_field=pattern_field,
+                                parent_path=tuple(parent_path),
+                            )
+                        )
                     return pattern_verdict(
                         config, pattern_field, node_fqn if on_fqn else name
                     )

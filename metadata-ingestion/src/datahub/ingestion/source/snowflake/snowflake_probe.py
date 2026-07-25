@@ -1,9 +1,10 @@
 from contextlib import contextmanager
-from typing import Any, Iterator, List, Optional, Sequence
+from typing import Any, Iterator, List, Sequence
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
+    ClassifyContext,
     ClientProbe,
     LevelSource,
     ProbeLevel,
@@ -88,28 +89,26 @@ def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
         return [str(col["name"]) for col in cols]
 
 
-def _classify_schema(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_schema(ctx: ClassifyContext) -> Verdict:
     # Snowflake auto-drops INFORMATION_SCHEMA regardless of patterns.
-    if is_snowflake_default_schema(name):
+    if is_snowflake_default_schema(ctx.name):
         return (False, "default_schema")
-    database = node_fqn.split(".")[0]
     if not is_schema_allowed(
-        config.schema_pattern, name, database, config.match_fully_qualified_names
+        ctx.config.schema_pattern,
+        ctx.name,
+        ctx.parent_path[0],
+        ctx.config.match_fully_qualified_names,
     ):
         return (False, "schema_pattern")
     return (True, None)
 
 
-def _classify_table(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_table(ctx: ClassifyContext) -> Verdict:
     # sys$… objects are dropped by ingestion irrespective of patterns.
-    if _is_sys_table(name):
+    if _is_sys_table(ctx.name):
         return (False, "system_object")
     # Snowflake matches table/view patterns against DATABASE.SCHEMA.TABLE.
-    return pattern_verdict(config, pattern_field, node_fqn)
+    return pattern_verdict(ctx.config, ctx.pattern_field, ctx.fqn)
 
 
 # Snowflake is a 3-level namespace: database -> schema -> table -> column.

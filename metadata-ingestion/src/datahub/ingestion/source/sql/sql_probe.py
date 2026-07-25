@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
+    ClassifyContext,
     ClientProbe,
     LevelSource,
     ProbeLevel,
@@ -62,13 +63,11 @@ def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
     return [str(col["name"]) for col in cols]
 
 
-def _classify_container(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_container(ctx: ClassifyContext) -> Verdict:
     # System catalogs the source drops before the user pattern is even applied.
-    if name.lower() in {s.lower() for s in config.default_schemas()}:
+    if ctx.name.lower() in {s.lower() for s in ctx.config.default_schemas()}:
         return (False, "default_schema")
-    return pattern_verdict(config, pattern_field, name)
+    return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 
 def _build(top_kind: ProbeNodeKind) -> ClientProbe:

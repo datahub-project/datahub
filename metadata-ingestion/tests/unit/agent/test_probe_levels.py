@@ -91,10 +91,10 @@ def test_merged_level_truncates_on_the_combined_set():
 
 
 def test_classify_override_beats_the_default_pattern_check():
-    def classify(config, name, node_fqn, pattern_field):
-        if name.startswith("sys$"):
+    def classify(ctx):
+        if ctx.name.startswith("sys$"):
             return (False, "system_object")
-        return pattern_verdict(config, pattern_field, node_fqn)
+        return pattern_verdict(ctx.config, ctx.pattern_field, ctx.fqn)
 
     probe = _probe(
         ProbeLevel(
@@ -213,3 +213,32 @@ def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
     probe = _probe(ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders")))
     by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
     assert by_name["orders"].pattern_field == "table_pattern"
+
+
+def test_classifier_receives_the_parent_path():
+    seen = {}
+
+    def classify(ctx):
+        seen["parent_path"] = ctx.parent_path
+        seen["name"] = ctx.name
+        seen["fqn"] = ctx.fqn
+        seen["pattern_field"] = ctx.pattern_field
+        return (True, None)
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(DatasetSubTypes.TABLE, "table_pattern", _lister("x")),
+            ProbeLevel(
+                DatasetSubTypes.VIEW,
+                "view_pattern",
+                _lister("orders"),
+                classify=classify,
+            ),
+        ],
+    )
+    probe.list_children(_CFG, ["my_db"], 100)
+    assert seen["parent_path"] == ("my_db",)
+    assert seen["name"] == "orders"
+    assert seen["fqn"] == "my_db.orders"
+    assert seen["pattern_field"] == "view_pattern"

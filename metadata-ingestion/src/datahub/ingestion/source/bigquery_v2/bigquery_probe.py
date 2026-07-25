@@ -1,8 +1,9 @@
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Sequence
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
+    ClassifyContext,
     ClientProbe,
     LevelSource,
     ProbeLevel,
@@ -41,33 +42,29 @@ def _columns(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
     return [field.name for field in schema]
 
 
-def _classify_project(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_project(ctx: ClassifyContext) -> Verdict:
     # Reuse ingestion's project gate (project_ids + project_id_pattern).
-    if not is_project_allowed(config, name):
+    if not is_project_allowed(ctx.config, ctx.name):
         return (False, "project_id_pattern")
     return (True, None)
 
 
-def _classify_dataset(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_dataset(ctx: ClassifyContext) -> Verdict:
     # Same predicate BigQueryFilter.is_dataset_allowed uses.
-    project = node_fqn.split(".")[0]
     if not is_schema_allowed(
-        config.dataset_pattern, name, project, config.match_fully_qualified_names
+        ctx.config.dataset_pattern,
+        ctx.name,
+        ctx.parent_path[0],
+        ctx.config.match_fully_qualified_names,
     ):
         return (False, "dataset_pattern")
     return (True, None)
 
 
-def _classify_table(
-    config: Any, name: str, node_fqn: str, pattern_field: Optional[str]
-) -> Verdict:
+def _classify_table(ctx: ClassifyContext) -> Verdict:
     # BigQuery ingestion matches table_pattern against the fully qualified
     # project.dataset.table for both tables and views.
-    if not config.table_pattern.allowed(node_fqn):
+    if not ctx.config.table_pattern.allowed(ctx.fqn):
         return (False, "table_pattern")
     return (True, None)
 
