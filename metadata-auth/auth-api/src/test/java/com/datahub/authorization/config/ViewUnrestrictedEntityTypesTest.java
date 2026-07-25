@@ -43,25 +43,4 @@ public class ViewUnrestrictedEntityTypesTest {
     assertEquals(config.parsedAdd(), List.of("actionrequest"));
     assertEquals(config.parsedRemove(), List.of("container"));
   }
-
-  @Test
-  public void testDefaultConstantParsesNonEmpty() {
-    assertFalse(
-        ViewUnrestrictedEntityTypes.parseCsv(
-                ViewUnrestrictedEntityTypes.DEFAULT_VIEW_UNRESTRICTED_ENTITY_TYPES)
-            .isEmpty());
-  }
-
-  @Test
-  public void testDefaultKeepsTagAndDataProcessInstanceRestricted() {
-    // Match Cloud: tag and dataProcessInstance are intentionally restricted by default
-    // (not on the unrestricted list) when VIEW_AUTHORIZATION_ENABLED=true.
-    List<String> defaults =
-        ViewUnrestrictedEntityTypes.parseCsv(
-            ViewUnrestrictedEntityTypes.DEFAULT_VIEW_UNRESTRICTED_ENTITY_TYPES);
-    assertFalse(defaults.contains("tag"));
-    assertFalse(defaults.contains("dataprocessinstance"));
-    assertTrue(defaults.contains("schemafield"));
-    assertTrue(defaults.contains("document"));
-  }
 }

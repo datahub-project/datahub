@@ -139,15 +139,58 @@ public class EntityTypeUtilsTest {
   }
 
   @Test
-  public void testViewUnrestrictedEmptyConfigReturnsEmpty() {
+  public void testViewUnrestrictedEmptyConfigWithNullRegistryReturnsEmpty() {
     Assert.assertEquals(
         EntityTypeUtils.resolve(ViewUnrestrictedEntityTypes.builder().build(), null), Set.of());
   }
 
   @Test
-  public void testViewUnrestrictedNullConfigReturnsEmpty() {
+  public void testViewUnrestrictedNullConfigWithNullRegistryReturnsEmpty() {
     Assert.assertEquals(
         EntityTypeUtils.resolve((ViewUnrestrictedEntityTypes) null, null), Set.of());
+  }
+
+  @Test
+  public void testViewUnrestrictedEmptyConfigUsesRegistryBaseline() {
+    EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
+    EntitySpec datasetSpec = namedSpec("dataset");
+    Mockito.when(datasetSpec.isViewUnrestricted()).thenReturn(false);
+    Mockito.when(registry.getEntitySpecs())
+        .thenReturn(Map.of("corpuser", userSpec, "dataset", datasetSpec));
+
+    Assert.assertEquals(
+        EntityTypeUtils.resolve(ViewUnrestrictedEntityTypes.builder().build(), registry),
+        Set.of("corpuser"));
+  }
+
+  @Test
+  public void testViewUnrestrictedAddOverlaysRegistryBaseline() {
+    EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
+    EntitySpec appSpec = namedSpec("application");
+    Mockito.when(appSpec.isViewUnrestricted()).thenReturn(false);
+    Mockito.when(registry.getEntitySpecs())
+        .thenReturn(Map.of("corpuser", userSpec, "application", appSpec));
+
+    ViewUnrestrictedEntityTypes config =
+        ViewUnrestrictedEntityTypes.builder().add("application").build();
+    Assert.assertEquals(
+        EntityTypeUtils.resolve(config, registry), Set.of("corpuser", "application"));
+  }
+
+  @Test
+  public void testViewUnrestrictedValueReplacesRegistryBaseline() {
+    EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
+    EntitySpec groupSpec = namedSpec("corpGroup");
+    Mockito.when(groupSpec.isViewUnrestricted()).thenReturn(false);
+    Mockito.when(registry.getEntitySpecs())
+        .thenReturn(Map.of("corpuser", userSpec, "corpgroup", groupSpec));
+
+    ViewUnrestrictedEntityTypes config =
+        ViewUnrestrictedEntityTypes.builder().value("corpGroup").build();
+    Assert.assertEquals(EntityTypeUtils.resolve(config, registry), Set.of("corpGroup"));
   }
 
   @Test
@@ -172,14 +215,14 @@ public class EntityTypeUtilsTest {
   }
 
   @Test
-  public void testViewUnrestrictedConfiguredDefault() {
+  public void testViewUnrestrictedConfiguredValue() {
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder().value("corpuser,corpGroup").build();
     Assert.assertEquals(EntityTypeUtils.resolve(config, null), Set.of("corpuser", "corpgroup"));
   }
 
   @Test
-  public void testViewUnrestrictedConfiguredDefaultWithAddRemove() {
+  public void testViewUnrestrictedConfiguredValueWithAddRemove() {
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder()
             .value("corpuser,corpGroup,container")
@@ -246,6 +289,12 @@ public class EntityTypeUtilsTest {
   private static EntitySpec namedSpec(String name) {
     EntitySpec spec = Mockito.mock(EntitySpec.class);
     Mockito.when(spec.getName()).thenReturn(name);
+    return spec;
+  }
+
+  private static EntitySpec viewUnrestrictedSpec(String name) {
+    EntitySpec spec = namedSpec(name);
+    Mockito.when(spec.isViewUnrestricted()).thenReturn(true);
     return spec;
   }
 }

@@ -98,24 +98,22 @@ authorization:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
-    # default. Live default is backwards-compatible: entity-registry entities minus the former
-    # VIEW_RESTRICTED_ENTITY_TYPES allowlist (trim with remove / VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE).
-    # Example: VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
+    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
+    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
     #
-    # Future lean default (commented) — production scaffolding only; catalog assets stay restricted.
-    # Intentionally omits schemaField/document and other searchable content, plus secrets/tokens,
-    # OAuth, policies/roles, connections, ingestion, remote executors, and workflow entities.
-    # Grouped as:
+    # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
     #   browse: container
     #   platforms: dataPlatform, dataPlatformInstance
-    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, relationshipType, form, role
-    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, recommendationModule, post
-    #   settings: globalSettings
-    # value: corpuser,corpGroup,container,dataPlatform,dataPlatformInstance,ownershipType,lifecycleStageType,entityType,dataType,structuredProperty,relationshipType,form,role,dataHubPageTemplate,dataHubPageModule,dataHubFile,dataHubPersona,recommendationModule,post,globalSettings
+    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
-      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataPlatform,role,dataHubPolicy,dataProcess,corpuser,corpGroup,container,document,dataHubIngestionSource,dataHubSecret,service,oauthAuthorizationServer,dataHubExecutionRequest,assertion,dataHubRetention,dataPlatformInstance,mlModelDeployment,telemetry,dataHubAccessToken,dataHubOAuthClient,dataHubOAuthSession,test,dataHubUpgrade,inviteToken,schemaField,globalSettings,versionSet,incident,dataHubRole,post,dataHubStepState,erModelRelationship,application,semanticModel,metric,ownershipType,lifecycleStageType,businessAttribute,dataContract,dataHubPersona,dataHubAction,entityType,dataType,structuredProperty,relationshipType,form,dataHubPageTemplate,dataHubPageModule,dataHubFile,dataHubConnection,platformResource,dataHubOpenAPISchema,dataHubRemoteExecutor,dataHubRemoteExecutorPool,dataHubRemoteExecutorGlobalConfig,constraint,recommendationModule,actionRequest,actionWorkflow,monitor,monitorSuite,assertionAssignmentRule,assertionInferenceAdjustmentRule,linkPreview,subscription,dataHubMetricCube,dataHubAiConversation,aiAgent,api,repository,agentSkill,dataHubTask,eval}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:

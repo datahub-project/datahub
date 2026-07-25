@@ -14,12 +14,14 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * Configurable entity types that remain unrestricted when view authorization is enabled.
+ * Configurable overlays for entity types that remain unrestricted when view authorization is
+ * enabled.
  *
  * <p>When {@code authorization.view.enabled} is true, every entity type is subject to view checks
- * unless it appears in this list. Each of {@link #value}, {@link #add}, and {@link #remove} is a
- * comma-separated list of registry entity names. Production defaults live in {@code
- * application.yaml}; there is no code baseline.
+ * unless it is marked {@code viewUnrestricted: true} in the entity registry or appears in the
+ * effective overlay list. Each of {@link #value}, {@link #add}, and {@link #remove} is a
+ * comma-separated list of registry entity names. Production overlays live in {@code
+ * application.yaml}; the lean baseline is owned by {@code entity-registry.yml}.
  */
 @Data
 @AllArgsConstructor
@@ -29,33 +31,9 @@ import lombok.experimental.Accessors;
 public class ViewUnrestrictedEntityTypes {
 
   /**
-   * Mirrors {@code authorization.view.unrestrictedEntityTypes.value} in {@code application.yaml}.
-   * Live default is backwards-compatible (registry entities minus the former {@code
-   * VIEW_RESTRICTED_ENTITY_TYPES} allowlist). A leaner future default (production scaffolding only;
-   * excludes {@code schemaField}/{@code document} and other catalog assets) is documented as a
-   * commented line next to this config in {@code application.yaml}. Kept in sync for tests —
-   * production still loads from YAML.
-   */
-  public static final String DEFAULT_VIEW_UNRESTRICTED_ENTITY_TYPES =
-      "dataPlatform,role,dataHubPolicy,dataProcess,corpuser,corpGroup,container,document,"
-          + "dataHubIngestionSource,dataHubSecret,service,oauthAuthorizationServer,"
-          + "dataHubExecutionRequest,assertion,dataHubRetention,dataPlatformInstance,"
-          + "mlModelDeployment,telemetry,dataHubAccessToken,dataHubOAuthClient,"
-          + "dataHubOAuthSession,test,dataHubUpgrade,inviteToken,schemaField,globalSettings,"
-          + "versionSet,incident,dataHubRole,post,dataHubStepState,erModelRelationship,"
-          + "application,semanticModel,metric,ownershipType,lifecycleStageType,"
-          + "businessAttribute,dataContract,dataHubPersona,dataHubAction,entityType,dataType,"
-          + "structuredProperty,relationshipType,form,dataHubPageTemplate,dataHubPageModule,"
-          + "dataHubFile,dataHubConnection,platformResource,dataHubOpenAPISchema,"
-          + "dataHubRemoteExecutor,dataHubRemoteExecutorPool,dataHubRemoteExecutorGlobalConfig,"
-          + "constraint,recommendationModule,actionRequest,actionWorkflow,monitor,monitorSuite,"
-          + "assertionAssignmentRule,assertionInferenceAdjustmentRule,linkPreview,subscription,"
-          + "dataHubMetricCube,dataHubAiConversation,aiAgent,api,repository,agentSkill,"
-          + "dataHubTask,eval";
-
-  /**
-   * Optional full list of unrestricted entity types. Empty with empty add/remove yields an empty
-   * effective list (all types restricted when view authorization is on).
+   * Optional full list of unrestricted entity types. When non-empty, replaces the entity-registry
+   * {@code viewUnrestricted} baseline before {@link #add} / {@link #remove} apply. Empty means use
+   * the registry baseline.
    */
   private String value;
 

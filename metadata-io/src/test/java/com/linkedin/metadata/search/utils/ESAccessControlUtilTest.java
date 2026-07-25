@@ -19,7 +19,6 @@ import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.DefaultEntitySpecResolver;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
-import com.datahub.authorization.config.ViewUnrestrictedEntityTypes;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -95,11 +94,9 @@ public class ESAccessControlUtilTest {
                   .viewAuthorizationConfiguration(
                       ViewAuthorizationConfiguration.builder()
                           .enabled(true)
-                          .effectiveUnrestrictedEntityTypes(
-                              Set.copyOf(
-                                  ViewUnrestrictedEntityTypes.parseCsv(
-                                      ViewUnrestrictedEntityTypes
-                                          .DEFAULT_VIEW_UNRESTRICTED_ENTITY_TYPES)))
+                          // Empty overlay: all entity types are view-restricted in this fixture.
+                          // Production baseline comes from entity-registry.yml viewUnrestricted.
+                          .effectiveUnrestrictedEntityTypes(Set.of())
                           .build())
                   .build(),
           () -> SYSTEM_AUTH,

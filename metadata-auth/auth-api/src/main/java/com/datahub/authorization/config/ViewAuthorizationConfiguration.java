@@ -19,15 +19,16 @@ public class ViewAuthorizationConfiguration {
   private ViewAuthorizationRecommendationsConfig recommendations;
 
   /**
-   * Raw operator overrides for entity types that bypass view authorization when enabled. Production
-   * defaults are set in {@code application.yaml} (no code baseline).
+   * Raw operator overlays for entity types that bypass view authorization when enabled. Lean
+   * baseline is {@code viewUnrestricted} on the entity registry; overlays live in {@code
+   * application.yaml}.
    */
   private ViewUnrestrictedEntityTypes unrestrictedEntityTypes;
 
   /**
-   * Resolved effective set (config + registry-validated). Populated once at OperationContext
-   * construction; null means callers treat unrestricted as empty (all types restricted when view
-   * auth is enabled).
+   * Resolved effective set (registry baseline + config overlays, registry-validated). Populated
+   * once at OperationContext construction; null means callers treat unrestricted as empty (all
+   * types restricted when view auth is enabled).
    */
   @JsonIgnore private Set<String> effectiveUnrestrictedEntityTypes;
 

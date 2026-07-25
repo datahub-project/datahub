@@ -42,12 +42,13 @@ When Search Access Controls are enabled:
 ### Entity types that bypass view checks
 
 When Search Access Controls are enabled, some entity types still **bypass** view authorization entirely and can appear
-in search without a View Entity grant. Those types are configured with `VIEW_UNRESTRICTED_ENTITY_TYPES` (plus optional
-`_ADD` / `_REMOVE`). All other types are restricted by default.
+in search without a View Entity grant. The lean baseline is declared on entities in `entity-registry.yml` via
+`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (full replace when non-empty) plus
+`_ADD` / `_REMOVE`. All other types are restricted by default.
 
-The stock default list is **backwards-compatible** with the former restricted allowlist model: types that previously
-fail-opened (including `schemaField` and `document`) remain unrestricted until you trim them. To stop columns and
-documents from appearing for users without View Entity grants:
+Stock `_ADD` defaults to the previous unrestricted CSV **minus** types already flagged in
+`entity-registry.yml`, so types that previously fail-opened (including `schemaField` and `document`) remain
+unrestricted until you trim them. To stop columns and documents from appearing for users without View Entity grants:
 
 ```
 VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document
@@ -324,8 +325,10 @@ Yes. The same filtering applies to programmatic access via the GraphQL API. User
 
 **Why do users still see columns (`schemaField`) or documents without View Entity grants?**
 
-Those entity types may be on the view-unrestricted list (`VIEW_UNRESTRICTED_ENTITY_TYPES`). Remove them with
-`VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document` (or replace the full list). See
+Those entity types may be on the effective view-unrestricted list (registry `viewUnrestricted` baseline and/or
+stock `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`). Remove them with
+`VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document` (or set a full override with
+`VIEW_UNRESTRICTED_ENTITY_TYPES`). See
 [Entity types that bypass view checks](#entity-types-that-bypass-view-checks).
 
 **Can I create a policy that denies access instead of granting it?**

@@ -19,10 +19,16 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Turns value/add/remove entity-type configs into effective registry entity names, with soft
- * validation against the entity registry. There is no code baseline — empty config yields an empty
+ * validation against the entity registry.
+ *
+ * <p>For search entity-type lists there is no registry baseline — empty config yields an empty
  * result (production defaults come from {@code application.yaml}).
  *
- * <p>Order from {@code value} then {@code add} is preserved; duplicates are dropped
+ * <p>For view-unrestricted types, the baseline is entity specs with {@code viewUnrestricted: true}
+ * in the entity registry. A non-empty config {@code value} replaces that baseline; {@code add} /
+ * {@code remove} always overlay.
+ *
+ * <p>Order from baseline/{@code value} then {@code add} is preserved; duplicates are dropped
  * case-insensitively (first occurrence wins). Unknown registry names are soft-dropped with a warn.
  *
  * <p>An empty resolved search list means <em>search no entity types</em> at the GraphQL layer — it
@@ -48,16 +54,34 @@ public final class EntityTypeUtils {
   @Nonnull
   public static Set<String> resolve(
       @Nullable ViewUnrestrictedEntityTypes config, @Nullable EntityRegistry entityRegistry) {
-    if (config == null || config.isEmpty()) {
+    final List<String> registryBaseline = viewUnrestrictedFromRegistry(entityRegistry);
+    final List<String> value = config == null ? Collections.emptyList() : config.parsedValue();
+    final List<String> add = config == null ? Collections.emptyList() : config.parsedAdd();
+    final List<String> remove = config == null ? Collections.emptyList() : config.parsedRemove();
+    final List<String> baseline = value.isEmpty() ? registryBaseline : value;
+
+    if (baseline.isEmpty() && add.isEmpty() && remove.isEmpty()) {
       return Set.of();
     }
 
     return Collections.unmodifiableSet(
         new LinkedHashSet<>(
             validateAndFilter(
-                mergeOrdered(config.parsedValue(), config.parsedAdd(), config.parsedRemove()),
+                mergeOrdered(baseline, add, remove),
                 entityRegistry,
                 "authorization.view.unrestrictedEntityTypes / VIEW_UNRESTRICTED_ENTITY_TYPES")));
+  }
+
+  @Nonnull
+  private static List<String> viewUnrestrictedFromRegistry(
+      @Nullable EntityRegistry entityRegistry) {
+    if (entityRegistry == null) {
+      return Collections.emptyList();
+    }
+    return entityRegistry.getEntitySpecs().values().stream()
+        .filter(EntitySpec::isViewUnrestricted)
+        .map(EntitySpec::getName)
+        .collect(Collectors.toCollection(ArrayList::new));
   }
 
   /**
