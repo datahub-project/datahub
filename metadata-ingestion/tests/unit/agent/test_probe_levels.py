@@ -401,30 +401,33 @@ def test_parent_must_name_a_declared_level():
         )
 
 
-def test_branching_is_rejected_until_paths_carry_kinds():
-    # Two levels sharing a parent is a tree; parent_path is a list of bare names
-    # and cannot say which sibling a name came from.
-    with pytest.raises(ValueError, match="branch"):
-        ClientProbe(
-            client_factory=lambda config: object(),
-            levels=[
-                ProbeLevel(
-                    DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()
-                ),
-                ProbeLevel(
-                    DatasetSubTypes.TABLE,
-                    "table_pattern",
-                    _lister(),
-                    parent=DatasetContainerSubTypes.SCHEMA,
-                ),
-                ProbeLevel(
-                    DatasetSubTypes.VIEW,
-                    "view_pattern",
-                    _lister(),
-                    parent=DatasetContainerSubTypes.SCHEMA,
-                ),
-            ],
-        )
+def test_branching_levels_are_accepted_and_form_a_tree():
+    # Two levels sharing a parent is a tree, not a chain — see
+    # test_probe_branching.py for the full tree-shaped listing behaviour this
+    # enables. Sibling levels off the same parent are no longer rejected.
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()),
+            ProbeLevel(
+                DatasetSubTypes.TABLE,
+                "table_pattern",
+                _lister(),
+                parent=DatasetContainerSubTypes.SCHEMA,
+            ),
+            ProbeLevel(
+                DatasetSubTypes.VIEW,
+                "view_pattern",
+                _lister(),
+                parent=DatasetContainerSubTypes.SCHEMA,
+            ),
+        ],
+    )
+    assert probe.is_linear is False
+    assert [c.kind for c in probe.shape().children] == [
+        DatasetSubTypes.TABLE,
+        DatasetSubTypes.VIEW,
+    ]
 
 
 def test_a_cycle_with_no_root_is_rejected_as_rootless():

@@ -275,12 +275,30 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     return pattern_field_for_config_class(config_cls, kind)
 
 
-def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
-    """Order levels by their declared parent edges, validating the shape.
+@dataclass
+class ProbeShapeNode:
+    """One level and the levels declared beneath it."""
 
-    Today's traversal is a single chain: parent_path is a list of bare names, so
-    two levels sharing a parent could not be told apart. Branching is therefore
-    detected and rejected here rather than mis-dispatched at probe time.
+    kind: ProbeNodeKind
+    children: List["ProbeShapeNode"]
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "kind": str(self.kind),
+            "children": [child.to_dict() for child in self.children],
+        }
+
+
+def _level_tree(
+    levels: List[ProbeLevel],
+) -> Tuple[ProbeLevel, Dict[ProbeNodeKind, List[ProbeLevel]]]:
+    """Validate the declared edges and return (root, children-by-parent-kind).
+
+    Several levels may share a parent: that is a branching source (a BI workspace
+    holding reports and dashboards). Path elements disambiguate siblings, so the
+    chain restriction is gone — but kinds must still be unique, there must be
+    exactly one root, every parent must be declared, and nothing may be orphaned
+    or cyclic.
     """
     by_kind = {level.kind: level for level in levels}
     if len(by_kind) != len(levels):
@@ -293,7 +311,7 @@ def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
             f"{[str(level.kind) for level in roots]}"
         )
 
-    children: Dict[ProbeNodeKind, ProbeLevel] = {}
+    children: Dict[ProbeNodeKind, List[ProbeLevel]] = {}
     for level in levels:
         if level.parent is None:
             continue
@@ -302,33 +320,22 @@ def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
                 f"level '{level.kind}' declares unknown parent '{level.parent}'; "
                 f"declared kinds are {[str(k) for k in by_kind]}"
             )
-        if level.parent in children:
-            raise ValueError(
-                f"levels '{children[level.parent].kind}' and '{level.kind}' both "
-                f"branch off '{level.parent}'. A level is one DataHub entity, "
-                f"and kinds like Table and View are SUBTYPES of the same entity "
-                f"(see DatasetSubTypes) — so they belong at ONE level: declare "
-                f"sources=[LevelSource(...), ...], where each source supplies a "
-                f"subtype with its own pattern_field. Separate sibling levels "
-                f"would mean genuinely different entities under one parent, "
-                f"which is not supported yet: parent_path carries bare names, "
-                f"so siblings could not be told apart."
-            )
-        children[level.parent] = level
+        children.setdefault(level.parent, []).append(level)
 
-    ordered = [roots[0]]
-    while ordered[-1].kind in children:
-        ordered.append(children[ordered[-1].kind])
-    if len(ordered) != len(levels):
-        # Identity, not equality: ProbeLevel's dataclass __eq__ compares every
-        # field including callables, which is not what "is this level in the
-        # chain" means.
-        reached = {id(level) for level in ordered}
-        unreachable = [str(lvl.kind) for lvl in levels if id(lvl) not in reached]
+    # Reachability catches orphans and cycles disjoint from the root.
+    seen: List[ProbeLevel] = []
+    queue = [roots[0]]
+    while queue:
+        level = queue.pop(0)
+        seen.append(level)
+        queue.extend(children.get(level.kind, []))
+    if len(seen) != len(levels):
+        reached = {id(level) for level in seen}
         raise ValueError(
-            f"levels unreachable from the root (orphaned or cyclic): {unreachable}"
+            "levels unreachable from the root (orphaned or cyclic): "
+            f"{[str(lvl.kind) for lvl in levels if id(lvl) not in reached]}"
         )
-    return ordered
+    return roots[0], children
 
 
 class ClientProbe:
@@ -339,12 +346,60 @@ class ClientProbe:
         close: Callable[[Any], None] = lambda client: None,
     ) -> None:
         self._client_factory = client_factory
-        self._levels = _ordered_levels(levels)
+        self._root, self._children = _level_tree(levels)
+        self._all_levels = levels
         self._close = close
+
+    @property
+    def is_linear(self) -> bool:
+        return all(len(kids) <= 1 for kids in self._children.values())
 
     def hierarchy(self) -> List[ProbeNodeKind]:
         # Structural only — never touches the client, so it is connection-free.
-        return [level.kind for level in self._levels]
+        if not self.is_linear:
+            raise ValueError(
+                "this probe branches, so its shape is a tree, not a chain; "
+                "use shape() instead of hierarchy()"
+            )
+        chain = [self._root]
+        while self._children.get(chain[-1].kind):
+            chain.append(self._children[chain[-1].kind][0])
+        return [level.kind for level in chain]
+
+    def shape(self) -> ProbeShapeNode:
+        def build(level: ProbeLevel) -> ProbeShapeNode:
+            return ProbeShapeNode(
+                level.kind,
+                [build(child) for child in self._children.get(level.kind, [])],
+            )
+
+        return build(self._root)
+
+    def _levels_for(self, parent_path: List[str]) -> Tuple[List[ProbeLevel], List[str]]:
+        """Walk the path, returning the level(s) to list and the BARE names.
+
+        Element i names a node belonging to one of the candidate levels at depth i.
+        When only one level is possible the element is a plain name; when siblings
+        make it ambiguous it must be qualified 'Subtype:name'.
+        """
+        candidates = [self._root]
+        names: List[str] = []
+        for depth, element in enumerate(parent_path):
+            if len(candidates) == 1:
+                level, name = candidates[0], element
+            else:
+                kinds = {str(lvl.kind): lvl for lvl in candidates}
+                qualifier, sep, rest = element.partition(":")
+                if not sep or qualifier not in kinds:
+                    raise ValueError(
+                        f"'{element}' is ambiguous at depth {depth}: it could be a "
+                        f"{' or a '.join(sorted(kinds))}. Qualify it as "
+                        f"'Subtype:name', e.g. '{sorted(kinds)[0]}:{element}'."
+                    )
+                level, name = kinds[qualifier], rest
+            names.append(name)
+            candidates = self._children.get(level.kind, [])
+        return candidates, names
 
     def _resolved(self, config: Any, items: List[LevelItem]) -> List[LevelItem]:
         # Non-leaf items must end up with a real pattern field: either the one the
@@ -417,56 +472,75 @@ class ClientProbe:
         ]
         return self._resolved(config, items)
 
+    def _nodes_for_level(
+        self,
+        level: ProbeLevel,
+        client: Any,
+        config: Any,
+        names: List[str],
+        prefix: str,
+        limit: int,
+    ) -> Tuple[List[ProbeNode], bool]:
+        if (
+            level.kind == ProbeLeafKind.COLUMN
+            and level.sources is None
+            and level.list_items is None
+            and level.pattern_field is None
+            and level.classify is None
+        ):
+            # Leaf (column) level: no filter, no verdict.
+            assert level.list_names is not None
+            col_names = list(level.list_names(client, config, names))
+            return column_nodes(
+                [{"name": n} for n in col_names], limit, fqn_prefix=prefix
+            )
+
+        custom = level.classify
+        on_fqn = level.classify_on_fqn
+
+        def verdict_for(
+            name: str, node_fqn: str, pattern_field: Optional[str]
+        ) -> Verdict:
+            if custom is not None:
+                return custom(
+                    ClassifyContext(
+                        config=config,
+                        name=name,
+                        fqn=node_fqn,
+                        pattern_field=pattern_field,
+                        parent_path=tuple(names),
+                    )
+                )
+            return pattern_verdict(config, pattern_field, node_fqn if on_fqn else name)
+
+        return level_nodes(
+            self._items(level, client, config, names),
+            limit,
+            prefix or None,
+            verdict_for,
+        )
+
     def list_children(
         self, config: Any, parent_path: List[str], limit: int
     ) -> ProbeResult:
-        # Past the declared depth there are no children (e.g. a flat source's leaf).
-        if len(parent_path) >= len(self._levels):
+        levels, names = self._levels_for(parent_path)
+        if not levels:
+            # Past the declared depth there are no children.
             return ProbeResult(source_type="", supported=True, parent_path=parent_path)
-        level = self._levels[len(parent_path)]
         client = self._client_factory(config)
         try:
-            prefix = ".".join(parent_path)
-            if (
-                level.kind == ProbeLeafKind.COLUMN
-                and level.sources is None
-                and level.list_items is None
-                and level.pattern_field is None
-                and level.classify is None
-            ):
-                # Leaf (column) level: no filter, no verdict.
-                assert level.list_names is not None
-                names = list(level.list_names(client, config, parent_path))
-                nodes, truncated = column_nodes(
-                    [{"name": n} for n in names], limit, fqn_prefix=prefix
+            prefix = ".".join(names)
+            nodes: List[ProbeNode] = []
+            truncated = False
+            for level in levels:
+                # Each sibling contributes its own kinds, patterns and classify.
+                nodes_from_level, level_truncated = self._nodes_for_level(
+                    level, client, config, names, prefix, limit
                 )
-            else:
-                custom = level.classify
-                on_fqn = level.classify_on_fqn
-
-                def verdict_for(
-                    name: str, node_fqn: str, pattern_field: Optional[str]
-                ) -> Verdict:
-                    if custom is not None:
-                        return custom(
-                            ClassifyContext(
-                                config=config,
-                                name=name,
-                                fqn=node_fqn,
-                                pattern_field=pattern_field,
-                                parent_path=tuple(parent_path),
-                            )
-                        )
-                    return pattern_verdict(
-                        config, pattern_field, node_fqn if on_fqn else name
-                    )
-
-                nodes, truncated = level_nodes(
-                    self._items(level, client, config, parent_path),
-                    limit,
-                    prefix or None,
-                    verdict_for,
-                )
+                nodes.extend(nodes_from_level)
+                truncated = truncated or level_truncated
+            if len(nodes) > limit:
+                nodes, truncated = nodes[:limit], True
             return ProbeResult(
                 source_type="",
                 supported=True,

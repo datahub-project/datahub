@@ -173,7 +173,7 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
 
     unresolved = []
     for source_type, (config_cls, probe) in mapped.items():
-        for level in probe._levels:
+        for level in probe._all_levels:
             if level.sources:
                 entries = [(s.kind, s.pattern_field) for s in level.sources]
             elif level.list_items is not None:
