@@ -476,3 +476,30 @@ def test_a_cycle_disjoint_from_the_root_is_rejected_as_unreachable():
                 ),
             ],
         )
+
+
+def test_unfiltered_level_needs_no_pattern_field():
+    from datahub.ingestion.agent.probe import UNFILTERED
+
+    # A level the source simply does not let you filter (Mode datasets).
+    probe = _probe(
+        ProbeLevel(DatasetSubTypes.TABLE, UNFILTERED, _lister("a", "b")),
+    )
+    nodes = probe.list_children(_CFG, [], 100).nodes
+    assert [n.name for n in nodes] == ["a", "b"]
+    # No filter means no pattern to report and nothing excluded.
+    assert all(n.pattern_field is None for n in nodes)
+    assert all(n.included is True for n in nodes)
+
+
+def test_unfiltered_is_distinct_from_resolve_by_convention():
+    from datahub.ingestion.agent.probe import UNFILTERED
+
+    # pattern_field=None still means "resolve by convention", and still raises
+    # when the config has no conventional field for the kind.
+    probe = _probe(ProbeLevel("Nonesuch", None, _lister("a")))
+    with pytest.raises(ValueError, match="Nonesuch"):
+        probe.list_children(_CFG, [], 100)
+    # UNFILTERED opts out of resolution entirely.
+    ok = _probe(ProbeLevel("Nonesuch", UNFILTERED, _lister("a")))
+    assert [n.name for n in ok.list_children(_CFG, [], 100).nodes] == ["a"]

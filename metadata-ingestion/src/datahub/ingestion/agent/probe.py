@@ -59,6 +59,12 @@ Verdict = Tuple[bool, Optional[str]]
 
 _INCLUDED: Verdict = (True, None)
 
+# A level the source offers no filter for (Mode datasets, queries, charts).
+# Distinct from pattern_field=None, which means "resolve the conventional
+# <kind>_pattern field". Nodes at an UNFILTERED level report pattern_field=None
+# and are always included.
+UNFILTERED: str = "__unfiltered__"
+
 
 def fqn(prefix: Optional[str], name: str) -> str:
     return f"{prefix}.{name}" if prefix else name
@@ -432,6 +438,9 @@ class ClientProbe:
         for name, kind, pattern_field in items:
             if kind == ProbeLeafKind.COLUMN:
                 out.append((name, kind, pattern_field))
+                continue
+            if pattern_field == UNFILTERED:
+                out.append((name, kind, None))
                 continue
             if pattern_field is None:
                 if kind not in resolved_by_kind:
