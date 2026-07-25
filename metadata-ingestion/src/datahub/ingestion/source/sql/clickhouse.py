@@ -260,7 +260,9 @@ class ClickHouseConfig(
             url = url.set(database=current_db)
 
         url = with_client_identity(url)
-        # str(URL) masks passwords on SQLAlchemy 2.0; create_engine() needs the real one.
+        # Explicit about keeping the password: on SQLAlchemy 1.4 (currently pinned)
+        # str(URL) already renders it, but SQLAlchemy 2.0 masks it in str() — this
+        # keeps create_engine() working if/when the pin moves to 2.x.
         return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values

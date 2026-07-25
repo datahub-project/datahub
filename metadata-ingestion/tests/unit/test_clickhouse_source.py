@@ -116,6 +116,15 @@ def test_clickhouse_uri_preserves_user_supplied_ua():
     assert url.query.get("header__User-Agent") == "mycorp"
 
 
+def test_clickhouse_sqlalchemy_uri_gets_client_identity():
+    # A hand-written sqlalchemy_uri (the docs-preferred form) is still tagged.
+    config = ClickHouseConfig.model_validate(
+        {"sqlalchemy_uri": "clickhouse://user:password@host:1111/db"}
+    )
+    url = make_url(config.get_sql_alchemy_url())
+    assert url.query.get("header__User-Agent") == CLICKHOUSE_CLIENT_NAME
+
+
 # Query log extraction tests
 
 

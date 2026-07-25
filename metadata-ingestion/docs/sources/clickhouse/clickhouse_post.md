@@ -11,6 +11,10 @@ Enable query-log based metadata extraction to augment definition-based lineage:
 
 This complements view/materialized-view lineage and improves operational usage visibility.
 
+#### Connection Tagging
+
+DataHub tags its connections with a `datahub` client identity so its own reads are attributable in `system.query_log`. On HTTP drivers this is the `User-Agent` header (`http_user_agent = 'datahub'`); on the native/asynch drivers it is `client_name`, which the driver records as `ClickHouse datahub`. To override it, set your own value via `uri_opts` (`header__User-Agent` for HTTP, `client_name` for native).
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
