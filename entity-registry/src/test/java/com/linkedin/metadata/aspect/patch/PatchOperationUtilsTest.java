@@ -14,6 +14,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import com.linkedin.util.Pair;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class PatchOperationUtilsTest {
@@ -153,6 +155,79 @@ public class PatchOperationUtilsTest {
     assertEquals(nested.asJsonObject().getJsonObject("resources").getString("filter"), "x");
     assertTrue(
         PatchOperationUtils.nestValueAtObjectPath("/items/0", Json.createValue("x")).isEmpty());
+  }
+
+  @Test
+  public void testConvertToJsonPatchMissingPayloadThrows() {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    Assert.expectThrows(
+        IllegalArgumentException.class, () -> PatchOperationUtils.convertToJsonPatch(mcp));
+  }
+
+  @Test
+  public void testConvertToJsonPatchInvalidJsonThrows() {
+    Assert.expectThrows(
+        IllegalArgumentException.class,
+        () -> PatchOperationUtils.convertToJsonPatch("{\"not\": \"a patch\"}"));
+  }
+
+  @Test
+  public void testResolveJsonPatchPrefersPatchMcp() {
+    com.linkedin.metadata.aspect.batch.PatchMCP patchItem =
+        TestPatchMCP.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            "structuredProperties",
+            "[{\"op\":\"add\",\"path\":\"/foo\",\"value\":1}]");
+    JsonPatch resolved = PatchOperationUtils.resolveJsonPatch(patchItem);
+    assertNotNull(resolved);
+    assertEquals(resolved.toJsonArray().size(), 1);
+  }
+
+  @Test
+  public void testResolveJsonPatchFromProposedPayload() {
+    MCPItem item = mcpItem("[{\"op\":\"add\",\"path\":\"/foo\",\"value\":1}]");
+    JsonPatch resolved = PatchOperationUtils.resolveJsonPatch(item);
+    assertNotNull(resolved);
+    assertEquals(resolved.toJsonArray().size(), 1);
+  }
+
+  @Test
+  public void testResolveJsonPatchNullWithoutAspect() {
+    MCPItem item = mock(MCPItem.class);
+    when(item.getMetadataChangeProposal()).thenReturn(null);
+    assertNull(PatchOperationUtils.resolveJsonPatch(item));
+  }
+
+  @Test
+  public void testResolveJsonPatchUnparseableReturnsNull() {
+    assertNull(PatchOperationUtils.resolveJsonPatch(mcpItem("{\"oops\"")));
+  }
+
+  @Test
+  public void testResolveGenericJsonPatchUnparseableReturnsNull() {
+    assertNull(PatchOperationUtils.resolveGenericJsonPatch(mcpItem("{\"oops\"")));
+  }
+
+  @Test
+  public void testAddAndReplaceValuesFromPatchMcpSkipsRemoveAndValueless() {
+    com.linkedin.metadata.aspect.batch.PatchMCP patchItem =
+        TestPatchMCP.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            "structuredProperties",
+            "[{\"op\":\"add\",\"path\":\"/a\",\"value\":1},"
+                + "{\"op\":\"replace\",\"path\":\"/b\",\"value\":2},"
+                + "{\"op\":\"remove\",\"path\":\"/c\"}]");
+    List<Pair<String, JsonValue>> values =
+        PatchOperationUtils.addAndReplaceValues(patchItem).collect(Collectors.toList());
+    assertEquals(
+        values.stream().map(Pair::getFirst).collect(Collectors.toList()), List.of("/a", "/b"));
+  }
+
+  @Test
+  public void testAddAndReplaceValuesEmptyWithoutAspect() {
+    MCPItem item = mock(MCPItem.class);
+    when(item.getMetadataChangeProposal()).thenReturn(null);
+    assertEquals(PatchOperationUtils.addAndReplaceValues(item).count(), 0);
   }
 
   private static MCPItem mcpItem(String payload) {
