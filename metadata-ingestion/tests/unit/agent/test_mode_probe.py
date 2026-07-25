@@ -6,12 +6,14 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.mode import ModeAPIConfig
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
     ModeMetadataProbe,
     _get_embedded_paged,
     list_mode_children,
 )
+from datahub.utilities.ratelimiter import RateLimiter
 
 _WORKSPACE = "https://app.mode.com/api/acryltest"
 
@@ -25,7 +27,8 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
         "spaces": [
             {"name": "Personal", "token": "sp1"},
             {"name": "Archive", "token": "sp2"},
-            {"name": "SharedSpace", "token": "sp3"},
+            {"name": "SharedSpaceA", "token": "sp3"},
+            {"name": "SharedSpaceB", "token": "sp4"},
         ]
     },
     f"{_WORKSPACE}/spaces/sp1/reports": {
@@ -36,17 +39,20 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     # a Mode "dataset" is implemented as a special kind of report. Keying this
     # fixture as "datasets" would encode the bug it exists to catch.
     f"{_WORKSPACE}/spaces/sp1/datasets": {"reports": [{"name": "Seed", "token": "d1"}]},
-    # "DupReport" deliberately exists in two different spaces (Archive and
-    # SharedSpace, neither of which any hierarchy test descends into) so a
-    # dedicated test can prove report_queries/query_charts raise on an
-    # ambiguous name instead of silently returning whichever space iterates
-    # first. "Weekly" stays exclusive to Personal so the "clean" tests below
-    # keep resolving unambiguously.
+    # "Archive" is denied by _cfg()'s space_pattern -- a report that lives
+    # only there must be invisible to report_queries/query_charts (finding D),
+    # not just to the hierarchy probe.
     f"{_WORKSPACE}/spaces/sp2/reports": {
-        "reports": [{"name": "DupReport", "token": "r-archive-dup"}]
+        "reports": [{"name": "ArchiveOnlyReport", "token": "r-archive-only"}]
     },
+    # "DupReport" exists in two spaces that ARE in scope (neither denied nor
+    # excluded), so the ambiguity guard still fires for a name that's
+    # genuinely ambiguous among the spaces a recipe would actually ingest.
     f"{_WORKSPACE}/spaces/sp3/reports": {
-        "reports": [{"name": "DupReport", "token": "r-shared-dup"}]
+        "reports": [{"name": "DupReport", "token": "r-dup-3"}]
+    },
+    f"{_WORKSPACE}/spaces/sp4/reports": {
+        "reports": [{"name": "DupReport", "token": "r-dup-4"}]
     },
     f"{_WORKSPACE}/reports/r1/queries": {
         "queries": [
@@ -130,10 +136,12 @@ class _FakeSession:
 
     def __init__(self):
         self.calls = []
+        self.timeouts = []
         self.closed = False
 
     def get(self, url, **kw):
         self.calls.append(url)
+        self.timeouts.append(kw.get("timeout"))
         page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
         base_url = url.split("?")[0]
         body = {} if page > 1 else _RESPONSES.get(base_url, {})
@@ -147,23 +155,48 @@ class _FakeSession:
         self.closed = True
 
 
-class _FailingSession:
-    """A session whose every request 403s, to prove errors surface instead
-    of silently rendering as an empty result."""
+class _DatasetsFailSession(_FakeSession):
+    """Like _FakeSession, but Personal's datasets endpoint always 404s --
+    proving one sibling level's failure doesn't take down the other."""
 
     def get(self, url, **kw):
-        response = SimpleNamespace(status_code=403)
+        base_url = url.split("?")[0]
+        if base_url == f"{_WORKSPACE}/spaces/sp1/datasets":
+            self.calls.append(url)
+            response = SimpleNamespace(status_code=404, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError(
+                    f"404 Client Error: Not Found for url: {url}", response=response
+                )
+
+            response.raise_for_status = _raise
+            return response
+        return super().get(url, **kw)
+
+
+class _StatusSession:
+    """Every request fails with the given HTTP status code."""
+
+    def __init__(self, status_code: int):
+        self._status_code = status_code
+        self.closed = False
+
+    def get(self, url, **kw):
+        response = SimpleNamespace(
+            status_code=self._status_code, text="mocked error body"
+        )
 
         def _raise() -> None:
             raise requests.HTTPError(
-                f"403 Client Error: Forbidden for url: {url}", response=response
+                f"{self._status_code} Client Error for url: {url}", response=response
             )
 
         response.raise_for_status = _raise
         return response
 
     def close(self):
-        pass
+        self.closed = True
 
 
 class _TwoPageSession:
@@ -185,18 +218,31 @@ class _TwoPageSession:
         pass
 
 
-def _cfg(**over):
+def _api_options(**over):
+    base: Dict[str, Any] = dict(
+        timeout=40,
+        retry_backoff_multiplier=2,
+        max_retry_interval=60,
+        max_attempts=1,
+        requests_per_minute=1000,
+    )
+    base.update(over)
+    return ModeAPIConfig(**base)
+
+
+def _cfg(session=None, **over):
     base = dict(
         space_pattern=AllowDenyPattern(allow=[".*"], deny=["^Archive$"]),
         report_pattern=AllowDenyPattern.allow_all(),
         items_per_page=100,
+        exclude_personal_collections=False,
+        api_options=_api_options(),
     )
     base.update(over)
-    session = _FakeSession()
-    return SimpleNamespace(
-        get_mode_session=lambda: (session, _WORKSPACE),
-        **base,
-    )
+    session = session or _FakeSession()
+    cfg = SimpleNamespace(get_mode_session=lambda: (session, _WORKSPACE), **base)
+    cfg._session = session  # not part of ModeProbeConfig; exposed for assertions
+    return cfg
 
 
 def test_mode_shape_branches_under_space():
@@ -237,8 +283,49 @@ def test_qualified_descent_lists_queries():
     assert [n.name for n in nodes] == ["q_main"]
 
 
-def _method_probe(**kwargs):
-    return ModeMetadataProbe(_FakeSession(), _WORKSPACE, **kwargs)
+def test_datasets_404_degrades_to_empty_without_killing_reports():
+    # Regression guard for finding B: list_children fans Report and Dataset
+    # out as two independent sibling levels under one Space with no built-in
+    # containment; if a lister raises on a 404 the whole call used to die
+    # with zero nodes, discarding the reports that had already succeeded.
+    cfg = _cfg(session=_DatasetsFailSession())
+    nodes = list_mode_children(cfg, ["Personal"], 100).nodes
+    kinds = {n.name: str(n.kind) for n in nodes}
+    assert kinds == {"Weekly": "Report"}  # Datasets degraded to [], not raised
+
+
+def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
+    cfg = _cfg(exclude_personal_collections=False)
+    list_mode_children(cfg, [], 100)
+    spaces_calls = [
+        c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
+    ]
+    assert spaces_calls, "expected at least one request to the spaces endpoint"
+    assert "filter=all" in spaces_calls[0]
+    assert "per_page=100" in spaces_calls[0]
+    assert "page=1" in spaces_calls[0]
+
+
+def test_spaces_listing_sends_filter_custom_when_excluding_personal_collections():
+    cfg = _cfg(exclude_personal_collections=True)
+    list_mode_children(cfg, [], 100)
+    spaces_calls = [
+        c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
+    ]
+    assert spaces_calls
+    assert "filter=custom" in spaces_calls[0]
+
+
+def test_requests_use_the_configured_timeout():
+    cfg = _cfg(api_options=_api_options(timeout=7))
+    list_mode_children(cfg, [], 100)
+    assert cfg._session.timeouts
+    assert all(t == 7 for t in cfg._session.timeouts)
+
+
+def _method_probe(session=None, **cfg_over):
+    cfg = _cfg(session=session, **cfg_over)
+    return ModeMetadataProbe(cfg._session, _WORKSPACE, config=cfg)
 
 
 def test_data_sources_projects_named_fields_only():
@@ -279,9 +366,23 @@ def test_report_queries_unknown_report_returns_empty():
         assert p.report_queries(report="Nonexistent") == []
 
 
-def test_report_queries_raises_on_ambiguous_report_name():
+def test_report_queries_ignores_reports_in_denied_spaces():
+    # Finding D: "ArchiveOnlyReport" only exists in "Archive", which _cfg()'s
+    # space_pattern denies. It must resolve as not-found (empty), not raise
+    # and not be treated as findable -- a recipe that would never ingest
+    # Archive shouldn't have its ambiguity/lookup behavior affected by what's
+    # in there.
     with _method_probe() as p:
-        with pytest.raises(ValueError, match="ambiguous report name 'DupReport'"):
+        assert p.report_queries(report="ArchiveOnlyReport") == []
+
+
+def test_report_queries_raises_on_ambiguous_report_name():
+    # "DupReport" lives in SharedSpaceA and SharedSpaceB, both in scope.
+    with _method_probe() as p:
+        with pytest.raises(
+            ValueError,
+            match="ambiguous report name 'DupReport'.*SharedSpaceA, SharedSpaceB",
+        ):
             p.report_queries(report="DupReport")
 
 
@@ -298,21 +399,44 @@ def test_query_charts_unknown_query_returns_empty():
 
 def test_exit_closes_session():
     session = _FakeSession()
-    probe = ModeMetadataProbe(session, _WORKSPACE)
+    probe = _method_probe(session=session)
     with probe:
         pass
     assert session.closed is True
 
 
-def test_get_embedded_raises_on_http_error_instead_of_silently_empty():
-    probe = ModeMetadataProbe(_FailingSession(), _WORKSPACE)
-    with pytest.raises(requests.HTTPError):
-        probe.data_sources()
+def test_data_sources_degrades_to_empty_on_404():
+    with _method_probe(session=_StatusSession(404)) as p:
+        assert p.data_sources() == []
+
+
+def test_data_sources_degrades_to_empty_on_403():
+    with _method_probe(session=_StatusSession(403)) as p:
+        assert p.data_sources() == []
+
+
+def test_data_sources_raises_on_401_auth_failure():
+    with _method_probe(session=_StatusSession(401)) as p:
+        with pytest.raises(requests.HTTPError):
+            p.data_sources()
+
+
+def test_data_sources_raises_on_500():
+    with _method_probe(session=_StatusSession(500)) as p:
+        with pytest.raises(requests.HTTPError):
+            p.data_sources()
 
 
 def test_get_embedded_paged_aggregates_multiple_pages():
+    cfg = _cfg()
+    rate_limiter = RateLimiter(max_calls=1000, period=60)
     result = _get_embedded_paged(
-        _TwoPageSession(), "https://x/things", "things", items_per_page=1
+        _TwoPageSession(),
+        cfg,
+        rate_limiter,
+        "https://x/things",
+        "things",
+        context="test",
     )
     assert [r["name"] for r in result] == ["a", "b"]
 

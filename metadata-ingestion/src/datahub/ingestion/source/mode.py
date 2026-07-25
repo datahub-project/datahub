@@ -10,11 +10,13 @@ from functools import lru_cache
 from json import JSONDecodeError
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     Iterator,
     List,
     Optional,
+    Protocol,
     Set,
     Tuple,
     Union,
@@ -371,9 +373,7 @@ class ModeConfig(
         from datahub.ingestion.source.mode_probe import ModeMetadataProbe
 
         session, workspace_uri = self.get_mode_session()
-        return ModeMetadataProbe(
-            session, workspace_uri, items_per_page=self.items_per_page
-        )
+        return ModeMetadataProbe(session, workspace_uri, config=self)
 
 
 class HTTPError429(HTTPError):
@@ -394,6 +394,84 @@ def _is_http_404(error: Exception) -> bool:
         and getattr(error, "response", None) is not None
         and error.response.status_code == 404
     )
+
+
+class ModeApiSession(Protocol):
+    """Structural session type satisfied by both requests.Session and the
+    duck-typed fakes used in tests (the probe's fakes, and the integration
+    test harness's MockResponse), so fetch_json and the probe don't need
+    `Any` just to accept a test double."""
+
+    def get(self, url: str, *, timeout: int) -> Any: ...
+
+    def close(self) -> None: ...
+
+
+def fetch_json(
+    session: ModeApiSession,
+    url: str,
+    *,
+    timeout: int,
+    rate_limiter: RateLimiter,
+    retry_backoff_multiplier: Union[int, float],
+    max_retry_interval: Union[int, float],
+    max_attempts: int,
+    on_rate_limited: Optional[Callable[[], None]] = None,
+    on_retried_after_timeout: Optional[Callable[[], None]] = None,
+) -> Dict:
+    """GET url as JSON honoring Mode's rate limit, request timeout, and
+    429/504 retry/backoff behavior. Shared by ModeSource._get_request_json
+    and the live probe (mode_probe.py) so the probe's requests go through the
+    exact same path as a real ingestion run, rather than a bare
+    session.get() that bypasses all of it. The two optional callbacks let
+    ModeSource keep incrementing its own report counters on retry; the probe
+    passes neither, since it has no report to update.
+    """
+    r = tenacity.Retrying(
+        wait=wait_exponential(
+            multiplier=retry_backoff_multiplier, max=max_retry_interval
+        ),
+        retry=retry_if_exception_type((HTTPError429, HTTPError504, ConnectionError)),
+        stop=stop_after_attempt(max_attempts),
+    )
+
+    @r.wraps
+    def get_request() -> Dict:
+        try:
+            with rate_limiter:
+                response = session.get(url, timeout=timeout)
+            if response.status_code == 204:  # No content, don't parse json
+                return {}
+
+            response.raise_for_status()
+            return response.json()
+        except HTTPError as http_error:
+            error_response = http_error.response
+            if error_response is None:
+                raise http_error
+            if error_response.status_code == 429:
+                if on_rate_limited is not None:
+                    on_rate_limited()
+                sleep_time = error_response.headers.get("retry-after")
+                if sleep_time is not None:
+                    time.sleep(float(sleep_time))
+                raise HTTPError429(
+                    str(http_error), response=error_response
+                ) from http_error
+            elif error_response.status_code == 504:
+                if on_retried_after_timeout is not None:
+                    on_retried_after_timeout()
+                time.sleep(0.1)
+                raise HTTPError504(
+                    str(http_error), response=error_response
+                ) from http_error
+
+            logger.debug(
+                f"Error response ({error_response.status_code}): {error_response.text}"
+            )
+            raise http_error
+
+    return get_request()
 
 
 @dataclass
@@ -1805,59 +1883,28 @@ class ModeSource(StatefulIngestionSourceBase):
             page += 1
 
     def _get_request_json(self, url: str) -> Dict:
-        r = tenacity.Retrying(
-            wait=wait_exponential(
-                multiplier=self.config.api_options.retry_backoff_multiplier,
-                max=self.config.api_options.max_retry_interval,
-            ),
-            retry=retry_if_exception_type(
-                (HTTPError429, HTTPError504, ConnectionError)
-            ),
-            stop=stop_after_attempt(self.config.api_options.max_attempts),
+        curl_command = make_curl_command(self.session, "GET", url, "")
+        logger.debug(f"Issuing request; curl equivalent: {curl_command}")
+
+        def _on_rate_limited() -> None:
+            with self.report._lock:
+                self.report.num_requests_exceeding_rate_limit += 1
+
+        def _on_retried_after_timeout() -> None:
+            with self.report._lock:
+                self.report.num_requests_retried_on_timeout += 1
+
+        return fetch_json(
+            self.session,
+            url,
+            timeout=self.config.api_options.timeout,
+            rate_limiter=self.rate_limiter,
+            retry_backoff_multiplier=self.config.api_options.retry_backoff_multiplier,
+            max_retry_interval=self.config.api_options.max_retry_interval,
+            max_attempts=self.config.api_options.max_attempts,
+            on_rate_limited=_on_rate_limited,
+            on_retried_after_timeout=_on_retried_after_timeout,
         )
-
-        @r.wraps
-        def get_request():
-            curl_command = make_curl_command(self.session, "GET", url, "")
-            logger.debug(f"Issuing request; curl equivalent: {curl_command}")
-
-            try:
-                with self.rate_limiter:
-                    response = self.session.get(
-                        url, timeout=self.config.api_options.timeout
-                    )
-                if response.status_code == 204:  # No content, don't parse json
-                    return {}
-
-                response.raise_for_status()
-                return response.json()
-            except HTTPError as http_error:
-                error_response = http_error.response
-                if error_response is None:
-                    raise http_error
-                if error_response.status_code == 429:
-                    with self.report._lock:
-                        self.report.num_requests_exceeding_rate_limit += 1
-                    sleep_time = error_response.headers.get("retry-after")
-                    if sleep_time is not None:
-                        time.sleep(float(sleep_time))
-                    raise HTTPError429(
-                        str(http_error), response=error_response
-                    ) from http_error
-                elif error_response.status_code == 504:
-                    with self.report._lock:
-                        self.report.num_requests_retried_on_timeout += 1
-                    time.sleep(0.1)
-                    raise HTTPError504(
-                        str(http_error), response=error_response
-                    ) from http_error
-
-                logger.debug(
-                    f"Error response ({error_response.status_code}): {error_response.text}"
-                )
-                raise http_error
-
-        return get_request()
 
     @staticmethod
     def _get_process_memory():
