@@ -9,6 +9,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
@@ -24,12 +25,14 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.StringUtils;
 import org.mockito.Mockito;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -194,9 +197,15 @@ public class EntitySearchAggregationCandidateSourceTest {
     Urn testUrn1 = new TestEntityUrn("testUrn1", "testUrn1", "testUrn1");
     Urn testUrn2 = new TestEntityUrn("testUrn2", "testUrn2", "testUrn2");
     Urn testUrn3 = new TestEntityUrn("testUrn3", "testUrn3", "testUrn3");
-    Mockito.when(entityService.exists(any(), eq(testUrn1), eq(false))).thenReturn(true);
-    Mockito.when(entityService.exists(any(), eq(testUrn2), eq(false))).thenReturn(true);
-    Mockito.when(entityService.exists(any(), eq(testUrn3), eq(false))).thenReturn(true);
+    // The source now validates all candidate urns in a single batched exists() call and keeps only
+    // the ones that exist.
+    Set<Urn> existingUrns = Set.of(testUrn1, testUrn2, testUrn3);
+    Mockito.when(entityService.exists(any(), anyCollection(), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              Collection<Urn> requested = invocation.getArgument(1);
+              return requested.stream().filter(existingUrns::contains).collect(Collectors.toSet());
+            });
 
     Mockito.when(
             entitySearchService.aggregateByValue(
