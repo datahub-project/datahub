@@ -63,7 +63,9 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
             "warnings": [],
         }
 
-    # Plaintext-secret detection reuses Task 2's secret classification (FieldKind.SECRET).
+    # Plaintext-secret detection reuses the same field classification the
+    # introspection API exposes elsewhere (FieldKind.SECRET), so a field is
+    # flagged here exactly when describe_source would report it as secret.
     for name in _secret_field_names(source_type):
         value = config.get(name)
         if isinstance(value, str) and value and not _REF.search(value):

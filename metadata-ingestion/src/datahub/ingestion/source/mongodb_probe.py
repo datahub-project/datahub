@@ -18,16 +18,19 @@ def _collections(client: Any, config: Any, parent_path: List[str]) -> Sequence[s
 
 # MongoDB is database -> collection, reached through the client the config now
 # exposes via get_mongo_client(). Collections have no dedicated subtype, so they
-# surface under the generic Table dataset kind, filtered by collection_pattern.
+# surface under the generic Table dataset kind.
 MONGODB_PROBE = ClientProbe(
     client_factory=lambda config: config.get_mongo_client(),
     close=lambda client: client.close(),
     levels=[
         ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
         # Mongo's own noun; the kind is DataHub's normalized Table subtype.
+        # mongodb.py's get_workunits_internal matches collection_pattern against
+        # "<database>.<collection>", not the bare collection name.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_collections,
+            classify_on_fqn=True,
             parent=DatasetContainerSubTypes.DATABASE,
         ),
     ],

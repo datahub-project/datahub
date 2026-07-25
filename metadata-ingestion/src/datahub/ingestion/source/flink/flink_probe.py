@@ -17,11 +17,11 @@ def _jobs(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
     return sorted({job.name for job in client.get_jobs_overview()})
 
 
-# Flink is a flat job namespace filtered by the connector's own job_name_pattern (its
-# ingestion also filters by include_job_states, which the probe does not reproduce
-# since job state is not knowable structurally). Each job is emitted as a plain
-# DataFlow with no subtype (see entities.py) and no shared-subtype member names the
-# concept — so the probe uses the plain, honest kind label "Flink Job".
+# Flink is a flat job namespace (ingestion also filters by include_job_states,
+# which the probe does not reproduce since job state is not knowable
+# structurally). Each job is emitted as a plain DataFlow with no subtype (see
+# entities.py) and no shared-subtype member names the concept — so the probe
+# uses the plain, honest kind label "Flink Job".
 FLINK_PROBE = ClientProbe(
     client_factory=_client,
     close=lambda client: client.close(),

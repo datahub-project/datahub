@@ -1,9 +1,9 @@
-from types import SimpleNamespace
 from typing import Any, Dict, List
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.salesforce_probe import list_salesforce_children
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _SalesforceClient:
@@ -20,7 +20,13 @@ def _config():
         {"QualifiedApiName": "MyCustom__c"},
         {"QualifiedApiName": "tmp_scratch__c"},
     ]
-    return SimpleNamespace(
+    return config_with_hints(
+        {
+            "object_pattern": [
+                DatasetSubTypes.SALESFORCE_STANDARD_OBJECT,
+                DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT,
+            ]
+        },
         get_client=lambda: _SalesforceClient(objects),
         object_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),
     )

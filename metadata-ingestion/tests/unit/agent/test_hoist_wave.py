@@ -34,14 +34,18 @@ class _MongoClient:
         self.closed = True
 
 
-def test_mongodb_probe_db_then_collections():
-    client = _MongoClient({"app": ["orders", "sessions"]})
-    config = config_with_hints(
+def _config(collection_pattern: AllowDenyPattern, client: _MongoClient) -> object:
+    return config_with_hints(
         {"collection_pattern": DatasetSubTypes.TABLE},
         get_mongo_client=lambda: client,
         database_pattern=AllowDenyPattern.allow_all(),
-        collection_pattern=AllowDenyPattern(allow=[".*"], deny=["^sessions$"]),
+        collection_pattern=collection_pattern,
     )
+
+
+def test_mongodb_probe_db_then_collections():
+    client = _MongoClient({"app": ["orders", "sessions"]})
+    config = _config(AllowDenyPattern(allow=[".*"], deny=["^sessions$"]), client)
     dbs = list_mongodb_children(config, [], 100)
     assert {n.name for n in dbs.nodes} == {"app"}
     assert dbs.nodes[0].kind == DatasetContainerSubTypes.DATABASE
@@ -50,9 +54,26 @@ def test_mongodb_probe_db_then_collections():
     by_name = {n.name: n for n in cols.nodes}
     assert by_name["orders"].kind == DatasetSubTypes.TABLE
     assert by_name["orders"].included is True
+    assert client.closed
+
+
+def test_mongodb_collection_pattern_matches_the_fully_qualified_name():
+    # mongodb.py's get_workunits_internal matches collection_pattern against
+    # "<database>.<collection>" (e.g. "app.sessions"), not the bare collection
+    # name — so a deny anchored to the bare name ("^sessions$") never matches
+    # and does NOT exclude the collection; this is what real ingestion does too.
+    client = _MongoClient({"app": ["orders", "sessions"]})
+    config = _config(AllowDenyPattern(allow=[".*"], deny=["^sessions$"]), client)
+    by_name = {n.name: n for n in list_mongodb_children(config, ["app"], 100).nodes}
+    assert by_name["sessions"].included is True
+
+    # A deny anchored to the fully qualified name does exclude it.
+    fqn_anchored = AllowDenyPattern(allow=[".*"], deny=[r"^app\.sessions$"])
+    config = _config(fqn_anchored, client)
+    by_name = {n.name: n for n in list_mongodb_children(config, ["app"], 100).nodes}
     assert by_name["sessions"].included is False
     assert by_name["sessions"].excluded_by == "collection_pattern"
-    assert client.closed
+    assert by_name["orders"].included is True
 
 
 class _EsIndices:

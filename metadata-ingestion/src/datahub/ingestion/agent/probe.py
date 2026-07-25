@@ -569,8 +569,11 @@ class ClientProbe:
                         f"connector bug: {type(config).__name__} declares a "
                         f"probe level for kind '{kind}' but has no "
                         f"AllowDenyPattern field to filter it (looked for "
-                        f"{_pattern_field_candidates(kind)}); the connector must "
-                        f"set pattern_field= explicitly on that level/source"
+                        f"{_pattern_field_candidates(kind)}); annotate the "
+                        f"intended field with Annotated[AllowDenyPattern, "
+                        f"Filters({kind!r})] (see datahub.configuration.common.Filters), "
+                        f"or set pattern_field= explicitly on that level/source "
+                        f"if the field's name doesn't otherwise matter"
                     )
             out.append((name, kind, pattern_field))
         return out

@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Literal, Optional, TypedDict
+from typing import Annotated, Any, Dict, Iterable, List, Literal, Optional, TypedDict
 
 import requests
 from pydantic import Field, field_validator
@@ -16,6 +16,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -144,7 +145,15 @@ class SalesforceConfig(
         description="Ingest Tags from source. This will override Tags entered from UI",
     )
 
-    object_pattern: AllowDenyPattern = Field(
+    # Salesforce reuses this one field for both standard and custom objects
+    # (the probe's kind_for reclassifies items to SALESFORCE_CUSTOM_OBJECT per
+    # name, but they're still filtered by object_pattern) — both kinds are
+    # declared here so the probe resolves either one to this field.
+    object_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT),
+        Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Salesforce objects to filter in ingestion.",
     )

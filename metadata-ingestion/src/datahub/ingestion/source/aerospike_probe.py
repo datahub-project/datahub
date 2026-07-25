@@ -39,17 +39,18 @@ def _sets(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 # Aerospike is a 2-level catalog (namespace -> set), reached through the
 # pyaerospike client the config now exposes via get_client() (hoisted out of
 # Source.__init__ for reuse here). A "set" is the leaf dataset level; there is
-# no dedicated Set subtype, so it surfaces under the generic Table dataset
-# kind, filtered by set_pattern.
+# no dedicated Set subtype, so it surfaces under the generic Table dataset kind.
 AEROSPIKE_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     close=lambda client: client.close(),
     levels=[
         ProbeLevel(DatasetContainerSubTypes.NAMESPACE, list_names=_namespaces),
-        # Aerospike's own noun for a table-shaped leaf; the kind is DataHub's Table subtype.
+        # aerospike.py's _get_namespace_workunits matches set_pattern against
+        # "<namespace>.<set>", not the bare set name.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_sets,
+            classify_on_fqn=True,
             parent=DatasetContainerSubTypes.NAMESPACE,
         ),
     ],

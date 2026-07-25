@@ -16,7 +16,7 @@ def _namespaces(client: Any, config: Any, parent_path: List[str]) -> Sequence[st
 # Pinecone is index -> namespace, reached through the client the config now
 # exposes via get_client(). A namespace is Pinecone's leaf level (not a
 # dataset), so it is modeled as a container using the closest existing
-# subtype, PINECONE_NAMESPACE, filtered by namespace_pattern.
+# subtype, PINECONE_NAMESPACE.
 PINECONE_PROBE = ClientProbe(
     client_factory=lambda config: config.get_client(),
     levels=[

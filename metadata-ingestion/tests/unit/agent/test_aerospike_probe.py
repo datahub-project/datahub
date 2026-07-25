@@ -29,29 +29,42 @@ class _FakeAerospikeClient:
         self.closed = True
 
 
-def _config() -> Any:
+def _config(set_pattern: AllowDenyPattern) -> Any:
     client = _FakeAerospikeClient(_SETS_INFO)
     return config_with_hints(
         {"set_pattern": DatasetSubTypes.TABLE},
         get_client=lambda: client,
         namespace_pattern=AllowDenyPattern(allow=[".*"]),
-        set_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),
+        set_pattern=set_pattern,
     )
 
 
+_DEFAULT_PATTERN = AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"])
+
+
 def test_aerospike_lists_namespaces_with_pattern_verdict() -> None:
-    result = list_aerospike_children(_config(), [], 100)
+    result = list_aerospike_children(_config(_DEFAULT_PATTERN), [], 100)
     by_name = {n.name: n for n in result.nodes}
     assert by_name["analytics"].kind == DatasetContainerSubTypes.NAMESPACE
     assert by_name["analytics"].pattern_field == "namespace_pattern"
     assert by_name["analytics"].included is True
 
 
-def test_aerospike_lists_sets_reusing_set_pattern() -> None:
-    result = list_aerospike_children(_config(), ["analytics"], 100)
+def test_aerospike_set_pattern_matches_the_fully_qualified_name() -> None:
+    # aerospike.py's _get_namespace_workunits matches set_pattern against
+    # "<namespace>.<set>" (e.g. "analytics.tmp_scratch"), not the bare set
+    # name — so a deny anchored to the bare name ("^tmp_.*") never matches and
+    # does NOT exclude the set; this is what real ingestion does too.
+    result = list_aerospike_children(_config(_DEFAULT_PATTERN), ["analytics"], 100)
     by_name = {n.name: n for n in result.nodes}
     assert by_name["orders"].kind == DatasetSubTypes.TABLE
     assert by_name["orders"].included is True
-    # The connector's own set_pattern deny (^tmp_) is reused for the verdict.
+    assert by_name["tmp_scratch"].included is True
+
+    # A deny anchored to the fully qualified name does exclude it.
+    fqn_anchored = AllowDenyPattern(allow=[".*"], deny=[r"^analytics\.tmp_scratch$"])
+    result = list_aerospike_children(_config(fqn_anchored), ["analytics"], 100)
+    by_name = {n.name: n for n in result.nodes}
     assert by_name["tmp_scratch"].included is False
     assert by_name["tmp_scratch"].excluded_by == "set_pattern"
+    assert by_name["orders"].included is True

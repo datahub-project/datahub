@@ -1,6 +1,6 @@
 import re
 from types import SimpleNamespace
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Dict, List, Optional, Set, Tuple
 
 import pytest
 from pydantic import Field
@@ -73,6 +73,37 @@ _LIST_CHILDREN_CALL_RE = re.compile(r"(\w+)\.list_children\(")
 _EXPECTED_UNMAPPED_SOURCE_TYPES = {"bigquery-queries", "snowflake-queries"}
 
 
+def _probe_capable_configs() -> Dict[str, Any]:
+    """source_type -> config class, for every source whose config declares a probe."""
+    from datahub.ingestion.agent.probe import _config_class
+    from datahub.ingestion.source.source_registry import source_registry
+
+    configs = {}
+    for source_type in source_registry.mapping:
+        try:
+            config_cls = _config_class(source_type)
+        except Exception:
+            continue
+        if callable(getattr(config_cls, "probe_hierarchy", None)):
+            configs[source_type] = config_cls
+    return configs
+
+
+def _mapped_probes() -> Tuple[Dict[str, Tuple[Any, "ClientProbe"]], List[str]]:
+    """(source_type -> (config_cls, probe)) for every config whose
+    list_probe_children maps to its own ClientProbe, plus the source_types
+    that don't (see _mapped_probe)."""
+    mapped = {}
+    unmapped = []
+    for source_type, config_cls in _probe_capable_configs().items():
+        probe = _mapped_probe(config_cls)
+        if probe is None:
+            unmapped.append(source_type)
+        else:
+            mapped[source_type] = (config_cls, probe)
+    return mapped, unmapped
+
+
 def _mapped_probe(config_cls: Any) -> Optional[ClientProbe]:
     """Resolve the single ClientProbe a config's list_probe_children delegates
     to, by reading its source for the `from <probe_module> import
@@ -131,20 +162,8 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
 
     import datahub.ingestion.source as source_pkg
     from datahub.ingestion.agent.models import ProbeLeafKind
-    from datahub.ingestion.agent.probe import _config_class
-    from datahub.ingestion.source.source_registry import source_registry
 
-    # source_type -> config class, for every source whose config declares a probe
-    configs = {}
-    for source_type in source_registry.mapping:
-        try:
-            config_cls = _config_class(source_type)
-        except Exception:
-            continue
-        if callable(getattr(config_cls, "probe_hierarchy", None)):
-            configs[source_type] = config_cls
-
-    assert configs, "no probe-capable sources discovered"
+    assert _probe_capable_configs(), "no probe-capable sources discovered"
 
     # A probe module that fails to import would silently vanish from the net;
     # fail loudly instead of skipping it.
@@ -160,14 +179,7 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
             skipped_modules.append((mod_info.name, str(e)))
     assert not skipped_modules, f"probe modules failed to import: {skipped_modules}"
 
-    mapped = {}
-    unmapped = []
-    for source_type, config_cls in configs.items():
-        probe = _mapped_probe(config_cls)
-        if probe is None:
-            unmapped.append(source_type)
-        else:
-            mapped[source_type] = (config_cls, probe)
+    mapped, unmapped = _mapped_probes()
 
     assert set(unmapped) == _EXPECTED_UNMAPPED_SOURCE_TYPES, (
         "the set of configs whose list_probe_children doesn't map to their own "
@@ -200,6 +212,58 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
     )
 
 
+def test_every_declared_hint_matches_a_level_kind_on_its_own_probe():
+    """The inverse guard: a Filters hint naming the wrong kind is otherwise
+    silent. _hinted_pattern_field simply returns None for a kind no field
+    hints, resolution falls back to the name convention, and the level ends
+    up filtered by a DIFFERENT AllowDenyPattern than the one the author
+    intended -- with every other test still green, since neither
+    test_no_probe_capable_config_declares_conflicting_hints (checks
+    uniqueness, not existence) nor
+    test_every_probe_level_resolves_to_a_real_pattern_field (only fires when
+    the convention resolves to None) catches it. Every Filters hint on a
+    probe-capable config must name a kind that config's OWN probe actually
+    declares a level for.
+
+    Limitation: a level's kind_for/list_items can produce a kind that isn't
+    the level's own declared `.kind` and isn't visible in this static walk
+    (e.g. Salesforce's kind_for produces "Custom Object" from a level whose
+    own declared kind is "Object" -- see salesforce_probe.py). A hint that
+    would otherwise look dead is not flagged when the same probe has such a
+    level, since the missing kind may simply be one of its runtime-only ones.
+    """
+    mapped, _ = _mapped_probes()
+
+    dead: List[Tuple[str, str]] = []
+    for source_type, (config_cls, probe) in mapped.items():
+        level_kinds: Set[str] = set()
+        has_dynamic_kinds = False
+        for level in probe._all_levels:
+            if level.sources:
+                level_kinds.update(str(s.kind) for s in level.sources)
+            else:
+                level_kinds.add(str(level.kind))
+            if level.kind_for is not None or level.list_items is not None:
+                has_dynamic_kinds = True
+
+        hinted_kinds = {
+            str(meta.kind)
+            for field in config_cls.model_fields.values()
+            for meta in field.metadata
+            if isinstance(meta, Filters)
+        }
+        missing = hinted_kinds - level_kinds
+        if missing and has_dynamic_kinds:
+            continue
+        dead.extend((source_type, kind) for kind in missing)
+
+    assert not dead, (
+        "these (source, kind) Filters hints are declared on a probe-capable "
+        f"config but no level on that config's OWN probe has that kind: {dead}. "
+        "Fix the Filters(...) kind to match a real level."
+    )
+
+
 def test_a_declared_hint_beats_the_name_convention():
     """The convention would find `table_pattern`; the hint must win."""
 
@@ -228,6 +292,31 @@ def test_a_hint_does_not_remove_the_field_from_convention_matching():
         == "dataset_pattern"
     )
     assert pattern_field_for_config_class(_BigIdLike, "Dataset") == "dataset_pattern"
+
+
+def test_a_field_can_hint_more_than_one_kind():
+    """One field can filter two kinds (Salesforce's object_pattern filters
+    both standard and custom objects) by stacking a Filters per kind."""
+
+    class _SalesforceLike(ConfigModel):
+        object_pattern: Annotated[
+            AllowDenyPattern,
+            Filters(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT),
+            Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
+        ] = Field(default=AllowDenyPattern.allow_all())
+
+    assert (
+        pattern_field_for_config_class(
+            _SalesforceLike, DatasetSubTypes.SALESFORCE_STANDARD_OBJECT
+        )
+        == "object_pattern"
+    )
+    assert (
+        pattern_field_for_config_class(
+            _SalesforceLike, DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT
+        )
+        == "object_pattern"
+    )
 
 
 def test_two_fields_hinting_the_same_kind_raise_naming_both():

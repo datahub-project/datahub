@@ -489,6 +489,17 @@ class Filters:
     declaring it here means the probe reads the same fact rather than guessing
     from the name, so the two cannot drift apart.
 
+    A field that filters more than one kind (e.g. Salesforce's object_pattern,
+    reused for both standard and custom objects) stacks one Filters per kind
+    in the Annotated metadata — resolution checks every Filters instance
+    present, not just the first:
+
+        object_pattern: Annotated[
+            AllowDenyPattern,
+            Filters(DatasetSubTypes.SALESFORCE_STANDARD_OBJECT),
+            Filters(DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT),
+        ] = Field(default=AllowDenyPattern.allow_all(), description="...")
+
     `kind` is a DataHub subtype constant — a StrEnum member, hence a str. It is
     typed str so this module stays free of any ingestion imports.
     """

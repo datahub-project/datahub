@@ -1,12 +1,31 @@
-from typing import Annotated, Any, Dict
+from typing import Annotated, Dict, List, Sequence, Union
 
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.models import ProbeNodeKind
 
+# A field can hint one kind (the common case) or several (Salesforce's
+# object_pattern filters both "Object" and "Custom Object").
+_KindOrKinds = Union[ProbeNodeKind, Sequence[ProbeNodeKind]]
 
-def config_with_hints(hinted_fields: Dict[str, ProbeNodeKind], **values: Any) -> Any:
+
+def _kinds(value: _KindOrKinds) -> List[ProbeNodeKind]:
+    # ProbeNodeKind is Union[StrEnum, str], and StrEnum subclasses str, so a
+    # single kind is always a str; anything else is the multi-kind sequence form.
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def config_with_hints(
+    hinted_fields: Dict[str, _KindOrKinds],
+    # A test double whose attributes are whatever the calling probe test needs
+    # (a lister, a client factory, a plain pattern field resolved by
+    # convention, ...) — the same untyped-by-design shape a SimpleNamespace(...)
+    # fixture already has (typeshed types its __getattr__ as returning Any).
+    **values: object,
+) -> object:
     """Build a probe test fixture that carries the same Filters hint metadata
     a real Annotated[AllowDenyPattern, Filters(kind)] config field would.
 
@@ -16,7 +35,7 @@ def config_with_hints(hinted_fields: Dict[str, ProbeNodeKind], **values: Any) ->
     whose name doesn't match its kind by convention (a "name skew" field, e.g.
     Aerospike's set_pattern filtering the "Table" kind).
 
-    hinted_fields maps a pattern-field name to the ProbeNodeKind it hints;
+    hinted_fields maps a pattern-field name to the ProbeNodeKind(s) it hints;
     every other keyword becomes a plain attribute (a lister, a client
     factory, an unhinted pattern field resolved by convention, etc.), exactly
     as a SimpleNamespace(...) fixture would set them.
@@ -25,10 +44,13 @@ def config_with_hints(hinted_fields: Dict[str, ProbeNodeKind], **values: Any) ->
     # real FieldInfo objects (genuine .metadata/.annotation, not a hand-rolled
     # approximation of pydantic's contract) for the hinted fields' model_fields.
     annotations = {
-        name: Annotated[AllowDenyPattern, Filters(kind)]
-        for name, kind in hinted_fields.items()
+        # Annotated[(X, *metas)] (a pre-built tuple), not Annotated[X, *metas]:
+        # a starred expression inside a literal subscript is Python 3.11+
+        # syntax (PEP 646) and this repo still supports 3.10.
+        name: Annotated[(AllowDenyPattern, *(Filters(kind) for kind in _kinds(kinds)))]
+        for name, kinds in hinted_fields.items()
     }
-    namespace: Dict[str, Any] = {
+    namespace: Dict[str, object] = {
         "__annotations__": annotations,
         **{name: Field(default=AllowDenyPattern.allow_all()) for name in hinted_fields},
     }
