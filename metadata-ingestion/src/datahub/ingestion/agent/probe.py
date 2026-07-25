@@ -305,9 +305,15 @@ def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
         if level.parent in children:
             raise ValueError(
                 f"levels '{children[level.parent].kind}' and '{level.kind}' both "
-                f"branch off '{level.parent}'. Branching hierarchies are not "
-                f"supported yet: parent_path carries bare names, so siblings "
-                f"cannot be told apart."
+                f"branch off '{level.parent}'. If they are peers at the same "
+                f"depth (tables and views under a schema), declare ONE level "
+                f"with sources=[LevelSource(...), ...] — each source carries "
+                f"its own kind and pattern_field, which is the supported way "
+                f"to put several kinds side by side. Separate sibling levels "
+                f"are only needed when their CHILDREN differ, and that is not "
+                f"supported yet: a shared child would need two parents (a DAG, "
+                f"not a chain), and parent_path carries bare names so siblings "
+                f"could not be told apart anyway."
             )
         children[level.parent] = level
 
