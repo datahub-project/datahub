@@ -57,40 +57,76 @@ Follow these steps in sequence:
    ```
    Validates the recipe against the connector's real config schema. Warnings highlight any inline-secret fields; recommend externalizing them.
 
-5. **Probe** — Enumerate live metadata (SQL-family sources only)
+5. **Probe** — Discover the shape, then enumerate live metadata
+
+   First, discover what levels this source declares — connection-free, works for
+   every probe-capable source (SQL databases, Kafka, Snowflake, BigQuery, …), not
+   just SQL:
    ```bash
-   datahub recipe probe schemas --recipe <recipe.yml>
-   datahub recipe probe tables --recipe <recipe.yml> --schema <schema_name>
-   datahub recipe probe columns --recipe <recipe.yml> --schema <schema_name> --table <table_name>
+   datahub recipe probe shape --recipe <recipe.yml>
    ```
-   Returns schema/table/column names and counts (names only, no row data). Each node reports:
+   Most sources are **linear** — one level nests inside the next, e.g. a 3-level
+   SQL source:
+   ```json
+   {
+     "source_type": "snowflake",
+     "supported": true,
+     "linear": true,
+     "hierarchy": ["Database", "Schema", "Table", "Column"],
+     "shape": {
+       "kind": "Database",
+       "children": [
+         {
+           "kind": "Schema",
+           "children": [{ "kind": "Table", "children": [{ "kind": "Column", "children": [] }] }]
+         }
+       ]
+     }
+   }
+   ```
+   A **branching** source (its levels form a tree, not a chain — e.g. a BI
+   workspace holding both reports and dashboards) reports `"linear": false` and
+   `"hierarchy": null`; read `shape` instead, whose `children` list the sibling
+   levels directly under a node:
+   ```json
+   {
+     "source_type": "bi-thing",
+     "supported": true,
+     "linear": false,
+     "hierarchy": null,
+     "shape": {
+       "kind": "Workspace",
+       "children": [
+         { "kind": "Report", "children": [] },
+         { "kind": "Dashboard", "children": [] }
+       ]
+     }
+   }
+   ```
+   `"supported": false` (with `shape`/`hierarchy` both `null`) means this source
+   has no live-probe support at all; fall back to `test-connection`.
+
+   Then list the top level, and descend one `--parent` per level, in the order
+   `shape` reported:
+   ```bash
+   datahub recipe probe list --recipe <recipe.yml>
+   datahub recipe probe list --recipe <recipe.yml> --parent <schema_name>
+   datahub recipe probe list --recipe <recipe.yml> --parent <schema_name> --parent <table_name>
+   ```
+   Returns names and counts only, never row data. Each node reports:
    - `pattern_field` — which `*_pattern` config filter governs it (edit to refine discovery).
    - `included` — whether it would actually be ingested given the recipe's filters **and** the source's built-in exclusions (reused from the connector's own ingestion logic, not re-implemented).
    - `excluded_by` — why a node is dropped: a `*_pattern` field (your filter), `"default_schema"` (system catalog the source always skips, e.g. `information_schema`), or `"system_object"`; `null` when included.
 
    Every node is shown (nothing is hidden), so you can confirm both that your allow/deny filters behave and that system objects are auto-dropped.
 
-   **Three-level sources (Snowflake, BigQuery):** these have an extra top
-   container, so the top-level filter is first-class and the second-level filter
-   matches a fully-qualified `TOP.CHILD` form. Probe the extra level with
-   `probe databases` and pass `--database` (the top container) down the chain:
+   **Branching sources and ambiguous siblings:** when a `shape` node has more than
+   one child kind, a bare name is ambiguous — qualify it as `Kind:name`. For the
+   branching example above, to list what's inside a report named `my_report`
+   (rather than a dashboard of the same name):
    ```bash
-   datahub recipe probe databases --recipe <recipe.yml>
-   datahub recipe probe schemas --recipe <recipe.yml> --database <top>
-   datahub recipe probe tables --recipe <recipe.yml> --database <top> --schema <second>
-   datahub recipe probe columns --recipe <recipe.yml> --database <top> --schema <second> --table <table>
+   datahub recipe probe list --recipe <recipe.yml> --parent 'Report:my_report'
    ```
-   The `--database`/`--schema` flags are generic container slots; each source
-   reports its own kinds and `pattern_field` in the output:
-   - **Snowflake**: `--database`=database (`database_pattern`),
-     `--schema`=schema (`schema_pattern`); with `match_fully_qualified_names: true`
-     `schema_pattern` matches the `DATABASE.SCHEMA` fqn.
-   - **BigQuery**: `--database`=project (`project_id_pattern`),
-     `--schema`=dataset (`dataset_pattern`, matched against `PROJECT.DATASET`).
-
-   A missing required level flag is reported as a config error (exit 2), and
-   `probe databases` on a 2-level SQL source (Postgres, MySQL, Redshift, …) is
-   rejected with the source's actual levels.
 
 6. **Test Connection** — Verify connectivity
    ```bash
@@ -112,17 +148,8 @@ Follow these steps in sequence:
 - `1` — Internal error (CLI bug, unexpected state)
 
 **Live Probe Support:**
-- Live probes (schemas/tables/columns) work for SQL-family sources: any connector with `get_sql_alchemy_url()` in its config (Postgres, MySQL, Redshift, Snowflake, etc.).
-- Snowflake (database → schema → table) and BigQuery (project → dataset → table) get dedicated database-aware probing — Snowflake via `SHOW`, BigQuery via the BigQuery client (`get_bigquery_client()`).
-- **Non-SQL sources probe too**, by reusing their own client (not raw HTTP): **Kafka** lists topics (filtered by `topic_patterns`); **ThoughtSpot** lists Worksheets → Columns via its REST client (filtered by `worksheet_pattern`). The probe interface is source-agnostic — any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
-- Other source types return `supported: false` → fall back to `test-connection` for verification.
-
-**Probing non-SQL hierarchies** — the `databases/schemas/tables/columns` commands are SQL-shaped. For any other hierarchy (Kafka topics, ThoughtSpot worksheets) use the generic lister, which follows whatever levels the source declares:
-
-```bash
-datahub recipe probe list --recipe recipe.yml                       # top level (e.g. Kafka topics, TS worksheets)
-datahub recipe probe list --recipe recipe.yml --parent <name>       # descend one level (e.g. a worksheet's columns)
-```
+- `probe shape` + `probe list` are source-agnostic — they follow whatever levels a connector declares, not a fixed SQL-shaped set of flags. Live probes work for SQL-family sources (any connector with `get_sql_alchemy_url()` in its config: Postgres, MySQL, Redshift, Snowflake, etc.) and for non-SQL sources that reuse their own client (not raw HTTP): **Kafka** lists topics (filtered by `topic_patterns`); **ThoughtSpot** lists Worksheets → Columns via its REST client (filtered by `worksheet_pattern`). Any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
+- Other source types return `supported: false` on `probe shape` → fall back to `test-connection` for verification.
 
 ## Probing a Source With No Connector
 
@@ -169,11 +196,14 @@ datahub recipe scaffold snowflake > my_recipe.yml
 # Then validate it
 datahub recipe validate my_recipe.yml
 
-# Probe schemas
-datahub recipe probe schemas --recipe my_recipe.yml
+# Discover the levels this source declares
+datahub recipe probe shape --recipe my_recipe.yml
 
-# Probe tables in a specific schema
-datahub recipe probe tables --recipe my_recipe.yml --schema my_schema
+# Probe the top level (e.g. Snowflake's databases)
+datahub recipe probe list --recipe my_recipe.yml
+
+# Descend one --parent per level, in the order `shape` reported
+datahub recipe probe list --recipe my_recipe.yml --parent my_database --parent my_schema
 
 # Test the connection
 datahub recipe test-connection --recipe my_recipe.yml

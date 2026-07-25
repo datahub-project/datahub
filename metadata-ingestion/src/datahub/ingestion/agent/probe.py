@@ -582,6 +582,33 @@ def probe_hierarchy(source_type: str) -> Optional[List[ProbeNodeKind]]:
     return hierarchy_fn()
 
 
+def probe_shape(source_type: str) -> Optional[ProbeShapeNode]:
+    """The source's level tree, or None when it has no probe support.
+
+    Connection-free, like probe_hierarchy: reads only the declared levels.
+
+    Every connector today declares a linear probe -- each one's own
+    probe_hierarchy() classmethod already proves it, since ClientProbe.hierarchy()
+    (which every one of those classmethods delegates to) raises ValueError at
+    import time for a branching declaration. So a chain reported by
+    probe_hierarchy() and the tree reported by shape() are the same information;
+    reshaping the former into ProbeShapeNode avoids adding a near-duplicate
+    probe_shape() classmethod to every connector for no source that actually
+    branches. A future branching connector's probe_hierarchy() raises here too,
+    so it would need its own explicit probe_shape() classmethod at that point.
+    """
+    try:
+        hierarchy = probe_hierarchy(source_type)
+    except ValueError:
+        return None
+    if not hierarchy:
+        return None
+    node = ProbeShapeNode(hierarchy[-1], [])
+    for kind in reversed(hierarchy[:-1]):
+        node = ProbeShapeNode(kind, [node])
+    return node
+
+
 def probe(
     source_type: str,
     config_dict: Dict[str, object],

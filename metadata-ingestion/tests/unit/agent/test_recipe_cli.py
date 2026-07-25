@@ -52,9 +52,7 @@ def test_probe_error_output_redacts_secret(tmp_path, monkeypatch):
         raise RuntimeError("connection failed for account with password s3cr3t")
 
     monkeypatch.setattr(mod, "probe", boom)
-    result = CliRunner().invoke(
-        recipe, ["probe", "schemas", "--recipe", str(recipe_file)]
-    )
+    result = CliRunner().invoke(recipe, ["probe", "list", "--recipe", str(recipe_file)])
     assert "s3cr3t" not in result.output
     assert "s3cr3t" not in (result.stderr or "")
 
@@ -78,9 +76,7 @@ def test_probe_error_output_redacts_nested_secret(tmp_path, monkeypatch):
         raise RuntimeError("connection failed with client_secret nestedsecret")
 
     monkeypatch.setattr(mod, "probe", boom)
-    result = CliRunner().invoke(
-        recipe, ["probe", "schemas", "--recipe", str(recipe_file)]
-    )
+    result = CliRunner().invoke(recipe, ["probe", "list", "--recipe", str(recipe_file)])
     assert "nestedsecret" not in result.output
     assert "nestedsecret" not in (result.stderr or "")
 
@@ -96,114 +92,70 @@ def test_json_default_masks_secret_str():
     assert "***" in serialized
 
 
-def _snowflake_recipe(tmp_path):
-    recipe_file = tmp_path / "sf.yml"
+def _sqlalchemy_recipe(tmp_path):
+    recipe_file = tmp_path / "sa.yml"
     recipe_file.write_text(
-        "source:\n  type: snowflake\n  config:\n    account_id: acct\n"
+        "source:\n"
+        "  type: sqlalchemy\n"
+        "  config:\n"
+        "    platform: postgres\n"
+        "    connect_uri: 'postgresql://x/y'\n"
     )
     return recipe_file
 
 
-def test_probe_databases_builds_empty_parent_path(tmp_path, monkeypatch):
-    pytest.importorskip("snowflake.connector")
-    import datahub.cli.recipe_cli as mod
-    from datahub.ingestion.agent.models import ProbeResult
+def test_probe_shape_reports_a_linear_hierarchy(tmp_path, monkeypatch):
+    import datahub.cli.recipe_cli as rc
 
-    captured = {}
-
-    def fake_probe(source_type, config, parent_path, limit):
-        captured["parent_path"] = parent_path
-        return ProbeResult(
-            source_type=source_type, supported=True, parent_path=parent_path
-        )
-
-    monkeypatch.setattr(mod, "probe", fake_probe)
-    result = CliRunner().invoke(
-        recipe, ["probe", "databases", "--recipe", str(_snowflake_recipe(tmp_path))]
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    res = CliRunner().invoke(
+        recipe, ["probe", "shape", "--recipe", str(_sqlalchemy_recipe(tmp_path))]
     )
-    assert result.exit_code == 0
-    assert captured["parent_path"] == []
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["source_type"] == "postgres"
+    assert payload["linear"] is True
+    # A linear source still reports its chain, for humans and for the agent.
+    assert payload["hierarchy"] == ["Schema", "Table", "Column"]
+    # ...and the same information as a tree.
+    assert payload["shape"]["kind"] == "Schema"
 
 
-def test_probe_schemas_on_snowflake_requires_database(tmp_path):
-    pytest.importorskip("snowflake.connector")
-    result = CliRunner().invoke(
-        recipe, ["probe", "schemas", "--recipe", str(_snowflake_recipe(tmp_path))]
-    )
-    # Snowflake's schema level sits under a database, so --database is mandatory.
-    assert result.exit_code == 2
-    assert "--database" in (result.output + (result.stderr or ""))
+def test_probe_shape_reports_a_branching_tree(tmp_path, monkeypatch):
+    """A branching source has no chain; shape must still describe it."""
+    import datahub.cli.recipe_cli as rc
+    from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
 
-
-def test_probe_tables_on_snowflake_qualifies_parent_path(tmp_path, monkeypatch):
-    pytest.importorskip("snowflake.connector")
-    import datahub.cli.recipe_cli as mod
-    from datahub.ingestion.agent.models import ProbeResult
-
-    captured = {}
-
-    def fake_probe(source_type, config, parent_path, limit):
-        captured["parent_path"] = parent_path
-        return ProbeResult(
-            source_type=source_type, supported=True, parent_path=parent_path
-        )
-
-    monkeypatch.setattr(mod, "probe", fake_probe)
-    result = CliRunner().invoke(
-        recipe,
-        [
-            "probe",
-            "tables",
-            "--recipe",
-            str(_snowflake_recipe(tmp_path)),
-            "--database",
-            "DEMO_DB",
-            "--schema",
-            "PUBLIC",
+    probe_obj = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel("Workspace", "workspace_pattern", lambda a, b, c: []),
+            ProbeLevel(
+                "Report", "report_pattern", lambda a, b, c: [], parent="Workspace"
+            ),
+            ProbeLevel(
+                "Dashboard", "dashboard_pattern", lambda a, b, c: [], parent="Workspace"
+            ),
         ],
     )
-    assert result.exit_code == 0
-    assert captured["parent_path"] == ["DEMO_DB", "PUBLIC"]
-
-
-def _bigquery_recipe(tmp_path):
-    recipe_file = tmp_path / "bq.yml"
-    recipe_file.write_text(
-        "source:\n  type: bigquery\n  config:\n    project_ids: [my-project]\n"
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("bi-thing", {}, set()))
+    monkeypatch.setattr(rc, "probe_shape", lambda st: probe_obj.shape())
+    monkeypatch.setattr(rc, "probe_hierarchy", lambda st: None)
+    res = CliRunner().invoke(
+        recipe, ["probe", "shape", "--recipe", str(_sqlalchemy_recipe(tmp_path))]
     )
-    return recipe_file
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["linear"] is False
+    assert payload["hierarchy"] is None
+    assert [c["kind"] for c in payload["shape"]["children"]] == ["Report", "Dashboard"]
 
 
-def test_probe_databases_on_bigquery_lists_projects(tmp_path, monkeypatch):
-    pytest.importorskip("google.cloud.bigquery")
-    import datahub.cli.recipe_cli as mod
-    from datahub.ingestion.agent.models import ProbeResult
-
-    captured = {}
-
-    def fake_probe(source_type, config, parent_path, limit):
-        captured["parent_path"] = parent_path
-        return ProbeResult(
-            source_type=source_type, supported=True, parent_path=parent_path
-        )
-
-    monkeypatch.setattr(mod, "probe", fake_probe)
-    result = CliRunner().invoke(
-        recipe, ["probe", "databases", "--recipe", str(_bigquery_recipe(tmp_path))]
-    )
-    # BigQuery's top container is a project, which `probe databases` accepts.
-    assert result.exit_code == 0
-    assert captured["parent_path"] == []
-
-
-def test_probe_schemas_on_bigquery_requires_database(tmp_path):
-    pytest.importorskip("google.cloud.bigquery")
-    result = CliRunner().invoke(
-        recipe, ["probe", "schemas", "--recipe", str(_bigquery_recipe(tmp_path))]
-    )
-    # A BigQuery dataset sits under a project, so --database is mandatory.
-    assert result.exit_code == 2
-    assert "--database" in (result.output + (result.stderr or ""))
+def test_removed_kind_named_commands_are_gone(tmp_path):
+    for name in ("databases", "schemas", "tables", "columns"):
+        res = CliRunner().invoke(recipe, ["probe", name, "--recipe", "x.yml"])
+        assert res.exit_code != 0
+        assert "No such command" in res.output
 
 
 def _rest_recipe(tmp_path):
