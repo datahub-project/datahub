@@ -113,7 +113,7 @@ def test_classify_override_beats_the_default_pattern_check():
 def test_list_items_level_carries_per_item_kind_and_resolves_patterns():
     # A single listing yields both kinds; items with an explicit pattern_field
     # (BigQuery's real usage) pass it through unchanged, while items that leave
-    # it None (as in the brief) still resolve by convention against _CFG's own
+    # it None still resolve by convention against _CFG's own
     # table_pattern/view_pattern.
     def items(client, config, parent_path):
         return [

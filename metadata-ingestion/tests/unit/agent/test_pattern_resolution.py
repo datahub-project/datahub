@@ -75,6 +75,9 @@ _EXPECTED_UNMAPPED_SOURCE_TYPES = {"bigquery-queries", "snowflake-queries"}
 
 def _probe_capable_configs() -> Dict[str, Any]:
     """source_type -> config class, for every source whose config declares a probe."""
+    # function-scoped: importing the source registry pulls in every connector
+    # package, which must not happen at collection time for this module's other
+    # (fast, fixture-only) unit tests.
     from datahub.ingestion.agent.probe import _config_class
     from datahub.ingestion.source.source_registry import source_registry
 
