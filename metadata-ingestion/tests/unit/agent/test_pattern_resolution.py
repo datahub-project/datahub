@@ -1,10 +1,17 @@
 import re
-from typing import Any, Optional
+from types import SimpleNamespace
+from typing import Annotated, Any, Optional
 
+import pytest
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.ingestion.agent.probe import ClientProbe, pattern_field_for_config_class
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent.introspect import is_pattern_field
+from datahub.ingestion.agent.probe import (
+    ClientProbe,
+    pattern_field_for_config,
+    pattern_field_for_config_class,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -190,4 +197,90 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
     assert not unresolved, (
         "these (config, probe level) pairs declare no pattern_field and the "
         f"config's own conventional field doesn't resolve it: {unresolved}"
+    )
+
+
+def test_a_declared_hint_beats_the_name_convention():
+    """The convention would find `table_pattern`; the hint must win."""
+
+    class _Hinted(ConfigModel):
+        table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+        collection_pattern: Annotated[
+            AllowDenyPattern, Filters(DatasetSubTypes.TABLE)
+        ] = Field(default=AllowDenyPattern.allow_all())
+
+    assert (
+        pattern_field_for_config_class(_Hinted, DatasetSubTypes.TABLE)
+        == "collection_pattern"
+    )
+
+
+def test_a_hint_does_not_remove_the_field_from_convention_matching():
+    """A hint adds a binding; `dataset_pattern` still answers a Dataset lookup."""
+
+    class _BigIdLike(ConfigModel):
+        dataset_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = (
+            Field(default=AllowDenyPattern.allow_all())
+        )
+
+    assert (
+        pattern_field_for_config_class(_BigIdLike, DatasetSubTypes.TABLE)
+        == "dataset_pattern"
+    )
+    assert pattern_field_for_config_class(_BigIdLike, "Dataset") == "dataset_pattern"
+
+
+def test_two_fields_hinting_the_same_kind_raise_naming_both():
+    class _Conflict(ConfigModel):
+        a_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+        b_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    with pytest.raises(ValueError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"):
+        pattern_field_for_config_class(_Conflict, DatasetSubTypes.TABLE)
+
+
+def test_a_hint_on_a_non_pattern_field_raises():
+    class _Bad(ConfigModel):
+        thing: Annotated[str, Filters(DatasetSubTypes.TABLE)] = "nope"
+
+    with pytest.raises(ValueError, match="not an AllowDenyPattern"):
+        pattern_field_for_config_class(_Bad, DatasetSubTypes.TABLE)
+
+
+def test_annotating_a_field_keeps_it_recognised_as_a_pattern_field():
+    """Guards the one way this change could silently break describe/scaffold."""
+
+    class _Ann(ConfigModel):
+        p: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+            default=AllowDenyPattern.allow_all()
+        )
+
+    assert is_pattern_field(_Ann.model_fields["p"].annotation)
+
+
+def test_the_hint_wins_over_an_instance_level_convention_match():
+    """pattern_field_for_config checks live attributes; the hint still wins."""
+
+    class _Hinted(ConfigModel):
+        table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+        collection_pattern: Annotated[
+            AllowDenyPattern, Filters(DatasetSubTypes.TABLE)
+        ] = Field(default=AllowDenyPattern.allow_all())
+
+    assert (
+        pattern_field_for_config(_Hinted(), DatasetSubTypes.TABLE)
+        == "collection_pattern"
+    )
+
+
+def test_an_object_without_model_fields_still_resolves_by_convention():
+    """Test fixtures are plain SimpleNamespaces — they have no hints."""
+    cfg = SimpleNamespace(schema_pattern=AllowDenyPattern.allow_all())
+    assert (
+        pattern_field_for_config(cfg, DatasetContainerSubTypes.SCHEMA)
+        == "schema_pattern"
     )

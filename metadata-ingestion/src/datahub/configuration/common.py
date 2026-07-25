@@ -471,6 +471,31 @@ class AllowDenyPattern(ConfigModel):
         return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
 
 
+@dataclasses.dataclass(frozen=True)
+class Filters:
+    """Declares which probe level an AllowDenyPattern config field filters.
+
+    Attach with Annotated, at the field itself — the one place that already
+    knows this:
+
+        collection_pattern: Annotated[
+            AllowDenyPattern, Filters(DatasetSubTypes.TABLE)
+        ] = Field(default=AllowDenyPattern.allow_all(), description="...")
+
+    Needed where the field's name cannot be derived from the level's DataHub
+    subtype, which is the normal case whenever config naming follows the source
+    system's own vocabulary (Mongo collections, Aerospike sets) as it should.
+    The connector's ingestion path already applies this pattern to that level;
+    declaring it here means the probe reads the same fact rather than guessing
+    from the name, so the two cannot drift apart.
+
+    `kind` is a DataHub subtype constant — a StrEnum member, hence a str. It is
+    typed str so this module stays free of any ingestion imports.
+    """
+
+    kind: str
+
+
 class KeyValuePattern(ConfigModel):
     """
     The key-value pattern is used to map a regex pattern to a set of values.
