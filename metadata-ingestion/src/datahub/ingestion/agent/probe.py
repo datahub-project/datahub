@@ -286,9 +286,14 @@ class ClientProbe:
     def _resolved(self, config: Any, items: List[LevelItem]) -> List[LevelItem]:
         # Non-leaf items must end up with a real pattern field: either the one the
         # declaration gave, or the conventional one for their kind, resolved
-        # against the live config instance (see _resolve_pattern_field).
+        # against the live config instance (see _resolve_pattern_field). A Column
+        # item has no pattern field to resolve — e.g. a sources/list_items level
+        # mixing Column with a classify= override — so it passes through as-is.
         out: List[LevelItem] = []
         for name, kind, pattern_field in items:
+            if kind == ProbeLeafKind.COLUMN:
+                out.append((name, kind, pattern_field))
+                continue
             if pattern_field is None:
                 pattern_field = _resolve_pattern_field(config, kind)
                 if pattern_field is None:
@@ -354,6 +359,7 @@ class ClientProbe:
             if (
                 level.kind == ProbeLeafKind.COLUMN
                 and level.sources is None
+                and level.list_items is None
                 and level.pattern_field is None
                 and level.classify is None
             ):

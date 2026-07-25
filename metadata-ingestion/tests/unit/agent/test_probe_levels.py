@@ -260,6 +260,43 @@ def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
     assert by_name["orders"].pattern_field == "table_pattern"
 
 
+def test_column_level_with_classify_does_not_require_a_pattern_field():
+    # A Column level that sets classify= skips the leaf fast path (which has no
+    # verdict machinery), reaching _resolved with kind=Column. Column has no
+    # AllowDenyPattern to resolve, so it must pass through unchanged rather than
+    # raise "no AllowDenyPattern field ... filters kind 'Column'".
+    def classify(ctx):
+        return (False, "sensitive") if ctx.name == "ssn" else (True, None)
+
+    probe = _probe(
+        ProbeLevel(
+            ProbeLeafKind.COLUMN, list_names=_lister("id", "ssn"), classify=classify
+        )
+    )
+    by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
+    assert by_name["id"].included is True
+    assert by_name["ssn"].included is False
+    assert by_name["ssn"].excluded_by == "sensitive"
+
+
+def test_column_level_with_list_items_does_not_take_the_leaf_fast_path():
+    # list_items carries per-item kind/pattern like sources; the leaf fast path
+    # asserts list_names is set, so a Column + list_items level must not take it.
+    def items(client, config, parent_path):
+        return [
+            ("id", ProbeLeafKind.COLUMN, None),
+            ("name", ProbeLeafKind.COLUMN, None),
+        ]
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[ProbeLevel(ProbeLeafKind.COLUMN, list_items=items)],
+    )
+    nodes = probe.list_children(_CFG, [], 100).nodes
+    assert [n.name for n in nodes] == ["id", "name"]
+    assert all(n.included for n in nodes)
+
+
 def test_classifier_receives_the_parent_path():
     seen = {}
 
