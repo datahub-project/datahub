@@ -1,4 +1,5 @@
-from typing import Any, List, Optional, Sequence
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Optional, Sequence
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
@@ -45,18 +46,20 @@ def _show_names(engine: Any, statement: str) -> List[str]:
         return [row._mapping["name"] for row in conn.execute(text(statement))]
 
 
-def _pinned_inspector(engine: Any, database: str) -> Any:
-    """Open a connection with `database` current, so unqualified information_schema
-    reflection resolves, and return an inspector bound to it.
+@contextmanager
+def _pinned_inspector(engine: Any, database: str) -> Iterator[Any]:
+    """Yield an inspector on a connection with `database` current, so unqualified
+    information_schema reflection resolves, and always return it to the pool.
 
     The recipe may set no default database, and the dialect's reflection queries an
     unqualified information_schema.
     """
+    # lazy: sqlalchemy is only needed once a probe actually runs
     from sqlalchemy import inspect, text
 
-    conn = engine.connect()
-    conn.execute(text(f'USE DATABASE "{_quote_identifier(database)}"'))
-    return inspect(conn)
+    with engine.connect() as conn:
+        conn.execute(text(f'USE DATABASE "{_quote_identifier(database)}"'))
+        yield inspect(conn)
 
 
 def _databases(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
@@ -69,19 +72,19 @@ def _schemas(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 
 
 def _tables(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
-    inspector = _pinned_inspector(engine, parent_path[0])
-    return inspector.get_table_names(schema=parent_path[1])
+    with _pinned_inspector(engine, parent_path[0]) as inspector:
+        return inspector.get_table_names(schema=parent_path[1])
 
 
 def _views(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
-    inspector = _pinned_inspector(engine, parent_path[0])
-    return inspector.get_view_names(schema=parent_path[1])
+    with _pinned_inspector(engine, parent_path[0]) as inspector:
+        return inspector.get_view_names(schema=parent_path[1])
 
 
 def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
-    inspector = _pinned_inspector(engine, parent_path[0])
-    cols = inspector.get_columns(parent_path[2], schema=parent_path[1])
-    return [str(col["name"]) for col in cols]
+    with _pinned_inspector(engine, parent_path[0]) as inspector:
+        cols = inspector.get_columns(parent_path[2], schema=parent_path[1])
+        return [str(col["name"]) for col in cols]
 
 
 def _classify_schema(
