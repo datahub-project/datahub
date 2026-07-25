@@ -64,7 +64,7 @@ Tool    Version  Source                             Requested
 java    21.0.2   ~/path/to/datahub/mise.toml  21
 node    22.21.1  ~/path/to/datahub/mise.toml  22
 python  3.11.14  ~/path/to/datahub/mise.toml  3.11
-yarn    4.12.0   ~/path/to/datahub/mise.toml  latest
+yarn    1.22.22  ~/path/to/datahub/mise.toml  1.22.22
 ```
 
 ## Building the Project
@@ -112,7 +112,7 @@ We suggest partially compiling DataHub according to your needs:
 - Build DataHub's documentation:
 
   ```
-  ./gradlew :docs-website:yarnLintFix :docs-website:build -x :metadata-ingestion:runPreFlightScript
+  ./gradlew :docs-website:yarnLintFix :docs-website:build
   # To preview the documentation
   ./gradlew :docs-website:serve
   ```
@@ -126,6 +126,122 @@ We suggest partially compiling DataHub according to your needs:
   By default, JaCoCo is attached to every test run and generates XML reports under
   `build/coverage-reports/`. Pass `-PskipCoverage` to disable the agent and skip report
   generation entirely. This has no effect on CI — coverage is always collected there.
+
+## Deploying Local Versions
+
+This guide explains how to set up and deploy DataHub locally for development purposes.
+
+### Initial Setup
+
+Before you begin, install the local `datahub` CLI tool in editable ("develop") mode. The Gradle task creates the virtualenv and installs the CLI into it:
+
+```shell
+./gradlew :metadata-ingestion:installDev
+cd metadata-ingestion
+source venv/bin/activate
+cd ../
+```
+
+Once you're in the `venv`, your local changes are reflected automatically — for example, run `datahub ingest -c <file>` to test local changes in ingestion connectors. To verify you're using the local build, run `datahub --version`; it should report:
+
+```
+acryl-datahub, version unavailable (installed in develop mode)
+```
+
+### Deploying the Full Stack
+
+Deploy the entire system using docker-compose:
+
+```shell
+./gradlew quickstartDebug
+```
+
+:::note
+Starting v1.5.0 the default values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` have been removed. It is recommended that users provided their own values for these. If no values are provided, new keys are generated the first time the above command is run. The generated keys are saved to docker/.local-secrets.env and reused in subsequent runs as long as the file exists.
+
+To provide your own values, either update the above keys in `metadata-service/configuration/src/main/resources/application.yaml` or set the following environment variables
+
+```
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY
+DATAHUB_TOKEN_SERVICE_SALT
+```
+
+If you are upgrading from an earlier version Personal Access Tokens created before will be invalidated and will need to be created again.
+:::
+Access the DataHub UI at `http://localhost:9002`
+
+### Refreshing the Frontend
+
+To run and update the frontend with local changes, open a new terminal and run:
+
+```shell
+cd datahub-web-react
+yarn install && yarn start
+```
+
+The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code. This is separate from `http://localhost:9002`: `9002` is served by the quickstart frontend container, while `3000` is the hot-reload dev server that proxies API calls to `9002` for live data.
+
+### Refreshing components of quickStart
+
+To refresh any of the running system started by `./gradlew quickstartDebug`, run
+
+```shell
+./gradlew reload
+```
+
+This will build any changed components and restart only the containers that had changes.
+
+The single `reload` task auto-detects the active profile, so the same command works whether you started with `quickstartDebug`, `quickstartDebugMin`, `quickstartDebugConsumers`, or any other variant — there is no per-variant reload task. If you also need to change environment variables, use `reloadEnv` instead (see the `.env` section below).
+
+A full restart with `./gradlew quickstartDebug` is recommended when there are significant changes and the setup/system-update containers need to run again. For incremental changes, `reload` is sufficient.
+
+### Cleaning up containers and volumes
+
+To completely remove containers and volumes for a specific project, you can use the nuke tasks:
+
+```shell
+# Remove containers and volumes for specific projects
+./gradlew quickstartDebugNuke     # For debug project
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
+
+### Using .env to configure settings of services started by quickstart
+
+To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.
+For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
+```
+
+To refresh the containers due to code changes, `reload` task can be used.
+To change the env and reload containers, use the task `reloadEnv`
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew reloadEnv
+```
+
+This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
+
+### Refreshing the CLI
+
+If you haven't installed the CLI yet, follow [Initial Setup](#initial-setup) above. Once it's installed in develop mode, your local changes are picked up automatically — you don't need to reinstall for code edits. Re-run `./gradlew :metadata-ingestion:installDev` only when you add a new dependency or entry point.
+
+### Building All Docker images
+
+Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
+If you want to build all images without starting datahub, run
+
+```commandline
+./gradlew :docker:build
+```
+
+You can optionally pass the following additional args when executing `:docker:build` task
+
+- `-Ptag=customTag` to use the custom tag when generating the image tag.
+- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
 
 ## Dependency Management
 
@@ -512,142 +628,6 @@ the same env vars in your shell, mise, or direnv config:
 export UV_CONFIG_FILE="$(git rev-parse --show-toplevel)/docker/snippets/uv/profiles/default.toml"
 export NETRC="$(git rev-parse --show-toplevel)/docker/snippets/uv/.netrc"
 ```
-
-## Deploying Local Versions
-
-This guide explains how to set up and deploy DataHub locally for development purposes.
-
-### Initial Setup
-
-Before you begin, you'll need to install the local `datahub` CLI tool:
-
-```shell
-cd metadata-ingestion/
-python3 -m venv venv
-source venv/bin/activate
-cd ../
-```
-
-### Deploying the Full Stack
-
-Deploy the entire system using docker-compose:
-
-```shell
-./gradlew quickstartDebug
-```
-
-:::note
-Starting v1.5.0 the default values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` have been removed. It is recommended that users provided their own values for these. If no values are provided, new keys are generated the first time the above command is run. The generated keys are saved to docker/.local-secrets.env and reused in subsequent runs as long as the file exists.
-
-To provide your own values, either update the above keys in `metadata-service/configuration/src/main/resources/application.yaml` or set the following environment variables
-
-```
-DATAHUB_TOKEN_SERVICE_SIGNING_KEY
-DATAHUB_TOKEN_SERVICE_SALT
-```
-
-If you are upgrading from an earlier version Personal Access Tokens created before will be invalidated and will need to be created again.
-:::
-Access the DataHub UI at `http://localhost:9002`
-
-### Refreshing the Frontend
-
-To run and update the frontend with local changes, open a new terminal and run:
-
-```shell
-cd datahub-web-react
-yarn install && yarn start
-```
-
-The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
-
-### Refreshing components of quickStart
-
-To refresh any of the running system started by `./gradlew quickstartDebug`, run
-
-```shell
-./gradlew debugReload
-```
-
-This will build any changed components and restart those containers that had changes.
-There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers
-
-For each of those variants, there is a corresponding reloadTask.
-
-For `./gradlew quickstartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
-For `./gradlew quickstartDebugMin`, the reload command is `./gradlew debugMinReload`
-
-A full restart using `./gradlew quickstartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
-For incremental changes, the `debugReload*` variants can be used.
-
-### Cleaning up containers and volumes
-
-To completely remove containers and volumes for a specific project, you can use the nuke tasks:
-
-```shell
-# Remove containers and volumes for specific projects
-./gradlew quickstartDebugNuke     # For debug project
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
-```
-
-> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
-
-### Using .env to configure settings of services started by quickstart
-
-To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.
-For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
-
-```shell
-DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
-```
-
-To refresh the containers due to code changes, `debugReload` task can be used.
-To change the env and reload containers, use the task `debugReloadEnv`
-
-```shell
-DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew debugReloadEnv
-```
-
-This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
-
-### Refreshing the CLI
-
-If you haven't set up the CLI for local development yet, run:
-
-```commandline
-./gradlew :metadata-ingestion:installDev
-cd metadata-ingestion
-source venv/bin/activate
-```
-
-Once you're in `venv`, your local changes will be reflected automatically.
-For example, you can run `datahub ingest -c <file>` to test local changes in ingestion connectors.
-
-To verify that you're using the local version, run:
-
-```commandline
-datahub --version
-```
-
-Expected Output:
-
-```commandline
-acryl-datahub, version unavailable (installed in develop mode)
-```
-
-### Building All Docker images
-
-Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
-If you want to build all images without starting datahub, run
-
-```commandline
-./gradlew :docker:build
-```
-
-You can optionally pass the following additional args when executing `:docker:build` task
-
-- `-Ptag=customTag` to use the custom tag when generating the image tag.
-- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
 
 ## IDE Support
 
