@@ -17,6 +17,7 @@ import {
     TAGS_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
 import {
+    Assertion,
     AssertionResultType,
     AssertionSourceType,
     AssertionType,
@@ -139,6 +140,45 @@ describe('buildAssertionListFilters', () => {
                 displayName: 'Important',
                 count: 3,
             }),
+        ]);
+    });
+
+    it('uses stable URNs and removes the correct source in the facetless fallback', () => {
+        const options = extractFilterOptionsFromFacets(
+            [
+                {
+                    urn: 'urn:li:assertion:test',
+                    type: EntityType.Assertion,
+                    info: {
+                        type: AssertionType.Volume,
+                        source: { type: AssertionSourceType.External },
+                    },
+                    tags: {
+                        tags: [
+                            {
+                                tag: {
+                                    urn: 'urn:li:tag:Important',
+                                    type: EntityType.Tag,
+                                    name: 'Important',
+                                    properties: { name: 'Important' },
+                                },
+                            },
+                        ],
+                    },
+                } as Assertion,
+            ],
+            undefined,
+        );
+
+        expect(options.filterGroupOptions.tags).toEqual([
+            expect.objectContaining({
+                name: 'urn:li:tag:Important',
+                displayName: 'Important',
+                count: 1,
+            }),
+        ]);
+        expect(options.filterGroupOptions.source).toEqual([
+            expect.objectContaining({ name: AssertionSourceType.External, count: 1 }),
         ]);
     });
 });

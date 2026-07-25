@@ -1,9 +1,40 @@
+import type { MutationHookOptions } from '@apollo/client';
 import { message } from 'antd';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
+import { isValidAssertionUrnFormat } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/assertionUrnUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import {
+    DeleteAssertionMutation,
+    DeleteAssertionMutationVariables,
+    useDeleteAssertionMutation,
+} from '@graphql/assertion.generated';
+
+export const useDeleteAssertionMutationWithCache = (
+    baseOptions?: MutationHookOptions<DeleteAssertionMutation, DeleteAssertionMutationVariables>,
+) => {
+    const [deleteAssertion, result] = useDeleteAssertionMutation({
+        ...baseOptions,
+        update(cache, response, options) {
+            baseOptions?.update?.(cache, response, options);
+            const assertionUrn = options.variables?.urn;
+            if (response.data?.deleteAssertion && assertionUrn) {
+                cache.evict({
+                    id: cache.identify({
+                        __typename: 'Assertion',
+                        urn: assertionUrn,
+                    }),
+                });
+                cache.gc();
+            }
+        },
+    });
+
+    return [deleteAssertion, result] as const;
+};
 
 export const copyTextToClipboard = async (text: string): Promise<void> => {
     if (navigator.clipboard?.writeText) {
@@ -62,6 +93,7 @@ export const useAssertionURNCopyLink = (urn: string) => {
  * @returns {Object} Object containing the 'assertionUrnParam' from the URL.
  */
 export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
+    const { t } = useTranslation('entity.profile.validations');
     const location = useLocation();
     const history = useHistory();
     const assertionUrnParam = getQueryParams('assertion_urn', location);
@@ -69,6 +101,11 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
     useEffect(() => {
         if (assertionUrnParam) {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
+
+            if (!isValidAssertionUrnFormat(decodedAssertionUrn)) {
+                message.error(t('action.malformedAssertionLink', { urn: decodedAssertionUrn }));
+                return;
+            }
 
             setFocusAssertionUrn(decodedAssertionUrn);
 
@@ -80,7 +117,7 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
             // Use React Router's history.replace to replace the current URL
             history.replace(newUrl);
         }
-    }, [assertionUrnParam, setFocusAssertionUrn, location.search, location.pathname, history]);
+    }, [assertionUrnParam, setFocusAssertionUrn, location.search, location.pathname, history, t]);
 
     return { assertionUrnParam };
 };

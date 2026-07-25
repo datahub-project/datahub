@@ -155,6 +155,18 @@ describe('useOpenAssertionDetailModal', () => {
         expect(mockSetFocusUrn).toHaveBeenCalledWith('urn:li:assertion:test');
     });
 
+    it('rejects malformed assertion URNs', () => {
+        const encoded = encodeURIComponent('https://example.com/assertion');
+        (getQueryParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue(encoded);
+        mockLocation(`?assertion_urn=${encoded}`);
+
+        renderHook(() => useOpenAssertionDetailModal(mockSetFocusUrn));
+
+        expect(mockSetFocusUrn).not.toHaveBeenCalled();
+        expect(message.error).toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
+    });
+
     it('removes assertion_urn from the URL and calls history.replace', () => {
         const encoded = 'urn%3Ali%3Aassertion%3Atest';
         (getQueryParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue(encoded);

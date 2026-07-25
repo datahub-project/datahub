@@ -53,7 +53,9 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AssertionMapper {
 
   public static Assertion map(@Nullable QueryContext context, final EntityResponse entityResponse) {
@@ -70,14 +72,19 @@ public class AssertionMapper {
       final AssertionInfo assertionInfo =
           new AssertionInfo(envelopedAssertionInfo.getValue().data());
       result.setInfo(mapAssertionInfo(context, assertionInfo));
-      final Urn datasetUrn =
-          Optional.ofNullable(assertionInfo.getEntityUrn())
-              .orElse(AssertionUtils.getEntityFromAssertionInfo(assertionInfo));
-      if (datasetUrn != null && Constants.DATASET_ENTITY_NAME.equals(datasetUrn.getEntityType())) {
-        final Dataset dataset = new Dataset();
-        dataset.setUrn(datasetUrn.toString());
-        dataset.setType(EntityType.DATASET);
-        result.setDataset(dataset);
+      try {
+        final Urn datasetUrn =
+            Optional.ofNullable(assertionInfo.getEntityUrn())
+                .orElse(AssertionUtils.getEntityFromAssertionInfo(assertionInfo));
+        if (datasetUrn != null
+            && Constants.DATASET_ENTITY_NAME.equals(datasetUrn.getEntityType())) {
+          final Dataset dataset = new Dataset();
+          dataset.setUrn(datasetUrn.toString());
+          dataset.setType(EntityType.DATASET);
+          result.setDataset(dataset);
+        }
+      } catch (RuntimeException e) {
+        log.warn("Failed to map target dataset for assertion {}: {}", entityUrn, e.getMessage());
       }
     }
 

@@ -134,6 +134,17 @@ public class AssertionMapperTest {
     verifyAssertionInfo(input, output);
   }
 
+  @Test
+  public void testMapMalformedAssertionWithoutTarget() {
+    AssertionInfo input = new AssertionInfo().setType(AssertionType.CUSTOM);
+
+    Assertion output = AssertionMapper.map(null, createAssertionInfoEntityResponse(input));
+
+    Assert.assertNotNull(output);
+    Assert.assertNotNull(output.getInfo());
+    Assert.assertNull(output.getDataset());
+  }
+
   private void verifyAssertionInfo(AssertionInfo input, Assertion output) {
     Assert.assertNotNull(output);
     Assert.assertNotNull(output.getInfo());

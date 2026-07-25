@@ -288,7 +288,10 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         column: {} as Record<string, number>,
         tags: {} as Record<string, number>,
         source: {} as Record<string, number>,
+        owners: {} as Record<string, number>,
     };
+    const tagDisplayNames: Record<string, string> = {};
+    const ownerDisplayNames: Record<string, string> = {};
 
     // maintain array to show all the Assertion Type count even if it is not present
     const remainingAssertionTypes = ASSERTION_INFO.map((item) => item.type);
@@ -319,8 +322,30 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
 
         const tags = assertion.tags?.tags || [];
         tags.forEach((tag) => {
-            const tagName = tag.tag.properties?.name || '';
-            filterGroupCounts.tags[tagName] = (filterGroupCounts.tags[tagName] || 0) + 1;
+            const tagUrn = tag.tag.urn;
+            if (tagUrn) {
+                filterGroupCounts.tags[tagUrn] = (filterGroupCounts.tags[tagUrn] || 0) + 1;
+                tagDisplayNames[tagUrn] = tag.tag.properties?.name || tag.tag.name || tagUrn;
+            }
+        });
+
+        assertion.ownership?.owners?.forEach((owner) => {
+            const ownerUrn = owner.owner.urn;
+            if (ownerUrn) {
+                const ownerEntity = owner.owner as typeof owner.owner & {
+                    info?: { displayName?: string };
+                    properties?: { displayName?: string };
+                    username?: string;
+                    name?: string;
+                };
+                filterGroupCounts.owners[ownerUrn] = (filterGroupCounts.owners[ownerUrn] || 0) + 1;
+                ownerDisplayNames[ownerUrn] =
+                    ownerEntity.info?.displayName ||
+                    ownerEntity.properties?.displayName ||
+                    ownerEntity.username ||
+                    ownerEntity.name ||
+                    ownerUrn;
+            }
         });
 
         // count columnIds assertion
@@ -340,7 +365,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
         }
         const sourceTypeIndex = remainingAssertionSources.indexOf(sourceType);
         if (sourceTypeIndex > -1) {
-            remainingAssertionSources.splice(index, 1);
+            remainingAssertionSources.splice(sourceTypeIndex, 1);
         }
     });
 
@@ -363,6 +388,8 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
     buildFilterOptions('type', filterGroupCounts.type, filterOptions);
     buildFilterOptions('column', filterGroupCounts.column, filterOptions);
     buildFilterOptions('source', filterGroupCounts.source, filterOptions);
+    buildFilterOptions('tags', filterGroupCounts.tags, filterOptions, tagDisplayNames);
+    buildFilterOptions('owners', filterGroupCounts.owners, filterOptions, ownerDisplayNames);
     return filterOptions;
 };
 

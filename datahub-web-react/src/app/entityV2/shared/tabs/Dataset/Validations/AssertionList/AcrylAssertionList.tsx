@@ -151,7 +151,7 @@ export const buildAssertionListFilters = (
  */
 export const AcrylAssertionList = () => {
     const { t } = useTranslation('entity.profile.validations');
-    const { urn, entityData } = useEntityData();
+    const { urn, entityData, loading: entityLoading } = useEntityData();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const [selectedFilters, setSelectedFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
     const [page, setPage] = useState(1);
@@ -160,16 +160,24 @@ export const AcrylAssertionList = () => {
     const [focusedAssertionUrn, setFocusedAssertionUrn] = useState<string | null>(null);
     useOpenAssertionDetailModal(setFocusedAssertionUrn);
 
-    const { data: focusedAssertionData } = useGetAssertionWithRunEventsQuery({
+    const { data: focusedAssertionData, loading: focusedAssertionLoading } = useGetAssertionWithRunEventsQuery({
         variables: { assertionUrn: focusedAssertionUrn || '' },
         skip: !focusedAssertionUrn,
     });
     const focusedDatasetUrn = focusedAssertionData?.assertion?.dataset?.urn;
-    const { data: contractData, refetch: contractRefetch } = useGetDatasetContractQuery({
+    const {
+        data: contractData,
+        loading: contractLoading,
+        refetch: contractRefetch,
+    } = useGetDatasetContractQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
-    const { data: focusedContractData, refetch: focusedContractRefetch } = useGetDatasetContractQuery({
+    const {
+        data: focusedContractData,
+        loading: focusedContractLoading,
+        refetch: focusedContractRefetch,
+    } = useGetDatasetContractQuery({
         variables: { urn: focusedDatasetUrn || urn },
         skip: !focusedAssertionUrn,
         fetchPolicy: 'cache-first',
@@ -233,7 +241,7 @@ export const AcrylAssertionList = () => {
     };
 
     const renderContent = () => {
-        if (loading && !previousData) {
+        if (entityLoading || contractLoading || (loading && !previousData)) {
             return <TableLoadingSkeleton />;
         }
         if (assertions.length) {
@@ -282,6 +290,7 @@ export const AcrylAssertionList = () => {
                 <AssertionProfileDrawer
                     urn={focusedAssertionUrn}
                     contract={focusedContract as DataContract}
+                    contractLoading={focusedAssertionLoading || focusedContractLoading}
                     closeDrawer={() => setFocusedAssertionUrn(null)}
                     refetch={() => {
                         refetch();

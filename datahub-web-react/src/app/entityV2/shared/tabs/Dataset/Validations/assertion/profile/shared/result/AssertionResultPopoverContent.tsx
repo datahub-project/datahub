@@ -16,6 +16,7 @@ import {
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { sortNativeResults } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
@@ -262,7 +263,7 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
         externalResultsSections.push(
             <ThinDivider key="external-results-divider" />,
             <PlatformRow key="external-results">
-                {result.nativeResults.map((entry) => (
+                {sortNativeResults(result.nativeResults).map((entry) => (
                     <div key={entry.key}>
                         <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
                     </div>
