@@ -11,6 +11,7 @@ from datahub.ingestion.source.mode import ModeAPIConfig
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
     ModeMetadataProbe,
+    _find_query_token,
     _get_embedded_paged,
     list_mode_children,
 )
@@ -33,6 +34,7 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
             # Present regardless of exclude_restricted -- filtering happens
             # client-side in _fetch_spaces, not by the fake session.
             {"name": "RestrictedSpace", "token": "sp5", "restricted": True},
+            {"name": "QueryTestSpace", "token": "sp6"},
         ]
     },
     f"{_WORKSPACE}/spaces/sp1/reports": {
@@ -66,6 +68,25 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     },
     f"{_WORKSPACE}/spaces/sp5/reports": {
         "reports": [{"name": "RestrictedOnlyReport", "token": "r-restricted"}]
+    },
+    f"{_WORKSPACE}/spaces/sp6/reports": {
+        "reports": [{"name": "QueryEdgeCasesReport", "token": "r-qec"}]
+    },
+    # Query-name-resolution edge cases, kept out of r1 so they don't disturb
+    # test_qualified_descent_lists_queries' exact `== ["q_main"]` assertion:
+    # two queries sharing a name (ambiguous), and one with no name at all
+    # (addressable only by its token, via _display_name's fallback).
+    f"{_WORKSPACE}/reports/r-qec/queries": {
+        "queries": [
+            {"name": "DupQuery", "token": "q-dup-1"},
+            {"name": "DupQuery", "token": "q-dup-2"},
+            {"token": "q-unnamed"},
+        ]
+    },
+    f"{_WORKSPACE}/reports/r-qec/queries/q-unnamed/charts": {
+        "charts": [
+            {"token": "c-unnamed", "view": {"title": "Untitled", "chartType": "table"}}
+        ]
     },
     f"{_WORKSPACE}/reports/r1/queries": {
         "queries": [
@@ -486,13 +507,38 @@ def test_query_charts_resolves_report_and_query_to_tokens():
     assert result == [{"title": "Revenue", "chart_type": "bar"}]
 
 
-def test_query_charts_unknown_query_returns_empty():
-    # Deliberately asymmetric with report resolution: only the report-name
-    # resolution is required to raise (see the not-found tests above); an
-    # unresolvable query name within a correctly-resolved report still
-    # returns [] here.
+def test_query_charts_raises_when_query_not_found():
+    # Symmetric with report resolution: an unresolvable query name must not
+    # be indistinguishable from "this query has no charts" -- an agent that
+    # mistypes a query name would otherwise get [] and conclude it drives no
+    # charts.
     with _method_probe() as p:
-        assert p.query_charts(report="Weekly", query="Nonexistent") == []
+        with pytest.raises(ValueError, match="no query named 'Nonexistent'"):
+            p.query_charts(report="Weekly", query="Nonexistent")
+
+
+def test_query_charts_raises_on_ambiguous_query_name():
+    with _method_probe() as p:
+        with pytest.raises(ValueError, match="ambiguous query name 'DupQuery'"):
+            p.query_charts(report="QueryEdgeCasesReport", query="DupQuery")
+
+
+def test_query_charts_resolves_an_unnamed_query_by_its_token():
+    # _find_query_token matches on _display_name, which falls back to a
+    # query's token when its "name" is null (mode.py has the same
+    # name-or-token convention) -- so the token is itself a valid `query`.
+    with _method_probe() as p:
+        result = p.query_charts(report="QueryEdgeCasesReport", query="q-unnamed")
+    assert result == [{"title": "Untitled", "chart_type": "table"}]
+
+
+def test_find_query_token_matches_a_null_named_query_by_token():
+    cfg = _cfg()
+    rate_limiter = RateLimiter(max_calls=1000, period=60)
+    token = _find_query_token(
+        cfg._session, cfg, rate_limiter, _WORKSPACE, "r-qec", "q-unnamed"
+    )
+    assert token == "q-unnamed"
 
 
 def test_query_charts_raises_when_report_not_found():

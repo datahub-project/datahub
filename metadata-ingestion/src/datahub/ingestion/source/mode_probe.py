@@ -458,6 +458,13 @@ def _find_query_token(
     report_token: str,
     query_name: str,
 ) -> Optional[str]:
+    # Matches on _display_name (name-or-token-or-"unknown"), the same
+    # convention mode.py's own report_name resolution uses (mode.py:2078) --
+    # a query with a null "name" is addressable by its token, since that's
+    # what _display_name reports for it and what report_queries would show.
+    # Collects every match rather than returning on the first one, so two
+    # queries sharing a name (or both falling back to "unknown") raise an
+    # ambiguity error instead of one silently winning.
     url = f"{workspace_uri}/reports/{report_token}/queries"
     queries = _get_embedded(
         session,
@@ -467,10 +474,21 @@ def _find_query_token(
         "queries",
         context=f"queries listing for report token '{report_token}'",
     )
-    for query in queries:
-        if _display_name(query) == query_name:
-            return query.get("token")
-    return None
+    matches = [
+        query.get("token")
+        for query in queries
+        if _display_name(query) == query_name and query.get("token")
+    ]
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise ValueError(
+            f"ambiguous query name '{query_name}': more than one query in "
+            f"this report resolves to that name (or both fall back to their "
+            f"token because they have no name); use report_queries to find "
+            f"a token unique to the one you mean"
+        )
+    return matches[0]
 
 
 def _platform_for_adapter(adapter: str, fallback_name: str) -> str:
@@ -627,7 +645,11 @@ class ModeMetadataProbe:
         (misspelled, or only in a space this recipe wouldn't ingest — denied
         by space_pattern, restricted, or a personal collection), or ambiguous
         (the same name in more than one in-scope space). Mode has no
-        endpoint to look up a report by name alone."""
+        endpoint to look up a report by name alone. Also raises if `query`
+        cannot be resolved to exactly one query within that report — call
+        report_queries first to see the valid names (a query with no name of
+        its own is listed there by its token, which is also a valid `query`
+        value here)."""
         report_token = _tolerant(
             lambda: _find_report_token(
                 self._session,
@@ -657,7 +679,12 @@ class ModeMetadataProbe:
             None,
         )
         if query_token is None:
-            return []
+            raise ValueError(
+                f"no query named '{query}' found in report '{report}'; call "
+                f"report_queries(report='{report}') to see its queries by "
+                f"name — a query with no name of its own is listed there by "
+                f"its token instead, which is also a valid `query` value here"
+            )
         url = (
             f"{self._workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
         )
