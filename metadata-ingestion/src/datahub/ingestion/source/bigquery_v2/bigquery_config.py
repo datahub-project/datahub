@@ -2,7 +2,7 @@ import logging
 import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
@@ -13,7 +13,12 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+)
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -31,6 +36,7 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -220,7 +226,9 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ),
     )
 
-    project_id_pattern: AllowDenyPattern = Field(
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
     )

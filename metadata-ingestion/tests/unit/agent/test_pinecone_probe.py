@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.pinecone.pinecone_probe import list_pinecone_children
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _Index:
@@ -28,7 +27,11 @@ class _PineconeClient:
 
 
 def _config():
-    return SimpleNamespace(
+    return config_with_hints(
+        {
+            "index_pattern": DatasetContainerSubTypes.PINECONE_INDEX,
+            "namespace_pattern": DatasetContainerSubTypes.PINECONE_NAMESPACE,
+        },
         get_client=lambda: _PineconeClient(
             ["products", "scratch"], {"products": ["prod", "__default__"]}
         ),

@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from typing import Any
 
 from datahub.configuration.common import AllowDenyPattern
@@ -7,6 +6,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 _SETS_INFO = (
     "sets\t"
@@ -31,7 +31,8 @@ class _FakeAerospikeClient:
 
 def _config() -> Any:
     client = _FakeAerospikeClient(_SETS_INFO)
-    return SimpleNamespace(
+    return config_with_hints(
+        {"set_pattern": DatasetSubTypes.TABLE},
         get_client=lambda: client,
         namespace_pattern=AllowDenyPattern(allow=[".*"]),
         set_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),

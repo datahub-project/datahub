@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -18,7 +19,7 @@ import aerospike_helpers
 from pydantic import ConfigDict, PositiveInt, SecretStr, field_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -35,7 +36,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
@@ -138,7 +142,7 @@ class AerospikeConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for namespaces to filter in ingestion.",
     )
-    set_pattern: AllowDenyPattern = Field(
+    set_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for sets to filter in ingestion.",
     )

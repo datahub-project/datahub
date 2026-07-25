@@ -27,8 +27,7 @@ MONGODB_PROBE = ClientProbe(
         # Mongo's own noun; the kind is DataHub's normalized Table subtype.
         ProbeLevel(
             DatasetSubTypes.TABLE,
-            "collection_pattern",
-            _collections,
+            list_names=_collections,
             parent=DatasetContainerSubTypes.DATABASE,
         ),
     ],

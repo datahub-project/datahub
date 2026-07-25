@@ -9,6 +9,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _Named:
@@ -43,7 +44,8 @@ class _FakeBqClient:
 @pytest.fixture
 def bq():
     client = _FakeBqClient()
-    config = SimpleNamespace(
+    config = config_with_hints(
+        {"project_id_pattern": DatasetContainerSubTypes.BIGQUERY_PROJECT},
         get_bigquery_client=lambda: client,
         project_ids=[],
         project_id_pattern=AllowDenyPattern(allow=[".*"], deny=["^other-proj$"]),

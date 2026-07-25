@@ -284,3 +284,35 @@ def test_an_object_without_model_fields_still_resolves_by_convention():
         pattern_field_for_config(cfg, DatasetContainerSubTypes.SCHEMA)
         == "schema_pattern"
     )
+
+
+def test_no_probe_capable_config_declares_conflicting_hints():
+    """A second field claiming a kind would make resolution ambiguous, and the
+    probe would silently filter on the wrong pattern."""
+    # function-scoped: walking every connector package is expensive and must not
+    # run at collection time for the rest of this module's fast unit tests.
+    import importlib
+    import pkgutil
+    from collections import defaultdict
+
+    import datahub.ingestion.source as srcpkg
+    from datahub.configuration.common import Filters
+
+    conflicts = {}
+    for mod in pkgutil.walk_packages(srcpkg.__path__, srcpkg.__name__ + "."):
+        try:
+            module = importlib.import_module(mod.name)
+        except Exception:
+            continue  # optional connector dependency not installed
+        for obj in vars(module).values():
+            if not (isinstance(obj, type) and hasattr(obj, "model_fields")):
+                continue
+            by_kind = defaultdict(list)
+            for fname, field in obj.model_fields.items():
+                for meta in field.metadata:
+                    if isinstance(meta, Filters):
+                        by_kind[str(meta.kind)].append(fname)
+            for kind, names in by_kind.items():
+                if len(names) > 1:
+                    conflicts[f"{obj.__name__}:{kind}"] = sorted(names)
+    assert not conflicts, conflicts

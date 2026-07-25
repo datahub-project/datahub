@@ -40,8 +40,7 @@ BIGID_PROBE = ClientProbe(
         # BigID's own noun ("dataset"); the kind is DataHub's generic Table subtype.
         ProbeLevel(
             DatasetSubTypes.TABLE,
-            "dataset_pattern",
-            _catalog_objects,
+            list_names=_catalog_objects,
             classify_on_fqn=True,
             parent=DatasetSubTypes.CONNECTION,
         ),

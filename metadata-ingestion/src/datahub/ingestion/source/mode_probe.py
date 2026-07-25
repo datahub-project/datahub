@@ -387,10 +387,8 @@ MODE_PROBE = ClientProbe(
     client_factory=_build_mode_client,
     close=_close_mode_client,
     levels=[
-        ProbeLevel(MODE_SPACE, "space_pattern", _spaces),
-        ProbeLevel(
-            BIAssetSubTypes.MODE_REPORT, "report_pattern", _reports, parent=MODE_SPACE
-        ),
+        ProbeLevel(MODE_SPACE, list_names=_spaces),
+        ProbeLevel(BIAssetSubTypes.MODE_REPORT, list_names=_reports, parent=MODE_SPACE),
         ProbeLevel(
             BIAssetSubTypes.MODE_DATASET, UNFILTERED, _datasets, parent=MODE_SPACE
         ),

@@ -1,8 +1,7 @@
-from types import SimpleNamespace
-
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.bigid.bigid_probe import list_bigid_children
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _Connection:
@@ -41,7 +40,8 @@ def _config():
             _CatalogObject("mysql_dev", "mysql_dev.other_table"),
         ],
     )
-    return SimpleNamespace(
+    return config_with_hints(
+        {"dataset_pattern": DatasetSubTypes.TABLE},
         get_client=lambda: client,
         connection_pattern=AllowDenyPattern(allow=[".*"], deny=["^mysql_.*"]),
         # dataset_pattern is matched against the full fqn (connection.object).

@@ -10,6 +10,7 @@ pytest.importorskip("datahub.ingestion.source.flink.client")
 
 import datahub.ingestion.source.flink.client as flink_client_mod
 from datahub.ingestion.source.flink.flink_probe import list_flink_children
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _FakeJob:
@@ -30,7 +31,8 @@ class _FakeClient:
 
 
 def _config():
-    return SimpleNamespace(
+    return config_with_hints(
+        {"job_name_pattern": "Flink Job"},
         job_name_pattern=AllowDenyPattern(allow=[".*"], deny=["^internal_.*"]),
         connection=SimpleNamespace(),
     )

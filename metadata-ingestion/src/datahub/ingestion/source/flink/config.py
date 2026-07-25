@@ -1,9 +1,9 @@
 import logging
-from typing import Dict, FrozenSet, List, Literal, Optional
+from typing import Annotated, Dict, FrozenSet, List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
@@ -159,7 +159,9 @@ class FlinkSourceConfig(
         description="Flink REST API connection configuration."
     )
 
-    job_name_pattern: AllowDenyPattern = Field(
+    # The probe's Flink Job level has no shared subtype to match on (see
+    # flink_probe.py); the hint uses the identical bare-string kind literal.
+    job_name_pattern: Annotated[AllowDenyPattern, Filters("Flink Job")] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Flink jobs by name.",
     )

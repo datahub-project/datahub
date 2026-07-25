@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -21,7 +22,11 @@ from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    Filters,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -49,6 +54,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
+    DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.schema_inference.object import (
@@ -156,9 +162,11 @@ class MongoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
     )
-    collection_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for collections to filter in ingestion.",
+    collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description="regex patterns for collections to filter in ingestion.",
+        )
     )
 
     def get_mongo_client(self) -> MongoClient:

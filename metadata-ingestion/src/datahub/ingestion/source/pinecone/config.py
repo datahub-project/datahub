@@ -1,15 +1,16 @@
 """Configuration model for Pinecone source."""
 
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import AllowDenyPattern, Filters, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.pinecone.pinecone_client import PineconeClient
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
@@ -50,14 +51,18 @@ class PineconeConfig(
     )
 
     # Filtering
-    index_pattern: AllowDenyPattern = Field(
+    index_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.PINECONE_INDEX)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for indexes to filter in ingestion. "
         "Specify 'allow' patterns to include specific indexes, "
         "and 'deny' patterns to exclude indexes.",
     )
 
-    namespace_pattern: AllowDenyPattern = Field(
+    namespace_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.PINECONE_NAMESPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for namespaces to filter in ingestion. "
         "Specify 'allow' patterns to include specific namespaces, "

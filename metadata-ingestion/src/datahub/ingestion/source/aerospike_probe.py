@@ -49,8 +49,7 @@ AEROSPIKE_PROBE = ClientProbe(
         # Aerospike's own noun for a table-shaped leaf; the kind is DataHub's Table subtype.
         ProbeLevel(
             DatasetSubTypes.TABLE,
-            "set_pattern",
-            _sets,
+            list_names=_sets,
             parent=DatasetContainerSubTypes.NAMESPACE,
         ),
     ],

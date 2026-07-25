@@ -28,7 +28,11 @@ SALESFORCE_PROBE = ClientProbe(
         # SALESFORCE_CUSTOM_OBJECT ("Custom Object"), a kind with no
         # custom_object_pattern field of its own — Salesforce reuses object_pattern
         # for both custom and standard objects, so the per-item kind can't be
-        # resolved by convention for every item at this level.
+        # resolved by convention for every item at this level. Deleting this
+        # (as Task 2's brief instructs) breaks resolution for Custom-Object-kind
+        # items: with pattern_field=None, _resolved looks up a field per the
+        # ITEM'S kind, not the level's kind, and "Custom Object" has none by
+        # convention — see task-2-report.md for the empirical failure.
         ProbeLevel(
             DatasetSubTypes.SALESFORCE_STANDARD_OBJECT,
             "object_pattern",

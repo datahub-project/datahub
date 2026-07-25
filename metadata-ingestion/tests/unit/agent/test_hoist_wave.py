@@ -7,6 +7,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.elastic_search_probe import list_elasticsearch_children
 from datahub.ingestion.source.mongodb_probe import list_mongodb_children
+from tests.unit.agent.pattern_hint_fixtures import config_with_hints
 
 
 class _MongoDB(dict):
@@ -35,7 +36,8 @@ class _MongoClient:
 
 def test_mongodb_probe_db_then_collections():
     client = _MongoClient({"app": ["orders", "sessions"]})
-    config = SimpleNamespace(
+    config = config_with_hints(
+        {"collection_pattern": DatasetSubTypes.TABLE},
         get_mongo_client=lambda: client,
         database_pattern=AllowDenyPattern.allow_all(),
         collection_pattern=AllowDenyPattern(allow=[".*"], deny=["^sessions$"]),
