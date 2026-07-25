@@ -143,6 +143,28 @@ logger: logging.Logger = logging.getLogger(__name__)
 DEFAULT_API_ITEMS_PER_PAGE = 30
 MAX_API_ITEMS_PER_PAGE = 1000
 
+# Maps Mode's data-source "adapter" field (JDBC-driver-shaped) to the platform
+# name DataHub expects — see
+# https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
+# Shared with mode_probe.py's data_sources() probe method so both paths agree
+# on what a given adapter value maps to.
+MODE_ADAPTER_PLATFORM_MAP: Dict[str, str] = {
+    "jdbc:athena": "athena",
+    "jdbc:bigquery": "bigquery",
+    "jdbc:druid": "druid",
+    "jdbc:hive": "hive",
+    "jdbc:mysql": "mysql",
+    "jdbc:oracle": "oracle",
+    "jdbc:postgresql": "postgres",
+    "jdbc:presto": "presto",
+    "jdbc:redshift": "redshift",
+    "jdbc:snowflake": "snowflake",
+    "jdbc:spark": "spark",
+    "jdbc:trino": "trino",
+    "jdbc:sqlserver": "mssql",
+    "jdbc:teradata": "teradata",
+}
+
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
 # than per-call to avoid redundant global mutation from worker threads.
@@ -349,7 +371,9 @@ class ModeConfig(
         from datahub.ingestion.source.mode_probe import ModeMetadataProbe
 
         session, workspace_uri = self.get_mode_session()
-        return ModeMetadataProbe(session, workspace_uri)
+        return ModeMetadataProbe(
+            session, workspace_uri, items_per_page=self.items_per_page
+        )
 
 
 class HTTPError429(HTTPError):
@@ -875,27 +899,8 @@ class ModeSource(StatefulIngestionSourceBase):
         return custom_properties
 
     def _get_datahub_friendly_platform(self, adapter, platform):
-        # Map adaptor names to what datahub expects in
-        # https://github.com/datahub-project/datahub/blob/master/metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml
-
-        platform_mapping = {
-            "jdbc:athena": "athena",
-            "jdbc:bigquery": "bigquery",
-            "jdbc:druid": "druid",
-            "jdbc:hive": "hive",
-            "jdbc:mysql": "mysql",
-            "jdbc:oracle": "oracle",
-            "jdbc:postgresql": "postgres",
-            "jdbc:presto": "presto",
-            "jdbc:redshift": "redshift",
-            "jdbc:snowflake": "snowflake",
-            "jdbc:spark": "spark",
-            "jdbc:trino": "trino",
-            "jdbc:sqlserver": "mssql",
-            "jdbc:teradata": "teradata",
-        }
-        if adapter in platform_mapping:
-            return platform_mapping[adapter]
+        if adapter in MODE_ADAPTER_PLATFORM_MAP:
+            return MODE_ADAPTER_PLATFORM_MAP[adapter]
         else:
             self.report.report_warning(
                 title="Unrecognized Platform Found",
