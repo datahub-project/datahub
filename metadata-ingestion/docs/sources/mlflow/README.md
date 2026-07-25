@@ -2,7 +2,9 @@
 
 MLflow is a machine learning platform. Learn more in the [official MLflow documentation](https://mlflow.org/).
 
-The DataHub integration for MLflow covers ML entities such as models, features, and related lineage metadata. It also captures tags and stateful deletion detection.
+The DataHub integration for MLflow covers registered models, model versions, experiments, and runs, together with run-to-model lineage. It also captures tags and stateful deletion detection.
+
+Note that MLflow features are not ingested as DataHub `MlFeature` entities, and models are not linked to their training datasets (`mlModelTrainingData` and run inputs are not populated): MLflow's tracking API does not record feature-to-column provenance, so the connector has nothing to read for those aspects. See the Concept Mapping below for what is mapped.
 
 ## Concept Mapping
 
