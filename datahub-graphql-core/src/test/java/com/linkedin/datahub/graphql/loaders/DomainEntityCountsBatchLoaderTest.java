@@ -163,7 +163,10 @@ public class DomainEntityCountsBatchLoaderTest {
   }
 
   @Test
-  public void testSearchFailureYieldsZeroForAllKeys() throws Exception {
+  public void testSearchFailurePropagatesInsteadOfYieldingZero() throws Exception {
+    // A backend search failure must surface as an error, not a fabricated 0 that reads as an empty
+    // domain and would silently mask a search outage behind wrong UI counts. The cause is preserved
+    // so the underlying failure remains diagnosable.
     Mockito.when(
             _entityClient.searchAcrossEntities(
                 any(),
@@ -176,13 +179,16 @@ public class DomainEntityCountsBatchLoaderTest {
                 any()))
         .thenThrow(new RuntimeException("es down"));
 
-    final List<Long> results =
-        DomainEntityCountsBatchLoader.batchLoad(
-            List.of(new DomainCountKey(MARKETING), new DomainCountKey(FINANCE)),
-            _context,
-            _entityClient);
+    final RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                DomainEntityCountsBatchLoader.batchLoad(
+                    List.of(new DomainCountKey(MARKETING), new DomainCountKey(FINANCE)),
+                    _context,
+                    _entityClient));
 
-    assertEquals(results, List.of(0L, 0L));
+    assertNotNull(thrown.getCause());
   }
 
   @Test

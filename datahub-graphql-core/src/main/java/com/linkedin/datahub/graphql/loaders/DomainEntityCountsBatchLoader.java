@@ -134,10 +134,15 @@ public final class DomainEntityCountsBatchLoader {
             }
           }
         } catch (Exception e) {
-          log.error(
-              "Failed to batch-load domain entity counts for {} domains (constraint {})",
-              chunk.size(),
-              constraint,
+          // Surface the failure rather than swallowing it: a returned 0 is
+          // indistinguishable from a genuinely empty domain and would mask a search
+          // outage as "no assets" in the UI counts. Matches the throw-on-failure
+          // contract of the direct resolver path (DomainEntitiesResolver#resolveDirect)
+          // and the other GMS batch loaders.
+          throw new RuntimeException(
+              String.format(
+                  "Failed to resolve entity counts associated with Domains %s (constraint %s)",
+                  chunk, constraint),
               e);
         }
       }
