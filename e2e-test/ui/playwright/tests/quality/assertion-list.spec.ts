@@ -37,6 +37,7 @@ async function executeGraphQL<T>(page: Page, query: string, variables: Record<st
 
 test('renders and searches the paginated Quality assertion list', async ({ page, logger, logDir }) => {
   test.setTimeout(120_000);
+  await page.goto('/');
 
   const description = `Headless assertion ${Date.now()}`;
   const created = await executeGraphQL<{ upsertCustomAssertion: { urn: string } }>(
