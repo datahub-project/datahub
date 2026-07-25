@@ -9,7 +9,12 @@ import yaml
 from datahub.ingestion.agent.api_probe import probe_api
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
-from datahub.ingestion.agent.probe import probe, probe_hierarchy, probe_shape
+from datahub.ingestion.agent.probe import (
+    ProbeBranchesError,
+    probe,
+    probe_hierarchy,
+    probe_shape,
+)
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
@@ -210,8 +215,10 @@ def probe_shape_cmd(recipe_path: str) -> None:
             hierarchy: Optional[List[str]] = [
                 str(k) for k in (probe_hierarchy(source_type) or [])
             ] or None
-        except ValueError:
-            hierarchy = None  # branching: no chain to report
+        except ProbeBranchesError:
+            # A tree has no single chain; `shape` carries it instead. Catch the
+            # specific error so an unrelated ValueError still surfaces.
+            hierarchy = None
         _emit(
             {
                 "source_type": source_type,
