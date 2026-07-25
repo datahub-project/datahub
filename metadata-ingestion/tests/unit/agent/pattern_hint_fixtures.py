@@ -1,19 +1,9 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Annotated, Any, Dict
 
-from datahub.configuration.common import AllowDenyPattern, Filters
+from pydantic import Field
+
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.models import ProbeNodeKind
-
-
-@dataclass(frozen=True)
-class _FakeFieldInfo:
-    """Just enough of pydantic's FieldInfo shape for
-    probe.py's `_hinted_pattern_field` to read: it only ever accesses
-    `.metadata` (for a Filters instance) and `.annotation` (to confirm the
-    field is an AllowDenyPattern)."""
-
-    annotation: type
-    metadata: List[Filters] = field(default_factory=list)
 
 
 def config_with_hints(hinted_fields: Dict[str, ProbeNodeKind], **values: Any) -> Any:
@@ -31,16 +21,33 @@ def config_with_hints(hinted_fields: Dict[str, ProbeNodeKind], **values: Any) ->
     factory, an unhinted pattern field resolved by convention, etc.), exactly
     as a SimpleNamespace(...) fixture would set them.
     """
-    model_fields = {
-        name: _FakeFieldInfo(annotation=AllowDenyPattern, metadata=[Filters(kind)])
+    # A throwaway ConfigModel exists purely to have pydantic itself build
+    # real FieldInfo objects (genuine .metadata/.annotation, not a hand-rolled
+    # approximation of pydantic's contract) for the hinted fields' model_fields.
+    annotations = {
+        name: Annotated[AllowDenyPattern, Filters(kind)]
         for name, kind in hinted_fields.items()
     }
-    # A fresh class per call: `_hinted_pattern_field`/`pattern_field_for_config_class`
-    # are memoized on (class, kind), so two fixtures declaring different hints for
-    # the same kind must not share a type or one call's cached result would leak
-    # onto the other's.
-    config_cls = type("_HintedProbeConfig", (), {"model_fields": model_fields})
+    namespace: Dict[str, Any] = {
+        "__annotations__": annotations,
+        **{name: Field(default=AllowDenyPattern.allow_all()) for name in hinted_fields},
+    }
+    real = type("_RealHinted", (ConfigModel,), namespace)
+    # type()'s 3-argument form returns plain `type` per typeshed, even though
+    # the bases guarantee a ConfigModel subclass; narrow it rather than
+    # `cast` to reach the real .model_fields pydantic built.
+    assert issubclass(real, ConfigModel)
+
+    # A fresh, permissive class per call: `_hinted_pattern_field`/
+    # `pattern_field_for_config_class` are memoized on (class, kind), so two
+    # fixtures declaring different hints for the same kind must not share a
+    # type or one call's cached result would leak onto the other's. Plain
+    # (not ConfigModel) so tests can still set arbitrary attributes — a real
+    # ConfigModel's extra="forbid" would reject a lister or client factory.
+    config_cls = type("_HintedProbeConfig", (), {"model_fields": real.model_fields})
     config = config_cls()
+    for name in hinted_fields:
+        setattr(config, name, AllowDenyPattern.allow_all())
     for name, value in values.items():
         setattr(config, name, value)
     return config
