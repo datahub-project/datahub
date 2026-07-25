@@ -67,6 +67,15 @@ class ProbeNode:
     # Whether this node would be ingested given the recipe's filters plus the
     # source's built-in exclusions; excluded_by names the reason it was dropped
     # (a *_pattern field, "default_schema", or "system_object"), else None.
+    #
+    # One reason is different in kind: "unnamed" is NOT a prediction about
+    # ingestion at all. It means the source API handed back a node with no
+    # usable name (a null/blank name), so the probe could neither filter it
+    # (AllowDenyPattern.allowed raises on a non-string) nor address it as a
+    # --parent qualifier -- a statement about what the probe could address,
+    # not about what ingestion will do. A node with excluded_by="unnamed" may
+    # or may not actually be ingested; the probe genuinely doesn't know,
+    # since it couldn't run the normal filter logic on it at all.
     included: bool = True
     excluded_by: Optional[str] = None
 
@@ -89,6 +98,13 @@ class ProbeResult:
     nodes: List[ProbeNode] = field(default_factory=list)
     truncated: bool = False
     fallback: Optional[str] = None
+    # Non-fatal problems hit while listing (see agent.probe.ProbeSoftError):
+    # one endpoint/sibling level couldn't be read cleanly (a 404/403), so it
+    # contributed zero nodes instead of aborting the whole call. An empty (or
+    # smaller-than-expected) `nodes` alongside a non-empty `warnings` means
+    # "couldn't check part of this", not "confirmed empty" -- callers should
+    # treat those two situations differently.
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -98,4 +114,5 @@ class ProbeResult:
             "nodes": [n.to_dict() for n in self.nodes],
             "truncated": self.truncated,
             "fallback": self.fallback,
+            "warnings": self.warnings,
         }

@@ -116,9 +116,11 @@ Follow these steps in sequence:
    Returns names and counts only, never row data. Each node reports:
    - `pattern_field` — which `*_pattern` config filter governs it (edit to refine discovery).
    - `included` — whether it would actually be ingested given the recipe's filters **and** the source's built-in exclusions (reused from the connector's own ingestion logic, not re-implemented).
-   - `excluded_by` — why a node is dropped: a `*_pattern` field (your filter), `"default_schema"` (system catalog the source always skips, e.g. `information_schema`), or `"system_object"`; `null` when included.
+   - `excluded_by` — why a node is dropped: a `*_pattern` field (your filter), `"default_schema"` (system catalog the source always skips, e.g. `information_schema`), or `"system_object"`; `null` when included. One value, `"unnamed"`, means something different from the rest: the source returned a node with no usable name, so the probe couldn't filter or address it at all — this is **not** a prediction that ingestion will skip it, just that the probe can't tell you either way.
 
    Every node is shown (nothing is hidden), so you can confirm both that your allow/deny filters behave and that system objects are auto-dropped.
+
+   The top-level response also carries a `warnings` list, alongside `nodes`/`truncated`. A non-empty `warnings` means part of the listing couldn't be read cleanly (e.g. one sub-resource returned a permission error) and was shown as empty rather than failing the whole call — treat that differently from a `nodes` list that's empty with no warnings, which means "confirmed empty."
 
    **Branching sources and ambiguous siblings:** when a `shape` node has more than
    one child kind, a bare name is ambiguous — qualify it as `Kind:name`. For the

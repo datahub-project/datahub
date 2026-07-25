@@ -61,7 +61,7 @@ Verdict = Tuple[bool, Optional[str]]
 
 _INCLUDED: Verdict = (True, None)
 
-# A level the source offers no filter for (Mode datasets, queries, charts).
+# A level the source offers no filter for (e.g. Mode's datasets and queries).
 # Distinct from pattern_field=None, which means "resolve the conventional
 # <kind>_pattern field". Nodes at an UNFILTERED level report pattern_field=None
 # and are always included.
@@ -344,6 +344,25 @@ class ProbeBranchesError(ValueError):
     """
 
 
+class ProbeSoftError(Exception):
+    """A connector's list_names raises this to report that ONE endpoint (or
+    one sibling level under a parent, e.g. Reports vs Datasets under a Mode
+    Space) couldn't be read cleanly -- a 404 on a resource deleted between
+    listing and fetch, or a 403 on something this token can't read -- and
+    that ClientProbe.list_children should treat that level's contribution as
+    empty rather than either:
+
+    - letting the exception propagate and kill the whole list_children call,
+      discarding sibling levels that already succeeded, or
+    - silently swallowing it and returning [], which is indistinguishable
+      from the level genuinely having no children.
+
+    list_children catches this per level, records str(exc) on
+    ProbeResult.warnings, and continues with the remaining sibling levels.
+    Source-agnostic: any connector's lister may raise it, not just Mode's.
+    """
+
+
 def _level_tree(
     levels: List[ProbeLevel],
 ) -> Tuple[ProbeLevel, Dict[ProbeNodeKind, List[ProbeLevel]]]:
@@ -595,11 +614,20 @@ class ClientProbe:
             prefix = ".".join(names)
             nodes: List[ProbeNode] = []
             truncated = False
+            warnings: List[str] = []
             for level in levels:
                 # Each sibling contributes its own kinds, patterns and classify.
-                nodes_from_level, level_truncated = self._nodes_for_level(
-                    level, client, config, names, prefix, limit
-                )
+                # A level that raises ProbeSoftError (see its docstring)
+                # contributes zero nodes and a warning instead of aborting the
+                # whole call -- so e.g. a Space whose Reports 403s still
+                # reports its Datasets, rather than reporting nothing at all.
+                try:
+                    nodes_from_level, level_truncated = self._nodes_for_level(
+                        level, client, config, names, prefix, limit
+                    )
+                except ProbeSoftError as exc:
+                    warnings.append(str(exc))
+                    continue
                 nodes.extend(nodes_from_level)
                 truncated = truncated or level_truncated
             if len(nodes) > limit:
@@ -610,6 +638,7 @@ class ClientProbe:
                 parent_path=parent_path,
                 nodes=nodes,
                 truncated=truncated,
+                warnings=warnings,
             )
         finally:
             self._close(client)
@@ -648,16 +677,16 @@ def probe_shape(source_type: str) -> Optional[ProbeShapeNode]:
 
     1. A config class that declares its own probe_shape() classmethod wins --
        this is the hook a branching connector uses, delegating to its own
-       X_PROBE.shape(). No connector needs one today (see 2), but Stage C's
-       first branching connector will.
-    2. Otherwise, every connector today declares a linear probe -- each one's
-       own probe_hierarchy() classmethod already proves it, since
-       ClientProbe.hierarchy() (which every one of those classmethods
-       delegates to) raises ProbeBranchesError at import time for a branching
-       declaration. So a chain reported by probe_hierarchy() and the tree
-       reported by shape() are the same information; reshaping the former into
-       ProbeShapeNode avoids adding a near-duplicate probe_shape() classmethod
-       to every connector for no source that actually branches.
+       X_PROBE.shape(). Mode is the first connector that needs one (a Space
+       branches into both Reports and Datasets); most connectors don't (see 2).
+    2. Otherwise, the connector's probe is linear -- its own probe_hierarchy()
+       classmethod already proves it, since ClientProbe.hierarchy() (which
+       every linear classmethod delegates to) raises ProbeBranchesError at
+       import time for a branching declaration. So a chain reported by
+       probe_hierarchy() and the tree reported by shape() are the same
+       information; reshaping the former into ProbeShapeNode avoids adding a
+       near-duplicate probe_shape() classmethod to every connector whose
+       probe doesn't actually branch.
     3. A branching connector with no probe_shape() classmethod is a connector
        bug, not "no probe support": raising ValueError (rather than returning
        None) keeps the CLI from reporting a probe-capable source as

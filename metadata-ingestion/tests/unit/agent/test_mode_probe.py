@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.probe import ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
@@ -29,6 +30,9 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
             {"name": "Archive", "token": "sp2"},
             {"name": "SharedSpaceA", "token": "sp3"},
             {"name": "SharedSpaceB", "token": "sp4"},
+            # Present regardless of exclude_restricted -- filtering happens
+            # client-side in _fetch_spaces, not by the fake session.
+            {"name": "RestrictedSpace", "token": "sp5", "restricted": True},
         ]
     },
     f"{_WORKSPACE}/spaces/sp1/reports": {
@@ -40,19 +44,28 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     # fixture as "datasets" would encode the bug it exists to catch.
     f"{_WORKSPACE}/spaces/sp1/datasets": {"reports": [{"name": "Seed", "token": "d1"}]},
     # "Archive" is denied by _cfg()'s space_pattern -- a report that lives
-    # only there must be invisible to report_queries/query_charts (finding D),
-    # not just to the hierarchy probe.
+    # only there must be invisible to report_queries/query_charts, not just
+    # to the hierarchy probe.
     f"{_WORKSPACE}/spaces/sp2/reports": {
         "reports": [{"name": "ArchiveOnlyReport", "token": "r-archive-only"}]
     },
     # "DupReport" exists in two spaces that ARE in scope (neither denied nor
     # excluded), so the ambiguity guard still fires for a name that's
     # genuinely ambiguous among the spaces a recipe would actually ingest.
+    # "OldReport" is archived, to test exclude_archived without disturbing
+    # the ambiguity fixture or test_listing_a_space_merges_reports_and_datasets
+    # (which asserts Personal's reports/datasets exactly).
     f"{_WORKSPACE}/spaces/sp3/reports": {
-        "reports": [{"name": "DupReport", "token": "r-dup-3"}]
+        "reports": [
+            {"name": "DupReport", "token": "r-dup-3"},
+            {"name": "OldReport", "token": "r-old", "archived": True},
+        ]
     },
     f"{_WORKSPACE}/spaces/sp4/reports": {
         "reports": [{"name": "DupReport", "token": "r-dup-4"}]
+    },
+    f"{_WORKSPACE}/spaces/sp5/reports": {
+        "reports": [{"name": "RestrictedOnlyReport", "token": "r-restricted"}]
     },
     f"{_WORKSPACE}/reports/r1/queries": {
         "queries": [
@@ -106,6 +119,15 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "adapter": "jdbc:sqlserver",
                 "database": "analytics",
                 "host": "should-not-appear",
+            },
+            {
+                # An adapter MODE_ADAPTER_PLATFORM_MAP doesn't recognize --
+                # the fallback must be the data source's own name, not the
+                # raw adapter string (which is neither a valid DataHub
+                # platform nor what ingestion would emit).
+                "name": "VerticaConn",
+                "adapter": "jdbc:vertica",
+                "database": "mydb",
             },
         ]
     },
@@ -218,6 +240,29 @@ class _TwoPageSession:
         pass
 
 
+class _SoftErrorOnSecondPageSession:
+    """Page 1 succeeds with real data; page 2 (and beyond) 403s."""
+
+    def get(self, url, **kw):
+        page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
+        if page >= 2:
+            response = SimpleNamespace(status_code=403, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError("403 Client Error", response=response)
+
+            response.raise_for_status = _raise
+            return response
+        return SimpleNamespace(
+            status_code=200,
+            raise_for_status=lambda: None,
+            json=lambda: {"_embedded": {"things": [{"name": "a"}]}},
+        )
+
+    def close(self):
+        pass
+
+
 def _api_options(**over):
     base: Dict[str, Any] = dict(
         timeout=40,
@@ -236,6 +281,8 @@ def _cfg(session=None, **over):
         report_pattern=AllowDenyPattern.allow_all(),
         items_per_page=100,
         exclude_personal_collections=False,
+        exclude_restricted=False,
+        exclude_archived=False,
         api_options=_api_options(),
     )
     base.update(over)
@@ -283,15 +330,50 @@ def test_qualified_descent_lists_queries():
     assert [n.name for n in nodes] == ["q_main"]
 
 
-def test_datasets_404_degrades_to_empty_without_killing_reports():
-    # Regression guard for finding B: list_children fans Report and Dataset
-    # out as two independent sibling levels under one Space with no built-in
+def test_hierarchy_probe_closes_session():
+    cfg = _cfg()
+    list_mode_children(cfg, [], 100)
+    assert cfg._session.closed is True
+
+
+def test_exclude_restricted_hides_restricted_spaces():
+    cfg = _cfg(exclude_restricted=True)
+    names = {n.name for n in list_mode_children(cfg, [], 100).nodes}
+    assert "RestrictedSpace" not in names
+
+
+def test_restricted_spaces_visible_by_default():
+    cfg = _cfg()  # exclude_restricted defaults to False, matching ModeConfig
+    names = {n.name for n in list_mode_children(cfg, [], 100).nodes}
+    assert "RestrictedSpace" in names
+
+
+def test_exclude_archived_hides_archived_reports():
+    cfg = _cfg(exclude_archived=True)
+    names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
+    assert names == {"DupReport"}
+
+
+def test_archived_reports_visible_by_default():
+    cfg = _cfg()  # exclude_archived defaults to False, matching ModeConfig
+    names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
+    assert names == {"DupReport", "OldReport"}
+
+
+def test_datasets_404_degrades_to_empty_and_records_a_warning():
+    # Regression guard: list_children fans Report and Dataset out as two
+    # independent sibling levels under one Space with no built-in
     # containment; if a lister raises on a 404 the whole call used to die
     # with zero nodes, discarding the reports that had already succeeded.
+    # And a token that can read Reports but 403s on Datasets must be
+    # distinguishable from "this space genuinely has no datasets" -- the
+    # warning is that distinction.
     cfg = _cfg(session=_DatasetsFailSession())
-    nodes = list_mode_children(cfg, ["Personal"], 100).nodes
-    kinds = {n.name: str(n.kind) for n in nodes}
+    result = list_mode_children(cfg, ["Personal"], 100)
+    kinds = {n.name: str(n.kind) for n in result.nodes}
     assert kinds == {"Weekly": "Report"}  # Datasets degraded to [], not raised
+    assert len(result.warnings) == 1
+    assert "404" in result.warnings[0]
 
 
 def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
@@ -334,12 +416,15 @@ def test_data_sources_projects_named_fields_only():
     # Exact equality (not a subset check) proves username/host from the raw
     # API payload were dropped in the general case, that the postgres adapter
     # maps to "postgres" (not a naive "postgresql"), that BigQuery's "default"
-    # database is replaced by the real project id from "host", and that a
-    # data source with no "name" falls back to its token.
+    # database is replaced by the real project id from "host", that a data
+    # source with no "name" falls back to its token, and that an adapter the
+    # mapping table doesn't recognize falls back to the data source's own
+    # name (not the raw "jdbc:vertica" string).
     assert result == [
         {"name": "PostgreSQL", "adapter": "postgres", "database": "dvdrental"},
         {"name": "AcrylBQ", "adapter": "bigquery", "database": "some-project-id"},
         {"name": "ds3", "adapter": "mssql", "database": "analytics"},
+        {"name": "VerticaConn", "adapter": "VerticaConn", "database": "mydb"},
     ]
 
 
@@ -361,19 +446,28 @@ def test_report_queries_resolves_report_name_across_spaces():
     assert result == [{"name": "q_main", "sql": "select 1"}]
 
 
-def test_report_queries_unknown_report_returns_empty():
+def test_report_queries_raises_when_report_not_found():
+    # Not-found must be distinguishable from "this report has no queries" --
+    # returning [] here would be indistinguishable from that (and from a
+    # misspelling, or the report only existing in an out-of-scope space).
     with _method_probe() as p:
-        assert p.report_queries(report="Nonexistent") == []
+        with pytest.raises(ValueError, match="no report named 'Nonexistent'"):
+            p.report_queries(report="Nonexistent")
 
 
-def test_report_queries_ignores_reports_in_denied_spaces():
-    # Finding D: "ArchiveOnlyReport" only exists in "Archive", which _cfg()'s
-    # space_pattern denies. It must resolve as not-found (empty), not raise
-    # and not be treated as findable -- a recipe that would never ingest
-    # Archive shouldn't have its ambiguity/lookup behavior affected by what's
-    # in there.
+def test_report_queries_raises_for_a_report_only_in_a_denied_space():
+    # "ArchiveOnlyReport" only exists in "Archive", which _cfg()'s
+    # space_pattern denies. This must be indistinguishable, from the caller's
+    # perspective, from any other not-found case -- not silently return [].
     with _method_probe() as p:
-        assert p.report_queries(report="ArchiveOnlyReport") == []
+        with pytest.raises(ValueError, match="no report named 'ArchiveOnlyReport'"):
+            p.report_queries(report="ArchiveOnlyReport")
+
+
+def test_report_queries_raises_for_a_report_only_in_a_restricted_space():
+    with _method_probe(exclude_restricted=True) as p:
+        with pytest.raises(ValueError, match="no report named 'RestrictedOnlyReport'"):
+            p.report_queries(report="RestrictedOnlyReport")
 
 
 def test_report_queries_raises_on_ambiguous_report_name():
@@ -393,8 +487,18 @@ def test_query_charts_resolves_report_and_query_to_tokens():
 
 
 def test_query_charts_unknown_query_returns_empty():
+    # Deliberately asymmetric with report resolution: only the report-name
+    # resolution is required to raise (see the not-found tests above); an
+    # unresolvable query name within a correctly-resolved report still
+    # returns [] here.
     with _method_probe() as p:
         assert p.query_charts(report="Weekly", query="Nonexistent") == []
+
+
+def test_query_charts_raises_when_report_not_found():
+    with _method_probe() as p:
+        with pytest.raises(ValueError, match="no report named 'Nonexistent'"):
+            p.query_charts(report="Nonexistent", query="q_main")
 
 
 def test_exit_closes_session():
@@ -439,6 +543,23 @@ def test_get_embedded_paged_aggregates_multiple_pages():
         context="test",
     )
     assert [r["name"] for r in result] == ["a", "b"]
+
+
+def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
+    # A soft error on page 2 must not return page 1's items as if the
+    # listing were complete -- that's indistinguishable from "there really
+    # is only one page", silently truncating the result.
+    cfg = _cfg()
+    rate_limiter = RateLimiter(max_calls=1000, period=60)
+    with pytest.raises(ProbeSoftError):
+        _get_embedded_paged(
+            _SoftErrorOnSecondPageSession(),
+            cfg,
+            rate_limiter,
+            "https://x/things",
+            "things",
+            context="test",
+        )
 
 
 def test_probe_methods_registered():
