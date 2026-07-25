@@ -427,11 +427,39 @@ def test_branching_is_rejected_until_paths_carry_kinds():
         )
 
 
-def test_cycle_is_rejected():
-    with pytest.raises(ValueError):
+def test_a_cycle_with_no_root_is_rejected_as_rootless():
+    # Every level has a parent, so there is no root at all.
+    with pytest.raises(ValueError, match="root"):
         ClientProbe(
             client_factory=lambda config: object(),
             levels=[
+                ProbeLevel(
+                    DatasetSubTypes.TABLE,
+                    "table_pattern",
+                    _lister(),
+                    parent=ProbeLeafKind.COLUMN,
+                ),
+                ProbeLevel(
+                    ProbeLeafKind.COLUMN,
+                    list_names=_lister(),
+                    parent=DatasetSubTypes.TABLE,
+                ),
+            ],
+        )
+
+
+def test_a_cycle_disjoint_from_the_root_is_rejected_as_unreachable():
+    # A valid root plus a separate Table<->Column cycle. The chain walk never
+    # enters the cycle, so it must be caught by the reachability check rather
+    # than silently dropped — this is the branch the rootless case above cannot
+    # reach.
+    with pytest.raises(ValueError, match="unreachable|cyclic"):
+        ClientProbe(
+            client_factory=lambda config: object(),
+            levels=[
+                ProbeLevel(
+                    DatasetContainerSubTypes.SCHEMA, "schema_pattern", _lister()
+                ),
                 ProbeLevel(
                     DatasetSubTypes.TABLE,
                     "table_pattern",

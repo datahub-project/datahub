@@ -315,7 +315,11 @@ def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
     while ordered[-1].kind in children:
         ordered.append(children[ordered[-1].kind])
     if len(ordered) != len(levels):
-        unreachable = [str(lvl.kind) for lvl in levels if lvl not in ordered]
+        # Identity, not equality: ProbeLevel's dataclass __eq__ compares every
+        # field including callables, which is not what "is this level in the
+        # chain" means.
+        reached = {id(level) for level in ordered}
+        unreachable = [str(lvl.kind) for lvl in levels if id(lvl) not in reached]
         raise ValueError(
             f"levels unreachable from the root (orphaned or cyclic): {unreachable}"
         )
