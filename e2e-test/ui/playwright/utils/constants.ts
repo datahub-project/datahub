@@ -61,6 +61,9 @@ export const ROUTES = {
   businessAttributes: '/business-attributes',
 };
 
+/** Frontend GraphQL endpoint path (Play proxy → GMS /api/graphql). */
+export const DATAHUB_GRAPHQL_PATH = '/api/v2/graphql';
+
 export const ENTITY_TYPES = {
   DATASET: 'dataset',
   DASHBOARD: 'dashboard',

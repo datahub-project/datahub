@@ -11,6 +11,8 @@
 
 import type { Page, Route } from '@playwright/test';
 
+import { DATAHUB_GRAPHQL_PATH } from './constants';
+
 /**
  * Match DataHub GraphQL requests with or without ?operationName=...
  * Playwright path globs that end at /graphql only match the bare path; after the
@@ -18,7 +20,7 @@ import type { Page, Route } from '@playwright/test';
  * patterns stopped intercepting browser GraphQL calls.
  */
 export function isDataHubGraphqlUrl(url: URL): boolean {
-  return url.pathname.endsWith('/api/v2/graphql');
+  return url.pathname.endsWith(DATAHUB_GRAPHQL_PATH);
 }
 
 // ── Public interface ──────────────────────────────────────────────────────────
