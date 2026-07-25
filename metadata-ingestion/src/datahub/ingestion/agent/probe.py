@@ -345,21 +345,32 @@ class ProbeBranchesError(ValueError):
 
 
 class ProbeSoftError(Exception):
-    """A connector's list_names raises this to report that ONE endpoint (or
-    one sibling level under a parent, e.g. Reports vs Datasets under a Mode
-    Space) couldn't be read cleanly -- a 404 on a resource deleted between
-    listing and fetch, or a 403 on something this token can't read -- and
-    that ClientProbe.list_children should treat that level's contribution as
-    empty rather than either:
+    """A connector's list_names raises this to report that one endpoint
+    couldn't be read cleanly -- a 404 on a resource deleted between listing
+    and fetch, or a 403 on something this token can't read -- and that
+    ClientProbe.list_children should treat the contribution as empty rather
+    than either:
 
     - letting the exception propagate and kill the whole list_children call,
-      discarding sibling levels that already succeeded, or
+      discarding sibling levels (e.g. Reports vs Datasets under a Mode Space)
+      that already succeeded, or
     - silently swallowing it and returning [], which is indistinguishable
       from the level genuinely having no children.
 
-    list_children catches this per level, records str(exc) on
-    ProbeResult.warnings, and continues with the remaining sibling levels.
-    Source-agnostic: any connector's lister may raise it, not just Mode's.
+    list_children catches this per LEVEL (not per endpoint): for a plain
+    list_names/list_items level, that is the same thing, since one lister
+    call produces the level's entire contribution. But a level assembled
+    from several LevelSources (ProbeLevel.sources, e.g. tables + views) is
+    fed by more than one lister, and the catch is still level-wide -- if the
+    second source raises, whatever the first source already produced for
+    this level is discarded too, not just the second source's share. No
+    connector's sources= level raises ProbeSoftError today, so this hasn't
+    manifested, but it is a real limitation of the current per-level
+    granularity, not per-lister-within-a-level.
+
+    list_children records str(exc) on ProbeResult.warnings and continues
+    with the remaining sibling levels. Source-agnostic: any connector's
+    lister may raise it, not just Mode's.
     """
 
 

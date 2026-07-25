@@ -35,6 +35,10 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
             # client-side in _fetch_spaces, not by the fake session.
             {"name": "RestrictedSpace", "token": "sp5", "restricted": True},
             {"name": "QueryTestSpace", "token": "sp6"},
+            # No "name" key at all -- for proving the space_pattern filter
+            # test uses mode.py's raw-name-or-"" semantics, not _display_name
+            # (which would fall back to this token).
+            {"token": "sp7"},
         ]
     },
     f"{_WORKSPACE}/spaces/sp1/reports": {
@@ -71,6 +75,9 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     },
     f"{_WORKSPACE}/spaces/sp6/reports": {
         "reports": [{"name": "QueryEdgeCasesReport", "token": "r-qec"}]
+    },
+    f"{_WORKSPACE}/spaces/sp7/reports": {
+        "reports": [{"name": "NullSpaceReport", "token": "r-null-space"}]
     },
     # Query-name-resolution edge cases, kept out of r1 so they don't disturb
     # test_qualified_descent_lists_queries' exact `== ["q_main"]` assertion:
@@ -126,7 +133,7 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "username": "postgres",
             },
             {
-                "name": "AcrylBQ",
+                "name": "BigQueryConn",
                 "adapter": "jdbc:bigquery",
                 # BigQuery's raw "database" is always the literal "default";
                 # the real project id is only ever in "host".
@@ -211,6 +218,49 @@ class _DatasetsFailSession(_FakeSession):
             def _raise() -> None:
                 raise requests.HTTPError(
                     f"404 Client Error: Not Found for url: {url}", response=response
+                )
+
+            response.raise_for_status = _raise
+            return response
+        return super().get(url, **kw)
+
+
+class _ReportsFailSession(_FakeSession):
+    """Like _FakeSession, but Personal's reports endpoint always 403s --
+    for the BLOCKER regression: a soft error while _find_report_token is
+    searching must propagate, not be mistaken for "report not found"."""
+
+    def get(self, url, **kw):
+        base_url = url.split("?")[0]
+        if base_url == f"{_WORKSPACE}/spaces/sp1/reports":
+            self.calls.append(url)
+            response = SimpleNamespace(status_code=403, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError(
+                    f"403 Client Error: Forbidden for url: {url}", response=response
+                )
+
+            response.raise_for_status = _raise
+            return response
+        return super().get(url, **kw)
+
+
+class _QueriesFailSession(_FakeSession):
+    """Like _FakeSession, but QueryEdgeCasesReport's queries endpoint always
+    403s -- for the same BLOCKER regression, one resolver step later:
+    _find_query_token searching must also propagate a soft error rather
+    than reporting "query not found"."""
+
+    def get(self, url, **kw):
+        base_url = url.split("?")[0]
+        if base_url == f"{_WORKSPACE}/reports/r-qec/queries":
+            self.calls.append(url)
+            response = SimpleNamespace(status_code=403, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError(
+                    f"403 Client Error: Forbidden for url: {url}", response=response
                 )
 
             response.raise_for_status = _raise
@@ -443,7 +493,7 @@ def test_data_sources_projects_named_fields_only():
     # name (not the raw "jdbc:vertica" string).
     assert result == [
         {"name": "PostgreSQL", "adapter": "postgres", "database": "dvdrental"},
-        {"name": "AcrylBQ", "adapter": "bigquery", "database": "some-project-id"},
+        {"name": "BigQueryConn", "adapter": "bigquery", "database": "some-project-id"},
         {"name": "ds3", "adapter": "mssql", "database": "analytics"},
         {"name": "VerticaConn", "adapter": "VerticaConn", "database": "mydb"},
     ]
@@ -501,6 +551,32 @@ def test_report_queries_raises_on_ambiguous_report_name():
             p.report_queries(report="DupReport")
 
 
+def test_report_queries_raises_probesofterror_not_not_found_on_a_soft_error_during_resolution():
+    # BLOCKER regression: a 403 while searching the spaces for the report
+    # must propagate as ProbeSoftError, not be caught and reported as "no
+    # report named 'Weekly' found ... check the spelling" -- that would tell
+    # the caller confidently their input is wrong when the truth is "I got a
+    # 403 and couldn't look."
+    with _method_probe(session=_ReportsFailSession()) as p:
+        with pytest.raises(ProbeSoftError):
+            p.report_queries(report="Weekly")
+
+
+def test_report_queries_tests_space_pattern_against_raw_name_not_display_name():
+    # mode.py's own space_pattern check (real ingestion) tests the raw "name"
+    # field with no token fallback -- unlike reports, where mode.py's own
+    # report_pattern check already uses the same name-or-token-or-"unknown"
+    # convention _display_name does (no divergence there). A space_pattern
+    # that denies the literal token string would wrongly exclude a
+    # null-named space if _display_name (which falls back to the token) were
+    # used for this filter test instead of mode.py's own "".
+    with _method_probe(
+        space_pattern=AllowDenyPattern(allow=[".*"], deny=["^sp7$"])
+    ) as p:
+        result = p.report_queries(report="NullSpaceReport")
+    assert result == []  # resolved successfully; no queries fixture for it
+
+
 def test_query_charts_resolves_report_and_query_to_tokens():
     with _method_probe() as p:
         result = p.query_charts(report="Weekly", query="q_main")
@@ -547,6 +623,15 @@ def test_query_charts_raises_when_report_not_found():
             p.query_charts(report="Nonexistent", query="q_main")
 
 
+def test_query_charts_raises_probesofterror_not_not_found_when_query_resolution_soft_errors():
+    # Same BLOCKER regression, one resolver step later: a soft error while
+    # _find_query_token is searching the (already-resolved) report's queries
+    # must also propagate, not be reported as "no query named ... found".
+    with _method_probe(session=_QueriesFailSession()) as p:
+        with pytest.raises(ProbeSoftError):
+            p.query_charts(report="QueryEdgeCasesReport", query="DupQuery")
+
+
 def test_exit_closes_session():
     session = _FakeSession()
     probe = _method_probe(session=session)
@@ -575,6 +660,20 @@ def test_data_sources_raises_on_500():
     with _method_probe(session=_StatusSession(500)) as p:
         with pytest.raises(requests.HTTPError):
             p.data_sources()
+
+
+def test_data_sources_records_a_warning_when_it_degrades_on_a_soft_error():
+    # The provider's own `warnings` attribute is what run_probe_method reads
+    # back into ProbeMethodResult.warnings (see test_probe_methods.py) -- a
+    # 403 degrading data_sources() to [] must be visible there, not just
+    # logged to stderr.
+    session = _StatusSession(404)
+    cfg = _cfg(session=session)
+    probe = ModeMetadataProbe(session, _WORKSPACE, config=cfg)
+    with probe as p:
+        assert p.data_sources() == []
+    assert len(probe.warnings) == 1
+    assert "404" in probe.warnings[0]
 
 
 def test_get_embedded_paged_aggregates_multiple_pages():

@@ -113,10 +113,19 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     # silently swallowed either (indistinguishable from a genuinely empty
     # listing). Raises ProbeSoftError so callers can choose how to surface it:
     # the hierarchy listers let it propagate to ClientProbe.list_children,
-    # which records it on ProbeResult.warnings and keeps sibling levels; the
-    # probe_run provider methods catch it locally via _tolerant (see below),
-    # since probe_methods.ProbeMethodResult has no warnings channel to bubble
-    # it through. Anything else (auth failures, 5xx, connection errors) is a
+    # which records it on ProbeResult.warnings and keeps sibling levels. The
+    # probe_run provider methods are split in two: a NAME-TO-TOKEN RESOLVER
+    # (_find_report_token/_find_query_token) must NOT catch this -- a 403
+    # partway through resolving "report X" is not the same fact as "report X
+    # doesn't exist", and swallowing it would tell the caller "check the
+    # spelling" when the honest answer is "I couldn't check." Those propagate
+    # all the way to the CLI as a genuine failure (exit 3). A provider's own
+    # FINAL data fetch (the thing the caller actually asked for, once any name
+    # was already resolved) instead degrades locally via _tolerant, appending
+    # to ProbeMethodResult.warnings, since returning an honest partial answer
+    # there ("here's what I could read, and here's what I couldn't") is more
+    # useful than failing the whole command over one degraded endpoint.
+    # Anything other than 404/403 (auth failures, 5xx, connection errors) is a
     # hard error either way.
     status = exc.response.status_code if exc.response is not None else None
     if status not in (404, 403):
@@ -126,15 +135,18 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     ) from exc
 
 
-def _tolerant(fetch: Callable[[], _T], default: _T) -> _T:
-    """probe_run methods have no ProbeResult.warnings channel (see
-    agent.probe_methods.ProbeMethodResult), so they keep the log-and-degrade
-    behavior locally instead of letting ProbeSoftError propagate to the CLI
-    as a hard failure."""
+def _tolerant(fetch: Callable[[], _T], default: _T, warnings: List[str]) -> _T:
+    """For a single provider method's OWN final data fetch (not for resolving
+    a name to a token -- see the BLOCKER note on report_queries/query_charts
+    below): catches ProbeSoftError, logs it, appends it to `warnings` (the
+    provider's own `self.warnings`, which run_probe_method reads back into
+    ProbeMethodResult.warnings), and returns `default` instead of letting the
+    CLI hard-fail on it."""
     try:
         return fetch()
     except ProbeSoftError as exc:
         logger.warning(str(exc))
+        warnings.append(str(exc))
         return default
 
 
@@ -419,7 +431,19 @@ def _find_report_token(
     matches: List[Tuple[str, str]] = []
     for space in _fetch_spaces(session, config, rate_limiter, workspace_uri):
         space_name = _display_name(space)
-        if not config.space_pattern.allowed(space_name):
+        # mode.py's own space_pattern check (_get_space_name_and_tokens) tests
+        # the raw "name" field, with NO token fallback -- unlike reports,
+        # where mode.py's own report_pattern check (_collect_space_work_items)
+        # uses the same name-or-token-or-"unknown" convention _display_name
+        # does. So spaces alone need a second, filter-only target here: using
+        # space_name (the display name, token-fallback included) would test a
+        # different string than a real ingestion run does for a null-named
+        # space, and could report it in- or out-of-scope wrongly. `or ""`
+        # (not mode.py's literal `.get("name", "")`) so an explicit
+        # `"name": null` normalizes to "" instead of passing None into
+        # .allowed(), which raises on a non-string.
+        space_pattern_target = space.get("name") or ""
+        if not config.space_pattern.allowed(space_pattern_target):
             continue
         space_token = space.get("token")
         if not space_token:
@@ -528,6 +552,9 @@ class ModeMetadataProbe:
         self._rate_limiter = RateLimiter(
             max_calls=config.api_options.requests_per_minute, period=60
         )
+        # Read by agent.probe_methods.run_probe_method after the bound method
+        # returns, and copied onto ProbeMethodResult.warnings -- see _tolerant.
+        self.warnings: List[str] = []
 
     def __enter__(self) -> "ModeMetadataProbe":
         return self
@@ -556,6 +583,7 @@ class ModeMetadataProbe:
                 context="data sources listing",
             ),
             [],
+            self.warnings,
         )
         result: List[Dict[str, object]] = []
         for ds in records:
@@ -589,6 +617,7 @@ class ModeMetadataProbe:
                 context="definitions listing",
             ),
             [],
+            self.warnings,
         )
         return [
             {
@@ -604,18 +633,23 @@ class ModeMetadataProbe:
         """The queries inside a report: name, and the SQL text each runs.
         Raises if `report` cannot be resolved to exactly one report: not
         found (misspelled, or only in a space this recipe wouldn't ingest —
-        denied by space_pattern, restricted, or a personal collection), or
-        ambiguous (the same name in more than one in-scope space). Mode has
-        no endpoint to look up a report by name alone."""
-        report_token = _tolerant(
-            lambda: _find_report_token(
-                self._session,
-                self._config,
-                self._rate_limiter,
-                self._workspace_uri,
-                report,
-            ),
-            None,
+        denied by space_pattern, restricted, or a personal collection),
+        ambiguous (the same name in more than one in-scope space), or the
+        search itself hit a backend error partway through (surfaced as-is,
+        rather than reported as not-found). Mode has no endpoint to look up
+        a report by name alone."""
+        # BLOCKER (do not _tolerant-wrap): a ProbeSoftError here means the
+        # search across spaces/reports could not complete -- e.g. a 403 on
+        # the one space that holds the report. That is not the same fact as
+        # "no report named X exists", and swallowing it would tell the
+        # caller to "check the spelling" when the honest answer is "I
+        # couldn't check." Let it propagate to the CLI as a real failure.
+        report_token = _find_report_token(
+            self._session,
+            self._config,
+            self._rate_limiter,
+            self._workspace_uri,
+            report,
         )
         if report_token is None:
             raise ValueError(
@@ -635,6 +669,7 @@ class ModeMetadataProbe:
                 context=f"queries listing for report '{report}'",
             ),
             [],
+            self.warnings,
         )
         return [{"name": _display_name(q), "sql": q.get("raw_query")} for q in records]
 
@@ -650,15 +685,14 @@ class ModeMetadataProbe:
         report_queries first to see the valid names (a query with no name of
         its own is listed there by its token, which is also a valid `query`
         value here)."""
-        report_token = _tolerant(
-            lambda: _find_report_token(
-                self._session,
-                self._config,
-                self._rate_limiter,
-                self._workspace_uri,
-                report,
-            ),
-            None,
+        # BLOCKER (do not _tolerant-wrap either resolver): see report_queries'
+        # docstring/comment -- a soft error mid-search is not "not found".
+        report_token = _find_report_token(
+            self._session,
+            self._config,
+            self._rate_limiter,
+            self._workspace_uri,
+            report,
         )
         if report_token is None:
             raise ValueError(
@@ -667,16 +701,13 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        query_token = _tolerant(
-            lambda: _find_query_token(
-                self._session,
-                self._config,
-                self._rate_limiter,
-                self._workspace_uri,
-                report_token,
-                query,
-            ),
-            None,
+        query_token = _find_query_token(
+            self._session,
+            self._config,
+            self._rate_limiter,
+            self._workspace_uri,
+            report_token,
+            query,
         )
         if query_token is None:
             raise ValueError(
@@ -698,5 +729,6 @@ class ModeMetadataProbe:
                 context=f"charts listing for report '{report}' query '{query}'",
             ),
             [],
+            self.warnings,
         )
         return [_chart_summary(c) for c in records]

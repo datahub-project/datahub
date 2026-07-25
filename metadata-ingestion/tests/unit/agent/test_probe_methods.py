@@ -180,6 +180,40 @@ def test_run_probe_method_unknown_param(monkeypatch):
         )
 
 
+def test_run_probe_method_reports_no_warnings_when_provider_has_none(monkeypatch):
+    # _FakeProvider exposes no `warnings` attribute at all -- the common case,
+    # since most providers have nothing to degrade.
+    pm = _patch(monkeypatch)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.warnings == []
+
+
+class _FakeProviderWithWarnings(_FakeProvider):
+    """A provider that degraded a sub-fetch (see agent.probe.ProbeSoftError)
+    and reports it via its own `warnings` attribute -- duck-typed, not part
+    of the ProbeProvider Protocol, since run_probe_method reads it via
+    getattr rather than requiring every provider to declare it."""
+
+    def __init__(self):
+        self.warnings = ["definitions listing returned HTTP 403; treating it as empty."]
+
+
+class _FakeConfigWithWarnings(_FakeConfig):
+    def build_probe_provider(self):
+        return _FakeProviderWithWarnings()
+
+
+def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
+    import datahub.ingestion.agent.probe_methods as pm
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProviderWithWarnings)
+    monkeypatch.setattr(pm, "_config_class", lambda st: _FakeConfigWithWarnings)
+    res = pm.run_probe_method("x", {}, "foreign_keys", {"schema": "s", "table": "t"})
+    assert res.warnings == [
+        "definitions listing returned HTTP 403; treating it as empty."
+    ]
+
+
 def test_list_probe_methods_unknown_source_raises_value_error():
     # Exercises the real registry (no _config_class/_provider_class monkeypatch)
     # so the KeyError -> ValueError guard in _config_class is actually hit.

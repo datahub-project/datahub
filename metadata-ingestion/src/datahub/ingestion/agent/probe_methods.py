@@ -1,5 +1,5 @@
 import inspect
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Callable,
@@ -127,6 +127,15 @@ class ProbeMethodResult:
     params: Dict[str, object]
     result: object
     truncated: bool = False
+    # Non-fatal problems the provider hit while building `result` (see
+    # agent.probe.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
+    # it degraded to an empty/partial contribution instead of failing the
+    # whole command. Mirrors ProbeResult.warnings (same rationale, same
+    # shape) for the probe_run side of the framework. A provider surfaces
+    # these by exposing its own `warnings: List[str]` attribute, which
+    # run_probe_method reads back after the call; a provider with no such
+    # attribute always reports an empty list here.
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -135,6 +144,7 @@ class ProbeMethodResult:
             "params": self.params,
             "result": self.result,
             "truncated": self.truncated,
+            "warnings": self.warnings,
         }
 
 
@@ -232,6 +242,16 @@ def run_probe_method(
     config = _config_class(source_type).model_validate(config_dict)
     with config.build_probe_provider() as provider:
         result = _bound_method(provider, command)(**call_kwargs)
+        # Optional, source-agnostic: a provider that degrades a sub-fetch
+        # instead of failing outright (see agent.probe.ProbeSoftError) may
+        # expose its own `warnings` list to report that here. Duck-typed
+        # rather than part of the ProbeProvider Protocol, since most
+        # providers have nothing to report and shouldn't need to declare it.
+        provider_warnings = getattr(provider, "warnings", None)
     return ProbeMethodResult(
-        source_type=source_type, command=command, params=call_kwargs, result=result
+        source_type=source_type,
+        command=command,
+        params=call_kwargs,
+        result=result,
+        warnings=list(provider_warnings) if provider_warnings else [],
     )

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
+from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel, ProbeSoftError
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
@@ -65,6 +65,30 @@ def test_merged_listing_truncates_across_the_combined_set():
     result = _bi_probe().list_children(_cfg(), ["ws1"], 2)
     assert [n.name for n in result.nodes] == ["r1", "r2"]
     assert result.truncated is True
+
+
+def test_a_sibling_level_raising_probesofterror_degrades_without_losing_others():
+    # Generic proof that ProbeSoftError/ProbeResult.warnings is a framework
+    # mechanism, not something Mode-specific: nothing here is Mode. A level
+    # that can't be read cleanly (a 403, a deleted resource) must not take
+    # down a sibling level that already succeeded, and must not vanish
+    # silently either -- the caller needs to see that something was skipped.
+    def _dashboards_403(client, config, parent_path):
+        raise ProbeSoftError("dashboards listing for 'ws1' returned HTTP 403")
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(WORKSPACE, "folder_pattern", _names("ws1")),
+            ProbeLevel(REPORT, "report_pattern", _names("r1", "r2"), parent=WORKSPACE),
+            ProbeLevel(
+                DASHBOARD, "dashboard_pattern", _dashboards_403, parent=WORKSPACE
+            ),
+        ],
+    )
+    result = probe.list_children(_cfg(), ["ws1"], 100)
+    assert [n.name for n in result.nodes] == ["r1", "r2"]
+    assert result.warnings == ["dashboards listing for 'ws1' returned HTTP 403"]
 
 
 def test_descending_into_an_ambiguous_sibling_requires_a_qualifier():
