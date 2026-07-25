@@ -5,7 +5,7 @@ from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeRe
 from datahub.ingestion.agent.probe import (
     ClassifyContext,
     ClientProbe,
-    LevelSource,
+    LevelItem,
     ProbeLevel,
     Verdict,
 )
@@ -26,14 +26,24 @@ def _datasets(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]
     return [d.dataset_id for d in client.list_datasets(parent_path[0])]
 
 
-def _tables(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
+def _table_items(
+    client: Any, config: Any, parent_path: List[str]
+) -> Sequence[LevelItem]:
+    # One listing yields both kinds; table_type distinguishes them. The pattern
+    # fields are named explicitly: they are reporting labels here (_classify_table
+    # judges everything against table_pattern), and BigQuery's probe fixtures do
+    # not define view_pattern for resolution to find.
     items = client.list_tables(f"{parent_path[0]}.{parent_path[1]}")
-    return [t.table_id for t in items if t.table_type not in _VIEW_TABLE_TYPES]
-
-
-def _views(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
-    items = client.list_tables(f"{parent_path[0]}.{parent_path[1]}")
-    return [t.table_id for t in items if t.table_type in _VIEW_TABLE_TYPES]
+    return [
+        (
+            t.table_id,
+            DatasetSubTypes.VIEW
+            if t.table_type in _VIEW_TABLE_TYPES
+            else DatasetSubTypes.TABLE,
+            "view_pattern" if t.table_type in _VIEW_TABLE_TYPES else "table_pattern",
+        )
+        for t in items
+    ]
 
 
 def _columns(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
@@ -91,16 +101,7 @@ BIGQUERY_PROBE = ClientProbe(
         ),
         ProbeLevel(
             DatasetSubTypes.TABLE,
-            sources=[
-                LevelSource(_tables, DatasetSubTypes.TABLE),
-                # Stays explicit: _classify_table always filters both tables and
-                # views against config.table_pattern (BigQuery has no view-specific
-                # verdict), so view_pattern here is purely a reporting label on the
-                # node, not a field the verdict itself reads — test_bigquery_probe.py
-                # (a guarding test) pins that quirk with a config fixture that never
-                # sets a view_pattern attribute at all, so it can't resolve.
-                LevelSource(_views, DatasetSubTypes.VIEW, "view_pattern"),
-            ],
+            list_items=_table_items,
             classify=_classify_table,
         ),
         ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),

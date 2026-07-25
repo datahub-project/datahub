@@ -128,6 +128,10 @@ def column_nodes(
 # return the child names at the current level.
 LevelLister = Callable[[Any, Any, List[str]], Sequence[str]]
 
+# A lister for a level whose single listing yields several kinds (e.g. BigQuery's
+# list_tables, which returns tables and views distinguished by table_type).
+LevelItemLister = Callable[[Any, Any, List[str]], Sequence[LevelItem]]
+
 
 @dataclass
 class LevelSource:
@@ -177,23 +181,36 @@ class ProbeLevel:
     # against the node fqn instead of its name.
     classify_on_fqn: bool = False
     # A level fed by several listers, each contributing its own kind and pattern
-    # (e.g. tables + views). Mutually exclusive with list_names.
+    # (e.g. tables + views). Mutually exclusive with list_names/list_items.
     sources: Optional[List[LevelSource]] = None
     # Full verdict override, for structural drops the user's patterns don't
     # express (INFORMATION_SCHEMA, sys$…) or non-standard match semantics.
     # Defaults to pattern_verdict() when None.
     classify: Optional[LevelClassifier] = None
+    # A single listing that itself yields several kinds (e.g. BigQuery's
+    # list_tables returning both tables and views). Each item carries its own kind
+    # and pattern_field, like `sources`, but without a second client call.
+    # Mutually exclusive with list_names/sources.
+    list_items: Optional[LevelItemLister] = None
 
     def __post_init__(self) -> None:
-        if (self.list_names is None) == (self.sources is None):
-            raise ValueError("ProbeLevel requires exactly one of list_names or sources")
-        if self.sources is not None:
-            # A multi-source level carries its kind/pattern per LevelSource; setting
-            # either here would be silently ignored (_items never reads them).
+        modes = [self.list_names, self.sources, self.list_items]
+        if sum(mode is not None for mode in modes) != 1:
+            raise ValueError(
+                "ProbeLevel requires exactly one of list_names, sources, or list_items"
+            )
+        if self.sources is not None or self.list_items is not None:
+            # Both modes carry kind and pattern per item, so a level-wide value
+            # would be silently ignored.
             if self.pattern_field is not None:
-                raise ValueError("pattern_field is per-source when sources is set")
+                raise ValueError(
+                    "a sources/list_items level carries pattern_field per item; "
+                    "remove the level-wide pattern_field"
+                )
             if self.kind_for is not None:
-                raise ValueError("kind_for is per-source when sources is set")
+                raise ValueError(
+                    "a sources/list_items level carries kind per item; remove kind_for"
+                )
 
 
 # A pattern field is conventionally named after the kind it filters:
@@ -286,9 +303,21 @@ class ClientProbe:
     def _items(
         self, level: ProbeLevel, client: Any, config: Any, parent_path: List[str]
     ) -> List[LevelItem]:
-        if level.sources is not None:
+        if level.list_items is not None:
             items: List[LevelItem] = []
             index: Dict[str, int] = {}
+            for name, kind, pattern_field in level.list_items(
+                client, config, parent_path
+            ):
+                if name in index:
+                    items[index[name]] = (name, kind, pattern_field)
+                    continue
+                index[name] = len(items)
+                items.append((name, kind, pattern_field))
+            return self._resolved(config, items)
+        if level.sources is not None:
+            items = []
+            index = {}
             for source in level.sources:
                 for name in source.list_names(client, config, parent_path):
                     # A name reported by two listings keeps its first position but

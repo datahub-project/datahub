@@ -110,15 +110,60 @@ def test_classify_override_beats_the_default_pattern_check():
     assert by_name["orders"].included is True
 
 
-def test_level_requires_exactly_one_of_list_names_or_sources():
+def test_list_items_level_carries_per_item_kind_and_resolves_patterns():
+    # A single listing yields both kinds; items with an explicit pattern_field
+    # (BigQuery's real usage) pass it through unchanged, while items that leave
+    # it None (as in the brief) still resolve by convention against _CFG's own
+    # table_pattern/view_pattern.
+    def items(client, config, parent_path):
+        return [
+            ("orders", DatasetSubTypes.TABLE, None),
+            ("v_orders", DatasetSubTypes.VIEW, None),
+            ("explicit_t", DatasetSubTypes.TABLE, "table_pattern"),
+            ("explicit_v", DatasetSubTypes.VIEW, "view_pattern"),
+        ]
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[ProbeLevel(DatasetSubTypes.TABLE, list_items=items)],
+    )
+    by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
+    assert by_name["orders"].kind == DatasetSubTypes.TABLE
+    assert by_name["orders"].pattern_field == "table_pattern"
+    assert by_name["v_orders"].kind == DatasetSubTypes.VIEW
+    assert by_name["v_orders"].pattern_field == "view_pattern"
+    assert by_name["explicit_t"].pattern_field == "table_pattern"
+    assert by_name["explicit_v"].pattern_field == "view_pattern"
+
+
+def test_level_requires_exactly_one_lister_mode():
     with pytest.raises(ValueError):
-        ProbeLevel(DatasetSubTypes.TABLE, "table_pattern")
+        ProbeLevel(DatasetSubTypes.TABLE, "table_pattern")  # none
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            list_names=_lister("a"),
+            list_items=lambda c, cfg, p: [],
+        )  # two
     with pytest.raises(ValueError):
         ProbeLevel(
             DatasetSubTypes.TABLE,
             "table_pattern",
             _lister("a"),
             sources=[LevelSource(_lister("b"), DatasetSubTypes.VIEW, "view_pattern")],
+        )  # two
+
+
+def test_list_items_rejects_level_wide_pattern_field_and_kind_for():
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE, "table_pattern", list_items=lambda c, cfg, p: []
+        )
+    with pytest.raises(ValueError):
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            list_items=lambda c, cfg, p: [],
+            kind_for=lambda n: DatasetSubTypes.VIEW,
         )
 
 
