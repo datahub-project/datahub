@@ -48,6 +48,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ProbeShapeNode
+from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -337,6 +338,18 @@ class ModeConfig(
         from datahub.ingestion.source.mode_probe import list_mode_children
 
         return list_mode_children(self, parent_path, limit)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.mode_probe import ModeMetadataProbe
+
+        return ModeMetadataProbe
+
+    def build_probe_provider(self) -> ProbeProvider:
+        from datahub.ingestion.source.mode_probe import ModeMetadataProbe
+
+        session, workspace_uri = self.get_mode_session()
+        return ModeMetadataProbe(session, workspace_uri)
 
 
 class HTTPError429(HTTPError):
