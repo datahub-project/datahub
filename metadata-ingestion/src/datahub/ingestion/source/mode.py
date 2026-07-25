@@ -46,6 +46,8 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe import ProbeShapeNode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -285,6 +287,57 @@ class ModeConfig(
                 f"items_per_page must be between 1 and {MAX_API_ITEMS_PER_PAGE}"
             )
 
+    def get_mode_session(self) -> Tuple[requests.Session, str]:
+        """Build the authenticated session and workspace URI.
+
+        Single home for this construction, reused by ModeSource.__init__ and
+        the live recipe probe (mode_probe.py), so both go through one path.
+        """
+        session = requests.Session()
+        # Handling retry and backoff
+        retries = 3
+        backoff_factor = 10
+        retry = Retry(total=retries, backoff_factor=backoff_factor)
+        pool_size = self.max_threads + 10
+        adapter = HTTPAdapter(
+            max_retries=retry,
+            pool_connections=pool_size,
+            pool_maxsize=pool_size,
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        session.auth = HTTPBasicAuth(self.token, self.password.get_secret_value())
+        session.headers.update(
+            {
+                "Content-Type": "application/json",
+                "Accept": "application/hal+json",
+            }
+        )
+
+        workspace_uri = f"{self.connect_uri}/api/{self.workspace}"
+        return session, workspace_uri
+
+    @classmethod
+    def probe_shape(cls) -> ProbeShapeNode:
+        # Structural only — must not connect (see ProbeCapableConfig). A Space
+        # holds both Reports and Datasets, so this is a tree, not a chain;
+        # probe_hierarchy() below raises for exactly that reason.
+        from datahub.ingestion.source.mode_probe import MODE_PROBE
+
+        return MODE_PROBE.shape()
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.mode_probe import MODE_PROBE
+
+        return MODE_PROBE.hierarchy()
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.mode_probe import list_mode_children
+
+        return list_mode_children(self, parent_path, limit)
+
 
 class HTTPError429(HTTPError):
     pass
@@ -422,32 +475,7 @@ class ModeSource(StatefulIngestionSourceBase):
             max_calls=self.config.api_options.requests_per_minute, period=60
         )
 
-        self.session = requests.Session()
-        # Handling retry and backoff
-        retries = 3
-        backoff_factor = 10
-        retry = Retry(total=retries, backoff_factor=backoff_factor)
-        pool_size = self.config.max_threads + 10
-        adapter = HTTPAdapter(
-            max_retries=retry,
-            pool_connections=pool_size,
-            pool_maxsize=pool_size,
-        )
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-
-        self.session.auth = HTTPBasicAuth(
-            self.config.token,
-            self.config.password.get_secret_value(),
-        )
-        self.session.headers.update(
-            {
-                "Content-Type": "application/json",
-                "Accept": "application/hal+json",
-            }
-        )
-
-        self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
+        self.session, self.workspace_uri = self.config.get_mode_session()
 
         # Test the connection
         try:
