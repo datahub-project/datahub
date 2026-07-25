@@ -305,15 +305,14 @@ def _ordered_levels(levels: List[ProbeLevel]) -> List[ProbeLevel]:
         if level.parent in children:
             raise ValueError(
                 f"levels '{children[level.parent].kind}' and '{level.kind}' both "
-                f"branch off '{level.parent}'. If they are peers at the same "
-                f"depth (tables and views under a schema), declare ONE level "
-                f"with sources=[LevelSource(...), ...] — each source carries "
-                f"its own kind and pattern_field, which is the supported way "
-                f"to put several kinds side by side. Separate sibling levels "
-                f"are only needed when their CHILDREN differ, and that is not "
-                f"supported yet: a shared child would need two parents (a DAG, "
-                f"not a chain), and parent_path carries bare names so siblings "
-                f"could not be told apart anyway."
+                f"branch off '{level.parent}'. A level is one DataHub entity, "
+                f"and kinds like Table and View are SUBTYPES of the same entity "
+                f"(see DatasetSubTypes) — so they belong at ONE level: declare "
+                f"sources=[LevelSource(...), ...], where each source supplies a "
+                f"subtype with its own pattern_field. Separate sibling levels "
+                f"would mean genuinely different entities under one parent, "
+                f"which is not supported yet: parent_path carries bare names, "
+                f"so siblings could not be told apart."
             )
         children[level.parent] = level
 
