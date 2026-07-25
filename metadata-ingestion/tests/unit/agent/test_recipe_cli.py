@@ -151,6 +151,35 @@ def test_probe_shape_reports_a_branching_tree(tmp_path, monkeypatch):
     assert [c["kind"] for c in payload["shape"]["children"]] == ["Report", "Dashboard"]
 
 
+def test_probe_shape_surfaces_a_branching_connector_bug_as_exit_2(
+    tmp_path, monkeypatch
+):
+    # A branching connector with no probe_shape() classmethod is a connector
+    # bug, not "unsupported" -- must fail loudly (exit 2), never render as
+    # "supported": false.
+    import datahub.cli.recipe_cli as rc
+    from datahub.ingestion.agent.probe import ProbeBranchesError
+
+    class FakeConfig:
+        @classmethod
+        def probe_hierarchy(cls):
+            raise ProbeBranchesError("this probe branches; use shape() instead")
+
+    import datahub.ingestion.agent.probe as probe_mod
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("bi-thing", {}, set()))
+    # rc.probe_shape/rc.probe_hierarchy are the real functions from probe_mod;
+    # patching _config_class makes both resolve to FakeConfig without needing
+    # a registered source_type.
+    monkeypatch.setattr(probe_mod, "_config_class", lambda source_type: FakeConfig)
+    res = CliRunner().invoke(
+        recipe, ["probe", "shape", "--recipe", str(_sqlalchemy_recipe(tmp_path))]
+    )
+    assert res.exit_code == 2, res.output
+    assert "probe_shape" in (res.output + (res.stderr or ""))
+    assert "supported" not in res.output  # never falls back to a JSON payload
+
+
 def test_removed_kind_named_commands_are_gone(tmp_path):
     for name in ("databases", "schemas", "tables", "columns"):
         res = CliRunner().invoke(recipe, ["probe", name, "--recipe", "x.yml"])

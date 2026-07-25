@@ -289,6 +289,18 @@ class ProbeShapeNode:
         }
 
 
+class ProbeBranchesError(ValueError):
+    """Raised by ClientProbe.hierarchy() when the probe's levels form a tree,
+    not a chain, so there is no single ordered hierarchy to report.
+
+    A distinct subclass (rather than a plain ValueError) so callers -- notably
+    probe_shape()'s framework-level derivation -- can react specifically to
+    "this probe branches" without misreading an unrelated ValueError the same
+    way. Still a ValueError, so existing `except ValueError` call sites (e.g.
+    recipe_cli's EXIT_USER mapping) keep working unchanged.
+    """
+
+
 def _level_tree(
     levels: List[ProbeLevel],
 ) -> Tuple[ProbeLevel, Dict[ProbeNodeKind, List[ProbeLevel]]]:
@@ -357,7 +369,7 @@ class ClientProbe:
     def hierarchy(self) -> List[ProbeNodeKind]:
         # Structural only — never touches the client, so it is connection-free.
         if not self.is_linear:
-            raise ValueError(
+            raise ProbeBranchesError(
                 "this probe branches, so its shape is a tree, not a chain; "
                 "use shape() instead of hierarchy()"
             )
@@ -586,21 +598,41 @@ def probe_shape(source_type: str) -> Optional[ProbeShapeNode]:
     """The source's level tree, or None when it has no probe support.
 
     Connection-free, like probe_hierarchy: reads only the declared levels.
+    Resolution order:
 
-    Every connector today declares a linear probe -- each one's own
-    probe_hierarchy() classmethod already proves it, since ClientProbe.hierarchy()
-    (which every one of those classmethods delegates to) raises ValueError at
-    import time for a branching declaration. So a chain reported by
-    probe_hierarchy() and the tree reported by shape() are the same information;
-    reshaping the former into ProbeShapeNode avoids adding a near-duplicate
-    probe_shape() classmethod to every connector for no source that actually
-    branches. A future branching connector's probe_hierarchy() raises here too,
-    so it would need its own explicit probe_shape() classmethod at that point.
+    1. A config class that declares its own probe_shape() classmethod wins --
+       this is the hook a branching connector uses, delegating to its own
+       X_PROBE.shape(). No connector needs one today (see 2), but Stage C's
+       first branching connector will.
+    2. Otherwise, every connector today declares a linear probe -- each one's
+       own probe_hierarchy() classmethod already proves it, since
+       ClientProbe.hierarchy() (which every one of those classmethods
+       delegates to) raises ProbeBranchesError at import time for a branching
+       declaration. So a chain reported by probe_hierarchy() and the tree
+       reported by shape() are the same information; reshaping the former into
+       ProbeShapeNode avoids adding a near-duplicate probe_shape() classmethod
+       to every connector for no source that actually branches.
+    3. A branching connector with no probe_shape() classmethod is a connector
+       bug, not "no probe support": raising ValueError (rather than returning
+       None) keeps the CLI from reporting a probe-capable source as
+       unsupported just because its shape can't be derived generically.
     """
     try:
-        hierarchy = probe_hierarchy(source_type)
-    except ValueError:
+        config_cls = _config_class(source_type)
+    except Exception:
         return None
+    shape_fn = getattr(config_cls, "probe_shape", None)
+    if callable(shape_fn):
+        result: ProbeShapeNode = shape_fn()
+        return result
+    try:
+        hierarchy = probe_hierarchy(source_type)
+    except ProbeBranchesError:
+        raise ValueError(
+            f"source '{source_type}' declares a branching probe, so it has no "
+            "single hierarchy; its config class must define a probe_shape() "
+            "classmethod returning its ClientProbe's shape()"
+        ) from None
     if not hierarchy:
         return None
     node = ProbeShapeNode(hierarchy[-1], [])

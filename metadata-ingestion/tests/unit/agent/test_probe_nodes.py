@@ -1,6 +1,12 @@
 import pytest
 
-from datahub.ingestion.agent.probe import column_nodes, probe_hierarchy
+from datahub.ingestion.agent.probe import (
+    ProbeBranchesError,
+    ProbeShapeNode,
+    column_nodes,
+    probe_hierarchy,
+    probe_shape,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -56,6 +62,49 @@ def test_two_tier_source_top_container_is_database():
 def test_unsupported_source_has_no_hierarchy():
     # `file` is registered but implements no probe contract.
     assert probe_hierarchy("file") is None
+
+
+def test_probe_shape_derives_a_chain_for_a_linear_source():
+    # No connector declares a probe_shape() classmethod today, so this proves
+    # the derived-from-hierarchy() path (case 2 in probe_shape's docstring).
+    shape = probe_shape("sqlalchemy")
+    assert shape is not None
+    assert shape.kind == DatasetContainerSubTypes.SCHEMA
+    assert [c.kind for c in shape.children] == [DatasetSubTypes.TABLE]
+
+
+def test_probe_shape_prefers_the_connectors_own_classmethod(monkeypatch):
+    import datahub.ingestion.agent.probe as probe_mod
+
+    tree = ProbeShapeNode("Workspace", [])
+
+    class FakeConfig:
+        @classmethod
+        def probe_shape(cls) -> ProbeShapeNode:
+            return tree
+
+    monkeypatch.setattr(probe_mod, "_config_class", lambda source_type: FakeConfig)
+    assert probe_shape("bi-thing") is tree
+
+
+def test_probe_shape_raises_for_a_branching_probe_with_no_classmethod(monkeypatch):
+    # A branching connector that hasn't (yet) added its own probe_shape()
+    # classmethod is a connector bug -- probe_shape() must say so, not report
+    # the source as unsupported (supported: false would be a wrong answer:
+    # the source *is* probe-capable, just not derivable from hierarchy()).
+    import datahub.ingestion.agent.probe as probe_mod
+
+    class FakeConfig:
+        @classmethod
+        def probe_hierarchy(cls):
+            raise ProbeBranchesError(
+                "this probe branches, so its shape is a tree, not a chain; "
+                "use shape() instead of hierarchy()"
+            )
+
+    monkeypatch.setattr(probe_mod, "_config_class", lambda source_type: FakeConfig)
+    with pytest.raises(ValueError, match="probe_shape"):
+        probe_shape("bi-thing")
 
 
 def test_snowflake_identifier_escaping_prevents_injection():
