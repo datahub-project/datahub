@@ -1,6 +1,7 @@
-from typing import Any, Callable
+from types import SimpleNamespace
+from typing import Any
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.aerospike_probe import list_aerospike_children
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -28,18 +29,9 @@ class _FakeAerospikeClient:
         self.closed = True
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for namespace_pattern, which the probe now resolves by
-# convention rather than declaring explicitly.
-class _Config(ConfigModel):
-    get_client: Callable[[], Any]
-    namespace_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    set_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 def _config() -> Any:
     client = _FakeAerospikeClient(_SETS_INFO)
-    return _Config(
+    return SimpleNamespace(
         get_client=lambda: client,
         namespace_pattern=AllowDenyPattern(allow=[".*"]),
         set_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),

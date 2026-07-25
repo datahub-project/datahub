@@ -2,30 +2,24 @@ from types import SimpleNamespace
 
 import pytest
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.models import ProbeLeafKind
 from datahub.ingestion.agent.probe import (
     ClientProbe,
     LevelSource,
     ProbeLevel,
     pattern_verdict,
+    resolve_pattern_field,
 )
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 
 _CFG = SimpleNamespace(
     table_pattern=AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"]),
     view_pattern=AllowDenyPattern(allow=[".*"]),
 )
-
-
-# resolve_pattern_field needs a real pydantic config (model_fields), unlike the
-# plain SimpleNamespace _CFG above — same table_pattern deny (^tmp_) as _CFG, kept
-# on a config class that carries no view_pattern at all.
-class _ResolvableConfig(ConfigModel):
-    table_pattern: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^tmp_.*"])
-
-
-_RESOLVABLE_CFG = _ResolvableConfig()
 
 
 def _probe(*levels):
@@ -185,12 +179,12 @@ def test_pattern_verdict_helper():
 
 
 def test_omitted_pattern_field_resolves_by_convention_and_filters():
-    # No pattern_field declared: the level's kind (Table) must resolve to
-    # table_pattern on _ResolvableConfig, and that field must actually filter.
+    # No pattern_field declared: the level's kind (Table) must resolve against
+    # _CFG's own table_pattern attribute, and that field must actually filter.
     probe = _probe(
         ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders", "tmp_scratch"))
     )
-    by_name = {n.name: n for n in probe.list_children(_RESOLVABLE_CFG, [], 100).nodes}
+    by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
     assert by_name["orders"].pattern_field == "table_pattern"
     assert by_name["orders"].included is True
     assert by_name["tmp_scratch"].pattern_field == "table_pattern"
@@ -199,8 +193,23 @@ def test_omitted_pattern_field_resolves_by_convention_and_filters():
 
 
 def test_omitted_pattern_field_raises_when_the_kind_has_no_conventional_field():
-    # DatasetSubTypes.VIEW has no view_pattern on _ResolvableConfig (only
-    # table_pattern), so resolution must fail loudly rather than silently pass.
-    probe = _probe(ProbeLevel(DatasetSubTypes.VIEW, list_names=_lister("v_orders")))
-    with pytest.raises(ValueError, match="View"):
-        probe.list_children(_RESOLVABLE_CFG, [], 100)
+    # _CFG has no schema_pattern at all — neither an instance attribute nor a
+    # model_fields entry — so resolution must fail loudly rather than silently pass.
+    probe = _probe(
+        ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_lister("public"))
+    )
+    with pytest.raises(ValueError, match="Schema"):
+        probe.list_children(_CFG, [], 100)
+
+
+def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
+    # resolve_pattern_field(SimpleNamespace, "Table") is None: SimpleNamespace has
+    # no model_fields for the class-level check to introspect. The instance-aware
+    # path must still find _CFG's own table_pattern attribute directly.
+    # Narrowed via an annotated local: passing `type(_CFG)` inline infers as
+    # type[Any], which mypy's lru_cache stub rejects as Hashable.
+    cfg_cls: type = type(_CFG)
+    assert resolve_pattern_field(cfg_cls, DatasetSubTypes.TABLE) is None
+    probe = _probe(ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders")))
+    by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
+    assert by_name["orders"].pattern_field == "table_pattern"

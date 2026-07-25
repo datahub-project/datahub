@@ -1,6 +1,6 @@
-from typing import Any, Callable
+from types import SimpleNamespace
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.powerbi_report_server.powerbi_report_server_probe import (
     list_powerbi_report_server_children,
@@ -20,19 +20,11 @@ class _PowerBiReportServerClient:
         return self._reports
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for report_pattern, which the probe now resolves by
-# convention rather than declaring explicitly.
-class _Config(ConfigModel):
-    get_client: Callable[[], Any]
-    report_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 def _config():
     client = _PowerBiReportServerClient(
         [_Report("Sales"), _Report("LegacyLeads")],
     )
-    return _Config(
+    return SimpleNamespace(
         get_client=lambda: client,
         report_pattern=AllowDenyPattern(allow=[".*"], deny=["^Legacy.*"]),
     )

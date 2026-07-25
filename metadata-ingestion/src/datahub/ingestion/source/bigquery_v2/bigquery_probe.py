@@ -87,21 +87,21 @@ BIGQUERY_PROBE = ClientProbe(
             _projects,
             classify=_classify_project,
         ),
-        # dataset_pattern/table_pattern/view_pattern below all match their kind by
-        # convention (BigQueryV2Config), but stay explicit here: test_bigquery_probe.py
-        # is a guarding test whose config fixture is a plain SimpleNamespace, which
-        # resolve_pattern_field can't introspect (no model_fields) — only a real
-        # pydantic config resolves by convention.
         ProbeLevel(
             DatasetContainerSubTypes.BIGQUERY_DATASET,
-            "dataset_pattern",
-            _datasets,
+            list_names=_datasets,
             classify=_classify_dataset,
         ),
         ProbeLevel(
             DatasetSubTypes.TABLE,
             sources=[
-                LevelSource(_tables, DatasetSubTypes.TABLE, "table_pattern"),
+                LevelSource(_tables, DatasetSubTypes.TABLE),
+                # Stays explicit: _classify_table always filters both tables and
+                # views against config.table_pattern (BigQuery has no view-specific
+                # verdict), so view_pattern here is purely a reporting label on the
+                # node, not a field the verdict itself reads — test_bigquery_probe.py
+                # (a guarding test) pins that quirk with a config fixture that never
+                # sets a view_pattern attribute at all, so it can't resolve.
                 LevelSource(_views, DatasetSubTypes.VIEW, "view_pattern"),
             ],
             classify=_classify_table,

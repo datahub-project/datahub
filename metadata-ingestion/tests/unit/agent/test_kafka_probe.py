@@ -1,9 +1,8 @@
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ConfigDict
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 
 # The probe reuses the connector's real consumer factory, which lives in a module
@@ -28,18 +27,8 @@ class _FakeConsumer:
         self.closed = True
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for topic_patterns, which the probe now resolves by
-# convention rather than declaring explicitly.
-class _Config(ConfigModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    topic_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    connection: SimpleNamespace
-
-
 def _config():
-    return _Config(
+    return SimpleNamespace(
         topic_patterns=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
         connection=SimpleNamespace(client_timeout_seconds=10),
     )

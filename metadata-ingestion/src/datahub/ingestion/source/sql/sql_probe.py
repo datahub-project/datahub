@@ -84,15 +84,11 @@ def _build(top_kind: ProbeNodeKind) -> ClientProbe:
                 list_names=_containers,
                 classify=_classify_container,
             ),
-            # table_pattern/view_pattern resolve by convention too, but stay explicit:
-            # test_two_tier_probe.py is a guarding test whose config fixture is a
-            # plain SimpleNamespace, which resolve_pattern_field can't introspect (no
-            # model_fields) — only a real pydantic config resolves by convention.
             ProbeLevel(
                 DatasetSubTypes.TABLE,
                 sources=[
-                    LevelSource(_tables, DatasetSubTypes.TABLE, "table_pattern"),
-                    LevelSource(_views, DatasetSubTypes.VIEW, "view_pattern"),
+                    LevelSource(_tables, DatasetSubTypes.TABLE),
+                    LevelSource(_views, DatasetSubTypes.VIEW),
                 ],
             ),
             ProbeLevel(ProbeLeafKind.COLUMN, list_names=_columns),

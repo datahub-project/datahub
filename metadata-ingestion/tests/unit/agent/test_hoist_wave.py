@@ -1,6 +1,6 @@
-from typing import Any, Callable
+from types import SimpleNamespace
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -33,18 +33,9 @@ class _MongoClient:
         self.closed = True
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for database_pattern, which the probe now resolves by
-# convention rather than declaring explicitly.
-class _MongoConfig(ConfigModel):
-    get_mongo_client: Callable[[], Any]
-    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 def test_mongodb_probe_db_then_collections():
     client = _MongoClient({"app": ["orders", "sessions"]})
-    config = _MongoConfig(
+    config = SimpleNamespace(
         get_mongo_client=lambda: client,
         database_pattern=AllowDenyPattern.allow_all(),
         collection_pattern=AllowDenyPattern(allow=[".*"], deny=["^sessions$"]),
@@ -75,16 +66,8 @@ class _EsClient:
         self.indices = _EsIndices(names)
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for index_pattern, which the probe now resolves by
-# convention rather than declaring explicitly.
-class _EsConfig(ConfigModel):
-    get_client: Callable[[], Any]
-    index_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 def test_elasticsearch_probe_lists_indices():
-    config = _EsConfig(
+    config = SimpleNamespace(
         get_client=lambda: _EsClient(["orders-2026", ".kibana"]),
         index_pattern=AllowDenyPattern(allow=[".*"], deny=["^\\..*"]),
     )

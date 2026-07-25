@@ -113,27 +113,21 @@ def _classify_table(
 
 
 # Snowflake is a 3-level namespace: database -> schema -> table -> column.
-# database_pattern/schema_pattern/table_pattern/view_pattern below all match their
-# kind by convention (SnowflakeV2Config), but stay explicit: test_snowflake_probe.py
-# is a guarding test whose config fixture is a plain SimpleNamespace, which
-# resolve_pattern_field can't introspect (no model_fields) — only a real pydantic
-# config resolves by convention.
 SNOWFLAKE_PROBE = ClientProbe(
     client_factory=_engine,
     close=lambda engine: engine.dispose(),
     levels=[
-        ProbeLevel(DatasetContainerSubTypes.DATABASE, "database_pattern", _databases),
+        ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
         ProbeLevel(
             DatasetContainerSubTypes.SCHEMA,
-            "schema_pattern",
-            _schemas,
+            list_names=_schemas,
             classify=_classify_schema,
         ),
         ProbeLevel(
             DatasetSubTypes.TABLE,
             sources=[
-                LevelSource(_tables, DatasetSubTypes.TABLE, "table_pattern"),
-                LevelSource(_views, DatasetSubTypes.VIEW, "view_pattern"),
+                LevelSource(_tables, DatasetSubTypes.TABLE),
+                LevelSource(_views, DatasetSubTypes.VIEW),
             ],
             classify=_classify_table,
         ),

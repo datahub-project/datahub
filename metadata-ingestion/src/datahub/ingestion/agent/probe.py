@@ -13,6 +13,7 @@ from typing import (
     runtime_checkable,
 )
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.models import (
     ProbeLeafKind,
     ProbeNode,
@@ -150,8 +151,9 @@ class ProbeLevel:
     kind: ProbeNodeKind
     # The config *_pattern field that filters this level. None means one of two
     # things: for a leaf (column) level, there is no filter to carry; for any other
-    # level, resolve the conventional <kind>_pattern/<kind>_patterns field instead,
-    # raising if the config class has none (see ClientProbe._resolved).
+    # level, resolve the conventional <kind>_pattern/<kind>_patterns field instead
+    # (against the live config instance, then its class), raising if neither has
+    # one (see ClientProbe._resolved / _resolve_pattern_field).
     pattern_field: Optional[str] = None
     list_names: Optional[LevelLister] = None
     # Optional: derive the node kind per-name when a level mixes kinds (e.g.
@@ -187,25 +189,54 @@ class ProbeLevel:
 _PATTERN_SUFFIXES = ("_pattern", "_patterns")
 
 
+def _pattern_field_candidates(kind: ProbeNodeKind) -> List[str]:
+    base = re.sub(r"[^a-z0-9]+", "_", str(kind).lower()).strip("_")
+    return [base + suffix for suffix in _PATTERN_SUFFIXES]
+
+
 @lru_cache(maxsize=None)
 def resolve_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str]:
-    """Find the config's AllowDenyPattern field that filters `kind`, by convention.
+    """Find the config class's AllowDenyPattern field that filters `kind`, by
+    convention, from its declared pydantic fields.
 
     Returns None when no such field exists, or when a same-named field is not an
-    AllowDenyPattern — the declaration must then pass `pattern_field` explicitly.
-    Memoized: resolution is per (config class, kind) and never changes at runtime.
+    AllowDenyPattern. This is the class-level fallback for when an instance has an
+    Optional pattern field left as None — see _resolve_pattern_field for the
+    instance-aware check that runs first. Memoized: resolution is per (config
+    class, kind) and never changes at runtime.
     """
     # lazy: introspect imports source_registry at module level; keep that off
     # probe.py's import path.
     from datahub.ingestion.agent.introspect import is_pattern_field
 
-    base = re.sub(r"[^a-z0-9]+", "_", str(kind).lower()).strip("_")
     fields = getattr(config_cls, "model_fields", {})
-    for suffix in _PATTERN_SUFFIXES:
-        field = fields.get(base + suffix)
+    for name in _pattern_field_candidates(kind):
+        field = fields.get(name)
         if field is not None and is_pattern_field(field.annotation):
-            return base + suffix
+            return name
     return None
+
+
+def _resolve_pattern_field(config: Any, kind: ProbeNodeKind) -> Optional[str]:
+    """Find the *live config object's* AllowDenyPattern field that filters `kind`.
+
+    Checks the instance's own attributes first — what pattern_verdict() actually
+    reads via getattr(config, pattern_field) — before falling back to
+    resolve_pattern_field's class-level introspection (which also catches an
+    Optional pattern field the instance happens to hold as None). Deliberately not
+    memoized: unlike resolve_pattern_field's (class, kind) cache, many distinct
+    config instances (e.g. every test fixture built as a plain SimpleNamespace)
+    can share the same type, so caching by type would leak one instance's resolved
+    field onto an unrelated instance of that same type.
+    """
+    for name in _pattern_field_candidates(kind):
+        if isinstance(getattr(config, name, None), AllowDenyPattern):
+            return name
+    # Narrowed via an annotated local: passing `type(config)` inline infers as
+    # type[Any], which mypy's lru_cache stub rejects as Hashable (a metaclass
+    # __hash__ signature mismatch) even though it is hashable at runtime.
+    config_cls: type = type(config)
+    return resolve_pattern_field(config_cls, kind)
 
 
 class ClientProbe:
@@ -225,19 +256,16 @@ class ClientProbe:
 
     def _resolved(self, config: Any, items: List[LevelItem]) -> List[LevelItem]:
         # Non-leaf items must end up with a real pattern field: either the one the
-        # declaration gave, or the conventional one for their kind.
-        # Narrowed via an annotated local: passing `type(config)` inline infers as
-        # type[Any], which mypy's lru_cache stub rejects as Hashable (a metaclass
-        # __hash__ signature mismatch) even though it is hashable at runtime.
-        config_cls: type = type(config)
+        # declaration gave, or the conventional one for their kind, resolved
+        # against the live config instance (see _resolve_pattern_field).
         out: List[LevelItem] = []
         for name, kind, pattern_field in items:
             if pattern_field is None:
-                pattern_field = resolve_pattern_field(config_cls, kind)
+                pattern_field = _resolve_pattern_field(config, kind)
                 if pattern_field is None:
                     raise ValueError(
                         f"no AllowDenyPattern field on "
-                        f"{config_cls.__name__} that filters kind '{kind}'; "
+                        f"{type(config).__name__} that filters kind '{kind}'; "
                         f"pass pattern_field= explicitly on the level or source"
                     )
             out.append((name, kind, pattern_field))

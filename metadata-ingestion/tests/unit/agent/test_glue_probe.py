@@ -1,6 +1,6 @@
-from typing import Any
+from types import SimpleNamespace
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.aws.glue_probe import list_glue_children
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -37,17 +37,8 @@ class _GlueClient:
         return _TablesPaginator(self._tables)
 
 
-# A real pydantic config (not a plain SimpleNamespace) so resolve_pattern_field can
-# introspect model_fields for database_pattern/table_pattern, which the probe now
-# resolves by convention rather than declaring explicitly.
-class _Config(ConfigModel):
-    glue_client: Any
-    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-
 def _config():
-    return _Config(
+    return SimpleNamespace(
         glue_client=_GlueClient(
             ["analytics", "staging"], {"analytics": ["orders", "tmp_scratch"]}
         ),
