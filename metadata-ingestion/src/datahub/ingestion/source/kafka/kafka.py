@@ -57,7 +57,6 @@ from confluent_kafka.admin import (
     ConfigResource,
     TopicMetadata,
 )
-from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
@@ -205,19 +204,6 @@ def get_kafka_admin_client(
     return client
 
 
-def get_kafka_schema_registry_client(
-    connection: KafkaConsumerConnectionConfig,
-) -> SchemaRegistryClient:
-    """Single construction point, shared with the live recipe probe.
-
-    The probe used to build its own, so registry auth/SSL settings had to be
-    kept in sync by hand across two files.
-    """
-    return SchemaRegistryClient(
-        {"url": connection.schema_registry_url, **connection.schema_registry_config}
-    )
-
-
 def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> None:
     logger.info(f"Validating connectivity to Kafka at {connection.bootstrap}")
     consumer = get_kafka_consumer(connection)
@@ -288,6 +274,12 @@ class KafkaConnectionTest:
 
     def schema_registry_connectivity(self) -> CapabilityReport:
         try:
+            # Function-scoped: confluent_schema_registry imports from this module,
+            # so a module-level import back here would create a cycle.
+            from datahub.ingestion.source.confluent_schema_registry import (
+                get_kafka_schema_registry_client,
+            )
+
             get_kafka_schema_registry_client(self.config.connection).get_subjects()
             return CapabilityReport(capable=True)
         except Exception as e:

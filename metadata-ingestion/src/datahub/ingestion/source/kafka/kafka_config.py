@@ -100,10 +100,12 @@ class KafkaSourceConfig(
         return KafkaMetadataProbe
 
     def build_probe_provider(self) -> ProbeProvider:
+        from datahub.ingestion.source.confluent_schema_registry import (
+            get_kafka_schema_registry_client,
+        )
         from datahub.ingestion.source.kafka.kafka import (
             get_kafka_admin_client,
             get_kafka_consumer,
-            get_kafka_schema_registry_client,
         )
         from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 
