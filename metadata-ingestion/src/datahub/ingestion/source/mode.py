@@ -615,14 +615,24 @@ class ModeSource(StatefulIngestionSourceBase):
         session: ModeApiSession,
         workspace_uri: str,
     ) -> "ModeSource":
-        """An uninitialized ModeSource carrying only the state its four
-        metadata-only fetchers (_get_data_sources_by_id, _get_definitions_map,
-        _get_queries, _get_charts) read: config, session, workspace_uri, a
-        fresh ModeSourceReport, a rate limiter sized from the recipe's own
-        api_options, and the two caches those fetchers populate lazily. Used
-        by ModeConfig.build_probe_provider() so mode_probe.py's
-        ModeMetadataProbe calls these connector methods directly instead of
-        re-implementing them.
+        """An uninitialized ModeSource carrying only the state
+        _get_request_json needs: config, session, workspace_uri, a fresh
+        ModeSourceReport (its rate-limit-retry counters are updated by
+        _get_request_json's callbacks), and a rate limiter sized from the
+        recipe's own api_options. Used by ModeConfig.build_probe_provider()
+        so mode_probe.py's ModeMetadataProbe fetches through this exact
+        connector method -- same session/rate-limit/retry path, same debug
+        curl logging, as a real ingestion run -- rather than re-deriving that
+        plumbing from the lower-level fetch_json free function.
+
+        Deliberately does NOT prime _data_sources_by_id_cache or
+        _definitions_map_cache: those belong to _get_data_sources_by_id/
+        _get_definitions_map, two levels up from _get_request_json, and
+        mode_probe.py's getters never call those two methods -- they carry
+        ingestion-specific policy (an index cache; a name->source cache
+        shaped for `{{@name}}` template expansion, dropping every other
+        field) that a diagnostic must not inherit. See mode_probe.py's
+        _get_embedded_from_source for what the probe reuses instead.
 
         Built via __new__ (bypassing __init__ entirely) rather than calling
         __init__ with a dummy PipelineContext: __init__ opens its own
@@ -640,12 +650,11 @@ class ModeSource(StatefulIngestionSourceBase):
         Every other attribute's declared type is met exactly by what's
         assigned here, so those use plain assignment.
 
-        Note for test doubles: _get_request_json (which all four fetchers
-        call through) logs a curl-equivalent via make_curl_command before
-        every request, which reads session.headers and session.auth
-        directly -- neither is part of ModeApiSession (fetch_json itself
-        never touches them), so a session fake needs both attributes too,
-        not just get()/close().
+        Note for test doubles: _get_request_json logs a curl-equivalent via
+        make_curl_command before every request, which reads session.headers
+        and session.auth directly -- neither is part of ModeApiSession
+        (fetch_json itself never touches them), so a session fake needs both
+        attributes too, not just get()/close().
         """
         shim = cls.__new__(cls)
         shim.config = config
@@ -655,8 +664,6 @@ class ModeSource(StatefulIngestionSourceBase):
         shim.rate_limiter = RateLimiter(
             max_calls=config.api_options.requests_per_minute, period=60
         )
-        shim._data_sources_by_id_cache = None
-        shim._definitions_map_cache = None
         return shim
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:

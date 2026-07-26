@@ -550,17 +550,13 @@ def test_data_sources_projects_named_fields_only():
     ]
 
 
-def test_definitions_projects_name_and_source():
-    # No "description" key: this getter delegates to mode.py's own
-    # _get_definitions_map(), which only tracks {name: source} (all it needs
-    # to expand `{{@name}}` template references) -- so a description present
-    # in the raw fixture is dropped before it ever reaches this getter, not
-    # projected away here.
+def test_definitions_projects_name_description_and_source():
     with _method_probe() as p:
         result = p.definitions()
     assert result == [
         {
             "name": "active_users",
+            "description": "Users active in 30d",
             "source": "SELECT user_id FROM users WHERE active",
         }
     ]
@@ -705,28 +701,22 @@ def test_data_sources_degrades_to_empty_on_403():
         assert p.data_sources() == []
 
 
-def test_data_sources_degrades_to_empty_on_401_auth_failure():
-    # Unlike the probe's own name-resolution helpers (_get_embedded/
-    # _get_embedded_paged, which only soft-degrade 404/403 and hard-raise
-    # anything else -- see _raise_soft_or_hard), this getter delegates
-    # straight to mode.py's own _get_data_sources_by_id(), which catches
-    # every ModeRequestError (any HTTP/JSON error, not just 404/403) and
-    # degrades to an empty result -- mode.py's own, more lenient policy,
-    # matching what a real ingestion run of this recipe would do. So a 401
-    # here degrades too, rather than raising.
+def test_data_sources_raises_on_401_auth_failure():
     with _method_probe(session=_StatusSession(401)) as p:
-        assert p.data_sources() == []
+        with pytest.raises(requests.HTTPError):
+            p.data_sources()
 
 
-def test_data_sources_degrades_to_empty_on_500():
+def test_data_sources_raises_on_500():
     with _method_probe(session=_StatusSession(500)) as p:
-        assert p.data_sources() == []
+        with pytest.raises(requests.HTTPError):
+            p.data_sources()
 
 
 def test_data_sources_records_a_warning_when_it_degrades_on_a_soft_error():
     # The provider's own `warnings` attribute is what run_probe_method reads
     # back into ProbeMethodResult.warnings (see test_probe_methods.py) -- a
-    # 404 degrading data_sources() to [] must be visible there, not just
+    # 403 degrading data_sources() to [] must be visible there, not just
     # logged to stderr.
     session = _StatusSession(404)
     cfg = _real_config()

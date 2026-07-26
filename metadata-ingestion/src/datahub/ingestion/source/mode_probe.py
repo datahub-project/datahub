@@ -1,6 +1,7 @@
 import logging
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     NoReturn,
@@ -8,6 +9,7 @@ from typing import (
     Protocol,
     Sequence,
     Tuple,
+    TypeVar,
 )
 
 import requests
@@ -27,12 +29,13 @@ from datahub.ingestion.source.mode import (
     ModeAPIConfig,
     ModeApiSession,
     ModeSource,
-    ModeSourceReport,
     fetch_json,
 )
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 # Mode's API and its own config field (space_pattern) call this level "space", but
 # the connector's emitted container subtype is BIContainerSubTypes.MODE_COLLECTION
@@ -112,22 +115,32 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     # listing). Raises ProbeSoftError so callers can choose how to surface it:
     # the hierarchy listers let it propagate to ClientProbe.list_children,
     # which records it on ProbeResult.warnings and keeps sibling levels. The
-    # probe_run provider methods rely on this for one purpose now: a
-    # NAME-TO-TOKEN RESOLVER (_find_report_token/_find_query_token) must NOT
-    # catch this -- a 403 partway through resolving "report X" is not the
-    # same fact as "report X doesn't exist", and swallowing it would tell the
-    # caller "check the spelling" when the honest answer is "I couldn't
-    # check." Those propagate all the way to the CLI as a genuine failure
-    # (exit 3). A provider's own FINAL data fetch (the thing the caller
-    # actually asked for, once any name was already resolved) is instead
-    # delegated straight to the matching mode.py connector method
-    # (_get_data_sources_by_id/_get_definitions_map/_get_queries/_get_charts,
-    # see ModeMetadataProbe below) -- those already degrade every HTTP/JSON
-    # error to an empty result and their own report_failure/report_warning,
-    # which _drain_report reads back into ProbeMethodResult.warnings, so
-    # there is no second, probe-only soft/hard split left to apply there.
+    # probe_run provider methods are split in two: a NAME-TO-TOKEN RESOLVER
+    # (_find_report_token/_find_query_token) must NOT catch this -- a 403
+    # partway through resolving "report X" is not the same fact as "report X
+    # doesn't exist", and swallowing it would tell the caller "check the
+    # spelling" when the honest answer is "I couldn't check." Those propagate
+    # all the way to the CLI as a genuine failure (exit 3). A provider's own
+    # FINAL data fetch (the thing the caller actually asked for, once any name
+    # was already resolved) instead degrades locally via _tolerant, appending
+    # to ProbeMethodResult.warnings, since returning an honest partial answer
+    # there ("here's what I could read, and here's what I couldn't") is more
+    # useful than failing the whole command over one degraded endpoint.
+    #
+    # This split is deliberately NOT the same policy mode.py's own
+    # _get_data_sources_by_id/_get_definitions_map/_get_queries/_get_charts
+    # apply (those catch every HTTP/JSON error uniformly and degrade,
+    # because ingestion would rather return partial metadata from a flaky
+    # run than fail outright). A diagnostic's whole job is telling an agent
+    # the difference between "there is nothing here" (404/403) and "I could
+    # not look" (auth failure, 5xx) -- so the probe's own final-data-fetch
+    # path (data_sources/definitions/report_queries/query_charts below) goes
+    # through _get_embedded_from_source, which reuses the connector's shared
+    # fetch (_get_request_json: same session/rate-limit/retry path, same
+    # debug curl logging a real ingestion run gets) but applies THIS split,
+    # not the connector's own always-degrade one.
     # Anything other than 404/403 (auth failures, 5xx, connection errors) is a
-    # hard error either way, for the resolver path this function still guards.
+    # hard error either way.
     status = exc.response.status_code if exc.response is not None else None
     if status not in (404, 403):
         raise exc
@@ -136,23 +149,19 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     ) from exc
 
 
-def _drain_report(report: ModeSourceReport, warnings: List[str]) -> None:
-    """Surfaces whatever mode.py's own report_failure/report_warning calls
-    recorded during a delegated fetch into the probe method's own `warnings`
-    channel (see ModeMetadataProbe.warnings).
-
-    source._get_data_sources_by_id() and its three siblings
-    (_get_definitions_map/_get_queries/_get_charts) never raise -- unlike
-    _get_embedded/_get_embedded_paged above, they catch every HTTP/JSON error
-    themselves (mode.py's own ModeRequestError handling, broader than this
-    module's 404/403-only soft-error split: ANY such error degrades there,
-    matching real ingestion) and record the reason on self.report instead of
-    raising. Without this, that reason would vanish into a throwaway
-    ModeSourceReport nobody else reads (see mode.py's ModeSource.for_probe)."""
-    for entry in (*report.failures, *report.warnings):
-        detail = "; ".join(entry.context) if entry.context else None
-        message = f"{entry.title}: {entry.message}" if entry.title else entry.message
-        warnings.append(f"{message} ({detail})" if detail else message)
+def _tolerant(fetch: Callable[[], _T], default: _T, warnings: List[str]) -> _T:
+    """For a single provider method's OWN final data fetch (not for resolving
+    a name to a token -- see the BLOCKER note on report_queries/query_charts
+    below): catches ProbeSoftError, logs it, appends it to `warnings` (the
+    provider's own `self.warnings`, which run_probe_method reads back into
+    ProbeMethodResult.warnings), and returns `default` instead of letting the
+    CLI hard-fail on it."""
+    try:
+        return fetch()
+    except ProbeSoftError as exc:
+        logger.warning(str(exc))
+        warnings.append(str(exc))
+        return default
 
 
 def _fetch_page(
@@ -185,6 +194,38 @@ def _get_embedded(
 ) -> List[Dict[str, Any]]:
     try:
         payload = _fetch_page(session, config, rate_limiter, url)
+    except requests.HTTPError as exc:
+        _raise_soft_or_hard(exc, context)
+    return list(payload.get("_embedded", {}).get(key, []))
+
+
+def _get_embedded_from_source(
+    source: ModeSource, url: str, key: str, context: str
+) -> List[Dict[str, Any]]:
+    """Like _get_embedded, but fetches through the connector's own bound
+    _get_request_json (see mode.py's ModeSource.for_probe) instead of the
+    module-level fetch_json -- for ModeMetadataProbe's four getters below,
+    which hold a real ModeSource shim rather than a bare
+    (session, config, rate_limiter) tuple. _get_request_json is the same
+    method a real ingestion run calls: same session/rate-limiter, same
+    debug curl logging, same retry backoff.
+
+    Deliberately NOT delegated to _get_data_sources_by_id/
+    _get_definitions_map/_get_queries/_get_charts (the higher-level
+    connector methods that actually wrap this endpoint during ingestion):
+    those catch every HTTP/JSON error themselves and always degrade to an
+    empty result -- correct for ingestion, which would rather return partial
+    metadata from a flaky run, but wrong for a diagnostic, whose whole job is
+    distinguishing "nothing here" from "I could not look." So this applies
+    the SAME soft/hard split _get_embedded does (_raise_soft_or_hard:
+    404/403 degrade, everything else is a hard error) around the connector's
+    fetch, rather than inheriting the connector's own always-degrade policy.
+    _get_definitions_map specifically is also lossy for a different reason
+    (its cache keeps only {name: source}, discarding description -- it
+    exists for `{{@name}}` template expansion, not for reporting), which is
+    a second, independent reason not to call it here."""
+    try:
+        payload = source._get_request_json(url)
     except requests.HTTPError as exc:
         _raise_soft_or_hard(exc, context)
     return list(payload.get("_embedded", {}).get(key, []))
@@ -549,14 +590,14 @@ class ModeMetadataProbe:
         config: ModeProbeConfig,
     ) -> None:
         # `source` is the uninitialized shim ModeSource.for_probe() builds
-        # (see mode.py) -- its four metadata-only fetchers
-        # (_get_data_sources_by_id/_get_definitions_map/_get_queries/
-        # _get_charts) are what data_sources/definitions/report_queries/
-        # query_charts below delegate their final data fetch to, instead of
-        # re-implementing it. session/workspace_uri/rate_limiter are read off
-        # it (not rebuilt here) so every request in one probe run -- both
-        # these delegated fetches and the name-to-token resolvers below --
-        # shares the same rate limiter.
+        # (see mode.py) -- its bound _get_request_json is what
+        # _get_embedded_from_source calls on behalf of data_sources/
+        # definitions/report_queries/query_charts below, reusing the
+        # connector's own session/rate-limit/retry path (and debug curl
+        # logging) instead of re-deriving it. session/workspace_uri/
+        # rate_limiter are also read off it (not rebuilt here) so every
+        # request in one probe run -- both those delegated fetches and the
+        # name-to-token resolvers below -- shares the same rate limiter.
         self._source = source
         self._session = source.session
         self._workspace_uri = source.workspace_uri
@@ -564,8 +605,7 @@ class ModeMetadataProbe:
         self._rate_limiter = source.rate_limiter
         # Read by agent.probe_methods.run_probe_method after the bound method
         # returns, and copied onto ProbeMethodResult.warnings -- see
-        # _drain_report (the four getters' delegated fetches) and
-        # _raise_soft_or_hard (the name-to-token resolvers' own listings).
+        # _tolerant.
         self.warnings: List[str] = []
 
     def __enter__(self) -> "ModeMetadataProbe":
@@ -584,10 +624,14 @@ class ModeMetadataProbe:
         literal string "default"; the real project id is substituted in that
         case only. Tells you which system a report's SQL actually runs
         against. Credentials (username, host, ...) are never returned."""
-        records: List[Dict[str, Any]] = list(
-            self._source._get_data_sources_by_id().values()
+        url = f"{self._workspace_uri}/data_sources"
+        records: List[Dict[str, Any]] = _tolerant(
+            lambda: _get_embedded_from_source(
+                self._source, url, "data_sources", context="data sources listing"
+            ),
+            [],
+            self.warnings,
         )
-        _drain_report(self._source.report, self.warnings)
         result: List[Dict[str, object]] = []
         for ds in records:
             name = _display_name(ds)
@@ -606,17 +650,24 @@ class ModeMetadataProbe:
 
     @probe_method()
     def definitions(self) -> List[Dict[str, object]]:
-        """Mode's reusable SQL definitions: name and the definition's SQL
-        source. The source is DDL-like reusable-fragment metadata, not query
-        results. No description field: mode.py's own _get_definitions_map()
-        only tracks name->source (all it needs to expand `{{@name}}`
-        template references during lineage/query processing), so that's all
-        this delegated fetch has to project -- mode.py itself never keeps
-        the description past the initial listing either."""
-        definitions_map = self._source._get_definitions_map()
-        _drain_report(self._source.report, self.warnings)
+        """Mode's reusable SQL definitions: name, description, and the
+        definition's SQL source. The source is DDL-like reusable-fragment
+        metadata, not query results."""
+        url = f"{self._workspace_uri}/definitions"
+        records: List[Dict[str, Any]] = _tolerant(
+            lambda: _get_embedded_from_source(
+                self._source, url, "definitions", context="definitions listing"
+            ),
+            [],
+            self.warnings,
+        )
         return [
-            {"name": name, "source": source} for name, source in definitions_map.items()
+            {
+                "name": _display_name(d),
+                "description": d.get("description"),
+                "source": d.get("source"),
+            }
+            for d in records
         ]
 
     @probe_method()
@@ -650,8 +701,17 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        records: List[Dict[str, Any]] = self._source._get_queries(report_token)
-        _drain_report(self._source.report, self.warnings)
+        url = f"{self._workspace_uri}/reports/{report_token}/queries"
+        records: List[Dict[str, Any]] = _tolerant(
+            lambda: _get_embedded_from_source(
+                self._source,
+                url,
+                "queries",
+                context=f"queries listing for report '{report}'",
+            ),
+            [],
+            self.warnings,
+        )
         return [{"name": _display_name(q), "sql": q.get("raw_query")} for q in records]
 
     @probe_method()
@@ -698,8 +758,17 @@ class ModeMetadataProbe:
                 f"name — a query with no name of its own is listed there by "
                 f"its token instead, which is also a valid `query` value here"
             )
-        records: List[Dict[str, Any]] = self._source._get_charts(
-            report_token, query_token
+        url = (
+            f"{self._workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
         )
-        _drain_report(self._source.report, self.warnings)
+        records: List[Dict[str, Any]] = _tolerant(
+            lambda: _get_embedded_from_source(
+                self._source,
+                url,
+                "charts",
+                context=f"charts listing for report '{report}' query '{query}'",
+            ),
+            [],
+            self.warnings,
+        )
         return [_chart_summary(c) for c in records]
