@@ -1859,13 +1859,17 @@ class ModeSource(StatefulIngestionSourceBase):
         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
-    def fetch_reports(self, space_token: str) -> List[dict]:
-        """Every report in one space, unfiltered. Raises on HTTP failure.
+    def fetch_reports(self, space_token: str) -> Iterator[List[dict]]:
+        """Every report in one space, unfiltered, page by page. Raises on
+        HTTP failure.
 
-        Shared with the live recipe probe for the same reason as
-        fetch_spaces.
+        A generator (not a buffered list like fetch_spaces) because
+        _get_reports' caller (_collect_space_work_items) feeds pages to
+        threaded per-report workers as they arrive -- buffering the whole
+        space here would hold every report in memory and delay the first
+        workunit on a large space. Shared with the live recipe probe for
+        the same reason as fetch_spaces.
         """
-        reports: List[dict] = []
         with self.report.report_get_timer:
             for reports_page in self._get_paged_request_json(
                 f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
@@ -1876,20 +1880,21 @@ class ModeSource(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                 )
-                reports.extend(reports_page)
-        return reports
+                yield reports_page
 
     def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
         try:
-            reports = self.fetch_reports(space_token)
-            if self.config.exclude_archived:
-                logger.debug(
-                    f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
-                )
-                reports = [
-                    report for report in reports if not is_archived_report(report)
-                ]
-            yield reports
+            for reports_page in self.fetch_reports(space_token):
+                if self.config.exclude_archived:
+                    logger.debug(
+                        f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
+                    )
+                    reports_page = [
+                        report
+                        for report in reports_page
+                        if not is_archived_report(report)
+                    ]
+                yield reports_page
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.report_warning(

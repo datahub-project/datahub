@@ -123,11 +123,13 @@ def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]
     """Every report in one space, filtered as mode.py's own ingestion run
     would see them (?filter=all, exclude_archived). Delegates the raw paged
     listing to mode.py's own fetch_reports for the same reason as
-    _fetch_spaces."""
+    _fetch_spaces -- fetch_reports is itself a generator of pages (unlike
+    fetch_spaces), so this flattens it: the probe has no streaming consumer
+    to preserve, unlike ingestion's threaded per-report workers."""
     with soft_on_status(
         403, 404, context=f"reports listing for space token '{space_token}'"
     ):
-        reports = source.fetch_reports(space_token)
+        reports = [r for page in source.fetch_reports(space_token) for r in page]
     if source.config.exclude_archived:
         reports = [r for r in reports if not is_archived_report(r)]
     return reports
