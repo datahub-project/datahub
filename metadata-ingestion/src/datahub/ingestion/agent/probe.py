@@ -12,7 +12,6 @@ from typing import (
     Protocol,
     Sequence,
     Tuple,
-    runtime_checkable,
 )
 
 from typing_extensions import TypeGuard
@@ -27,7 +26,6 @@ from datahub.ingestion.agent.models import (
 from datahub.ingestion.source.source_registry import source_registry
 
 
-@runtime_checkable
 class ProbeCapableConfig(Protocol):
     """Contract a connector config implements to opt into live probing.
 

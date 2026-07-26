@@ -11,7 +11,6 @@ from typing import (
     Union,
     get_args,
     get_origin,
-    runtime_checkable,
 )
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
@@ -113,7 +112,6 @@ def probe_method(name: Optional[str] = None) -> Callable[[Callable], Callable]:
     return deco
 
 
-@runtime_checkable
 class ProbeProvider(Protocol):
     def __enter__(self) -> "ProbeProvider": ...
 
@@ -126,7 +124,6 @@ class ProbeMethodResult:
     command: str
     params: Dict[str, object]
     result: object
-    truncated: bool = False
     # Non-fatal problems the provider hit while building `result` (see
     # agent.probe.ProbeSoftError): one sub-fetch couldn't be read cleanly, so
     # it degraded to an empty/partial contribution instead of failing the
@@ -143,7 +140,6 @@ class ProbeMethodResult:
             "command": self.command,
             "params": self.params,
             "result": self.result,
-            "truncated": self.truncated,
             "warnings": self.warnings,
         }
 
