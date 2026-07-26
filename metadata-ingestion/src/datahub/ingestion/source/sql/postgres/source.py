@@ -35,6 +35,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -296,22 +297,37 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
     # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
     def list_databases(self, conn: Connection) -> List[str]:
         # Raw database listing shared with get_inspectors() below -- no
-        # database_pattern applied here; callers (get_inspectors() and,
-        # eventually, a Database-level agent probe) apply that themselves,
-        # so the two paths query the exact same rows instead of each
-        # re-deriving the listing SQL.
+        # database_pattern applied here; callers (get_inspectors() and the
+        # Database-level agent probe below) apply that themselves, so the two
+        # paths query the exact same rows instead of each re-deriving the
+        # listing SQL.
         return PostgresQuery.list_databases(conn)
 
     @classmethod
     def default_databases(cls) -> FrozenSet[str]:
         # Databases this source drops regardless of database_pattern -- Postgres
         # template databases and AWS RDS's internal admin database. Same shape
-        # as SQLCommonConfig.default_schemas() one level down: exposed so a
-        # future Database-level probe can report one of these as
+        # as SQLCommonConfig.default_schemas() one level down: lets the
+        # Database-level probe below report one of these as
         # excluded_by: "default_database" instead of it silently never
         # appearing. Reuses PostgresQuery's own exclusion list so the probe
         # and the query it mirrors cannot drift apart.
         return frozenset(POSTGRES_SYSTEM_DATABASES)
+
+    # Postgres iterates real databases via database_pattern -- unlike the
+    # generic Schema-top SQL_PROBE this class would otherwise inherit from
+    # SQLCommonConfig, it gets a real Database level on top, the way
+    # TwoTierSQLAlchemyConfig overrides these same two hooks for its own shape.
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        from datahub.ingestion.source.sql.sql_probe import POSTGRES_PROBE_HIERARCHY
+
+        return POSTGRES_PROBE_HIERARCHY
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        from datahub.ingestion.source.sql.sql_probe import list_postgres_children
+
+        return list_postgres_children(self, parent_path, limit)
 
 
 @platform_name("Postgres")

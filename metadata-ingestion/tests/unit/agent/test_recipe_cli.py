@@ -107,13 +107,17 @@ def _sqlalchemy_recipe(tmp_path):
 def test_probe_shape_reports_a_linear_hierarchy(tmp_path, monkeypatch):
     import datahub.cli.recipe_cli as rc
 
-    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    # "sqlalchemy" (the generic schema-top SQL probe), not "postgres": this
+    # test is about the CLI wrapping *some* linear hierarchy, and postgres
+    # itself gained a Database level (see sql_probe.py's POSTGRES_PROBE) --
+    # its own shape is covered by tests/unit/agent/test_probe_nodes.py instead.
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("sqlalchemy", {}, set()))
     res = CliRunner().invoke(
         recipe, ["probe", "shape", "--recipe", str(_sqlalchemy_recipe(tmp_path))]
     )
     assert res.exit_code == 0, res.output
     payload = json.loads(res.output)
-    assert payload["source_type"] == "postgres"
+    assert payload["source_type"] == "sqlalchemy"
     assert payload["linear"] is True
     # A linear source still reports its chain, for humans and for the agent.
     assert payload["hierarchy"] == ["Schema", "Table", "Column"]

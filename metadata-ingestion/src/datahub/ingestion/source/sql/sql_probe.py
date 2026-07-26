@@ -1,6 +1,6 @@
 import sys
 from types import SimpleNamespace
-from typing import Any, Dict, List, Protocol, Sequence, Type, cast
+from typing import Any, Callable, Dict, List, Optional, Protocol, Sequence, Type, cast
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
@@ -66,6 +66,15 @@ def _containers(engine: Any, config: Any, parent_path: List[str]) -> Sequence[st
     return _inspector(engine).get_schema_names()
 
 
+def _databases(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
+    # Every config wired to the Database-topped build (postgres, mssql) implements
+    # list_databases(conn) itself -- the same raw listing get_inspectors() applies
+    # database_pattern to (see PostgresConfig.list_databases / SQLServerConfig's),
+    # so this level and ingestion can never enumerate different rows.
+    with engine.connect() as conn:
+        return config.list_databases(conn)
+
+
 def _tables(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
     return _inspector(engine).get_table_names(schema=parent_path[0])
 
@@ -95,6 +104,16 @@ def _classify_container(ctx: ClassifyContext) -> Verdict:
     verdict = schema_override(schema=ctx.name) if callable(schema_override) else None
     if verdict is not None:
         return Verdict.include() if verdict else Verdict(False, ctx.pattern_field)
+    return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
+
+
+def _classify_database(ctx: ClassifyContext) -> Verdict:
+    # Same shape as _classify_container's default_schemas() check, one level up:
+    # a database this source drops regardless of database_pattern (Postgres's
+    # templates, SQL Server's system databases -- see each config's
+    # default_databases()).
+    if ctx.name.lower() in {d.lower() for d in ctx.config.default_databases()}:
+        return Verdict(False, "default_database")
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 
@@ -135,12 +154,28 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
-def _shim_inspector(config: _SqlAlchemyUrlConfig) -> SimpleNamespace:
+def _shim_inspector(
+    config: _SqlAlchemyUrlConfig, database: Optional[str] = None
+) -> SimpleNamespace:
     """A stand-in Inspector exposing only what get_db_name reads --
-    inspector.engine.url.database (sql_common.py:422-430). Parses the
-    connector's own SQLAlchemy URL instead of opening a connection, unlike the
-    real _inspector() used to list tables/views/columns.
+    inspector.engine.url.database (sql_common.py:422-430).
+
+    When `database` is known -- the Table level has a Database ancestor in its
+    parent_path (postgres, mssql; see _identifier_target) -- the shim reports
+    that name directly rather than parsing a connection string for it:
+    get_db_name never reads anything else off the URL, and postgres/mssql's own
+    get_sql_alchemy_url overrides disagree on the keyword for "this database"
+    (database= vs current_db=), so resolving one here would mean special-casing
+    per connector for a value we already have in hand.
+
+    Otherwise parses the connector's own default SQLAlchemy URL instead of
+    opening a connection, unlike the real _inspector() used to list
+    tables/views/columns.
     """
+    if database is not None:
+        return SimpleNamespace(
+            engine=SimpleNamespace(url=SimpleNamespace(database=database))
+        )
     # lazy: sqlalchemy is only needed once a probe actually runs (see _engine)
     from sqlalchemy.engine import make_url
 
@@ -168,12 +203,16 @@ def _identifier_target(ctx: ClassifyContext) -> str:
 
     Falls back to the node's plain fqn, recording the reason via ctx.warn,
     when an override reaches for source state normally set outside __init__
-    that this shim doesn't carry (e.g. mssql's current_database, StarRocks's
-    _current_catalog -- both primed below instead, since __init__'s own value
-    for each is known and cheap to reproduce; a case with no such known value
-    would still land here).
+    that this shim doesn't carry (e.g. StarRocks's _current_catalog, primed
+    below since __init__'s own value is known and cheap to reproduce; a case
+    with no such known value would still land here).
     """
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
+    # A Database level above the container (postgres, mssql; see _build) makes
+    # parent_path (database, schema) instead of (schema,) -- the extra element
+    # is the real, connectable database this node lives under, distinct from
+    # whatever config.database/initial_database would otherwise default to.
+    database = ctx.parent_path[0] if len(ctx.parent_path) > 1 else None
     # getattr, not a direct call: every real SQLCommonConfig subclass declares
     # this (see sql_config.py), but some test doubles in this test suite are a
     # bare SimpleNamespace carrying only the few attributes their test needs.
@@ -188,12 +227,15 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     source_cls = _source_class_for(ctx.config)
     shim = source_cls.__new__(source_cls)
     shim.config = ctx.config
-    # mssql reads this during ingestion (set per-database as it iterates); the
-    # probe has no equivalent, so its get_identifier falls back to
-    # config.database. Documented as a known limit. Not every Source declares
-    # this attribute (only mssql's does), hence setattr rather than a plain
-    # assignment mypy could check against a type that doesn't have it.
-    setattr(shim, "current_database", None)  # noqa: B010
+    # mssql reads this during ingestion (set per-database as it iterates, and
+    # takes priority over config.database -- see SQLServerSource.get_identifier);
+    # `database` reproduces that same per-database value here whenever a
+    # Database level supplies one, rather than falling back to config.database
+    # for every node regardless of which database it actually lives under. Not
+    # every Source declares this attribute (only mssql's does), hence setattr
+    # rather than a plain assignment mypy could check against a type that
+    # doesn't have it.
+    setattr(shim, "current_database", database)  # noqa: B010
     # StarRocksSource.get_identifier reads self._current_catalog, which is
     # only reassigned once real catalog enumeration starts
     # (StarRocksSource.get_inspectors sets it before every table); at
@@ -208,7 +250,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # pydantic v2 itself raises as AttributeError) is not "get_identifier
     # needs source state the probe doesn't have" and must not be reported as
     # such.
-    inspector = _shim_inspector(ctx.config)
+    inspector = _shim_inspector(ctx.config, database=database)
     # lazy: sqlalchemy is only needed once a probe actually runs (see _engine)
     from sqlalchemy.engine.reflection import Inspector
 
@@ -239,32 +281,145 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     return target
 
 
-def _build(top_kind: ProbeNodeKind) -> ClientProbe:
+# A per-database SQLAlchemy URL for the connector's own get_sql_alchemy_url --
+# postgres names the keyword `database`, mssql names it `current_db` (see
+# database_url= on _build), so this is never a single call signature shared
+# across connectors; each connector supplies its own.
+DatabaseUrl = Callable[[Any, str], str]
+
+
+def _build(
+    top_kind: ProbeNodeKind,
+    database_url: Optional[DatabaseUrl] = None,
+    root_engine: Optional[Callable[[Any], Any]] = None,
+) -> ClientProbe:
     # The generic (schema-top) and two-tier (database-top) probes differ only in
     # what the top container is called; its filter (schema_pattern/database_pattern)
     # resolves by convention from top_kind, so it needs no explicit pattern_field.
+    if database_url is None:
+        return ClientProbe(
+            client_factory=_engine,
+            close=lambda engine: engine.dispose(),
+            levels=[
+                ProbeLevel(
+                    top_kind,
+                    list_names=_containers,
+                    classify=_classify_container,
+                ),
+                ProbeLevel(
+                    DatasetSubTypes.TABLE,
+                    sources=[
+                        LevelSource(_tables, DatasetSubTypes.TABLE),
+                        LevelSource(_views, DatasetSubTypes.VIEW),
+                    ],
+                    parent=top_kind,
+                    filter_target=_identifier_target,
+                ),
+                ProbeLevel(
+                    ProbeLeafKind.COLUMN,
+                    list_names=_columns,
+                    parent=DatasetSubTypes.TABLE,
+                ),
+            ],
+        )
+
+    # Postgres and mssql iterate real databases via database_pattern, unlike the
+    # schema-top and two-tier builds above: their schemas/tables aren't visible
+    # over one connection across databases (no cross-database catalog access, no
+    # USE-style database switch on the same connection the way Snowflake's
+    # probe -- see snowflake_probe.py's _pinned_inspector -- gets away with).
+    # So every level below Database must open its own connection to the
+    # database named in parent_path[0], via database_url, rather than reusing
+    # the single client the framework built for this call.
+    def _database_engine(config: Any, database: str) -> Any:
+        # lazy: sqlalchemy is only needed once a probe actually runs
+        from sqlalchemy import create_engine
+
+        return create_engine(database_url(config, database), **engine_options(config))
+
+    def _schemas_in_database(
+        engine: Any, config: Any, parent_path: List[str]
+    ) -> Sequence[str]:
+        db_engine = _database_engine(config, parent_path[0])
+        try:
+            return _inspector(db_engine).get_schema_names()
+        finally:
+            db_engine.dispose()
+
+    def _tables_in_database(
+        engine: Any, config: Any, parent_path: List[str]
+    ) -> Sequence[str]:
+        db_engine = _database_engine(config, parent_path[0])
+        try:
+            return _inspector(db_engine).get_table_names(schema=parent_path[1])
+        finally:
+            db_engine.dispose()
+
+    def _views_in_database(
+        engine: Any, config: Any, parent_path: List[str]
+    ) -> Sequence[str]:
+        db_engine = _database_engine(config, parent_path[0])
+        try:
+            return _inspector(db_engine).get_view_names(schema=parent_path[1])
+        finally:
+            db_engine.dispose()
+
+    def _columns_in_database(
+        engine: Any, config: Any, parent_path: List[str]
+    ) -> Sequence[str]:
+        db_engine = _database_engine(config, parent_path[0])
+        try:
+            cols = _inspector(db_engine).get_columns(
+                parent_path[2], schema=parent_path[1]
+            )
+            return [str(col["name"]) for col in cols]
+        finally:
+            db_engine.dispose()
+
     return ClientProbe(
-        client_factory=_engine,
+        client_factory=root_engine if root_engine is not None else _engine,
         close=lambda engine: engine.dispose(),
         levels=[
             ProbeLevel(
+                DatasetContainerSubTypes.DATABASE,
+                list_names=_databases,
+                classify=_classify_database,
+            ),
+            ProbeLevel(
                 top_kind,
-                list_names=_containers,
+                list_names=_schemas_in_database,
                 classify=_classify_container,
+                parent=DatasetContainerSubTypes.DATABASE,
             ),
             ProbeLevel(
                 DatasetSubTypes.TABLE,
                 sources=[
-                    LevelSource(_tables, DatasetSubTypes.TABLE),
-                    LevelSource(_views, DatasetSubTypes.VIEW),
+                    LevelSource(_tables_in_database, DatasetSubTypes.TABLE),
+                    LevelSource(_views_in_database, DatasetSubTypes.VIEW),
                 ],
                 parent=top_kind,
                 filter_target=_identifier_target,
             ),
             ProbeLevel(
-                ProbeLeafKind.COLUMN, list_names=_columns, parent=DatasetSubTypes.TABLE
+                ProbeLeafKind.COLUMN,
+                list_names=_columns_in_database,
+                parent=DatasetSubTypes.TABLE,
             ),
         ],
+    )
+
+
+def _postgres_root_engine(config: Any) -> Any:
+    # Postgres's bare get_sql_alchemy_url() resolves to config.database, which
+    # is unset in exactly the multi-database mode this Database level exists
+    # for; mirror PostgresSource.get_inspectors()'s own initial connection
+    # instead, so the Database level's list_databases() has somewhere valid to
+    # connect before any database name is known.
+    from sqlalchemy import create_engine
+
+    return create_engine(
+        config.get_sql_alchemy_url(database=config.database or config.initial_database),
+        **engine_options(config),
     )
 
 
@@ -273,9 +428,24 @@ SQL_PROBE = _build(DatasetContainerSubTypes.SCHEMA)
 # Two-tier sources (MySQL, Hive, ...) have no schema layer: the database is the
 # top container and is filtered by database_pattern.
 TWO_TIER_PROBE = _build(DatasetContainerSubTypes.DATABASE)
+# Postgres and mssql both iterate real databases filtered by database_pattern,
+# unlike either build above, so they get a real Database level on top of Schema.
+POSTGRES_PROBE = _build(
+    DatasetContainerSubTypes.SCHEMA,
+    database_url=lambda config, database: config.get_sql_alchemy_url(database=database),
+    root_engine=_postgres_root_engine,
+)
+MSSQL_PROBE = _build(
+    DatasetContainerSubTypes.SCHEMA,
+    database_url=lambda config, database: config.get_sql_alchemy_url(
+        current_db=database
+    ),
+)
 
 SQL_PROBE_HIERARCHY: List[ProbeNodeKind] = SQL_PROBE.hierarchy()
 TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = TWO_TIER_PROBE.hierarchy()
+POSTGRES_PROBE_HIERARCHY: List[ProbeNodeKind] = POSTGRES_PROBE.hierarchy()
+MSSQL_PROBE_HIERARCHY: List[ProbeNodeKind] = MSSQL_PROBE.hierarchy()
 
 
 def list_sql_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
@@ -286,3 +456,13 @@ def list_two_tier_children(
     config: Any, parent_path: List[str], limit: int
 ) -> ProbeResult:
     return TWO_TIER_PROBE.list_children(config, parent_path, limit)
+
+
+def list_postgres_children(
+    config: Any, parent_path: List[str], limit: int
+) -> ProbeResult:
+    return POSTGRES_PROBE.list_children(config, parent_path, limit)
+
+
+def list_mssql_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
+    return MSSQL_PROBE.list_children(config, parent_path, limit)

@@ -56,6 +56,32 @@ def test_two_tier_source_top_container_is_database():
     ]
 
 
+def test_postgres_and_mssql_declare_database_aware_hierarchies():
+    # Both iterate real databases via database_pattern, unlike the generic
+    # schema-top build most SQLCommonConfig sources inherit -- see
+    # sql_probe.py's POSTGRES_PROBE/MSSQL_PROBE.
+    assert probe_hierarchy("postgres") == [
+        DatasetContainerSubTypes.DATABASE,
+        DatasetContainerSubTypes.SCHEMA,
+        DatasetSubTypes.TABLE,
+        "Column",
+    ]
+    assert probe_hierarchy("mssql") == [
+        DatasetContainerSubTypes.DATABASE,
+        DatasetContainerSubTypes.SCHEMA,
+        DatasetSubTypes.TABLE,
+        "Column",
+    ]
+
+
+def test_postgres_subclasses_inherit_the_database_level_by_class():
+    # CockroachDBConfig/TimescaleDBConfig subclass PostgresConfig and never
+    # override probe_hierarchy themselves -- wired by class, not a
+    # source-type list, so they pick up the same Database level Postgres does.
+    assert probe_hierarchy("cockroachdb") == probe_hierarchy("postgres")
+    assert probe_hierarchy("timescaledb") == probe_hierarchy("postgres")
+
+
 def test_unsupported_source_has_no_hierarchy():
     # `file` is registered but implements no probe contract.
     assert probe_hierarchy("file") is None

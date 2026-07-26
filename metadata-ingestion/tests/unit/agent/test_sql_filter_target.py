@@ -134,6 +134,62 @@ def test_shim_matches_a_real_postgres_source_instance():
         assert _identifier_target(_ctx(config, "public", "orders")) == real_target
 
 
+def test_postgres_identifier_target_pins_the_database_from_a_database_level():
+    """With a Database level above Schema (see sql_probe._build's
+    database_url= branch), ctx.parent_path is (database, schema) instead of
+    just (schema,) -- the database segment must come from that path element,
+    not from get_db_name(inspector)'s default-connection fallback (which would
+    silently report whatever config.database/the bare connection happens to
+    be, wrong for any database other than the first one iterated). No
+    double-prefixing: the result has exactly three dot-separated parts."""
+    from typing import cast
+
+    from sqlalchemy.engine.reflection import Inspector
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+
+    config = PostgresConfig(host_port="localhost:5432")
+    ctx = ClassifyContext(
+        config=config,
+        name="orders",
+        fqn="salesdb.public.orders",
+        pattern_field="table_pattern",
+        parent_path=("salesdb", "public"),
+        warn=_ignore_warn,
+    )
+    target = _identifier_target(ctx)
+    assert target == "salesdb.public.orders"
+    assert target.count(".") == 2
+
+    # Matches a real, fully constructed PostgresSource fed the same per-database
+    # shim -- not just the probe's own shim resolving consistently with itself.
+    real_source = PostgresSource(config, PipelineContext(run_id="test"))
+    # cast: _shim_inspector's stand-in is deliberately not a real Inspector
+    # (see sql_probe.py), only pure-parseable-URL-shaped.
+    real_target = real_source.get_identifier(
+        schema="public",
+        entity="orders",
+        inspector=cast(Inspector, _shim_inspector(config, database="salesdb")),
+    )
+    assert target == real_target
+
+
+def test_postgres_identifier_target_unaffected_without_a_database_level():
+    """The generic (schema-top) SQL_PROBE's Table level still has parent_path
+    of length 1 -- this must stay exactly as it was before the Database level
+    existed (get_db_name's default-connection fallback), a regression guard
+    against the length check in _identifier_target misfiring for every other
+    SQL connector."""
+    from datahub.ingestion.source.sql.postgres import PostgresConfig
+
+    config = PostgresConfig(
+        host_port="localhost:5432",
+        sqlalchemy_uri="postgresql://user@localhost:5432/mydb",
+    )
+    assert _identifier_target(_ctx(config, "public", "orders")) == "mydb.public.orders"
+
+
 def test_druid_target_stays_the_bare_table_name():
     """Druid is the canary: pydruid already formats table names fully
     qualified, so DruidConfig.get_identifier drops the schema entirely. Any

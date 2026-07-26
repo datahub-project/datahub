@@ -474,8 +474,8 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id
 ### recipe
 
 The `recipe` commands help you author and verify an ingestion recipe before you run it. They
-answer two kinds of question: *what does this source type accept?* (offline, no connection)
-and *what does this source actually contain, given my recipe?* (live, needs working
+answer two kinds of question: _what does this source type accept?_ (offline, no connection)
+and _what does this source actually contain, given my recipe?_ (live, needs working
 credentials).
 
 They are designed to be driven by an AI coding assistant as well as by hand — every command
@@ -530,8 +530,9 @@ Each listed object reports whether your recipe's filters would **include** it, a
 which pattern excluded it — so you can check a `table_pattern` does what you intended before
 running an ingestion.
 
-Levels differ by source: `Schema → Table → Column` for Postgres, `Database → Schema → Table →
-Column` for Snowflake, `Project → Dataset → Table → Column` for BigQuery, `Topic` for Kafka.
+Levels differ by source: `Database → Schema → Table → Column` for Postgres, mssql, and
+Snowflake, `Project → Dataset → Table → Column` for BigQuery, `Schema → Table → Column` for
+most other SQL sources, `Topic` for Kafka.
 A source whose levels branch (a Mode Space holds both Reports and Datasets) reports
 `"linear": false` from `probe shape`; where two sibling levels share a name, qualify the
 parent as `--parent 'Report:my_report'`.
@@ -553,15 +554,15 @@ no column values, no message payloads.
 
 #### Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| 0 | success |
-| 1 | internal error |
-| 2 | invalid input — a bad recipe, an unknown command, a name that could not be resolved |
-| 3 | could not connect to the source, or the source returned an error |
+| Code | Meaning                                                                             |
+| ---- | ----------------------------------------------------------------------------------- |
+| 0    | success                                                                             |
+| 1    | internal error                                                                      |
+| 2    | invalid input — a bad recipe, an unknown command, a name that could not be resolved |
+| 3    | could not connect to the source, or the source returned an error                    |
 
-A non-empty `warnings` list alongside an empty or partial result means *part of the source
-could not be read* — not that the source is empty. Treat the two differently.
+A non-empty `warnings` list alongside an empty or partial result means _part of the source
+could not be read_ — not that the source is empty. Treat the two differently.
 
 ### init
 
