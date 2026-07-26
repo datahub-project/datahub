@@ -1,4 +1,7 @@
-from typing import Any, Dict, List, Sequence
+import contextvars
+import sys
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional, Sequence, Type
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
@@ -13,6 +16,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+
+# Naming convention linking a config class to the Source class whose
+# get_identifier() owns it -- see _source_class_for.
+_CONFIG_CLASS_SUFFIX = "Config"
+_SOURCE_CLASS_SUFFIX = "Source"
 
 
 def engine_options(config: object) -> Dict[str, Any]:
@@ -70,6 +79,123 @@ def _classify_container(ctx: ClassifyContext) -> Verdict:
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 
+# `_identifier_target` runs deep inside ClientProbe.list_children's per-node
+# classification, which has no return channel back up to the ProbeResult it is
+# building. A ContextVar (rather than a module-level list) keeps the fallback
+# reasons scoped to a single list_children() call, so concurrent/nested probe
+# calls cannot bleed warnings into each other.
+_identifier_fallback_warnings: "contextvars.ContextVar[Optional[List[str]]]" = (
+    contextvars.ContextVar("_identifier_fallback_warnings", default=None)
+)
+
+
+def _record_identifier_fallback(message: str) -> None:
+    warnings = _identifier_fallback_warnings.get()
+    if warnings is not None:
+        warnings.append(message)
+
+
+def _with_identifier_fallback_warnings(result: ProbeResult) -> ProbeResult:
+    collected = _identifier_fallback_warnings.get()
+    if collected:
+        result.warnings = [*result.warnings, *collected]
+    return result
+
+
+def _source_class_for(config: Any) -> Type[SQLAlchemySource]:
+    """The Source class whose get_identifier() the probe should call for this
+    config's Table level.
+
+    Resolved by naming convention (FooConfig -> FooSource) from the config's
+    own module, rather than a hardcoded per-connector table: every SQL
+    connector that overrides get_identifier at the Source level (postgres,
+    db2, vertica, starrocks, teradata, mssql) defines both classes in the same
+    file, so no extra import is needed here -- that module is already loaded,
+    since `config` is a live instance of a class it defines. Falls back to
+    SQLAlchemySource itself when the convention doesn't resolve to a subclass
+    (e.g. Hana's Source lives in a different module than its config); that
+    default is correct there too, since Hana's Source doesn't override
+    get_identifier, so it would resolve to the same base method anyway.
+
+    Known gap: Redshift and Unity Catalog reuse SQLCommonConfig's default
+    probe (this module) for their Table level, but their real Source classes
+    don't extend SQLAlchemySource at all -- their actual ingestion identifiers
+    (`database.schema.table` / `catalog.schema.table`) are built ad hoc
+    elsewhere, not via a get_identifier this shim can call. Both fall back to
+    the generic `f"{schema}.{entity}"` here: an improvement over the old bare
+    name, but still missing their leading container segment. Fixing that
+    would mean giving those connectors a proper get_identifier of their own,
+    which is out of scope for this probe-only change.
+    """
+    config_cls = type(config)
+    name = config_cls.__name__
+    if name.endswith(_CONFIG_CLASS_SUFFIX):
+        module = sys.modules.get(config_cls.__module__)
+        candidate = getattr(
+            module, name[: -len(_CONFIG_CLASS_SUFFIX)] + _SOURCE_CLASS_SUFFIX, None
+        )
+        if isinstance(candidate, type) and issubclass(candidate, SQLAlchemySource):
+            return candidate
+    return SQLAlchemySource
+
+
+def _shim_inspector(config: Any) -> Any:
+    """A stand-in Inspector exposing only what get_db_name reads --
+    inspector.engine.url.database (sql_common.py:422-430). Parses the
+    connector's own SQLAlchemy URL instead of opening a connection, unlike the
+    real _inspector() used to list tables/views/columns.
+    """
+    # lazy: sqlalchemy is only needed once a probe actually runs (see _engine)
+    from sqlalchemy.engine import make_url
+
+    url = make_url(config.get_sql_alchemy_url())
+    return SimpleNamespace(engine=SimpleNamespace(url=url))
+
+
+def _identifier_target(ctx: ClassifyContext) -> str:
+    """The exact string the connector's own get_identifier would use for this
+    table/view node -- never a reimplementation of it (see _source_class_for).
+
+    Builds the resolved Source class via __new__ (bypassing __init__, which
+    fires ingestion telemetry -- see SQLAlchemySource.__init__ -- and needs a
+    PipelineContext a read-only probe doesn't have) so that overrides calling
+    super() (e.g. Db2's uppercasing get_db_name) resolve exactly as they would
+    on a real instance: isinstance(shim, source_cls) holds, since the shim IS
+    an (uninitialized) instance of that class.
+
+    Falls back to the node's plain fqn, recording the reason as a probe
+    warning (see _with_identifier_fallback_warnings), when an override
+    reaches for source state this shim doesn't carry -- e.g. StarRocks's
+    per-catalog `_current_catalog`, set only during real table enumeration.
+    """
+    source_cls = _source_class_for(ctx.config)
+    shim = source_cls.__new__(source_cls)
+    shim.config = ctx.config
+    # mssql reads this during ingestion (set per-database as it iterates); the
+    # probe has no equivalent, so its get_identifier falls back to
+    # config.database. Documented as a known limit. Not every Source declares
+    # this attribute (only mssql's does), hence setattr rather than a plain
+    # assignment mypy could check against a type that doesn't have it.
+    setattr(shim, "current_database", None)  # noqa: B010
+    schema = ctx.parent_path[-1] if ctx.parent_path else ""
+    try:
+        target = source_cls.get_identifier(
+            shim,
+            schema=schema,
+            entity=ctx.name,
+            inspector=_shim_inspector(ctx.config),
+        )
+    except AttributeError as exc:
+        _record_identifier_fallback(
+            f"{ctx.fqn}: {source_cls.__name__}.get_identifier needs source state "
+            f"the probe doesn't have ({exc}); using the plain fqn as the filter "
+            "target instead"
+        )
+        return ctx.fqn
+    assert isinstance(target, str)
+    return target
+
+
 def _build(top_kind: ProbeNodeKind) -> ClientProbe:
     # The generic (schema-top) and two-tier (database-top) probes differ only in
     # what the top container is called; its filter (schema_pattern/database_pattern)
@@ -90,6 +216,7 @@ def _build(top_kind: ProbeNodeKind) -> ClientProbe:
                     LevelSource(_views, DatasetSubTypes.VIEW),
                 ],
                 parent=top_kind,
+                filter_target=_identifier_target,
             ),
             ProbeLevel(
                 ProbeLeafKind.COLUMN, list_names=_columns, parent=DatasetSubTypes.TABLE
@@ -109,10 +236,20 @@ TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = TWO_TIER_PROBE.hierarchy()
 
 
 def list_sql_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
-    return SQL_PROBE.list_children(config, parent_path, limit)
+    token = _identifier_fallback_warnings.set([])
+    try:
+        result = SQL_PROBE.list_children(config, parent_path, limit)
+        return _with_identifier_fallback_warnings(result)
+    finally:
+        _identifier_fallback_warnings.reset(token)
 
 
 def list_two_tier_children(
     config: Any, parent_path: List[str], limit: int
 ) -> ProbeResult:
-    return TWO_TIER_PROBE.list_children(config, parent_path, limit)
+    token = _identifier_fallback_warnings.set([])
+    try:
+        result = TWO_TIER_PROBE.list_children(config, parent_path, limit)
+        return _with_identifier_fallback_warnings(result)
+    finally:
+        _identifier_fallback_warnings.reset(token)
