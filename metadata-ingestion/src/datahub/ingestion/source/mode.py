@@ -35,6 +35,7 @@ from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
+from typing_extensions import Self
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
@@ -359,6 +360,13 @@ class ModeConfig(
         workspace_uri = f"{self.connect_uri}/api/{self.workspace}"
         return session, workspace_uri
 
+    def space_filter_param(self) -> str:
+        """Mode's own ?filter=all/custom query param for the /spaces
+        endpoint, controlled by exclude_personal_collections. Shared by
+        _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
+        hierarchy lister, so this decision lives in exactly one place."""
+        return "custom" if self.exclude_personal_collections else "all"
+
     @classmethod
     def probe_shape(cls) -> ProbeShapeNode:
         # Structural only — must not connect (see ProbeCapableConfig). A Space
@@ -410,6 +418,27 @@ def _is_http_404(error: Exception) -> bool:
         and getattr(error, "response", None) is not None
         and error.response.status_code == 404
     )
+
+
+def is_restricted_space(space: dict) -> bool:
+    """Both "restricted" and "default_access_level" can independently signal
+    a space is restricted -- there is a known bug on Mode's side where
+    "restricted" sometimes returns False even when access is actually
+    restricted. Not underscore-prefixed: this is the one place that decides
+    what "restricted" means for a Mode space, shared by
+    _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
+    hierarchy lister, rather than each maintaining its own copy of this
+    check."""
+    return (
+        bool(space.get("restricted"))
+        or space.get("default_access_level") == "restricted"
+    )
+
+
+def is_archived_report(report: dict) -> bool:
+    """Shared by _get_reports (ingestion, below) and mode_probe.py's
+    hierarchy lister, for the same reason as is_restricted_space above."""
+    return bool(report.get("archived", False))
 
 
 class ModeApiSession(Protocol):
@@ -636,23 +665,27 @@ class ModeSource(StatefulIngestionSourceBase):
         config: ModeConfig,
         session: ModeApiSession,
         workspace_uri: str,
-    ) -> "ModeSource":
+    ) -> Self:
         """An uninitialized ModeSource carrying only the state
         _get_request_json needs: config, session, workspace_uri, a fresh
         ModeSourceReport (its rate-limit-retry counters are updated by
         _get_request_json's callbacks), a rate limiter sized from the
         recipe's own api_options, and the two lazy caches
         _get_data_sources_by_id/_get_definitions_map read and populate on
-        first call. Used by ModeConfig.build_probe_provider() (via
-        ModeProbeSource.for_probe -- cls.__new__(cls) below builds whichever
-        class for_probe was called on, so a subclass's own for_probe gets a
-        shim of its own type for free) so the probe's data_sources/
-        definitions commands -- the connector's own _get_data_sources_by_id/
-        _get_definitions_map, annotated with @probe_method in place -- fetch
-        through this exact connector plumbing: same session/rate-limit/retry
-        path, same debug curl logging, same always-degrade-on-error policy,
-        as a real ingestion run, rather than a second probe-side
-        reimplementation with its own error-handling policy.
+        first call. Returns Self (not "ModeSource"), since cls.__new__(cls)
+        below builds whichever class for_probe was called on -- so
+        mode_probe.py's ModeProbeSource.for_probe(...) both runs and
+        type-checks as returning a ModeProbeSource, with no override needed
+        to narrow it. Used by ModeConfig.build_probe_provider() (via
+        ModeProbeSource) so the probe's data_sources/definitions commands --
+        the connector's own _get_data_sources_by_id/_get_definitions_map,
+        annotated with @probe_method in place -- fetch through this exact
+        connector plumbing: same session/rate-limit/retry path, same debug
+        curl logging, same always-degrade-on-error policy, as a real
+        ingestion run, rather than a second probe-side reimplementation with
+        its own error-handling policy. Also used by mode_probe.py's
+        hierarchy probe (_build_mode_client, as a plain ModeSource), which
+        needs the same fetch plumbing but none of the probe_method commands.
 
         Built via __new__ (bypassing __init__ entirely) rather than calling
         __init__ with a dummy PipelineContext: __init__ opens its own
@@ -902,11 +935,8 @@ class ModeSource(StatefulIngestionSourceBase):
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
             with self.report.space_get_timer:
-                space_filter = (
-                    "custom" if self.config.exclude_personal_collections else "all"
-                )
                 for spaces_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces?filter={space_filter}",
+                    f"{self.workspace_uri}/spaces?filter={self.config.space_filter_param()}",
                     "spaces",
                     self.config.items_per_page,
                 ):
@@ -918,13 +948,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     for s in spaces_page:
                         logger.debug(f"Space: {s.get('name')}")
                         space_name = s.get("name", "")
-                        # Using both restricted and default_access_level because
-                        # there is a current bug with restricted returning False everytime
-                        # which has been reported to Mode team
-                        if self.config.exclude_restricted and (
-                            s.get("restricted")
-                            or s.get("default_access_level") == "restricted"
-                        ):
+                        if self.config.exclude_restricted and is_restricted_space(s):
                             logger.debug(
                                 f"Skipping space {space_name} due to exclude restricted"
                             )
@@ -1844,7 +1868,7 @@ class ModeSource(StatefulIngestionSourceBase):
                         reports_page = [
                             report
                             for report in reports_page
-                            if not report.get("archived", False)
+                            if not is_archived_report(report)
                         ]
                     yield reports_page
         except ModeRequestError as e:

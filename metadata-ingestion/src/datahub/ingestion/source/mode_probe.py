@@ -1,15 +1,4 @@
-import logging
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    NoReturn,
-    Optional,
-    Sequence,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Dict, List, NoReturn, Optional, Sequence
 
 import requests
 
@@ -20,13 +9,13 @@ from datahub.ingestion.agent.probe import (
     ProbeLevel,
     ProbeSoftError,
 )
-from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
-from datahub.ingestion.source.mode import ModeApiSession, ModeConfig, ModeSource
-
-logger = logging.getLogger(__name__)
-
-_T = TypeVar("_T")
+from datahub.ingestion.source.mode import (
+    ModeConfig,
+    ModeSource,
+    is_archived_report,
+    is_restricted_space,
+)
 
 # Mode's API and its own config field (space_pattern) call this level "space", but
 # the connector's emitted container subtype is BIContainerSubTypes.MODE_COLLECTION
@@ -37,17 +26,16 @@ MODE_SPACE: ProbeNodeKind = "Space"
 
 
 def _build_mode_client(config: ModeConfig) -> ModeSource:
-    """Builds the SAME uninitialized ModeSource shim ModeProbeSource.for_probe
-    builds (see ModeConfig.build_probe_provider/ModeSource.for_probe), so the
-    branching hierarchy probe and the probe_run getters share exactly one
-    fetch path: ModeSource's own _get_request_json/_get_paged_request_json
-    (same session/rate-limit/retry path, same debug curl logging a real
-    ingestion run gets) -- not a second, module-level reimplementation of
-    Mode's request plumbing. Built as a plain ModeSource (this hierarchy
-    probe never calls report_queries/query_charts, ModeProbeSource's own
-    methods), via __new__ and never __init__: __init__ opens its own
-    session, hits /api/verify, and resolves space_tokens for ingestion, side
-    effects a read-only probe doesn't want repeated."""
+    """Builds the SAME uninitialized ModeSource shim ModeConfig.build_probe_provider
+    builds (see ModeSource.for_probe), so the branching hierarchy probe below and
+    the data_sources/definitions probe commands (annotated directly on ModeSource
+    in mode.py) share exactly one fetch path: ModeSource's own
+    _get_request_json/_get_paged_request_json (same session/rate-limit/retry
+    path, same debug curl logging a real ingestion run gets) -- not a second,
+    module-level reimplementation of Mode's request plumbing. __new__, never
+    __init__: __init__ opens its own session, hits /api/verify, and resolves
+    space_tokens for ingestion, side effects a read-only probe doesn't want
+    repeated."""
     session, workspace_uri = config.get_mode_session()
     return ModeSource.for_probe(config, session, workspace_uri)
 
@@ -56,22 +44,22 @@ def _close_mode_client(client: ModeSource) -> None:
     client.session.close()
 
 
-def _spaces_filter(config: ModeConfig) -> str:
-    # Mirrors mode.py's _get_space_name_and_tokens: send filter=custom when the
-    # recipe excludes personal collections server-side (the default), else
-    # filter=all -- so the probe enumerates exactly the spaces a real ingestion
-    # run of this recipe would see, not a superset that includes collections
-    # exclude_personal_collections would have dropped.
-    return "custom" if config.exclude_personal_collections else "all"
+class ModeProbeSource(ModeSource):
+    """The provider `build_probe_provider` returns for `probe run` -- exists
+    for exactly one reason: ModeSource's own __exit__ (inherited from
+    Closeable) calls close(), which only closes its report, correctly, since
+    a real ingestion run's session lives for the whole pipeline and is never
+    explicitly closed early. The probe's session is different: for_probe()
+    opens it ad hoc, outside that pipeline lifecycle, and a `probe run`
+    invocation is a single short CLI call, so it should close cleanly when
+    the `with` block exits -- mirroring _close_mode_client's identical
+    session.close() for the hierarchy probe's client, above. No other method
+    lives here: data_sources/definitions are @probe_method-annotated
+    directly on ModeSource itself, and for_probe (inherited, unchanged)
+    already returns an instance of whichever class it's called on."""
 
-
-def _is_restricted_space(space: Dict[str, Any]) -> bool:
-    # Mirrors mode.py's _get_space_name_and_tokens (":857-861"): both fields
-    # can independently signal "restricted" against a live workspace.
-    return (
-        bool(space.get("restricted"))
-        or space.get("default_access_level") == "restricted"
-    )
+    def __exit__(self, *exc: object) -> None:
+        self.session.close()
 
 
 def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
@@ -80,20 +68,9 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     # inaccessible to this token) on ONE listing is a normal, expected outcome
     # in production, not a reason to fail the whole probe -- but it must not be
     # silently swallowed either (indistinguishable from a genuinely empty
-    # listing). Raises ProbeSoftError so callers can choose how to surface it:
-    # the hierarchy listers let it propagate to ClientProbe.list_children,
-    # which records it on ProbeResult.warnings and keeps sibling levels. The
-    # probe_run provider methods are split in two: a NAME-TO-TOKEN RESOLVER
-    # (_find_report_token/_find_query_token) must NOT catch this -- a 403
-    # partway through resolving "report X" is not the same fact as "report X
-    # doesn't exist", and swallowing it would tell the caller "check the
-    # spelling" when the honest answer is "I couldn't check." Those propagate
-    # all the way to the CLI as a genuine failure (exit 3). A provider's own
-    # FINAL data fetch (the thing the caller actually asked for, once any name
-    # was already resolved) instead degrades locally via _tolerant, appending
-    # to ProbeMethodResult.warnings, since returning an honest partial answer
-    # there ("here's what I could read, and here's what I couldn't") is more
-    # useful than failing the whole command over one degraded endpoint.
+    # listing). Raises ProbeSoftError so ClientProbe.list_children can record it
+    # on ProbeResult.warnings and keep sibling levels, rather than the whole
+    # hierarchy call failing over one degraded level.
     #
     # This split is deliberately NOT the same policy mode.py's own
     # _get_space_name_and_tokens/_get_reports/_get_datasets/_get_queries/
@@ -101,18 +78,18 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     # degrade -- some by returning {}/[], some by a generator simply ending --
     # because ingestion would rather return partial metadata from a flaky run
     # than fail outright, and none of them can signal "I hit an error" back to
-    # a caller at all). A diagnostic's whole job is telling an agent the
+    # a caller at all). The hierarchy probe's whole job is telling an agent the
     # difference between "there is nothing here" (404/403) and "I could not
-    # look" (auth failure, 5xx) -- so every probe fetch below
-    # (_get_embedded/_get_embedded_paged) goes through ModeSource's own
-    # request layer (_get_request_json/_get_paged_request_json: same
-    # session/rate-limit/retry path, same debug curl logging a real ingestion
-    # run gets) but applies THIS split, not any of the connector's own
-    # always-degrade wrappers around it. The connector's own
-    # _get_data_sources_by_id/_get_definitions_map are NOT part of this split
-    # at all: their probe commands (mode.py) are the raw fetchers themselves,
-    # annotated directly, so they carry ingestion's always-degrade policy
-    # unchanged rather than this file's soft/hard distinction.
+    # look" (auth failure, 5xx) -- so every fetch below (_get_embedded/
+    # _get_embedded_paged) goes through ModeSource's own request layer
+    # (_get_request_json/_get_paged_request_json: same session/rate-limit/retry
+    # path, same debug curl logging a real ingestion run gets) but applies THIS
+    # split, not any of the connector's own always-degrade wrappers around it.
+    # The connector's own _get_data_sources_by_id/_get_definitions_map are NOT
+    # part of this split at all: their probe commands (mode.py) are the raw
+    # fetchers themselves, annotated directly, so they carry ingestion's
+    # always-degrade policy unchanged rather than this file's soft/hard
+    # distinction.
     # Anything other than 404/403 (auth failures, 5xx, connection errors) is a
     # hard error either way.
     status = exc.response.status_code if exc.response is not None else None
@@ -123,30 +100,15 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     ) from exc
 
 
-def _tolerant(fetch: Callable[[], _T], default: _T, warnings: List[str]) -> _T:
-    """For a single provider method's OWN final data fetch (not for resolving
-    a name to a token -- see the BLOCKER note on report_queries/query_charts
-    below): catches ProbeSoftError, logs it, appends it to `warnings` (the
-    provider's own `self.warnings`, which run_probe_method reads back into
-    ProbeMethodResult.warnings), and returns `default` instead of letting the
-    CLI hard-fail on it."""
-    try:
-        return fetch()
-    except ProbeSoftError as exc:
-        logger.warning(str(exc))
-        warnings.append(str(exc))
-        return default
-
-
 def _get_embedded(
     source: ModeSource, url: str, key: str, context: str
 ) -> List[Dict[str, Any]]:
-    """The single unpaginated fetch path: every probe request -- hierarchy
-    listers and probe_run getters alike -- goes through the connector's own
-    bound _get_request_json (see ModeSource.for_probe/_build_mode_client),
-    which shares its session/rate-limiter/retry path and debug curl logging
-    with a real ingestion run, instead of a bare session.get() or a second,
-    module-level fetch_json reimplementation.
+    """The single unpaginated fetch path the hierarchy probe's Query level
+    uses, through the connector's own bound _get_request_json (see
+    ModeSource.for_probe/_build_mode_client), which shares its
+    session/rate-limiter/retry path and debug curl logging with a real
+    ingestion run, instead of a bare session.get() or a second, module-level
+    fetch_json reimplementation.
 
     Deliberately NOT delegated to _get_queries/_get_charts (the higher-level
     connector methods that actually wrap this endpoint during ingestion):
@@ -215,37 +177,39 @@ def _space_pattern_name(space: Dict[str, Any]) -> str:
     # spaces alone need this second, filter-only target: using _display_name
     # (which falls back to the token) would test a different string than a
     # real ingestion run does for a null-named space, and could report it
-    # in- or out-of-scope wrongly. Used for BOTH the space_pattern check
-    # itself (_find_report_token) and the hierarchy probe's own space nodes
-    # (_spaces/_space_token) -- they must test and address spaces by the
-    # identical string, or the same physical space could resolve "in scope"
-    # down one path and "excluded" down the other. `or ""` (not mode.py's
-    # literal `.get("name", "")`) so an explicit `"name": null` normalizes to
-    # "" instead of passing None into .allowed(), which raises on a
-    # non-string.
+    # in- or out-of-scope wrongly. Used for BOTH the hierarchy probe's own
+    # space nodes (_spaces) and resolving a --parent value back to a space
+    # (_space_token) -- they must test and address spaces by the identical
+    # string, or the same physical space could resolve "in scope" down one
+    # path and "excluded" down the other. `or ""` (not mode.py's literal
+    # `.get("name", "")`) so an explicit `"name": null` normalizes to ""
+    # instead of passing None into .allowed(), which raises on a non-string.
     return space.get("name") or ""
 
 
 def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     """Every space the workspace has, filtered exactly the way mode.py's own
-    ingestion run would see them: the server-side filter=all/custom, plus
-    exclude_restricted client-side. The single call site for fetching spaces
-    -- every lister that needs a space listing or a name-to-token lookup goes
-    through this, so there is exactly one place that mirrors mode.py's space
-    visibility."""
-    url = f"{source.workspace_uri}/spaces?filter={_spaces_filter(source.config)}"
+    ingestion run would see them: the server-side filter=all/custom (via
+    ModeConfig.space_filter_param, shared with _get_space_name_and_tokens),
+    plus exclude_restricted client-side (via is_restricted_space, also
+    shared) -- so this stays in lockstep with ingestion's own space
+    visibility instead of carrying an independent copy of that decision. The
+    single call site for fetching spaces -- every lister that needs a space
+    listing or a name-to-token lookup goes through this."""
+    url = f"{source.workspace_uri}/spaces?filter={source.config.space_filter_param()}"
     spaces = _get_embedded_paged(
         source, url, "spaces", context="workspace spaces listing"
     )
     if source.config.exclude_restricted:
-        spaces = [s for s in spaces if not _is_restricted_space(s)]
+        spaces = [s for s in spaces if not is_restricted_space(s)]
     return spaces
 
 
 def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]:
     """Every report in one space, filtered the way mode.py's own ingestion run
-    would see them: ?filter=all, paginated, plus exclude_archived client-side.
-    The single call site for fetching a space's reports."""
+    would see them: ?filter=all, paginated, plus exclude_archived client-side
+    (via is_archived_report, shared with _get_reports). The single call site
+    for fetching a space's reports."""
     url = f"{source.workspace_uri}/spaces/{space_token}/reports?filter=all"
     reports = _get_embedded_paged(
         source,
@@ -254,7 +218,7 @@ def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]
         context=f"reports listing for space token '{space_token}'",
     )
     if source.config.exclude_archived:
-        reports = [r for r in reports if not r.get("archived", False)]
+        reports = [r for r in reports if not is_archived_report(r)]
     return reports
 
 
@@ -289,8 +253,8 @@ def _spaces(
     # usable name (see probe.py's UNNAMED handling) and is reported as an
     # unaddressable "<unnamed>" node rather than being falsely addressable
     # via its token -- Mode's own space_pattern check has no such fallback
-    # either, so this is the same string _find_report_token tests, not a
-    # friendlier one this level invents for itself.
+    # either, so this is the same string _space_token tests, not a friendlier
+    # one this level invents for itself.
     return [_space_pattern_name(space) for space in _fetch_spaces(client)]
 
 
@@ -396,244 +360,3 @@ MODE_PROBE = ClientProbe(
 
 def list_mode_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
     return MODE_PROBE.list_children(config, parent_path, limit)
-
-
-def _find_report_token(source: ModeSource, report_name: str) -> Optional[str]:
-    # probe_run commands (unlike the hierarchy probe) get a report name with no
-    # containing space, so every IN-SCOPE space's reports must be searched --
-    # scoped to config.space_pattern (_fetch_spaces/_fetch_reports already
-    # apply the server-side filter, exclude_restricted, and exclude_archived)
-    # so a report that lives only in a space the recipe would never ingest
-    # (denied by space_pattern, restricted, or excluded via
-    # exclude_personal_collections) neither falsely resolves nor falsely
-    # triggers an ambiguity error below. A report name is not unique even
-    # within that scope -- the same name can sit in two shared spaces -- so
-    # every in-scope match is collected; an ambiguous name raises rather than
-    # returning whichever space happened to iterate first, mirroring the
-    # ambiguity guard the hierarchy probe already applies to same-named
-    # sibling levels.
-    matches: List[Tuple[str, str]] = []
-    try:
-        for space in _fetch_spaces(source):
-            space_name = _display_name(space)
-            if not source.config.space_pattern.allowed(_space_pattern_name(space)):
-                continue
-            space_token = space.get("token")
-            if not space_token:
-                continue
-            for report in _fetch_reports(source, space_token):
-                if _display_name(report) != report_name:
-                    continue
-                report_token = report.get("token")
-                if report_token:
-                    matches.append((space_name, report_token))
-                    break
-                # else: a same-named report with no token; keep scanning this
-                # space in case a different, valid-token report shares the
-                # name (an earlier version of this loop broke here
-                # unconditionally, which could skip a real match).
-    except ProbeSoftError as exc:
-        # Rephrase at this re-raise site rather than reusing
-        # _raise_soft_or_hard's message verbatim: "...treating it as empty"
-        # is accurate on ProbeResult.warnings, where a sub-listing genuinely
-        # is treated as empty and the hierarchy probe moves on to its
-        # siblings. Here the exception aborts this whole search instead (see
-        # the BLOCKER note in report_queries/query_charts) and propagates to
-        # the CLI as a hard failure -- telling the caller anything was
-        # "treated as empty" would say the opposite of what happened, and an
-        # agent reading it could wrongly conclude the report has no queries
-        # rather than that the search itself could not finish.
-        raise ProbeSoftError(
-            f"could not determine whether a report named '{report_name}' "
-            f"exists -- the search across spaces did not complete: {exc}"
-        ) from exc
-    if not matches:
-        return None
-    if len(matches) > 1:
-        candidate_spaces = ", ".join(sorted({space_name for space_name, _ in matches}))
-        raise ValueError(
-            f"ambiguous report name '{report_name}': it exists in more than "
-            f"one in-scope space ({candidate_spaces}); `probe run` takes only "
-            f"--report with no space qualifier to disambiguate — use "
-            f"`probe list`/`probe shape` to tell the reports apart"
-        )
-    return matches[0][1]
-
-
-def _find_query_token(
-    source: ModeSource, report_token: str, query_name: str
-) -> Optional[str]:
-    # Matches on _display_name (name-or-token-or-"unknown"), the same
-    # convention mode.py's own report_name resolution uses (mode.py:2078) --
-    # a query with a null "name" is addressable by its token, since that's
-    # what _display_name reports for it and what report_queries would show.
-    # Collects every match rather than returning on the first one, so two
-    # queries sharing a name (or both falling back to "unknown") raise an
-    # ambiguity error instead of one silently winning.
-    url = f"{source.workspace_uri}/reports/{report_token}/queries"
-    try:
-        queries = _get_embedded(
-            source,
-            url,
-            "queries",
-            context=f"queries listing for report token '{report_token}'",
-        )
-    except ProbeSoftError as exc:
-        # See _find_report_token's identical rephrasing: this exception
-        # aborts the query-name search rather than being treated as "this
-        # report has no queries", and must say so.
-        raise ProbeSoftError(
-            f"could not determine whether a query named '{query_name}' "
-            f"exists in report token '{report_token}' -- the queries "
-            f"listing did not complete: {exc}"
-        ) from exc
-    matches = [
-        query.get("token")
-        for query in queries
-        if _display_name(query) == query_name and query.get("token")
-    ]
-    if not matches:
-        return None
-    if len(matches) > 1:
-        raise ValueError(
-            f"ambiguous query name '{query_name}': more than one query in "
-            f"this report resolves to that name (or both fall back to their "
-            f"token because they have no name); use report_queries to find "
-            f"a token unique to the one you mean"
-        )
-    return matches[0]
-
-
-def _chart_summary(chart: Dict[str, Any]) -> Dict[str, object]:
-    # Chart title/type live under "view" (native charts) or "view_vegas"
-    # (Vega-Lite charts) — mirrors mode.py's construct_chart_from_api_data.
-    detail = chart.get("view") or chart.get("view_vegas") or {}
-    title = detail.get("title") or detail.get("chartTitle") or _display_name(chart)
-    chart_type = detail.get("chartType") or detail.get("selectedChart")
-    return {"title": title, "chart_type": chart_type}
-
-
-class ModeProbeSource(ModeSource):
-    """A ModeSource subclass adding the only probe capability the connector
-    has no reason to own: resolving a human-readable report/query name to
-    Mode's token, with explicit ambiguity errors -- report_queries and
-    query_charts below. data_sources and definitions are NOT here: they are
-    the connector's own _get_data_sources_by_id/_get_definitions_map
-    (mode.py), annotated with @probe_method in place -- this class exists
-    only for genuinely extra capability, not to wrap or re-project what the
-    connector already returns."""
-
-    # Declared here (mirrors ModeSource's own `session: ModeApiSession`) so
-    # for_probe's assignment below type-checks without inferring the
-    # attribute solely from that one call site.
-    warnings: List[str]
-
-    @classmethod
-    def for_probe(
-        cls,
-        config: ModeConfig,
-        session: ModeApiSession,
-        workspace_uri: str,
-    ) -> "ModeProbeSource":
-        """Like ModeSource.for_probe (which this calls -- see its docstring
-        for what the shim carries), plus an empty `warnings` list: this
-        class's own report_queries/query_charts append to it on a soft
-        error (see _tolerant), and run_probe_method reads it back into
-        ProbeMethodResult.warnings. super().for_probe() already returns an
-        instance of `cls` (cls.__new__(cls), not a hardcoded ModeSource), so
-        this only needs to add the one attribute the base shim doesn't set.
-        """
-        shim = super().for_probe(config, session, workspace_uri)
-        assert isinstance(shim, ModeProbeSource)
-        shim.warnings = []
-        return shim
-
-    def __enter__(self) -> "ModeProbeSource":
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self.session.close()
-
-    @probe_method()
-    def report_queries(self, report: str) -> List[Dict[str, object]]:
-        """The queries inside a report: name, and the SQL text each runs.
-        Raises if `report` cannot be resolved to exactly one report: not
-        found (misspelled, or only in a space this recipe wouldn't ingest —
-        denied by space_pattern, restricted, or a personal collection),
-        ambiguous (the same name in more than one in-scope space), or the
-        search itself hit a backend error partway through (surfaced as-is,
-        rather than reported as not-found). Mode has no endpoint to look up
-        a report by name alone."""
-        # BLOCKER (name resolution must not soften a soft error): a
-        # ProbeSoftError here means the search across spaces/reports could
-        # not complete -- e.g. a 403 on the one space that holds the report.
-        # That is not the same fact as "no report named X exists", and
-        # swallowing it would tell the caller to "check the spelling" when
-        # the honest answer is "I couldn't check." Let it propagate to the
-        # CLI as a real failure.
-        report_token = _find_report_token(self, report)
-        if report_token is None:
-            raise ValueError(
-                f"no report named '{report}' found among the spaces this "
-                f"recipe would ingest (space_pattern-allowed, non-restricted, "
-                f"non-personal spaces); check the spelling, or whether it "
-                f"only exists in a space this recipe wouldn't ingest"
-            )
-        url = f"{self.workspace_uri}/reports/{report_token}/queries"
-        records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded(
-                self,
-                url,
-                "queries",
-                context=f"queries listing for report '{report}'",
-            ),
-            [],
-            self.warnings,
-        )
-        return [{"name": _display_name(q), "sql": q.get("raw_query")} for q in records]
-
-    @probe_method()
-    def query_charts(self, report: str, query: str) -> List[Dict[str, object]]:
-        """Charts built on one query: title and chart type. Raises if
-        `report` cannot be resolved to exactly one report: not found
-        (misspelled, or only in a space this recipe wouldn't ingest — denied
-        by space_pattern, restricted, or a personal collection), or ambiguous
-        (the same name in more than one in-scope space). Mode has no
-        endpoint to look up a report by name alone. Also raises if `query`
-        cannot be resolved to exactly one query within that report — call
-        report_queries first to see the valid names (a query with no name of
-        its own is listed there by its token, which is also a valid `query`
-        value here)."""
-        # BLOCKER (name resolution must not soften a soft error either): see
-        # report_queries' docstring/comment -- a soft error mid-search is not
-        # "not found".
-        report_token = _find_report_token(self, report)
-        if report_token is None:
-            raise ValueError(
-                f"no report named '{report}' found among the spaces this "
-                f"recipe would ingest (space_pattern-allowed, non-restricted, "
-                f"non-personal spaces); check the spelling, or whether it "
-                f"only exists in a space this recipe wouldn't ingest"
-            )
-        query_token = _find_query_token(self, report_token, query)
-        if query_token is None:
-            raise ValueError(
-                f"no query named '{query}' found in report '{report}'; call "
-                f"report_queries(report='{report}') to see its queries by "
-                f"name — a query with no name of its own is listed there by "
-                f"its token instead, which is also a valid `query` value here"
-            )
-        url = (
-            f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
-        )
-        records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded(
-                self,
-                url,
-                "charts",
-                context=f"charts listing for report '{report}' query '{query}'",
-            ),
-            [],
-            self.warnings,
-        )
-        return [_chart_summary(c) for c in records]

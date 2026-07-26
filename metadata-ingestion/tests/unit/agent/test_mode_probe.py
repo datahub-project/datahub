@@ -11,29 +11,28 @@ from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
     ModeProbeSource,
-    _find_query_token,
     _get_embedded_paged,
     list_mode_children,
 )
 
 _WORKSPACE = "https://app.mode.com/api/acryltest"
 
-# Every body below plants extra keys a real Mode record carries beyond what the
-# probe methods project (ids, tokens, _links, _forms, timestamps, ...) so an
-# equality assert against the getter's output can only pass if those extra
-# keys were actually dropped, not merely if the projected ones happen to be
-# present. Shapes are drawn from tests/integration/mode/setup/*.json.
+# Every body below plants extra keys a real Mode record carries beyond what a
+# hierarchy node's name projects (ids, tokens, _links, _forms, timestamps, ...),
+# so equality asserts can tell "observed and used" apart from "observed and
+# ignored." data_sources/definitions are the opposite case on purpose: they
+# assert those extra keys survive verbatim, since those two commands are
+# mode.py's own raw fetchers annotated in place, not a probe-side projection.
+# Shapes are drawn from tests/integration/mode/setup/*.json.
 _RESPONSES: Dict[str, Dict[str, Any]] = {
     f"{_WORKSPACE}/spaces": {
         "spaces": [
             {"name": "Personal", "token": "sp1"},
             {"name": "Archive", "token": "sp2"},
             {"name": "SharedSpaceA", "token": "sp3"},
-            {"name": "SharedSpaceB", "token": "sp4"},
             # Present regardless of exclude_restricted -- filtering happens
             # client-side in _fetch_spaces, not by the fake session.
             {"name": "RestrictedSpace", "token": "sp5", "restricted": True},
-            {"name": "QueryTestSpace", "token": "sp6"},
             # No "name" key at all -- for proving the space_pattern filter
             # test uses mode.py's raw-name-or-"" semantics, not _display_name
             # (which would fall back to this token).
@@ -48,50 +47,11 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
     # a Mode "dataset" is implemented as a special kind of report. Keying this
     # fixture as "datasets" would encode the bug it exists to catch.
     f"{_WORKSPACE}/spaces/sp1/datasets": {"reports": [{"name": "Seed", "token": "d1"}]},
-    # "Archive" is denied by _cfg()'s space_pattern -- a report that lives
-    # only there must be invisible to report_queries/query_charts, not just
-    # to the hierarchy probe.
-    f"{_WORKSPACE}/spaces/sp2/reports": {
-        "reports": [{"name": "ArchiveOnlyReport", "token": "r-archive-only"}]
-    },
-    # "DupReport" exists in two spaces that ARE in scope (neither denied nor
-    # excluded), so the ambiguity guard still fires for a name that's
-    # genuinely ambiguous among the spaces a recipe would actually ingest.
-    # "OldReport" is archived, to test exclude_archived without disturbing
-    # the ambiguity fixture or test_listing_a_space_merges_reports_and_datasets
-    # (which asserts Personal's reports/datasets exactly).
+    # One archived, one not -- exercises exclude_archived's client-side filter.
     f"{_WORKSPACE}/spaces/sp3/reports": {
         "reports": [
-            {"name": "DupReport", "token": "r-dup-3"},
+            {"name": "NewReport", "token": "r-new"},
             {"name": "OldReport", "token": "r-old", "archived": True},
-        ]
-    },
-    f"{_WORKSPACE}/spaces/sp4/reports": {
-        "reports": [{"name": "DupReport", "token": "r-dup-4"}]
-    },
-    f"{_WORKSPACE}/spaces/sp5/reports": {
-        "reports": [{"name": "RestrictedOnlyReport", "token": "r-restricted"}]
-    },
-    f"{_WORKSPACE}/spaces/sp6/reports": {
-        "reports": [{"name": "QueryEdgeCasesReport", "token": "r-qec"}]
-    },
-    f"{_WORKSPACE}/spaces/sp7/reports": {
-        "reports": [{"name": "NullSpaceReport", "token": "r-null-space"}]
-    },
-    # Query-name-resolution edge cases, kept out of r1 so they don't disturb
-    # test_qualified_descent_lists_queries' exact `== ["q_main"]` assertion:
-    # two queries sharing a name (ambiguous), and one with no name at all
-    # (addressable only by its token, via _display_name's fallback).
-    f"{_WORKSPACE}/reports/r-qec/queries": {
-        "queries": [
-            {"name": "DupQuery", "token": "q-dup-1"},
-            {"name": "DupQuery", "token": "q-dup-2"},
-            {"token": "q-unnamed"},
-        ]
-    },
-    f"{_WORKSPACE}/reports/r-qec/queries/q-unnamed/charts": {
-        "charts": [
-            {"token": "c-unnamed", "view": {"title": "Untitled", "chartType": "table"}}
         ]
     },
     f"{_WORKSPACE}/reports/r1/queries": {
@@ -107,19 +67,6 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
             }
         ]
     },
-    f"{_WORKSPACE}/reports/r1/queries/q1/charts": {
-        "charts": [
-            {
-                "token": "c1",
-                "created_at": "2021-12-10T20:14:08.856Z",
-                "color_palette_token": "should-not-appear",
-                "_links": {
-                    "self": {"href": "/api/acryltest/reports/r1/queries/q1/charts/c1"}
-                },
-                "view": {"title": "Revenue", "chartType": "bar"},
-            }
-        ]
-    },
     f"{_WORKSPACE}/data_sources": {
         # Every entry needs a unique "id" -- like a real Mode payload (see
         # tests/integration/mode/setup/data_sources.json) -- since
@@ -132,8 +79,6 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "name": "PostgreSQL",
                 "adapter": "jdbc:postgresql",
                 "database": "dvdrental",
-                # Fields a real Mode data source can carry that must NOT
-                # survive projection into the probe result.
                 "host": "72.38.17.64",
                 "username": "postgres",
             },
@@ -142,42 +87,10 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "name": "BigQueryConn",
                 "adapter": "jdbc:bigquery",
                 # BigQuery's raw "database" is always the literal "default";
-                # the real project id is only ever in "host".
+                # data_sources returns it as-is -- no probe-side substitution.
                 "database": "default",
                 "host": "some-project-id",
                 "username": "should-not-appear",
-            },
-            {
-                "id": "34501",
-                # No "name" at all -- _display_name must fall back to token.
-                "token": "ds3",
-                "adapter": "jdbc:sqlserver",
-                "database": "analytics",
-                "host": "should-not-appear",
-            },
-            {
-                "id": "34502",
-                # An adapter MODE_ADAPTER_PLATFORM_MAP doesn't recognize --
-                # the fallback must be the data source's own name, not the
-                # raw adapter string (which is neither a valid DataHub
-                # platform nor what ingestion would emit).
-                "name": "VerticaConn",
-                "adapter": "jdbc:vertica",
-                "database": "mydb",
-            },
-            {
-                "id": "34503",
-                # Neither named NOR a recognized adapter -- the two fallbacks
-                # (adapter -> platform, and the probe's own display name)
-                # must not be conflated. mode.py's own _get_platform_and_dbname
-                # passes the raw "name" field ("" here, no default token) as
-                # the unmapped-adapter fallback, so the platform ingestion
-                # would actually emit is "" -- not this data source's display
-                # name ("ds5", via the token). Reporting "ds5" as the adapter
-                # would be friendlier than what a real run does.
-                "token": "ds5",
-                "adapter": "jdbc:made_up_adapter",
-                "database": "somedb",
             },
         ]
     },
@@ -213,10 +126,9 @@ class _FakeSession:
         # mode.py's own _get_request_json (unlike fetch_json's narrower
         # ModeApiSession Protocol) logs a curl-equivalent via
         # make_curl_command before every request, which reads session.headers
-        # and session.auth directly -- data_sources/definitions/report_queries/
-        # query_charts now go through it (see ModeSource.for_probe), so every
-        # session fake used with _method_probe needs both attributes, not
-        # just get()/close().
+        # and session.auth directly -- data_sources/definitions now go
+        # through it (see ModeSource.for_probe), so every session fake used
+        # with _method_probe needs both attributes, not just get()/close().
         self.headers: Dict[str, str] = {}
         self.auth = None
 
@@ -249,49 +161,6 @@ class _DatasetsFailSession(_FakeSession):
             def _raise() -> None:
                 raise requests.HTTPError(
                     f"404 Client Error: Not Found for url: {url}", response=response
-                )
-
-            response.raise_for_status = _raise
-            return response
-        return super().get(url, **kw)
-
-
-class _ReportsFailSession(_FakeSession):
-    """Like _FakeSession, but Personal's reports endpoint always 403s --
-    for the BLOCKER regression: a soft error while _find_report_token is
-    searching must propagate, not be mistaken for "report not found"."""
-
-    def get(self, url, **kw):
-        base_url = url.split("?")[0]
-        if base_url == f"{_WORKSPACE}/spaces/sp1/reports":
-            self.calls.append(url)
-            response = SimpleNamespace(status_code=403, text="mocked error body")
-
-            def _raise() -> None:
-                raise requests.HTTPError(
-                    f"403 Client Error: Forbidden for url: {url}", response=response
-                )
-
-            response.raise_for_status = _raise
-            return response
-        return super().get(url, **kw)
-
-
-class _QueriesFailSession(_FakeSession):
-    """Like _FakeSession, but QueryEdgeCasesReport's queries endpoint always
-    403s -- for the same BLOCKER regression, one resolver step later:
-    _find_query_token searching must also propagate a soft error rather
-    than reporting "query not found"."""
-
-    def get(self, url, **kw):
-        base_url = url.split("?")[0]
-        if base_url == f"{_WORKSPACE}/reports/r-qec/queries":
-            self.calls.append(url)
-            response = SimpleNamespace(status_code=403, text="mocked error body")
-
-            def _raise() -> None:
-                raise requests.HTTPError(
-                    f"403 Client Error: Forbidden for url: {url}", response=response
                 )
 
             response.raise_for_status = _raise
@@ -400,7 +269,15 @@ def _cfg(session=None, **over):
     )
     base.update(over)
     session = session or _FakeSession()
-    cfg = SimpleNamespace(get_mode_session=lambda: (session, _WORKSPACE), **base)
+    cfg = SimpleNamespace(
+        get_mode_session=lambda: (session, _WORKSPACE),
+        # Mirrors ModeConfig.space_filter_param (mode.py) -- _fetch_spaces
+        # (mode_probe.py) calls this the same way on a real ModeConfig.
+        space_filter_param=lambda: (
+            "custom" if base["exclude_personal_collections"] else "all"
+        ),
+        **base,
+    )
     cfg._session = session  # not read by mode_probe.py; exposed for assertions
     return cfg
 
@@ -445,18 +322,18 @@ def test_spaces_apply_space_pattern():
     assert by_name["Archive"].excluded_by == "space_pattern"
 
 
-def test_spaces_hierarchy_tests_the_same_raw_name_find_report_token_does():
+def test_spaces_hierarchy_tests_the_same_raw_name_space_token_does():
     # Regression guard: _spaces() used to report a null-named space by its
-    # DISPLAY name (token fallback), while _find_report_token already tested
-    # the raw name -- so a pattern denying the literal token string (e.g.
-    # "^sp7$") excluded the space from the hierarchy view but NOT from
-    # _find_report_token's search: the same physical space got two different
-    # verdicts depending which code path asked. sp7 (see _RESPONSES) has no
-    # "name" key at all. Both paths now test "" for it, so it can no longer
-    # be addressed by its token in the hierarchy either -- it surfaces as an
-    # unnamed, unaddressable node (probe.py's own convention for a lister
-    # that has no usable name to filter or descend into), not a
-    # space_pattern-excluded one.
+    # DISPLAY name (token fallback), while _space_token() (used to resolve a
+    # --parent value back to a space) already tested the raw name -- so a
+    # pattern denying the literal token string (e.g. "^sp7$") excluded the
+    # space from the hierarchy listing but NOT from resolution: the same
+    # physical space got two different verdicts depending which code path
+    # asked. sp7 (see _RESPONSES) has no "name" key at all. Both paths now
+    # test "" for it, so it can no longer be addressed by its token either --
+    # it surfaces as an unnamed, unaddressable node (probe.py's own
+    # convention for a lister with no usable name to filter or descend into),
+    # not a space_pattern-excluded one.
     cfg = _cfg(space_pattern=AllowDenyPattern(allow=[".*"], deny=["^sp7$"]))
     nodes = list_mode_children(cfg, [], 100).nodes
     unnamed = [n for n in nodes if n.name == UNNAMED]
@@ -506,13 +383,13 @@ def test_restricted_spaces_visible_by_default():
 def test_exclude_archived_hides_archived_reports():
     cfg = _cfg(exclude_archived=True)
     names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
-    assert names == {"DupReport"}
+    assert names == {"NewReport"}
 
 
 def test_archived_reports_visible_by_default():
     cfg = _cfg()  # exclude_archived defaults to False, matching ModeConfig
     names = {n.name for n in list_mode_children(cfg, ["SharedSpaceA"], 100).nodes}
-    assert names == {"DupReport", "OldReport"}
+    assert names == {"NewReport", "OldReport"}
 
 
 def test_datasets_404_degrades_to_empty_and_records_a_warning():
@@ -573,18 +450,19 @@ def test_requests_use_the_configured_timeout():
 
 
 def _method_probe(session=None, **cfg_over):
-    # Unlike _cfg() (used for the hierarchy/resolver tests above, which never
-    # touch a real ModeSource), report_queries/query_charts delegate their
-    # final fetch to a real ModeSource shim -- see ModeProbeSource.for_probe
-    # -- so this needs a real ModeConfig, matching what build_probe_provider
-    # passes in production.
+    # data_sources/definitions delegate their fetch to a real ModeSource shim
+    # -- see ModeSource.for_probe -- so this needs a real ModeConfig,
+    # matching what build_probe_provider passes in production. Builds a
+    # ModeProbeSource, not a plain ModeSource, matching what
+    # build_probe_provider actually returns (its __exit__ closes the ad hoc
+    # session -- see ModeProbeSource's docstring).
     session = session or _FakeSession()
     cfg = _real_config(**cfg_over)
     return ModeProbeSource.for_probe(cfg, session, _WORKSPACE)
 
 
 def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
-    # data_sources is now mode.py's own _get_data_sources_by_id, annotated in
+    # data_sources is mode.py's own _get_data_sources_by_id, annotated in
     # place -- no probe-side re-projection. Exact equality (not a subset
     # check) proves this is Mode's payload verbatim: username/host survive,
     # the adapter stays the raw "jdbc:..." string, and BigQuery's "database"
@@ -609,162 +487,23 @@ def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
             "host": "some-project-id",
             "username": "should-not-appear",
         },
-        34501: {
-            "id": "34501",
-            "token": "ds3",
-            "adapter": "jdbc:sqlserver",
-            "database": "analytics",
-            "host": "should-not-appear",
-        },
-        34502: {
-            "id": "34502",
-            "name": "VerticaConn",
-            "adapter": "jdbc:vertica",
-            "database": "mydb",
-        },
-        34503: {
-            "id": "34503",
-            "token": "ds5",
-            "adapter": "jdbc:made_up_adapter",
-            "database": "somedb",
-        },
     }
 
 
 def test_definitions_returns_raw_name_to_source_map():
-    # definitions is now mode.py's own _get_definitions_map, annotated in
-    # place -- the same {name: source} cache `{{@name}}` template expansion
-    # uses, so "description" is not returned even though Mode's API has one.
+    # definitions is mode.py's own _get_definitions_map, annotated in place --
+    # the same {name: source} cache `{{@name}}` template expansion uses, so
+    # "description" is not returned even though Mode's API has one.
     with _method_probe() as p:
         result = p._get_definitions_map()
     assert result == {"active_users": "SELECT user_id FROM users WHERE active"}
 
 
-def test_report_queries_resolves_report_name_across_spaces():
-    with _method_probe() as p:
-        result = p.report_queries(report="Weekly")
-    assert result == [{"name": "q_main", "sql": "select 1"}]
-
-
-def test_report_queries_raises_when_report_not_found():
-    # Not-found must be distinguishable from "this report has no queries" --
-    # returning [] here would be indistinguishable from that (and from a
-    # misspelling, or the report only existing in an out-of-scope space).
-    with _method_probe() as p:
-        with pytest.raises(ValueError, match="no report named 'Nonexistent'"):
-            p.report_queries(report="Nonexistent")
-
-
-def test_report_queries_raises_for_a_report_only_in_a_denied_space():
-    # "ArchiveOnlyReport" only exists in "Archive", which _cfg()'s
-    # space_pattern denies. This must be indistinguishable, from the caller's
-    # perspective, from any other not-found case -- not silently return [].
-    with _method_probe() as p:
-        with pytest.raises(ValueError, match="no report named 'ArchiveOnlyReport'"):
-            p.report_queries(report="ArchiveOnlyReport")
-
-
-def test_report_queries_raises_for_a_report_only_in_a_restricted_space():
-    with _method_probe(exclude_restricted=True) as p:
-        with pytest.raises(ValueError, match="no report named 'RestrictedOnlyReport'"):
-            p.report_queries(report="RestrictedOnlyReport")
-
-
-def test_report_queries_raises_on_ambiguous_report_name():
-    # "DupReport" lives in SharedSpaceA and SharedSpaceB, both in scope.
-    with _method_probe() as p:
-        with pytest.raises(
-            ValueError,
-            match="ambiguous report name 'DupReport'.*SharedSpaceA, SharedSpaceB",
-        ):
-            p.report_queries(report="DupReport")
-
-
-def test_report_queries_raises_probesofterror_not_not_found_on_a_soft_error_during_resolution():
-    # BLOCKER regression: a 403 while searching the spaces for the report
-    # must propagate as ProbeSoftError, not be caught and reported as "no
-    # report named 'Weekly' found ... check the spelling" -- that would tell
-    # the caller confidently their input is wrong when the truth is "I got a
-    # 403 and couldn't look."
-    with _method_probe(session=_ReportsFailSession()) as p:
-        with pytest.raises(ProbeSoftError):
-            p.report_queries(report="Weekly")
-
-
-def test_report_queries_tests_space_pattern_against_raw_name_not_display_name():
-    # mode.py's own space_pattern check (real ingestion) tests the raw "name"
-    # field with no token fallback -- unlike reports, where mode.py's own
-    # report_pattern check already uses the same name-or-token-or-"unknown"
-    # convention _display_name does (no divergence there). A space_pattern
-    # that denies the literal token string would wrongly exclude a
-    # null-named space if _display_name (which falls back to the token) were
-    # used for this filter test instead of mode.py's own "".
-    with _method_probe(
-        space_pattern=AllowDenyPattern(allow=[".*"], deny=["^sp7$"])
-    ) as p:
-        result = p.report_queries(report="NullSpaceReport")
-    assert result == []  # resolved successfully; no queries fixture for it
-
-
-def test_query_charts_resolves_report_and_query_to_tokens():
-    with _method_probe() as p:
-        result = p.query_charts(report="Weekly", query="q_main")
-    assert result == [{"title": "Revenue", "chart_type": "bar"}]
-
-
-def test_query_charts_raises_when_query_not_found():
-    # Symmetric with report resolution: an unresolvable query name must not
-    # be indistinguishable from "this query has no charts" -- an agent that
-    # mistypes a query name would otherwise get [] and conclude it drives no
-    # charts.
-    with _method_probe() as p:
-        with pytest.raises(ValueError, match="no query named 'Nonexistent'"):
-            p.query_charts(report="Weekly", query="Nonexistent")
-
-
-def test_query_charts_raises_on_ambiguous_query_name():
-    with _method_probe() as p:
-        with pytest.raises(ValueError, match="ambiguous query name 'DupQuery'"):
-            p.query_charts(report="QueryEdgeCasesReport", query="DupQuery")
-
-
-def test_query_charts_resolves_an_unnamed_query_by_its_token():
-    # _find_query_token matches on _display_name, which falls back to a
-    # query's token when its "name" is null (mode.py has the same
-    # name-or-token convention) -- so the token is itself a valid `query`.
-    with _method_probe() as p:
-        result = p.query_charts(report="QueryEdgeCasesReport", query="q-unnamed")
-    assert result == [{"title": "Untitled", "chart_type": "table"}]
-
-
-def test_find_query_token_matches_a_null_named_query_by_token():
-    # _find_query_token now fetches through a real ModeSource shim (see
-    # ModeSource.for_probe) rather than a bare (session, config, rate_limiter)
-    # tuple -- _real_config(), not _cfg()'s duck type, for the same reason
-    # _method_probe() below uses it.
-    cfg = _real_config()
-    session = _FakeSession()
-    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
-    token = _find_query_token(source, "r-qec", "q-unnamed")
-    assert token == "q-unnamed"
-
-
-def test_query_charts_raises_when_report_not_found():
-    with _method_probe() as p:
-        with pytest.raises(ValueError, match="no report named 'Nonexistent'"):
-            p.query_charts(report="Nonexistent", query="q_main")
-
-
-def test_query_charts_raises_probesofterror_not_not_found_when_query_resolution_soft_errors():
-    # Same BLOCKER regression, one resolver step later: a soft error while
-    # _find_query_token is searching the (already-resolved) report's queries
-    # must also propagate, not be reported as "no query named ... found".
-    with _method_probe(session=_QueriesFailSession()) as p:
-        with pytest.raises(ProbeSoftError):
-            p.query_charts(report="QueryEdgeCasesReport", query="DupQuery")
-
-
-def test_exit_closes_session():
+def test_probe_source_context_manager_closes_session():
+    # ModeProbeSource.__exit__ exists only for the probe's ad hoc session --
+    # a real ingestion run relies on ModeSource's own inherited (Closeable)
+    # __exit__, which closes its report, not its session (see
+    # ModeProbeSource's docstring).
     session = _FakeSession()
     probe = _method_probe(session=session)
     with probe:
@@ -776,9 +515,8 @@ def test_exit_closes_session():
 def test_data_sources_degrades_to_empty_dict_on_any_http_error(status_code):
     # _get_data_sources_by_id (mode.py) is annotated in place, not wrapped by
     # a probe-side soft/hard split -- so it keeps its own ingestion policy of
-    # degrading to {} on ANY HTTP error (not just 404/403 like the hierarchy
-    # probe's resolvers), reported to its own (ephemeral) ModeSourceReport
-    # rather than raising or appending to a `warnings` list.
+    # degrading to {} on ANY HTTP error (not just 404/403), reported to its
+    # own (ephemeral) ModeSourceReport rather than raising.
     with _method_probe(session=_StatusSession(status_code)) as p:
         assert p._get_data_sources_by_id() == {}
 
@@ -787,7 +525,7 @@ def test_get_embedded_paged_aggregates_multiple_pages():
     # _get_embedded_paged now fetches through a real ModeSource shim (see
     # ModeSource.for_probe) rather than a bare (session, config, rate_limiter)
     # tuple -- _real_config(), not _cfg()'s duck type, for the same reason
-    # _method_probe() below uses it.
+    # _method_probe() above uses it.
     source = ModeSource.for_probe(_real_config(), _TwoPageSession(), "https://x")
     result = _get_embedded_paged(
         source, "https://x/things?filter=all", "things", context="test"
@@ -813,8 +551,6 @@ def test_probe_methods_registered():
 
     # _iter_specs uses dir(), which includes inherited attributes -- so
     # data_sources/definitions (annotated on ModeSource itself) are found on
-    # ModeProbeSource too, alongside report_queries/query_charts (annotated
-    # here).
+    # ModeProbeSource too, the class build_probe_provider actually returns.
     commands = [c for c, _ in _iter_specs(ModeProbeSource)]
-    for expected in ["data_sources", "definitions", "report_queries", "query_charts"]:
-        assert expected in commands
+    assert commands == ["data_sources", "definitions"]
