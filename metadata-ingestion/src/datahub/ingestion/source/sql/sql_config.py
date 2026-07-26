@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Dict, FrozenSet, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 import pydantic
 from pydantic import Field, model_validator
@@ -161,7 +161,9 @@ class SQLCommonConfig(
 
         return list_sql_children(self, parent_path, limit)
 
-    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+    def probe_filter_target(
+        self, schema: str, entity: str, warn: Callable[[str], None]
+    ) -> Optional[str]:
         """Override point for a connector whose real Source doesn't extend
         SQLAlchemySource, so sql_probe.py's generic get_identifier shim (see
         sql_probe._identifier_target) has no get_identifier to call for it.
@@ -169,6 +171,13 @@ class SQLCommonConfig(
         against, or None (the default) to let that shim keep resolving it.
         Checked before the shim on every SQL Table-level node; see
         RedshiftConfig and UnityCatalogSourceConfig for the two overrides.
+
+        `warn` reports a degrade -- an override that cannot return its exact
+        ingestion identifier and is falling back to something less precise
+        (see UnityCatalogSourceConfig's override, the only one that calls it
+        today) -- onto the same ProbeResult.warnings list ProbeSoftError
+        feeds. It dedupes by message, so a connector-wide reason called once
+        per node classified in a level is only recorded once per probe call.
         """
         return None
 

@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, FrozenSet, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -272,7 +272,9 @@ class RedshiftConfig(
 
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
 
-    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+    def probe_filter_target(
+        self, schema: str, entity: str, warn: Callable[[str], None]
+    ) -> Optional[str]:
         # sql_probe.py's generic get_identifier shim (see sql_probe._identifier_target)
         # only reaches connectors whose real Source extends SQLAlchemySource.
         # RedshiftSource doesn't, so without this override the shim would fall
@@ -281,7 +283,8 @@ class RedshiftConfig(
         # redshift.py's table_pattern/view_pattern checks actually use (see
         # dataset_name above). `database` is a single required field here
         # (default "dev"), so -- unlike Unity Catalog's `catalogs` list --
-        # this always has an unambiguous answer.
+        # this always has an unambiguous answer; `warn` is unused because
+        # this override never degrades.
         return dataset_name(self.database, schema, entity)
 
     def probe_schema_verdict_override(self, schema: str) -> Optional[bool]:

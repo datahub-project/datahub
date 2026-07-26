@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -624,7 +624,9 @@ class UnityCatalogSourceConfig(
     def uses_table_level_profiler(self) -> bool:
         return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
 
-    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+    def probe_filter_target(
+        self, schema: str, entity: str, warn: Callable[[str], None]
+    ) -> Optional[str]:
         """sql_probe.py's generic get_identifier shim has no get_identifier to
         call for Unity Catalog: UnityCatalogSource doesn't extend
         SQLAlchemySource, and process_tables (source.py) actually matches
@@ -643,19 +645,15 @@ class UnityCatalogSourceConfig(
         Degrading to None (the shim's plain "schema.entity") is a real loss of
         accuracy versus ingestion's "catalog.schema.table" -- silently
         returning it would repeat the exact defect this stage exists to
-        remove, just for a different reason. So the degrade is recorded on
-        ProbeResult.warnings via sql_probe.py's shared fallback channel (the
-        same one its own get_identifier shim uses for its AttributeError
-        case), not just explained here in a docstring the agent never sees.
+        remove, just for a different reason. So the degrade is reported via
+        `warn`, which feeds the same ProbeResult.warnings list ProbeSoftError
+        does (see ClassifyContext.warn), not just explained here in a
+        docstring the agent never sees.
         """
         if self.catalogs is not None and len(self.catalogs) == 1:
             return qualified_table_name(self.catalogs[0], schema, entity)
 
-        # Lazy: keeps sql_probe's shim/engine machinery off this config
-        # module's import path; only needed on this degrade path.
-        from datahub.ingestion.source.sql.sql_probe import record_identifier_fallback
-
-        record_identifier_fallback(
+        warn(
             "unity-catalog: `catalogs` does not pin exactly one catalog, so "
             "table verdicts are matched against `schema.table` while "
             "ingestion matches `catalog.schema.table`; set a single catalog "

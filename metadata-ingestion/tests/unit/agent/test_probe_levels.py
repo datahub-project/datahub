@@ -111,6 +111,31 @@ def test_classify_override_beats_the_default_pattern_check():
     assert by_name["orders"].included is True
 
 
+def test_classify_warn_reaches_probe_result_and_dedupes_across_nodes():
+    """A classifier's ctx.warn(...) call is the channel a degrading
+    classifier (rather than one that raises ProbeSoftError) uses to report
+    why its verdict is less precise than usual -- see sql_probe.py's
+    identifier fallback and unity/config.py's ambiguous-catalog degrade, both
+    of which call it once per node classified. It must dedupe: a
+    connector-wide reason called for every one of three nodes here must
+    still land on ProbeResult.warnings only once."""
+
+    def classify(ctx):
+        ctx.warn("degraded: could not resolve an exact identifier")
+        return Verdict.include()
+
+    probe = _probe(
+        ProbeLevel(
+            DatasetSubTypes.TABLE,
+            "table_pattern",
+            _lister("orders", "sessions", "customers"),
+            classify=classify,
+        )
+    )
+    result = probe.list_children(_CFG, [], 100)
+    assert result.warnings == ["degraded: could not resolve an exact identifier"]
+
+
 def test_list_items_level_carries_per_item_kind_and_resolves_patterns():
     # A single listing yields both kinds; items with an explicit pattern_field
     # (BigQuery's real usage) pass it through unchanged, while items that leave

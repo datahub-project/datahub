@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
+    Set,
     Tuple,
 )
 
@@ -202,6 +203,12 @@ class ClassifyContext:
     pattern_field: Optional[str]
     # The container names already descended, top-first — the parent of this node.
     parent_path: Tuple[str, ...]
+    # Report that this node's classification degraded rather than raised (e.g.
+    # a connector couldn't resolve its exact ingestion identifier and matched
+    # on a less-precise stand-in instead). Feeds the same ProbeResult.warnings
+    # list ProbeSoftError does, deduplicated by list_children so a single
+    # connector-wide reason isn't appended once per node it's classified for.
+    warn: Callable[[str], None]
 
 
 # classify(ctx) -> Verdict
@@ -518,6 +525,7 @@ class ClientProbe:
         names: List[str],
         prefix: str,
         limit: int,
+        warn: Callable[[str], None],
     ) -> Tuple[List[ProbeNode], bool]:
         custom = level.classify
         target = level.filter_target
@@ -533,6 +541,7 @@ class ClientProbe:
                         fqn=node_fqn,
                         pattern_field=pattern_field,
                         parent_path=tuple(names),
+                        warn=warn,
                     )
                 )
             if target is not None:
@@ -542,6 +551,7 @@ class ClientProbe:
                     fqn=node_fqn,
                     pattern_field=pattern_field,
                     parent_path=tuple(names),
+                    warn=warn,
                 )
                 return pattern_verdict(config, pattern_field, target(ctx))
             return pattern_verdict(config, pattern_field, name)
@@ -566,6 +576,20 @@ class ClientProbe:
             nodes: List[ProbeNode] = []
             truncated = False
             warnings: List[str] = []
+            seen_warnings: Set[str] = set()
+
+            def warn(message: str) -> None:
+                # A classifier's degrade reason is connector-wide (e.g. "no
+                # single catalog pinned"), not per-node -- without this dedupe
+                # it would be appended once per node classified at this level
+                # (hundreds for a big schema), drowning out the genuinely
+                # distinct warnings in the same list. Scoped to this
+                # list_children() call via closure, so concurrent/nested
+                # calls cannot bleed warnings into each other.
+                if message not in seen_warnings:
+                    seen_warnings.add(message)
+                    warnings.append(message)
+
             for level in levels:
                 # Each sibling contributes its own kinds, patterns and classify.
                 # A level that raises ProbeSoftError (see its docstring)
@@ -574,7 +598,7 @@ class ClientProbe:
                 # reports its Datasets, rather than reporting nothing at all.
                 try:
                     nodes_from_level, level_truncated = self._nodes_for_level(
-                        level, client, config, names, prefix, limit
+                        level, client, config, names, prefix, limit, warn
                     )
                 except ProbeSoftError as exc:
                     warnings.append(str(exc))

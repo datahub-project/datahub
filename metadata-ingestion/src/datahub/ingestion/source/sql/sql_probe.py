@@ -1,7 +1,6 @@
-import contextvars
 import sys
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Protocol, Sequence, Type, cast
+from typing import Any, Dict, List, Protocol, Sequence, Type, cast
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
@@ -99,38 +98,6 @@ def _classify_container(ctx: ClassifyContext) -> Verdict:
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 
-# `_identifier_target` runs deep inside ClientProbe.list_children's per-node
-# classification, which has no return channel back up to the ProbeResult it is
-# building. A ContextVar (rather than a module-level list) keeps the fallback
-# reasons scoped to a single list_children() call, so concurrent/nested probe
-# calls cannot bleed warnings into each other.
-_identifier_fallback_warnings: "contextvars.ContextVar[Optional[List[str]]]" = (
-    contextvars.ContextVar("_identifier_fallback_warnings", default=None)
-)
-
-
-def record_identifier_fallback(message: str) -> None:
-    """Shared warning channel -- deliberately not underscore-prefixed, since
-    it's cross-module API: any config whose probe_filter_target degrades to
-    a less-precise target (not just this module's own AttributeError
-    fallback below) records the reason here, e.g.
-    UnityCatalogSourceConfig.probe_filter_target. Deduplicated because a
-    single connector-wide reason (e.g. "catalogs isn't pinned") would
-    otherwise be appended once per node classified in one list_children()
-    call, rather than once per call.
-    """
-    warnings = _identifier_fallback_warnings.get()
-    if warnings is not None and message not in warnings:
-        warnings.append(message)
-
-
-def _with_identifier_fallback_warnings(result: ProbeResult) -> ProbeResult:
-    collected = _identifier_fallback_warnings.get()
-    if collected:
-        result.warnings = [*result.warnings, *collected]
-    return result
-
-
 def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     """The Source class whose get_identifier() the probe should call for this
     config's Table level.
@@ -199,13 +166,12 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     isinstance(shim, source_cls) holds, since the shim IS an (uninitialized)
     instance of that class.
 
-    Falls back to the node's plain fqn, recording the reason as a probe
-    warning (see _with_identifier_fallback_warnings), when an override reaches
-    for source state normally set outside __init__ that this shim doesn't
-    carry (e.g. mssql's current_database, StarRocks's _current_catalog --
-    both primed below instead, since __init__'s own value for each is known
-    and cheap to reproduce; a case with no such known value would still land
-    here).
+    Falls back to the node's plain fqn, recording the reason via ctx.warn,
+    when an override reaches for source state normally set outside __init__
+    that this shim doesn't carry (e.g. mssql's current_database, StarRocks's
+    _current_catalog -- both primed below instead, since __init__'s own value
+    for each is known and cheap to reproduce; a case with no such known value
+    would still land here).
     """
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
     # getattr, not a direct call: every real SQLCommonConfig subclass declares
@@ -213,7 +179,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # bare SimpleNamespace carrying only the few attributes their test needs.
     probe_filter_target = getattr(ctx.config, "probe_filter_target", None)
     override = (
-        probe_filter_target(schema=schema, entity=ctx.name)
+        probe_filter_target(schema=schema, entity=ctx.name, warn=ctx.warn)
         if callable(probe_filter_target)
         else None
     )
@@ -259,10 +225,11 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         )
     except AttributeError as exc:
         # Message is connector-wide (source_cls + the missing attribute), not
-        # per-node: record_identifier_fallback dedupes on the message, so
-        # including ctx.fqn here would defeat that dedupe and flood
-        # ProbeResult.warnings with one near-identical entry per table.
-        record_identifier_fallback(
+        # per-node: ctx.warn dedupes on the message (see
+        # ClientProbe.list_children's warn closure), so including ctx.fqn here
+        # would defeat that dedupe and flood ProbeResult.warnings with one
+        # near-identical entry per table.
+        ctx.warn(
             f"{source_cls.__name__}.get_identifier needs source state the "
             f"probe doesn't have ({exc}); using the plain fqn as the filter "
             "target instead"
@@ -312,20 +279,10 @@ TWO_TIER_PROBE_HIERARCHY: List[ProbeNodeKind] = TWO_TIER_PROBE.hierarchy()
 
 
 def list_sql_children(config: Any, parent_path: List[str], limit: int) -> ProbeResult:
-    token = _identifier_fallback_warnings.set([])
-    try:
-        result = SQL_PROBE.list_children(config, parent_path, limit)
-        return _with_identifier_fallback_warnings(result)
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    return SQL_PROBE.list_children(config, parent_path, limit)
 
 
 def list_two_tier_children(
     config: Any, parent_path: List[str], limit: int
 ) -> ProbeResult:
-    token = _identifier_fallback_warnings.set([])
-    try:
-        result = TWO_TIER_PROBE.list_children(config, parent_path, limit)
-        return _with_identifier_fallback_warnings(result)
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    return TWO_TIER_PROBE.list_children(config, parent_path, limit)

@@ -24,6 +24,7 @@ def test_dotted_database_reaches_is_schema_allowed(monkeypatch):
         fqn="MY.DB.PUBLIC",
         pattern_field="schema_pattern",
         parent_path=("MY.DB",),
+        warn=lambda message: None,
     )
     assert snowflake_probe._classify_schema(ctx) == Verdict.include()
     assert captured["db"] == "MY.DB"  # not "MY"

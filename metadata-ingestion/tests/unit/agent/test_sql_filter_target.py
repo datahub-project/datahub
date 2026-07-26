@@ -1,25 +1,48 @@
 from types import SimpleNamespace
+from typing import Any, Callable, List
 
 from datahub.ingestion.agent.probe import ClassifyContext
 from datahub.ingestion.source.sql.sql_probe import (
     _classify_container,
-    _identifier_fallback_warnings,
     _identifier_target,
     _shim_inspector,
 )
 
 
-def _ctx(config, schema, entity):
+def _ignore_warn(message: str) -> None:
+    """Default `warn` sink for tests that don't exercise a degrade path."""
+
+
+class _WarningCollector:
+    """Test-only `warn` sink mirroring ClientProbe.list_children's dedup, so a
+    unit test can assert on collected messages without going through a real
+    probe call."""
+
+    def __init__(self) -> None:
+        self.messages: List[str] = []
+
+    def __call__(self, message: str) -> None:
+        if message not in self.messages:
+            self.messages.append(message)
+
+
+def _ctx(
+    config: Any,
+    schema: str,
+    entity: str,
+    warn: Callable[[str], None] = _ignore_warn,
+) -> ClassifyContext:
     return ClassifyContext(
         config=config,
         name=entity,
         fqn=f"{schema}.{entity}",
         pattern_field="table_pattern",
         parent_path=(schema,),
+        warn=warn,
     )
 
 
-def _container_ctx(config, schema):
+def _container_ctx(config: Any, schema: str) -> ClassifyContext:
     # The Schema level is the top of the (schema-top) SQL_PROBE hierarchy, so
     # it has no parent -- ctx.parent_path is empty and ctx.fqn is just the
     # bare schema name, mirroring how ClientProbe._nodes_for_level builds it.
@@ -29,6 +52,7 @@ def _container_ctx(config, schema):
         fqn=schema,
         pattern_field="schema_pattern",
         parent_path=(),
+        warn=_ignore_warn,
     )
 
 
@@ -153,27 +177,23 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 
     config = StarRocksConfig()
-    ctx = _ctx(config, "analytics", "orders")
-    token = _identifier_fallback_warnings.set([])
-    try:
-        assert _identifier_target(ctx) == "default_catalog.analytics.orders"
-        assert _identifier_fallback_warnings.get() == []
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    ctx = _ctx(config, "analytics", "orders", warn=warn)
+    assert _identifier_target(ctx) == "default_catalog.analytics.orders"
+    assert warn.messages == []
 
 
 def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypatch):
-    """Regression guard: record_identifier_fallback dedupes on message
-    identity (see its docstring: "once per call, not once per node"), but an
-    earlier version of this message embedded ctx.fqn, which is different for
-    every node -- defeating the dedupe and, per a whole-plan review, flooding
-    ProbeResult.warnings with one near-identical entry per table (measured:
-    200 for 200 StarRocks tables, before StarRocks itself was fixed to no
-    longer hit this path at all -- see
-    test_starrocks_shim_primes_current_catalog_to_its_init_state above).
-    Faking the AttributeError here (rather than relying on a real connector)
-    keeps this test valid regardless of which real connectors do or don't
-    exercise the fallback at any given time.
+    """Regression guard: ctx.warn dedupes on message identity (see
+    ClientProbe.list_children's warn closure), but an earlier version of this
+    message embedded ctx.fqn, which is different for every node -- defeating
+    the dedupe and, per a whole-plan review, flooding ProbeResult.warnings
+    with one near-identical entry per table (measured: 200 for 200 StarRocks
+    tables, before StarRocks itself was fixed to no longer hit this path at
+    all -- see test_starrocks_shim_primes_current_catalog_to_its_init_state
+    above). Faking the AttributeError here (rather than relying on a real
+    connector) keeps this test valid regardless of which real connectors do
+    or don't exercise the fallback at any given time.
     """
     import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 
@@ -186,20 +206,16 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
     )
     config = SimpleNamespace(get_sql_alchemy_url=lambda: "sqlite://")
 
-    token = _identifier_fallback_warnings.set([])
-    try:
-        for entity in ("orders", "sessions", "customers"):
-            ctx = _ctx(config, "public", entity)
-            # Falls back to the plain fqn for every node -- this assertion
-            # doesn't change; only how many warnings that produces does.
-            assert _identifier_target(ctx) == ctx.fqn
-        warnings = _identifier_fallback_warnings.get()
-        # Before this fix: 3 distinct messages (one per fqn). After: 1.
-        assert warnings is not None and len(warnings) == 1
-        assert "_FakeSource" in warnings[0]
-        assert "_never_set" in warnings[0]
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    for entity in ("orders", "sessions", "customers"):
+        ctx = _ctx(config, "public", entity, warn=warn)
+        # Falls back to the plain fqn for every node -- this assertion
+        # doesn't change; only how many warnings that produces does.
+        assert _identifier_target(ctx) == ctx.fqn
+    # Before this fix: 3 distinct messages (one per fqn). After: 1.
+    assert len(warn.messages) == 1
+    assert "_FakeSource" in warn.messages[0]
+    assert "_never_set" in warn.messages[0]
 
 
 def test_redshift_probe_filter_target_includes_the_database_segment():
@@ -231,14 +247,11 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
             "catalogs": ["main"],
         }
     )
-    token = _identifier_fallback_warnings.set([])
-    try:
-        assert _identifier_target(_ctx(config, "public", "orders")) == (
-            "main.public.orders"
-        )
-        assert _identifier_fallback_warnings.get() == []
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    assert _identifier_target(_ctx(config, "public", "orders", warn=warn)) == (
+        "main.public.orders"
+    )
+    assert warn.messages == []
 
 
 def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
@@ -255,17 +268,13 @@ def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog
     no_catalogs = UnityCatalogSourceConfig.model_validate(
         {"token": "token", "workspace_url": "https://workspace_url"}
     )
-    token = _identifier_fallback_warnings.set([])
-    try:
-        assert _identifier_target(_ctx(no_catalogs, "public", "orders")) == (
-            "public.orders"
-        )
-        warnings = _identifier_fallback_warnings.get()
-        assert warnings is not None and len(warnings) == 1
-        assert "unity-catalog" in warnings[0]
-        assert "catalogs" in warnings[0]
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    assert _identifier_target(_ctx(no_catalogs, "public", "orders", warn=warn)) == (
+        "public.orders"
+    )
+    assert len(warn.messages) == 1
+    assert "unity-catalog" in warn.messages[0]
+    assert "catalogs" in warn.messages[0]
 
     several_catalogs = UnityCatalogSourceConfig.model_validate(
         {
@@ -274,36 +283,28 @@ def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog
             "catalogs": ["main", "other"],
         }
     )
-    token = _identifier_fallback_warnings.set([])
-    try:
-        assert _identifier_target(_ctx(several_catalogs, "public", "orders")) == (
-            "public.orders"
-        )
-        warnings = _identifier_fallback_warnings.get()
-        assert warnings is not None and len(warnings) == 1
-        assert "unity-catalog" in warnings[0]
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    assert _identifier_target(
+        _ctx(several_catalogs, "public", "orders", warn=warn)
+    ) == ("public.orders")
+    assert len(warn.messages) == 1
+    assert "unity-catalog" in warn.messages[0]
 
 
 def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
     """A single connector-wide reason must not be appended once per node
-    classified in one list_children() call -- see record_identifier_fallback's
-    dedup. Simulates classifying two different tables under the same
+    classified in one list_children() call -- see ClientProbe.list_children's
+    warn dedup. Simulates classifying two different tables under the same
     ambiguous config within one probe call."""
     from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     config = UnityCatalogSourceConfig.model_validate(
         {"token": "token", "workspace_url": "https://workspace_url"}
     )
-    token = _identifier_fallback_warnings.set([])
-    try:
-        _identifier_target(_ctx(config, "public", "orders"))
-        _identifier_target(_ctx(config, "public", "sessions"))
-        warnings = _identifier_fallback_warnings.get()
-        assert warnings is not None and len(warnings) == 1
-    finally:
-        _identifier_fallback_warnings.reset(token)
+    warn = _WarningCollector()
+    _identifier_target(_ctx(config, "public", "orders", warn=warn))
+    _identifier_target(_ctx(config, "public", "sessions", warn=warn))
+    assert len(warn.messages) == 1
 
 
 def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():

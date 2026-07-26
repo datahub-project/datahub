@@ -3,7 +3,12 @@ from types import SimpleNamespace
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel, ProbeSoftError
+from datahub.ingestion.agent.probe import (
+    ClientProbe,
+    ProbeLevel,
+    ProbeSoftError,
+    Verdict,
+)
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     DatasetContainerSubTypes,
@@ -89,6 +94,48 @@ def test_a_sibling_level_raising_probesofterror_degrades_without_losing_others()
     result = probe.list_children(_cfg(), ["ws1"], 100)
     assert [n.name for n in result.nodes] == ["r1", "r2"]
     assert result.warnings == ["dashboards listing for 'ws1' returned HTTP 403"]
+
+
+def test_classify_warn_dedupes_and_shares_the_warnings_list_with_soft_errors():
+    """ctx.warn(...) is the second way a level can degrade rather than fail
+    outright (the first is raising ProbeSoftError): a classifier that
+    resolved every node's verdict but had to fall back to a less-precise
+    match target for all of them (see sql_probe.py's identifier fallback,
+    unity/config.py's ambiguous-catalog degrade) reports that reason through
+    ctx.warn instead. Both channels feed the same ProbeResult.warnings list,
+    and the classify-side one must dedupe a connector-wide reason across
+    every node it's invoked for (here, twice -- once per Report) rather than
+    repeating it once per node."""
+
+    def _reports_classify(ctx):
+        ctx.warn("reports: identifier degraded to the bare fqn")
+        return Verdict.include()
+
+    def _dashboards_403(client, config, parent_path):
+        raise ProbeSoftError("dashboards listing for 'ws1' returned HTTP 403")
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(WORKSPACE, "folder_pattern", _names("ws1")),
+            ProbeLevel(
+                REPORT,
+                "report_pattern",
+                _names("r1", "r2"),
+                parent=WORKSPACE,
+                classify=_reports_classify,
+            ),
+            ProbeLevel(
+                DASHBOARD, "dashboard_pattern", _dashboards_403, parent=WORKSPACE
+            ),
+        ],
+    )
+    result = probe.list_children(_cfg(), ["ws1"], 100)
+    assert [n.name for n in result.nodes] == ["r1", "r2"]
+    assert result.warnings == [
+        "reports: identifier degraded to the bare fqn",
+        "dashboards listing for 'ws1' returned HTTP 403",
+    ]
 
 
 def test_descending_into_an_ambiguous_sibling_requires_a_qualifier():
