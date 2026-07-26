@@ -7,7 +7,7 @@ import requests
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe import ProbeSoftError
-from datahub.ingestion.source.mode import ModeAPIConfig
+from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
     ModeMetadataProbe,
@@ -122,8 +122,14 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
         ]
     },
     f"{_WORKSPACE}/data_sources": {
+        # Every entry needs a unique "id" -- like a real Mode payload (see
+        # tests/integration/mode/setup/data_sources.json) -- since
+        # source._get_data_sources_by_id() (mode.py) indexes this listing by
+        # int(id) for O(1) lookup; entries sharing a (missing) id would
+        # collide and silently overwrite each other in that dict.
         "data_sources": [
             {
+                "id": "34499",
                 "name": "PostgreSQL",
                 "adapter": "jdbc:postgresql",
                 "database": "dvdrental",
@@ -133,6 +139,7 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "username": "postgres",
             },
             {
+                "id": "34500",
                 "name": "BigQueryConn",
                 "adapter": "jdbc:bigquery",
                 # BigQuery's raw "database" is always the literal "default";
@@ -142,6 +149,7 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "username": "should-not-appear",
             },
             {
+                "id": "34501",
                 # No "name" at all -- _display_name must fall back to token.
                 "token": "ds3",
                 "adapter": "jdbc:sqlserver",
@@ -149,6 +157,7 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "host": "should-not-appear",
             },
             {
+                "id": "34502",
                 # An adapter MODE_ADAPTER_PLATFORM_MAP doesn't recognize --
                 # the fallback must be the data source's own name, not the
                 # raw adapter string (which is neither a valid DataHub
@@ -188,6 +197,15 @@ class _FakeSession:
         self.calls = []
         self.timeouts = []
         self.closed = False
+        # mode.py's own _get_request_json (unlike fetch_json's narrower
+        # ModeApiSession Protocol) logs a curl-equivalent via
+        # make_curl_command before every request, which reads session.headers
+        # and session.auth directly -- data_sources/definitions/report_queries/
+        # query_charts now go through it (see ModeSource.for_probe), so every
+        # session fake used with _method_probe needs both attributes, not
+        # just get()/close().
+        self.headers: Dict[str, str] = {}
+        self.auth = None
 
     def get(self, url, **kw):
         self.calls.append(url)
@@ -274,6 +292,9 @@ class _StatusSession:
     def __init__(self, status_code: int):
         self._status_code = status_code
         self.closed = False
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
 
     def get(self, url, **kw):
         response = SimpleNamespace(
@@ -361,6 +382,29 @@ def _cfg(session=None, **over):
     cfg = SimpleNamespace(get_mode_session=lambda: (session, _WORKSPACE), **base)
     cfg._session = session  # not part of ModeProbeConfig; exposed for assertions
     return cfg
+
+
+def _real_config(**over):
+    """A real ModeConfig (not _cfg()'s duck-typed SimpleNamespace), for the
+    method-probe tests below: ModeSource.for_probe() takes the concrete
+    ModeConfig -- the same type build_probe_provider passes in production --
+    since its shim's `.config` is read by mode.py's own _get_request_json
+    (self.config.api_options.*), not just by mode_probe.py's module-level
+    resolvers (which accept the lighter ModeProbeConfig Protocol instead)."""
+    base: Dict[str, Any] = dict(
+        token="test-token",
+        password="test-password",
+        workspace="acryltest",
+        space_pattern=AllowDenyPattern(allow=[".*"], deny=["^Archive$"]),
+        report_pattern=AllowDenyPattern.allow_all(),
+        items_per_page=100,
+        exclude_personal_collections=False,
+        exclude_restricted=False,
+        exclude_archived=False,
+        api_options=_api_options(),
+    )
+    base.update(over)
+    return ModeConfig(**base)
 
 
 def test_mode_shape_branches_under_space():
@@ -477,8 +521,15 @@ def test_requests_use_the_configured_timeout():
 
 
 def _method_probe(session=None, **cfg_over):
-    cfg = _cfg(session=session, **cfg_over)
-    return ModeMetadataProbe(cfg._session, _WORKSPACE, config=cfg)
+    # Unlike _cfg() (used for the hierarchy/resolver tests above, which never
+    # touch a real ModeSource), these four getters delegate their final fetch
+    # to ModeSource.for_probe()'s shim -- see ModeMetadataProbe.__init__ --
+    # so this needs a real ModeConfig, matching what build_probe_provider
+    # passes in production.
+    session = session or _FakeSession()
+    cfg = _real_config(**cfg_over)
+    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
+    return ModeMetadataProbe(source, config=cfg)
 
 
 def test_data_sources_projects_named_fields_only():
@@ -499,13 +550,17 @@ def test_data_sources_projects_named_fields_only():
     ]
 
 
-def test_definitions_projects_name_description_and_source():
+def test_definitions_projects_name_and_source():
+    # No "description" key: this getter delegates to mode.py's own
+    # _get_definitions_map(), which only tracks {name: source} (all it needs
+    # to expand `{{@name}}` template references) -- so a description present
+    # in the raw fixture is dropped before it ever reaches this getter, not
+    # projected away here.
     with _method_probe() as p:
         result = p.definitions()
     assert result == [
         {
             "name": "active_users",
-            "description": "Users active in 30d",
             "source": "SELECT user_id FROM users WHERE active",
         }
     ]
@@ -650,26 +705,33 @@ def test_data_sources_degrades_to_empty_on_403():
         assert p.data_sources() == []
 
 
-def test_data_sources_raises_on_401_auth_failure():
+def test_data_sources_degrades_to_empty_on_401_auth_failure():
+    # Unlike the probe's own name-resolution helpers (_get_embedded/
+    # _get_embedded_paged, which only soft-degrade 404/403 and hard-raise
+    # anything else -- see _raise_soft_or_hard), this getter delegates
+    # straight to mode.py's own _get_data_sources_by_id(), which catches
+    # every ModeRequestError (any HTTP/JSON error, not just 404/403) and
+    # degrades to an empty result -- mode.py's own, more lenient policy,
+    # matching what a real ingestion run of this recipe would do. So a 401
+    # here degrades too, rather than raising.
     with _method_probe(session=_StatusSession(401)) as p:
-        with pytest.raises(requests.HTTPError):
-            p.data_sources()
+        assert p.data_sources() == []
 
 
-def test_data_sources_raises_on_500():
+def test_data_sources_degrades_to_empty_on_500():
     with _method_probe(session=_StatusSession(500)) as p:
-        with pytest.raises(requests.HTTPError):
-            p.data_sources()
+        assert p.data_sources() == []
 
 
 def test_data_sources_records_a_warning_when_it_degrades_on_a_soft_error():
     # The provider's own `warnings` attribute is what run_probe_method reads
     # back into ProbeMethodResult.warnings (see test_probe_methods.py) -- a
-    # 403 degrading data_sources() to [] must be visible there, not just
+    # 404 degrading data_sources() to [] must be visible there, not just
     # logged to stderr.
     session = _StatusSession(404)
-    cfg = _cfg(session=session)
-    probe = ModeMetadataProbe(session, _WORKSPACE, config=cfg)
+    cfg = _real_config()
+    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
+    probe = ModeMetadataProbe(source, config=cfg)
     with probe as p:
         assert p.data_sources() == []
     assert len(probe.warnings) == 1

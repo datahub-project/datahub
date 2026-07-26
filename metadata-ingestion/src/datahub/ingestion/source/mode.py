@@ -373,7 +373,8 @@ class ModeConfig(
         from datahub.ingestion.source.mode_probe import ModeMetadataProbe
 
         session, workspace_uri = self.get_mode_session()
-        return ModeMetadataProbe(session, workspace_uri, config=self)
+        source = ModeSource.for_probe(self, session, workspace_uri)
+        return ModeMetadataProbe(source, config=self)
 
 
 class HTTPError429(HTTPError):
@@ -606,6 +607,57 @@ class ModeSource(StatefulIngestionSourceBase):
             return
 
         self.space_tokens = self._get_space_name_and_tokens()
+
+    @classmethod
+    def for_probe(
+        cls,
+        config: ModeConfig,
+        session: ModeApiSession,
+        workspace_uri: str,
+    ) -> "ModeSource":
+        """An uninitialized ModeSource carrying only the state its four
+        metadata-only fetchers (_get_data_sources_by_id, _get_definitions_map,
+        _get_queries, _get_charts) read: config, session, workspace_uri, a
+        fresh ModeSourceReport, a rate limiter sized from the recipe's own
+        api_options, and the two caches those fetchers populate lazily. Used
+        by ModeConfig.build_probe_provider() so mode_probe.py's
+        ModeMetadataProbe calls these connector methods directly instead of
+        re-implementing them.
+
+        Built via __new__ (bypassing __init__ entirely) rather than calling
+        __init__ with a dummy PipelineContext: __init__ opens its own
+        session, hits /api/verify to test the connection, and resolves
+        space_tokens for ingestion -- all side effects a read-only probe
+        doesn't want repeated (build_probe_provider already built session/
+        workspace_uri once via config.get_mode_session()) and has no
+        PipelineContext to perform anyway.
+
+        setattr (not a plain assignment) for `session`: ModeSource's own
+        __init__ assigns it from config.get_mode_session(), so mypy infers
+        its declared type as the concrete requests.Session -- but this
+        factory (like fetch_json) must also accept the duck-typed session
+        fakes tests use, typed via the structural ModeApiSession Protocol.
+        Every other attribute's declared type is met exactly by what's
+        assigned here, so those use plain assignment.
+
+        Note for test doubles: _get_request_json (which all four fetchers
+        call through) logs a curl-equivalent via make_curl_command before
+        every request, which reads session.headers and session.auth
+        directly -- neither is part of ModeApiSession (fetch_json itself
+        never touches them), so a session fake needs both attributes too,
+        not just get()/close().
+        """
+        shim = cls.__new__(cls)
+        shim.config = config
+        setattr(shim, "session", session)  # noqa: B010
+        shim.workspace_uri = workspace_uri
+        shim.report = ModeSourceReport()
+        shim.rate_limiter = RateLimiter(
+            max_calls=config.api_options.requests_per_minute, period=60
+        )
+        shim._data_sources_by_id_cache = None
+        shim._definitions_map_cache = None
+        return shim
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:
         # TODO: Use containers for the workspace?
