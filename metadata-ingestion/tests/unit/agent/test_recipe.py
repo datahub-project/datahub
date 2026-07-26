@@ -1,6 +1,8 @@
+from typing import Dict
+
 import pytest
 
-from datahub.ingestion.agent.recipe import scaffold, validate_recipe
+from datahub.ingestion.agent.recipe import explain, scaffold, validate_recipe
 
 
 def test_scaffold_uses_secret_refs():
@@ -58,3 +60,31 @@ def test_validate_unknown_source_type_no_crash():
     )
     assert result["valid"] is False
     assert result["errors"]
+
+
+def test_explain_reports_plural_pattern_field_name():
+    # Kafka's filter field is named topic_patterns (plural), which the old
+    # `k.endswith("_pattern")` string check missed entirely -- describe_source's
+    # FieldKind.PATTERN classification catches it because it asks the connector's
+    # own config class, not a naming convention.
+    pytest.importorskip("confluent_kafka")
+    recipe: Dict[str, object] = {
+        "source": {
+            "type": "kafka",
+            "config": {
+                "connection": {"bootstrap": "localhost:9092"},
+                "topic_patterns": {"allow": [".*"]},
+            },
+        }
+    }
+    result = explain(recipe)
+    assert result["active_filters"] == ["topic_patterns"]
+    assert result["config_keys"] == ["connection", "topic_patterns"]
+
+
+def test_explain_unknown_source_type_no_crash():
+    result = explain(
+        {"source": {"type": "this-source-does-not-exist", "config": {"x": 1}}}
+    )
+    assert result["active_filters"] == []
+    assert result["config_keys"] == ["x"]

@@ -90,9 +90,23 @@ def explain(recipe: Dict[str, object]) -> Dict[str, object]:
     config = source.get("config") or {}
     if not isinstance(config, dict):
         config = {}
-    active_filters = [k for k in config if k.endswith("_pattern")]
+    source_type = source.get("type")
+    # Ask the connector's own config class which fields are AllowDenyPatterns
+    # (describe_source's FieldKind.PATTERN) rather than guessing from the field
+    # name -- catches plural names (topic_patterns) and Annotated[..., Filters(...)]
+    # fields the "_pattern" suffix convention misses.
+    active_filters: List[str] = []
+    if isinstance(source_type, str):
+        try:
+            spec = describe_source(source_type)
+            pattern_fields = {
+                f.name for f in spec.fields if f.kind == FieldKind.PATTERN
+            }
+        except (ValueError, TypeError, AssertionError, KeyError):
+            pattern_fields = set()
+        active_filters = sorted(pattern_fields & set(config))
     return {
-        "source_type": source.get("type"),
+        "source_type": source_type,
         "active_filters": active_filters,
         "config_keys": sorted(config.keys()),
     }
