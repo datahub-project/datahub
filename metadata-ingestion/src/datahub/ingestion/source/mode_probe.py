@@ -299,18 +299,36 @@ def _spaces(
 def _reports(
     client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    space_token = _space_token(client, parent_path[0])
+    space_name = parent_path[0]
+    space_token = _space_token(client, space_name)
     if space_token is None:
-        return []
+        # A typo'd/unresolvable --parent must not look identical to "this
+        # space genuinely has no reports": raise so ClientProbe.list_children
+        # records a warning instead of silently reporting an empty level. The
+        # sibling Dataset level resolves the same parent independently (see
+        # _datasets), so this level's failure alone must not abort it --
+        # ProbeSoftError, not a bare exception, is what buys that (caught
+        # per-level, not per-call).
+        raise ProbeSoftError(
+            f"no space named '{space_name}' found among this workspace's "
+            f"spaces; cannot list its reports"
+        )
     return [_display_name(r) for r in _fetch_reports(client, space_token)]
 
 
 def _datasets(
     client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    space_token = _space_token(client, parent_path[0])
+    space_name = parent_path[0]
+    space_token = _space_token(client, space_name)
     if space_token is None:
-        return []
+        # See _reports' identical rationale: this level (Dataset) resolves
+        # the same parent name independently of its Report sibling, so it
+        # must report its own warning rather than a false empty listing.
+        raise ProbeSoftError(
+            f"no space named '{space_name}' found among this workspace's "
+            f"spaces; cannot list its datasets"
+        )
     # Paginated with ?filter=all, same as _fetch_reports — mode.py:1701-1708
     # fetches this identically (per_page/page walk + filter=all). And despite
     # the "/datasets" path, Mode embeds the listing under the "reports" HAL
@@ -322,7 +340,7 @@ def _datasets(
         client,
         url,
         "reports",
-        context=f"datasets listing for space '{parent_path[0]}'",
+        context=f"datasets listing for space '{space_name}'",
     )
     return [_display_name(dataset) for dataset in datasets]
 
@@ -333,10 +351,16 @@ def _queries(
     space_name, report_name = parent_path[0], parent_path[1]
     space_token = _space_token(client, space_name)
     if space_token is None:
-        return []
+        raise ProbeSoftError(
+            f"no space named '{space_name}' found among this workspace's "
+            f"spaces; cannot list queries under it"
+        )
     report_token = _report_token(client, space_token, report_name)
     if report_token is None:
-        return []
+        raise ProbeSoftError(
+            f"no report named '{report_name}' found in space '{space_name}'; "
+            f"cannot list its queries"
+        )
     url = f"{client.workspace_uri}/reports/{report_token}/queries"
     queries = _get_embedded(
         client,

@@ -531,6 +531,18 @@ def test_datasets_404_degrades_to_empty_and_records_a_warning():
     assert "404" in result.warnings[0]
 
 
+def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
+    # Regression guard: a typo'd --parent must not look identical to "this
+    # space genuinely has no reports/datasets" -- both sibling levels resolve
+    # the same parent name independently, so each contributes its own
+    # warning (see _reports/_datasets) instead of the call quietly returning
+    # nodes=[], warnings=[].
+    result = list_mode_children(_cfg(), ["NoSuchSpace"], 100)
+    assert result.nodes == []
+    assert len(result.warnings) == 2
+    assert all("NoSuchSpace" in w for w in result.warnings)
+
+
 def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
     cfg = _cfg(exclude_personal_collections=False)
     list_mode_children(cfg, [], 100)

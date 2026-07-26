@@ -130,7 +130,66 @@ Follow these steps in sequence:
    datahub recipe probe list --recipe <recipe.yml> --parent 'Report:my_report'
    ```
 
-6. **Test Connection** — Verify connectivity
+6. **Probe Methods** — call a metadata getter
+
+   `probe shape`/`probe list` tell you what containers exist. `probe methods`/
+   `probe run` are the other half: point getters that return one specific
+   piece of structural metadata (columns, DDL, constraints, topic config,
+   report SQL, ...) for a container you already found by walking the
+   hierarchy, or already know the name of.
+
+   First, discover what this source offers — connection-free, like `probe shape`:
+   ```bash
+   datahub recipe probe methods --recipe <recipe.yml>
+   ```
+   Each entry lists a `command`, its `params` (name, type, required, default),
+   and a `description`. **The description is the getter's own docstring** —
+   the full help text a human or agent reads to decide which method to call
+   and how — so it is not duplicated here: call `probe methods` against your
+   actual source rather than assuming a getter's parameters or behavior from
+   this file, since docstrings can change independently of this doc.
+
+   Then call one:
+   ```bash
+   datahub recipe probe run <command> --recipe <recipe.yml> [--param value ...]
+   ```
+   One example per family:
+   ```bash
+   # SQL-family (Postgres, MySQL, Redshift, Snowflake, BigQuery, Unity Catalog):
+   # columns of a table found via `probe list`
+   datahub recipe probe run columns --recipe <recipe.yml> --schema my_schema --table my_table
+
+   # Kafka: broker-side config for one topic
+   datahub recipe probe run topic_config --recipe <recipe.yml> --topic my_topic
+
+   # Mode: the queries inside one report (name comes from `probe list`; no --parent needed)
+   datahub recipe probe run report_queries --recipe <recipe.yml> --report "My Report"
+   ```
+
+   **Exit codes** — branch on these, not on message text:
+   - `0` — the getter ran and produced a result. Still check `warnings` (below) before treating an empty/partial result as "confirmed empty."
+   - `1` — internal error (a CLI bug); report it rather than retrying with different arguments.
+   - `2` — your input was wrong: an unknown command, a missing/mistyped `--param`, or a name that couldn't be resolved — misspelled, out of scope, or **ambiguous** (the same name resolves to more than one object, e.g. two Mode reports of that name in different spaces). Fix the input and retry.
+   - `3` — the getter's own connection/backend call failed (auth, timeout, a 5xx from the source, or a name search that couldn't complete because a sub-request failed) — not your input's fault; check credentials/connectivity, not spelling.
+
+   **`warnings`:** both `probe list` and `probe run` output carry a `warnings`
+   list. A non-empty `warnings` alongside an empty or partial `nodes`/`result`
+   means *a sub-fetch could not be read cleanly* — a 403 on one endpoint, an
+   object deleted between listing and fetch — **not** that the thing you
+   asked about doesn't exist. Only an empty result with an empty `warnings`
+   list means "confirmed empty"; don't conflate the two.
+
+   A getter that needs to resolve a name (e.g. Mode's `report` parameter)
+   **raises** rather than returning `[]` for a name it cannot resolve — exit
+   `2` for not-found/ambiguous, exit `3` if the search itself couldn't
+   complete. So `[]` from a getter always means the object was found and is
+   genuinely empty, never "I couldn't find it."
+
+   Like every probe command, this returns **metadata only** — names, types,
+   DDL, constraints, counts, SQL text — never table rows, cell values, or
+   message payloads.
+
+7. **Test Connection** — Verify connectivity
    ```bash
    datahub recipe test-connection --recipe <recipe.yml>
    ```
@@ -150,7 +209,7 @@ Follow these steps in sequence:
 - `1` — Internal error (CLI bug, unexpected state)
 
 **Live Probe Support:**
-- `probe shape` + `probe list` are source-agnostic — they follow whatever levels a connector declares, not a fixed SQL-shaped set of flags. Live probes work for SQL-family sources (any connector with `get_sql_alchemy_url()` in its config: Postgres, MySQL, Redshift, Snowflake, etc.) and for non-SQL sources that reuse their own client (not raw HTTP): **Kafka** lists topics (filtered by `topic_patterns`); **ThoughtSpot** lists Worksheets → Columns via its REST client (filtered by `worksheet_pattern`). Any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
+- `probe shape` + `probe list` are source-agnostic — they follow whatever levels a connector declares, not a fixed SQL-shaped set of flags. Live probes work for SQL-family sources (any connector with `get_sql_alchemy_url()` in its config: Postgres, MySQL, Redshift, Snowflake, BigQuery, Unity Catalog, etc.) and for non-SQL sources that reuse their own client (not raw HTTP): **Kafka** lists Topics, filtered by `topic_patterns`. **Mode** lists Spaces, which branch into Reports (holding Queries) and Datasets, filtered by `space_pattern`/`report_pattern` — a branching source like Mode reports `"linear": false` from `probe shape`, and descending into a Space where a Report and a Dataset share a name needs a qualified `--parent 'Report:name'` (see the branching example above). Any connector can opt in by implementing `probe_hierarchy()` + `list_probe_children()`.
 - Other source types return `supported: false` on `probe shape` → fall back to `test-connection` for verification.
 
 ## Probing a Source With No Connector
@@ -206,6 +265,12 @@ datahub recipe probe list --recipe my_recipe.yml
 
 # Descend one --parent per level, in the order `shape` reported
 datahub recipe probe list --recipe my_recipe.yml --parent my_database --parent my_schema
+
+# Discover the metadata getters this source offers
+datahub recipe probe methods --recipe my_recipe.yml
+
+# Call one against a table found via probe list
+datahub recipe probe run columns --recipe my_recipe.yml --schema my_schema --table my_table
 
 # Test the connection
 datahub recipe test-connection --recipe my_recipe.yml
