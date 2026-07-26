@@ -3,13 +3,13 @@ from types import SimpleNamespace
 import pytest
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.introspect import _pattern_field_for_config_class
 from datahub.ingestion.agent.models import ProbeLeafKind
 from datahub.ingestion.agent.probe import (
     ClientProbe,
     LevelSource,
     ProbeLevel,
     Verdict,
-    pattern_field_for_config_class,
     pattern_verdict,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -246,14 +246,14 @@ def test_omitted_pattern_field_raises_when_the_kind_has_no_conventional_field():
 
 
 def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
-    # pattern_field_for_config_class(SimpleNamespace, "Table") is None:
+    # _pattern_field_for_config_class(SimpleNamespace, "Table") is None:
     # SimpleNamespace has no model_fields for the class-level check to
     # introspect. The instance-aware path must still find _CFG's own
     # table_pattern attribute directly.
     # Narrowed via an annotated local: passing `type(_CFG)` inline infers as
     # type[Any], which mypy's lru_cache stub rejects as Hashable.
     cfg_cls: type = type(_CFG)
-    assert pattern_field_for_config_class(cfg_cls, DatasetSubTypes.TABLE) is None
+    assert _pattern_field_for_config_class(cfg_cls, DatasetSubTypes.TABLE) is None
     probe = _probe(ProbeLevel(DatasetSubTypes.TABLE, list_names=_lister("orders")))
     by_name = {n.name: n for n in probe.list_children(_CFG, [], 100).nodes}
     assert by_name["orders"].pattern_field == "table_pattern"

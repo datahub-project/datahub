@@ -6,12 +6,12 @@ import pytest
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
-from datahub.ingestion.agent.introspect import is_pattern_field
-from datahub.ingestion.agent.probe import (
-    ClientProbe,
+from datahub.ingestion.agent.introspect import (
+    _pattern_field_for_config_class,
+    is_pattern_field,
     pattern_field_for_config,
-    pattern_field_for_config_class,
 )
+from datahub.ingestion.agent.probe import ClientProbe
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -28,26 +28,26 @@ class _Cfg(ConfigModel):
 
 def test_resolves_by_convention():
     assert (
-        pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.SCHEMA)
+        _pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.SCHEMA)
         == "schema_pattern"
     )
-    assert pattern_field_for_config_class(_Cfg, DatasetSubTypes.VIEW) == "view_pattern"
+    assert _pattern_field_for_config_class(_Cfg, DatasetSubTypes.VIEW) == "view_pattern"
 
 
 def test_resolves_the_plural_form():
     assert (
-        pattern_field_for_config_class(_Cfg, DatasetSubTypes.TOPIC) == "topic_patterns"
+        _pattern_field_for_config_class(_Cfg, DatasetSubTypes.TOPIC) == "topic_patterns"
     )
 
 
 def test_ignores_a_same_named_non_pattern_field():
     # `table_pattern: str` exists but is not an AllowDenyPattern.
-    assert pattern_field_for_config_class(_Cfg, DatasetSubTypes.TABLE) is None
+    assert _pattern_field_for_config_class(_Cfg, DatasetSubTypes.TABLE) is None
 
 
 def test_returns_none_when_absent():
     assert (
-        pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.DATABASE) is None
+        _pattern_field_for_config_class(_Cfg, DatasetContainerSubTypes.DATABASE) is None
     )
 
 
@@ -57,7 +57,7 @@ def test_multiword_kind_collapses_to_underscores():
             default=AllowDenyPattern.allow_all()
         )
 
-    assert pattern_field_for_config_class(_K, "Flink Job") == "flink_job_pattern"
+    assert _pattern_field_for_config_class(_K, "Flink Job") == "flink_job_pattern"
 
 
 _LIST_CHILDREN_IMPORT_RE = re.compile(
@@ -206,7 +206,7 @@ def test_every_probe_level_resolves_to_a_real_pattern_field():
             for kind, declared in entries:
                 if declared is not None or kind == ProbeLeafKind.COLUMN:
                     continue
-                if pattern_field_for_config_class(config_cls, kind) is None:
+                if _pattern_field_for_config_class(config_cls, kind) is None:
                     unresolved.append((source_type, str(kind)))
 
     assert not unresolved, (
@@ -277,7 +277,7 @@ def test_a_declared_hint_beats_the_name_convention():
         ] = Field(default=AllowDenyPattern.allow_all())
 
     assert (
-        pattern_field_for_config_class(_Hinted, DatasetSubTypes.TABLE)
+        _pattern_field_for_config_class(_Hinted, DatasetSubTypes.TABLE)
         == "collection_pattern"
     )
 
@@ -291,10 +291,10 @@ def test_a_hint_does_not_remove_the_field_from_convention_matching():
         )
 
     assert (
-        pattern_field_for_config_class(_BigIdLike, DatasetSubTypes.TABLE)
+        _pattern_field_for_config_class(_BigIdLike, DatasetSubTypes.TABLE)
         == "dataset_pattern"
     )
-    assert pattern_field_for_config_class(_BigIdLike, "Dataset") == "dataset_pattern"
+    assert _pattern_field_for_config_class(_BigIdLike, "Dataset") == "dataset_pattern"
 
 
 def test_a_field_can_hint_more_than_one_kind():
@@ -309,13 +309,13 @@ def test_a_field_can_hint_more_than_one_kind():
         ] = Field(default=AllowDenyPattern.allow_all())
 
     assert (
-        pattern_field_for_config_class(
+        _pattern_field_for_config_class(
             _SalesforceLike, DatasetSubTypes.SALESFORCE_STANDARD_OBJECT
         )
         == "object_pattern"
     )
     assert (
-        pattern_field_for_config_class(
+        _pattern_field_for_config_class(
             _SalesforceLike, DatasetSubTypes.SALESFORCE_CUSTOM_OBJECT
         )
         == "object_pattern"
@@ -332,7 +332,7 @@ def test_two_fields_hinting_the_same_kind_raise_naming_both():
         )
 
     with pytest.raises(ValueError, match="a_pattern.*b_pattern|b_pattern.*a_pattern"):
-        pattern_field_for_config_class(_Conflict, DatasetSubTypes.TABLE)
+        _pattern_field_for_config_class(_Conflict, DatasetSubTypes.TABLE)
 
 
 def test_a_hint_on_a_non_pattern_field_raises():
@@ -340,7 +340,7 @@ def test_a_hint_on_a_non_pattern_field_raises():
         thing: Annotated[str, Filters(DatasetSubTypes.TABLE)] = "nope"
 
     with pytest.raises(ValueError, match="not an AllowDenyPattern"):
-        pattern_field_for_config_class(_Bad, DatasetSubTypes.TABLE)
+        _pattern_field_for_config_class(_Bad, DatasetSubTypes.TABLE)
 
 
 def test_annotating_a_field_keeps_it_recognised_as_a_pattern_field():
