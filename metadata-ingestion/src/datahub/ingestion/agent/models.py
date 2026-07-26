@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from datahub.utilities.str_enum import StrEnum
 
@@ -21,7 +21,15 @@ class ProbeLeafKind(StrEnum):
 # same vocabulary as ingestion. The type stays open (StrEnum | str) so a connector
 # can name a kind that has no shared-subtype member yet without editing a central
 # union — prefer an existing subtype where one fits, else a plain descriptive string.
-ProbeNodeKind = Union[StrEnum, str]
+#
+# StrEnum is `class StrEnum(str, Enum)`, so StrEnum | str is exactly str to a type
+# checker — this alias carries no static information beyond "a string". One real
+# consequence follows from it: because ProbeLeafKind.COLUMN == "Column" is True (str
+# equality, not identity), a connector that spells its kind as the bare string
+# "Column" instead of the enum member hits the exact same code paths (e.g.
+# ClientProbe._resolved's `kind == ProbeLeafKind.COLUMN` check) as one that imports
+# and uses the enum.
+ProbeNodeKind = str
 
 
 @dataclass
