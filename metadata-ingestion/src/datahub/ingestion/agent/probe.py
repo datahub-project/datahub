@@ -223,6 +223,12 @@ class ProbeLevel:
     # bare child name (e.g. BigID's dataset_pattern). Set to test the pattern
     # against the node fqn instead of its name.
     classify_on_fqn: bool = False
+    # The exact string this level's pattern is matched against. Set it to the
+    # connector's own identifier function — never to a reimplementation of it —
+    # so the probe and ingestion cannot disagree about what is being filtered.
+    # Takes precedence over classify_on_fqn. When None, classify_on_fqn decides
+    # between the node's fqn and its bare name.
+    filter_target: Optional[Callable[["ClassifyContext"], str]] = None
     # A level fed by several listers, each contributing its own kind and pattern
     # (e.g. tables + views). Mutually exclusive with list_names/list_items.
     sources: Optional[List[LevelSource]] = None
@@ -644,6 +650,7 @@ class ClientProbe:
 
         custom = level.classify
         on_fqn = level.classify_on_fqn
+        target = level.filter_target
 
         def verdict_for(
             name: str, node_fqn: str, pattern_field: Optional[str]
@@ -658,6 +665,15 @@ class ClientProbe:
                         parent_path=tuple(names),
                     )
                 )
+            if target is not None:
+                ctx = ClassifyContext(
+                    config=config,
+                    name=name,
+                    fqn=node_fqn,
+                    pattern_field=pattern_field,
+                    parent_path=tuple(names),
+                )
+                return pattern_verdict(config, pattern_field, target(ctx))
             return pattern_verdict(config, pattern_field, node_fqn if on_fqn else name)
 
         return level_nodes(

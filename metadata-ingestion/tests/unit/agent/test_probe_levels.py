@@ -30,6 +30,11 @@ def _lister(*names):
     return lambda client, config, parent_path: list(names)
 
 
+# Alias used by filter_target tests below, matching the name test_probe_branching.py
+# uses for the same helper.
+_names = _lister
+
+
 def test_merged_level_keeps_first_position_but_later_source_kind_and_pattern():
     probe = _probe(
         ProbeLevel(
@@ -503,3 +508,56 @@ def test_unfiltered_is_distinct_from_resolve_by_convention():
     # UNFILTERED opts out of resolution entirely.
     ok = _probe(ProbeLevel("Nonesuch", UNFILTERED, _lister("a")))
     assert [n.name for n in ok.list_children(_CFG, [], 100).nodes] == ["a"]
+
+
+def test_filter_target_chooses_the_string_the_pattern_is_matched_against():
+    """The level filters on what the connector says its identifier is."""
+    seen = []
+
+    def target(ctx):
+        seen.append((ctx.name, ctx.fqn, tuple(ctx.parent_path)))
+        return f"db_from_config.{ctx.fqn}"
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_names("public")),
+            ProbeLevel(
+                DatasetSubTypes.TABLE,
+                list_names=_names("orders"),
+                parent=DatasetContainerSubTypes.SCHEMA,
+                filter_target=target,
+            ),
+        ],
+    )
+    config = SimpleNamespace(
+        schema_pattern=AllowDenyPattern.allow_all(),
+        # Denies only the fully-qualified form, exactly as a real recipe would.
+        table_pattern=AllowDenyPattern(deny=[r"^db_from_config\.public\.orders$"]),
+    )
+    node = probe.list_children(config, ["public"], 100).nodes[0]
+    assert node.name == "orders"  # display name is untouched
+    assert node.included is False  # ...but the verdict used the target
+    assert node.excluded_by == "table_pattern"
+    assert seen == [("orders", "public.orders", ("public",))]
+
+
+def test_filter_target_takes_precedence_over_classify_on_fqn():
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_names("public")),
+            ProbeLevel(
+                DatasetSubTypes.TABLE,
+                list_names=_names("orders"),
+                parent=DatasetContainerSubTypes.SCHEMA,
+                classify_on_fqn=True,
+                filter_target=lambda ctx: "explicit",
+            ),
+        ],
+    )
+    config = SimpleNamespace(
+        schema_pattern=AllowDenyPattern.allow_all(),
+        table_pattern=AllowDenyPattern(deny=["^explicit$"]),
+    )
+    assert probe.list_children(config, ["public"], 100).nodes[0].included is False
