@@ -1931,9 +1931,18 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
     ) -> Iterator[List[Dict]]:
+        # Every current caller's url already has a "?" (e.g. "...?filter=all"),
+        # but appending "&" unconditionally to a url without one would produce
+        # "...&per_page=...&page=..." with no leading "?" -- the server parses
+        # no query params at all, so it returns the same (non-empty) first
+        # page forever and this generator never terminates. Detecting "?"
+        # keeps every existing call site byte-identical while making a
+        # bare-url caller (e.g. a future probe) paginate correctly instead of
+        # hanging.
+        sep = "&" if "?" in url else "?"
         page: int = 1
         while True:
-            page_url = f"{url}&per_page={per_page}&page={page}"
+            page_url = f"{url}{sep}per_page={per_page}&page={page}"
             response = self._get_request_json(page_url)
             data: List[Dict] = response.get("_embedded", {}).get(key, [])
             if not data:
