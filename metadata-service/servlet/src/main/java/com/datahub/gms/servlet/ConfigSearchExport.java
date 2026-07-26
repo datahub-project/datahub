@@ -99,13 +99,12 @@ public class ConfigSearchExport extends HttpServlet {
                           queryFilterRewriteChain,
                           searchServiceConfiguration)
                       .getSearchRequest(
-                          getOperationContext(ctx)
-                              .withSearchFlags(
-                                  flags ->
-                                      flags
-                                          .setFulltext(true)
-                                          .setSkipHighlighting(true)
-                                          .setSkipAggregates(true)),
+                          systemOpContext.withSearchFlags(
+                              flags ->
+                                  flags
+                                      .setFulltext(true)
+                                      .setSkipHighlighting(true)
+                                      .setSkipAggregates(true)),
                           "*",
                           null,
                           null,

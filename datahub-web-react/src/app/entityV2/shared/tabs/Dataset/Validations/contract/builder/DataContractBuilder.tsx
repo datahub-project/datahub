@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import {
     createAssertionGroups,
-    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+    extractAssertionsFromQuery,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractAssertionGroupSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
 import {
@@ -83,9 +83,8 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const assertionsWithMonitorsDetails: Assertion[] =
-        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
-    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
+    const assertions: Assertion[] = extractAssertionsFromQuery(assertionData) ?? [];
+    const assertionGroups = createAssertionGroups(assertions);
     const freshnessAssertions =
         assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
     const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];

@@ -142,6 +142,9 @@ public class PoliciesConfig {
   public static final Privilege CREATE_DOMAINS_PRIVILEGE =
       Privilege.of("CREATE_DOMAINS", "Create Domains", "Create new Domains.");
 
+  public static final Privilege CREATE_LOGICAL_MODELS_PRIVILEGE =
+      Privilege.of("CREATE_LOGICAL_MODELS", "Create Logical Models", "Create new Logical Models.");
+
   public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "CREATE_GLOBAL_ANNOUNCEMENTS",
@@ -272,6 +275,7 @@ public class PoliciesConfig {
           VIEW_MANAGE_TAGS_PRIVILEGE,
           CREATE_TAGS_PRIVILEGE,
           CREATE_DOMAINS_PRIVILEGE,
+          CREATE_LOGICAL_MODELS_PRIVILEGE,
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
           MANAGE_GLOBAL_OWNERSHIP_TYPES,

@@ -1,4 +1,6 @@
+import hashlib
 import logging
+from functools import partial
 from typing import ClassVar, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 
 import pydantic
@@ -20,6 +22,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
     SourceReport,
     StructuredLogCategory,
 )
@@ -31,7 +34,11 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector, Job
+from datahub.ingestion.source.fivetran.data_classes import (
+    Connector,
+    Job,
+    TableLineage,
+)
 from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
 from datahub.ingestion.source.fivetran.fivetran_log_rest_reader import (
     FivetranLogRestReader,
@@ -45,14 +52,23 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranDestinationConfig,
     FivetranDestinationDetails,
 )
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    auto_stale_entity_removal,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
+from datahub.metadata.schema_classes import DataJobInputOutputClass
 from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
@@ -183,6 +199,29 @@ class FivetranSource(StatefulIngestionSourceBase):
         # exactly one warning per destination per ingest, and the
         # individual edges are still skipped silently after the first.
         self._destinations_with_urn_warning: set[str] = set()
+        # Per-pair DataJob URNs are derived from table names, so a dropped or
+        # renamed pair leaves an orphan DataJob carrying stale lineage. Stale
+        # removal soft-deletes primary-source entities missing from this run.
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
+            state_provider=self.state_provider,
+            report=self.report,
+            config=self.config,
+            state_type_class=GenericCheckpointState,
+            pipeline_name=ctx.pipeline_name,
+            run_id=ctx.run_id,
+            platform=self.platform,
+        )
+
+    def get_excluded_workunit_processors(self):
+        # Stale removal is wired manually below so the handler instance is
+        # shared with this source; exclude the framework's automatic processor.
+        return [AutoStaleEntityRemovalProcessor]
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
+        ]
 
     def _build_log_reader(self) -> FivetranConnectorReader:
         # By the time we get here, `validate_log_source_credentials` has
@@ -227,17 +266,14 @@ class FivetranSource(StatefulIngestionSourceBase):
             max_column_lineage_per_connector=self.config.max_column_lineage_per_connector,
         )
 
-    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
-        input_dataset_urn_list: List[Union[str, DatasetUrn]] = []
-        output_dataset_urn_list: List[Union[str, DatasetUrn]] = []
-        fine_grained_lineage: List[FineGrainedLineage] = []
+    def _resolve_source_details(self, connector: Connector) -> PlatformDetail:
+        """Resolve the source `PlatformDetail` for a connector.
 
+        The dict lookup may return the user's configured `PlatformDetail` on
+        a hit, so any platform fill-in must go via `model_copy` — mutating in
+        place would poison the shared config object across connectors.
+        """
         # TODO: Once Fivetran exposes the database via the API, we shouldn't ask for it via config.
-
-        # Get platform details for connector source. The dict lookup may
-        # return the user's configured PlatformDetail on a hit, so any
-        # platform fill-in must go via `model_copy` — mutating in place
-        # would poison the shared config object across connectors.
         source_details = self.config.sources_to_platform_instance.get(
             connector.connector_id, PlatformDetail()
         )
@@ -264,120 +300,81 @@ class FivetranSource(StatefulIngestionSourceBase):
         # is still typed `Optional[str]` — mypy can't narrow it. Pin the
         # invariant so downstream URN construction sees a `str`.
         assert source_details.platform is not None
+        return source_details
 
-        # Get platform details for destination — declarative override + (optional)
-        # REST discovery, plus a default fallback.
-        destination_details = self.resolve_destination_details(connector.destination_id)
-
-        max_table_lineage = self.config.max_table_lineage_per_connector
-        if len(connector.lineage) >= max_table_lineage:
-            self.report.warning(
-                title="Table lineage truncated",
-                message=f"The connector had more than {max_table_lineage} table lineage entries. "
-                f"Only the most recent {max_table_lineage} entries were ingested.",
-                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+    def _build_input_dataset_urn(
+        self,
+        connector: Connector,
+        lineage: TableLineage,
+        source_details: PlatformDetail,
+    ) -> Optional[DatasetUrn]:
+        if self.gsheets_handler.applies_to(connector.connector_type):
+            # Google Sheets workaround — see google_sheets_handler.py.
+            # Returns None on resolve failure; the structured warning
+            # is emitted there.
+            return self.gsheets_handler.build_input_dataset_urn(
+                connector, source_details.env
             )
+        source_table = (
+            lineage.source_table
+            if source_details.include_schema_in_urn
+            else lineage.source_table.split(".", 1)[1]
+        )
+        # `_resolve_source_details` guarantees a non-None platform, but the
+        # `PlatformDetail.platform` field stays typed `Optional[str]`.
+        assert source_details.platform is not None
+        source_database_for_urn = source_details.database_for_urn
+        return DatasetUrn.create_from_ids(
+            platform_id=source_details.platform,
+            table_name=(
+                f"{source_database_for_urn}.{source_table}"
+                if source_database_for_urn
+                else source_table
+            ),
+            env=source_details.env,
+            platform_instance=source_details.platform_instance,
+        )
 
-        for lineage in connector.lineage:
-            source_table = (
-                lineage.source_table
-                if source_details.include_schema_in_urn
-                else lineage.source_table.split(".", 1)[1]
-            )
-            input_dataset_urn: Optional[DatasetUrn] = None
-            if self.gsheets_handler.applies_to(connector.connector_type):
-                # Google Sheets workaround — see google_sheets_handler.py.
-                # Returns None on resolve failure; the structured warning
-                # is emitted there.
-                input_dataset_urn = self.gsheets_handler.build_input_dataset_urn(
-                    connector, source_details.env
-                )
-            else:
-                source_database_for_urn = source_details.database_for_urn
-                input_dataset_urn = DatasetUrn.create_from_ids(
-                    platform_id=source_details.platform,
-                    table_name=(
-                        f"{source_database_for_urn}.{source_table}"
-                        if source_database_for_urn
-                        else source_table
-                    ),
-                    env=source_details.env,
-                    platform_instance=source_details.platform_instance,
-                )
-
-            if input_dataset_urn:
-                input_dataset_urn_list.append(input_dataset_urn)
-
-            try:
-                output_dataset_urn = self.build_destination_urn(
-                    lineage.destination_table,
-                    destination_details,
-                )
-            except ValueError as e:
-                # Most common causes: (a) no platform discovered for this
-                # destination (REST call failed and no declarative
-                # override), so `platform` is unset; (b) a path-style
-                # destination (`s3`/`gcs`/`abs`) whose `database` (the
-                # bucket-or-container prefix) couldn't be discovered or
-                # pinned. Skip the lineage edge for this connector and keep
-                # the ingest going. Dedup the warning per destination —
-                # every connector on a misconfigured destination would
-                # otherwise emit its own copy.
-                if connector.destination_id not in self._destinations_with_urn_warning:
-                    self._destinations_with_urn_warning.add(connector.destination_id)
-                    self.report.warning(
-                        title="Destination URN could not be constructed",
-                        message=(
-                            "Skipping all lineage edges for this destination. "
-                            "Subsequent edges will be skipped silently. Set "
-                            "`destination_to_platform_instance.<id>.platform` "
-                            "if it wasn't auto-detected, and (for s3/gcs/abs "
-                            "destinations only) `.database` with the path "
-                            "prefix, to fix."
-                        ),
-                        context=(
-                            f"connector_id={connector.connector_id}, "
-                            f"destination_id={connector.destination_id}, "
-                            f"table={lineage.destination_table}"
-                        ),
-                        exc=e,
-                    )
-                continue
-            output_dataset_urn_list.append(output_dataset_urn)
-
-            if self.config.include_column_lineage:
-                for column_lineage in lineage.column_lineage:
-                    fine_grained_lineage.append(
-                        FineGrainedLineage(
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=(
-                                [
-                                    builder.make_schema_field_urn(
-                                        str(input_dataset_urn),
-                                        column_lineage.source_column,
-                                    )
-                                ]
-                                if input_dataset_urn
-                                else []
-                            ),
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=(
-                                [
-                                    builder.make_schema_field_urn(
-                                        str(output_dataset_urn),
-                                        column_lineage.destination_column,
-                                    )
-                                ]
-                                if output_dataset_urn
-                                else []
-                            ),
+    def _build_fine_grained_lineages(
+        self,
+        lineage: TableLineage,
+        input_dataset_urn: Optional[DatasetUrn],
+        output_dataset_urn: DatasetUrn,
+    ) -> List[FineGrainedLineage]:
+        if not self.config.include_column_lineage:
+            return []
+        # No input URN (e.g. an unresolved Google Sheets source) means no
+        # upstream field to point at, so skip column lineage rather than emit
+        # a malformed edge with empty upstreams. The table-level outlet stands.
+        if input_dataset_urn is None:
+            return []
+        fine_grained_lineage: List[FineGrainedLineage] = []
+        for column_lineage in lineage.column_lineage:
+            fine_grained_lineage.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        builder.make_schema_field_urn(
+                            str(input_dataset_urn),
+                            column_lineage.source_column,
                         )
-                    )
+                    ],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[
+                        builder.make_schema_field_urn(
+                            str(output_dataset_urn),
+                            column_lineage.destination_column,
+                        )
+                    ],
+                )
+            )
+        return fine_grained_lineage
 
-        datajob.set_inlets(input_dataset_urn_list)
-        datajob.set_outlets(output_dataset_urn_list)
-        datajob.set_fine_grained_lineages(fine_grained_lineage)
-
+    @staticmethod
+    def _compose_lineage_properties(
+        source_details: PlatformDetail,
+        destination_details: PlatformDetail,
+    ) -> Dict[str, str]:
         return dict(
             **{
                 f"source.{k}": str(v)
@@ -748,27 +745,9 @@ class FivetranSource(StatefulIngestionSourceBase):
             platform_instance=self.config.platform_instance,
         )
 
-    def _generate_datajob_from_connector(self, connector: Connector) -> DataJob:
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
-            flow_id=connector.connector_id,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
-        owner_email = self.log_reader.get_user_email(connector.user_id)
-        datajob = DataJob(
-            name=connector.connector_id,
-            flow_urn=dataflow_urn,
-            platform_instance=self.config.platform_instance,
-            display_name=connector.connector_name,
-            owners=[CorpUserUrn(owner_email)] if owner_email else None,
-        )
-
-        # Map connector source and destination table with dataset entity
-        # Also extend the fine grained lineage of column if include_column_lineage is True
-        lineage_properties = self._extend_lineage(connector=connector, datajob=datajob)
-        # TODO: Add fine grained lineages of dataset after FineGrainedLineageDownstreamType.DATASET enabled
-
+    def _connector_custom_properties(
+        self, connector: Connector, lineage_properties: Dict[str, str]
+    ) -> Dict[str, str]:
         connector_properties: Dict[str, str] = {
             "connector_id": connector.connector_id,
             "connector_type": connector.connector_type,
@@ -776,10 +755,153 @@ class FivetranSource(StatefulIngestionSourceBase):
             "sync_frequency": str(connector.sync_frequency),
             "destination_id": connector.destination_id,
         }
+        return {**connector_properties, **lineage_properties}
 
-        datajob.set_custom_properties({**connector_properties, **lineage_properties})
+    def _generate_datajob_from_connector(
+        self,
+        connector: Connector,
+        lineage_properties: Dict[str, str],
+        dataflow_urn: DataFlowUrn,
+        owners: Optional[List[CorpUserUrn]],
+    ) -> DataJob:
+        """Connector-level DataJob anchoring sync run-history and metadata.
 
+        Carries no dataset inlets/outlets — table-level lineage lives on the
+        per-pair DataJobs from `_generate_table_datajobs`. The empty
+        `DataJobInputOutput` is emitted (not omitted) so any previously
+        ingested fan-out lineage on this URN is cleared on re-ingest.
+        """
+        datajob = DataJob(
+            name=connector.connector_id,
+            flow_urn=dataflow_urn,
+            platform_instance=self.config.platform_instance,
+            display_name=connector.connector_name,
+            owners=owners,
+            extra_aspects=[
+                DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+            ],
+        )
+        datajob.set_custom_properties(
+            self._connector_custom_properties(connector, lineage_properties)
+        )
         return datajob
+
+    @staticmethod
+    def _table_datajob_name(connector: Connector, lineage: TableLineage) -> str:
+        """Deterministic, stable DataJob id for a single source->destination
+        table pair. Falls back to a content hash when the readable form would
+        exceed URN-length limits — hashlib (not the builtin, salted `hash`) so
+        the id is stable across ingests."""
+        pair = f"{lineage.source_table}_to_{lineage.destination_table}"
+        readable = f"{connector.connector_id}.{pair}"
+        if len(readable) <= 200:
+            return readable
+        digest = hashlib.md5(pair.encode("utf-8")).hexdigest()[:16]
+        return f"{connector.connector_id}.{digest}"
+
+    @staticmethod
+    def _merge_duplicate_lineage(
+        connector: Connector, report: FivetranSourceReport
+    ) -> Iterable[TableLineage]:
+        """Collapse rows that repeat a (source, destination) pair into one.
+
+        Each pair maps to a single DataJob URN, so duplicate rows would collide.
+        Fivetran can split a pair's column lineage across rows, so later rows'
+        column lineage is merged into the first-seen pair instead of dropped.
+        """
+        merged: Dict[str, TableLineage] = {}
+        for lineage in connector.lineage:
+            pair_key = f"{lineage.source_table}\t{lineage.destination_table}"
+            existing = merged.get(pair_key)
+            if existing is None:
+                merged[pair_key] = TableLineage(
+                    source_table=lineage.source_table,
+                    destination_table=lineage.destination_table,
+                    column_lineage=list(lineage.column_lineage),
+                )
+            else:
+                existing.column_lineage.extend(lineage.column_lineage)
+                report.num_duplicate_table_pairs_merged += 1
+        return merged.values()
+
+    def _generate_table_datajobs(
+        self,
+        connector: Connector,
+        source_details: PlatformDetail,
+        destination_details: PlatformDetail,
+        lineage_properties: Dict[str, str],
+        dataflow_urn: DataFlowUrn,
+        owners: Optional[List[CorpUserUrn]],
+    ) -> Iterable[DataJob]:
+        """One DataJob per (source_table -> destination_table) pair.
+
+        Each job has exactly one inlet and one outlet (plus that pair's column
+        lineage), so DataHub resolves table lineage precisely instead of
+        fanning every source out to every destination.
+        """
+        for lineage in self._merge_duplicate_lineage(connector, self.report):
+            try:
+                output_dataset_urn = self.build_destination_urn(
+                    lineage.destination_table,
+                    destination_details,
+                )
+            except ValueError as e:
+                # Most common causes: (a) no platform discovered for this
+                # destination (REST call failed and no declarative
+                # override), so `platform` is unset; (b) a path-style
+                # destination (`s3`/`gcs`/`abs`) whose `database` (the
+                # bucket-or-container prefix) couldn't be discovered or
+                # pinned. Skip the lineage edge and keep the ingest going.
+                self.report.num_lineage_edges_skipped += 1
+                # Dedup the warning per destination; the counter above still
+                # reflects the true number of skipped edges.
+                if connector.destination_id not in self._destinations_with_urn_warning:
+                    self._destinations_with_urn_warning.add(connector.destination_id)
+                    self.report.warning(
+                        title="Destination URN could not be constructed",
+                        message=(
+                            "Skipping all lineage edges for this destination. "
+                            "Subsequent edges will be skipped silently (see "
+                            "num_lineage_edges_skipped for the total). Set "
+                            "`destination_to_platform_instance.<id>.platform` "
+                            "if it wasn't auto-detected, and (for s3/gcs/abs "
+                            "destinations only) `.database` with the path "
+                            "prefix, to fix."
+                        ),
+                        context=(
+                            f"connector_id={connector.connector_id}, "
+                            f"destination_id={connector.destination_id}, "
+                            f"table={lineage.destination_table}"
+                        ),
+                        exc=e,
+                    )
+                continue
+
+            input_dataset_urn = self._build_input_dataset_urn(
+                connector, lineage, source_details
+            )
+            fine_grained_lineage = self._build_fine_grained_lineages(
+                lineage, input_dataset_urn, output_dataset_urn
+            )
+
+            datajob = DataJob(
+                name=self._table_datajob_name(connector, lineage),
+                flow_urn=dataflow_urn,
+                platform_instance=self.config.platform_instance,
+                display_name=f"{lineage.source_table} → {lineage.destination_table}",
+                owners=owners,
+                inlets=[input_dataset_urn] if input_dataset_urn else [],
+                outlets=[output_dataset_urn],
+                fine_grained_lineages=fine_grained_lineage,
+            )
+            datajob.set_custom_properties(
+                {
+                    **self._connector_custom_properties(connector, lineage_properties),
+                    "source_table": lineage.source_table,
+                    "destination_table": lineage.destination_table,
+                }
+            )
+            yield datajob
 
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
         # hack: convert to old instance for DataProcessInstance.from_datajob compatibility
@@ -845,18 +967,65 @@ class FivetranSource(StatefulIngestionSourceBase):
         dataflow = self._generate_dataflow_from_connector(connector)
         yield dataflow
 
-        # Map Fivetran's connector entity with Datahub's datajob entity
-        datajob = self._generate_datajob_from_connector(connector)
+        # Resolve source/destination platform details once per connector and
+        # reuse across the connector-level and per-table DataJobs.
+        source_details = self._resolve_source_details(connector)
+        destination_details = self.resolve_destination_details(connector.destination_id)
+        lineage_properties = self._compose_lineage_properties(
+            source_details, destination_details
+        )
+
+        # Resolve the dataflow URN and owner once and thread them into both
+        # the connector-level and per-pair DataJob builders.
+        dataflow_urn = DataFlowUrn.create_from_ids(
+            orchestrator=Constant.ORCHESTRATOR,
+            flow_id=connector.connector_id,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        owner_email = self.log_reader.get_user_email(connector.user_id)
+        owners = [CorpUserUrn(owner_email)] if owner_email else None
+
+        max_table_lineage = self.config.max_table_lineage_per_connector
+        if len(connector.lineage) >= max_table_lineage:
+            self.report.warning(
+                title="Table lineage truncated",
+                message="The connector had more table lineage entries than the configured limit. "
+                "Only the most recent entries were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id}), max_table_lineage={max_table_lineage}",
+            )
+
+        # Connector-level DataJob: anchors sync run-history and connector
+        # metadata, with no dataset I/O (lineage lives on the per-table jobs).
+        datajob = self._generate_datajob_from_connector(
+            connector, lineage_properties, dataflow_urn, owners
+        )
         yield datajob
 
-        # Map Fivetran's job/sync history entity with Datahub's data process entity
+        # One DataJob per source->destination table pair carries the actual
+        # lineage, so each destination maps only to its true source(s) instead
+        # of fanning out to every source in the connector.
+        for table_datajob in self._generate_table_datajobs(
+            connector,
+            source_details,
+            destination_details,
+            lineage_properties,
+            dataflow_urn,
+            owners,
+        ):
+            yield table_datajob
+
+        # Map Fivetran's job/sync history entity with Datahub's data process
+        # entity. Runs attach to the connector-level job — Fivetran syncs run
+        # at the connector level, not per table.
         max_jobs = self.config.max_jobs_per_connector
         if len(connector.jobs) >= max_jobs:
             self.report.warning(
                 title="Not all sync history was captured",
-                message=f"The connector had more than {max_jobs} sync runs in the past {self.config.history_sync_lookback_period} days. "
-                f"Only the most recent {max_jobs} syncs were ingested.",
-                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+                message="The connector had more sync runs than the configured limit. "
+                "Only the most recent syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id}), "
+                f"max_jobs={max_jobs}, lookback_days={self.config.history_sync_lookback_period}",
             )
         for job in connector.jobs:
             dpi = self._generate_dpi_from_job(job, datajob)

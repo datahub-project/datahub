@@ -1,6 +1,6 @@
 lint-job:
   - modified: ".github/workflows/lint-jobs.yml"
-  - ".github/path-filters/lint-job-filter.yml"
+  - ".github/path-filters/lint-jobs-filters.yml"
 markdown:
   - added|modified: "**/*.md"
   - ".github/scripts/check_docusaurus_markdown.py"
@@ -34,5 +34,17 @@ datahub-web-react:
 metadata-ingestion:
   - added|modified: "metadata-ingestion/**"
   - "metadata-models/**"
+datahub-actions:
+  - added|modified: "datahub-actions/**"
+datahub-agent-context:
+  - added|modified: "datahub-agent-context/**"
+airflow-plugin:
+  - added|modified: "metadata-ingestion-modules/airflow-plugin/**"
+gx-plugin:
+  - added|modified: "metadata-ingestion-modules/gx-plugin/**"
+dagster-plugin:
+  - added|modified: "metadata-ingestion-modules/dagster-plugin/**"
+prefect-plugin:
+  - added|modified: "metadata-ingestion-modules/prefect-plugin/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"

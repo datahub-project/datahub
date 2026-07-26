@@ -748,9 +748,10 @@ ORDER BY event_time ASC
             result = engine.execute(text(query))
             rows = list(result)
         except Exception as e:
-            self.report.report_failure(
-                "query_log_extraction",
-                f"Failed to fetch query log: {e}",
+            self.report.failure(
+                message="Failed to fetch query log",
+                context="query_log_extraction",
+                exc=e,
             )
             return
 

@@ -233,5 +233,11 @@
     "sidebar.viewDefinition.sectionTitle": "Definition",
     "sidebar.viewDefinition.viewFullDefinitionLink": "Visa fullständig definition >",
     "structuredPropertyBadge.descriptionLabel": "Beskrivning",
-    "structuredPropertyBadge.valueLabel": "Värde"
+    "structuredPropertyBadge.valueLabel": "Värde",
+    "sidebar.logical.andMoreCount": "och {{count}} till",
+    "sidebar.logical.childrenInfo": "Fysiska implementationer av den här logiska modellen. Ändringar i den här tillgångens metadata sprids automatiskt till dessa underordnade.",
+    "sidebar.logical.childrenTitle": "Fysiska underordnade",
+    "sidebar.logical.parentInfo": "Logisk modell som definierar den här tillgångens metadata. Ändringar i den logiska överordnades metadata sprids automatiskt till den här tillgången.",
+    "sidebar.logical.parentTitle": "Logisk överordnad",
+    "sidebar.logical.viewAllChildren": "Visa alla fysiska underordnade"
 }

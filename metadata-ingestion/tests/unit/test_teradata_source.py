@@ -4422,7 +4422,7 @@ class TestGetInspectorsPerDbConnectionFailure:
         assert len(source.report.warnings) == 1
         warning = source.report.warnings[0]
         assert warning.title == "Failed to inspect database"
-        assert "db2" in warning.message
+        assert any("db2" in ctx for ctx in (warning.context or []))
 
     def test_consumer_error_propagates_and_is_not_swallowed(self):
         """An exception raised inside the consumer loop is NOT caught by get_inspectors.

@@ -1609,9 +1609,9 @@
         },
         {
           "capability": "DATA_PROFILING",
-          "description": "Not supported",
+          "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "DELETION_DETECTION",

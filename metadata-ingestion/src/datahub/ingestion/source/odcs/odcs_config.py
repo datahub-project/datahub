@@ -4,10 +4,16 @@ from typing import Dict, List, Optional, Union
 from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration._config_enum import ConfigEnum
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -114,8 +120,33 @@ class ODCSSourceConfig(
     """
 
     path: Union[str, List[str]] = Field(
-        description="Path to an ODCS YAML file, a directory containing ODCS YAML files, "
-        "or a glob pattern. May also be a list of any of the above.",
+        description="Location of ODCS YAML files: a local file, directory, or glob pattern; an "
+        "`s3://` / `gs://` object-store URI (file or glob); or an `http(s)://` URL to a single "
+        "file. May also be a list mixing any of the above. When `git_info` is set, non-URI "
+        "entries are interpreted relative to the repository checkout.",
+    )
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="AWS connection details for reading ODCS files from `s3://` URIs in `path`. "
+        "Required when any `path` entry is an S3 URI.",
+    )
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="GCS connection (HMAC credentials via the S3-compatible API) for reading ODCS "
+        "files from `gs://` URIs in `path`. Required when any `path` entry is a GCS URI. See "
+        "https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description="Git repository to shallow-clone and scan for ODCS files, authenticated with "
+        "an SSH deploy key. When set, each non-URI `path` entry is resolved relative to the "
+        "repository checkout (e.g. `path: contracts/` or `path: '**/*.odcs.yaml'`).",
+    )
+    http_connection: Optional[HTTPConnectionConfig] = Field(
+        default=None,
+        description="Authentication and TLS options for reading ODCS files from `http(s)://` URLs "
+        "in `path`. Supports a bearer token or HTTP basic auth, and a `verify_ssl` toggle. "
+        "Omit for public URLs that need no authentication.",
     )
     server_overrides: List[ServerMapping] = Field(
         default_factory=list,
@@ -220,6 +251,19 @@ class ODCSSourceConfig(
         return v or None
 
     @model_validator(mode="after")
+    def object_store_connection_required_for_uris(self) -> "ODCSSourceConfig":
+        raw_paths = self.path if isinstance(self.path, list) else [self.path]
+        if any(is_s3_uri(p) for p in raw_paths) and self.aws_connection is None:
+            raise ValueError(
+                "aws_connection is required because path contains one or more s3:// URIs."
+            )
+        if any(is_gcs_uri(p) for p in raw_paths) and self.gcs_connection is None:
+            raise ValueError(
+                "gcs_connection is required because path contains one or more gs:// URIs."
+            )
+        return self
+
+    @model_validator(mode="after")
     def owner_normalization_knobs_are_exclusive(self) -> "ODCSSourceConfig":
         if self.strip_owner_email_domain and self.owner_email_domain:
             raise ValueError(
@@ -269,6 +313,13 @@ class ODCSSourceConfig(
         default="{contract_id}.{schema_name}",
         description="Template for the logical `odcs` dataset name (the URN name segment). "
         "Available placeholders: `{contract_id}`, `{schema_name}`, `{contract_version}`.",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex allow/deny patterns applied to the logical `odcs` dataset name "
+        "(as composed by `logical_dataset_name_template`, e.g. `{contract_id}.{schema_name}`). "
+        "Schema entries whose logical name does not match are skipped along with their "
+        "assertions and `logicalParent` link. Matched case-insensitively by default.",
     )
     file_extensions: List[str] = Field(
         default_factory=lambda: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"],

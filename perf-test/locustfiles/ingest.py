@@ -59,6 +59,6 @@ class IngestUser(HttpUser):
         return Ownership(
             [
                 Owner(f"urn:li:corpuser:test_{id}", OwnershipType.DATAOWNER),
-                Owner(f"urn:li:corpuser:common", OwnershipType.DATAOWNER),
+                Owner("urn:li:corpuser:common", OwnershipType.DATAOWNER),
             ]
         )
