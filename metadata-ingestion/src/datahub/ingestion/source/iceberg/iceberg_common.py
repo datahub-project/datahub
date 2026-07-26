@@ -1,7 +1,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import boto3
 from humanfriendly import format_timespan
@@ -29,7 +29,6 @@ from urllib3.util import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -290,22 +289,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
         return catalog
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        # Structural only — must not connect (see ProbeCapableConfig).
-        from datahub.ingestion.source.iceberg.iceberg_probe import (
-            ICEBERG_PROBE_HIERARCHY,
-        )
-
-        return ICEBERG_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.iceberg.iceberg_probe import (
-            list_iceberg_children,
-        )
-
-        return list_iceberg_children(self, parent_path, limit)
 
 
 class TopTableTimings:

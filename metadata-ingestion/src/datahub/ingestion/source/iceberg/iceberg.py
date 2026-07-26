@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -126,19 +126,6 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 
 
-def dataset_name(dataset_path: Sequence[str]) -> str:
-    """The identifier table_pattern is matched against.
-
-    Shared with the probe (iceberg_probe.py) so both sides filter on the same
-    string; they used to build it independently and disagreed. Ingestion
-    passes its `Identifier` tuple; the probe passes
-    `list(ctx.parent_path) + [ctx.name]` (see iceberg_probe.py) — both dot-join
-    to the same string even though nested namespaces make the intermediate
-    shapes differ.
-    """
-    return ".".join(dataset_path)
-
-
 @platform_name("Iceberg")
 @support_status(SupportStatus.INCUBATING)
 @config_class(IcebergSourceConfig)
@@ -249,7 +236,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a namespace",
                     message="Skipping the namespace due to errors while processing it.",
                     context=str(namespace),
@@ -353,20 +340,20 @@ class IcebergSource(StatefulIngestionSourceBase):
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 LOGGER.debug(f"Processing dataset for path {dataset_path}")
-                table_fqn = dataset_name(dataset_path)
-                if not self.config.table_pattern.allowed(table_fqn):
+                dataset_name = ".".join(dataset_path)
+                if not self.config.table_pattern.allowed(dataset_name):
                     # Dataset name is rejected by pattern, report as dropped.
-                    self.report.report_dropped(table_fqn)
+                    self.report.report_dropped(dataset_name)
                     LOGGER.debug(
-                        f"Skipping table {table_fqn} due to not being allowed by the config pattern"
+                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
                     )
                     return
 
                 yield from _try_processing_dataset(
-                    dataset_path, table_fqn, namespace_urn
+                    dataset_path, dataset_name, namespace_urn
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a table",
                     message="Skipping the table due to errors when processing it.",
                     context=str(dataset_path),
@@ -376,7 +363,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             self.catalog = self.config.get_catalog()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to initialize catalog object",
                 message="Couldn't start the ingestion due to failure to initialize catalog object.",
                 exc=e,
@@ -386,7 +373,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             yield from self._process_namespaces()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to list namespaces",
                 message="Couldn't start the ingestion due to a failure to process the list of the namespaces",
                 exc=e,
@@ -433,11 +420,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             self.namespaces.append((namespace, namespace_urn))
         except NoSuchNamespaceError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve namespace properties",
                 message="Couldn't find the namespace, was it deleted during the ingestion?",
                 context=namespace_repr,
                 exc=e,
+                log=False,
             )
             return
         except RESTError as e:
@@ -448,7 +436,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 exc=e,
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to process namespace",
                 message="Unhandled exception happened during processing of the namespace",
                 context=namespace_repr,

@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
+    CassandraAPI,
     CassandraColumn,
     CassandraEntities,
     CassandraKeyspace,
@@ -63,15 +64,6 @@ logger = logging.getLogger(__name__)
 PLATFORM_NAME_IN_DATAHUB = "cassandra"
 
 
-def dataset_name(keyspace: str, table: str) -> str:
-    """The identifier table_pattern is matched against.
-
-    Shared with the probe (cassandra_probe.py) so both sides filter on the same
-    string; they used to build it independently and disagreed.
-    """
-    return f"{keyspace}.{table}"
-
-
 class KeyspaceKey(ContainerKey):
     keyspace: str
 
@@ -106,7 +98,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         self.platform = PLATFORM_NAME_IN_DATAHUB
         self.config = config
         self.report = CassandraSourceReport()
-        self.cassandra_api = config.get_client(self.report)
+        self.cassandra_api = CassandraAPI(config, self.report)
         self.cassandra_data = CassandraEntities()
         # For profiling
         self.profiler = CassandraProfiler(config, self.report, self.cassandra_api)
@@ -194,11 +186,11 @@ class CassandraSource(StatefulIngestionSourceBase):
         self, keyspace_name: str, table: CassandraTable
     ) -> Optional[Dataset]:
         table_name: str = table.table_name
-        table_fqn: str = dataset_name(keyspace_name, table_name)
+        dataset_name: str = f"{keyspace_name}.{table_name}"
 
-        self.report.report_entity_scanned(table_fqn, ent_type="Table")
-        if not self.config.table_pattern.allowed(table_fqn):
-            self.report.report_dropped(table_fqn)
+        self.report.report_entity_scanned(dataset_name, ent_type="Table")
+        if not self.config.table_pattern.allowed(dataset_name):
+            self.report.report_dropped(dataset_name)
             return None
 
         self.cassandra_data.tables.setdefault(keyspace_name, []).append(table_name)
@@ -209,20 +201,20 @@ class CassandraSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.failure(
                 message="Failed to extract columns from table",
-                context=table_fqn,
+                context=dataset_name,
                 exc=e,
             )
 
         return Dataset(
             platform=self.platform,
-            name=table_fqn,
+            name=dataset_name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
             subtype=DatasetSubTypes.TABLE,
             parent_container=self._generate_keyspace_container_key(keyspace_name),
             schema=schema_fields,
             display_name=table_name,
-            qualified_name=table_fqn,
+            qualified_name=dataset_name,
             description=table.comment,
             custom_properties=self._get_dataset_custom_props(table),
         )
@@ -238,8 +230,10 @@ class CassandraSource(StatefulIngestionSourceBase):
             CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
         )
         if not schema_fields:
-            self.report.report_warning(
-                message="Table has no columns, skipping", context=table_name
+            self.report.warning(
+                message="Table has no columns, skipping",
+                context=table_name,
+                log=False,
             )
             return None
 

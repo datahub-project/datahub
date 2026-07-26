@@ -28,6 +28,7 @@ from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_datasource_mcps,
 )
 from datahub.ingestion.source.grafana.field_utils import extract_fields_from_panel
+from datahub.ingestion.source.grafana.grafana_api import GrafanaAPIClient
 from datahub.ingestion.source.grafana.grafana_config import (
     GrafanaSourceConfig,
 )
@@ -94,7 +95,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self.env = self.config.env
         self.report = GrafanaSourceReport()
 
-        self.api_client = self.config.get_client(self.report)
+        self.api_client = GrafanaAPIClient(
+            base_url=self.config.url,
+            token=self.config.service_account_token,
+            verify_ssl=self.config.verify_ssl,
+            page_size=self.config.page_size,
+            report=self.report,
+            skip_text_panels=self.config.skip_text_panels,
+        )
 
         # Initialize lineage extractor with graph
         self.lineage_extractor = None
@@ -142,10 +150,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 )
                 response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Dashboard Search Error",
                     message="Failed to fetch dashboards in basic mode",
-                    context=str(e),
                     exc=e,
                 )
                 return

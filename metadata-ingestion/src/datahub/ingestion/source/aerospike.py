@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
-    Annotated,
     Any,
     Dict,
     Iterable,
@@ -19,13 +18,12 @@ import aerospike_helpers
 from pydantic import ConfigDict, PositiveInt, SecretStr, field_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, Filters
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mcp_builder import NamespaceKey
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -36,10 +34,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import (
-    DatasetContainerSubTypes,
-    DatasetSubTypes,
-)
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
@@ -72,15 +67,6 @@ from datahub.sdk.entity import Entity
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
-
-
-def dataset_name(namespace: str, set_name: str) -> str:
-    """The identifier set_pattern is matched against.
-
-    Shared with the probe (aerospike_probe.py) so both sides filter on the
-    same string; they used to build it independently and disagreed.
-    """
-    return f"{namespace}.{set_name}"
 
 
 class AuthMode(Enum):
@@ -151,7 +137,7 @@ class AerospikeConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for namespaces to filter in ingestion.",
     )
-    set_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+    set_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for sets to filter in ingestion.",
     )
@@ -175,40 +161,6 @@ class AerospikeConfig(
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    def get_client(self) -> aerospike.Client:
-        # Single home for client construction, reused by ingestion and the recipe probe.
-        hosts = [(x[0], int(x[1]), x[2] if len(x) > 2 else None) for x in self.hosts]
-        client_config: Dict[str, Any] = {"hosts": hosts}
-        if self.username is not None:
-            client_config["user"] = self.username
-        if self.password is not None:
-            client_config["password"] = self.password.get_secret_value()
-        if self.auth_mode is not None:
-            client_config["auth_mode"] = self.auth_mode.value
-        if self.login_timeout_ms is not None:
-            client_config["login_timeout_ms"] = self.login_timeout_ms
-        if self.tls_enabled:
-            client_config["tls"] = {}
-            client_config["tls"]["enable"] = self.tls_enabled
-            if self.tls_capath is not None:
-                client_config["tls"]["capath"] = self.tls_capath
-            if self.tls_cafile is not None:
-                client_config["tls"]["cafile"] = self.tls_cafile
-        return aerospike.client(client_config).connect()
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.aerospike_probe import (
-            AEROSPIKE_PROBE_HIERARCHY,
-        )
-
-        return AEROSPIKE_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.aerospike_probe import list_aerospike_children
-
-        return list_aerospike_children(self, parent_path, limit)
 
 
 @dataclass
@@ -378,8 +330,28 @@ class AerospikeSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = AerospikeSourceReport()
 
+        hosts = [
+            (x[0], int(x[1]), x[2] if len(x) > 2 else None) for x in self.config.hosts
+        ]
+        client_config: Dict[str, Any] = {"hosts": hosts}
+        if self.config.username is not None:
+            client_config["user"] = self.config.username
+        if self.config.password is not None:
+            client_config["password"] = self.config.password.get_secret_value()
+        if self.config.auth_mode is not None:
+            client_config["auth_mode"] = self.config.auth_mode.value
+        if self.config.login_timeout_ms is not None:
+            client_config["login_timeout_ms"] = self.config.login_timeout_ms
+        if self.config.tls_enabled:
+            client_config["tls"] = {}
+            client_config["tls"]["enable"] = self.config.tls_enabled
+            if self.config.tls_capath is not None:
+                client_config["tls"]["capath"] = self.config.tls_capath
+            if self.config.tls_cafile is not None:
+                client_config["tls"]["cafile"] = self.config.tls_cafile
+
         try:
-            self.aerospike_client = self.config.get_client()
+            self.aerospike_client = aerospike.client(client_config).connect()
         except Exception as e:
             self.report.failure(
                 message="Failed to connect to Aerospike",
@@ -408,9 +380,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         """
         type_string = PYTHON_TYPE_TO_AEROSPIKE_TYPE.get(field_type)
         if type_string is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             type_string = "unknown"
 
@@ -432,9 +405,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             TypeClass = NullTypeClass
 
@@ -479,16 +453,16 @@ class AerospikeSource(StatefulIngestionSourceBase):
 
         # traverse sets in sorted order so output is consistent
         for curr_set in sorted(ns_sets, key=lambda x: x.set):
-            set_fqn = dataset_name(namespace, curr_set.set)
-            if not self.config.set_pattern.allowed(set_fqn):
-                self.report.report_dropped(set_fqn)
+            dataset_name = f"{namespace}.{curr_set.set}"
+            if not self.config.set_pattern.allowed(dataset_name):
+                self.report.report_dropped(dataset_name)
                 continue
             try:
                 yield self._generate_dataset(curr_set, namespace_key, xdr_sets)
             except Exception as e:
                 self.report.warning(
                     message="Failed to extract set",
-                    context=set_fqn,
+                    context=dataset_name,
                     exc=e,
                 )
 
@@ -628,10 +602,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     f"Truncated schema from {len(schema)} to {len(truncated_schema)}"
                 )
                 schema_depth = max([len(k) for k in schema])
-                self.report.report_warning(
+                self.report.warning(
                     title="Schema depth limit reached",
                     message="Truncating the collection schema because it has too many nested levels.",
                     context=f"Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    log=False,
                 )
                 custom_properties["schema.truncated"] = "True"
                 custom_properties["schema.totalDepth"] = f"{schema_depth}"
@@ -640,10 +615,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
         schema_size = len(schema)
         max_schema_size = self.config.max_schema_size
         if max_schema_size is not None and schema_size > max_schema_size:
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
                 message="Downsampling the collection schema because it has too many schema fields.",
                 context=f"Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                log=False,
             )
             custom_properties["schema.downsampled"] = "True"
             custom_properties["schema.totalFields"] = f"{schema_size}"

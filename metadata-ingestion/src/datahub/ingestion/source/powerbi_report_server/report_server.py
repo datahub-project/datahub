@@ -23,7 +23,6 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -127,10 +126,6 @@ class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     def host(self):
         return self.server_alias or self.host_port.split(":")[0]
 
-    def get_client(self) -> "PowerBiReportServerAPI":
-        # Single home for client construction, reused by ingestion and the recipe probe.
-        return PowerBiReportServerAPI(self)
-
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     # Intentionally uses "powerbi" (same as the regular PowerBI connector) so that
@@ -142,21 +137,6 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     )
 
     _chart_pattern_removed = pydantic_removed_field("chart_pattern", "May", 2026)
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.powerbi_report_server.powerbi_report_server_probe import (
-            POWERBI_REPORT_SERVER_PROBE_HIERARCHY,
-        )
-
-        return POWERBI_REPORT_SERVER_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.powerbi_report_server.powerbi_report_server_probe import (
-            list_powerbi_report_server_children,
-        )
-
-        return list_powerbi_report_server_children(self, parent_path, limit)
 
 
 def log_http_error(e: BaseException, message: str) -> Any:
@@ -540,8 +520,8 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
         self.source_config = config
         self.ctx = ctx
         self.report = PowerBiReportServerDashboardSourceReport()
-        self.powerbi_client = self.source_config.get_client()
-        self.auth = self.powerbi_client.get_auth_credentials
+        self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
+        self.powerbi_client = PowerBiReportServerAPI(self.source_config)
         self.mapper = Mapper(config)
 
     @classmethod
@@ -569,7 +549,12 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
                     e, report.name, report.id
                 )
                 LOGGER.exception(message, e)
-                self.report.report_warning(report.id, message)
+                self.report.warning(
+                    message="Error occurred while loading User info for report",
+                    context=f"report={report.name} (id={report.id})",
+                    exc=e,
+                    log=False,
+                )
             finally:
                 # Increase Dashboard and tiles count in report
                 self.report.report_scanned(count=1)

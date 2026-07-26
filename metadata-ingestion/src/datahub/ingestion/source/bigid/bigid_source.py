@@ -25,7 +25,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError
+from datahub.ingestion.source.bigid.bigid_api import BigIDAPIError, BigIDClient
 from datahub.ingestion.source.bigid.bigid_report import BigIDSourceReport
 from datahub.ingestion.source.bigid.bigid_utils import (
     _bigid_term_urn,
@@ -165,7 +165,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = BigIDSourceReport()
-        self.client = config.get_client()
+        self.client = BigIDSource._build_client(config)
         # Lookup registries populated by _load_registries().
         self._platform_map: Dict[str, str] = {}  # connection name → platform
         self._glossary_id_map: Dict[str, str] = {}  # original name → glossary id
@@ -202,10 +202,24 @@ class BigIDSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     @staticmethod
+    def _build_client(config: BigIDSourceConfig) -> BigIDClient:
+        return BigIDClient(
+            bigid_url=config.bigid_url,
+            user_token=config.user_token.get_secret_value()
+            if config.user_token
+            else None,
+            access_token=config.access_token.get_secret_value()
+            if config.access_token
+            else None,
+            timeout=config.timeout,
+            max_retries=config.max_retries,
+        )
+
+    @staticmethod
     def test_connection(config_dict: Dict[str, Any]) -> TestConnectionReport:
         config = BigIDSourceConfig.model_validate(config_dict)
         try:
-            client = config.get_client()
+            client = BigIDSource._build_client(config)
             client.test_connection()
             client.close()
             return TestConnectionReport(

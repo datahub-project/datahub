@@ -2,8 +2,6 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
-    Annotated,
-    Any,
     Dict,
     Iterable,
     List,
@@ -22,11 +20,7 @@ from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    Filters,
-    TransparentSecretStr,
-)
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -41,7 +35,6 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     gen_containers,
 )
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -54,7 +47,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
-    DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.schema_inference.object import (
@@ -96,15 +88,6 @@ logger = logging.getLogger(__name__)
 # https://docs.mongodb.com/manual/reference/config-database/ and
 # https://stackoverflow.com/a/48273736/5004662.
 DENY_DATABASE_LIST = {"admin", "config", "local"}
-
-
-def dataset_name(database_name: str, collection_name: str) -> str:
-    """The identifier collection_pattern is matched against.
-
-    Shared with the probe (mongodb_probe.py) so both sides filter on the same
-    string; they used to build it independently and disagreed.
-    """
-    return f"{database_name}.{collection_name}"
 
 
 class HostingEnvironment(Enum):
@@ -171,38 +154,10 @@ class MongoDBConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
     )
-    collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = (
-        Field(
-            default=AllowDenyPattern.allow_all(),
-            description="regex patterns for collections to filter in ingestion.",
-        )
+    collection_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for collections to filter in ingestion.",
     )
-
-    def get_mongo_client(self) -> MongoClient:
-        # Single home for client construction, reused by ingestion and the recipe probe.
-        options: Dict[str, Any] = {}
-        if self.username is not None:
-            options["username"] = self.username
-        if self.password is not None:
-            options["password"] = self.password.get_secret_value()
-        if self.authMechanism is not None:
-            options["authMechanism"] = self.authMechanism
-        options = {**options, **self.options}
-        return MongoClient(
-            self.connect_uri, datetime_conversion="DATETIME_AUTO", **options
-        )
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.mongodb_probe import MONGODB_PROBE_HIERARCHY
-
-        return MONGODB_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.mongodb_probe import list_mongodb_children
-
-        return list_mongodb_children(self, parent_path, limit)
-
     excludeSystemCollections: bool = Field(
         default=True,
         description=(
@@ -373,7 +328,24 @@ class MongoDBSource(StatefulIngestionSourceBase):
         self.report = MongoDBSourceReport()
         self.platform = config.platform
 
-        self.mongo_client = self.config.get_mongo_client()
+        options = {}
+        if self.config.username is not None:
+            options["username"] = self.config.username
+        if self.config.password is not None:
+            options["password"] = self.config.password.get_secret_value()
+        if self.config.authMechanism is not None:
+            options["authMechanism"] = self.config.authMechanism
+        options = {
+            **options,
+            **self.config.options,
+        }
+
+        # See https://pymongo.readthedocs.io/en/stable/examples/datetimes.html#handling-out-of-range-datetimes
+        self.mongo_client = MongoClient(
+            self.config.connect_uri,
+            datetime_conversion="DATETIME_AUTO",
+            **options,  # type: ignore
+        )
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient
@@ -460,7 +432,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
             collection_names: List[str] = database.list_collection_names()
             # traverse collections in sorted order so output is consistent
             for collection_name in sorted(collection_names):
-                collection_fqn = dataset_name(database_name, collection_name)
+                dataset_name = f"{database_name}.{collection_name}"
 
                 # Skip MongoDB internal system collections by default.
                 # system.profile requires dbAdmin (not just read/readWrite) and only exists
@@ -469,16 +441,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
                 if self.config.excludeSystemCollections and collection_name.startswith(
                     "system."
                 ):
-                    self.report.report_dropped(collection_fqn)
+                    self.report.report_dropped(dataset_name)
                     continue
 
-                if not self.config.collection_pattern.allowed(collection_fqn):
-                    self.report.report_dropped(collection_fqn)
+                if not self.config.collection_pattern.allowed(dataset_name):
+                    self.report.report_dropped(dataset_name)
                     continue
 
                 dataset_urn = DatasetUrn.create_from_ids(
                     platform_id=self.platform,
-                    table_name=collection_fqn,
+                    table_name=dataset_name,
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
@@ -549,10 +521,11 @@ class MongoDBSource(StatefulIngestionSourceBase):
         assert max_schema_size is not None
         if collection_schema_size > max_schema_size:
             # downsample the schema, using frequency as the sort key
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
-                message=f"Downsampling the collection schema because it has too many schema fields. Configured threshold is {max_schema_size}",
-                context=f"Schema Size: {collection_schema_size}, Collection: {dataset_urn}",
+                message="Downsampling the collection schema because it has too many schema fields",
+                context=f"schema_size={collection_schema_size}, threshold={max_schema_size}, collection={dataset_urn}",
+                log=False,
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"

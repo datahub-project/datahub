@@ -30,6 +30,7 @@ from datahub.ingestion.source.pinecone.pinecone_client import (
     DEFAULT_NAMESPACE,
     IndexInfo,
     NamespaceStats,
+    PineconeClient,
 )
 from datahub.ingestion.source.pinecone.report import PineconeSourceReport
 from datahub.ingestion.source.pinecone.schema_inference import MetadataSchemaInferrer
@@ -95,7 +96,7 @@ class PineconeSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = PineconeSourceReport()
-        self.client = config.get_client()
+        self.client = PineconeClient(config)
 
         self.schema_inferrer: Optional[MetadataSchemaInferrer] = None
         if config.enable_schema_inference:

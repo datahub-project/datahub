@@ -1,14 +1,13 @@
 import logging
-from typing import Annotated, Dict, FrozenSet, List, Literal, Optional
+from typing import Dict, FrozenSet, List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -159,9 +158,7 @@ class FlinkSourceConfig(
         description="Flink REST API connection configuration."
     )
 
-    # The probe's Flink Job level has no shared subtype to match on (see
-    # flink_probe.py); the hint uses the identical bare-string kind literal.
-    job_name_pattern: Annotated[AllowDenyPattern, Filters("Flink Job")] = Field(
+    job_name_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Flink jobs by name.",
     )
@@ -211,18 +208,6 @@ class FlinkSourceConfig(
         default=None,
         description="Stateful ingestion for soft-deleting stale entities.",
     )
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        # Structural only — must not connect (see ProbeCapableConfig).
-        from datahub.ingestion.source.flink.flink_probe import FLINK_PROBE_HIERARCHY
-
-        return FLINK_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.flink.flink_probe import list_flink_children
-
-        return list_flink_children(self, parent_path, limit)
 
     @field_validator("include_job_states")
     @classmethod

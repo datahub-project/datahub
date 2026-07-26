@@ -230,8 +230,8 @@ def test_every_declared_hint_matches_a_level_kind_on_its_own_probe():
 
     Limitation: a level's kind_for/list_items can produce a kind that isn't
     the level's own declared `.kind` and isn't visible in this static walk
-    (e.g. Salesforce's kind_for produces "Custom Object" from a level whose
-    own declared kind is "Object" -- see salesforce_probe.py). A hint that
+    (e.g. a level whose own declared kind is "Object" but whose kind_for
+    reclassifies some items to a more specific runtime kind). A hint that
     would otherwise look dead is not flagged when the same probe has such a
     level, since the missing kind may simply be one of its runtime-only ones.
     """

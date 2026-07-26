@@ -1,17 +1,14 @@
 """Configuration model for Pinecone source."""
 
-from typing import Annotated, Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern, Filters, TransparentSecretStr
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-from datahub.ingestion.source.pinecone.pinecone_client import PineconeClient
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -51,18 +48,14 @@ class PineconeConfig(
     )
 
     # Filtering
-    index_pattern: Annotated[
-        AllowDenyPattern, Filters(DatasetContainerSubTypes.PINECONE_INDEX)
-    ] = Field(
+    index_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for indexes to filter in ingestion. "
         "Specify 'allow' patterns to include specific indexes, "
         "and 'deny' patterns to exclude indexes.",
     )
 
-    namespace_pattern: Annotated[
-        AllowDenyPattern, Filters(DatasetContainerSubTypes.PINECONE_NAMESPACE)
-    ] = Field(
+    namespace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for namespaces to filter in ingestion. "
         "Specify 'allow' patterns to include specific namespaces, "
@@ -101,23 +94,3 @@ class PineconeConfig(
         description="Stateful ingestion configuration for tracking processed entities "
         "and removing stale metadata.",
     )
-
-    def get_client(self) -> PineconeClient:
-        # Single home for client construction, reused by ingestion and the recipe probe.
-        return PineconeClient(self)
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        # Structural only — must not connect (see ProbeCapableConfig).
-        from datahub.ingestion.source.pinecone.pinecone_probe import (
-            PINECONE_PROBE_HIERARCHY,
-        )
-
-        return PINECONE_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.pinecone.pinecone_probe import (
-            list_pinecone_children,
-        )
-
-        return list_pinecone_children(self, parent_path, limit)

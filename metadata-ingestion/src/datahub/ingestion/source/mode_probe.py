@@ -380,9 +380,9 @@ def _queries(
 # Mode is a Space holding BOTH Reports and Datasets — the first branching probe,
 # reached through the connector's own session (config.get_mode_session()). Mode's
 # API is token-addressed while parent_path carries names, so each lister below
-# resolves the parent name to its token by re-fetching the parent listing (mirroring
-# how grafana_probe resolves a folder title to an id). Dataset and Query take
-# UNFILTERED: Mode declares no dataset_pattern/query_pattern to filter them.
+# resolves the parent name to its token by re-fetching the parent listing. Dataset
+# and Query take UNFILTERED: Mode declares no dataset_pattern/query_pattern to
+# filter them.
 MODE_PROBE = ClientProbe(
     client_factory=_build_mode_client,
     close=_close_mode_client,

@@ -1,16 +1,13 @@
-from typing import Annotated, Dict, List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
-from datahub.ingestion.source.bigid.bigid_api import BigIDClient
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -115,14 +112,12 @@ class BigIDSourceConfig(
         "deployments that expose hundreds of data sources. Catalog objects whose source "
         "connection is denied are skipped entirely.",
     )
-    dataset_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = (
-        Field(
-            default=AllowDenyPattern.allow_all(),
-            description="Regex allow/deny patterns matched against the BigID catalog object's "
-            "fully-qualified name. Complements connection_pattern with finer, dataset-level "
-            "scoping for large deployments where a single connection exposes many objects. "
-            "Objects whose fully-qualified name is denied are skipped.",
-        )
+    dataset_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex allow/deny patterns matched against the BigID catalog object's "
+        "fully-qualified name. Complements connection_pattern with finer, dataset-level "
+        "scoping for large deployments where a single connection exposes many objects. "
+        "Objects whose fully-qualified name is denied are skipped.",
     )
     create_datasets: bool = Field(
         default=False,
@@ -215,29 +210,6 @@ class BigIDSourceConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    def get_client(self) -> BigIDClient:
-        # Single home for client construction, reused by ingestion and the recipe probe.
-        return BigIDClient(
-            bigid_url=self.bigid_url,
-            user_token=self.user_token.get_secret_value() if self.user_token else None,
-            access_token=self.access_token.get_secret_value()
-            if self.access_token
-            else None,
-            timeout=self.timeout,
-            max_retries=self.max_retries,
-        )
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.bigid.bigid_probe import BIGID_PROBE_HIERARCHY
-
-        return BIGID_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.bigid.bigid_probe import list_bigid_children
-
-        return list_bigid_children(self, parent_path, limit)
 
     @model_validator(mode="after")
     def _require_some_token(self) -> "BigIDSourceConfig":

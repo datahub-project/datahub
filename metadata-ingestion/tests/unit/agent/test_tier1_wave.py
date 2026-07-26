@@ -1,42 +1,6 @@
-from types import SimpleNamespace
-
 import pytest
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe import probe_hierarchy
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.dynamodb.dynamodb_probe import list_dynamodb_children
-
-
-class _Paginator:
-    def __init__(self, names):
-        self._names = names
-
-    def paginate(self):
-        return iter([{"TableNames": self._names}])
-
-
-class _DynClient:
-    def __init__(self, names):
-        self._names = names
-        self.meta = SimpleNamespace(region_name="us-east-1")
-
-    def get_paginator(self, name):
-        return _Paginator(self._names)
-
-
-def test_dynamodb_lists_region_qualified_tables():
-    config = SimpleNamespace(
-        dynamodb_client=_DynClient(["orders", "tmp_scratch"]),
-        table_pattern=AllowDenyPattern(allow=[".*"], deny=[".*tmp_.*"]),
-    )
-    result = list_dynamodb_children(config, [], 100)
-    by_name = {n.name: n for n in result.nodes}
-    # Region-qualified to match the name the connector's table_pattern sees.
-    assert by_name["us-east-1.orders"].kind == DatasetSubTypes.TABLE
-    assert by_name["us-east-1.orders"].included is True
-    assert by_name["us-east-1.tmp_scratch"].included is False
-    assert by_name["us-east-1.tmp_scratch"].excluded_by == "table_pattern"
 
 
 def test_snowflake_summary_inherits_probe():
