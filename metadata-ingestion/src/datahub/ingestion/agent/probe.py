@@ -141,29 +141,6 @@ def level_nodes(
     return nodes, len(items) > limit
 
 
-def column_nodes(
-    cols: Sequence[Dict[str, object]], limit: int, fqn_prefix: str
-) -> Tuple[List[ProbeNode], bool]:
-    nodes: List[ProbeNode] = []
-    for col in cols[:limit]:
-        name = col.get("name")
-        if not _usable_name(name):
-            nodes.append(
-                ProbeNode(
-                    UNNAMED,
-                    ProbeLeafKind.COLUMN,
-                    _join_fqn(fqn_prefix, UNNAMED),
-                    None,
-                    *_UNNAMED_VERDICT,
-                )
-            )
-            continue
-        nodes.append(
-            ProbeNode(name, ProbeLeafKind.COLUMN, _join_fqn(fqn_prefix, name), None)
-        )
-    return nodes, len(cols) > limit
-
-
 # --- ClientProbe: declarative helper for connector-based probes ------------------
 # A source with a client that can be built from its config and lists entities by
 # name reduces to a declaration: the client factory, and one ProbeLevel per level.
@@ -218,19 +195,10 @@ class ProbeLevel:
     # one (see ClientProbe._resolved / pattern_field_for_config).
     pattern_field: Optional[str] = None
     list_names: Optional[LevelLister] = None
-    # Optional: derive the node kind per-name when a level mixes kinds (e.g.
-    # Salesforce custom vs standard objects). `kind` stays the nominal/structural
-    # kind reported by hierarchy().
-    kind_for: Optional[Callable[[str], ProbeNodeKind]] = None
-    # Some connectors filter on the fully-qualified name (PARENT.CHILD), not the
-    # bare child name (e.g. BigID's dataset_pattern). Set to test the pattern
-    # against the node fqn instead of its name.
-    classify_on_fqn: bool = False
     # The exact string this level's pattern is matched against. Set it to the
     # connector's own identifier function — never to a reimplementation of it —
     # so the probe and ingestion cannot disagree about what is being filtered.
-    # Takes precedence over classify_on_fqn. When None, classify_on_fqn decides
-    # between the node's fqn and its bare name.
+    # When None, the node's bare name is the match target.
     filter_target: Optional[Callable[["ClassifyContext"], str]] = None
     # A level fed by several listers, each contributing its own kind and pattern
     # (e.g. tables + views). Mutually exclusive with list_names/list_items.
@@ -262,10 +230,6 @@ class ProbeLevel:
                 raise ValueError(
                     "a sources/list_items level carries pattern_field per item; "
                     "remove the level-wide pattern_field"
-                )
-            if self.kind_for is not None:
-                raise ValueError(
-                    "a sources/list_items level carries kind per item; remove kind_for"
                 )
 
 
@@ -627,11 +591,7 @@ class ClientProbe:
             return self._resolved(config, items)
         assert level.list_names is not None  # guaranteed by ProbeLevel.__post_init__
         items = [
-            (
-                name,
-                level.kind_for(name) if level.kind_for else level.kind,
-                level.pattern_field,
-            )
+            (name, level.kind, level.pattern_field)
             for name in level.list_names(client, config, parent_path)
         ]
         return self._resolved(config, items)
@@ -645,22 +605,7 @@ class ClientProbe:
         prefix: str,
         limit: int,
     ) -> Tuple[List[ProbeNode], bool]:
-        if (
-            level.kind == ProbeLeafKind.COLUMN
-            and level.sources is None
-            and level.list_items is None
-            and level.pattern_field is None
-            and level.classify is None
-        ):
-            # Leaf (column) level: no filter, no verdict.
-            assert level.list_names is not None
-            col_names = list(level.list_names(client, config, names))
-            return column_nodes(
-                [{"name": n} for n in col_names], limit, fqn_prefix=prefix
-            )
-
         custom = level.classify
-        on_fqn = level.classify_on_fqn
         target = level.filter_target
 
         def verdict_for(
@@ -685,7 +630,7 @@ class ClientProbe:
                     parent_path=tuple(names),
                 )
                 return pattern_verdict(config, pattern_field, target(ctx))
-            return pattern_verdict(config, pattern_field, node_fqn if on_fqn else name)
+            return pattern_verdict(config, pattern_field, name)
 
         return level_nodes(
             self._items(level, client, config, names),

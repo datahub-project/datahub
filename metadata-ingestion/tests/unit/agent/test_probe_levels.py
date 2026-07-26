@@ -160,16 +160,10 @@ def test_level_requires_exactly_one_lister_mode():
         )  # two
 
 
-def test_list_items_rejects_level_wide_pattern_field_and_kind_for():
+def test_list_items_rejects_level_wide_pattern_field():
     with pytest.raises(ValueError):
         ProbeLevel(
             DatasetSubTypes.TABLE, "table_pattern", list_items=lambda c, cfg, p: []
-        )
-    with pytest.raises(ValueError):
-        ProbeLevel(
-            DatasetSubTypes.TABLE,
-            list_items=lambda c, cfg, p: [],
-            kind_for=lambda n: DatasetSubTypes.VIEW,
         )
 
 
@@ -181,15 +175,6 @@ def test_sources_level_rejects_a_level_wide_pattern_field():
             DatasetSubTypes.TABLE,
             "table_pattern",
             sources=[LevelSource(_lister("a"), DatasetSubTypes.TABLE, "table_pattern")],
-        )
-
-
-def test_sources_level_rejects_kind_for():
-    with pytest.raises(ValueError):
-        ProbeLevel(
-            DatasetSubTypes.TABLE,
-            sources=[LevelSource(_lister("a"), DatasetSubTypes.TABLE, "table_pattern")],
-            kind_for=lambda name: DatasetSubTypes.VIEW,
         )
 
 
@@ -272,10 +257,10 @@ def test_instance_attribute_resolves_even_though_the_bare_class_cannot():
 
 
 def test_column_level_with_classify_does_not_require_a_pattern_field():
-    # A Column level that sets classify= skips the leaf fast path (which has no
-    # verdict machinery), reaching _resolved with kind=Column. Column has no
-    # AllowDenyPattern to resolve, so it must pass through unchanged rather than
-    # raise "no AllowDenyPattern field ... filters kind 'Column'".
+    # A Column level reaches _resolved with kind=Column regardless of how it's
+    # declared. Column has no AllowDenyPattern to resolve, so it must pass
+    # through unchanged rather than raise "no AllowDenyPattern field ...
+    # filters kind 'Column'".
     def classify(ctx):
         return (False, "sensitive") if ctx.name == "ssn" else (True, None)
 
@@ -290,9 +275,9 @@ def test_column_level_with_classify_does_not_require_a_pattern_field():
     assert by_name["ssn"].excluded_by == "sensitive"
 
 
-def test_column_level_with_list_items_does_not_take_the_leaf_fast_path():
-    # list_items carries per-item kind/pattern like sources; the leaf fast path
-    # asserts list_names is set, so a Column + list_items level must not take it.
+def test_column_level_with_list_items_carries_per_item_kind():
+    # list_items carries per-item kind/pattern like sources; a Column level can
+    # use it just like any other kind.
     def items(client, config, parent_path):
         return [
             ("id", ProbeLeafKind.COLUMN, None),
@@ -537,7 +522,10 @@ def test_filter_target_chooses_the_string_the_pattern_is_matched_against():
     assert seen == [("orders", "public.orders", ("public",))]
 
 
-def test_filter_target_takes_precedence_over_classify_on_fqn():
+def test_filter_target_beats_the_default_bare_name_target():
+    # The node's bare name is "orders", which the deny pattern below would let
+    # through untouched. filter_target must still win, substituting "explicit"
+    # as the match target and getting denied.
     probe = ClientProbe(
         client_factory=lambda config: object(),
         levels=[
@@ -546,7 +534,6 @@ def test_filter_target_takes_precedence_over_classify_on_fqn():
                 DatasetSubTypes.TABLE,
                 list_names=_lister("orders"),
                 parent=DatasetContainerSubTypes.SCHEMA,
-                classify_on_fqn=True,
                 filter_target=lambda ctx: "explicit",
             ),
         ],

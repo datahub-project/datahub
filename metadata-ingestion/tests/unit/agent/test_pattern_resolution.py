@@ -228,12 +228,12 @@ def test_every_declared_hint_matches_a_level_kind_on_its_own_probe():
     probe-capable config must name a kind that config's OWN probe actually
     declares a level for.
 
-    Limitation: a level's kind_for/list_items can produce a kind that isn't
-    the level's own declared `.kind` and isn't visible in this static walk
-    (e.g. a level whose own declared kind is "Object" but whose kind_for
-    reclassifies some items to a more specific runtime kind). A hint that
-    would otherwise look dead is not flagged when the same probe has such a
-    level, since the missing kind may simply be one of its runtime-only ones.
+    Limitation: a level's list_items can produce a kind that isn't the level's
+    own declared `.kind` and isn't visible in this static walk (e.g. a single
+    listing that yields both Table and View, like BigQuery's table listing).
+    A hint that would otherwise look dead is not flagged when the same probe
+    has such a level, since the missing kind may simply be one of its
+    runtime-only ones.
     """
     mapped, _ = _mapped_probes()
 
@@ -246,7 +246,7 @@ def test_every_declared_hint_matches_a_level_kind_on_its_own_probe():
                 level_kinds.update(str(s.kind) for s in level.sources)
             else:
                 level_kinds.add(str(level.kind))
-            if level.kind_for is not None or level.list_items is not None:
+            if level.list_items is not None:
                 has_dynamic_kinds = True
 
         hinted_kinds = {

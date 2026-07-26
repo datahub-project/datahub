@@ -1,12 +1,13 @@
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Sequence, Tuple, cast
 
 import pytest
 
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeShapeNode
+from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeShapeNode
 from datahub.ingestion.agent.probe import (
     UNNAMED,
+    ClientProbe,
     ProbeBranchesError,
-    column_nodes,
+    ProbeLevel,
     level_nodes,
     probe_hierarchy,
     probe_shape,
@@ -15,15 +16,6 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-
-
-def test_column_nodes_have_no_pattern_field():
-    nodes, _ = column_nodes(
-        [{"name": "id"}, {"name": "amount"}], limit=10, fqn_prefix="db.s.orders"
-    )
-    assert [n.name for n in nodes] == ["id", "amount"]
-    assert nodes[0].fqn == "db.s.orders.id"
-    assert all(n.pattern_field is None for n in nodes)
 
 
 def test_snowflake_declares_database_aware_hierarchy():
@@ -179,10 +171,25 @@ def test_unnamed_node_is_reported_not_dropped_or_crashed():
     assert all(n.kind == DatasetSubTypes.TABLE for n in nodes)
 
 
-def test_column_with_no_usable_name_is_reported_as_unnamed():
-    nodes, _ = column_nodes(
-        [{"name": "id"}, {"name": None}], limit=10, fqn_prefix="db.s.orders"
+def test_column_leaf_level_reports_unnamed_columns_via_the_generic_path():
+    # column_nodes() was deleted -- byte-identical to a plain Column leaf level
+    # run through the generic level_nodes() path (a Column item's pattern_field
+    # passes through unresolved in ClientProbe._resolved, and
+    # pattern_verdict(config, None, name) always returns an "included" verdict),
+    # so this is the same behaviour column_nodes() used to provide directly.
+    def list_names_with_a_null(client, config, parent_path):
+        # Deliberately off-contract, like test_unnamed_node_is_reported_...
+        # above: LevelLister declares Sequence[str], but real APIs break that
+        # contract -- Mode hands back reports with name: null.
+        return cast(Sequence[str], ["id", None])
+
+    probe = ClientProbe(
+        client_factory=lambda config: object(),
+        levels=[ProbeLevel(ProbeLeafKind.COLUMN, list_names=list_names_with_a_null)],
     )
+    nodes = probe.list_children(object(), [], 100).nodes
     assert [n.name for n in nodes] == ["id", UNNAMED]
+    assert all(n.pattern_field is None for n in nodes)
+    assert nodes[0].included is True
     assert nodes[1].included is False
     assert nodes[1].excluded_by == "unnamed"
