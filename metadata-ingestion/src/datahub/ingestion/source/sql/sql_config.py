@@ -172,6 +172,18 @@ class SQLCommonConfig(
         """
         return None
 
+    def probe_schema_verdict_override(self, schema: str) -> Optional[bool]:
+        """Override point for a connector whose schema-level container
+        classification isn't just "does schema_pattern allow the bare
+        `schema` name" -- e.g. Redshift's match_fully_qualified_names flag
+        makes ingestion check `database.schema` instead once enabled (see
+        is_schema_allowed, datahub.configuration.pattern_utils). Return None
+        (the default) to keep sql_probe.py's generic bare-name check;
+        True/False reports that verdict directly. Checked before the generic
+        check on every SQL Schema-level node; see RedshiftConfig's override.
+        """
+        return None
+
     @classmethod
     def probe_provider_class(cls) -> type:
         from datahub.ingestion.source.sql.sqlalchemy_probe import (

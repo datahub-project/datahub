@@ -1,7 +1,7 @@
 import contextvars
 import sys
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Sequence, Type
+from typing import Any, Dict, List, Optional, Protocol, Sequence, Type, cast
 
 from datahub.ingestion.agent.models import ProbeLeafKind, ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
@@ -22,6 +22,14 @@ from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 # get_identifier() owns it -- see _source_class_for.
 _CONFIG_CLASS_SUFFIX = "Config"
 _SOURCE_CLASS_SUFFIX = "Source"
+
+
+class _SqlAlchemyUrlConfig(Protocol):
+    """The one method _shim_inspector needs -- every SQLCommonConfig subclass
+    has it, but that base class isn't imported here to avoid pulling its own
+    (heavier) dependency chain into this module just for a type hint."""
+
+    def get_sql_alchemy_url(self) -> str: ...
 
 
 def engine_options(config: object) -> Dict[str, Any]:
@@ -76,6 +84,18 @@ def _classify_container(ctx: ClassifyContext) -> Verdict:
     # System catalogs the source drops before the user pattern is even applied.
     if ctx.name.lower() in {s.lower() for s in ctx.config.default_schemas()}:
         return (False, "default_schema")
+    # Same shape as _identifier_target's probe_filter_target check: a config
+    # (Redshift's match_fully_qualified_names) can declare its own answer for
+    # "is this schema allowed" instead of the generic bare-name check below --
+    # e.g. because ingestion matches schema_pattern against "database.schema"
+    # once that flag is on (is_schema_allowed, configuration/pattern_utils.py;
+    # see RedshiftConfig.probe_schema_verdict_override, the same predicate
+    # bigquery_probe.py's _classify_dataset already calls). getattr, not a
+    # direct call, for the same SimpleNamespace-test-double reason as there.
+    schema_override = getattr(ctx.config, "probe_schema_verdict_override", None)
+    verdict = schema_override(schema=ctx.name) if callable(schema_override) else None
+    if verdict is not None:
+        return (True, None) if verdict else (False, ctx.pattern_field)
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 
@@ -89,11 +109,12 @@ _identifier_fallback_warnings: "contextvars.ContextVar[Optional[List[str]]]" = (
 )
 
 
-def _record_identifier_fallback(message: str) -> None:
-    """Shared warning channel: any config whose probe_filter_target degrades
-    to a less-precise target -- not just this module's own AttributeError
-    fallback below -- records the reason here (see
-    UnityCatalogSourceConfig.probe_filter_target). Deduplicated because a
+def record_identifier_fallback(message: str) -> None:
+    """Shared warning channel -- deliberately not underscore-prefixed, since
+    it's cross-module API: any config whose probe_filter_target degrades to
+    a less-precise target (not just this module's own AttributeError
+    fallback below) records the reason here, e.g.
+    UnityCatalogSourceConfig.probe_filter_target. Deduplicated because a
     single connector-wide reason (e.g. "catalogs isn't pinned") would
     otherwise be appended once per node classified in one list_children()
     call, rather than once per call.
@@ -110,7 +131,7 @@ def _with_identifier_fallback_warnings(result: ProbeResult) -> ProbeResult:
     return result
 
 
-def _source_class_for(config: Any) -> Type[SQLAlchemySource]:
+def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     """The Source class whose get_identifier() the probe should call for this
     config's Table level.
 
@@ -147,7 +168,7 @@ def _source_class_for(config: Any) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
-def _shim_inspector(config: Any) -> Any:
+def _shim_inspector(config: _SqlAlchemyUrlConfig) -> SimpleNamespace:
     """A stand-in Inspector exposing only what get_db_name reads --
     inspector.engine.url.database (sql_common.py:422-430). Parses the
     connector's own SQLAlchemy URL instead of opening a connection, unlike the
@@ -179,9 +200,12 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     instance of that class.
 
     Falls back to the node's plain fqn, recording the reason as a probe
-    warning (see _with_identifier_fallback_warnings), when an override
-    reaches for source state this shim doesn't carry -- e.g. StarRocks's
-    per-catalog `_current_catalog`, set only during real table enumeration.
+    warning (see _with_identifier_fallback_warnings), when an override reaches
+    for source state normally set outside __init__ that this shim doesn't
+    carry (e.g. mssql's current_database, StarRocks's _current_catalog --
+    both primed below instead, since __init__'s own value for each is known
+    and cheap to reproduce; a case with no such known value would still land
+    here).
     """
     schema = ctx.parent_path[-1] if ctx.parent_path else ""
     # getattr, not a direct call: every real SQLCommonConfig subclass declares
@@ -204,17 +228,43 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # this attribute (only mssql's does), hence setattr rather than a plain
     # assignment mypy could check against a type that doesn't have it.
     setattr(shim, "current_database", None)  # noqa: B010
+    # StarRocksSource.get_identifier reads self._current_catalog, which is
+    # only reassigned once real catalog enumeration starts
+    # (StarRocksSource.get_inspectors sets it before every table); at
+    # __init__ -- and thus on this shim -- it is None, and get_identifier's
+    # own fallback for a None catalog is the literal "default_catalog",
+    # StarRocks's name for its built-in internal catalog that most tables
+    # actually live in. This mirrors current_database above: reproducing
+    # __init__ state, not guessing at what a real run would set.
+    setattr(shim, "_current_catalog", None)  # noqa: B010
+    # Built outside the try: an AttributeError raised while resolving the
+    # config's own SQLAlchemy URL (e.g. a typo'd config override, which
+    # pydantic v2 itself raises as AttributeError) is not "get_identifier
+    # needs source state the probe doesn't have" and must not be reported as
+    # such.
+    inspector = _shim_inspector(ctx.config)
+    # lazy: sqlalchemy is only needed once a probe actually runs (see _engine)
+    from sqlalchemy.engine.reflection import Inspector
+
     try:
         target = source_cls.get_identifier(
             shim,
             schema=schema,
             entity=ctx.name,
-            inspector=_shim_inspector(ctx.config),
+            # Cast, not Any: inspector only ever stands in for what
+            # get_db_name reads (see _shim_inspector) -- it is deliberately
+            # never a real Inspector, so isinstance would legitimately fail
+            # here; get_identifier's signature still requires one.
+            inspector=cast(Inspector, inspector),
         )
     except AttributeError as exc:
-        _record_identifier_fallback(
-            f"{ctx.fqn}: {source_cls.__name__}.get_identifier needs source state "
-            f"the probe doesn't have ({exc}); using the plain fqn as the filter "
+        # Message is connector-wide (source_cls + the missing attribute), not
+        # per-node: record_identifier_fallback dedupes on the message, so
+        # including ctx.fqn here would defeat that dedupe and flood
+        # ProbeResult.warnings with one near-identical entry per table.
+        record_identifier_fallback(
+            f"{source_cls.__name__}.get_identifier needs source state the "
+            f"probe doesn't have ({exc}); using the plain fqn as the filter "
             "target instead"
         )
         return ctx.fqn

@@ -8,6 +8,7 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -282,6 +283,18 @@ class RedshiftConfig(
         # (default "dev"), so -- unlike Unity Catalog's `catalogs` list --
         # this always has an unambiguous answer.
         return dataset_name(self.database, schema, entity)
+
+    def probe_schema_verdict_override(self, schema: str) -> Optional[bool]:
+        # Same gap one level up: sql_probe.py's generic Schema-level
+        # classifier matches schema_pattern against the bare schema name,
+        # but redshift.py's own is_schema_allowed(...) calls (see e.g.
+        # cache_tables_and_views) match "database.schema" instead once
+        # match_fully_qualified_names is on. Reuses the shared predicate
+        # rather than re-deriving its branching here -- the same one
+        # bigquery_probe.py's _classify_dataset calls.
+        if not self.match_fully_qualified_names:
+            return None
+        return is_schema_allowed(self.schema_pattern, schema, self.database, True)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

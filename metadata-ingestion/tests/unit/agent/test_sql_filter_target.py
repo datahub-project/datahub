@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 from datahub.ingestion.agent.probe import ClassifyContext
 from datahub.ingestion.source.sql.sql_probe import (
+    _classify_container,
     _identifier_fallback_warnings,
     _identifier_target,
     _shim_inspector,
@@ -13,6 +16,19 @@ def _ctx(config, schema, entity):
         fqn=f"{schema}.{entity}",
         pattern_field="table_pattern",
         parent_path=(schema,),
+    )
+
+
+def _container_ctx(config, schema):
+    # The Schema level is the top of the (schema-top) SQL_PROBE hierarchy, so
+    # it has no parent -- ctx.parent_path is empty and ctx.fqn is just the
+    # bare schema name, mirroring how ClientProbe._nodes_for_level builds it.
+    return ClassifyContext(
+        config=config,
+        name=schema,
+        fqn=schema,
+        pattern_field="schema_pattern",
+        parent_path=(),
     )
 
 
@@ -62,6 +78,10 @@ def test_shim_matches_a_real_postgres_source_instance():
     identically to a real instance, not just plausibly. Covers both of
     postgres's branches: database taken from the live connection, and
     database pinned explicitly in the recipe."""
+    from typing import cast
+
+    from sqlalchemy.engine.reflection import Inspector
+
     from datahub.ingestion.api.common import PipelineContext
     from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
@@ -79,8 +99,12 @@ def test_shim_matches_a_real_postgres_source_instance():
         (from_config, "explicit_db.public.orders"),
     ]:
         real_source = PostgresSource(config, PipelineContext(run_id="test"))
+        # cast: _shim_inspector's stand-in is deliberately not a real
+        # Inspector (see sql_probe.py), only pure-parseable-URL-shaped.
         real_target = real_source.get_identifier(
-            schema="public", entity="orders", inspector=_shim_inspector(config)
+            schema="public",
+            entity="orders",
+            inspector=cast(Inspector, _shim_inspector(config)),
         )
         assert real_target == expected
         assert _identifier_target(_ctx(config, "public", "orders")) == real_target
@@ -111,22 +135,69 @@ def test_db2_shim_still_applies_the_uppercase_db_name_override():
     assert _identifier_target(ctx) == "MYDB.public.orders"
 
 
-def test_starrocks_missing_current_catalog_falls_back_to_fqn_with_a_warning():
-    """StarRocksSource.get_identifier reads self._current_catalog, set only
-    while a real ingestion run iterates catalogs -- source state this probe
-    shim has no equivalent for. That must degrade to the plain fqn and leave
-    a visible trace, not silently produce a wrong target."""
+def test_starrocks_shim_primes_current_catalog_to_its_init_state():
+    """StarRocksSource.get_identifier reads self._current_catalog, which
+    real ingestion reassigns before every table (get_inspectors sets it once
+    per catalog, ahead of enumerating that catalog's tables) -- so it is
+    never actually None while any table is being classified. At __init__,
+    though, it IS None, and get_identifier's own fallback for a None catalog
+    is the literal "default_catalog" -- StarRocks's name for its built-in
+    internal catalog that most tables actually live in. Priming the shim to
+    that same __init__ value (mirroring current_database's mssql handling)
+    turns what used to be an AttributeError fallback into a real answer, not
+    a guess: this is exactly the failure mode a recipe with
+    table_pattern.allow: ["default_catalog\\.analytics\\..*"] hit before this
+    fix (every table reported excluded_by: table_pattern while ingestion
+    ingested them all). No warning: this is a real (if partial -- external
+    catalogs still can't be resolved) answer, not a degrade."""
     from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 
     config = StarRocksConfig()
-    ctx = _ctx(config, "public", "orders")
+    ctx = _ctx(config, "analytics", "orders")
     token = _identifier_fallback_warnings.set([])
     try:
-        assert _identifier_target(ctx) == ctx.fqn
+        assert _identifier_target(ctx) == "default_catalog.analytics.orders"
+        assert _identifier_fallback_warnings.get() == []
+    finally:
+        _identifier_fallback_warnings.reset(token)
+
+
+def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypatch):
+    """Regression guard: record_identifier_fallback dedupes on message
+    identity (see its docstring: "once per call, not once per node"), but an
+    earlier version of this message embedded ctx.fqn, which is different for
+    every node -- defeating the dedupe and, per a whole-plan review, flooding
+    ProbeResult.warnings with one near-identical entry per table (measured:
+    200 for 200 StarRocks tables, before StarRocks itself was fixed to no
+    longer hit this path at all -- see
+    test_starrocks_shim_primes_current_catalog_to_its_init_state above).
+    Faking the AttributeError here (rather than relying on a real connector)
+    keeps this test valid regardless of which real connectors do or don't
+    exercise the fallback at any given time.
+    """
+    import datahub.ingestion.source.sql.sql_probe as sql_probe_module
+
+    class _FakeSource:
+        def get_identifier(self, *, schema, entity, inspector):
+            raise AttributeError("'_FakeSource' object has no attribute '_never_set'")
+
+    monkeypatch.setattr(
+        sql_probe_module, "_source_class_for", lambda config: _FakeSource
+    )
+    config = SimpleNamespace(get_sql_alchemy_url=lambda: "sqlite://")
+
+    token = _identifier_fallback_warnings.set([])
+    try:
+        for entity in ("orders", "sessions", "customers"):
+            ctx = _ctx(config, "public", entity)
+            # Falls back to the plain fqn for every node -- this assertion
+            # doesn't change; only how many warnings that produces does.
+            assert _identifier_target(ctx) == ctx.fqn
         warnings = _identifier_fallback_warnings.get()
+        # Before this fix: 3 distinct messages (one per fqn). After: 1.
         assert warnings is not None and len(warnings) == 1
-        assert "StarRocksSource" in warnings[0]
-        assert "_current_catalog" in warnings[0]
+        assert "_FakeSource" in warnings[0]
+        assert "_never_set" in warnings[0]
     finally:
         _identifier_fallback_warnings.reset(token)
 
@@ -217,7 +288,7 @@ def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog
 
 def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
     """A single connector-wide reason must not be appended once per node
-    classified in one list_children() call -- see _record_identifier_fallback's
+    classified in one list_children() call -- see record_identifier_fallback's
     dedup. Simulates classifying two different tables under the same
     ambiguous config within one probe call."""
     from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
@@ -233,3 +304,60 @@ def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
         assert warnings is not None and len(warnings) == 1
     finally:
         _identifier_fallback_warnings.reset(token)
+
+
+def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
+    """redshift.py's cache_tables_and_views (and _process_table/_process_view)
+    all gate schema iteration through is_schema_allowed(schema_pattern,
+    schema, database, match_fully_qualified_names) -- so once that flag is
+    on, ingestion checks "database.schema" against schema_pattern, not the
+    bare schema name alone. sql_probe.py's generic _classify_container only
+    ever checks the bare name; RedshiftConfig.probe_schema_verdict_override
+    must correct that for Redshift specifically, the same way
+    probe_filter_target corrects the Table level below it."""
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.redshift.config import RedshiftConfig
+
+    bare_name_deny = RedshiftConfig(
+        host_port="localhost:5439",
+        database="analytics",
+        match_fully_qualified_names=True,
+        schema_pattern=AllowDenyPattern(deny=[r"^public$"]),
+    )
+    # A deny anchored to the bare schema name no longer excludes once
+    # match_fully_qualified_names is on: ingestion checks "analytics.public".
+    included, excluded_by = _classify_container(
+        _container_ctx(bare_name_deny, "public")
+    )
+    assert included is True
+    assert excluded_by is None
+
+    fully_qualified_deny = RedshiftConfig(
+        host_port="localhost:5439",
+        database="analytics",
+        match_fully_qualified_names=True,
+        schema_pattern=AllowDenyPattern(deny=[r"^analytics\.public$"]),
+    )
+    included, excluded_by = _classify_container(
+        _container_ctx(fully_qualified_deny, "public")
+    )
+    assert included is False
+    assert excluded_by == "schema_pattern"
+
+
+def test_redshift_schema_verdict_unchanged_when_flag_is_off():
+    """match_fully_qualified_names defaults to False, so
+    probe_schema_verdict_override must be a no-op (return None) in that case
+    -- the bare-name check stays exactly as every other SQL connector's
+    does, matching Redshift's own real behavior when the flag is unset."""
+    from datahub.configuration.common import AllowDenyPattern
+    from datahub.ingestion.source.redshift.config import RedshiftConfig
+
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="analytics",
+        schema_pattern=AllowDenyPattern(deny=[r"^public$"]),
+    )
+    included, excluded_by = _classify_container(_container_ctx(config, "public"))
+    assert included is False
+    assert excluded_by == "schema_pattern"

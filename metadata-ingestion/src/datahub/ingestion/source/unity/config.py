@@ -268,45 +268,6 @@ class UnityCatalogSourceConfig(
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
-    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
-        """sql_probe.py's generic get_identifier shim has no get_identifier to
-        call for Unity Catalog: UnityCatalogSource doesn't extend
-        SQLAlchemySource, and process_tables (source.py) actually matches
-        table_pattern against `table.ref.qualified_table_name`, i.e.
-        `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
-        reused here rather than reimplemented).
-
-        The probe's Table level otherwise only knows `schema` -- it has no
-        catalog in its parent_path (Unity Catalog reuses SQLCommonConfig's
-        schema-top hierarchy for this level; see sql_probe.SQL_PROBE) -- so the
-        catalog has to come from config, exactly as RedshiftConfig's `database`
-        does. Unlike `database`, `catalogs` is a list: only usable here when it
-        pins exactly one, since a pattern-selected or multi-catalog recipe has
-        no single answer to hand back without guessing.
-
-        Degrading to None (the shim's plain "schema.entity") is a real loss of
-        accuracy versus ingestion's "catalog.schema.table" -- silently
-        returning it would repeat the exact defect this stage exists to
-        remove, just for a different reason. So the degrade is recorded on
-        ProbeResult.warnings via sql_probe.py's shared fallback channel (the
-        same one its own get_identifier shim uses for its AttributeError
-        case), not just explained here in a docstring the agent never sees.
-        """
-        if self.catalogs is not None and len(self.catalogs) == 1:
-            return qualified_table_name(self.catalogs[0], schema, entity)
-
-        # Lazy: keeps sql_probe's shim/engine machinery off this config
-        # module's import path; only needed on this degrade path.
-        from datahub.ingestion.source.sql.sql_probe import _record_identifier_fallback
-
-        _record_identifier_fallback(
-            "unity-catalog: `catalogs` does not pin exactly one catalog, so "
-            "table verdicts are matched against `schema.table` while "
-            "ingestion matches `catalog.schema.table`; set a single catalog "
-            "for exact verdicts."
-        )
-        return None
-
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -662,6 +623,45 @@ class UnityCatalogSourceConfig(
 
     def uses_table_level_profiler(self) -> bool:
         return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
+
+    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+        """sql_probe.py's generic get_identifier shim has no get_identifier to
+        call for Unity Catalog: UnityCatalogSource doesn't extend
+        SQLAlchemySource, and process_tables (source.py) actually matches
+        table_pattern against `table.ref.qualified_table_name`, i.e.
+        `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
+        reused here rather than reimplemented).
+
+        The probe's Table level otherwise only knows `schema` -- it has no
+        catalog in its parent_path (Unity Catalog reuses SQLCommonConfig's
+        schema-top hierarchy for this level; see sql_probe.SQL_PROBE) -- so the
+        catalog has to come from config, exactly as RedshiftConfig's `database`
+        does. Unlike `database`, `catalogs` is a list: only usable here when it
+        pins exactly one, since a pattern-selected or multi-catalog recipe has
+        no single answer to hand back without guessing.
+
+        Degrading to None (the shim's plain "schema.entity") is a real loss of
+        accuracy versus ingestion's "catalog.schema.table" -- silently
+        returning it would repeat the exact defect this stage exists to
+        remove, just for a different reason. So the degrade is recorded on
+        ProbeResult.warnings via sql_probe.py's shared fallback channel (the
+        same one its own get_identifier shim uses for its AttributeError
+        case), not just explained here in a docstring the agent never sees.
+        """
+        if self.catalogs is not None and len(self.catalogs) == 1:
+            return qualified_table_name(self.catalogs[0], schema, entity)
+
+        # Lazy: keeps sql_probe's shim/engine machinery off this config
+        # module's import path; only needed on this degrade path.
+        from datahub.ingestion.source.sql.sql_probe import record_identifier_fallback
+
+        record_identifier_fallback(
+            "unity-catalog: `catalogs` does not pin exactly one catalog, so "
+            "table verdicts are matched against `schema.table` while "
+            "ingestion matches `catalog.schema.table`; set a single catalog "
+            "for exact verdicts."
+        )
+        return None
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
