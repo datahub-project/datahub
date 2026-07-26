@@ -90,8 +90,16 @@ _identifier_fallback_warnings: "contextvars.ContextVar[Optional[List[str]]]" = (
 
 
 def _record_identifier_fallback(message: str) -> None:
+    """Shared warning channel: any config whose probe_filter_target degrades
+    to a less-precise target -- not just this module's own AttributeError
+    fallback below -- records the reason here (see
+    UnityCatalogSourceConfig.probe_filter_target). Deduplicated because a
+    single connector-wide reason (e.g. "catalogs isn't pinned") would
+    otherwise be appended once per node classified in one list_children()
+    call, rather than once per call.
+    """
     warnings = _identifier_fallback_warnings.get()
-    if warnings is not None:
+    if warnings is not None and message not in warnings:
         warnings.append(message)
 
 

@@ -282,12 +282,29 @@ class UnityCatalogSourceConfig(
         catalog has to come from config, exactly as RedshiftConfig's `database`
         does. Unlike `database`, `catalogs` is a list: only usable here when it
         pins exactly one, since a pattern-selected or multi-catalog recipe has
-        no single answer to hand back without guessing. Falls back to None
-        (the shim's plain "schema.entity") otherwise -- no worse than before
-        this override existed.
+        no single answer to hand back without guessing.
+
+        Degrading to None (the shim's plain "schema.entity") is a real loss of
+        accuracy versus ingestion's "catalog.schema.table" -- silently
+        returning it would repeat the exact defect this stage exists to
+        remove, just for a different reason. So the degrade is recorded on
+        ProbeResult.warnings via sql_probe.py's shared fallback channel (the
+        same one its own get_identifier shim uses for its AttributeError
+        case), not just explained here in a docstring the agent never sees.
         """
         if self.catalogs is not None and len(self.catalogs) == 1:
             return qualified_table_name(self.catalogs[0], schema, entity)
+
+        # Lazy: keeps sql_probe's shim/engine machinery off this config
+        # module's import path; only needed on this degrade path.
+        from datahub.ingestion.source.sql.sql_probe import _record_identifier_fallback
+
+        _record_identifier_fallback(
+            "unity-catalog: `catalogs` does not pin exactly one catalog, so "
+            "table verdicts are matched against `schema.table` while "
+            "ingestion matches `catalog.schema.table`; set a single catalog "
+            "for exact verdicts."
+        )
         return None
 
     metric_view_pattern: AllowDenyPattern = Field(

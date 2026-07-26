@@ -149,7 +149,8 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
     """UnityCatalogSource also doesn't extend SQLAlchemySource; process_tables
     (source.py) matches table_pattern against table.ref.qualified_table_name,
     i.e. "catalog.schema.table". A recipe pinning exactly one catalog gives
-    UnityCatalogSourceConfig.probe_filter_target an unambiguous answer."""
+    UnityCatalogSourceConfig.probe_filter_target an unambiguous answer -- the
+    normal, non-degraded case, so it must record no warning."""
     from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     config = UnityCatalogSourceConfig.model_validate(
@@ -159,24 +160,41 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
             "catalogs": ["main"],
         }
     )
-    assert _identifier_target(_ctx(config, "public", "orders")) == (
-        "main.public.orders"
-    )
+    token = _identifier_fallback_warnings.set([])
+    try:
+        assert _identifier_target(_ctx(config, "public", "orders")) == (
+            "main.public.orders"
+        )
+        assert _identifier_fallback_warnings.get() == []
+    finally:
+        _identifier_fallback_warnings.reset(token)
 
 
 def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
     """Without exactly one catalog pinned (none, or several), there is no
     single catalog to prepend without guessing -- so this falls back to the
-    generic shim's plain "schema.entity", same as before this override
-    existed, rather than fabricating an answer."""
+    generic shim's plain "schema.entity" rather than fabricating an answer.
+    That degrade must be visible to whatever reads ProbeResult.warnings, not
+    just explained in a docstring -- a plausible-looking two-part target with
+    no accompanying warning is exactly the silent-mismatch defect this whole
+    stage exists to remove, so both ambiguous shapes (no catalogs, several
+    catalogs) must record one."""
     from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     no_catalogs = UnityCatalogSourceConfig.model_validate(
         {"token": "token", "workspace_url": "https://workspace_url"}
     )
-    assert _identifier_target(_ctx(no_catalogs, "public", "orders")) == (
-        "public.orders"
-    )
+    token = _identifier_fallback_warnings.set([])
+    try:
+        assert _identifier_target(_ctx(no_catalogs, "public", "orders")) == (
+            "public.orders"
+        )
+        warnings = _identifier_fallback_warnings.get()
+        assert warnings is not None and len(warnings) == 1
+        assert "unity-catalog" in warnings[0]
+        assert "catalogs" in warnings[0]
+    finally:
+        _identifier_fallback_warnings.reset(token)
 
     several_catalogs = UnityCatalogSourceConfig.model_validate(
         {
@@ -185,6 +203,33 @@ def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog
             "catalogs": ["main", "other"],
         }
     )
-    assert _identifier_target(_ctx(several_catalogs, "public", "orders")) == (
-        "public.orders"
+    token = _identifier_fallback_warnings.set([])
+    try:
+        assert _identifier_target(_ctx(several_catalogs, "public", "orders")) == (
+            "public.orders"
+        )
+        warnings = _identifier_fallback_warnings.get()
+        assert warnings is not None and len(warnings) == 1
+        assert "unity-catalog" in warnings[0]
+    finally:
+        _identifier_fallback_warnings.reset(token)
+
+
+def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
+    """A single connector-wide reason must not be appended once per node
+    classified in one list_children() call -- see _record_identifier_fallback's
+    dedup. Simulates classifying two different tables under the same
+    ambiguous config within one probe call."""
+    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {"token": "token", "workspace_url": "https://workspace_url"}
     )
+    token = _identifier_fallback_warnings.set([])
+    try:
+        _identifier_target(_ctx(config, "public", "orders"))
+        _identifier_target(_ctx(config, "public", "sessions"))
+        warnings = _identifier_fallback_warnings.get()
+        assert warnings is not None and len(warnings) == 1
+    finally:
+        _identifier_fallback_warnings.reset(token)
