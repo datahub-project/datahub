@@ -35,7 +35,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe import ClientProbe
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -319,15 +319,10 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
     # SQLCommonConfig, it gets a real Database level on top, the way
     # TwoTierSQLAlchemyConfig overrides these same two hooks for its own shape.
     @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.sql.sql_probe import POSTGRES_PROBE_HIERARCHY
+    def _client_probe(cls) -> ClientProbe:
+        from datahub.ingestion.source.sql.sql_probe import POSTGRES_PROBE
 
-        return POSTGRES_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.sql.sql_probe import list_postgres_children
-
-        return list_postgres_children(self, parent_path, limit)
+        return POSTGRES_PROBE
 
 
 @platform_name("Postgres")

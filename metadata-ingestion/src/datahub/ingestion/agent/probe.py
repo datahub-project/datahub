@@ -619,6 +619,51 @@ class ClientProbe:
             self._close(client)
 
 
+class ProbeableConfigMixin:
+    """Supplies ProbeCapableConfig's hooks -- `probe_hierarchy`, `probe_shape`,
+    `list_probe_children` -- from a single per-connector classmethod:
+    `_client_probe()`.
+
+    A source with a ClientProbe reduces its config-side wiring to overriding
+    `_client_probe()`, a Callable[[], ClientProbe] returning the connector's
+    already-declared ClientProbe. Do the connector's probe-module import
+    inside the override's body (never at class or module scope), so that
+    module -- and whatever client library it lazily imports in turn -- stays
+    off the config's own import path (see probe_interface.md's "Wire the
+    config hooks").
+
+    A branching probe needs no special case here: ClientProbe.hierarchy()
+    already raises ProbeBranchesError for a tree that has no single chain
+    (Mode's Space holds both Reports and Datasets), so probe_hierarchy()
+    below raises the same way, and probe_shape() -- which every connector's
+    config exposes regardless of whether it branches -- is already the right
+    accessor for it.
+
+    Variant selection stays by class: a subclass overrides only
+    `_client_probe()` to point at a different ClientProbe (see
+    TwoTierSQLAlchemyConfig, PostgresConfig, MSSQLConfig), never by branching
+    on a source-type string.
+    """
+
+    @classmethod
+    def _client_probe(cls) -> ClientProbe:
+        raise NotImplementedError(
+            f"{cls.__name__} must override _client_probe() to return its "
+            "ClientProbe (see ProbeableConfigMixin)"
+        )
+
+    @classmethod
+    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+        return cls._client_probe().hierarchy()
+
+    @classmethod
+    def probe_shape(cls) -> ProbeShapeNode:
+        return cls._client_probe().shape()
+
+    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+        return self._client_probe().list_children(self, parent_path, limit)
+
+
 # --- Framework entry points ------------------------------------------------------
 
 

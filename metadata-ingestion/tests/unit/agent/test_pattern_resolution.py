@@ -65,6 +65,11 @@ _LIST_CHILDREN_IMPORT_RE = re.compile(
 )
 _LIST_CHILDREN_CALL_RE = re.compile(r"(\w+)\.list_children\(")
 
+# ProbeableConfigMixin shape: `_client_probe()` imports a module-level
+# ClientProbe constant (by convention, an ALL_CAPS name ending in "_PROBE")
+# and returns it directly -- no wrapper function to unwrap.
+_CLIENT_PROBE_IMPORT_RE = re.compile(r"from ([\w\.]+) import\s*\(?\s*(\w+)")
+
 # Configs whose list_probe_children delegates to another source's connection
 # object (e.g. `self.connection.list_probe_children(...)`) rather than owning a
 # module-level ClientProbe of its own. Named explicitly so a *different* config
@@ -108,18 +113,43 @@ def _mapped_probes() -> Tuple[Dict[str, Tuple[Any, "ClientProbe"]], List[str]]:
 
 
 def _mapped_probe(config_cls: Any) -> Optional[ClientProbe]:
-    """Resolve the single ClientProbe a config's list_probe_children delegates
-    to, by reading its source for the `from <probe_module> import
-    list_x_children` delegation, then that wrapper function's own
-    `SOME_PROBE.list_children(...)` call. Returns None when the config doesn't
-    delegate this way (i.e. isn't backed by its own ClientProbe).
+    """Resolve the single ClientProbe a config's probe hooks delegate to.
+
+    Two shapes exist:
+    - ProbeableConfigMixin (the current path for every connector migrated to
+      it): the config overrides `_client_probe()`, whose source reads `from
+      <probe_module> import SOME_PROBE; return SOME_PROBE` for a module-level
+      ClientProbe constant -- read directly, no wrapper function involved.
+    - The pre-mixin shape: `list_probe_children` imports and calls a
+      module-level `list_x_children` wrapper around
+      `SOME_PROBE.list_children(...)`. Kept so a connector that hasn't
+      adopted the mixin (or a config like bigquery-queries/snowflake-queries
+      that legitimately delegates to another source's connection object
+      instead of owning a ClientProbe) is still resolved the same way it
+      always was.
+
+    Returns None when neither shape resolves (i.e. the config isn't backed by
+    its own ClientProbe -- see _EXPECTED_UNMAPPED_SOURCE_TYPES).
 
     Typed Any because config_cls is a dynamically resolved connector config
     class (see _config_class in probe.py); mypy can't see its
-    list_probe_children classmethod.
+    _client_probe/list_probe_children classmethods.
     """
     import importlib
     import inspect
+
+    client_probe_fn = getattr(config_cls, "_client_probe", None)
+    if client_probe_fn is not None:
+        try:
+            client_probe_src = inspect.getsource(client_probe_fn)
+        except (OSError, TypeError):
+            client_probe_src = ""
+        client_probe_match = _CLIENT_PROBE_IMPORT_RE.search(client_probe_src)
+        if client_probe_match:
+            mod = importlib.import_module(client_probe_match.group(1))
+            probe = getattr(mod, client_probe_match.group(2), None)
+            if isinstance(probe, ClientProbe):
+                return probe
 
     try:
         src = inspect.getsource(config_cls.list_probe_children)

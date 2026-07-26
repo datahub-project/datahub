@@ -100,25 +100,35 @@ sharing a `parent` branch (see Mode: a Space holds both Reports and Datasets), i
 
 ### Wire the config hooks
 
-```python
-class MySourceConfig(...):
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.mysource_probe import MYSOURCE_PROBE
-        return MYSOURCE_PROBE.hierarchy()
+A config that owns exactly one `ClientProbe` gets `probe_hierarchy`, `probe_shape`, and
+`list_probe_children` for free from `ProbeableConfigMixin` — inherit it and override the one
+method it asks for:
 
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
+```python
+class MySourceConfig(ProbeableConfigMixin, ...):
+    @classmethod
+    def _client_probe(cls) -> ClientProbe:
         from datahub.ingestion.source.mysource_probe import MYSOURCE_PROBE
-        return MYSOURCE_PROBE.list_children(self, parent_path, limit)
+        return MYSOURCE_PROBE
 ```
 
-Lazy imports keep the probe module off the config's import path. `probe_hierarchy` must not
-connect — the CLI calls it to advertise support. A branching probe implements `probe_shape()`
-instead, since it has no single chain.
+The lazy import inside `_client_probe()` keeps the probe module off the config's import path.
+The mixin's `probe_hierarchy` calls `_client_probe().hierarchy()`, so it inherits the
+"must not connect" guarantee for free; a **branching** probe needs no special case either —
+`ClientProbe.hierarchy()` already raises `ProbeBranchesError` for a tree that has no single
+chain, and the mixin's `probe_shape()` (also derived from `_client_probe()`) is already the
+right accessor for it. Mode's config overrides only `_client_probe()`, exactly like a linear
+connector; the mixin does the rest.
 
 **Variants are selected by class, never by a source-type list.** `TwoTierSQLAlchemyConfig`
-overrides these hooks to point at the two-tier probe, so MySQL/Hive/ClickHouse/Teradata get
-`Database → Table → Column` by inheriting it.
+overrides `_client_probe()` to point at the two-tier probe, so MySQL/Hive/ClickHouse/Teradata get
+`Database → Table → Column` by inheriting it. Postgres and mssql do the same to add their
+`Database` level on top of the generic Schema-top probe they'd otherwise inherit.
+
+If a config doesn't fit that shape — it delegates to another source's own connection object
+(`bigquery-queries`/`snowflake-queries` reuse BigQuery/Snowflake's connection config) rather than
+owning a `ClientProbe` of its own — implement `probe_hierarchy`/`list_probe_children` directly
+instead of using the mixin, exactly as those two configs do.
 
 ### Filtering
 

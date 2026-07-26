@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt
 
@@ -8,7 +8,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.agent.probe_methods import ProbeProvider
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
@@ -69,6 +69,7 @@ class ProfilerConfig(GEProfilingConfig):
 
 
 class KafkaSourceConfig(
+    ProbeableConfigMixin,
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -80,45 +81,6 @@ class KafkaSourceConfig(
     topic_patterns: AllowDenyPattern = Field(
         default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     )
-
-    @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        # Structural only — must not connect (see ProbeCapableConfig).
-        from datahub.ingestion.source.kafka.kafka_probe import KAFKA_PROBE_HIERARCHY
-
-        return KAFKA_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.kafka.kafka_probe import list_kafka_children
-
-        return list_kafka_children(self, parent_path, limit)
-
-    @classmethod
-    def probe_provider_class(cls) -> type:
-        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
-
-        return KafkaMetadataProbe
-
-    def build_probe_provider(self) -> ProbeProvider:
-        from datahub.ingestion.source.confluent_schema_registry import (
-            get_kafka_schema_registry_client,
-        )
-        from datahub.ingestion.source.kafka.kafka import (
-            get_kafka_admin_client,
-            get_kafka_consumer,
-        )
-        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
-
-        # 10s is a floor, not a default: admin/registry calls need enough time
-        # against a possibly-slow broker, so a lower configured timeout is
-        # deliberately overridden rather than honored as-is.
-        timeout = max(10, getattr(self.connection, "client_timeout_seconds", 10))
-        return KafkaMetadataProbe(
-            consumer=get_kafka_consumer(self.connection),
-            admin=get_kafka_admin_client(self.connection),
-            registry=get_kafka_schema_registry_client(self.connection),
-            timeout=timeout,
-        )
 
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
@@ -186,4 +148,37 @@ class KafkaSourceConfig(
         """Check if profiling is enabled, respecting operation_config like SQL connectors."""
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
+        )
+
+    @classmethod
+    def _client_probe(cls) -> ClientProbe:
+        from datahub.ingestion.source.kafka.kafka_probe import KAFKA_PROBE
+
+        return KAFKA_PROBE
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+        return KafkaMetadataProbe
+
+    def build_probe_provider(self) -> ProbeProvider:
+        from datahub.ingestion.source.confluent_schema_registry import (
+            get_kafka_schema_registry_client,
+        )
+        from datahub.ingestion.source.kafka.kafka import (
+            get_kafka_admin_client,
+            get_kafka_consumer,
+        )
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+        # 10s is a floor, not a default: admin/registry calls need enough time
+        # against a possibly-slow broker, so a lower configured timeout is
+        # deliberately overridden rather than honored as-is.
+        timeout = max(10, getattr(self.connection, "client_timeout_seconds", 10))
+        return KafkaMetadataProbe(
+            consumer=get_kafka_consumer(self.connection),
+            admin=get_kafka_admin_client(self.connection),
+            registry=get_kafka_schema_registry_client(self.connection),
+            timeout=timeout,
         )

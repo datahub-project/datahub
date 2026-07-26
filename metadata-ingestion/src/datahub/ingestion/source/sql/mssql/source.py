@@ -35,7 +35,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe import ClientProbe
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -358,15 +358,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     # SQLCommonConfig, it gets a real Database level on top, the way
     # TwoTierSQLAlchemyConfig overrides these same two hooks for its own shape.
     @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
-        from datahub.ingestion.source.sql.sql_probe import MSSQL_PROBE_HIERARCHY
+    def _client_probe(cls) -> ClientProbe:
+        from datahub.ingestion.source.sql.sql_probe import MSSQL_PROBE
 
-        return MSSQL_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.sql.sql_probe import list_mssql_children
-
-        return list_mssql_children(self, parent_path, limit)
+        return MSSQL_PROBE
 
     def get_sql_alchemy_url(
         self,

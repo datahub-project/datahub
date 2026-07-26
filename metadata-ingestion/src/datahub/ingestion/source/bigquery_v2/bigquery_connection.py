@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
 from google.auth.credentials import Credentials
@@ -9,7 +9,7 @@ from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
 
 from datahub._version import __version__
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
+from datahub.ingestion.agent.probe import ClientProbe, ProbeableConfigMixin
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
@@ -30,7 +30,7 @@ class BigQueryAuthType(StrEnum):
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
 
 
-class BigQueryConnectionConfig(GCPWIFConfig):
+class BigQueryConnectionConfig(ProbeableConfigMixin, GCPWIFConfig):
     """Connection configuration for BigQuery.
 
     Supports three authentication modes:
@@ -179,16 +179,9 @@ class BigQueryConnectionConfig(GCPWIFConfig):
     # BigQuery client, so it declares its own hierarchy instead of the generic
     # SQLAlchemy 2-level probe.
     @classmethod
-    def probe_hierarchy(cls) -> List[ProbeNodeKind]:
+    def _client_probe(cls) -> ClientProbe:
         from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
-            BIGQUERY_PROBE_HIERARCHY,
+            BIGQUERY_PROBE,
         )
 
-        return BIGQUERY_PROBE_HIERARCHY
-
-    def list_probe_children(self, parent_path: List[str], limit: int) -> ProbeResult:
-        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
-            list_bigquery_children,
-        )
-
-        return list_bigquery_children(self, parent_path, limit)
+        return BIGQUERY_PROBE
