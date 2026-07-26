@@ -20,6 +20,7 @@ entities:
     searchGroup: primary
     aspects:
       - viewProperties
+      - semanticModelProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
@@ -599,6 +600,7 @@ entities:
       - logicalParent
       - globalTags
       - glossaryTerms
+      - semanticFieldAnnotation
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform

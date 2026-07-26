@@ -1,39 +1,25 @@
 package com.linkedin.datahub.graphql.types.semanticmodel.mappers;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dimension;
-import com.linkedin.datahub.graphql.generated.SemanticField;
+import com.linkedin.datahub.graphql.generated.SemanticFieldAnnotation;
 import com.linkedin.datahub.graphql.generated.SemanticFieldType;
-import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.metric.mappers.MetricExpressionMapper;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
- * Maps {@link com.linkedin.semanticmodel.SemanticField} Pegasus records to the generated GraphQL
- * {@link SemanticField}.
- *
- * <p>The {@code semanticModelUrn} parameter is threaded from the enclosing SemanticModel so that
- * the inline {@code schemaField}'s {@code SchemaFieldEntity.urn} is constructed as {@code
- * urn:li:schemaField:(<semanticModelUrn>,<fieldPath>)}.
+ * Maps {@link com.linkedin.semanticmodel.SemanticFieldAnnotation} Pegasus aspects (attached to a
+ * {@code schemaField} entity) to the generated GraphQL {@link SemanticFieldAnnotation}.
  */
-public class SemanticFieldMapper {
+public class SemanticFieldAnnotationMapper {
 
-  private SemanticFieldMapper() {}
+  private SemanticFieldAnnotationMapper() {}
 
-  @Nullable
-  public static SemanticField map(
-      @Nullable QueryContext context,
-      @Nonnull com.linkedin.semanticmodel.SemanticField pdl,
-      @Nonnull Urn semanticModelUrn) {
-    final SemanticField result = new SemanticField();
-
-    if (pdl.hasSchemaField() && pdl.getSchemaField() != null) {
-      result.setSchemaField(SchemaFieldMapper.map(context, pdl.getSchemaField(), semanticModelUrn));
-    }
+  @Nonnull
+  public static SemanticFieldAnnotation map(
+      @Nonnull final com.linkedin.semanticmodel.SemanticFieldAnnotation pdl) {
+    final SemanticFieldAnnotation result = new SemanticFieldAnnotation();
 
     if (pdl.hasType() && pdl.getType() != null) {
       result.setType(mapSemanticFieldType(pdl.getType()));
@@ -43,6 +29,10 @@ public class SemanticFieldMapper {
 
     if (pdl.hasExpression() && pdl.getExpression() != null) {
       result.setExpression(MetricExpressionMapper.map(pdl.getExpression()));
+    }
+
+    if (pdl.hasAggregationFunction() && pdl.getAggregationFunction() != null) {
+      result.setAggregationFunction(pdl.getAggregationFunction());
     }
 
     if (pdl.hasDimension() && pdl.getDimension() != null) {

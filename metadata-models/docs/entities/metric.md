@@ -76,6 +76,13 @@ aspect. `datasetUpstreams` and `fieldUpstreams` are independently optional so in
 can populate whichever granularity they can extract. Metric-to-metric derivation lineage lives on
 `metricRelationships.derivedFrom` and is not folded into `metricUpstreams`.
 
+**Convention:** do not populate `metricUpstreams` when `metricInfo.semanticModel` is set. For
+semantic-model-backed metrics, lineage flows through the model
+(`Metric → SemanticModel → Logical Dataset → Physical Dataset`) via `ModeledBy` and the
+semantic model's lineage `Contains` edges. `metricUpstreams` is reserved for metrics ingested
+without a semantic model (e.g. thin catalog metrics from BI tools). Emitting both creates a
+redundant `Metric → Dataset` shortcut that bypasses the semantic model in the lineage explorer.
+
 ## Notable Exceptions
 
 ### Environment-independent identity

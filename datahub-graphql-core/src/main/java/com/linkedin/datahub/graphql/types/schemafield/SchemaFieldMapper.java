@@ -20,11 +20,13 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.semanticmodel.mappers.SemanticFieldAnnotationMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
+import com.linkedin.semanticmodel.SemanticFieldAnnotation;
 import com.linkedin.structured.StructuredProperties;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -88,6 +90,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
                         logicalParent ->
                             UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
                     .orElse(null)));
+    mappingHelper.mapToResult(
+        SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setSemanticFieldAnnotation(
+                SemanticFieldAnnotationMapper.map(new SemanticFieldAnnotation(dataMap))));
 
     return result;
   }
