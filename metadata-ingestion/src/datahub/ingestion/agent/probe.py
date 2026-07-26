@@ -82,12 +82,12 @@ UNNAMED: str = "<unnamed>"
 _UNNAMED_VERDICT: Verdict = (False, "unnamed")
 
 
-def usable_name(name: object) -> TypeGuard[str]:
+def _usable_name(name: object) -> TypeGuard[str]:
     """Whether a lister gave us a name we can filter on and descend into."""
     return isinstance(name, str) and bool(name.strip())
 
 
-def fqn(prefix: Optional[str], name: str) -> str:
+def _join_fqn(prefix: Optional[str], name: str) -> str:
     return f"{prefix}.{name}" if prefix else name
 
 
@@ -122,18 +122,18 @@ def level_nodes(
     """
     nodes: List[ProbeNode] = []
     for name, kind, pattern_field in items[:limit]:
-        if not usable_name(name):
+        if not _usable_name(name):
             nodes.append(
                 ProbeNode(
                     UNNAMED,
                     kind,
-                    fqn(fqn_prefix, UNNAMED),
+                    _join_fqn(fqn_prefix, UNNAMED),
                     pattern_field,
                     *_UNNAMED_VERDICT,
                 )
             )
             continue
-        node_fqn = fqn(fqn_prefix, name)
+        node_fqn = _join_fqn(fqn_prefix, name)
         included, excluded_by = verdict_for(name, node_fqn, pattern_field)
         nodes.append(
             ProbeNode(name, kind, node_fqn, pattern_field, included, excluded_by)
@@ -147,18 +147,20 @@ def column_nodes(
     nodes: List[ProbeNode] = []
     for col in cols[:limit]:
         name = col.get("name")
-        if not usable_name(name):
+        if not _usable_name(name):
             nodes.append(
                 ProbeNode(
                     UNNAMED,
                     ProbeLeafKind.COLUMN,
-                    fqn(fqn_prefix, UNNAMED),
+                    _join_fqn(fqn_prefix, UNNAMED),
                     None,
                     *_UNNAMED_VERDICT,
                 )
             )
             continue
-        nodes.append(ProbeNode(name, ProbeLeafKind.COLUMN, fqn(fqn_prefix, name), None))
+        nodes.append(
+            ProbeNode(name, ProbeLeafKind.COLUMN, _join_fqn(fqn_prefix, name), None)
+        )
     return nodes, len(cols) > limit
 
 
