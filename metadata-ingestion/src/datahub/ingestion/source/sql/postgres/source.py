@@ -1,6 +1,16 @@
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
@@ -15,6 +25,7 @@ from geoalchemy2 import Geometry  # noqa: F401
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 
 if TYPE_CHECKING:
@@ -39,6 +50,10 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.sql.postgres.lineage import PostgresLineageExtractor
+from datahub.ingestion.source.sql.postgres.query import (
+    POSTGRES_SYSTEM_DATABASES,
+    PostgresQuery,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -278,6 +293,26 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
             )
         return self
 
+    # --- Agent probe contract (see datahub.ingestion.agent.probe) ---
+    def list_databases(self, conn: Connection) -> List[str]:
+        # Raw database listing shared with get_inspectors() below -- no
+        # database_pattern applied here; callers (get_inspectors() and,
+        # eventually, a Database-level agent probe) apply that themselves,
+        # so the two paths query the exact same rows instead of each
+        # re-deriving the listing SQL.
+        return PostgresQuery.list_databases(conn)
+
+    @classmethod
+    def default_databases(cls) -> FrozenSet[str]:
+        # Databases this source drops regardless of database_pattern -- Postgres
+        # template databases and AWS RDS's internal admin database. Same shape
+        # as SQLCommonConfig.default_schemas() one level down: exposed so a
+        # future Database-level probe can report one of these as
+        # excluded_by: "default_database" instead of it silently never
+        # appearing. Reuses PostgresQuery's own exclusion list so the probe
+        # and the query it mirrors cannot drift apart.
+        return frozenset(POSTGRES_SYSTEM_DATABASES)
+
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
@@ -415,21 +450,14 @@ class PostgresSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 yield inspector
             else:
-                # pg_database catalog -  https://www.postgresql.org/docs/current/catalog-pg-database.html
-                # exclude template databases - https://www.postgresql.org/docs/current/manage-ag-templatedbs.html
-                # exclude rdsadmin - AWS RDS administrative database
-                databases = conn.execute(
-                    "SELECT datname from pg_database where datname not in ('template0', 'template1', 'rdsadmin')"
-                )
-                for db in databases:
-                    if not self.config.database_pattern.allowed(db["datname"]):
+                databases = self.config.list_databases(conn)
+                for db_name in databases:
+                    if not self.config.database_pattern.allowed(db_name):
                         continue
 
-                    url = self.config.get_sql_alchemy_url(database=db["datname"])
+                    url = self.config.get_sql_alchemy_url(database=db_name)
                     db_engine = create_engine(url, **self.config.options)
-                    self._setup_rds_iam_event_listener(
-                        db_engine, database_name=db["datname"]
-                    )
+                    self._setup_rds_iam_event_listener(db_engine, database_name=db_name)
 
                     with db_engine.connect() as conn:
                         inspector = inspect(conn)
