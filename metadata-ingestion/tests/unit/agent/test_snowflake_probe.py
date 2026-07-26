@@ -9,6 +9,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.snowflake.snowflake_probe import list_snowflake_children
+from tests.unit.agent.probe_conformance import assert_verdicts
 
 
 class _Row:
@@ -86,9 +87,9 @@ def test_databases_apply_database_pattern(snowflake):
     assert by_name["ANALYTICS"].kind == DatasetContainerSubTypes.DATABASE
     assert by_name["ANALYTICS"].fqn == "ANALYTICS"
     assert by_name["ANALYTICS"].pattern_field == "database_pattern"
-    assert by_name["ANALYTICS"].included is True
-    assert by_name["RAW"].included is False
-    assert by_name["RAW"].excluded_by == "database_pattern"
+    assert_verdicts(
+        result, included=["ANALYTICS"], excluded={"RAW": "database_pattern"}
+    )
     assert snowflake.engine.disposed is True
 
 
@@ -97,9 +98,11 @@ def test_schemas_are_db_qualified_and_drop_information_schema(snowflake):
     by_name = {n.name: n for n in result.nodes}
     assert by_name["PUBLIC"].fqn == "ANALYTICS.PUBLIC"
     assert by_name["PUBLIC"].kind == DatasetContainerSubTypes.SCHEMA
-    assert by_name["PUBLIC"].included is True
-    assert by_name["INFORMATION_SCHEMA"].included is False
-    assert by_name["INFORMATION_SCHEMA"].excluded_by == "default_schema"
+    assert_verdicts(
+        result,
+        included=["PUBLIC"],
+        excluded={"INFORMATION_SCHEMA": "default_schema"},
+    )
     assert any('SHOW TERSE SCHEMAS IN DATABASE "ANALYTICS"' in s for s in snowflake.log)
 
 
@@ -109,11 +112,9 @@ def test_tables_merge_views_drop_sys_objects_and_pin_database(snowflake):
     assert by_name["ORDERS"].kind == DatasetSubTypes.TABLE
     assert by_name["ORDERS"].pattern_field == "table_pattern"
     assert by_name["ORDERS"].fqn == "ANALYTICS.PUBLIC.ORDERS"
-    assert by_name["ORDERS"].included is True
     assert by_name["V_ORDERS"].kind == DatasetSubTypes.VIEW
     assert by_name["V_ORDERS"].pattern_field == "view_pattern"
-    assert by_name["SYS$LOG"].included is False
-    assert by_name["SYS$LOG"].excluded_by == "system_object"
+    assert_verdicts(result, included=["ORDERS"], excluded={"SYS$LOG": "system_object"})
     assert any('USE DATABASE "ANALYTICS"' in s for s in snowflake.log)
 
 
@@ -132,6 +133,4 @@ def test_table_pattern_matches_fully_qualified_name(snowflake):
         allow=[".*"], deny=[".*PUBLIC.ORDERS$"]
     )
     result = list_snowflake_children(snowflake.config, ["ANALYTICS", "PUBLIC"], 100)
-    by_name = {n.name: n for n in result.nodes}
-    assert by_name["ORDERS"].included is False
-    assert by_name["ORDERS"].excluded_by == "table_pattern"
+    assert_verdicts(result, excluded={"ORDERS": "table_pattern"})

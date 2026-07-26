@@ -229,10 +229,24 @@ return typed objects rather than dicts.
 ## Testing expectations
 
 - A fake client exercising each level, including a **denied** object asserted as
-  `included: false` with the right `excluded_by`.
+  `included: false` with the right `excluded_by`. Use
+  `tests.unit.agent.probe_conformance.assert_verdicts(result, included=[...], excluded={...})`
+  for this check instead of re-deriving the by-name lookup and assertions by hand — see
+  `test_kafka_probe.py` / `test_snowflake_probe.py` for the converted shape. Kind, fqn, and
+  pattern_field assertions stay in the test itself; they vary per connector.
 - The degrade path: a 404 on one sub-listing produces an empty level **and** a warning; auth
-  failures and 5xx raise.
+  failures and 5xx raise. Once your fake client is wired to trigger the soft error, assert the
+  result with `assert_degrades_with_warning(result, contains="404")` (see
+  `test_mode_probe.py::test_datasets_404_degrades_to_empty_and_records_a_warning`). Triggering the
+  error itself is connector-specific (an HTTP session double, a SQLAlchemy inspector double, ...)
+  and stays in the test; a hard failure (auth, 5xx) is a plain `pytest.raises(...)` around the
+  same call — there's nothing to wrap there.
 - If the connector has a `get_identifier`-equivalent, assert the probe's filter target equals
-  what ingestion computes for the same inputs.
+  what ingestion computes for the same inputs. This only applies to the SQLAlchemy family today,
+  where `test_sql_filter_target.py` already covers the shim mechanics in depth; it hasn't been
+  generalised into a shared helper because no other connector shares the shape (an
+  uninitialized-instance shim resolving a `Source` class by convention), and a generic version
+  would flatten away the per-dialect nuance (Redshift/Unity Catalog's `probe_filter_target`
+  override vs. postgres/mssql's database-pinned identifier).
 - The connector's **existing** suites must pass unedited. A probe adds to a connector; it does
   not change it.

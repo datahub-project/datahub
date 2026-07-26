@@ -13,6 +13,7 @@ import datahub.ingestion.source.kafka.kafka as kafka_mod
 from datahub.ingestion.source.kafka.kafka_probe import (
     list_kafka_children,
 )
+from tests.unit.agent.probe_conformance import assert_verdicts
 
 
 class _FakeConsumer:
@@ -42,10 +43,10 @@ def test_list_topics_reuses_topic_patterns_verdict(monkeypatch):
     by_name = {n.name: n for n in result.nodes}
     assert by_name["orders"].kind == DatasetSubTypes.TOPIC
     assert by_name["orders"].pattern_field == "topic_patterns"
-    assert by_name["orders"].included is True
     # The connector's own default deny (^_) drops internal topics — reused, not re-implemented.
-    assert by_name["_offsets"].included is False
-    assert by_name["_offsets"].excluded_by == "topic_patterns"
+    assert_verdicts(
+        result, included=["orders"], excluded={"_offsets": "topic_patterns"}
+    )
     assert consumer.closed
 
 

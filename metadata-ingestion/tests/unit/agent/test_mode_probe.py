@@ -14,6 +14,7 @@ from datahub.ingestion.source.mode_probe import (
     _get_embedded_paged,
     list_mode_children,
 )
+from tests.unit.agent.probe_conformance import assert_degrades_with_warning
 
 _WORKSPACE = "https://app.mode.com/api/acryltest"
 
@@ -404,8 +405,8 @@ def test_datasets_404_degrades_to_empty_and_records_a_warning():
     result = list_mode_children(cfg, ["Personal"], 100)
     kinds = {n.name: str(n.kind) for n in result.nodes}
     assert kinds == {"Weekly": "Report"}  # Datasets degraded to [], not raised
+    assert_degrades_with_warning(result, contains="404")
     assert len(result.warnings) == 1
-    assert "404" in result.warnings[0]
 
 
 def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
