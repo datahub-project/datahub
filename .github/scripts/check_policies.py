@@ -50,7 +50,7 @@ for policy in all_policies:
             platform_privileges.update(privileges)
         else:
             other_policies.append(policy)
-    except:
+    except Exception as _:
         without_info.append(policy)
         pprint.pprint(policy)
 

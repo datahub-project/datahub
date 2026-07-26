@@ -48,6 +48,7 @@ import {
 } from '@app/searchV2/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
@@ -223,11 +224,13 @@ export function getFilterIconAndLabel(
         label = capitalizeFirstLetterOnly(i18next.t('search:filters.pluralizedTypeLabel', { type: filterValue }));
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
-        icon = logoUrl ? (
-            <PlatformIcon src={logoUrl} size={size} />
-        ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT)
-        );
+        if (logoUrl) {
+            icon = <PlatformIcon src={logoUrl} size={size} />;
+        } else if ((filterEntity as DataPlatform)?.properties?.logical) {
+            icon = <LogicalPlatformDefaultIcon size={size} />;
+        } else {
+            icon = entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT);
+        }
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
         icon = <FolderFilled style={{ fontSize: size }} />;

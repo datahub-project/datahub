@@ -484,14 +484,24 @@ public class RequestContext implements ContextInterface {
     }
 
     private static String extractSourceIP(@Nonnull HttpServletRequest request) {
+      // Both X-Forwarded-For and getRemoteAddr() can be null (async-dispatched requests,
+      // non-IP transports, or unstubbed test mocks). Coalesce to "" so the @Nonnull sourceIP
+      // field setter never sees null.
       return Optional.ofNullable(request.getHeader(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(request.getRemoteAddr());
+          .or(() -> Optional.ofNullable(request.getRemoteAddr()))
+          .orElse("");
     }
 
     private static String extractSourceIP(@Nonnull ResourceContext resourceContext) {
+      // Defensive null-handling: header lookup and REMOTE_ADDR attribute can both be absent.
       return Optional.ofNullable(
               resourceContext.getRequestHeaders().get(HttpHeaders.X_FORWARDED_FOR))
-          .orElse(resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR").toString());
+          .or(
+              () ->
+                  Optional.ofNullable(
+                          resourceContext.getRawRequestContext().getLocalAttr("REMOTE_ADDR"))
+                      .map(Object::toString))
+          .orElse("");
     }
 
     public RequestAPI peekRequestAPI() {
@@ -607,17 +617,19 @@ public class RequestContext implements ContextInterface {
       String requestAPI = requestContext.getRequestAPI().toMetricLabel();
       metricUtils.increment(
           String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
-      // Per-request Micrometer counter. When USAGE_AGGREGATION_ENABLED is on, the flush path also
-      // exports datahub_request_count; keep this until aggregation is the default in smoke/dev.
-      metricUtils.incrementMicrometer(
-          MetricUtils.DATAHUB_REQUEST_COUNT,
-          1,
-          "user_category",
-          userCategory,
-          "agent_class",
-          agentClass,
-          "request_api",
-          requestAPI);
+      // Per-request Micrometer counter. Skip when aggregation Micrometer export owns
+      // datahub_request_count (flush uses billing tag keys; Micrometer forbids mixed tag sets).
+      if (!metricUtils.isSuppressLegacyRequestCountMicrometer()) {
+        metricUtils.incrementMicrometer(
+            MetricUtils.DATAHUB_REQUEST_COUNT,
+            1,
+            "user_category",
+            userCategory,
+            "agent_class",
+            agentClass,
+            "request_api",
+            requestAPI);
+      }
     }
   }
 

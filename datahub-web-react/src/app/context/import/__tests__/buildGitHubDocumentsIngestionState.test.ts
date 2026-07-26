@@ -16,5 +16,6 @@ describe('buildGitHubDocumentsIngestionState', () => {
         expect(recipe.source.config.create_repo_root_document).toBe(true);
         expect(recipe.source.config.parent_document_urn).toBeUndefined();
         expect(recipe.source.config.stateful_ingestion).toEqual({ enabled: true });
+        expect(recipe.sink).toBeUndefined();
     });
 });

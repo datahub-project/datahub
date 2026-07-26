@@ -138,7 +138,15 @@ def test_bitol_schemaless_excerpt_skips_gracefully(
     dataset shells and without unknown-field warnings — their roles / SLA /
     team-object keys are all recognized as spec-valid."""
     mces, report, _ = _run_example(pytestconfig, tmp_path, fixture)
-    _assert_only_lenient_validation_warnings(report)
+    # A single schemaless contract emits nothing, so the pipeline's
+    # "No metadata was produced" notice is expected here alongside the
+    # lenient-validation one.
+    allowed = {_ALLOWED_WARNING, "No metadata was produced by the source"}
+    for warning in report.warnings:
+        assert str(getattr(warning, "title", warning)) in allowed, (
+            f"official Bitol example produced an unexpected warning: {warning}"
+        )
+    assert report.unknown_fields_count == 0
     assert report.contracts_skipped == 1
     assert not [m for m in mces if m.get("entityType") == "dataset"]
 

@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -19,6 +21,7 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.chart.BrowseV2Resolver;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
@@ -35,7 +38,9 @@ import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -294,6 +299,63 @@ public class BrowseV2ResolverTest {
     info.setDefinition(
         new DataHubViewDefinition().setEntityTypes(entityNames).setFilter(viewFilter));
     return info;
+  }
+
+  @Test
+  public static void testDocumentTypeAppliesDefaultFilters() throws Exception {
+    // When browsing DOCUMENT entities, default document filters (showInGlobalContext) should be
+    // applied so bridge documents don't inflate browse counts.
+    FormService mockFormService = Mockito.mock(FormService.class);
+    ViewService mockService = Mockito.mock(ViewService.class);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.browseV2(
+                any(),
+                Mockito.anyList(),
+                Mockito.anyString(),
+                Mockito.any(Filter.class),
+                Mockito.anyString(),
+                Mockito.anyInt(),
+                Mockito.anyInt()))
+        .thenReturn(
+            new BrowseResultV2()
+                .setNumGroups(0)
+                .setGroups(new BrowseResultGroupV2Array())
+                .setMetadata(new BrowseResultMetadata().setPath("").setTotalNumEntities(0))
+                .setFrom(0)
+                .setPageSize(10));
+
+    final BrowseV2Resolver resolver =
+        new BrowseV2Resolver(mockClient, mockService, mockFormService);
+
+    BrowseV2Input input = new BrowseV2Input();
+    input.setPath(new ArrayList<>());
+    input.setType(EntityType.DOCUMENT);
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockDenyContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .browseV2(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq(""),
+            filterCaptor.capture(),
+            eq("*"),
+            eq(0),
+            eq(10));
+    Filter appliedFilter = filterCaptor.getValue();
+    Assert.assertNotNull(appliedFilter);
+    Assert.assertTrue(
+        appliedFilter.getOr().stream()
+            .flatMap(clause -> clause.getAnd().stream())
+            .anyMatch(c -> "showInGlobalContext".equals(c.getField())));
   }
 
   @Test

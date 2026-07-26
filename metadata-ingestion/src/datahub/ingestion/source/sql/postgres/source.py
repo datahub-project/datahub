@@ -378,7 +378,7 @@ class PostgresSource(SQLAlchemySource):
                     "Please provide a graph connection in your pipeline configuration or disable usage statistics."
                 )
                 logger.error(error_message)
-                self.report.report_failure(
+                self.report.failure(
                     message=error_message,
                     context="usage_statistics_graph_validation_failed",
                 )
@@ -408,7 +408,7 @@ class PostgresSource(SQLAlchemySource):
                     f"or missing dependencies. Please check your configuration and try again."
                 )
                 logger.error(error_message)
-                self.report.report_failure(
+                self.report.failure(
                     message=error_message,
                     context="sql_aggregator_init_failed",
                 )
@@ -578,12 +578,13 @@ class PostgresSource(SQLAlchemySource):
                     "SQL aggregator not initialized, skipping query-based lineage extraction. "
                     "Check initialization errors above."
                 )
-                self.report.report_warning(
+                self.report.warning(
                     message=(
                         "Query-based lineage was enabled but SQL aggregator failed to initialize. "
                         "No query-based lineage will be extracted. Check earlier error messages."
                     ),
                     context="query_lineage_skipped",
+                    log=False,
                 )
                 return
 
@@ -604,14 +605,15 @@ class PostgresSource(SQLAlchemySource):
                         "Continuing with other lineage sources.",
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Query lineage extraction failed: {e}. "
+                            "Query lineage extraction failed. "
                             "Check that pg_stat_statements extension is properly configured and accessible. "
                             "See documentation for setup instructions: "
                             "https://datahubproject.io/docs/generated/ingestion/sources/postgres"
                         ),
                         context="query_lineage_extraction_failed",
+                        exc=e,
                     )
 
         with PerfTimer() as timer:
@@ -627,13 +629,14 @@ class PostgresSource(SQLAlchemySource):
                         "Failed to generate metadata from SQL aggregator: %s",
                         e,
                     )
-                    self.report.report_failure(
+                    self.report.failure(
                         message=(
-                            f"Lineage metadata generation failed: {e}. "
+                            "Lineage metadata generation failed. "
                             "This may indicate issues with the DataHub graph connection or schema resolution. "
                             "Check your graph configuration and ensure all required schemas are accessible."
                         ),
                         context="lineage_metadata_generation_failed",
+                        exc=e,
                     )
 
         logger.info(

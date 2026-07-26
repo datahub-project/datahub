@@ -1699,10 +1699,7 @@ public class ESIndexBuilderTest {
     when(healthResponse.getIndices()).thenReturn(healthMap);
 
     AtomicInteger count = new AtomicInteger();
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             inv -> {
               // Throw IOException on second call (index health check), not first (data node count)
@@ -1715,10 +1712,7 @@ public class ESIndexBuilderTest {
     indexBuilder.waitForIndexGreenHealth(opContext, indexName, 30);
 
     verify(searchClient, atLeast(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1737,10 +1731,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.YELLOW);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should NOT throw - YELLOW with all primaries active is acceptable
@@ -1749,10 +1740,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private Map<String, Object> createTestTargetSettings() {
@@ -1775,10 +1763,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getStatus()).thenReturn(ClusterHealthStatus.GREEN);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should not throw
@@ -1786,10 +1771,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called exactly once
     verify(searchClient, times(1))
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1803,10 +1785,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(3);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw IOException
@@ -1826,10 +1805,7 @@ public class ESIndexBuilderTest {
     // Verify clusterHealth was called at least once (retry logic may try multiple times)
     // But the first response already indicates RED, so we expect few retries
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -1844,10 +1820,7 @@ public class ESIndexBuilderTest {
     when(indexHealth.getInitializingShards()).thenReturn(2);
     healthMap.put(indexName, indexHealth);
     when(healthResponse.getIndices()).thenReturn(healthMap);
-    when(searchClient.clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT)))
+    when(searchClient.clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(healthResponse);
 
     // Should throw RuntimeException
@@ -1867,10 +1840,7 @@ public class ESIndexBuilderTest {
 
     // Verify clusterHealth was called
     verify(searchClient, atLeastOnce())
-        .clusterHealth(
-            any(OperationFingerprint.class),
-            any(ClusterHealthRequest.class),
-            eq(RequestOptions.DEFAULT));
+        .clusterHealth(any(ClusterHealthRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   private ClusterHealthResponse createMockClusterHealthResponse(
@@ -1933,6 +1903,64 @@ public class ESIndexBuilderTest {
   }
 
   // --- Incremental reindex tests ---
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    // numRetries=0 leaves no retry budget and keeps getDocumentCounts' mismatch back-off short.
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    // Destination holds fewer docs than the source (900 of 1000) — the dropped-docs signature.
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(900L);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class),
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    // ES reports the reindex task itself has COMPLETED, even though the target is short.
+    GetTaskResponse completedTask = mock(GetTaskResponse.class);
+    when(completedTask.isCompleted()).thenReturn(true);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(completedTask));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(), "A completed-but-short reindex must be reported as not completed");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
+    // With no retry budget it must give up rather than re-submitting.
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
 
   @Test
   void testExtractTargetShards() {

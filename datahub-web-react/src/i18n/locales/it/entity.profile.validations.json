@@ -539,8 +539,6 @@
     "severity.low": "Gravità bassa",
     "severity.medium": "Gravità media",
     "sourceType.external": "Esterno",
-    "sourceType.native": "Nativo",
-    "sourceType.smartAssertions": "Smart Assertions",
     "status.error": "Errore",
     "status.errors": "Errori",
     "status.failing": "Non riuscita",

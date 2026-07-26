@@ -189,15 +189,17 @@ def guess_person_ldap(
         return attrs[config.user_attrs_map["urn"]][0].decode()
     else:  # for backward compatiblity
         if "sAMAccountName" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to sAMAccountName as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["sAMAccountName"][0].decode()
         if "uid" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to uid as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["uid"][0].decode()
         return None
@@ -283,7 +285,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.report_failure("ldap-control", f"LDAP search failed: {e}")
+                self.report.failure(
+                    message="LDAP search failed", context="ldap-control", exc=e
+                )
                 break
 
             for dn, attrs in rdata:
@@ -291,10 +295,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                     continue
 
                 if not attrs or "objectClass" not in attrs:
-                    self.report.report_warning(
-                        "<general>",
-                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
-                        f"check your permissions if this is unexpected",
+                    self.report.warning(
+                        message="Skipping entry because attrs do not contain expected data; "
+                        "check your permissions if this is unexpected",
+                        context=dn,
+                        log=False,
                     )
                     continue
 
@@ -317,8 +322,9 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.lc:
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
-                    self.report.report_failure(
-                        "ldap-control", "Server ignores RFC 2696 control."
+                    self.report.failure(
+                        message="Server ignores RFC 2696 control",
+                        context="ldap-control",
                     )
                     break
                 cookie = set_cookie(self.lc, pctrls)
@@ -361,7 +367,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     )
 
             except ldap.LDAPError as e:
-                self.report.report_warning(dn, f"manager LDAP search failed: {e}")
+                self.report.warning(
+                    message="Manager LDAP search failed",
+                    context=dn,
+                    exc=e,
+                    log=False,
+                )
         mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
             yield MetadataWorkUnit(dn, mce)

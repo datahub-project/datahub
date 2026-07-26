@@ -1,6 +1,5 @@
 """Tests for bump_schema_versions.py"""
 
-import argparse
 import subprocess
 import sys
 from pathlib import Path
