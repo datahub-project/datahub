@@ -1,10 +1,12 @@
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import (
     Any,
     Callable,
     Dict,
+    Iterator,
     List,
     Optional,
     Protocol,
@@ -429,6 +431,28 @@ class ProbeSoftError(Exception):
     with the remaining sibling levels. Source-agnostic: any connector's
     lister may raise it, not just Mode's.
     """
+
+
+@contextmanager
+def soft_on_status(*codes: int, context: str) -> Iterator[None]:
+    """Treat the given HTTP statuses as expected absence, not failure.
+
+    A probe must distinguish "nothing here" from "could not look" (see
+    ProbeSoftError): the listed codes become a ProbeSoftError, anything else
+    propagates. Duck-types on `.response.status_code` -- matches
+    requests.HTTPError and similar shapes -- so the framework takes no
+    HTTP-library dependency; any HTTP-based connector can reuse this instead
+    of writing its own status-code split.
+    """
+    try:
+        yield
+    except Exception as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status in codes:
+            raise ProbeSoftError(
+                f"{context} returned HTTP {status}; treating it as empty."
+            ) from exc
+        raise
 
 
 def _level_tree(
