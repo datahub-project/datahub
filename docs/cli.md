@@ -551,9 +551,6 @@ datahub recipe probe run topics --recipe my_recipe.yml --limit 50
 Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
 no column values, no message payloads.
 
-**Sources without a connector.** `probe api` interrogates a REST source described by a
-top-level `probe:` block instead of `source:`, returning response *shapes* rather than values.
-
 #### Exit codes
 
 | Code | Meaning |

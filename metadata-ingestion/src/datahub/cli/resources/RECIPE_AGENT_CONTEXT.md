@@ -226,24 +226,6 @@ source:
     connect_uri: "<sqlalchemy-url, secrets as ${ENV_VAR}>"
 ```
 
-**A REST/HTTP API** — describe it with a top-level `probe:` block (no `source:`) and run `probe api`:
-
-```bash
-datahub recipe probe api --recipe api_probe.yml
-```
-
-```yaml
-probe:
-  kind: rest
-  base_url: https://api.example.com
-  headers: { Authorization: "Bearer ${API_TOKEN}" } # secrets as ${ENV_VAR}
-  endpoints: [/v1/orders, /v1/customers]
-  budget: 10          # max endpoints to GET (default 10)
-  verify_ssl: true
-```
-
-`probe api` is **read-only** (only issues `GET`), **budget-bounded**, and returns **shapes only** — per endpoint: HTTP status, content type, and the inferred JSON schema as `{path, json_type, nullable}` entries. It never returns response **values**, so live data (and any PII in it) never crosses the boundary. Auth secrets resolve in-process from `${ENV_VAR}` and are redacted from all output. Non-JSON or failed endpoints report an `error` and are skipped, not fatal.
-
 ## Common Recipes
 
 ```bash

@@ -187,67 +187,6 @@ def test_removed_kind_named_commands_are_gone(tmp_path):
         assert "No such command" in res.output
 
 
-def _rest_recipe(tmp_path):
-    r = tmp_path / "rest.yml"
-    r.write_text(
-        "probe:\n"
-        "  kind: rest\n"
-        "  base_url: https://api.example.com\n"
-        "  headers:\n"
-        '    Authorization: "Bearer ${API_TOKEN}"\n'
-        "  endpoints: [/v1/orders]\n"
-    )
-    return r
-
-
-def test_probe_api_resolves_secret_and_hides_it(tmp_path, monkeypatch):
-    monkeypatch.setenv("API_TOKEN", "topsecret")
-    import datahub.cli.recipe_cli as mod
-    from datahub.ingestion.agent.api_probe import ApiEndpointProbe, ApiProbeResult
-
-    captured = {}
-
-    def fake_probe_api(base_url, endpoints, headers=None, budget=10, verify_ssl=True):
-        captured["headers"] = headers
-        return ApiProbeResult(
-            base_url=base_url,
-            endpoints=[ApiEndpointProbe(endpoint=endpoints[0], status=200)],
-        )
-
-    monkeypatch.setattr(mod, "probe_api", fake_probe_api)
-    result = CliRunner().invoke(
-        recipe, ["probe", "api", "--recipe", str(_rest_recipe(tmp_path))]
-    )
-    assert result.exit_code == 0
-    # The ${API_TOKEN} ref was resolved in-process before reaching probe_api...
-    assert captured["headers"]["Authorization"] == "Bearer topsecret"
-    # ...but the resolved value never appears in the agent-visible output.
-    assert "topsecret" not in result.output
-
-
-def test_probe_api_error_output_redacts_secret(tmp_path, monkeypatch):
-    monkeypatch.setenv("API_TOKEN", "topsecret")
-    import datahub.cli.recipe_cli as mod
-
-    def boom(*a, **k):
-        raise ValueError("auth failed for Bearer topsecret")
-
-    monkeypatch.setattr(mod, "probe_api", boom)
-    result = CliRunner().invoke(
-        recipe, ["probe", "api", "--recipe", str(_rest_recipe(tmp_path))]
-    )
-    assert result.exit_code == 2
-    assert "topsecret" not in result.output
-    assert "topsecret" not in (result.stderr or "")
-
-
-def test_probe_api_rejects_non_rest_kind(tmp_path):
-    r = tmp_path / "bad.yml"
-    r.write_text("probe:\n  kind: graphql\n  base_url: https://x\n  endpoints: [/a]\n")
-    result = CliRunner().invoke(recipe, ["probe", "api", "--recipe", str(r)])
-    assert result.exit_code == 2
-
-
 def test_probe_list_descends_generic_parent_path(tmp_path, monkeypatch):
     # The generic `probe list` passes --parent segments straight through as the
     # hierarchy path, for non-SQL sources without --database/--schema/--table.
