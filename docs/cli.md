@@ -471,6 +471,101 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy -c {}
 ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id "production-executor" -c {}
 ```
 
+### recipe
+
+The `recipe` commands help you author and verify an ingestion recipe before you run it. They
+answer two kinds of question: *what does this source type accept?* (offline, no connection)
+and *what does this source actually contain, given my recipe?* (live, needs working
+credentials).
+
+They are designed to be driven by an AI coding assistant as well as by hand — every command
+prints JSON, and every failure uses a distinct exit code so a caller can tell "your input was
+wrong" from "I could not reach the source".
+
+#### Offline commands
+
+These need only a source type or a recipe file — no connection, no credentials.
+
+```shell
+# What configuration fields does this source accept? (types, required, defaults, which are secrets)
+datahub recipe describe snowflake
+
+# Which capabilities does the connector declare? (lineage, profiling, ownership, ...)
+datahub recipe capabilities snowflake
+
+# Emit a starter recipe for a source type
+datahub recipe scaffold snowflake
+
+# Validate a recipe's configuration without connecting
+datahub recipe validate my_recipe.yml
+
+# Explain what a recipe will do
+datahub recipe explain my_recipe.yml
+```
+
+#### Live commands
+
+These connect using the recipe's own credentials. Secrets are resolved in-process and
+redacted from all output.
+
+```shell
+# Verify the credentials work
+datahub recipe test-connection --recipe my_recipe.yml
+```
+
+**Exploring what a source contains.** `probe shape` reports the levels a source exposes;
+`probe list` then walks them, one `--parent` per level:
+
+```shell
+# What levels does this source have? (connection-free)
+datahub recipe probe shape --recipe my_recipe.yml
+
+# Top level, then descend
+datahub recipe probe list --recipe my_recipe.yml
+datahub recipe probe list --recipe my_recipe.yml --parent my_schema
+datahub recipe probe list --recipe my_recipe.yml --parent my_schema --parent my_table
+```
+
+Each listed object reports whether your recipe's filters would **include** it, and if not,
+which pattern excluded it — so you can check a `table_pattern` does what you intended before
+running an ingestion.
+
+Levels differ by source: `Schema → Table → Column` for Postgres, `Database → Schema → Table →
+Column` for Snowflake, `Project → Dataset → Table → Column` for BigQuery, `Topic` for Kafka.
+A source whose levels branch (a Mode Space holds both Reports and Datasets) reports
+`"linear": false` from `probe shape`; where two sibling levels share a name, qualify the
+parent as `--parent 'Report:my_report'`.
+
+**Reading metadata in detail.** Some connectors expose individual getters:
+
+```shell
+# Which getters does this source offer? Each lists its parameters and what it returns.
+datahub recipe probe methods --recipe my_recipe.yml
+
+# Call one
+datahub recipe probe run columns --recipe my_recipe.yml --schema public --table orders
+datahub recipe probe run view_definition --recipe my_recipe.yml --schema public --view v_orders
+datahub recipe probe run topics --recipe my_recipe.yml --limit 50
+```
+
+Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
+no column values, no message payloads.
+
+**Sources without a connector.** `probe api` interrogates a REST source described by a
+top-level `probe:` block instead of `source:`, returning response *shapes* rather than values.
+
+#### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | success |
+| 1 | internal error |
+| 2 | invalid input — a bad recipe, an unknown command, a name that could not be resolved |
+| 3 | could not connect to the source, or the source returned an error |
+
+A non-empty `warnings` list alongside an empty or partial result means *part of the source
+could not be read* — not that the source is empty. Treat the two differently.
+
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
