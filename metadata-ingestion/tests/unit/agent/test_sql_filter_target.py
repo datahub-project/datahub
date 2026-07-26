@@ -326,11 +326,9 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
     )
     # A deny anchored to the bare schema name no longer excludes once
     # match_fully_qualified_names is on: ingestion checks "analytics.public".
-    included, excluded_by = _classify_container(
-        _container_ctx(bare_name_deny, "public")
-    )
-    assert included is True
-    assert excluded_by is None
+    verdict = _classify_container(_container_ctx(bare_name_deny, "public"))
+    assert verdict.included is True
+    assert verdict.excluded_by is None
 
     fully_qualified_deny = RedshiftConfig(
         host_port="localhost:5439",
@@ -338,11 +336,9 @@ def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
         match_fully_qualified_names=True,
         schema_pattern=AllowDenyPattern(deny=[r"^analytics\.public$"]),
     )
-    included, excluded_by = _classify_container(
-        _container_ctx(fully_qualified_deny, "public")
-    )
-    assert included is False
-    assert excluded_by == "schema_pattern"
+    verdict = _classify_container(_container_ctx(fully_qualified_deny, "public"))
+    assert verdict.included is False
+    assert verdict.excluded_by == "schema_pattern"
 
 
 def test_redshift_schema_verdict_unchanged_when_flag_is_off():
@@ -358,6 +354,6 @@ def test_redshift_schema_verdict_unchanged_when_flag_is_off():
         database="analytics",
         schema_pattern=AllowDenyPattern(deny=[r"^public$"]),
     )
-    included, excluded_by = _classify_container(_container_ctx(config, "public"))
-    assert included is False
-    assert excluded_by == "schema_pattern"
+    verdict = _classify_container(_container_ctx(config, "public"))
+    assert verdict.included is False
+    assert verdict.excluded_by == "schema_pattern"

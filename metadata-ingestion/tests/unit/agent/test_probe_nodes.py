@@ -8,6 +8,7 @@ from datahub.ingestion.agent.probe import (
     ClientProbe,
     ProbeBranchesError,
     ProbeLevel,
+    Verdict,
     level_nodes,
     probe_hierarchy,
     probe_shape,
@@ -147,7 +148,7 @@ def test_unnamed_node_is_reported_not_dropped_or_crashed():
     def verdict_for(name, node_fqn, pattern_field):
         # Would raise TypeError on a null name — must never be reached for one.
         assert isinstance(name, str) and name
-        return True, None
+        return Verdict.include()
 
     # Deliberately off-contract: LevelItem declares `str`, and the point of the
     # guard is what happens when a connector's API breaks that.

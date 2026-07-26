@@ -92,21 +92,21 @@ def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 def _classify_schema(ctx: ClassifyContext) -> Verdict:
     # Snowflake auto-drops INFORMATION_SCHEMA regardless of patterns.
     if is_snowflake_default_schema(ctx.name):
-        return (False, "default_schema")
+        return Verdict(False, "default_schema")
     if not is_schema_allowed(
         ctx.config.schema_pattern,
         ctx.name,
         ctx.parent_path[0],
         ctx.config.match_fully_qualified_names,
     ):
-        return (False, "schema_pattern")
-    return (True, None)
+        return Verdict(False, "schema_pattern")
+    return Verdict.include()
 
 
 def _classify_table(ctx: ClassifyContext) -> Verdict:
     # sys$… objects are dropped by ingestion irrespective of patterns.
     if _is_sys_table(ctx.name):
-        return (False, "system_object")
+        return Verdict(False, "system_object")
     # Snowflake matches table/view patterns against DATABASE.SCHEMA.TABLE.
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.fqn)
 

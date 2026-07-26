@@ -83,7 +83,7 @@ def _columns(engine: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 def _classify_container(ctx: ClassifyContext) -> Verdict:
     # System catalogs the source drops before the user pattern is even applied.
     if ctx.name.lower() in {s.lower() for s in ctx.config.default_schemas()}:
-        return (False, "default_schema")
+        return Verdict(False, "default_schema")
     # Same shape as _identifier_target's probe_filter_target check: a config
     # (Redshift's match_fully_qualified_names) can declare its own answer for
     # "is this schema allowed" instead of the generic bare-name check below --
@@ -95,7 +95,7 @@ def _classify_container(ctx: ClassifyContext) -> Verdict:
     schema_override = getattr(ctx.config, "probe_schema_verdict_override", None)
     verdict = schema_override(schema=ctx.name) if callable(schema_override) else None
     if verdict is not None:
-        return (True, None) if verdict else (False, ctx.pattern_field)
+        return Verdict.include() if verdict else Verdict(False, ctx.pattern_field)
     return pattern_verdict(ctx.config, ctx.pattern_field, ctx.name)
 
 

@@ -8,6 +8,7 @@ from datahub.ingestion.agent.probe import (
     ClientProbe,
     LevelSource,
     ProbeLevel,
+    Verdict,
     pattern_field_for_config_class,
     pattern_verdict,
 )
@@ -93,7 +94,7 @@ def test_merged_level_truncates_on_the_combined_set():
 def test_classify_override_beats_the_default_pattern_check():
     def classify(ctx):
         if ctx.name.startswith("sys$"):
-            return (False, "system_object")
+            return Verdict(False, "system_object")
         return pattern_verdict(ctx.config, ctx.pattern_field, ctx.fqn)
 
     probe = _probe(
@@ -213,9 +214,11 @@ def test_list_children_past_declared_depth_never_builds_a_client():
 
 
 def test_pattern_verdict_helper():
-    assert pattern_verdict(_CFG, None, "anything") == (True, None)
-    assert pattern_verdict(_CFG, "table_pattern", "orders") == (True, None)
-    assert pattern_verdict(_CFG, "table_pattern", "tmp_x") == (False, "table_pattern")
+    assert pattern_verdict(_CFG, None, "anything") == Verdict.include()
+    assert pattern_verdict(_CFG, "table_pattern", "orders") == Verdict.include()
+    assert pattern_verdict(_CFG, "table_pattern", "tmp_x") == Verdict(
+        False, "table_pattern"
+    )
 
 
 def test_omitted_pattern_field_resolves_by_convention_and_filters():
@@ -262,7 +265,7 @@ def test_column_level_with_classify_does_not_require_a_pattern_field():
     # through unchanged rather than raise "no AllowDenyPattern field ...
     # filters kind 'Column'".
     def classify(ctx):
-        return (False, "sensitive") if ctx.name == "ssn" else (True, None)
+        return Verdict(False, "sensitive") if ctx.name == "ssn" else Verdict.include()
 
     probe = _probe(
         ProbeLevel(
@@ -301,7 +304,7 @@ def test_classifier_receives_the_parent_path():
         seen["name"] = ctx.name
         seen["fqn"] = ctx.fqn
         seen["pattern_field"] = ctx.pattern_field
-        return (True, None)
+        return Verdict.include()
 
     probe = ClientProbe(
         client_factory=lambda config: object(),

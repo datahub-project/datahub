@@ -56,8 +56,8 @@ def _columns(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
 def _classify_project(ctx: ClassifyContext) -> Verdict:
     # Reuse ingestion's project gate (project_ids + project_id_pattern).
     if not is_project_allowed(ctx.config, ctx.name):
-        return (False, "project_id_pattern")
-    return (True, None)
+        return Verdict(False, "project_id_pattern")
+    return Verdict.include()
 
 
 def _classify_dataset(ctx: ClassifyContext) -> Verdict:
@@ -68,16 +68,16 @@ def _classify_dataset(ctx: ClassifyContext) -> Verdict:
         ctx.parent_path[0],
         ctx.config.match_fully_qualified_names,
     ):
-        return (False, "dataset_pattern")
-    return (True, None)
+        return Verdict(False, "dataset_pattern")
+    return Verdict.include()
 
 
 def _classify_table(ctx: ClassifyContext) -> Verdict:
     # BigQuery ingestion matches table_pattern against the fully qualified
     # project.dataset.table for both tables and views.
     if not ctx.config.table_pattern.allowed(ctx.fqn):
-        return (False, "table_pattern")
-    return (True, None)
+        return Verdict(False, "table_pattern")
+    return Verdict.include()
 
 
 # BigQuery is a 3-level namespace: project -> dataset -> table -> column, reached

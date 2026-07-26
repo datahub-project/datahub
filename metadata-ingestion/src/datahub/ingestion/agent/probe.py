@@ -54,13 +54,27 @@ class ProbeCapableConfig(Protocol):
 # Connectors compose these so every probe result speaks the same shape; the
 # framework owns them precisely because they carry no source-specific knowledge.
 
-# (included, excluded_by) — a connector's verdict for one node. excluded_by names
-# the reason a node would be dropped (a *_pattern field, "default_schema",
-# "system_object"), or None when included. The filtering logic itself lives in the
-# connector (reusing its own ingestion filters); the framework only carries it.
-Verdict = Tuple[bool, Optional[str]]
 
-_INCLUDED: Verdict = (True, None)
+@dataclass(frozen=True)
+class Verdict:
+    """A connector's verdict for one node: would it be ingested given the
+    recipe's filters plus the source's built-in exclusions?
+
+    excluded_by names the reason a node would be dropped (a *_pattern field,
+    "default_schema", "system_object"), or None when included. The filtering
+    logic itself lives in the connector (reusing its own ingestion filters);
+    the framework only carries it.
+    """
+
+    included: bool
+    excluded_by: Optional[str] = None
+
+    @classmethod
+    def include(cls) -> "Verdict":
+        return cls(True, None)
+
+
+_INCLUDED = Verdict.include()
 
 # A level the source offers no filter for (e.g. Mode's datasets and queries).
 # Distinct from pattern_field=None, which means "resolve the conventional
@@ -79,7 +93,7 @@ UNNAMED: str = "<unnamed>"
 # Reported like the connectors' own structural exclusions ("system_object",
 # "default_schema"): a statement about what the probe can address, not a
 # prediction that ingestion would skip the object.
-_UNNAMED_VERDICT: Verdict = (False, "unnamed")
+_UNNAMED_VERDICT = Verdict(False, "unnamed")
 
 
 def _usable_name(name: object) -> TypeGuard[str]:
@@ -106,7 +120,7 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
     if pattern_field is None:
         return _INCLUDED
     pattern = getattr(config, pattern_field)
-    return _INCLUDED if pattern.allowed(target) else (False, pattern_field)
+    return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)
 
 
 def level_nodes(
@@ -129,14 +143,22 @@ def level_nodes(
                     kind,
                     _join_fqn(fqn_prefix, UNNAMED),
                     pattern_field,
-                    *_UNNAMED_VERDICT,
+                    _UNNAMED_VERDICT.included,
+                    _UNNAMED_VERDICT.excluded_by,
                 )
             )
             continue
         node_fqn = _join_fqn(fqn_prefix, name)
-        included, excluded_by = verdict_for(name, node_fqn, pattern_field)
+        verdict = verdict_for(name, node_fqn, pattern_field)
         nodes.append(
-            ProbeNode(name, kind, node_fqn, pattern_field, included, excluded_by)
+            ProbeNode(
+                name,
+                kind,
+                node_fqn,
+                pattern_field,
+                verdict.included,
+                verdict.excluded_by,
+            )
         )
     return nodes, len(items) > limit
 

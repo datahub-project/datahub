@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.probe import ClassifyContext
+from datahub.ingestion.agent.probe import ClassifyContext, Verdict
 from datahub.ingestion.source.snowflake import snowflake_probe
 
 
@@ -25,5 +25,5 @@ def test_dotted_database_reaches_is_schema_allowed(monkeypatch):
         pattern_field="schema_pattern",
         parent_path=("MY.DB",),
     )
-    assert snowflake_probe._classify_schema(ctx) == (True, None)
+    assert snowflake_probe._classify_schema(ctx) == Verdict.include()
     assert captured["db"] == "MY.DB"  # not "MY"
