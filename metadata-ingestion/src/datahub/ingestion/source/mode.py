@@ -930,36 +930,46 @@ class ModeSource(StatefulIngestionSourceBase):
             else user_json.get("email")
         )
 
+    def fetch_spaces(self) -> List[dict]:
+        """Every space the workspace exposes, unfiltered. Raises on HTTP failure.
+
+        Shared with the live recipe probe, which needs the unfiltered list so
+        it can report a space denied by space_pattern as an excluded node
+        rather than omitting it, and needs failures raisable so it can tell
+        "no spaces" from "could not list spaces".
+        """
+        spaces: List[dict] = []
+        logger.debug(f"Retrieving spaces for {self.workspace_uri}")
+        with self.report.space_get_timer:
+            for spaces_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces?filter={self.config.space_filter_param()}",
+                "spaces",
+                self.config.items_per_page,
+            ):
+                self.report.space_get_api_called += 1
+                logger.debug(
+                    f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                )
+                self.report.num_spaces_retrieved += len(spaces_page)
+                spaces.extend(spaces_page)
+        return spaces
+
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
-            logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            with self.report.space_get_timer:
-                for spaces_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces?filter={self.config.space_filter_param()}",
-                    "spaces",
-                    self.config.items_per_page,
-                ):
-                    self.report.space_get_api_called += 1
+            for s in self.fetch_spaces():
+                logger.debug(f"Space: {s.get('name')}")
+                space_name = s.get("name", "")
+                if self.config.exclude_restricted and is_restricted_space(s):
                     logger.debug(
-                        f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                        f"Skipping space {space_name} due to exclude restricted"
                     )
-                    self.report.num_spaces_retrieved += len(spaces_page)
-                    for s in spaces_page:
-                        logger.debug(f"Space: {s.get('name')}")
-                        space_name = s.get("name", "")
-                        if self.config.exclude_restricted and is_restricted_space(s):
-                            logger.debug(
-                                f"Skipping space {space_name} due to exclude restricted"
-                            )
-                            continue
-                        if not self.config.space_pattern.allowed(space_name):
-                            self.report.report_dropped_space(space_name)
-                            logger.debug(
-                                f"Skipping space {space_name} due to space pattern"
-                            )
-                            continue
-                        space_info[s.get("token", "")] = s.get("name", "")
+                    continue
+                if not self.config.space_pattern.allowed(space_name):
+                    self.report.report_dropped_space(space_name)
+                    logger.debug(f"Skipping space {space_name} due to space pattern")
+                    continue
+                space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Spaces",
@@ -1849,28 +1859,37 @@ class ModeSource(StatefulIngestionSourceBase):
         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
+    def fetch_reports(self, space_token: str) -> List[dict]:
+        """Every report in one space, unfiltered. Raises on HTTP failure.
+
+        Shared with the live recipe probe for the same reason as
+        fetch_spaces.
+        """
+        reports: List[dict] = []
+        with self.report.report_get_timer:
+            for reports_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
+                "reports",
+                self.config.items_per_page,
+            ):
+                self.report.report_get_api_called += 1
+                logger.debug(
+                    f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                )
+                reports.extend(reports_page)
+        return reports
+
     def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
         try:
-            with self.report.report_get_timer:
-                for reports_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
-                    "reports",
-                    self.config.items_per_page,
-                ):
-                    self.report.report_get_api_called += 1
-                    logger.debug(
-                        f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
-                    )
-                    if self.config.exclude_archived:
-                        logger.debug(
-                            f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
-                        )
-                        reports_page = [
-                            report
-                            for report in reports_page
-                            if not is_archived_report(report)
-                        ]
-                    yield reports_page
+            reports = self.fetch_reports(space_token)
+            if self.config.exclude_archived:
+                logger.debug(
+                    f"Excluding archived reports since exclude_archived: {self.config.exclude_archived}"
+                )
+                reports = [
+                    report for report in reports if not is_archived_report(report)
+                ]
+            yield reports
         except ModeRequestError as e:
             if _is_http_404(e):
                 self.report.report_warning(

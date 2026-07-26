@@ -71,19 +71,15 @@ def _get_embedded_paged(
     source: ModeSource, url: str, key: str, context: str
 ) -> List[Dict[str, Any]]:
     """Like _get_embedded, but walks every page via the connector's own
-    _get_paged_request_json -- the spaces/reports/datasets listings truncate
-    at one page (default 30 items) unless walked with per_page/page until a
-    page comes back empty.
+    _get_paged_request_json -- the datasets listing truncates at one page
+    (default 30 items) unless walked with per_page/page until a page comes
+    back empty. Mode's own dataset getter has no thin-fetch/policy split to
+    delegate to (mode.py's ingestion path never lists datasets separately
+    from reports), so this walks the endpoint directly.
 
-    Deliberately NOT delegated to _get_space_name_and_tokens/_get_reports/
-    _get_datasets: each of those swallows every HTTP error and simply stops
-    yielding, so a probe built on them could never distinguish a 403 from a
-    genuinely empty listing (and _get_space_name_and_tokens additionally
-    applies space_pattern itself, which would silently drop a denied space --
-    see test_spaces_apply_space_pattern). A soft error partway through (e.g.
-    page 3 of 5 403s) raises rather than returning the pages collected so
-    far: a truncated listing that looks complete is worse than an honest
-    "couldn't finish this, here's why"."""
+    A soft error partway through (e.g. page 3 of 5 403s) raises rather than
+    returning the pages collected so far: a truncated listing that looks
+    complete is worse than an honest "couldn't finish this, here's why"."""
     items: List[Dict[str, Any]] = []
     with soft_on_status(403, 404, context=context):
         for page in source._get_paged_request_json(
@@ -111,30 +107,27 @@ def _space_pattern_name(space: Dict[str, Any]) -> str:
 
 def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     """Every space, filtered exactly as mode.py's own ingestion run would see
-    them (server-side filter param + exclude_restricted) -- can't delegate to
-    _get_space_name_and_tokens, which applies space_pattern internally and
-    swallows errors. The single call site for fetching spaces."""
-    url = f"{source.workspace_uri}/spaces?filter={source.config.space_filter_param()}"
-    spaces = _get_embedded_paged(
-        source, url, "spaces", context="workspace spaces listing"
-    )
+    them (server-side filter param + exclude_restricted). Delegates the raw
+    paged listing to mode.py's own fetch_spaces, so paging/errors match
+    ingestion byte-for-byte; only the client-side exclude_restricted filter
+    lives here, since mode.py's space_pattern filter is exactly what a probe
+    must not apply (see test_spaces_apply_space_pattern)."""
+    with soft_on_status(403, 404, context="workspace spaces listing"):
+        spaces = source.fetch_spaces()
     if source.config.exclude_restricted:
         spaces = [s for s in spaces if not is_restricted_space(s)]
     return spaces
 
 
 def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]:
-    """Every report in one space, filtered as mode.py's own ingestion run would
-    see them (?filter=all, paginated, exclude_archived) -- can't delegate to
-    _get_reports, which swallows errors. The single call site for a space's
-    reports."""
-    url = f"{source.workspace_uri}/spaces/{space_token}/reports?filter=all"
-    reports = _get_embedded_paged(
-        source,
-        url,
-        "reports",
-        context=f"reports listing for space token '{space_token}'",
-    )
+    """Every report in one space, filtered as mode.py's own ingestion run
+    would see them (?filter=all, exclude_archived). Delegates the raw paged
+    listing to mode.py's own fetch_reports for the same reason as
+    _fetch_spaces."""
+    with soft_on_status(
+        403, 404, context=f"reports listing for space token '{space_token}'"
+    ):
+        reports = source.fetch_reports(space_token)
     if source.config.exclude_archived:
         reports = [r for r in reports if not is_archived_report(r)]
     return reports
