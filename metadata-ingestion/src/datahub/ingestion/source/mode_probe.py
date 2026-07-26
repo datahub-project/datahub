@@ -6,7 +6,6 @@ from typing import (
     List,
     NoReturn,
     Optional,
-    Protocol,
     Sequence,
     Tuple,
     TypeVar,
@@ -14,7 +13,6 @@ from typing import (
 
 import requests
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import (
     UNFILTERED,
@@ -26,12 +24,9 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
     MODE_ADAPTER_PLATFORM_MAP,
-    ModeAPIConfig,
-    ModeApiSession,
+    ModeConfig,
     ModeSource,
-    fetch_json,
 )
-from datahub.utilities.ratelimiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -45,50 +40,25 @@ _T = TypeVar("_T")
 MODE_SPACE: ProbeNodeKind = "Space"
 
 
-class ModeProbeConfig(Protocol):
-    """The slice of ModeConfig the probe needs: pagination size, the space/report
-    scoping a recipe would actually apply (space_pattern, exclude_personal_collections,
-    exclude_restricted, exclude_archived), and the retry/rate-limit knobs fetch_json
-    needs. A Protocol (not the concrete ModeConfig class) so tests can pass a
-    lightweight duck-typed fake without satisfying every ModeConfig field.
-    api_options stays the concrete ModeAPIConfig (not a nested Protocol): mypy
-    checks a Protocol's plain-attribute types invariantly, and a second Protocol
-    layer there trips that even though the real ModeAPIConfig structurally
-    matches it fine standalone -- tests build a real ModeAPIConfig(...) instead
-    of a duck-typed fake for this one field."""
-
-    items_per_page: int
-    exclude_personal_collections: bool
-    exclude_restricted: bool
-    exclude_archived: bool
-    space_pattern: AllowDenyPattern
-    api_options: ModeAPIConfig
-
-    def get_mode_session(self) -> Tuple[ModeApiSession, str]: ...
-
-
-# Mode's own client is (session, workspace_uri, rate_limiter): the same session
-# construction ModeConfig.get_mode_session() gives ModeSource, plus a rate limiter
-# built from the recipe's own api_options.requests_per_minute so the probe's many
-# requests (pagination, cross-space report search) throttle the same way a real
-# ingestion run would.
-ModeClient = Tuple[ModeApiSession, str, RateLimiter]
-
-
-def _build_mode_client(config: ModeProbeConfig) -> ModeClient:
+def _build_mode_client(config: ModeConfig) -> ModeSource:
+    """Builds the SAME uninitialized ModeSource shim ModeMetadataProbe uses
+    (see ModeConfig.build_probe_provider/ModeSource.for_probe), so the
+    branching hierarchy probe and the probe_run getters share exactly one
+    fetch path: ModeSource's own _get_request_json/_get_paged_request_json
+    (same session/rate-limit/retry path, same debug curl logging a real
+    ingestion run gets) -- not a second, module-level reimplementation of
+    Mode's request plumbing. __new__, never __init__: __init__ opens its own
+    session, hits /api/verify, and resolves space_tokens for ingestion, side
+    effects a read-only probe doesn't want repeated."""
     session, workspace_uri = config.get_mode_session()
-    rate_limiter = RateLimiter(
-        max_calls=config.api_options.requests_per_minute, period=60
-    )
-    return session, workspace_uri, rate_limiter
+    return ModeSource.for_probe(config, session, workspace_uri)
 
 
-def _close_mode_client(client: ModeClient) -> None:
-    session, _workspace_uri, _rate_limiter = client
-    session.close()
+def _close_mode_client(client: ModeSource) -> None:
+    client.session.close()
 
 
-def _spaces_filter(config: ModeProbeConfig) -> str:
+def _spaces_filter(config: ModeConfig) -> str:
     # Mirrors mode.py's _get_space_name_and_tokens: send filter=custom when the
     # recipe excludes personal collections server-side (the default), else
     # filter=all -- so the probe enumerates exactly the spaces a real ingestion
@@ -128,17 +98,19 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     # useful than failing the whole command over one degraded endpoint.
     #
     # This split is deliberately NOT the same policy mode.py's own
-    # _get_data_sources_by_id/_get_definitions_map/_get_queries/_get_charts
-    # apply (those catch every HTTP/JSON error uniformly and degrade,
-    # because ingestion would rather return partial metadata from a flaky
-    # run than fail outright). A diagnostic's whole job is telling an agent
-    # the difference between "there is nothing here" (404/403) and "I could
-    # not look" (auth failure, 5xx) -- so the probe's own final-data-fetch
-    # path (data_sources/definitions/report_queries/query_charts below) goes
-    # through _get_embedded_from_source, which reuses the connector's shared
-    # fetch (_get_request_json: same session/rate-limit/retry path, same
-    # debug curl logging a real ingestion run gets) but applies THIS split,
-    # not the connector's own always-degrade one.
+    # _get_space_name_and_tokens/_get_reports/_get_datasets/_get_queries/
+    # _get_charts/_get_data_sources_by_id/_get_definitions_map apply (those
+    # catch every HTTP/JSON error uniformly and degrade -- some by returning
+    # {}/[], some by a generator simply ending -- because ingestion would
+    # rather return partial metadata from a flaky run than fail outright, and
+    # none of them can signal "I hit an error" back to a caller at all). A
+    # diagnostic's whole job is telling an agent the difference between
+    # "there is nothing here" (404/403) and "I could not look" (auth failure,
+    # 5xx) -- so every probe fetch below (_get_embedded/_get_embedded_paged)
+    # goes through ModeSource's own request layer (_get_request_json/
+    # _get_paged_request_json: same session/rate-limit/retry path, same debug
+    # curl logging a real ingestion run gets) but applies THIS split, not any
+    # of the connector's own always-degrade wrappers around it.
     # Anything other than 404/403 (auth failures, 5xx, connection errors) is a
     # hard error either way.
     status = exc.response.status_code if exc.response is not None else None
@@ -164,66 +136,29 @@ def _tolerant(fetch: Callable[[], _T], default: _T, warnings: List[str]) -> _T:
         return default
 
 
-def _fetch_page(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    url: str,
-) -> Dict[str, Any]:
-    # Routes every probe request through the exact same rate-limit/timeout/
-    # 429-504-retry path mode.py's own ingestion uses (fetch_json), instead of
-    # a bare session.get() that would bypass all of it.
-    return fetch_json(
-        session,
-        url,
-        timeout=config.api_options.timeout,
-        rate_limiter=rate_limiter,
-        retry_backoff_multiplier=config.api_options.retry_backoff_multiplier,
-        max_retry_interval=config.api_options.max_retry_interval,
-        max_attempts=config.api_options.max_attempts,
-    )
-
-
 def _get_embedded(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    url: str,
-    key: str,
-    context: str,
-) -> List[Dict[str, Any]]:
-    try:
-        payload = _fetch_page(session, config, rate_limiter, url)
-    except requests.HTTPError as exc:
-        _raise_soft_or_hard(exc, context)
-    return list(payload.get("_embedded", {}).get(key, []))
-
-
-def _get_embedded_from_source(
     source: ModeSource, url: str, key: str, context: str
 ) -> List[Dict[str, Any]]:
-    """Like _get_embedded, but fetches through the connector's own bound
-    _get_request_json (see mode.py's ModeSource.for_probe) instead of the
-    module-level fetch_json -- for ModeMetadataProbe's four getters below,
-    which hold a real ModeSource shim rather than a bare
-    (session, config, rate_limiter) tuple. _get_request_json is the same
-    method a real ingestion run calls: same session/rate-limiter, same
-    debug curl logging, same retry backoff.
+    """The single unpaginated fetch path: every probe request -- hierarchy
+    listers and probe_run getters alike -- goes through the connector's own
+    bound _get_request_json (see ModeSource.for_probe/_build_mode_client),
+    which shares its session/rate-limiter/retry path and debug curl logging
+    with a real ingestion run, instead of a bare session.get() or a second,
+    module-level fetch_json reimplementation.
 
-    Deliberately NOT delegated to _get_data_sources_by_id/
-    _get_definitions_map/_get_queries/_get_charts (the higher-level
-    connector methods that actually wrap this endpoint during ingestion):
-    those catch every HTTP/JSON error themselves and always degrade to an
-    empty result -- correct for ingestion, which would rather return partial
-    metadata from a flaky run, but wrong for a diagnostic, whose whole job is
-    distinguishing "nothing here" from "I could not look." So this applies
-    the SAME soft/hard split _get_embedded does (_raise_soft_or_hard:
-    404/403 degrade, everything else is a hard error) around the connector's
-    fetch, rather than inheriting the connector's own always-degrade policy.
-    _get_definitions_map specifically is also lossy for a different reason
-    (its cache keeps only {name: source}, discarding description -- it
-    exists for `{{@name}}` template expansion, not for reporting), which is
-    a second, independent reason not to call it here."""
+    Deliberately NOT delegated to _get_data_sources_by_id/_get_definitions_map/
+    _get_queries/_get_charts (the higher-level connector methods that
+    actually wrap this endpoint during ingestion): those catch every
+    HTTP/JSON error themselves and always degrade to an empty result --
+    correct for ingestion, which would rather return partial metadata from a
+    flaky run, but wrong for a diagnostic, whose whole job is distinguishing
+    "nothing here" from "I could not look." So this applies the soft/hard
+    split _raise_soft_or_hard defines (404/403 degrade, everything else is a
+    hard error) around the connector's fetch, rather than inheriting the
+    connector's own always-degrade policy. _get_definitions_map specifically
+    is also lossy for a second, independent reason (its cache keeps only
+    {name: source}, discarding description -- it exists for `{{@name}}`
+    template expansion, not for reporting)."""
     try:
         payload = source._get_request_json(url)
     except requests.HTTPError as exc:
@@ -232,37 +167,36 @@ def _get_embedded_from_source(
 
 
 def _get_embedded_paged(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    url: str,
-    key: str,
-    context: str,
+    source: ModeSource, url: str, key: str, context: str
 ) -> List[Dict[str, Any]]:
-    # Mirrors mode.py's _get_paged_request_json: the spaces/reports/datasets
-    # listings truncate at one page (default 30 items) unless walked with
-    # per_page/page until a page comes back empty. The single-report-scoped
-    # /queries and /queries/{token}/charts endpoints do NOT paginate this
-    # way — mode.py documents them as not handling pagination properly — so
-    # callers must keep routing those through the unpaginated _get_embedded.
-    #
-    # A soft error partway through (e.g. page 3 of 5 403s) raises rather than
-    # returning the pages collected so far: a truncated listing that looks
-    # complete is worse than an honest "couldn't finish this, here's why".
-    sep = "&" if "?" in url else "?"
+    """Like _get_embedded, but walks every page via the connector's own
+    _get_paged_request_json (mode.py) instead of a single request -- the
+    spaces/reports/datasets listings truncate at one page (default 30 items)
+    unless walked with per_page/page until a page comes back empty.
+
+    Deliberately NOT delegated to _get_space_name_and_tokens/_get_reports/
+    _get_datasets (the higher-level connector methods that actually wrap this
+    endpoint during ingestion): each of those swallows every HTTP error into
+    a `self.report` warning/failure and simply stops yielding, with no way to
+    signal "I hit an error" back to a caller -- a probe built on them could
+    never distinguish a 403 from a genuinely empty listing, and
+    _get_space_name_and_tokens additionally applies space_pattern itself,
+    which would silently drop a denied space instead of letting the framework
+    report it as an excluded node (see test_spaces_apply_space_pattern). So
+    this walks _get_paged_request_json directly -- the layer beneath all
+    three -- and applies the same soft/hard split _get_embedded does.
+
+    A soft error partway through (e.g. page 3 of 5 403s) raises rather than
+    returning the pages collected so far: a truncated listing that looks
+    complete is worse than an honest "couldn't finish this, here's why"."""
     items: List[Dict[str, Any]] = []
-    page = 1
-    while True:
-        page_url = f"{url}{sep}per_page={config.items_per_page}&page={page}"
-        try:
-            payload = _fetch_page(session, config, rate_limiter, page_url)
-        except requests.HTTPError as exc:
-            _raise_soft_or_hard(exc, context)
-        page_items = list(payload.get("_embedded", {}).get(key, []))
-        if not page_items:
-            break
-        items.extend(page_items)
-        page += 1
+    try:
+        for page in source._get_paged_request_json(
+            url, key, source.config.items_per_page
+        ):
+            items.extend(page)
+    except requests.HTTPError as exc:
+        _raise_soft_or_hard(exc, context)
     return items
 
 
@@ -275,109 +209,76 @@ def _display_name(item: Dict[str, Any]) -> str:
     return str(item.get("name") or item.get("token") or "unknown")
 
 
-def _fetch_spaces(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-) -> List[Dict[str, Any]]:
+def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     """Every space the workspace has, filtered exactly the way mode.py's own
     ingestion run would see them: the server-side filter=all/custom, plus
     exclude_restricted client-side. The single call site for fetching spaces
     -- every lister that needs a space listing or a name-to-token lookup goes
     through this, so there is exactly one place that mirrors mode.py's space
-    visibility (previously this logic was duplicated across three call
-    sites, and only some of them applied exclude_restricted)."""
-    url = f"{workspace_uri}/spaces?filter={_spaces_filter(config)}"
+    visibility."""
+    url = f"{source.workspace_uri}/spaces?filter={_spaces_filter(source.config)}"
     spaces = _get_embedded_paged(
-        session, config, rate_limiter, url, "spaces", context="workspace spaces listing"
+        source, url, "spaces", context="workspace spaces listing"
     )
-    if config.exclude_restricted:
+    if source.config.exclude_restricted:
         spaces = [s for s in spaces if not _is_restricted_space(s)]
     return spaces
 
 
-def _fetch_reports(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-    space_token: str,
-) -> List[Dict[str, Any]]:
+def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]:
     """Every report in one space, filtered the way mode.py's own ingestion run
     would see them: ?filter=all, paginated, plus exclude_archived client-side.
     The single call site for fetching a space's reports."""
-    url = f"{workspace_uri}/spaces/{space_token}/reports?filter=all"
+    url = f"{source.workspace_uri}/spaces/{space_token}/reports?filter=all"
     reports = _get_embedded_paged(
-        session,
-        config,
-        rate_limiter,
+        source,
         url,
         "reports",
         context=f"reports listing for space token '{space_token}'",
     )
-    if config.exclude_archived:
+    if source.config.exclude_archived:
         reports = [r for r in reports if not r.get("archived", False)]
     return reports
 
 
-def _space_token(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-    space_name: str,
-) -> Optional[str]:
-    for space in _fetch_spaces(session, config, rate_limiter, workspace_uri):
+def _space_token(source: ModeSource, space_name: str) -> Optional[str]:
+    for space in _fetch_spaces(source):
         if _display_name(space) == space_name:
             return space.get("token")
     return None
 
 
 def _report_token(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-    space_token: str,
-    report_name: str,
+    source: ModeSource, space_token: str, report_name: str
 ) -> Optional[str]:
-    for report in _fetch_reports(
-        session, config, rate_limiter, workspace_uri, space_token
-    ):
+    for report in _fetch_reports(source, space_token):
         if _display_name(report) == report_name:
             return report.get("token")
     return None
 
 
 def _spaces(
-    client: ModeClient, config: ModeProbeConfig, parent_path: List[str]
+    client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    session, workspace_uri, rate_limiter = client
-    spaces = _fetch_spaces(session, config, rate_limiter, workspace_uri)
-    return [_display_name(space) for space in spaces]
+    # `config` is unused: it is always the identical object as client.config
+    # (see _build_mode_client) -- kept only to satisfy ClientProbe's
+    # LevelLister shape, which every level's list_names must match.
+    return [_display_name(space) for space in _fetch_spaces(client)]
 
 
 def _reports(
-    client: ModeClient, config: ModeProbeConfig, parent_path: List[str]
+    client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    session, workspace_uri, rate_limiter = client
-    space_token = _space_token(
-        session, config, rate_limiter, workspace_uri, parent_path[0]
-    )
+    space_token = _space_token(client, parent_path[0])
     if space_token is None:
         return []
-    reports = _fetch_reports(session, config, rate_limiter, workspace_uri, space_token)
-    return [_display_name(report) for report in reports]
+    return [_display_name(r) for r in _fetch_reports(client, space_token)]
 
 
 def _datasets(
-    client: ModeClient, config: ModeProbeConfig, parent_path: List[str]
+    client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    session, workspace_uri, rate_limiter = client
-    space_token = _space_token(
-        session, config, rate_limiter, workspace_uri, parent_path[0]
-    )
+    space_token = _space_token(client, parent_path[0])
     if space_token is None:
         return []
     # Paginated with ?filter=all, same as _fetch_reports — mode.py:1701-1708
@@ -386,11 +287,9 @@ def _datasets(
     # key: a Mode "dataset" is implemented as a special kind of report. Note:
     # mode.py's own dataset listing does NOT apply exclude_archived (only its
     # report listing does), so this deliberately doesn't either.
-    url = f"{workspace_uri}/spaces/{space_token}/datasets?filter=all"
+    url = f"{client.workspace_uri}/spaces/{space_token}/datasets?filter=all"
     datasets = _get_embedded_paged(
-        session,
-        config,
-        rate_limiter,
+        client,
         url,
         "reports",
         context=f"datasets listing for space '{parent_path[0]}'",
@@ -399,23 +298,18 @@ def _datasets(
 
 
 def _queries(
-    client: ModeClient, config: ModeProbeConfig, parent_path: List[str]
+    client: ModeSource, config: ModeConfig, parent_path: List[str]
 ) -> Sequence[str]:
-    session, workspace_uri, rate_limiter = client
     space_name, report_name = parent_path[0], parent_path[1]
-    space_token = _space_token(session, config, rate_limiter, workspace_uri, space_name)
+    space_token = _space_token(client, space_name)
     if space_token is None:
         return []
-    report_token = _report_token(
-        session, config, rate_limiter, workspace_uri, space_token, report_name
-    )
+    report_token = _report_token(client, space_token, report_name)
     if report_token is None:
         return []
-    url = f"{workspace_uri}/reports/{report_token}/queries"
+    url = f"{client.workspace_uri}/reports/{report_token}/queries"
     queries = _get_embedded(
-        session,
-        config,
-        rate_limiter,
+        client,
         url,
         "queries",
         context=f"queries listing for report '{report_name}'",
@@ -424,11 +318,11 @@ def _queries(
 
 
 # Mode is a Space holding BOTH Reports and Datasets — the first branching probe,
-# reached through the connector's own session (config.get_mode_session()). Mode's
-# API is token-addressed while parent_path carries names, so each lister below
-# resolves the parent name to its token by re-fetching the parent listing. Dataset
-# and Query take UNFILTERED: Mode declares no dataset_pattern/query_pattern to
-# filter them.
+# reached through the connector's own shimmed ModeSource (_build_mode_client).
+# Mode's API is token-addressed while parent_path carries names, so each lister
+# below resolves the parent name to its token by re-fetching the parent listing.
+# Dataset and Query take UNFILTERED: Mode declares no dataset_pattern/query_pattern
+# to filter them.
 MODE_PROBE = ClientProbe(
     client_factory=_build_mode_client,
     close=_close_mode_client,
@@ -452,13 +346,7 @@ def list_mode_children(config: Any, parent_path: List[str], limit: int) -> Probe
     return MODE_PROBE.list_children(config, parent_path, limit)
 
 
-def _find_report_token(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-    report_name: str,
-) -> Optional[str]:
+def _find_report_token(source: ModeSource, report_name: str) -> Optional[str]:
     # probe_run commands (unlike the hierarchy probe) get a report name with no
     # containing space, so every IN-SCOPE space's reports must be searched --
     # scoped to config.space_pattern (_fetch_spaces/_fetch_reports already
@@ -473,7 +361,7 @@ def _find_report_token(
     # ambiguity guard the hierarchy probe already applies to same-named
     # sibling levels.
     matches: List[Tuple[str, str]] = []
-    for space in _fetch_spaces(session, config, rate_limiter, workspace_uri):
+    for space in _fetch_spaces(source):
         space_name = _display_name(space)
         # mode.py's own space_pattern check (_get_space_name_and_tokens) tests
         # the raw "name" field, with NO token fallback -- unlike reports,
@@ -487,14 +375,12 @@ def _find_report_token(
         # `"name": null` normalizes to "" instead of passing None into
         # .allowed(), which raises on a non-string.
         space_pattern_target = space.get("name") or ""
-        if not config.space_pattern.allowed(space_pattern_target):
+        if not source.config.space_pattern.allowed(space_pattern_target):
             continue
         space_token = space.get("token")
         if not space_token:
             continue
-        for report in _fetch_reports(
-            session, config, rate_limiter, workspace_uri, space_token
-        ):
+        for report in _fetch_reports(source, space_token):
             if _display_name(report) != report_name:
                 continue
             report_token = report.get("token")
@@ -519,12 +405,7 @@ def _find_report_token(
 
 
 def _find_query_token(
-    session: ModeApiSession,
-    config: ModeProbeConfig,
-    rate_limiter: RateLimiter,
-    workspace_uri: str,
-    report_token: str,
-    query_name: str,
+    source: ModeSource, report_token: str, query_name: str
 ) -> Optional[str]:
     # Matches on _display_name (name-or-token-or-"unknown"), the same
     # convention mode.py's own report_name resolution uses (mode.py:2078) --
@@ -533,11 +414,9 @@ def _find_query_token(
     # Collects every match rather than returning on the first one, so two
     # queries sharing a name (or both falling back to "unknown") raise an
     # ambiguity error instead of one silently winning.
-    url = f"{workspace_uri}/reports/{report_token}/queries"
+    url = f"{source.workspace_uri}/reports/{report_token}/queries"
     queries = _get_embedded(
-        session,
-        config,
-        rate_limiter,
+        source,
         url,
         "queries",
         context=f"queries listing for report token '{report_token}'",
@@ -587,22 +466,18 @@ class ModeMetadataProbe:
     def __init__(
         self,
         source: ModeSource,
-        config: ModeProbeConfig,
+        config: ModeConfig,
     ) -> None:
         # `source` is the uninitialized shim ModeSource.for_probe() builds
-        # (see mode.py) -- its bound _get_request_json is what
-        # _get_embedded_from_source calls on behalf of data_sources/
-        # definitions/report_queries/query_charts below, reusing the
-        # connector's own session/rate-limit/retry path (and debug curl
-        # logging) instead of re-deriving it. session/workspace_uri/
-        # rate_limiter are also read off it (not rebuilt here) so every
-        # request in one probe run -- both those delegated fetches and the
-        # name-to-token resolvers below -- shares the same rate limiter.
+        # (see mode.py) -- every fetch below goes through its bound
+        # _get_request_json/_get_paged_request_json, reusing the connector's
+        # own session/rate-limit/retry path (and debug curl logging) instead
+        # of re-deriving it. `config` is always the identical object as
+        # source.config (see ModeConfig.build_probe_provider) -- kept as its
+        # own parameter only for constructor-signature stability; nothing
+        # below reads it separately from source.config.
         self._source = source
-        self._session = source.session
-        self._workspace_uri = source.workspace_uri
         self._config = config
-        self._rate_limiter = source.rate_limiter
         # Read by agent.probe_methods.run_probe_method after the bound method
         # returns, and copied onto ProbeMethodResult.warnings -- see
         # _tolerant.
@@ -612,7 +487,7 @@ class ModeMetadataProbe:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        self._session.close()
+        self._source.session.close()
 
     @probe_method()
     def data_sources(self) -> List[Dict[str, object]]:
@@ -624,9 +499,9 @@ class ModeMetadataProbe:
         literal string "default"; the real project id is substituted in that
         case only. Tells you which system a report's SQL actually runs
         against. Credentials (username, host, ...) are never returned."""
-        url = f"{self._workspace_uri}/data_sources"
+        url = f"{self._source.workspace_uri}/data_sources"
         records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded_from_source(
+            lambda: _get_embedded(
                 self._source, url, "data_sources", context="data sources listing"
             ),
             [],
@@ -653,9 +528,9 @@ class ModeMetadataProbe:
         """Mode's reusable SQL definitions: name, description, and the
         definition's SQL source. The source is DDL-like reusable-fragment
         metadata, not query results."""
-        url = f"{self._workspace_uri}/definitions"
+        url = f"{self._source.workspace_uri}/definitions"
         records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded_from_source(
+            lambda: _get_embedded(
                 self._source, url, "definitions", context="definitions listing"
             ),
             [],
@@ -687,13 +562,7 @@ class ModeMetadataProbe:
         # swallowing it would tell the caller to "check the spelling" when
         # the honest answer is "I couldn't check." Let it propagate to the
         # CLI as a real failure.
-        report_token = _find_report_token(
-            self._session,
-            self._config,
-            self._rate_limiter,
-            self._workspace_uri,
-            report,
-        )
+        report_token = _find_report_token(self._source, report)
         if report_token is None:
             raise ValueError(
                 f"no report named '{report}' found among the spaces this "
@@ -701,9 +570,9 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        url = f"{self._workspace_uri}/reports/{report_token}/queries"
+        url = f"{self._source.workspace_uri}/reports/{report_token}/queries"
         records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded_from_source(
+            lambda: _get_embedded(
                 self._source,
                 url,
                 "queries",
@@ -729,13 +598,7 @@ class ModeMetadataProbe:
         # BLOCKER (name resolution must not soften a soft error either): see
         # report_queries' docstring/comment -- a soft error mid-search is not
         # "not found".
-        report_token = _find_report_token(
-            self._session,
-            self._config,
-            self._rate_limiter,
-            self._workspace_uri,
-            report,
-        )
+        report_token = _find_report_token(self._source, report)
         if report_token is None:
             raise ValueError(
                 f"no report named '{report}' found among the spaces this "
@@ -743,14 +606,7 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        query_token = _find_query_token(
-            self._session,
-            self._config,
-            self._rate_limiter,
-            self._workspace_uri,
-            report_token,
-            query,
-        )
+        query_token = _find_query_token(self._source, report_token, query)
         if query_token is None:
             raise ValueError(
                 f"no query named '{query}' found in report '{report}'; call "
@@ -758,11 +614,9 @@ class ModeMetadataProbe:
                 f"name — a query with no name of its own is listed there by "
                 f"its token instead, which is also a valid `query` value here"
             )
-        url = (
-            f"{self._workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
-        )
+        url = f"{self._source.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
         records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded_from_source(
+            lambda: _get_embedded(
                 self._source,
                 url,
                 "charts",

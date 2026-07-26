@@ -15,7 +15,6 @@ from datahub.ingestion.source.mode_probe import (
     _get_embedded_paged,
     list_mode_children,
 )
-from datahub.utilities.ratelimiter import RateLimiter
 
 _WORKSPACE = "https://app.mode.com/api/acryltest"
 
@@ -318,6 +317,9 @@ class _TwoPageSession:
 
     def __init__(self):
         self.pages = {1: [{"name": "a"}], 2: [{"name": "b"}]}
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
 
     def get(self, url, **kw):
         page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
@@ -334,6 +336,11 @@ class _TwoPageSession:
 
 class _SoftErrorOnSecondPageSession:
     """Page 1 succeeds with real data; page 2 (and beyond) 403s."""
+
+    def __init__(self):
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
 
     def get(self, url, **kw):
         page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
@@ -660,11 +667,14 @@ def test_query_charts_resolves_an_unnamed_query_by_its_token():
 
 
 def test_find_query_token_matches_a_null_named_query_by_token():
-    cfg = _cfg()
-    rate_limiter = RateLimiter(max_calls=1000, period=60)
-    token = _find_query_token(
-        cfg._session, cfg, rate_limiter, _WORKSPACE, "r-qec", "q-unnamed"
-    )
+    # _find_query_token now fetches through a real ModeSource shim (see
+    # ModeSource.for_probe) rather than a bare (session, config, rate_limiter)
+    # tuple -- _real_config(), not _cfg()'s duck type, for the same reason
+    # _method_probe() below uses it.
+    cfg = _real_config()
+    session = _FakeSession()
+    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
+    token = _find_query_token(source, "r-qec", "q-unnamed")
     assert token == "q-unnamed"
 
 
@@ -729,15 +739,13 @@ def test_data_sources_records_a_warning_when_it_degrades_on_a_soft_error():
 
 
 def test_get_embedded_paged_aggregates_multiple_pages():
-    cfg = _cfg()
-    rate_limiter = RateLimiter(max_calls=1000, period=60)
+    # _get_embedded_paged now fetches through a real ModeSource shim (see
+    # ModeSource.for_probe) rather than a bare (session, config, rate_limiter)
+    # tuple -- _real_config(), not _cfg()'s duck type, for the same reason
+    # _method_probe() below uses it.
+    source = ModeSource.for_probe(_real_config(), _TwoPageSession(), "https://x")
     result = _get_embedded_paged(
-        _TwoPageSession(),
-        cfg,
-        rate_limiter,
-        "https://x/things",
-        "things",
-        context="test",
+        source, "https://x/things?filter=all", "things", context="test"
     )
     assert [r["name"] for r in result] == ["a", "b"]
 
@@ -746,16 +754,12 @@ def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
     # A soft error on page 2 must not return page 1's items as if the
     # listing were complete -- that's indistinguishable from "there really
     # is only one page", silently truncating the result.
-    cfg = _cfg()
-    rate_limiter = RateLimiter(max_calls=1000, period=60)
+    source = ModeSource.for_probe(
+        _real_config(), _SoftErrorOnSecondPageSession(), "https://x"
+    )
     with pytest.raises(ProbeSoftError):
         _get_embedded_paged(
-            _SoftErrorOnSecondPageSession(),
-            cfg,
-            rate_limiter,
-            "https://x/things",
-            "things",
-            context="test",
+            source, "https://x/things?filter=all", "things", context="test"
         )
 
 
