@@ -30,11 +30,6 @@ def _lister(*names):
     return lambda client, config, parent_path: list(names)
 
 
-# Alias used by filter_target tests below, matching the name test_probe_branching.py
-# uses for the same helper.
-_names = _lister
-
-
 def test_merged_level_keeps_first_position_but_later_source_kind_and_pattern():
     probe = _probe(
         ProbeLevel(
@@ -521,10 +516,10 @@ def test_filter_target_chooses_the_string_the_pattern_is_matched_against():
     probe = ClientProbe(
         client_factory=lambda config: object(),
         levels=[
-            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_names("public")),
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_lister("public")),
             ProbeLevel(
                 DatasetSubTypes.TABLE,
-                list_names=_names("orders"),
+                list_names=_lister("orders"),
                 parent=DatasetContainerSubTypes.SCHEMA,
                 filter_target=target,
             ),
@@ -546,10 +541,10 @@ def test_filter_target_takes_precedence_over_classify_on_fqn():
     probe = ClientProbe(
         client_factory=lambda config: object(),
         levels=[
-            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_names("public")),
+            ProbeLevel(DatasetContainerSubTypes.SCHEMA, list_names=_lister("public")),
             ProbeLevel(
                 DatasetSubTypes.TABLE,
-                list_names=_names("orders"),
+                list_names=_lister("orders"),
                 parent=DatasetContainerSubTypes.SCHEMA,
                 classify_on_fqn=True,
                 filter_target=lambda ctx: "explicit",
