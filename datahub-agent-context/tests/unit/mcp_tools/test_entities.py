@@ -366,3 +366,109 @@ class TestListSchemaFields:
         assert result["totalFields"] == 0
         assert result["returned"] == 0
         assert result["fields"] == []
+
+
+class TestEditableSchemaMetadataMerge:
+    """editableSchemaMetadata is fetched by the query and must reach the caller.
+
+    `clean_get_entities_response` documents this merge and then deletes the
+    source block with the comment "already merged into fields" -- but no code
+    performs the merge, so descriptions written through the UI or the API are
+    fetched and discarded. On a dataset with 19 of 20 fields documented that
+    way, the tools return none of them.
+    """
+
+    @pytest.fixture
+    def dataset_with_edited_fields(self):
+        return {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
+            "schemaMetadata": {
+                "fields": [
+                    {"fieldPath": "user_id", "type": "INTEGER", "description": "From ingestion"},
+                    {"fieldPath": "email", "type": "STRING"},
+                ]
+            },
+            "editableSchemaMetadata": {
+                "editableSchemaFieldInfo": [
+                    {"fieldPath": "user_id", "description": "Corrected by a steward"},
+                    {"fieldPath": "email", "description": "Written in the UI"},
+                ]
+            },
+        }
+
+    def test_edited_description_reaches_the_caller(
+        self, mock_client, dataset_with_edited_fields
+    ):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": dataset_with_edited_fields
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn)
+
+        by_path = {f["fieldPath"]: f for f in result["fields"]}
+        assert by_path["user_id"]["editedDescription"] == "Corrected by a steward"
+        assert by_path["email"]["editedDescription"] == "Written in the UI"
+
+    def test_the_ingested_description_is_preserved_alongside(
+        self, mock_client, dataset_with_edited_fields
+    ):
+        """Both are needed: a caller has to be able to see they disagree."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": dataset_with_edited_fields
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn)
+
+        user_id = next(f for f in result["fields"] if f["fieldPath"] == "user_id")
+        assert user_id["description"] == "From ingestion"
+
+    def test_an_identical_edit_adds_nothing(self, mock_client):
+        """The docstring says edited values appear only when they differ."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": {
+                "urn": urn,
+                "schemaMetadata": {
+                    "fields": [{"fieldPath": "user_id", "description": "Same text"}]
+                },
+                "editableSchemaMetadata": {
+                    "editableSchemaFieldInfo": [
+                        {"fieldPath": "user_id", "description": "Same text"}
+                    ]
+                },
+            }
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn)
+
+        assert "editedDescription" not in result["fields"][0]
+
+    def test_a_dataset_without_edits_is_unchanged(self, mock_client):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": {
+                "urn": urn,
+                "schemaMetadata": {
+                    "fields": [
+                        {"fieldPath": "user_id", "description": "User identifier"},
+                        {"fieldPath": "email", "description": "User email address"},
+                        {"fieldPath": "created_at", "description": "Creation timestamp"},
+                    ]
+                },
+            }
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn)
+
+        assert result["returned"] == 3
+        assert all("editedDescription" not in f for f in result["fields"])
