@@ -103,11 +103,9 @@ class KafkaSourceConfig(
         from datahub.ingestion.source.kafka.kafka import (
             get_kafka_admin_client,
             get_kafka_consumer,
+            get_kafka_schema_registry_client,
         )
-        from datahub.ingestion.source.kafka.kafka_probe import (
-            KafkaMetadataProbe,
-            build_registry_client,
-        )
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 
         # 10s is a floor, not a default: admin/registry calls need enough time
         # against a possibly-slow broker, so a lower configured timeout is
@@ -116,7 +114,7 @@ class KafkaSourceConfig(
         return KafkaMetadataProbe(
             consumer=get_kafka_consumer(self.connection),
             admin=get_kafka_admin_client(self.connection),
-            registry=build_registry_client(self),
+            registry=get_kafka_schema_registry_client(self.connection),
             timeout=timeout,
         )
 

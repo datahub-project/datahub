@@ -205,6 +205,19 @@ def get_kafka_admin_client(
     return client
 
 
+def get_kafka_schema_registry_client(
+    connection: KafkaConsumerConnectionConfig,
+) -> SchemaRegistryClient:
+    """Single construction point, shared with the live recipe probe.
+
+    The probe used to build its own, so registry auth/SSL settings had to be
+    kept in sync by hand across two files.
+    """
+    return SchemaRegistryClient(
+        {"url": connection.schema_registry_url, **connection.schema_registry_config}
+    )
+
+
 def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> None:
     logger.info(f"Validating connectivity to Kafka at {connection.bootstrap}")
     consumer = get_kafka_consumer(connection)
@@ -275,12 +288,7 @@ class KafkaConnectionTest:
 
     def schema_registry_connectivity(self) -> CapabilityReport:
         try:
-            SchemaRegistryClient(
-                {
-                    "url": self.config.connection.schema_registry_url,
-                    **self.config.connection.schema_registry_config,
-                }
-            ).get_subjects()
+            get_kafka_schema_registry_client(self.config.connection).get_subjects()
             return CapabilityReport(capable=True)
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))

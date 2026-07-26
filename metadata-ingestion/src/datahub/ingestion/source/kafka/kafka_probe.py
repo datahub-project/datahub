@@ -116,13 +116,3 @@ class KafkaMetadataProbe:
             "schema_type": getattr(schema_obj, "schema_type", "AVRO"),
             "schema_str": schema_obj.schema_str,
         }
-
-
-def build_registry_client(config: Any) -> Any:
-    # lazy: confluent_kafka.schema_registry is an optional dep
-    from confluent_kafka.schema_registry import SchemaRegistryClient
-
-    conn = config.connection
-    return SchemaRegistryClient(
-        {"url": conn.schema_registry_url, **conn.schema_registry_config}
-    )
