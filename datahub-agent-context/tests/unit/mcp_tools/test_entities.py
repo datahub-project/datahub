@@ -384,7 +384,11 @@ class TestEditableSchemaMetadataMerge:
             "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)",
             "schemaMetadata": {
                 "fields": [
-                    {"fieldPath": "user_id", "type": "INTEGER", "description": "From ingestion"},
+                    {
+                        "fieldPath": "user_id",
+                        "type": "INTEGER",
+                        "description": "From ingestion",
+                    },
                     {"fieldPath": "email", "type": "STRING"},
                 ]
             },
@@ -461,7 +465,10 @@ class TestEditableSchemaMetadataMerge:
                     "fields": [
                         {"fieldPath": "user_id", "description": "User identifier"},
                         {"fieldPath": "email", "description": "User email address"},
-                        {"fieldPath": "created_at", "description": "Creation timestamp"},
+                        {
+                            "fieldPath": "created_at",
+                            "description": "Creation timestamp",
+                        },
                     ]
                 },
             }
