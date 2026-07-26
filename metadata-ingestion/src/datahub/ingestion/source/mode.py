@@ -20,6 +20,7 @@ from typing import (
     Set,
     Tuple,
     Union,
+    cast,
 )
 
 import dateutil.parser as dp
@@ -166,6 +167,21 @@ MODE_ADAPTER_PLATFORM_MAP: Dict[str, str] = {
     "jdbc:sqlserver": "mssql",
     "jdbc:teradata": "teradata",
 }
+
+
+def resolve_data_source_database(platform: str, database: str, host: str) -> str:
+    """Mode's own "database" field on a BigQuery data source is always the
+    literal string "default"; the real project id is only ever available in
+    "host". For lineage (and for reporting which database a data source
+    actually points at) we need project_id.db.table, so substitute it in
+    that one case. A pure function -- no data source dict, no self -- so
+    _get_platform_and_dbname (ingestion) and mode_probe.py's data_sources()
+    probe method can both call it and cannot drift on this derivation the
+    way they previously did (each carried its own copy of these two lines)."""
+    if platform == "bigquery" and database == "default":
+        return host
+    return database
+
 
 # Override Undefined.__str__ so that unresolved Liquid template variables
 # render as "NULL" instead of raising. Done at module level (once) rather
@@ -421,12 +437,13 @@ def fetch_json(
     on_retried_after_timeout: Optional[Callable[[], None]] = None,
 ) -> Dict:
     """GET url as JSON honoring Mode's rate limit, request timeout, and
-    429/504 retry/backoff behavior. Shared by ModeSource._get_request_json
-    and the live probe (mode_probe.py) so the probe's requests go through the
-    exact same path as a real ingestion run, rather than a bare
-    session.get() that bypasses all of it. The two optional callbacks let
-    ModeSource keep incrementing its own report counters on retry; the probe
-    passes neither, since it has no report to update.
+    429/504 retry/backoff behavior. Used by ModeSource._get_request_json --
+    the live probe (mode_probe.py) no longer calls this directly; it fetches
+    through the same bound _get_request_json/_get_paged_request_json methods
+    a real ingestion run uses (see ModeSource.for_probe), so its retries
+    increment that shim's own ModeSourceReport the same way. The two
+    optional callbacks let a caller with a report (every current caller)
+    keep incrementing its own report counters on retry.
     """
     r = tenacity.Retrying(
         wait=wait_exponential(
@@ -561,6 +578,12 @@ class ModeSource(StatefulIngestionSourceBase):
     ctx: PipelineContext
     config: ModeConfig
     report: ModeSourceReport
+    # Declared here (not inferred from __init__'s assignment) so the
+    # attribute's static type is the structural Protocol, not the concrete
+    # requests.Session __init__ happens to assign -- both __init__'s real
+    # session and for_probe's shim (which may carry a duck-typed test
+    # session) type-check against it without a setattr/noqa escape hatch.
+    session: ModeApiSession
     platform = "mode"
 
     DIMENSION_TAG_URN = "urn:li:tag:Dimension"
@@ -632,7 +655,7 @@ class ModeSource(StatefulIngestionSourceBase):
         ingestion-specific policy (an index cache; a name->source cache
         shaped for `{{@name}}` template expansion, dropping every other
         field) that a diagnostic must not inherit. See mode_probe.py's
-        _get_embedded_from_source for what the probe reuses instead.
+        _get_embedded/_get_embedded_paged for what the probe reuses instead.
 
         Built via __new__ (bypassing __init__ entirely) rather than calling
         __init__ with a dummy PipelineContext: __init__ opens its own
@@ -642,14 +665,6 @@ class ModeSource(StatefulIngestionSourceBase):
         workspace_uri once via config.get_mode_session()) and has no
         PipelineContext to perform anyway.
 
-        setattr (not a plain assignment) for `session`: ModeSource's own
-        __init__ assigns it from config.get_mode_session(), so mypy infers
-        its declared type as the concrete requests.Session -- but this
-        factory (like fetch_json) must also accept the duck-typed session
-        fakes tests use, typed via the structural ModeApiSession Protocol.
-        Every other attribute's declared type is met exactly by what's
-        assigned here, so those use plain assignment.
-
         Note for test doubles: _get_request_json logs a curl-equivalent via
         make_curl_command before every request, which reads session.headers
         and session.auth directly -- neither is part of ModeApiSession
@@ -658,7 +673,7 @@ class ModeSource(StatefulIngestionSourceBase):
         """
         shim = cls.__new__(cls)
         shim.config = config
-        setattr(shim, "session", session)  # noqa: B010
+        shim.session = session
         shim.workspace_uri = workspace_uri
         shim.report = ModeSourceReport()
         shim.rate_limiter = RateLimiter(
@@ -1105,11 +1120,9 @@ class ModeSource(StatefulIngestionSourceBase):
         platform = self._get_datahub_friendly_platform(
             data_source.get("adapter", ""), data_source.get("name", "")
         )
-        database = data_source.get("database", "")
-        # On bigquery, change the database from "default" to the host (project_id)
-        # For lineage we need project_id.db.table
-        if platform == "bigquery" and database == "default":
-            database = data_source.get("host", "")
+        database = resolve_data_source_database(
+            platform, data_source.get("database", ""), data_source.get("host", "")
+        )
         return platform, database
 
     def _replace_definitions(
@@ -1951,7 +1964,19 @@ class ModeSource(StatefulIngestionSourceBase):
             page += 1
 
     def _get_request_json(self, url: str) -> Dict:
-        curl_command = make_curl_command(self.session, "GET", url, "")
+        # self.session is declared ModeApiSession (a narrow structural
+        # Protocol so ModeSource.for_probe's shim and test doubles can supply
+        # a duck-typed session) -- make_curl_command is a shared utility used
+        # by several connectors and is typed against the concrete
+        # requests.Session it always receives everywhere else, so its
+        # signature is not the right place to widen for one connector. In
+        # production self.session always IS a real requests.Session; every
+        # test double that reaches this call already carries the
+        # headers/auth make_curl_command reads (see for_probe's docstring),
+        # so the cast documents that gap rather than hiding a real one.
+        curl_command = make_curl_command(
+            cast(requests.Session, self.session), "GET", url, ""
+        )
         logger.debug(f"Issuing request; curl equivalent: {curl_command}")
 
         def _on_rate_limited() -> None:

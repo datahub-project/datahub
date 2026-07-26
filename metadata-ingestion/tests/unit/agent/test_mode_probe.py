@@ -6,7 +6,7 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.probe import ProbeSoftError
+from datahub.ingestion.agent.probe import UNNAMED, ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
@@ -164,6 +164,20 @@ _RESPONSES: Dict[str, Dict[str, Any]] = {
                 "name": "VerticaConn",
                 "adapter": "jdbc:vertica",
                 "database": "mydb",
+            },
+            {
+                "id": "34503",
+                # Neither named NOR a recognized adapter -- the two fallbacks
+                # (adapter -> platform, and the probe's own display name)
+                # must not be conflated. mode.py's own _get_platform_and_dbname
+                # passes the raw "name" field ("" here, no default token) as
+                # the unmapped-adapter fallback, so the platform ingestion
+                # would actually emit is "" -- not this data source's display
+                # name ("ds5", via the token). Reporting "ds5" as the adapter
+                # would be friendlier than what a real run does.
+                "token": "ds5",
+                "adapter": "jdbc:made_up_adapter",
+                "database": "somedb",
             },
         ]
     },
@@ -387,7 +401,7 @@ def _cfg(session=None, **over):
     base.update(over)
     session = session or _FakeSession()
     cfg = SimpleNamespace(get_mode_session=lambda: (session, _WORKSPACE), **base)
-    cfg._session = session  # not part of ModeProbeConfig; exposed for assertions
+    cfg._session = session  # not read by mode_probe.py; exposed for assertions
     return cfg
 
 
@@ -396,8 +410,7 @@ def _real_config(**over):
     method-probe tests below: ModeSource.for_probe() takes the concrete
     ModeConfig -- the same type build_probe_provider passes in production --
     since its shim's `.config` is read by mode.py's own _get_request_json
-    (self.config.api_options.*), not just by mode_probe.py's module-level
-    resolvers (which accept the lighter ModeProbeConfig Protocol instead)."""
+    (self.config.api_options.*)."""
     base: Dict[str, Any] = dict(
         token="test-token",
         password="test-password",
@@ -430,6 +443,26 @@ def test_spaces_apply_space_pattern():
     assert by_name["Personal"].pattern_field == "space_pattern"
     assert by_name["Archive"].included is False
     assert by_name["Archive"].excluded_by == "space_pattern"
+
+
+def test_spaces_hierarchy_tests_the_same_raw_name_find_report_token_does():
+    # Regression guard: _spaces() used to report a null-named space by its
+    # DISPLAY name (token fallback), while _find_report_token already tested
+    # the raw name -- so a pattern denying the literal token string (e.g.
+    # "^sp7$") excluded the space from the hierarchy view but NOT from
+    # _find_report_token's search: the same physical space got two different
+    # verdicts depending which code path asked. sp7 (see _RESPONSES) has no
+    # "name" key at all. Both paths now test "" for it, so it can no longer
+    # be addressed by its token in the hierarchy either -- it surfaces as an
+    # unnamed, unaddressable node (probe.py's own convention for a lister
+    # that has no usable name to filter or descend into), not a
+    # space_pattern-excluded one.
+    cfg = _cfg(space_pattern=AllowDenyPattern(allow=[".*"], deny=["^sp7$"]))
+    nodes = list_mode_children(cfg, [], 100).nodes
+    unnamed = [n for n in nodes if n.name == UNNAMED]
+    assert len(unnamed) == 1
+    assert unnamed[0].excluded_by == "unnamed"
+    assert "sp7" not in {n.name for n in nodes}
 
 
 def test_listing_a_space_merges_reports_and_datasets():
@@ -546,14 +579,18 @@ def test_data_sources_projects_named_fields_only():
     # API payload were dropped in the general case, that the postgres adapter
     # maps to "postgres" (not a naive "postgresql"), that BigQuery's "default"
     # database is replaced by the real project id from "host", that a data
-    # source with no "name" falls back to its token, and that an adapter the
+    # source with no "name" falls back to its token, that an adapter the
     # mapping table doesn't recognize falls back to the data source's own
-    # name (not the raw "jdbc:vertica" string).
+    # name (not the raw "jdbc:vertica" string) -- and that a data source with
+    # NEITHER a name nor a recognized adapter reports an empty-string
+    # adapter (mode.py's own _get_platform_and_dbname convention), not its
+    # display name ("ds5"): the two fallbacks are independent.
     assert result == [
         {"name": "PostgreSQL", "adapter": "postgres", "database": "dvdrental"},
         {"name": "BigQueryConn", "adapter": "bigquery", "database": "some-project-id"},
         {"name": "ds3", "adapter": "mssql", "database": "analytics"},
         {"name": "VerticaConn", "adapter": "VerticaConn", "database": "mydb"},
+        {"name": "ds5", "adapter": "", "database": "somedb"},
     ]
 
 

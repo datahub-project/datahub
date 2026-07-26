@@ -23,9 +23,9 @@ from datahub.ingestion.agent.probe import (
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
-    MODE_ADAPTER_PLATFORM_MAP,
     ModeConfig,
     ModeSource,
+    resolve_data_source_database,
 )
 
 logger = logging.getLogger(__name__)
@@ -209,6 +209,25 @@ def _display_name(item: Dict[str, Any]) -> str:
     return str(item.get("name") or item.get("token") or "unknown")
 
 
+def _space_pattern_name(space: Dict[str, Any]) -> str:
+    # mode.py's own space_pattern check (_get_space_name_and_tokens) tests the
+    # raw "name" field, with NO token fallback -- unlike reports, where
+    # mode.py's own report_pattern check (_collect_space_work_items) uses the
+    # same name-or-token-or-"unknown" convention _display_name does. So
+    # spaces alone need this second, filter-only target: using _display_name
+    # (which falls back to the token) would test a different string than a
+    # real ingestion run does for a null-named space, and could report it
+    # in- or out-of-scope wrongly. Used for BOTH the space_pattern check
+    # itself (_find_report_token) and the hierarchy probe's own space nodes
+    # (_spaces/_space_token) -- they must test and address spaces by the
+    # identical string, or the same physical space could resolve "in scope"
+    # down one path and "excluded" down the other. `or ""` (not mode.py's
+    # literal `.get("name", "")`) so an explicit `"name": null` normalizes to
+    # "" instead of passing None into .allowed(), which raises on a
+    # non-string.
+    return space.get("name") or ""
+
+
 def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     """Every space the workspace has, filtered exactly the way mode.py's own
     ingestion run would see them: the server-side filter=all/custom, plus
@@ -242,8 +261,12 @@ def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]
 
 
 def _space_token(source: ModeSource, space_name: str) -> Optional[str]:
+    # Matches on _space_pattern_name, not _display_name: _spaces() (below)
+    # reports nodes by that same raw name, so a --parent value the caller
+    # copied from a `probe list`/`probe shape` node resolves back to the
+    # same space it named.
     for space in _fetch_spaces(source):
-        if _display_name(space) == space_name:
+        if _space_pattern_name(space) == space_name:
             return space.get("token")
     return None
 
@@ -263,7 +286,14 @@ def _spaces(
     # `config` is unused: it is always the identical object as client.config
     # (see _build_mode_client) -- kept only to satisfy ClientProbe's
     # LevelLister shape, which every level's list_names must match.
-    return [_display_name(space) for space in _fetch_spaces(client)]
+    #
+    # _space_pattern_name, not _display_name: a null-named space then has no
+    # usable name (see probe.py's UNNAMED handling) and is reported as an
+    # unaddressable "<unnamed>" node rather than being falsely addressable
+    # via its token -- Mode's own space_pattern check has no such fallback
+    # either, so this is the same string _find_report_token tests, not a
+    # friendlier one this level invents for itself.
+    return [_space_pattern_name(space) for space in _fetch_spaces(client)]
 
 
 def _reports(
@@ -361,36 +391,40 @@ def _find_report_token(source: ModeSource, report_name: str) -> Optional[str]:
     # ambiguity guard the hierarchy probe already applies to same-named
     # sibling levels.
     matches: List[Tuple[str, str]] = []
-    for space in _fetch_spaces(source):
-        space_name = _display_name(space)
-        # mode.py's own space_pattern check (_get_space_name_and_tokens) tests
-        # the raw "name" field, with NO token fallback -- unlike reports,
-        # where mode.py's own report_pattern check (_collect_space_work_items)
-        # uses the same name-or-token-or-"unknown" convention _display_name
-        # does. So spaces alone need a second, filter-only target here: using
-        # space_name (the display name, token-fallback included) would test a
-        # different string than a real ingestion run does for a null-named
-        # space, and could report it in- or out-of-scope wrongly. `or ""`
-        # (not mode.py's literal `.get("name", "")`) so an explicit
-        # `"name": null` normalizes to "" instead of passing None into
-        # .allowed(), which raises on a non-string.
-        space_pattern_target = space.get("name") or ""
-        if not source.config.space_pattern.allowed(space_pattern_target):
-            continue
-        space_token = space.get("token")
-        if not space_token:
-            continue
-        for report in _fetch_reports(source, space_token):
-            if _display_name(report) != report_name:
+    try:
+        for space in _fetch_spaces(source):
+            space_name = _display_name(space)
+            if not source.config.space_pattern.allowed(_space_pattern_name(space)):
                 continue
-            report_token = report.get("token")
-            if report_token:
-                matches.append((space_name, report_token))
-                break
-            # else: a same-named report with no token; keep scanning this
-            # space in case a different, valid-token report shares the name
-            # (an earlier version of this loop broke here unconditionally,
-            # which could skip a real match).
+            space_token = space.get("token")
+            if not space_token:
+                continue
+            for report in _fetch_reports(source, space_token):
+                if _display_name(report) != report_name:
+                    continue
+                report_token = report.get("token")
+                if report_token:
+                    matches.append((space_name, report_token))
+                    break
+                # else: a same-named report with no token; keep scanning this
+                # space in case a different, valid-token report shares the
+                # name (an earlier version of this loop broke here
+                # unconditionally, which could skip a real match).
+    except ProbeSoftError as exc:
+        # Rephrase at this re-raise site rather than reusing
+        # _raise_soft_or_hard's message verbatim: "...treating it as empty"
+        # is accurate on ProbeResult.warnings, where a sub-listing genuinely
+        # is treated as empty and the hierarchy probe moves on to its
+        # siblings. Here the exception aborts this whole search instead (see
+        # the BLOCKER note in report_queries/query_charts) and propagates to
+        # the CLI as a hard failure -- telling the caller anything was
+        # "treated as empty" would say the opposite of what happened, and an
+        # agent reading it could wrongly conclude the report has no queries
+        # rather than that the search itself could not finish.
+        raise ProbeSoftError(
+            f"could not determine whether a report named '{report_name}' "
+            f"exists -- the search across spaces did not complete: {exc}"
+        ) from exc
     if not matches:
         return None
     if len(matches) > 1:
@@ -415,12 +449,22 @@ def _find_query_token(
     # queries sharing a name (or both falling back to "unknown") raise an
     # ambiguity error instead of one silently winning.
     url = f"{source.workspace_uri}/reports/{report_token}/queries"
-    queries = _get_embedded(
-        source,
-        url,
-        "queries",
-        context=f"queries listing for report token '{report_token}'",
-    )
+    try:
+        queries = _get_embedded(
+            source,
+            url,
+            "queries",
+            context=f"queries listing for report token '{report_token}'",
+        )
+    except ProbeSoftError as exc:
+        # See _find_report_token's identical rephrasing: this exception
+        # aborts the query-name search rather than being treated as "this
+        # report has no queries", and must say so.
+        raise ProbeSoftError(
+            f"could not determine whether a query named '{query_name}' "
+            f"exists in report token '{report_token}' -- the queries "
+            f"listing did not complete: {exc}"
+        ) from exc
     matches = [
         query.get("token")
         for query in queries
@@ -436,19 +480,6 @@ def _find_query_token(
             f"a token unique to the one you mean"
         )
     return matches[0]
-
-
-def _platform_for_adapter(adapter: str, fallback_name: str) -> str:
-    # Reuse mode.py's own adapter->platform table (MODE_ADAPTER_PLATFORM_MAP)
-    # rather than re-deriving it from the "jdbc:" prefix: several adapters map
-    # to a platform name that differs from the driver name itself, e.g.
-    # "jdbc:postgresql" -> "postgres" and "jdbc:sqlserver" -> "mssql". For an
-    # adapter the table doesn't recognize, mode.py's own fallback
-    # (_get_datahub_friendly_platform) is the data source's own name, not the
-    # raw adapter string -- reporting a raw "jdbc:vertica"-shaped value would
-    # be neither a valid DataHub platform nor what ingestion will actually
-    # emit, and an agent building lineage off it would get a wrong prefix.
-    return MODE_ADAPTER_PLATFORM_MAP.get(adapter, fallback_name)
 
 
 def _chart_summary(chart: Dict[str, Any]) -> Dict[str, object]:
@@ -509,14 +540,31 @@ class ModeMetadataProbe:
         )
         result: List[Dict[str, object]] = []
         for ds in records:
-            name = _display_name(ds)
-            platform = _platform_for_adapter(str(ds.get("adapter") or ""), name)
-            database = ds.get("database")
-            if platform == "bigquery" and database == "default":
-                database = ds.get("host")
+            # Both derivations call the connector's own methods directly
+            # (bound to this shim, whose .report absorbs
+            # _get_datahub_friendly_platform's report_warning on an
+            # unrecognized adapter) rather than a second copy of this logic:
+            # _get_datahub_friendly_platform is mode.py:1037,
+            # resolve_data_source_database is the pure two-line BigQuery
+            # database-swap ingestion's own _get_platform_and_dbname calls.
+            #
+            # The unmapped-adapter fallback is ds.get("name", "") -- mode.py's
+            # own literal convention -- not _display_name(ds) (name-or-token-
+            # or-"unknown"): that fallback is this getter's own display
+            # policy for the "name" field below, and using it here too would
+            # report a friendlier adapter value than ingestion would ever
+            # actually emit (mode.py's own behavior is authoritative on what
+            # a real run would do, even where it's a plain "" for a nameless,
+            # unrecognized-adapter data source).
+            platform = self._source._get_datahub_friendly_platform(
+                ds.get("adapter", ""), ds.get("name", "")
+            )
+            database = resolve_data_source_database(
+                platform, ds.get("database", ""), ds.get("host", "")
+            )
             result.append(
                 {
-                    "name": name,
+                    "name": _display_name(ds),
                     "adapter": platform,
                     "database": database,
                 }

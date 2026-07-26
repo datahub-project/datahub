@@ -82,7 +82,12 @@ class KafkaMetadataProbe:
         from confluent_kafka.admin import ConfigResource
 
         resource = ConfigResource(ConfigResource.Type.TOPIC, topic)
-        future = self._admin.describe_configs([resource])[resource]
+        # request_timeout mirrors kafka.py's own fetch_topic_configurations --
+        # without it only the client-side future.result(timeout=) below
+        # bounds the call, leaving the broker-side request itself unbounded.
+        future = self._admin.describe_configs(
+            [resource], request_timeout=self._timeout
+        )[resource]
         entries = future.result(timeout=self._timeout)
         return {name: entry.value for name, entry in entries.items()}
 
