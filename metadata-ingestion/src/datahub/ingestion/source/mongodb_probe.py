@@ -6,6 +6,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.mongodb import dataset_name
 
 
 def _databases(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
@@ -30,8 +31,8 @@ MONGODB_PROBE = ClientProbe(
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_collections,
-            classify_on_fqn=True,
             parent=DatasetContainerSubTypes.DATABASE,
+            filter_target=lambda ctx: dataset_name(ctx.parent_path[0], ctx.name),
         ),
     ],
 )

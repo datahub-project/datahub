@@ -2,7 +2,7 @@ from typing import Any, List, Sequence
 
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
-from datahub.ingestion.source.aerospike import AerospikeSet
+from datahub.ingestion.source.aerospike import AerospikeSet, dataset_name
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -50,8 +50,8 @@ AEROSPIKE_PROBE = ClientProbe(
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_sets,
-            classify_on_fqn=True,
             parent=DatasetContainerSubTypes.NAMESPACE,
+            filter_target=lambda ctx: dataset_name(ctx.parent_path[0], ctx.name),
         ),
     ],
 )

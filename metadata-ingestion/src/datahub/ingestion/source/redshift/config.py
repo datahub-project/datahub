@@ -29,6 +29,16 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 logger = logging.Logger(__name__)
 
 
+def dataset_name(database: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by ingestion (redshift.py) and the probe hook below
+    (RedshiftConfig.probe_filter_target) so both sides filter on the same
+    string; they used to build it independently and disagreed.
+    """
+    return f"{database}.{schema}.{table}"
+
+
 # The lineage modes are documented in the Redshift source's docstring.
 class LineageMode(Enum):
     SQL_BASED = "sql_based"
@@ -260,6 +270,18 @@ class RedshiftConfig(
         from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
 
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
+
+    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+        # sql_probe.py's generic get_identifier shim (see sql_probe._identifier_target)
+        # only reaches connectors whose real Source extends SQLAlchemySource.
+        # RedshiftSource doesn't, so without this override the shim would fall
+        # back to the bare "schema.entity" it uses for any other non-SQLAlchemy
+        # SQL source -- missing the leading `database` segment that
+        # redshift.py's table_pattern/view_pattern checks actually use (see
+        # dataset_name above). `database` is a single required field here
+        # (default "dev"), so -- unlike Unity Catalog's `catalogs` list --
+        # this always has an unambiguous answer.
+        return dataset_name(self.database, schema, entity)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

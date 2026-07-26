@@ -129,3 +129,62 @@ def test_starrocks_missing_current_catalog_falls_back_to_fqn_with_a_warning():
         assert "_current_catalog" in warnings[0]
     finally:
         _identifier_fallback_warnings.reset(token)
+
+
+def test_redshift_probe_filter_target_includes_the_database_segment():
+    """RedshiftSource doesn't extend SQLAlchemySource, so the generic shim has
+    no get_identifier to call -- RedshiftConfig.probe_filter_target supplies
+    ingestion's own "database.schema.table" target instead (see
+    redshift.py's _process_table / _process_view / cache_tables_and_views,
+    which all match table_pattern/view_pattern against that same string)."""
+    from datahub.ingestion.source.redshift.config import RedshiftConfig
+
+    config = RedshiftConfig(host_port="localhost:5439", database="analytics")
+    assert _identifier_target(_ctx(config, "public", "orders")) == (
+        "analytics.public.orders"
+    )
+
+
+def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
+    """UnityCatalogSource also doesn't extend SQLAlchemySource; process_tables
+    (source.py) matches table_pattern against table.ref.qualified_table_name,
+    i.e. "catalog.schema.table". A recipe pinning exactly one catalog gives
+    UnityCatalogSourceConfig.probe_filter_target an unambiguous answer."""
+    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "catalogs": ["main"],
+        }
+    )
+    assert _identifier_target(_ctx(config, "public", "orders")) == (
+        "main.public.orders"
+    )
+
+
+def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
+    """Without exactly one catalog pinned (none, or several), there is no
+    single catalog to prepend without guessing -- so this falls back to the
+    generic shim's plain "schema.entity", same as before this override
+    existed, rather than fabricating an answer."""
+    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+    no_catalogs = UnityCatalogSourceConfig.model_validate(
+        {"token": "token", "workspace_url": "https://workspace_url"}
+    )
+    assert _identifier_target(_ctx(no_catalogs, "public", "orders")) == (
+        "public.orders"
+    )
+
+    several_catalogs = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "catalogs": ["main", "other"],
+        }
+    )
+    assert _identifier_target(_ctx(several_catalogs, "public", "orders")) == (
+        "public.orders"
+    )

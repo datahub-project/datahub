@@ -2,6 +2,7 @@ from typing import Any, List, Sequence
 
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
+from datahub.ingestion.source.cassandra.cassandra import dataset_name
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -31,10 +32,13 @@ CASSANDRA_PROBE = ClientProbe(
     close=lambda client: client.close(),
     levels=[
         ProbeLevel(DatasetContainerSubTypes.KEYSPACE, list_names=_keyspaces),
+        # cassandra.py's _generate_table matches table_pattern against
+        # "<keyspace>.<table>", not the bare table name.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_tables,
             parent=DatasetContainerSubTypes.KEYSPACE,
+            filter_target=lambda ctx: dataset_name(ctx.parent_path[0], ctx.name),
         ),
     ],
 )

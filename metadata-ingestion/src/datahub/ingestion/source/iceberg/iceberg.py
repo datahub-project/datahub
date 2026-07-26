@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from dateutil import parser as dateutil_parser
 from pyiceberg.catalog import Catalog
@@ -124,6 +124,19 @@ LOGGER = logging.getLogger(__name__)
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
+
+
+def dataset_name(dataset_path: Sequence[str]) -> str:
+    """The identifier table_pattern is matched against.
+
+    Shared with the probe (iceberg_probe.py) so both sides filter on the same
+    string; they used to build it independently and disagreed. Ingestion
+    passes its `Identifier` tuple; the probe passes
+    `list(ctx.parent_path) + [ctx.name]` (see iceberg_probe.py) — both dot-join
+    to the same string even though nested namespaces make the intermediate
+    shapes differ.
+    """
+    return ".".join(dataset_path)
 
 
 @platform_name("Iceberg")
@@ -340,17 +353,17 @@ class IcebergSource(StatefulIngestionSourceBase):
         ) -> Iterable[MetadataWorkUnit]:
             try:
                 LOGGER.debug(f"Processing dataset for path {dataset_path}")
-                dataset_name = ".".join(dataset_path)
-                if not self.config.table_pattern.allowed(dataset_name):
+                table_fqn = dataset_name(dataset_path)
+                if not self.config.table_pattern.allowed(table_fqn):
                     # Dataset name is rejected by pattern, report as dropped.
-                    self.report.report_dropped(dataset_name)
+                    self.report.report_dropped(table_fqn)
                     LOGGER.debug(
-                        f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                        f"Skipping table {table_fqn} due to not being allowed by the config pattern"
                     )
                     return
 
                 yield from _try_processing_dataset(
-                    dataset_path, dataset_name, namespace_urn
+                    dataset_path, table_fqn, namespace_urn
                 )
             except Exception as e:
                 self.report.report_failure(

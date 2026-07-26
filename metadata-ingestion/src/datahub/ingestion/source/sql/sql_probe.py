@@ -117,15 +117,15 @@ def _source_class_for(config: Any) -> Type[SQLAlchemySource]:
     default is correct there too, since Hana's Source doesn't override
     get_identifier, so it would resolve to the same base method anyway.
 
-    Known gap: Redshift and Unity Catalog reuse SQLCommonConfig's default
-    probe (this module) for their Table level, but their real Source classes
-    don't extend SQLAlchemySource at all -- their actual ingestion identifiers
+    Redshift and Unity Catalog reuse SQLCommonConfig's default probe (this
+    module) for their Table level, but their real Source classes don't extend
+    SQLAlchemySource at all -- their actual ingestion identifiers
     (`database.schema.table` / `catalog.schema.table`) are built ad hoc
-    elsewhere, not via a get_identifier this shim can call. Both fall back to
-    the generic `f"{schema}.{entity}"` here: an improvement over the old bare
-    name, but still missing their leading container segment. Fixing that
-    would mean giving those connectors a proper get_identifier of their own,
-    which is out of scope for this probe-only change.
+    elsewhere, not via a get_identifier this shim can call. Those two declare
+    their own answer instead, through SQLCommonConfig.probe_filter_target
+    (checked in _identifier_target before this function ever runs) -- not by
+    special-casing their source_type here, which would make this module the
+    one place a new per-connector override had to be wired in by hand.
     """
     config_cls = type(config)
     name = config_cls.__name__
@@ -156,18 +156,37 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     """The exact string the connector's own get_identifier would use for this
     table/view node -- never a reimplementation of it (see _source_class_for).
 
-    Builds the resolved Source class via __new__ (bypassing __init__, which
-    fires ingestion telemetry -- see SQLAlchemySource.__init__ -- and needs a
-    PipelineContext a read-only probe doesn't have) so that overrides calling
-    super() (e.g. Db2's uppercasing get_db_name) resolve exactly as they would
-    on a real instance: isinstance(shim, source_cls) holds, since the shim IS
-    an (uninitialized) instance of that class.
+    Checks SQLCommonConfig.probe_filter_target first: a connector whose real
+    Source doesn't extend SQLAlchemySource (Redshift, Unity Catalog) declares
+    its own identifier there instead of through get_identifier, since this
+    module has no Source subclass to resolve for it. Every other SQL config
+    inherits the default (returns None), so this is a no-op for them.
+
+    Otherwise builds the resolved Source class via __new__ (bypassing
+    __init__, which fires ingestion telemetry -- see
+    SQLAlchemySource.__init__ -- and needs a PipelineContext a read-only probe
+    doesn't have) so that overrides calling super() (e.g. Db2's uppercasing
+    get_db_name) resolve exactly as they would on a real instance:
+    isinstance(shim, source_cls) holds, since the shim IS an (uninitialized)
+    instance of that class.
 
     Falls back to the node's plain fqn, recording the reason as a probe
     warning (see _with_identifier_fallback_warnings), when an override
     reaches for source state this shim doesn't carry -- e.g. StarRocks's
     per-catalog `_current_catalog`, set only during real table enumeration.
     """
+    schema = ctx.parent_path[-1] if ctx.parent_path else ""
+    # getattr, not a direct call: every real SQLCommonConfig subclass declares
+    # this (see sql_config.py), but some test doubles in this test suite are a
+    # bare SimpleNamespace carrying only the few attributes their test needs.
+    probe_filter_target = getattr(ctx.config, "probe_filter_target", None)
+    override = (
+        probe_filter_target(schema=schema, entity=ctx.name)
+        if callable(probe_filter_target)
+        else None
+    )
+    if override is not None:
+        return override
     source_cls = _source_class_for(ctx.config)
     shim = source_cls.__new__(source_cls)
     shim.config = ctx.config
@@ -177,7 +196,6 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # this attribute (only mssql's does), hence setattr rather than a plain
     # assignment mypy could check against a type that doesn't have it.
     setattr(shim, "current_database", None)  # noqa: B010
-    schema = ctx.parent_path[-1] if ctx.parent_path else ""
     try:
         target = source_cls.get_identifier(
             shim,

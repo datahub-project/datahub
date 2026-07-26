@@ -98,6 +98,15 @@ logger = logging.getLogger(__name__)
 DENY_DATABASE_LIST = {"admin", "config", "local"}
 
 
+def dataset_name(database_name: str, collection_name: str) -> str:
+    """The identifier collection_pattern is matched against.
+
+    Shared with the probe (mongodb_probe.py) so both sides filter on the same
+    string; they used to build it independently and disagreed.
+    """
+    return f"{database_name}.{collection_name}"
+
+
 class HostingEnvironment(Enum):
     SELF_HOSTED = "SELF_HOSTED"
     ATLAS = "ATLAS"
@@ -451,7 +460,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
             collection_names: List[str] = database.list_collection_names()
             # traverse collections in sorted order so output is consistent
             for collection_name in sorted(collection_names):
-                dataset_name = f"{database_name}.{collection_name}"
+                collection_fqn = dataset_name(database_name, collection_name)
 
                 # Skip MongoDB internal system collections by default.
                 # system.profile requires dbAdmin (not just read/readWrite) and only exists
@@ -460,16 +469,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
                 if self.config.excludeSystemCollections and collection_name.startswith(
                     "system."
                 ):
-                    self.report.report_dropped(dataset_name)
+                    self.report.report_dropped(collection_fqn)
                     continue
 
-                if not self.config.collection_pattern.allowed(dataset_name):
-                    self.report.report_dropped(dataset_name)
+                if not self.config.collection_pattern.allowed(collection_fqn):
+                    self.report.report_dropped(collection_fqn)
                     continue
 
                 dataset_urn = DatasetUrn.create_from_ids(
                     platform_id=self.platform,
-                    table_name=dataset_name,
+                    table_name=collection_fqn,
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )

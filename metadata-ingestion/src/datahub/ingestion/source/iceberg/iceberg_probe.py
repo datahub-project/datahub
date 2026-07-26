@@ -6,6 +6,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.iceberg.iceberg import dataset_name
 
 
 def _namespaces(client: Any, config: Any, parent_path: List[str]) -> Sequence[str]:
@@ -24,10 +25,16 @@ ICEBERG_PROBE = ClientProbe(
     client_factory=lambda config: config.get_catalog(),
     levels=[
         ProbeLevel(DatasetContainerSubTypes.NAMESPACE, list_names=_namespaces),
+        # iceberg.py's _process_dataset matches table_pattern against the dotted
+        # "<namespace>.<table>" identifier, not the bare table name. ctx.name is
+        # the leaf table name and ctx.parent_path[0] is already the dotted
+        # namespace (see _namespaces above), so joining the two reproduces
+        # ingestion's own dataset_name(Identifier) exactly.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_tables,
             parent=DatasetContainerSubTypes.NAMESPACE,
+            filter_target=lambda ctx: dataset_name(list(ctx.parent_path) + [ctx.name]),
         ),
     ],
 )

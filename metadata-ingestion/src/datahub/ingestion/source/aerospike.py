@@ -74,6 +74,15 @@ from datahub.utilities.lossy_collections import LossyList
 logger = logging.getLogger(__name__)
 
 
+def dataset_name(namespace: str, set_name: str) -> str:
+    """The identifier set_pattern is matched against.
+
+    Shared with the probe (aerospike_probe.py) so both sides filter on the
+    same string; they used to build it independently and disagreed.
+    """
+    return f"{namespace}.{set_name}"
+
+
 class AuthMode(Enum):
     AUTH_EXTERNAL = aerospike.AUTH_EXTERNAL
     AUTH_EXTERNAL_INSECURE = aerospike.AUTH_EXTERNAL_INSECURE
@@ -470,16 +479,16 @@ class AerospikeSource(StatefulIngestionSourceBase):
 
         # traverse sets in sorted order so output is consistent
         for curr_set in sorted(ns_sets, key=lambda x: x.set):
-            dataset_name = f"{namespace}.{curr_set.set}"
-            if not self.config.set_pattern.allowed(dataset_name):
-                self.report.report_dropped(dataset_name)
+            set_fqn = dataset_name(namespace, curr_set.set)
+            if not self.config.set_pattern.allowed(set_fqn):
+                self.report.report_dropped(set_fqn)
                 continue
             try:
                 yield self._generate_dataset(curr_set, namespace_key, xdr_sets)
             except Exception as e:
                 self.report.warning(
                     message="Failed to extract set",
-                    context=dataset_name,
+                    context=set_fqn,
                     exc=e,
                 )
 

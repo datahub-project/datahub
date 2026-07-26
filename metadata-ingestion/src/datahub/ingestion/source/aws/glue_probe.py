@@ -2,6 +2,7 @@ from typing import Any, List, Sequence
 
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ClientProbe, ProbeLevel
+from datahub.ingestion.source.aws.glue import dataset_name
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -32,10 +33,13 @@ GLUE_PROBE = ClientProbe(
     client_factory=lambda config: config.glue_client,
     levels=[
         ProbeLevel(DatasetContainerSubTypes.DATABASE, list_names=_databases),
+        # glue.py's _gen_table_wu matches table_pattern against
+        # "<database>.<table>", not the bare table name.
         ProbeLevel(
             DatasetSubTypes.TABLE,
             list_names=_tables,
             parent=DatasetContainerSubTypes.DATABASE,
+            filter_target=lambda ctx: dataset_name(ctx.parent_path[0], ctx.name),
         ),
     ],
 )

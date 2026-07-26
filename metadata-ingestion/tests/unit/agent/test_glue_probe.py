@@ -55,11 +55,24 @@ def test_glue_lists_databases_with_pattern_verdict():
     assert by_name["analytics"].included is True
 
 
-def test_glue_lists_tables_reusing_table_pattern():
+def test_glue_table_pattern_matches_the_fully_qualified_name():
+    # glue.py's _gen_table_wu matches table_pattern against
+    # "<database>.<table>" (e.g. "analytics.tmp_scratch"), not the bare table
+    # name — so a deny anchored to the bare name ("^tmp_.*") never matches and
+    # does NOT exclude the table; this is what real ingestion does too.
     result = list_glue_children(_config(), ["analytics"], 100)
     by_name = {n.name: n for n in result.nodes}
     assert by_name["orders"].kind == DatasetSubTypes.TABLE
     assert by_name["orders"].included is True
-    # The connector's own table_pattern deny (^tmp_) is reused for the verdict.
+    assert by_name["tmp_scratch"].included is True
+
+    # A deny anchored to the fully qualified name does exclude it.
+    fqn_config = _config()
+    fqn_config.table_pattern = AllowDenyPattern(
+        allow=[".*"], deny=[r"^analytics\.tmp_scratch$"]
+    )
+    result = list_glue_children(fqn_config, ["analytics"], 100)
+    by_name = {n.name: n for n in result.nodes}
     assert by_name["tmp_scratch"].included is False
     assert by_name["tmp_scratch"].excluded_by == "table_pattern"
+    assert by_name["orders"].included is True

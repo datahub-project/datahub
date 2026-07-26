@@ -161,6 +161,17 @@ class SQLCommonConfig(
 
         return list_sql_children(self, parent_path, limit)
 
+    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+        """Override point for a connector whose real Source doesn't extend
+        SQLAlchemySource, so sql_probe.py's generic get_identifier shim (see
+        sql_probe._identifier_target) has no get_identifier to call for it.
+        Return the exact string ingestion filters table_pattern/view_pattern
+        against, or None (the default) to let that shim keep resolving it.
+        Checked before the shim on every SQL Table-level node; see
+        RedshiftConfig and UnityCatalogSourceConfig for the two overrides.
+        """
+        return None
+
     @classmethod
     def probe_provider_class(cls) -> type:
         from datahub.ingestion.source.sql.sqlalchemy_probe import (

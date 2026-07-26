@@ -37,6 +37,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
+from datahub.ingestion.source.unity.proxy_types import qualified_table_name
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
@@ -266,6 +267,28 @@ class UnityCatalogSourceConfig(
 
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
+
+    def probe_filter_target(self, schema: str, entity: str) -> Optional[str]:
+        """sql_probe.py's generic get_identifier shim has no get_identifier to
+        call for Unity Catalog: UnityCatalogSource doesn't extend
+        SQLAlchemySource, and process_tables (source.py) actually matches
+        table_pattern against `table.ref.qualified_table_name`, i.e.
+        `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
+        reused here rather than reimplemented).
+
+        The probe's Table level otherwise only knows `schema` -- it has no
+        catalog in its parent_path (Unity Catalog reuses SQLCommonConfig's
+        schema-top hierarchy for this level; see sql_probe.SQL_PROBE) -- so the
+        catalog has to come from config, exactly as RedshiftConfig's `database`
+        does. Unlike `database`, `catalogs` is a list: only usable here when it
+        pins exactly one, since a pattern-selected or multi-catalog recipe has
+        no single answer to hand back without guessing. Falls back to None
+        (the shim's plain "schema.entity") otherwise -- no worse than before
+        this override existed.
+        """
+        if self.catalogs is not None and len(self.catalogs) == 1:
+            return qualified_table_name(self.catalogs[0], schema, entity)
+        return None
 
     metric_view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

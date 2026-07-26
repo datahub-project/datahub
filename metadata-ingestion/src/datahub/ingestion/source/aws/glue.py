@@ -167,6 +167,15 @@ GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
 GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
 
 
+def dataset_name(database_name: str, table_name: str) -> str:
+    """The identifier table_pattern is matched against.
+
+    Shared with the probe (glue_probe.py) so both sides filter on the same
+    string; they used to build it independently and disagreed.
+    """
+    return f"{database_name}.{table_name}"
+
+
 @lru_cache(maxsize=None)
 def _aws_partition_for_region(region: str) -> str:
     """Authoritative ARN partition for an AWS region (aws, aws-us-gov, aws-cn, aws-iso*, ...).
@@ -2159,7 +2168,7 @@ class GlueSource(StatefulIngestionSourceBase):
     def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = f"{database_name}.{table_name}"
+        full_table_name = dataset_name(database_name, table_name)
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name
