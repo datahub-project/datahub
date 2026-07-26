@@ -22,11 +22,7 @@ from datahub.ingestion.agent.probe import (
 )
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
-from datahub.ingestion.source.mode import (
-    ModeConfig,
-    ModeSource,
-    resolve_data_source_database,
-)
+from datahub.ingestion.source.mode import ModeApiSession, ModeConfig, ModeSource
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +37,15 @@ MODE_SPACE: ProbeNodeKind = "Space"
 
 
 def _build_mode_client(config: ModeConfig) -> ModeSource:
-    """Builds the SAME uninitialized ModeSource shim ModeMetadataProbe uses
-    (see ModeConfig.build_probe_provider/ModeSource.for_probe), so the
+    """Builds the SAME uninitialized ModeSource shim ModeProbeSource.for_probe
+    builds (see ModeConfig.build_probe_provider/ModeSource.for_probe), so the
     branching hierarchy probe and the probe_run getters share exactly one
     fetch path: ModeSource's own _get_request_json/_get_paged_request_json
     (same session/rate-limit/retry path, same debug curl logging a real
     ingestion run gets) -- not a second, module-level reimplementation of
-    Mode's request plumbing. __new__, never __init__: __init__ opens its own
+    Mode's request plumbing. Built as a plain ModeSource (this hierarchy
+    probe never calls report_queries/query_charts, ModeProbeSource's own
+    methods), via __new__ and never __init__: __init__ opens its own
     session, hits /api/verify, and resolves space_tokens for ingestion, side
     effects a read-only probe doesn't want repeated."""
     session, workspace_uri = config.get_mode_session()
@@ -99,18 +97,22 @@ def _raise_soft_or_hard(exc: requests.HTTPError, context: str) -> NoReturn:
     #
     # This split is deliberately NOT the same policy mode.py's own
     # _get_space_name_and_tokens/_get_reports/_get_datasets/_get_queries/
-    # _get_charts/_get_data_sources_by_id/_get_definitions_map apply (those
-    # catch every HTTP/JSON error uniformly and degrade -- some by returning
-    # {}/[], some by a generator simply ending -- because ingestion would
-    # rather return partial metadata from a flaky run than fail outright, and
-    # none of them can signal "I hit an error" back to a caller at all). A
-    # diagnostic's whole job is telling an agent the difference between
-    # "there is nothing here" (404/403) and "I could not look" (auth failure,
-    # 5xx) -- so every probe fetch below (_get_embedded/_get_embedded_paged)
-    # goes through ModeSource's own request layer (_get_request_json/
-    # _get_paged_request_json: same session/rate-limit/retry path, same debug
-    # curl logging a real ingestion run gets) but applies THIS split, not any
-    # of the connector's own always-degrade wrappers around it.
+    # _get_charts apply (those catch every HTTP/JSON error uniformly and
+    # degrade -- some by returning {}/[], some by a generator simply ending --
+    # because ingestion would rather return partial metadata from a flaky run
+    # than fail outright, and none of them can signal "I hit an error" back to
+    # a caller at all). A diagnostic's whole job is telling an agent the
+    # difference between "there is nothing here" (404/403) and "I could not
+    # look" (auth failure, 5xx) -- so every probe fetch below
+    # (_get_embedded/_get_embedded_paged) goes through ModeSource's own
+    # request layer (_get_request_json/_get_paged_request_json: same
+    # session/rate-limit/retry path, same debug curl logging a real ingestion
+    # run gets) but applies THIS split, not any of the connector's own
+    # always-degrade wrappers around it. The connector's own
+    # _get_data_sources_by_id/_get_definitions_map are NOT part of this split
+    # at all: their probe commands (mode.py) are the raw fetchers themselves,
+    # annotated directly, so they carry ingestion's always-degrade policy
+    # unchanged rather than this file's soft/hard distinction.
     # Anything other than 404/403 (auth failures, 5xx, connection errors) is a
     # hard error either way.
     status = exc.response.status_code if exc.response is not None else None
@@ -146,19 +148,15 @@ def _get_embedded(
     with a real ingestion run, instead of a bare session.get() or a second,
     module-level fetch_json reimplementation.
 
-    Deliberately NOT delegated to _get_data_sources_by_id/_get_definitions_map/
-    _get_queries/_get_charts (the higher-level connector methods that
-    actually wrap this endpoint during ingestion): those catch every
-    HTTP/JSON error themselves and always degrade to an empty result --
-    correct for ingestion, which would rather return partial metadata from a
-    flaky run, but wrong for a diagnostic, whose whole job is distinguishing
-    "nothing here" from "I could not look." So this applies the soft/hard
-    split _raise_soft_or_hard defines (404/403 degrade, everything else is a
-    hard error) around the connector's fetch, rather than inheriting the
-    connector's own always-degrade policy. _get_definitions_map specifically
-    is also lossy for a second, independent reason (its cache keeps only
-    {name: source}, discarding description -- it exists for `{{@name}}`
-    template expansion, not for reporting)."""
+    Deliberately NOT delegated to _get_queries/_get_charts (the higher-level
+    connector methods that actually wrap this endpoint during ingestion):
+    those catch every HTTP/JSON error themselves and always degrade to an
+    empty result -- correct for ingestion, which would rather return partial
+    metadata from a flaky run, but wrong for a diagnostic, whose whole job is
+    distinguishing "nothing here" from "I could not look." So this applies
+    the soft/hard split _raise_soft_or_hard defines (404/403 degrade,
+    everything else is a hard error) around the connector's fetch, rather
+    than inheriting the connector's own always-degrade policy."""
     try:
         payload = source._get_request_json(url)
     except requests.HTTPError as exc:
@@ -515,107 +513,46 @@ def _chart_summary(chart: Dict[str, Any]) -> Dict[str, object]:
     return {"title": title, "chart_type": chart_type}
 
 
-class ModeMetadataProbe:
-    """Metadata-only getters over the Mode API. Never returns query results."""
+class ModeProbeSource(ModeSource):
+    """A ModeSource subclass adding the only probe capability the connector
+    has no reason to own: resolving a human-readable report/query name to
+    Mode's token, with explicit ambiguity errors -- report_queries and
+    query_charts below. data_sources and definitions are NOT here: they are
+    the connector's own _get_data_sources_by_id/_get_definitions_map
+    (mode.py), annotated with @probe_method in place -- this class exists
+    only for genuinely extra capability, not to wrap or re-project what the
+    connector already returns."""
 
-    def __init__(
-        self,
-        source: ModeSource,
+    # Declared here (mirrors ModeSource's own `session: ModeApiSession`) so
+    # for_probe's assignment below type-checks without inferring the
+    # attribute solely from that one call site.
+    warnings: List[str]
+
+    @classmethod
+    def for_probe(
+        cls,
         config: ModeConfig,
-    ) -> None:
-        # `source` is the uninitialized shim ModeSource.for_probe() builds
-        # (see mode.py) -- every fetch below goes through its bound
-        # _get_request_json/_get_paged_request_json, reusing the connector's
-        # own session/rate-limit/retry path (and debug curl logging) instead
-        # of re-deriving it. `config` is always the identical object as
-        # source.config (see ModeConfig.build_probe_provider) -- kept as its
-        # own parameter only for constructor-signature stability; nothing
-        # below reads it separately from source.config.
-        self._source = source
-        self._config = config
-        # Read by agent.probe_methods.run_probe_method after the bound method
-        # returns, and copied onto ProbeMethodResult.warnings -- see
-        # _tolerant.
-        self.warnings: List[str] = []
+        session: ModeApiSession,
+        workspace_uri: str,
+    ) -> "ModeProbeSource":
+        """Like ModeSource.for_probe (which this calls -- see its docstring
+        for what the shim carries), plus an empty `warnings` list: this
+        class's own report_queries/query_charts append to it on a soft
+        error (see _tolerant), and run_probe_method reads it back into
+        ProbeMethodResult.warnings. super().for_probe() already returns an
+        instance of `cls` (cls.__new__(cls), not a hardcoded ModeSource), so
+        this only needs to add the one attribute the base shim doesn't set.
+        """
+        shim = super().for_probe(config, session, workspace_uri)
+        assert isinstance(shim, ModeProbeSource)
+        shim.warnings = []
+        return shim
 
-    def __enter__(self) -> "ModeMetadataProbe":
+    def __enter__(self) -> "ModeProbeSource":
         return self
 
     def __exit__(self, *exc: object) -> None:
-        self._source.session.close()
-
-    @probe_method()
-    def data_sources(self) -> List[Dict[str, object]]:
-        """Warehouse connections this Mode workspace can query: name, adapter
-        (the DataHub platform name mapped from Mode's connection type, e.g.
-        jdbc:bigquery -> bigquery, jdbc:postgresql -> postgres; falls back to
-        the data source's own name if the adapter isn't recognized) and
-        database. For BigQuery, Mode's own "database" field is always the
-        literal string "default"; the real project id is substituted in that
-        case only. Tells you which system a report's SQL actually runs
-        against. Credentials (username, host, ...) are never returned."""
-        url = f"{self._source.workspace_uri}/data_sources"
-        records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded(
-                self._source, url, "data_sources", context="data sources listing"
-            ),
-            [],
-            self.warnings,
-        )
-        result: List[Dict[str, object]] = []
-        for ds in records:
-            # Both derivations call the connector's own methods directly
-            # (bound to this shim, whose .report absorbs
-            # _get_datahub_friendly_platform's report_warning on an
-            # unrecognized adapter) rather than a second copy of this logic:
-            # _get_datahub_friendly_platform is mode.py:1037,
-            # resolve_data_source_database is the pure two-line BigQuery
-            # database-swap ingestion's own _get_platform_and_dbname calls.
-            #
-            # The unmapped-adapter fallback is ds.get("name", "") -- mode.py's
-            # own literal convention -- not _display_name(ds) (name-or-token-
-            # or-"unknown"): that fallback is this getter's own display
-            # policy for the "name" field below, and using it here too would
-            # report a friendlier adapter value than ingestion would ever
-            # actually emit (mode.py's own behavior is authoritative on what
-            # a real run would do, even where it's a plain "" for a nameless,
-            # unrecognized-adapter data source).
-            platform = self._source._get_datahub_friendly_platform(
-                ds.get("adapter", ""), ds.get("name", "")
-            )
-            database = resolve_data_source_database(
-                platform, ds.get("database", ""), ds.get("host", "")
-            )
-            result.append(
-                {
-                    "name": _display_name(ds),
-                    "adapter": platform,
-                    "database": database,
-                }
-            )
-        return result
-
-    @probe_method()
-    def definitions(self) -> List[Dict[str, object]]:
-        """Mode's reusable SQL definitions: name, description, and the
-        definition's SQL source. The source is DDL-like reusable-fragment
-        metadata, not query results."""
-        url = f"{self._source.workspace_uri}/definitions"
-        records: List[Dict[str, Any]] = _tolerant(
-            lambda: _get_embedded(
-                self._source, url, "definitions", context="definitions listing"
-            ),
-            [],
-            self.warnings,
-        )
-        return [
-            {
-                "name": _display_name(d),
-                "description": d.get("description"),
-                "source": d.get("source"),
-            }
-            for d in records
-        ]
+        self.session.close()
 
     @probe_method()
     def report_queries(self, report: str) -> List[Dict[str, object]]:
@@ -634,7 +571,7 @@ class ModeMetadataProbe:
         # swallowing it would tell the caller to "check the spelling" when
         # the honest answer is "I couldn't check." Let it propagate to the
         # CLI as a real failure.
-        report_token = _find_report_token(self._source, report)
+        report_token = _find_report_token(self, report)
         if report_token is None:
             raise ValueError(
                 f"no report named '{report}' found among the spaces this "
@@ -642,10 +579,10 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        url = f"{self._source.workspace_uri}/reports/{report_token}/queries"
+        url = f"{self.workspace_uri}/reports/{report_token}/queries"
         records: List[Dict[str, Any]] = _tolerant(
             lambda: _get_embedded(
-                self._source,
+                self,
                 url,
                 "queries",
                 context=f"queries listing for report '{report}'",
@@ -670,7 +607,7 @@ class ModeMetadataProbe:
         # BLOCKER (name resolution must not soften a soft error either): see
         # report_queries' docstring/comment -- a soft error mid-search is not
         # "not found".
-        report_token = _find_report_token(self._source, report)
+        report_token = _find_report_token(self, report)
         if report_token is None:
             raise ValueError(
                 f"no report named '{report}' found among the spaces this "
@@ -678,7 +615,7 @@ class ModeMetadataProbe:
                 f"non-personal spaces); check the spelling, or whether it "
                 f"only exists in a space this recipe wouldn't ingest"
             )
-        query_token = _find_query_token(self._source, report_token, query)
+        query_token = _find_query_token(self, report_token, query)
         if query_token is None:
             raise ValueError(
                 f"no query named '{query}' found in report '{report}'; call "
@@ -686,10 +623,12 @@ class ModeMetadataProbe:
                 f"name — a query with no name of its own is listed there by "
                 f"its token instead, which is also a valid `query` value here"
             )
-        url = f"{self._source.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
+        url = (
+            f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
+        )
         records: List[Dict[str, Any]] = _tolerant(
             lambda: _get_embedded(
-                self._source,
+                self,
                 url,
                 "charts",
                 context=f"charts listing for report '{report}' query '{query}'",

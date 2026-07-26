@@ -10,7 +10,7 @@ from datahub.ingestion.agent.probe import UNNAMED, ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
     MODE_PROBE,
-    ModeMetadataProbe,
+    ModeProbeSource,
     _find_query_token,
     _get_embedded_paged,
     list_mode_children,
@@ -574,48 +574,70 @@ def test_requests_use_the_configured_timeout():
 
 def _method_probe(session=None, **cfg_over):
     # Unlike _cfg() (used for the hierarchy/resolver tests above, which never
-    # touch a real ModeSource), these four getters delegate their final fetch
-    # to ModeSource.for_probe()'s shim -- see ModeMetadataProbe.__init__ --
-    # so this needs a real ModeConfig, matching what build_probe_provider
+    # touch a real ModeSource), report_queries/query_charts delegate their
+    # final fetch to a real ModeSource shim -- see ModeProbeSource.for_probe
+    # -- so this needs a real ModeConfig, matching what build_probe_provider
     # passes in production.
     session = session or _FakeSession()
     cfg = _real_config(**cfg_over)
-    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
-    return ModeMetadataProbe(source, config=cfg)
+    return ModeProbeSource.for_probe(cfg, session, _WORKSPACE)
 
 
-def test_data_sources_projects_named_fields_only():
+def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
+    # data_sources is now mode.py's own _get_data_sources_by_id, annotated in
+    # place -- no probe-side re-projection. Exact equality (not a subset
+    # check) proves this is Mode's payload verbatim: username/host survive,
+    # the adapter stays the raw "jdbc:..." string, and BigQuery's "database"
+    # stays the literal "default" rather than being replaced by the project
+    # id from "host".
     with _method_probe() as p:
-        result = p.data_sources()
-    # Exact equality (not a subset check) proves username/host from the raw
-    # API payload were dropped in the general case, that the postgres adapter
-    # maps to "postgres" (not a naive "postgresql"), that BigQuery's "default"
-    # database is replaced by the real project id from "host", that a data
-    # source with no "name" falls back to its token, that an adapter the
-    # mapping table doesn't recognize falls back to the data source's own
-    # name (not the raw "jdbc:vertica" string) -- and that a data source with
-    # NEITHER a name nor a recognized adapter reports an empty-string
-    # adapter (mode.py's own _get_platform_and_dbname convention), not its
-    # display name ("ds5"): the two fallbacks are independent.
-    assert result == [
-        {"name": "PostgreSQL", "adapter": "postgres", "database": "dvdrental"},
-        {"name": "BigQueryConn", "adapter": "bigquery", "database": "some-project-id"},
-        {"name": "ds3", "adapter": "mssql", "database": "analytics"},
-        {"name": "VerticaConn", "adapter": "VerticaConn", "database": "mydb"},
-        {"name": "ds5", "adapter": "", "database": "somedb"},
-    ]
+        result = p._get_data_sources_by_id()
+    assert result == {
+        34499: {
+            "id": "34499",
+            "name": "PostgreSQL",
+            "adapter": "jdbc:postgresql",
+            "database": "dvdrental",
+            "host": "72.38.17.64",
+            "username": "postgres",
+        },
+        34500: {
+            "id": "34500",
+            "name": "BigQueryConn",
+            "adapter": "jdbc:bigquery",
+            "database": "default",
+            "host": "some-project-id",
+            "username": "should-not-appear",
+        },
+        34501: {
+            "id": "34501",
+            "token": "ds3",
+            "adapter": "jdbc:sqlserver",
+            "database": "analytics",
+            "host": "should-not-appear",
+        },
+        34502: {
+            "id": "34502",
+            "name": "VerticaConn",
+            "adapter": "jdbc:vertica",
+            "database": "mydb",
+        },
+        34503: {
+            "id": "34503",
+            "token": "ds5",
+            "adapter": "jdbc:made_up_adapter",
+            "database": "somedb",
+        },
+    }
 
 
-def test_definitions_projects_name_description_and_source():
+def test_definitions_returns_raw_name_to_source_map():
+    # definitions is now mode.py's own _get_definitions_map, annotated in
+    # place -- the same {name: source} cache `{{@name}}` template expansion
+    # uses, so "description" is not returned even though Mode's API has one.
     with _method_probe() as p:
-        result = p.definitions()
-    assert result == [
-        {
-            "name": "active_users",
-            "description": "Users active in 30d",
-            "source": "SELECT user_id FROM users WHERE active",
-        }
-    ]
+        result = p._get_definitions_map()
+    assert result == {"active_users": "SELECT user_id FROM users WHERE active"}
 
 
 def test_report_queries_resolves_report_name_across_spaces():
@@ -750,41 +772,15 @@ def test_exit_closes_session():
     assert session.closed is True
 
 
-def test_data_sources_degrades_to_empty_on_404():
-    with _method_probe(session=_StatusSession(404)) as p:
-        assert p.data_sources() == []
-
-
-def test_data_sources_degrades_to_empty_on_403():
-    with _method_probe(session=_StatusSession(403)) as p:
-        assert p.data_sources() == []
-
-
-def test_data_sources_raises_on_401_auth_failure():
-    with _method_probe(session=_StatusSession(401)) as p:
-        with pytest.raises(requests.HTTPError):
-            p.data_sources()
-
-
-def test_data_sources_raises_on_500():
-    with _method_probe(session=_StatusSession(500)) as p:
-        with pytest.raises(requests.HTTPError):
-            p.data_sources()
-
-
-def test_data_sources_records_a_warning_when_it_degrades_on_a_soft_error():
-    # The provider's own `warnings` attribute is what run_probe_method reads
-    # back into ProbeMethodResult.warnings (see test_probe_methods.py) -- a
-    # 403 degrading data_sources() to [] must be visible there, not just
-    # logged to stderr.
-    session = _StatusSession(404)
-    cfg = _real_config()
-    source = ModeSource.for_probe(cfg, session, _WORKSPACE)
-    probe = ModeMetadataProbe(source, config=cfg)
-    with probe as p:
-        assert p.data_sources() == []
-    assert len(probe.warnings) == 1
-    assert "404" in probe.warnings[0]
+@pytest.mark.parametrize("status_code", [404, 403, 401, 500])
+def test_data_sources_degrades_to_empty_dict_on_any_http_error(status_code):
+    # _get_data_sources_by_id (mode.py) is annotated in place, not wrapped by
+    # a probe-side soft/hard split -- so it keeps its own ingestion policy of
+    # degrading to {} on ANY HTTP error (not just 404/403 like the hierarchy
+    # probe's resolvers), reported to its own (ephemeral) ModeSourceReport
+    # rather than raising or appending to a `warnings` list.
+    with _method_probe(session=_StatusSession(status_code)) as p:
+        assert p._get_data_sources_by_id() == {}
 
 
 def test_get_embedded_paged_aggregates_multiple_pages():
@@ -815,6 +811,10 @@ def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
 def test_probe_methods_registered():
     from datahub.ingestion.agent.probe_methods import _iter_specs
 
-    commands = [c for c, _ in _iter_specs(ModeMetadataProbe)]
+    # _iter_specs uses dir(), which includes inherited attributes -- so
+    # data_sources/definitions (annotated on ModeSource itself) are found on
+    # ModeProbeSource too, alongside report_queries/query_charts (annotated
+    # here).
+    commands = [c for c, _ in _iter_specs(ModeProbeSource)]
     for expected in ["data_sources", "definitions", "report_queries", "query_charts"]:
         assert expected in commands

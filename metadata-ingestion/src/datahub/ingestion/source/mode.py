@@ -51,7 +51,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
 from datahub.ingestion.agent.probe import ProbeShapeNode
-from datahub.ingestion.agent.probe_methods import ProbeProvider
+from datahub.ingestion.agent.probe_methods import ProbeProvider, probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -381,16 +381,15 @@ class ModeConfig(
 
     @classmethod
     def probe_provider_class(cls) -> type:
-        from datahub.ingestion.source.mode_probe import ModeMetadataProbe
+        from datahub.ingestion.source.mode_probe import ModeProbeSource
 
-        return ModeMetadataProbe
+        return ModeProbeSource
 
     def build_probe_provider(self) -> ProbeProvider:
-        from datahub.ingestion.source.mode_probe import ModeMetadataProbe
+        from datahub.ingestion.source.mode_probe import ModeProbeSource
 
         session, workspace_uri = self.get_mode_session()
-        source = ModeSource.for_probe(self, session, workspace_uri)
-        return ModeMetadataProbe(source, config=self)
+        return ModeProbeSource.for_probe(self, session, workspace_uri)
 
 
 class HTTPError429(HTTPError):
@@ -641,21 +640,19 @@ class ModeSource(StatefulIngestionSourceBase):
         """An uninitialized ModeSource carrying only the state
         _get_request_json needs: config, session, workspace_uri, a fresh
         ModeSourceReport (its rate-limit-retry counters are updated by
-        _get_request_json's callbacks), and a rate limiter sized from the
-        recipe's own api_options. Used by ModeConfig.build_probe_provider()
-        so mode_probe.py's ModeMetadataProbe fetches through this exact
-        connector method -- same session/rate-limit/retry path, same debug
-        curl logging, as a real ingestion run -- rather than re-deriving that
-        plumbing from the lower-level fetch_json free function.
-
-        Deliberately does NOT prime _data_sources_by_id_cache or
-        _definitions_map_cache: those belong to _get_data_sources_by_id/
-        _get_definitions_map, two levels up from _get_request_json, and
-        mode_probe.py's getters never call those two methods -- they carry
-        ingestion-specific policy (an index cache; a name->source cache
-        shaped for `{{@name}}` template expansion, dropping every other
-        field) that a diagnostic must not inherit. See mode_probe.py's
-        _get_embedded/_get_embedded_paged for what the probe reuses instead.
+        _get_request_json's callbacks), a rate limiter sized from the
+        recipe's own api_options, and the two lazy caches
+        _get_data_sources_by_id/_get_definitions_map read and populate on
+        first call. Used by ModeConfig.build_probe_provider() (via
+        ModeProbeSource.for_probe -- cls.__new__(cls) below builds whichever
+        class for_probe was called on, so a subclass's own for_probe gets a
+        shim of its own type for free) so the probe's data_sources/
+        definitions commands -- the connector's own _get_data_sources_by_id/
+        _get_definitions_map, annotated with @probe_method in place -- fetch
+        through this exact connector plumbing: same session/rate-limit/retry
+        path, same debug curl logging, same always-degrade-on-error policy,
+        as a real ingestion run, rather than a second probe-side
+        reimplementation with its own error-handling policy.
 
         Built via __new__ (bypassing __init__ entirely) rather than calling
         __init__ with a dummy PipelineContext: __init__ opens its own
@@ -679,6 +676,8 @@ class ModeSource(StatefulIngestionSourceBase):
         shim.rate_limiter = RateLimiter(
             max_calls=config.api_options.requests_per_minute, period=60
         )
+        shim._data_sources_by_id_cache = None
+        shim._definitions_map_cache = None
         return shim
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:
@@ -1062,12 +1061,19 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return platform
 
+    @probe_method(name="data_sources")
     def _get_data_sources_by_id(self) -> Dict[int, dict]:
-        """Fetch data sources and index by ID for O(1) lookup.
-
-        Uses a manual cache that only stores successful results so transient
-        API failures are retried on the next call instead of being permanently
-        cached as empty.
+        """Warehouse connections this Mode workspace can query, as Mode's own
+        raw API records, keyed by the data source's integer id (arrives in
+        JSON output as a string key). Each record is Mode's payload verbatim
+        -- e.g. "adapter" is Mode's own connector string (like
+        "jdbc:postgresql"), not a DataHub platform name, and "database" is
+        Mode's raw value (for BigQuery this is always the literal "default",
+        not the real project id). Also carries fields you likely don't need,
+        including "host", "username", and "account_username". On a transient
+        API failure this returns an empty dict rather than raising, matching
+        what a real ingestion run does for the same failure -- run this again
+        to retry.
         """
         if self._data_sources_by_id_cache is not None:
             return self._data_sources_by_id_cache
@@ -1207,11 +1213,16 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return name, alias
 
+    @probe_method(name="definitions")
     def _get_definitions_map(self) -> Dict[str, str]:
-        """Fetch all definitions and return a {name: source} mapping.
-
-        Uses a manual cache that only stores successful results so transient
-        API failures are retried on the next call.
+        """Mode's reusable SQL definitions in this workspace, as a {name:
+        source} mapping -- "source" is the definition's raw SQL body. This is
+        the same cache `{{@name}}` template expansion uses, so it carries
+        only these two fields per definition; in particular there is no
+        description here, even though Mode's own API returns one. On a
+        transient API failure this returns an empty dict rather than
+        raising, matching what a real ingestion run does for the same
+        failure -- run this again to retry.
         """
         if self._definitions_map_cache is not None:
             return self._definitions_map_cache
