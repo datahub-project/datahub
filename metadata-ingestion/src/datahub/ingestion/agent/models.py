@@ -124,3 +124,17 @@ class ProbeResult:
             "fallback": self.fallback,
             "warnings": self.warnings,
         }
+
+
+@dataclass
+class ProbeShapeNode:
+    """One level and the levels declared beneath it."""
+
+    kind: ProbeNodeKind
+    children: List["ProbeShapeNode"]
+
+    def to_dict(self) -> Dict[str, object]:
+        return {
+            "kind": str(self.kind),
+            "children": [child.to_dict() for child in self.children],
+        }

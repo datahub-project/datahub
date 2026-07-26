@@ -50,8 +50,7 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
-from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult
-from datahub.ingestion.agent.probe import ProbeShapeNode
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeResult, ProbeShapeNode
 from datahub.ingestion.agent.probe_methods import ProbeProvider, probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (

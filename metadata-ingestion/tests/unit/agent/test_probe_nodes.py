@@ -2,11 +2,10 @@ from typing import Any, List, Optional, Tuple
 
 import pytest
 
-from datahub.ingestion.agent.models import ProbeNodeKind
+from datahub.ingestion.agent.models import ProbeNodeKind, ProbeShapeNode
 from datahub.ingestion.agent.probe import (
     UNNAMED,
     ProbeBranchesError,
-    ProbeShapeNode,
     column_nodes,
     level_nodes,
     probe_hierarchy,

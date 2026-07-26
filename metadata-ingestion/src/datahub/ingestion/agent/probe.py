@@ -22,6 +22,7 @@ from datahub.ingestion.agent.models import (
     ProbeNode,
     ProbeNodeKind,
     ProbeResult,
+    ProbeShapeNode,
 )
 from datahub.ingestion.source.source_registry import source_registry
 
@@ -373,20 +374,6 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
         if isinstance(getattr(config, name, None), AllowDenyPattern):
             return name
     return pattern_field_for_config_class(config_cls, kind)
-
-
-@dataclass
-class ProbeShapeNode:
-    """One level and the levels declared beneath it."""
-
-    kind: ProbeNodeKind
-    children: List["ProbeShapeNode"]
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "kind": str(self.kind),
-            "children": [child.to_dict() for child in self.children],
-        }
 
 
 class ProbeBranchesError(ValueError):
