@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporter;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricSpanExporter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -52,10 +53,11 @@ public abstract class OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      UsageEventPublisher usageEventPublisher) {
+      UsageEventPublisher usageEventPublisher,
+      OperationContext systemOperationContext) {
 
     SpanProcessor usageSpanExporter =
-        getUsageSpanExporter(configurationProvider, usageEventPublisher);
+        getUsageSpanExporter(configurationProvider, usageEventPublisher, systemOperationContext);
     OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
     return SystemTelemetryContext.builder()
         .metricUtils(metricUtils)
@@ -66,13 +68,17 @@ public abstract class OpenTelemetryBaseFactory {
 
   @Nullable
   private SpanProcessor getUsageSpanExporter(
-      ConfigurationProvider configurationProvider, UsageEventPublisher usageEventPublisher) {
+      ConfigurationProvider configurationProvider,
+      UsageEventPublisher usageEventPublisher,
+      OperationContext systemOperationContext) {
     if (usageEventPublisher != null
+        && systemOperationContext != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
       return bsp(
           new DataHubUsageSpanExporter(
               usageEventPublisher,
+              systemOperationContext,
               configurationProvider.getKafka().getTopics().getDataHubUsage(),
               configurationProvider.getPlatformAnalytics().getUsageExport()));
     }

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.event.UsageEventPublisher;
+import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -35,6 +36,7 @@ import org.testng.annotations.Test;
 public class DataHubUsageSpanExporterTest {
 
   private UsageEventPublisher mockPublisher;
+  private OperationContext mockOpContext;
   private UsageExportConfiguration config;
   private DataHubUsageSpanExporter exporter;
   private final String TEST_TOPIC = "test-usage-topic";
@@ -43,13 +45,14 @@ public class DataHubUsageSpanExporterTest {
   @BeforeMethod
   public void setup() {
     mockPublisher = mock(UsageEventPublisher.class);
+    mockOpContext = mock(OperationContext.class);
     config = new UsageExportConfiguration();
     config.setUsageEventTypes(
         StringUtils.join(
             new String[] {LOG_IN_EVENT.getType(), UPDATE_POLICY_EVENT.getType()}, ","));
     config.setAspectTypes("aspect1,aspect2");
     config.setUserFilters("urn:li:corpuser:blacklisted");
-    exporter = new DataHubUsageSpanExporter(mockPublisher, TEST_TOPIC, config);
+    exporter = new DataHubUsageSpanExporter(mockPublisher, mockOpContext, TEST_TOPIC, config);
   }
 
   @Test
@@ -78,7 +81,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     try {
       JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue());
@@ -113,7 +116,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     // Verify event payload
     try {
@@ -158,7 +161,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     // Verify event payload
     try {
@@ -210,7 +213,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), anyString());
+    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), anyString());
   }
 
   @Test
@@ -236,7 +239,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to user filter
-    verify(mockPublisher, never()).publish(anyString(), any(), anyString());
+    verify(mockPublisher, never()).publish(any(), anyString(), any(), anyString());
   }
 
   @Test
@@ -262,7 +265,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to aspect filter
-    verify(mockPublisher, never()).publish(anyString(), any(), anyString());
+    verify(mockPublisher, never()).publish(any(), anyString(), any(), anyString());
   }
 
   @Test
@@ -297,7 +300,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), anyString());
+    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), anyString());
   }
 
   @Test
@@ -329,7 +332,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify two events were published (login and update, but not the non-matching one)
-    verify(mockPublisher, times(2)).publish(eq(TEST_TOPIC), any(), anyString());
+    verify(mockPublisher, times(2)).publish(eq(mockOpContext), eq(TEST_TOPIC), any(), anyString());
   }
 
   @Test

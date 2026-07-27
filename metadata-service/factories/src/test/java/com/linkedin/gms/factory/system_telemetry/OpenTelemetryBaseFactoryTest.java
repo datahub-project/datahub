@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.sdk.trace.SpanProcessor;
@@ -62,6 +63,8 @@ public class OpenTelemetryBaseFactoryTest {
 
   @Mock private UsageEventPublisher mockPublisher;
 
+  @Mock private OperationContext mockSystemOperationContext;
+
   @Mock private PlatformAnalyticsConfiguration mockPlatformAnalytics;
 
   @Mock private UsageExportConfiguration mockUsageExport;
@@ -90,8 +93,10 @@ public class OpenTelemetryBaseFactoryTest {
     public SystemTelemetryContext testTraceContext(
         MetricUtils metricUtils,
         ConfigurationProvider configurationProvider,
-        UsageEventPublisher usageEventPublisher) {
-      return traceContext(metricUtils, configurationProvider, usageEventPublisher);
+        UsageEventPublisher usageEventPublisher,
+        OperationContext systemOperationContext) {
+      return traceContext(
+          metricUtils, configurationProvider, usageEventPublisher, systemOperationContext);
     }
   }
 
@@ -123,7 +128,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     // Act
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     // Assert
     assertNotNull(context);
@@ -140,7 +145,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     // Act
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     // Assert
     assertNotNull(context);
@@ -157,7 +162,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     // Act
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, null);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, null, mockSystemOperationContext);
 
     // Assert
     assertNotNull(context);
@@ -172,7 +177,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     // Act
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     // Assert
     assertNotNull(context);
@@ -184,7 +189,10 @@ public class OpenTelemetryBaseFactoryTest {
     // Use reflection to test private method
     Method getUsageSpanExporterMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "getUsageSpanExporter", ConfigurationProvider.class, UsageEventPublisher.class);
+            "getUsageSpanExporter",
+            ConfigurationProvider.class,
+            UsageEventPublisher.class,
+            OperationContext.class);
     getUsageSpanExporterMethod.setAccessible(true);
 
     // Test with all conditions met
@@ -193,7 +201,8 @@ public class OpenTelemetryBaseFactoryTest {
 
     SpanProcessor result =
         (SpanProcessor)
-            getUsageSpanExporterMethod.invoke(factory, mockConfigurationProvider, mockPublisher);
+            getUsageSpanExporterMethod.invoke(
+                factory, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(result);
     assertTrue(result instanceof BatchSpanProcessor);
@@ -230,7 +239,7 @@ public class OpenTelemetryBaseFactoryTest {
     when(mockUsageExport.getUserFilters()).thenReturn("urn:li:corpuser:datahub");
 
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     assertNotNull(context.getUsageSpanExporter());
@@ -250,7 +259,7 @@ public class OpenTelemetryBaseFactoryTest {
     when(mockKafka.getBootstrapServers()).thenReturn("localhost:9092");
 
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     verify(mockKafka).getTopics();
@@ -320,7 +329,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     SystemTelemetryContext context =
         nullComponentFactory.testTraceContext(
-            mockMetricUtils, mockConfigurationProvider, mockPublisher);
+            mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     // The service name should fall back to "default-service" when component is null
@@ -340,7 +349,7 @@ public class OpenTelemetryBaseFactoryTest {
     try {
       // Test with no environment variables set
       SystemTelemetryContext context =
-          factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+          factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
       assertNotNull(context);
       // The default should be "none" for exporters when env vars are not set
@@ -368,14 +377,14 @@ public class OpenTelemetryBaseFactoryTest {
 
   @Test
   public void testTraceContextWithNullMetricUtils() {
-    factory.testTraceContext(null, mockConfigurationProvider, mockPublisher);
+    factory.testTraceContext(null, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
     // should not throw exception
   }
 
   @Test(expectedExceptions = NullPointerException.class)
   public void testTraceContextWithNullConfigurationProvider() {
     // This should throw NPE as ConfigurationProvider is required
-    factory.testTraceContext(mockMetricUtils, null, mockPublisher);
+    factory.testTraceContext(mockMetricUtils, null, mockPublisher, mockSystemOperationContext);
   }
 
   @Test
@@ -385,9 +394,9 @@ public class OpenTelemetryBaseFactoryTest {
     TestOpenTelemetryFactory factory2 = new TestOpenTelemetryFactory("component2");
 
     SystemTelemetryContext context1 =
-        factory1.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory1.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
     SystemTelemetryContext context2 =
-        factory2.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory2.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context1);
     assertNotNull(context2);
@@ -406,7 +415,7 @@ public class OpenTelemetryBaseFactoryTest {
 
     // Test with null static fields (default behavior)
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     // The factory should handle null static fields gracefully with fallbacks
@@ -416,7 +425,7 @@ public class OpenTelemetryBaseFactoryTest {
   public void testPropagatorCustomization() {
     // Test that W3C trace context propagator is used when OTEL_PROPAGATORS is not set
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     // The W3CTraceContextPropagator should be configured
@@ -426,7 +435,7 @@ public class OpenTelemetryBaseFactoryTest {
   public void testMetricExporterCustomization() {
     // Test metric exporter customization
     SystemTelemetryContext context =
-        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+        factory.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher, mockSystemOperationContext);
 
     assertNotNull(context);
     // Should use MetricSpanExporter when OTEL_METRICS_EXPORTER is not set
