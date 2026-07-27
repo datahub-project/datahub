@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.data.DataMap;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -54,8 +55,7 @@ public class RestliUtils {
         DatabaseTransactionConflictException conflict =
             findDatabaseTransactionConflict(throwable);
         if (conflict != null) {
-          finalException =
-              new RestLiServiceException(HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict);
+          finalException = databaseTransactionConflict(conflict);
         } else if (throwable instanceof RestLiServiceException) {
           finalException = (RestLiServiceException) throwable;
         } else {
@@ -66,6 +66,20 @@ public class RestliUtils {
 
       throw finalException;
     }
+  }
+
+
+  @Nonnull
+  private static RestLiServiceException databaseTransactionConflict(
+      @Nonnull DatabaseTransactionConflictException conflict) {
+    RestLiServiceException ex =
+        new RestLiServiceException(
+            HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict.getMessage(), conflict);
+    ex.setCode(conflict.getCode());
+    DataMap errorDetails = new DataMap();
+    errorDetails.put("retryable", conflict.isRetryable());
+    ex.setErrorDetails(errorDetails);
+    return ex;
   }
 
   @Nullable

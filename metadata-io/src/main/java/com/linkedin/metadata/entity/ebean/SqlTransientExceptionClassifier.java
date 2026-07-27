@@ -9,6 +9,12 @@ public final class SqlTransientExceptionClassifier {
 
   private SqlTransientExceptionClassifier() {}
 
+  /**
+   * Walks {@link Throwable#getCause()} only to locate the first {@link SQLException}. Allowlist
+   * matching uses {@link #findBackoffSqlError}, which additionally walks {@link
+   * SQLException#getNextException()} on that first SQL exception — intentional for standard JDBC
+   * wrapping.
+   */
   @Nullable
   public static SQLException findSqlError(@Nullable Throwable throwable) {
     Throwable current = throwable;

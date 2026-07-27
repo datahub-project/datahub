@@ -526,6 +526,7 @@ public class GlobalControllerExceptionHandlerTest {
         "Failed to add after 3 retries due to transaction conflict");
     assertEquals(response.getBody().get("code"), DatabaseTransactionConflictException.CODE);
     assertEquals(response.getBody().get("retryable"), true);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "1");
   }
 
   private static void injectMetricUtils(

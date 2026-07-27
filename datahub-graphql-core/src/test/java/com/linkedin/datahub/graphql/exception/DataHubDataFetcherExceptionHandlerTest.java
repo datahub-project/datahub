@@ -528,9 +528,10 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleNestedDatabaseTransactionConflictException()
       throws ExecutionException, InterruptedException {
+    SQLException sql = new SQLException("Deadlock found when trying to get lock", "40P01", 1213);
     DatabaseTransactionConflictException cause =
         new DatabaseTransactionConflictException(
-            "Failed to add after 3 retries due to transaction conflict", "40P01");
+            "Failed to add after 3 retries due to transaction conflict", "40P01", sql);
     RuntimeException wrapper = new RuntimeException("Wrapper", cause);
     Mockito.when(mockParameters.getException()).thenReturn(wrapper);
 
@@ -540,6 +541,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
+    assertFalse(error.getMessage().contains("Deadlock"));
     assertEquals(error.getErrorCode(), 409);
   }
 

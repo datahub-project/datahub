@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Actor;
@@ -40,6 +41,9 @@ public class RestliUtilsTest {
 
     assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
     assertEquals(thrown.getCause(), conflict);
+    assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
+    assertTrue(thrown.hasErrorDetails());
+    assertEquals(thrown.getErrorDetails().get("retryable"), true);
   }
 
   @Test
@@ -59,6 +63,9 @@ public class RestliUtilsTest {
 
     assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
     assertEquals(thrown.getCause(), conflict);
+    assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
+    assertTrue(thrown.hasErrorDetails());
+    assertEquals(thrown.getErrorDetails().get("retryable"), true);
   }
 
   @Test
@@ -79,6 +86,9 @@ public class RestliUtilsTest {
 
     assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
     assertEquals(thrown.getCause(), conflict);
+    assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
+    assertTrue(thrown.hasErrorDetails());
+    assertEquals(thrown.getErrorDetails().get("retryable"), true);
   }
 
   @Test
