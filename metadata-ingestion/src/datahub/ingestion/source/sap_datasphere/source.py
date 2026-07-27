@@ -354,26 +354,31 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self._sap_tags_emitted = True
 
         for space in self._safe_list_spaces():
+            if not isinstance(space, dict) or not space.get(CATALOG_FIELD_NAME):
+                self.report.warning(
+                    title="Skipped malformed Datasphere space record",
+                    message="Space record from catalog API is missing the 'name' field; skipping.",
+                    context=str(space),
+                )
+                continue
+            space_name: str = space[CATALOG_FIELD_NAME]
+            space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
+            self.report.spaces_scanned += 1
+            if not self.config.space_pattern.allowed(space_name):
+                self.report.spaces_filtered += 1
+                continue
+
+            # Warm the resolver cache serially AND outside the per-space handler
+            # below. _get_resolver softens transport errors internally but lets an
+            # auth/config ValueError propagate: on a connections-endpoint auth
+            # outage every asset would otherwise resolve to unknown_connection and
+            # let stateful ingestion soft-delete prior entities. Catching it in the
+            # per-space `except` would silently mark such a run green, so the
+            # warm-up must abort the whole run instead.
+            self._get_resolver(space_name)
+
             try:
-                space_name = space.get(CATALOG_FIELD_NAME)
-                if not space_name:
-                    self.report.warning(
-                        title="Skipped malformed Datasphere space record",
-                        message="Space record from catalog API is missing the 'name' field; skipping.",
-                        context=str(space),
-                    )
-                    continue
-                space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
-                self.report.spaces_scanned += 1
-                if not self.config.space_pattern.allowed(space_name):
-                    self.report.spaces_filtered += 1
-                    continue
                 yield from self._emit_space(space_name, space_label)
-
-                # Warm the resolver cache serially so parallel workers don't race
-                # to build it (and double-fire the connections API call).
-                self._get_resolver(space_name)
-
                 yield from self._emit_assets_in_space(space_name)
 
                 if self.config.include_local_tables:

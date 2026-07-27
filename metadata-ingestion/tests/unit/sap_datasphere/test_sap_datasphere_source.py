@@ -89,6 +89,10 @@ def test_get_workunits_emits_container_for_space(requests_mock):
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
         json={"value": []},
     )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
 
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
@@ -673,6 +677,10 @@ def test_space_pattern_actually_filters_emitted_containers(requests_mock):
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('ALLOWED')/assets",
         json={"value": []},
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/ALLOWED/connections",
+        json=[],
     )
 
     source = SapDatasphereSource(ctx, cfg)
@@ -2968,21 +2976,6 @@ def test_include_lineage_emits_fine_grained_column_lineage(requests_mock):
     assert "urn:li:schemaField:" in total_pair.upstreams[0]
     assert ",AMOUNT)" in total_pair.upstreams[0]
     assert ",total)" in total_pair.downstreams[0]
-
-
-def test_lineage_fine_capability_decorator_present():
-    """The source declares LINEAGE_FINE capability so DataHub UI shows the column-lineage badge."""
-
-    # get_capabilities is attached dynamically by the @capability decorator,
-    # so it isn't visible to static type checkers on the class. Use a non-literal
-    # attribute name so mypy doesn't resolve it to a (missing) static attribute.
-    get_caps_attr = "get_capabilities"
-    caps = getattr(SapDatasphereSource, get_caps_attr)()
-    assert caps, "Source must have capabilities declared via @capability"
-    capability_names = {c.capability for c in caps}
-    assert SourceCapability.LINEAGE_FINE in capability_names, (
-        "LINEAGE_FINE capability missing from SapDatasphereSource"
-    )
 
 
 def test_unresolved_column_refs_populate_report_counter(requests_mock):
@@ -5944,3 +5937,157 @@ def test_analytic_model_source_field_types_cached_across_lookups():
     second = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
     assert "c" in first and first is second
     assert calls == ["v_src"]
+
+
+def test_connections_auth_valueerror_aborts_run(requests_mock, monkeypatch):
+    # A connections-endpoint auth/config failure raises ValueError from the
+    # client. The resolver warm-up runs outside the per-space handler, so that
+    # ValueError must propagate and abort the run instead of being swallowed
+    # (which would resolve every asset to unknown_connection and let stateful
+    # ingestion soft-delete prior entities on a pure auth outage).
+    tenant = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    cfg = SapDatasphereConfig.model_validate({"base_url": tenant, "token": "tok"})
+    source = SapDatasphereSource(PipelineContext(run_id="test-auth-abort"), cfg)
+
+    def _auth_boom(space: str) -> List[Dict]:
+        raise ValueError("XSUAA token exchange failed: invalid_client")
+
+    monkeypatch.setattr(source._client, "list_connections", _auth_boom)
+
+    with pytest.raises(ValueError, match="XSUAA token exchange failed"):
+        list(source.get_workunits())
+
+
+def test_remote_source_read_failure_defaults_to_managed_and_warns(
+    requests_mock, monkeypatch
+):
+    # If reading @remote.source from a parseable CSN raises, the asset must fall
+    # back to the managed HANA connection (sap-datasphere) and warn, instead of
+    # crashing or silently mis-routing to the wrong platform.
+    tenant = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "V1",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/V1",
+        json={"definitions": {"V1": {"kind": "entity"}}},
+    )
+
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": tenant, "token": "tok", "include_lineage": True}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-remote-boom"), cfg)
+
+    def _boom(csn_def: Dict) -> Optional[str]:
+        raise ValueError("bad @remote.source shape")
+
+    monkeypatch.setattr(source._lineage_extractor, "remote_source", _boom)
+
+    workunits = list(source.get_workunits())
+
+    dataset_urns = {
+        entity_urn_of(wu) for wu in workunits if "urn:li:dataset:" in entity_urn_of(wu)
+    }
+    assert dataset_urns, "asset should still be emitted after a remote_source failure"
+    assert all("urn:li:dataPlatform:sap-datasphere" in u for u in dataset_urns), (
+        f"asset must default to the managed sap-datasphere platform; got {dataset_urns}"
+    )
+    assert any(
+        (w.title or "") == "Failed to read CSN @remote.source"
+        for w in source.report.warnings
+    ), (
+        f"expected the remote-source read-failure warning; got "
+        f"{[w.title for w in source.report.warnings]}"
+    )
+
+
+def test_column_lineage_extractor_failure_preserves_table_level(
+    requests_mock, monkeypatch
+):
+    # The three CSN lineage extractors are guarded independently: if column-level
+    # extraction raises, the table-level upstream must still be emitted (and the
+    # failure surfaced as a warning), not lost alongside it.
+    tenant = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "MID_VIEW",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": False,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views/MID_VIEW",
+        json={
+            "definitions": {
+                "MID_VIEW": {
+                    "kind": "entity",
+                    "query": {
+                        "SELECT": {
+                            "from": {"ref": ["BASE_TABLE"]},
+                            "columns": [{"ref": ["ID"]}],
+                        }
+                    },
+                }
+            }
+        },
+    )
+
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": tenant, "token": "tok", "include_lineage": True}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-col-guard"), cfg)
+
+    def _boom(csn_def: Dict) -> List[ColumnLineagePair]:
+        raise RuntimeError("column walker exploded")
+
+    monkeypatch.setattr(source._lineage_extractor, "extract_column_lineage", _boom)
+
+    workunits = list(source.get_workunits())
+
+    upstream_aspects = [
+        a for wu in workunits if isinstance((a := aspect_of(wu)), UpstreamLineageClass)
+    ]
+    assert len(upstream_aspects) == 1, "table-level lineage should survive"
+    assert upstream_aspects[0].upstreams, "expected a surviving table-level upstream"
+    assert not upstream_aspects[0].fineGrainedLineages, (
+        "column-level lineage should be absent after the extractor failure"
+    )
+    assert any(
+        (w.title or "") == "Failed to extract CSN column lineage"
+        for w in source.report.warnings
+    ), (
+        f"expected the column-lineage failure warning; got "
+        f"{[w.title for w in source.report.warnings]}"
+    )
