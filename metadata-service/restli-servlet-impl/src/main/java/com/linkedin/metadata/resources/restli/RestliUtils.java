@@ -1,11 +1,11 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
-import com.linkedin.data.DataMap;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -72,14 +72,10 @@ public class RestliUtils {
   @Nonnull
   private static RestLiServiceException databaseTransactionConflict(
       @Nonnull DatabaseTransactionConflictException conflict) {
-    RestLiServiceException ex =
-        new RestLiServiceException(
-            HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict.getMessage(), conflict);
-    ex.setCode(conflict.getCode());
-    DataMap errorDetails = new DataMap();
-    errorDetails.put("retryable", conflict.isRetryable());
-    ex.setErrorDetails(errorDetails);
-    return ex;
+    // RestLiServiceException has no setHeader(); Retry-After is exposed via
+    // DatabaseTransactionConflictRestLiServiceException.getResponseHeaders() and applied by
+    // RestliThrottleResponseFilter (same pattern as ThrottledRestLiServiceException).
+    return new DatabaseTransactionConflictRestLiServiceException(conflict);
   }
 
   @Nullable

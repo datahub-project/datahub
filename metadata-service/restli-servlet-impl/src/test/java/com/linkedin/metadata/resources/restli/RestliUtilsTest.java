@@ -13,6 +13,8 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -44,6 +46,11 @@ public class RestliUtilsTest {
     assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
     assertTrue(thrown.hasErrorDetails());
     assertEquals(thrown.getErrorDetails().get("retryable"), true);
+    assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+    DatabaseTransactionConflictRestLiServiceException conflictEx =
+        (DatabaseTransactionConflictRestLiServiceException) thrown;
+    assertEquals(
+        conflictEx.getResponseHeaders().get(ThrottleResponseHeaders.RETRY_AFTER), "1");
   }
 
   @Test
@@ -66,6 +73,11 @@ public class RestliUtilsTest {
     assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
     assertTrue(thrown.hasErrorDetails());
     assertEquals(thrown.getErrorDetails().get("retryable"), true);
+    assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+    DatabaseTransactionConflictRestLiServiceException conflictEx =
+        (DatabaseTransactionConflictRestLiServiceException) thrown;
+    assertEquals(
+        conflictEx.getResponseHeaders().get(ThrottleResponseHeaders.RETRY_AFTER), "1");
   }
 
   @Test
@@ -89,6 +101,11 @@ public class RestliUtilsTest {
     assertEquals(thrown.getCode(), DatabaseTransactionConflictException.CODE);
     assertTrue(thrown.hasErrorDetails());
     assertEquals(thrown.getErrorDetails().get("retryable"), true);
+    assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+    DatabaseTransactionConflictRestLiServiceException conflictEx =
+        (DatabaseTransactionConflictRestLiServiceException) thrown;
+    assertEquals(
+        conflictEx.getResponseHeaders().get(ThrottleResponseHeaders.RETRY_AFTER), "1");
   }
 
   @Test
