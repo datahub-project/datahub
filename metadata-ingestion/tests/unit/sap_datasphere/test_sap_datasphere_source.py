@@ -16,6 +16,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
@@ -4981,6 +4982,85 @@ def test_resolve_flow_endpoint_urn_unresolved_endpoint_increments_counter():
     )
     assert source._resolve_flow_endpoint_urn("SAP_BW", endpoint) is None
     assert len(source.report.flow_endpoints_unresolved) == 1
+
+
+class _FakeGraph:
+    def __init__(self, urns: List[str]) -> None:
+        self._urns = urns
+
+    def get_urns_by_filter(self, **kwargs: object) -> List[str]:
+        return list(self._urns)
+
+
+def test_resolve_flow_endpoint_urn_graph_rewrites_to_physical_case():
+    """With graph resolution on, an external target whose logical (lower-cased)
+    leaf doesn't match the physical BigQuery table is rewritten to the real URN
+    so the edge stitches, and the fix is counted on the report."""
+    source = _flow_source(
+        {
+            "resolve_external_urns_via_graph": True,
+            "connection_to_platform_map": {
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                }
+            },
+        }
+    )
+    source.ctx.graph = cast(
+        DataHubGraph,
+        _FakeGraph(
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+                "my-gcp-project.staging.ZC_FND_MDM_ZMBEW,PROD)"
+            ]
+        ),
+    )
+    endpoint = FlowEndpoint(
+        object_name="zc_fnd_mdm_zmbew",
+        is_local=False,
+        connection="BQ_CONN",
+        connection_type="BIGQUERY",
+        container="/staging",
+    )
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "my-gcp-project.staging.ZC_FND_MDM_ZMBEW,PROD)"
+    )
+    assert source.report.external_lineage_graph_resolved == 1
+
+
+def test_resolve_flow_endpoint_urn_graph_enabled_but_no_graph_warns():
+    """The feature is a no-op (and warns once) when enabled without a graph; the
+    endpoint keeps its raw candidate URN."""
+    source = _flow_source(
+        {
+            "resolve_external_urns_via_graph": True,
+            "connection_to_platform_map": {
+                "BQ_CONN": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "my-gcp-project",
+                }
+            },
+        }
+    )
+    assert source.ctx.graph is None
+    endpoint = FlowEndpoint(
+        object_name="zc_fnd_mdm_zmbew",
+        is_local=False,
+        connection="BQ_CONN",
+        connection_type="BIGQUERY",
+        container="/staging",
+    )
+    urn = source._resolve_flow_endpoint_urn("SAP_BW", endpoint)
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
+        "my-gcp-project.staging.zc_fnd_mdm_zmbew,PROD)"
+    )
+    assert source.report.external_lineage_graph_resolved == 0
 
 
 def test_remote_table_upstream_unresolved_connection_increments_counter():

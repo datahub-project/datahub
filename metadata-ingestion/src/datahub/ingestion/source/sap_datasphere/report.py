@@ -82,6 +82,17 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # their dataset-level UpstreamLineage was skipped to avoid materializing a bare
     # phantom dataset under the space (the DataJob IO still carries the lineage).
     flow_targets_skipped_unscanned: LossyList[str] = field(default_factory=LossyList)
+    # External flow endpoints (routed to another platform) whose logical name was
+    # rewritten to the real physical URN found in the graph (case/prefix fix so
+    # the edge stitches); and those left as the raw candidate because the graph
+    # had no unambiguous match. Only populated when
+    # `resolve_external_urns_via_graph` is enabled.
+    external_lineage_graph_resolved: int = 0
+    external_lineage_graph_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # A graph lookup that raised (network/permission); the candidate name is kept.
+    external_lineage_graph_lookup_failed: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Federated Remote Tables and their external upstream lineage.
     remote_tables_scanned: int = 0

@@ -697,7 +697,7 @@
                     "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
                 },
                 {
-                    "id": "test_tenant.fed_test.df_enrich_customer",
+                    "id": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD)",
                     "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD)"
                 }
             ]
@@ -965,7 +965,7 @@
                     "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
                 },
                 {
-                    "id": "test_tenant.fed_test.rf_customer_to_bq",
+                    "id": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)",
                     "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)"
                 }
             ]
@@ -1180,7 +1180,7 @@
                     "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
                 },
                 {
-                    "id": "test_tenant.fed_test.rf_customer_to_bq",
+                    "id": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)",
                     "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)"
                 }
             ]

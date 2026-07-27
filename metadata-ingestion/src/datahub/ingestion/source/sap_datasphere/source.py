@@ -93,6 +93,9 @@ from datahub.ingestion.source.sap_datasphere.csn_parser import (
 )
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
+from datahub.ingestion.source.sap_datasphere.graph_resolver import (
+    ExternalUrnGraphResolver,
+)
 from datahub.ingestion.source.sap_datasphere.lineage import (
     CsnLineageExtractor,
     parse_remote_table_source,
@@ -133,6 +136,7 @@ from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
     AutoLowercaseUrnsProcessor,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -265,6 +269,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # never scanned would appear as a bare phantom under its space. Bounded by
         # the scanned-dataset count (a set of URN strings) — fine at tenant scale.
         self._emitted_dataset_urns: Set[str] = set()
+        # Lazily built once the first external flow endpoint needs graph
+        # resolution; None until then (and stays None when the feature is off or
+        # no graph is available).
+        self._graph_resolver: Optional[ExternalUrnGraphResolver] = None
+        self._graph_resolver_unavailable_warned = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -680,7 +689,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 outlets=[task.target_urn],
                 fine_grained_lineages=task.fine_grained or None,
             )
-            yield from job.as_workunits()
+            yield from self._flow_scoped_job_workunits(job)
 
             # Also surface the task's lineage as a dataset-to-dataset edge on the
             # target, so it shows on the downstream's Lineage tab (the DataJob IO
@@ -702,6 +711,24 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                         fineGrainedLineages=task.fine_grained or None,
                     ),
                 )
+
+    @staticmethod
+    def _flow_scoped_job_workunits(job: DataJob) -> Iterable[MetadataWorkUnit]:
+        # The SDK keys a DataJob's parent-flow browse-path segment on the flow
+        # *id* (our "<space>.<flow>") rather than the flow URN. browseV2 groups
+        # by that id and only resolves an entity (hence a display name) when the
+        # id is a URN — so the space-navigation sidebar prints the raw prefixed
+        # id instead of the flow's clean display name. Container segments already
+        # key on their URN; normalizing any entity-backed segment to do the same
+        # lets the tree render the DataFlow's display name (rf_<flow>) while the
+        # flow URN keeps carrying the space prefix for cross-space uniqueness.
+        for wu in job.as_workunits():
+            browse_path = wu.get_aspect_of_type(BrowsePathsV2Class)
+            if browse_path is not None:
+                for entry in browse_path.path:
+                    if entry.urn and entry.id != entry.urn:
+                        entry.id = entry.urn
+            yield wu
 
     def _merge_flow_downstream_lineage(
         self, downstream_urn: str, lineage: UpstreamLineageClass
@@ -808,7 +835,50 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f"(connection={endpoint.connection}, type={endpoint.connection_type})"
             )
             return None
+        if not endpoint.is_local:
+            name = self._graph_resolve_external_name(resolved, name)
         return self._dataset_urn(resolved, name)
+
+    def _graph_resolve_external_name(
+        self, resolved: ResolvedPlatform, name: str
+    ) -> str:
+        # Rewrite a logical external endpoint name to the real physical URN name
+        # in the graph (case/prefix fix) so the edge stitches. Best-effort: any
+        # miss keeps the original candidate.
+        graph_resolver = self._get_graph_resolver()
+        if graph_resolver is None:
+            return name
+        real = graph_resolver.resolve_name(
+            resolved.platform, resolved.platform_instance, resolved.env, name
+        )
+        if real is None:
+            self.report.external_lineage_graph_unresolved.append(
+                f"{resolved.platform}:{name}"
+            )
+            return name
+        if real != name:
+            self.report.external_lineage_graph_resolved += 1
+        return real
+
+    def _get_graph_resolver(self) -> Optional[ExternalUrnGraphResolver]:
+        if not self.config.resolve_external_urns_via_graph:
+            return None
+        if self._graph_resolver is None:
+            if self.ctx.graph is None:
+                if not self._graph_resolver_unavailable_warned:
+                    self.report.warning(
+                        title="Graph unavailable for external URN resolution",
+                        message=(
+                            "resolve_external_urns_via_graph is enabled but no "
+                            "DataHub graph is configured (needs a REST sink or a "
+                            "datahub_api block); external flow URNs are left as their "
+                            "raw candidate names."
+                        ),
+                    )
+                    self._graph_resolver_unavailable_warned = True
+                return None
+            self._graph_resolver = ExternalUrnGraphResolver(self.ctx.graph, self.report)
+        return self._graph_resolver
 
     def _build_flow_tasks(
         self,

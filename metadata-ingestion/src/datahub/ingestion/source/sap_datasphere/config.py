@@ -377,6 +377,23 @@ class SapDatasphereConfig(
         ),
     )
 
+    resolve_external_urns_via_graph: bool = Field(
+        default=False,
+        description=(
+            "If True, reconcile external flow endpoint URNs (replication/data-flow "
+            "sources and targets routed to another platform such as BigQuery) "
+            "against the real physical URNs already in DataHub, using the graph on "
+            "the configured sink. SAP's flow API reports logical names (lower-cased "
+            "leaf, and sometimes without a source-added prefix like `w01_cds_`) that "
+            "need not match the physical warehouse table, so the raw edge can dangle. "
+            "When enabled, each endpoint is matched by its case-insensitive leaf "
+            "within the same platform/platform_instance/env and dataset/schema; an "
+            "unambiguous hit is rewritten to the real URN so the lineage stitches, "
+            "and misses fall back to the original candidate. Requires a DataHub graph "
+            "(REST sink or `datahub_api` configured); no-op otherwise. Cost: one "
+            "scoped search per distinct external dataset/schema (cached per run)."
+        ),
+    )
     include_view_definitions: bool = Field(
         default=True,
         description=(
