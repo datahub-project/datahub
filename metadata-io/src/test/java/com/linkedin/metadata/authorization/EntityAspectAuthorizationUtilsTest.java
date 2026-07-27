@@ -819,6 +819,23 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testCanViewSchemaFieldEntity_nonSchemaFieldDelegatesToCanViewEntity() {
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(mockAuthSession, PHYSICAL_DATASET));
+
+    authUtilMockedStatic
+        .when(() -> AuthUtil.canViewEntity(eq(mockAuthSession), eq(PHYSICAL_DATASET)))
+        .thenReturn(false);
+
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.canViewSchemaFieldEntity(mockAuthSession, PHYSICAL_DATASET));
+  }
+
+  @Test
   public void testIsSchemaFieldEntity() {
     Assert.assertTrue(EntityAspectAuthorizationUtils.isSchemaFieldEntity(PHYSICAL_SCHEMA_FIELD));
     Assert.assertFalse(EntityAspectAuthorizationUtils.isSchemaFieldEntity(PHYSICAL_DATASET));
