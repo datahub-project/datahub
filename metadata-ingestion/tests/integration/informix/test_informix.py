@@ -63,6 +63,25 @@ def _docker(*args: str) -> "subprocess.CompletedProcess[str]":
     return subprocess.run(["docker", *args], capture_output=True, text=True)
 
 
+def _sudo_probe(container: str) -> str:
+    # The image's entrypoint drives every privileged step through setuid sudo, so a
+    # runner that mounts the container filesystem nosuid breaks startup in a way
+    # that looks nothing like a sudo problem ("Bad DBSERVERNAME"). Capture the
+    # evidence here rather than making the next person infer it from the symptom.
+    checks = (
+        ("id", ["id"]),
+        ("sudo -n true", ["sudo", "-n", "true"]),
+        ("nosuid mounts", ["sh", "-c", "mount | grep nosuid || echo '(none)'"]),
+        ("sudo perms", ["sh", "-c", "ls -l /usr/bin/sudo"]),
+    )
+    out = []
+    for label, cmd in checks:
+        result = _docker("exec", container, *cmd)
+        detail = (result.stdout + result.stderr).strip() or "(no output)"
+        out.append(f"{label}: rc={result.returncode} {detail}")
+    return "\n".join(out)
+
+
 def _online_log(container: str) -> str:
     # `docker cp` rather than `docker exec`, because by the time we want this the
     # container has usually already exited.
@@ -85,8 +104,9 @@ def _informix_ready(container: str) -> bool:
             f"(marker={hit!r}, state={state or 'unknown'}). The image gives "
             "first-boot disk init a hardcoded 60s and its logical logs must fit "
             "the root dbspace; see setup/onconfig.mod.\n"
-            f"--- docker logs (tail) ---\n{combined[-4000:]}\n"
-            f"--- {_ONLINE_LOG} (tail) ---\n{_online_log(container)[-4000:]}"
+            f"--- sudo/setuid probe ---\n{_sudo_probe(container)}\n"
+            f"--- {_ONLINE_LOG} (tail) ---\n{_online_log(container)[-3000:]}\n"
+            f"--- docker logs (tail) ---\n{combined[-3000:]}"
         )
     # `onstat -` prints "On-Line" once the server accepts connections. Probing the
     # server directly mirrors the db2/mysql "run a readiness command in the

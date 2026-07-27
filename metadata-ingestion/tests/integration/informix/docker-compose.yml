@@ -5,6 +5,14 @@ services:
     image: icr.io/informix/informix-developer-database:latest
     platform: linux/amd64
     privileged: true
+    # The image defaults to USER=informix and its entrypoint shells out through
+    # `RUNAS() { sudo -u $1 ...; }` for every privileged step. /usr/bin/sudo is
+    # setuid root, so on a runner whose container filesystem is mounted nosuid it
+    # cannot escalate -- it fails with "PAM account management error" and every
+    # RUNAS step silently no-ops, leaving sqlhosts without a valid INFORMIXSERVER
+    # entry. oninit then reports "Bad DBSERVERNAME" and the server never starts.
+    # Running as root sidesteps it: sudo invoked by root needs no authentication.
+    user: root
     environment:
       LICENSE: accept
       SIZE: SMALL
