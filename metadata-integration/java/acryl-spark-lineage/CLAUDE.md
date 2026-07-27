@@ -76,12 +76,13 @@ Tracked via patch files in `patches/datahub-customizations/v1.50.0/`:
 2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling
 3. **`PlanUtils.patch`**: Custom directory path handling with DataHub's HdfsPathDataset
 4. **`RemovePathPatternUtils.patch`**: DataHub-specific PathSpec transformations
-5. **`SaveIntoDataSourceCommandVisitor.patch`**: JDBC / Delta write output-dataset handling
-6. **`StreamingDataSourceV2RelationVisitor.patch`**: File-based streaming source support
-7. **`WriteToDataSourceV2Visitor.patch`**: ForeachBatch streaming write support
-8. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
-9. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
-10. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
+5. **`DeltaEventFilter.patch`**: Retains job-level events for Delta MERGE operations
+6. **`SaveIntoDataSourceCommandVisitor.patch`**: JDBC / Delta write output-dataset handling
+7. **`StreamingDataSourceV2RelationVisitor.patch`**: File-based streaming source support
+8. **`WriteToDataSourceV2Visitor.patch`**: ForeachBatch streaming write support
+9. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
+10. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
+11. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
 
 **DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
 

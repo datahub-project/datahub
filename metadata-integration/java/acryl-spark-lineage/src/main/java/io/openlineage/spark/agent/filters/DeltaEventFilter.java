@@ -42,10 +42,8 @@ import scala.collection.JavaConverters;
 @Slf4j
 public class DeltaEventFilter implements EventFilter {
 
-  private static final String MERGE_INTO_COMMAND_CLASS =
-      "org.apache.spark.sql.delta.commands.MergeIntoCommand";
-  private static final String MERGE_INTO_COMMAND_EDGE_CLASS =
-      "org.apache.spark.sql.delta.commands.MergeIntoCommandEdge";
+  private static final String MERGE_INTO_COMMAND_SUFFIX = ".MergeIntoCommand";
+  private static final String MERGE_INTO_COMMAND_EDGE_SUFFIX = ".MergeIntoCommandEdge";
 
   private final OpenLineageContext context;
 
@@ -86,12 +84,13 @@ public class DeltaEventFilter implements EventFilter {
     return getLogicalPlan(context)
         .map(LogicalPlan::getClass)
         .map(Class::getName)
-        .map(
-            className ->
-                className.equals(MERGE_INTO_COMMAND_CLASS)
-                    || className.equals(MERGE_INTO_COMMAND_EDGE_CLASS)
-                    || className.contains("MergeIntoCommand"))
+        .map(DeltaEventFilter::isMergeIntoCommandClass)
         .orElse(false);
+  }
+
+  static boolean isMergeIntoCommandClass(String className) {
+    return className.endsWith(MERGE_INTO_COMMAND_SUFFIX)
+        || className.endsWith(MERGE_INTO_COMMAND_EDGE_SUFFIX);
   }
 
   /**
@@ -103,7 +102,7 @@ public class DeltaEventFilter implements EventFilter {
     return event instanceof SparkListenerJobStart || event instanceof SparkListenerJobEnd;
   }
 
-  /** Returns true if Staged Delta table is written. */
+  /** Returns true if Staged Delta table is written */
   private boolean isStagedDeltaTable(SparkListenerEvent event) {
     if (event instanceof SparkListenerSQLExecutionStart) {
       return Optional.of((SparkListenerSQLExecutionStart) event)
@@ -131,7 +130,7 @@ public class DeltaEventFilter implements EventFilter {
         .isPresent();
   }
 
-  /** Returns true if Filter is a root node of LogicalPlan. */
+  /** Returns true if Filter is a root node of LogicalPlan */
   private boolean isFilterRoot() {
     return getLogicalPlan(context).filter(plan -> plan instanceof Filter).isPresent();
   }
@@ -149,6 +148,11 @@ public class DeltaEventFilter implements EventFilter {
         .orElse(false);
   }
 
+  /**
+   * Delta internally performs actions on 'LogicalRDD [txn#92, add#93, remove#94, metaData#95,
+   * protocol#96, cdc#97, commitInfo#98]'. If the leaf of logical plan is LogicalRDD with such
+   * columns, we disable OL event.
+   */
   private boolean isLogicalRDDWithInternalDataColumns() {
     return getLogicalPlan(context)
         .map(

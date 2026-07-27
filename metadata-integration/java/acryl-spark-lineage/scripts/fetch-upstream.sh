@@ -31,6 +31,7 @@ FILES=(
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PathUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PlanUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/RemovePathPatternUtils.java"
+  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/filters/DeltaEventFilter.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/FileStreamMicroBatchStreamStrategy.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"

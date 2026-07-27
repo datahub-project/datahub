@@ -22,6 +22,7 @@ FILES=(
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
   "spark/agent/util/RemovePathPatternUtils.java"
+  "spark/agent/filters/DeltaEventFilter.java"
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
   "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
