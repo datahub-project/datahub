@@ -5,6 +5,11 @@ Replaces the previous moto-backed S3 ingest test. The same recipes under
 compared to the goldens in ``golden-files/s3`` (regenerate with
 ``--update-golden-files``).
 
+Also covers the S3 source's local-filesystem read path (``test_data_lake_local_ingest``),
+which needs no backend. Related tests that don't exercise an S3 backend live
+elsewhere: config validation and the S3 API call-pattern test are unit tests in
+``tests/unit/s3``; the GCS connector test is in ``tests/integration/gcs``.
+
 Determinism note: the S3 source selects a table's schema-representative file and
 its min/max partition by object ``last_modified``. Unlike moto, the emulator's
 ``last_modified`` cannot be poked directly and is second-resolution, so files are
@@ -12,16 +17,13 @@ uploaded one-per-second in sorted-walk order — this reproduces moto's ordering
 (the max-``last_modified`` file in any folder is its last-sorted-key file),
 keeping schema/partition selection deterministic. The timestamp *values*
 themselves are non-reproducible and are masked via ``ignore_paths``.
-
-This module is kept separate from the moto-backed data-lake tests (``test_gcs.py``):
-moto's ``mock_aws`` patches botocore process-wide while active, which would
-intercept the boto3 calls meant for the real emulator.
 """
 
 import json
 import os
 import pathlib
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Tuple
 
 import boto3
@@ -36,6 +38,7 @@ test_resources_dir = pathlib.Path(__file__).parent
 ENDPOINT_URL = "http://localhost:14566"
 REGION = "us-east-1"
 BUCKET_NAMES = ["my-test-bucket", "my-test-bucket-2"]
+FROZEN_TIME = "2020-04-14 07:00:00"
 
 # Object time fields that the emulator sets to real upload time (moto poked these
 # to deterministic values via its internal backend, which a real emulator can't
@@ -205,4 +208,81 @@ def test_data_lake_s3_profiling(s3_emulator, pytestconfig, tmp_path, mock_time):
         output_path=output,
         golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_s3_profiling.json",
         ignore_paths=IGNORE_PATHS,
+    )
+
+
+def _shared_source_files() -> List[Tuple[str, str]]:
+    shared = test_resources_dir / "sources/shared"
+    return [(str(shared), p) for p in sorted(os.listdir(shared))]
+
+
+@pytest.fixture(scope="module")
+def touch_local_files():
+    # The local-FS ingest reads mtimes for partition ordering; set them
+    # deterministically (matching the golden) without needing any backend.
+    data_dir = test_resources_dir / "test_data/local_system"
+    current_time_sec = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S").timestamp()
+    for root, dirs, files in os.walk(data_dir):
+        dirs.sort()
+        for file in sorted(files):
+            current_time_sec += 10
+            os.utime(
+                os.path.join(root, file), times=(current_time_sec, current_time_sec)
+            )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "source_file_tuple", _shared_source_files(), ids=_descriptive_id
+)
+def test_data_lake_local_ingest(
+    touch_local_files, pytestconfig, source_file_tuple, tmp_path, mock_time
+):
+    """Ingest each shared recipe from the local filesystem (profiling enabled).
+
+    The S3 source's local-file path needs no backend: the ``s3://`` path specs are
+    rewritten to the local ``test_data`` tree and the emitted metadata — including
+    datasetProfile aspects — is compared to ``golden-files/local``.
+    """
+    source_dir, source_file = source_file_tuple
+    with open(os.path.join(source_dir, source_file)) as f:
+        source = json.load(f)
+
+    for path_spec in source["config"]["path_specs"]:
+        path_spec["include"] = (
+            path_spec["include"]
+            .replace(
+                "s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/"
+            )
+            .replace(
+                "s3://my-test-bucket-2/", "tests/integration/s3/test_data/local_system/"
+            )
+        )
+    source["config"]["profiling"]["enabled"] = True
+    source["config"].pop("aws_config")
+    source["config"].pop("use_s3_bucket_tags", None)
+    source["config"].pop("use_s3_object_tags", None)
+
+    config_dict = {
+        "run_id": source_file,
+        "source": source,
+        "sink": {"type": "file", "config": {"filename": f"{tmp_path}/{source_file}"}},
+    }
+
+    pipeline = Pipeline.create(config_dict)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{source_file}",
+        golden_path=f"{test_resources_dir}/golden-files/local/golden_mces_{source_file}",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
+            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]",
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['size_in_bytes'\]",
+        ],
     )
