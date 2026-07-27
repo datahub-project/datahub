@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "Kopiera en delbar länk till den här entiteten.",
+    "copyName.label": "Kopiera namn",
+    "copyName.tooltip": "Kopiera det fullständiga namnet på {{type}}",
+    "copyUrn.label": "Kopiera URN",
+    "copyUrn.tooltip": "Kopiera URN för den här {{type}}. En URN identifierar en entitet i DataHub unikt.",
+    "email.label": "E-post",
+    "email.tooltip": "Dela den här {{type}} via e-post"
+}

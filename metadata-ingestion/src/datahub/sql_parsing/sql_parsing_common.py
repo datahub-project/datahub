@@ -32,7 +32,8 @@ def get_dialect_str(platform: str) -> str:
     elif platform_lower == "fabric-onelake":
         # Fabric SQL Analytics Endpoint speaks T-SQL.
         return "tsql"
-    elif platform_lower == "athena":
+    elif platform_lower in {"athena", "glue"}:
+        # Glue catalog views are Athena/Presto views, which speak Trino SQL.
         return "trino"
     elif platform_lower == "hana":
         # sqlglot does not ship a dedicated SAP HANA dialect. HANA SQL is

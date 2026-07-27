@@ -1,0 +1,103 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+
+/**
+ * Core information about a SemanticModel entity.
+ */
+@Aspect = {
+  "name": "semanticModelInfo",
+  "schemaVersion": 5
+}
+record SemanticModelInfo includes ExternalReference {
+
+  /**
+   * Display name of the semantic model.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ],
+    "searchTier": 1,
+    "searchLabel": "entityName"
+  }
+  name: string
+
+  /**
+   * Human-readable description of the semantic model.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "searchTier": 2
+  }
+  description: optional string
+
+  /**
+   * Audit stamp capturing when this semantic model was created and by whom
+   * (as reported by the source platform / ingestor).
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "createdAt"
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * Audit stamp capturing when this semantic model was last modified and by whom.
+   * Equals `created` when no modification has occurred since ingestion.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "searchLabel": "lastModifiedAt"
+    }
+  }
+  lastModified: optional AuditStamp
+
+  /**
+   * The raw, native definition of this semantic model as authored on the
+   * source platform (e.g. the Snowflake `CREATE SEMANTIC VIEW` DDL, the
+   * dbt `semantic_model` YAML, or the Databricks `CREATE METRIC VIEW`
+   * DDL). Preserved verbatim so consumers can round-trip / debug against
+   * the original source; not itself parsed by DataHub.
+   */
+  nativeDefinition: optional string
+
+  /**
+   * The logical datasets that this semantic model exposes. Each is a `dataset` entity in its
+   * own right, carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect
+   * (alias + back-reference to this semantic model). Field-level projection and semantics live
+   * on that Dataset's `schemaMetadata` (structural) and per-field `semanticFieldAnnotation`
+   * (semantic) aspects.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Contains",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "datasets",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasDatasets",
+      "queryByDefault": false
+    }
+  }
+  datasets: array[Urn] = [ ]
+
+  /**
+   * Join relationships between the datasets of this semantic model.
+   */
+  relationships: optional array[SemanticModelRelationship]
+
+}

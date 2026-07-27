@@ -783,6 +783,56 @@ public class ElasticSearchTimeseriesAspectService
         opContext, entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
   }
 
+  @Nonnull
+  @Override
+  public Map<Urn, GenericTable> batchGetAggregatedStats(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nonnull List<Urn> urns,
+      @Nullable Filter sharedFilter,
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull String urnFieldPath) {
+
+    if (urns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    if (!timeseriesAspectServiceConfig.isBatchLoadEnabled()) {
+      return TimeseriesAspectService.super.batchGetAggregatedStats(
+          opContext,
+          entityName,
+          aspectName,
+          aggregationSpecs,
+          urns,
+          sharedFilter,
+          groupingBuckets,
+          urnFieldPath);
+    }
+
+    List<Urn> urnList = new ArrayList<>(urns);
+    int subBatchSize = timeseriesAspectServiceConfig.getBatchAggMaxUrnsPerBatch();
+    List<List<Urn>> subBatches = partitionList(urnList, subBatchSize);
+
+    Map<Urn, GenericTable> result = new HashMap<>();
+
+    for (List<Urn> subBatch : subBatches) {
+      result.putAll(
+          esAggregatedStatsDAO.getBatchAggregatedStats(
+              opContext,
+              entityName,
+              aspectName,
+              aggregationSpecs,
+              subBatch,
+              sharedFilter,
+              groupingBuckets,
+              urnFieldPath));
+    }
+
+    return result;
+  }
+
   /**
    * A generic delete by filter API which uses elasticsearch's deleteByQuery. NOTE: There is no need
    * for the client to explicitly walk each scroll page with this approach. Elastic will

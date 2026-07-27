@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from functools import partial
-from typing import Dict, List, Union
+from typing import Dict, List, Set, Tuple, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -19,8 +19,10 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
     RedshiftTable,
     RedshiftView,
+    unescape_stl_query_text,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -268,6 +270,129 @@ def test_table_pattern_filters_aggregator_usage():
     ]
     assert any("public.kept" in urn for urn in usage_urns)
     assert not any("denied" in urn for urn in usage_urns)
+
+
+def test_query_usage_statistics_emitted_without_column_usage():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    assert extractor.generate_query_usage is True
+    assert extractor.run_unified_queries is True
+    assert extractor.generate_usage is False
+    assert extractor.aggregator.generate_query_usage_statistics is True
+
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    query_text = "select event_id from dev.public.events"
+    for _ in range(2):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query=query_text,
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert len(query_usage_aspects) == 1
+    assert query_usage_aspects[0].queryCount == 2
+
+
+def test_query_usage_statistics_accepts_naive_utc_timestamps():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=True,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = normalize_timestamp_to_utc(datetime(2024, 1, 2, 0, 0, 0))
+    extractor.aggregator.add_observed_query(
+        ObservedQuery(
+            query="select event_id from dev.public.events",
+            default_db="dev",
+            default_schema="public",
+            timestamp=ts,
+        )
+    )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert len(query_usage_aspects) == 1
+    assert query_usage_aspects[0].queryCount == 1
+
+
+def test_query_usage_statistics_disabled_when_flag_off():
+    """When include_query_usage_statistics=False, the aggregator must not be wired
+    to generate query usage stats and no QueryUsageStatistics aspects are emitted,
+    even though usage statistics are otherwise enabled."""
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=False,
+        include_query_usage_statistics=False,
+        start_time=datetime(2024, 1, 1, 12, 0, 0).isoformat() + "Z",
+        end_time=datetime(2024, 1, 10, 12, 0, 0).isoformat() + "Z",
+    )
+    extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="foo"), config.database
+    )
+    assert extractor.generate_query_usage is False
+    assert extractor.aggregator.generate_query_usage_statistics is False
+    # Neither column nor query usage is enabled, so the unified feed should not run.
+    assert extractor.run_unified_queries is False
+
+    extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.events,PROD)",
+    }
+    ts = datetime(2024, 1, 2, 0, 0, 0, tzinfo=timezone.utc)
+    for _ in range(2):
+        extractor.aggregator.add_observed_query(
+            ObservedQuery(
+                query="select event_id from dev.public.events",
+                default_db="dev",
+                default_schema="public",
+                timestamp=ts,
+            )
+        )
+
+    query_usage_aspects = [
+        mcp.aspect
+        for mcp in extractor.aggregator.gen_metadata()
+        if isinstance(mcp.aspect, m.QueryUsageStatisticsClass)
+    ]
+    assert query_usage_aspects == []
 
 
 def test_unified_queries_failure_is_reported_as_failure(monkeypatch):
@@ -808,6 +933,149 @@ def test_populate_unified_queries_produces_lineage(monkeypatch):
     assert src_urn in upstream_urns, (
         f"Expected {src_urn!r} in upstreams of {tgt_urn!r}, got: {upstream_urns}"
     )
+
+
+def test_unescape_stl_query_text():
+    """STL_QUERYTEXT literal escape sequences are converted to real control chars,
+    and text without such sequences is returned unchanged."""
+    assert (
+        unescape_stl_query_text("select\\n col_a\\nfrom t") == "select\n col_a\nfrom t"
+    )
+    assert unescape_stl_query_text("a\\tb\\rc") == "a\tb\rc"
+    # No-op when there are no escape sequences (single-line or already-real newlines).
+    assert unescape_stl_query_text("select col_a from t") == "select col_a from t"
+    assert unescape_stl_query_text("select\n col_a\nfrom t") == "select\n col_a\nfrom t"
+
+
+_UNIFIED_SRC_URN = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.src,PROD)"
+_UNIFIED_TGT_URN = "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tgt,PROD)"
+
+
+def _run_unified_query(
+    monkeypatch: pytest.MonkeyPatch, query_text: str
+) -> Tuple[Set[str], int]:
+    """Feed a single reconstructed STL_QUERYTEXT row through
+    ``_populate_unified_queries`` and return (upstream urns of tgt, num_failed)."""
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="dev",
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
+        include_operational_stats=False,
+        start_time="2021-09-15T00:00:00Z",
+        end_time="2021-09-16T00:00:00Z",
+    )
+    lineage_extractor = RedshiftSqlLineage(
+        config, RedshiftReport(), PipelineContext(run_id="test-literal-newline"), "dev"
+    )
+
+    def _make_schema(name: str) -> m.SchemaMetadataClass:
+        return m.SchemaMetadataClass(
+            schemaName=name,
+            platform="urn:li:dataPlatform:redshift",
+            version=0,
+            hash="",
+            platformSchema=m.OtherSchemaClass(rawSchema=""),
+            fields=[
+                m.SchemaFieldClass(
+                    fieldPath="id",
+                    type=m.SchemaFieldDataTypeClass(type=m.NumberTypeClass()),
+                    nativeDataType="int",
+                ),
+                m.SchemaFieldClass(
+                    fieldPath="name",
+                    type=m.SchemaFieldDataTypeClass(type=m.StringTypeClass()),
+                    nativeDataType="varchar",
+                ),
+            ],
+        )
+
+    lineage_extractor.aggregator.register_schema(
+        urn=_UNIFIED_SRC_URN, schema=_make_schema("dev.public.src")
+    )
+    lineage_extractor.aggregator.register_schema(
+        urn=_UNIFIED_TGT_URN, schema=_make_schema("dev.public.tgt")
+    )
+    lineage_extractor.known_urns = {_UNIFIED_SRC_URN, _UNIFIED_TGT_URN}
+
+    fake_cursor = MagicMock()
+    fake_cursor.description = [
+        ("query_id",),
+        ("query_text",),
+        ("username",),
+        ("starttime",),
+        ("session_id",),
+    ]
+    fake_cursor.fetchmany.side_effect = [
+        [
+            [
+                1,
+                query_text,
+                "alice",
+                datetime(2021, 9, 15, 10, 0, 0, tzinfo=timezone.utc),
+                "77",
+            ]
+        ],
+        [],
+    ]
+    monkeypatch.setattr(
+        RedshiftDataDictionary,
+        "get_query_result",
+        staticmethod(lambda conn, query, parameters=None: fake_cursor),
+    )
+
+    lineage_extractor._populate_unified_queries(MagicMock())
+
+    upstream_urns: set = set()
+    for mcp in lineage_extractor.aggregator.gen_metadata():
+        if mcp.entityUrn == _UNIFIED_TGT_URN and isinstance(
+            mcp.aspect, m.UpstreamLineageClass
+        ):
+            for upstream in mcp.aspect.upstreams or []:
+                upstream_urns.add(upstream.dataset)
+    return (
+        upstream_urns,
+        lineage_extractor.aggregator.report.num_observed_queries_failed,
+    )
+
+
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        # Mode A: a leading "--" line comment with no real newline swallows the
+        # whole statement, so nothing parses.
+        "-- load target\\nINSERT INTO public.tgt\\nSELECT id, name\\nFROM public.src",
+        # Mode B: no comment -- a bare "\n" token sits between SQL tokens (here in a
+        # CTE), which the tokenizer rejects.
+        "INSERT INTO public.tgt\\nWITH s AS (\\n  SELECT id, name\\n  FROM public.src\\n)\\nSELECT id, name FROM s",
+    ],
+    ids=["line_comment", "multiline_cte"],
+)
+def test_populate_unified_queries_unescapes_literal_newlines(monkeypatch, query_text):
+    """Regression: STL_QUERYTEXT reconstructs multi-line queries with literal "\\n"
+    (backslash + n) instead of real newlines. Without unescaping, sqlglot fails to
+    parse and the query -- along with its lineage -- is silently dropped. After
+    unescaping, lineage is produced. Covers both documented failure modes."""
+    assert "\n" not in query_text  # sanity: only literal escapes, no real newlines
+    upstream_urns, num_failed = _run_unified_query(monkeypatch, query_text)
+    assert _UNIFIED_SRC_URN in upstream_urns, (
+        f"Expected {_UNIFIED_SRC_URN!r} in upstreams, got: {upstream_urns}"
+    )
+    assert num_failed == 0  # parsed instead of being dropped as a parse failure
+
+
+def test_populate_unified_queries_literal_newline_inside_string_literal(monkeypatch):
+    """Caveat characterization: a literal "\\n" inside a string literal is also
+    converted, but table/column lineage is still extracted correctly -- pins the
+    docstring claim that the rare in-literal case does not affect lineage."""
+    query_text = (
+        "INSERT INTO public.tgt\\nSELECT id, name\\nFROM public.src"
+        "\\nWHERE name = 'a\\nb'"
+    )
+    upstream_urns, num_failed = _run_unified_query(monkeypatch, query_text)
+    assert _UNIFIED_SRC_URN in upstream_urns
+    assert num_failed == 0
 
 
 def test_usage_only_via_sql_parsing_no_lineage_edges(monkeypatch):

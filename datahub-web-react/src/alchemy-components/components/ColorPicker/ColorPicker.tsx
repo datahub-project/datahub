@@ -4,6 +4,9 @@ import { CirclePicker, ColorResult } from 'react-color';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { spacing } from '@components/theme';
+
 const HEX_REGEX = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
 
 // Styled Components
@@ -13,6 +16,13 @@ const ColorPickerContainer = styled.div`
     align-items: flex-start;
     width: 100%;
 `;
+
+const Label = styled.div(({ theme }) => ({
+    ...formLabelTextStyles,
+    color: theme.colors.text,
+    marginBottom: spacing.xxsm,
+    textAlign: 'left',
+}));
 
 const ColorPreview = styled.div`
     width: 100%;
@@ -135,7 +145,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ initialColor, onChange, label
 
     return (
         <ColorPickerContainer>
-            {label && <div>{label}</div>}
+            {label && <Label>{label}</Label>}
             <PickerWrapper>
                 <CirclePicker
                     colors={DEFAULT_COLORS}

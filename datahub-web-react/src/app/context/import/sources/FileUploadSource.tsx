@@ -30,10 +30,10 @@ const FileList = styled.div`
     overflow-y: auto;
 `;
 
-const WarningText = styled.span`
+const ErrorText = styled.span`
     display: block;
     margin-top: 8px;
-    color: ${({ theme }) => theme.colors.iconWarning};
+    color: ${({ theme }) => theme.colors.textError};
     font-size: 12px;
 `;
 
@@ -97,12 +97,12 @@ export default function FileUploadSource({ files, onFilesChange }: FileUploadSou
             />
 
             {rejectedNames.length > 0 && (
-                <WarningText>
+                <ErrorText>
                     {t('context.import.skippedUnsupported', {
                         count: rejectedNames.length,
                         names: rejectedNames.join(', '),
                     })}
-                </WarningText>
+                </ErrorText>
             )}
 
             {files.length > 0 && (

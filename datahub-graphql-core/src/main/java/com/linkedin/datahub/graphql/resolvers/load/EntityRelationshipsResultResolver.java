@@ -108,6 +108,8 @@ public class EntityRelationshipsResultResolver
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
     final boolean includeSoftDelete = input.getIncludeSoftDelete();
+    final Set<String> relatedEntityTypes =
+        input.getRelatedEntityTypes() == null ? null : new HashSet<>(input.getRelatedEntityTypes());
 
     if (isDomainDirectChildDomainsQuery(urn, relationshipTypes, resolvedDirection)) {
       return GraphQLConcurrencyUtils.supplyAsync(
@@ -174,7 +176,8 @@ public class EntityRelationshipsResultResolver
                 fetchEntityRelationships(
                     urn, relationshipTypes, resolvedDirection, start, count, context.getActorUrn()),
                 resolvedDirection,
-                includeSoftDelete),
+                includeSoftDelete,
+                relatedEntityTypes),
         this.getClass().getSimpleName(),
         "get");
   }
@@ -447,7 +450,8 @@ public class EntityRelationshipsResultResolver
         context,
         entityRelationships,
         RelationshipDirection.valueOf(relationshipDirection.toString()),
-        includeSoftDelete);
+        includeSoftDelete,
+        null);
   }
 
   private EntityRelationshipsResult mapDomainChildRelationships(
@@ -582,7 +586,8 @@ public class EntityRelationshipsResultResolver
       @Nullable final QueryContext context,
       final EntityRelationships entityRelationships,
       final RelationshipDirection relationshipDirection,
-      final boolean includeSoftDelete) {
+      final boolean includeSoftDelete,
+      @Nullable final Set<String> relatedEntityTypes) {
     final EntityRelationshipsResult result = new EntityRelationshipsResult();
 
     final Set<Urn> existentUrns;
@@ -601,6 +606,8 @@ public class EntityRelationshipsResultResolver
             .filter(
                 rel ->
                     (existentUrns == null || existentUrns.contains(rel.getEntity()))
+                        && (relatedEntityTypes == null
+                            || relatedEntityTypes.contains(rel.getEntity().getEntityType()))
                         && (context == null
                             || canView(context.getOperationContext(), rel.getEntity())))
             .collect(Collectors.toList());

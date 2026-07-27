@@ -42,6 +42,7 @@ public class DomainType
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          Constants.DEPRECATION_ASPECT_NAME,
           Constants.ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 

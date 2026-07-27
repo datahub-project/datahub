@@ -10,6 +10,7 @@ from requests.models import Response
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.matillion_dpc.config import MatillionSourceConfig
 from datahub.ingestion.source.matillion_dpc.matillion import MatillionSource
+from datahub.ingestion.source.matillion_dpc.models import SqlAggregatorKey
 
 
 @pytest.fixture
@@ -187,7 +188,9 @@ class TestSQLAggregatorCreation:
 
         # Simulate cached aggregator
         mock_aggregator = Mock()
-        matillion_source._sql_aggregators["snowflake"] = mock_aggregator
+        matillion_source._sql_aggregators[
+            SqlAggregatorKey(platform="snowflake", env="PROD")
+        ] = mock_aggregator
 
         result = matillion_source._get_sql_aggregator_for_platform(
             "snowflake", None, "PROD"
@@ -211,7 +214,12 @@ class TestSQLAggregatorCreation:
 
             # Should return None and cache None
             assert result is None
-            assert matillion_source._sql_aggregators.get("invalid_platform") is None
+            assert (
+                matillion_source._sql_aggregators.get(
+                    SqlAggregatorKey(platform="invalid_platform", env="PROD")
+                )
+                is None
+            )
 
 
 class TestSQLParsingWithGraph:
@@ -254,4 +262,13 @@ class TestSQLParsingWithGraph:
 
             # Verify it's returned and cached
             assert result is mock_aggregator_instance
-            assert source._sql_aggregators["snowflake"] is mock_aggregator_instance
+            assert (
+                source._sql_aggregators[
+                    SqlAggregatorKey(
+                        platform="snowflake",
+                        platform_instance="prod_instance",
+                        env="PROD",
+                    )
+                ]
+                is mock_aggregator_instance
+            )

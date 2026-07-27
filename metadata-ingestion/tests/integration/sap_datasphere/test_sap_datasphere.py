@@ -432,7 +432,7 @@ def _lineage_pipeline_config(output_file: Path, max_workers_assets: int = 4) -> 
                     "SNOWFLAKE": {
                         "platform": "snowflake",
                         "platform_instance": "prod_snowflake",
-                        "lowercase_urn": True,
+                        "convert_urns_to_lowercase": True,
                     },
                     # SALESFORCE intentionally unmapped, so FED_UNSUPPORTED lands
                     # in assets_skipped_unknown_typeid.
@@ -590,7 +590,7 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
         f"Expected managed datasets to use platform_instance test_tenant; got: {dataset_urns_all}"
     )
 
-    # Snowflake URNs are lowercase because lowercase_urn=True.
+    # Snowflake URNs are lowercase because convert_urns_to_lowercase=True.
     snowflake_urns = [
         u for u in dataset_urns_all if "urn:li:dataPlatform:snowflake" in u
     ]

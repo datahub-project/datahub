@@ -32,6 +32,8 @@ from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
 from datahub.cli.recording_cli import recording
 from datahub.cli.search_cli import search
+from datahub.cli.specific.agent_skill_cli import agent_skill
+from datahub.cli.specific.api_cli import api
 from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
@@ -334,7 +336,13 @@ def _validate_init_inputs(
     "--support",
     is_flag=True,
     default=False,
-    help="Use support login path for DataHub Cloud customer debugging (use with --sso)",
+    help="Use support login for DataHub Cloud customer debugging (use with --oauth or --sso)",
+)
+@click.option(
+    "--ticket-id",
+    type=str,
+    default=None,
+    help="Support ticket ID (required with --oauth --support)",
 )
 @click.option(
     "--agent-context",
@@ -353,6 +361,7 @@ def init(
     sso: bool = False,
     oauth: bool = False,
     support: bool = False,
+    ticket_id: Optional[str] = None,
     agent_context: bool = False,
 ) -> None:
     """Configure which DataHub instance to connect to.
@@ -396,7 +405,7 @@ def init(
 
     \b
     Support Login (DataHub Cloud — customer debugging):
-        datahub init --sso --support \\
+        datahub init --oauth --support --ticket-id SUPPORT-123 \\
             --host https://customer.acryl.io/gms
 
     \b
@@ -426,9 +435,12 @@ def init(
         click.echo(text)
         return
 
-    # Validate: --support requires --sso
-    if support and not sso:
-        raise click.UsageError("--support requires --sso")
+    if support and not (sso or oauth):
+        raise click.UsageError("--support requires --oauth or --sso")
+    if ticket_id and not support:
+        raise click.UsageError("--ticket-id requires --support")
+    if support and oauth and not ticket_id:
+        raise click.UsageError("--oauth --support requires --ticket-id")
 
     # Show deprecation warning if --use-password used
     if use_password:
@@ -490,7 +502,7 @@ def init(
         from datahub.cli.config_utils import write_oauth_config
         from datahub.cli.oauth_cli import pkce_login
 
-        result = pkce_login(host_value)
+        result = pkce_login(host_value, support=support, ticket_id=ticket_id)
         click.echo("✓ Successfully authenticated with DataHub")
         if result.refresh_token:
             click.echo(
@@ -512,7 +524,10 @@ def init(
 
         frontend_url = guess_frontend_url_from_gms_url(host_value)
         _, token_value = browser_sso_login(
-            frontend_url, effective_duration, support=support
+            frontend_url,
+            effective_duration,
+            support=support,
+            ticket_id=ticket_id,
         )
         click.echo(f"✓ Generated token (expires: {effective_duration})")
     elif should_generate_token or use_password:
@@ -578,6 +593,8 @@ datahub.add_command(assertions)
 datahub.add_command(container)
 datahub.add_command(recording)
 datahub.add_command(datapack)
+datahub.add_command(api)
+datahub.add_command(agent_skill)
 
 try:
     from datahub.cli.iceberg_cli import iceberg
@@ -617,9 +634,9 @@ try:
     datahub.add_command(agent)
 except ImportError as e:
     logger.debug(f"Failed to load datahub-agent-context framework: {e}")
-    datahub.add_command(
-        make_shim_command("agent", "run `pip install datahub-agent-context`")
-    )
+    from datahub.cli.specific.agent_cli import agent as agent_registry
+
+    datahub.add_command(agent_registry)
 
 # Adding telemetry and upgrade decorators to all commands
 enable_auto_decorators(datahub)

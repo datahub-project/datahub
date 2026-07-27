@@ -220,6 +220,17 @@ class ConfluenceSourceConfig(
         description="Optional parent document URN for top-level imported pages.",
     )
 
+    ingest_folders: bool = Field(
+        default=True,
+        description=(
+            "Ingest Confluence folders as document entities so that pages nested "
+            "under folders keep their place in the hierarchy. Confluence folders "
+            "are a separate content type that the page APIs never return, so when "
+            "this is disabled a page whose immediate parent is a folder is emitted "
+            "without a parent link and appears as a root document."
+        ),
+    )
+
     # Content processing
     processing: ProcessingConfig = Field(
         default_factory=ProcessingConfig,

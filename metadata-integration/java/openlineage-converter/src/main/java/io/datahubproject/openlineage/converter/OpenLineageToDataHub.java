@@ -54,6 +54,7 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
@@ -110,6 +111,11 @@ public class OpenLineageToDataHub {
   public static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
   public static final String MERGE_INTO_SQL_PATTERN = "MERGE INTO";
   public static final String TABLE_PREFIX = "table/";
+  // Matches an OpenLineage Glue namespace (with or without the "arn:" prefix), capturing region
+  // (group 1) and account (group 2) from arn:aws:glue:{region}:{account}. Both are needed to
+  // identify the catalog — account alone isn't unique across regions.
+  private static final Pattern GLUE_ARN_PATTERN =
+      Pattern.compile("(?:arn:)?aws:glue:([^:]+):([^:]+)");
   public static final String WAREHOUSE_PATH_PATTERN = "/warehouse/";
   public static final String DB_SUFFIX = ".db/";
 
@@ -132,8 +138,9 @@ public class OpenLineageToDataHub {
     if (dataset.getFacets() != null
         && dataset.getFacets().getSymlinks() != null
         && !mappingConfig.isDisableSymlinkResolution()) {
+      String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           dataset.getFacets().getSymlinks().getIdentifiers()) {
         if ("TABLE".equals(symlink.getType())) {
@@ -150,10 +157,14 @@ public class OpenLineageToDataHub {
           } else {
             datasetName = symlink.getName();
           }
+          // Derive the connection-instance map key from the symlink's own namespace before it is
+          // flattened above (e.g. the Glue ARN, which "glue" alone can't recover). toConnectionKey
+          // dispatches on the namespace protocol — it is not Glue-specific.
+          connectionKey = toConnectionKey(symlink.getNamespace());
         }
       }
       Optional<DatasetUrn> symlinkedUrn =
-          getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+          getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
       if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
         mappingConfig
             .getUrnAliases()
@@ -161,7 +172,7 @@ public class OpenLineageToDataHub {
       }
       datahubUrn = symlinkedUrn;
     } else {
-      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, mappingConfig);
+      datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
 
     log.debug("Dataset URN: {}, alias_list: {}", datahubUrn, mappingConfig.getUrnAliases());
@@ -184,7 +195,10 @@ public class OpenLineageToDataHub {
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
-      String namespace, String datasetName, DatahubOpenlineageConfig mappingConfig) {
+      String namespace,
+      String datasetName,
+      String connectionKeyOverride,
+      DatahubOpenlineageConfig mappingConfig) {
     String platform;
     if (mappingConfig.isLowerCaseDatasetUrns()) {
       namespace = namespace.toLowerCase();
@@ -222,16 +236,88 @@ public class OpenLineageToDataHub {
       }
     } else {
       platform = namespace;
+      // Bare-namespace FS datasets (e.g. "file", "dbfs") have no scheme, so they don't flow through
+      // HdfsPathDataset where file_partition_regexp is normally applied. Apply the opt-in regexp
+      // here too — otherwise it is silently ignored for these platforms. Scoped to FS platforms so
+      // non-FS bare namespaces (hive, the symlink-flattened glue) are unaffected.
+      if (HdfsPlatform.isFsPlatformPrefix(platform)
+          && mappingConfig.getFilePartitionRegexpPattern() != null) {
+        datasetName =
+            HdfsPathDataset.getRawNameWithoutPartition(
+                datasetName, mappingConfig.getFilePartitionRegexpPattern());
+      }
     }
 
-    String platformInstance = getPlatformInstance(mappingConfig, platform);
-    FabricType env = getEnv(mappingConfig, platform);
+    // The connection key drives per-connection platform_instance/env resolution. The caller
+    // supplies
+    // it for the symlink (Glue) case where `namespace` was flattened; otherwise derive it from the
+    // namespace via the same protocol-dispatching utility.
+    String connectionKey =
+        connectionKeyOverride != null ? connectionKeyOverride : toConnectionKey(namespace);
+    // When URNs are lowercased the dataset namespace is too (above), so the lookup key must match.
+    // The symlink override is derived from the raw symlink namespace, which skips that lowercasing,
+    // so normalize here to keep both paths consistent (matters for mixed-case hosts, e.g. Hive).
+    if (connectionKey != null && mappingConfig.isLowerCaseDatasetUrns()) {
+      connectionKey = connectionKey.toLowerCase();
+    }
+    // Resolve the per-connection detail once; both platform_instance and env key off it.
+    ConnectionInstanceDetail connectionDetail =
+        connectionKey == null ? null : mappingConfig.getConnectionInstanceMap().get(connectionKey);
+    if (!mappingConfig.getConnectionInstanceMap().isEmpty()) {
+      // Surface every connection-key lookup so a configured `connections` entry that never matches
+      // an emitted namespace (trailing slash, omitted port, sqlserver:// vs mssql, case when
+      // lowerCaseUrns is off, or an authority-less namespace like hive/bigquery) is diagnosable —
+      // otherwise the URN silently falls back to the global platform_instance/env and dangles.
+      log.debug(
+          "Connection-instance lookup: namespace={} -> key={} -> matched={}",
+          namespace,
+          connectionKey,
+          connectionDetail != null);
+    }
+    String platformInstance = getPlatformInstance(mappingConfig, platform, connectionDetail);
+    FabricType env = getEnv(mappingConfig, platform, connectionDetail);
     DatasetUrn urn = DatahubUtils.createDatasetUrn(platform, platformInstance, datasetName, env);
     return Optional.of(urn);
   }
 
-  private static FabricType getEnv(DatahubOpenlineageConfig mappingConfig, String platform) {
+  /**
+   * Converts an OpenLineage dataset namespace to the connection-instance map key, dispatching on
+   * the namespace's protocol. Not platform-specific:
+   *
+   * <ul>
+   *   <li>Glue arrives as an ARN ({@code arn:aws:glue:{region}:{account}}, or the pre-0.17.1 {@code
+   *       aws:glue:...} form) rather than a {@code scheme://authority} URI — normalized to the
+   *       canonical ARN authority (account + region).
+   *   <li>URI namespaces ({@code snowflake://...}, {@code postgres://host:port}, {@code
+   *       kafka://...}, …) carry the connection authority directly and are used verbatim.
+   *   <li>A bare platform name (e.g. {@code hive}, or the symlink-flattened {@code glue}) has no
+   *       connection authority.
+   * </ul>
+   *
+   * Returns null when no connection key applies. This is the single place that decides, per
+   * protocol, how a namespace maps to a key — extend it here for new protocols.
+   */
+  public static String toConnectionKey(String olNamespace) {
+    if (olNamespace == null) {
+      return null;
+    }
+    Matcher glueArn = GLUE_ARN_PATTERN.matcher(olNamespace);
+    if (glueArn.find()) {
+      return "arn:aws:glue:" + glueArn.group(1) + ":" + glueArn.group(2);
+    }
+    if (olNamespace.contains(SCHEME_SEPARATOR)) {
+      return olNamespace;
+    }
+    return null;
+  }
+
+  private static FabricType getEnv(
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
     FabricType fabricType = mappingConfig.getFabricType();
+    if (detail != null && detail.getEnv().isPresent()) {
+      // env is validated to a FabricType at config-load time, so it is used directly here.
+      return detail.getEnv().get();
+    }
     if (mappingConfig.getPathSpecs() != null
         && mappingConfig.getPathSpecs().containsKey(platform)) {
       List<PathSpec> pathSpecs = mappingConfig.getPathSpecs().get(platform);
@@ -241,7 +327,7 @@ public class OpenLineageToDataHub {
             fabricType = FabricType.valueOf(pathSpec.getEnv().get());
             return fabricType;
           } catch (IllegalArgumentException e) {
-            log.warn("Invalid environment value: {}", pathSpec.getEnv());
+            log.warn("Invalid environment value: {}", pathSpec.getEnv().get());
           }
         }
       }
@@ -250,7 +336,14 @@ public class OpenLineageToDataHub {
   }
 
   private static String getPlatformInstance(
-      DatahubOpenlineageConfig mappingConfig, String platform) {
+      DatahubOpenlineageConfig mappingConfig, String platform, ConnectionInstanceDetail detail) {
+    // Cross-platform lineage: resolve the upstream connection's instance first via an explicit
+    // connection->instance mapping, so datasets from different accounts/regions/hosts in one job
+    // get
+    // distinct, correct URNs instead of collapsing to a single instance.
+    if (detail != null && detail.getPlatformInstance().isPresent()) {
+      return detail.getPlatformInstance().get();
+    }
     // Use the platform instance from the path spec if it is present otherwise use the one from the
     // commonDatasetPlatformInstance
     String platformInstance = mappingConfig.getCommonDatasetPlatformInstance();
@@ -336,6 +429,9 @@ public class OpenLineageToDataHub {
                   dataPlatformInstanceUrn(
                       dataFlowUrn.getOrchestratorEntity(), datahubConf.getPlatformInstance()));
       jobBuilder.flowPlatformInstance(dpi);
+      // Stamp the same instance on the DataJob so the job entity carries its own
+      // DataPlatformInstance aspect, not just the instance embedded in the parent DataFlow URN.
+      jobBuilder.jobPlatformInstance(dpi);
     }
 
     StringMap customProperties = generateCustomProperties(event, true);
@@ -1388,7 +1484,7 @@ public class OpenLineageToDataHub {
     SchemaMetadata.PlatformSchema platformSchema = new SchemaMetadata.PlatformSchema();
     platformSchema.setMySqlDDL(ddl);
     Optional<DatasetUrn> datasetUrn =
-        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), mappingConfig);
+        getDatasetUrnFromOlDataset(dataset.getNamespace(), dataset.getName(), null, mappingConfig);
 
     if (!datasetUrn.isPresent()) {
       return null;

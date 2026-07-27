@@ -10,8 +10,8 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { StringMapEntry } from '@types';

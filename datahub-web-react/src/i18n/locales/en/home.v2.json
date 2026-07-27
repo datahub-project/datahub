@@ -80,6 +80,7 @@
     "navLinks.help.productTourDescription": "Take a quick tour of this page",
     "navLinks.help.title": "Help",
     "navLinks.home": "Home",
+    "navLinks.metrics": "Metrics",
     "navLinks.ingestion.description": "Manage data integrations and pipelines",
     "navLinks.ingestion.title": "Ingestion",
     "navLinks.settings.description": "Manage your account and preferences",

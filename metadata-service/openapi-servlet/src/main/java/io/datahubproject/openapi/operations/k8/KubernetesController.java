@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.operations.k8.models.ConfigMapUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.CronJobTriggerRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentEnvUpdateRequest;
@@ -45,6 +46,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -108,6 +110,21 @@ public class KubernetesController {
     this.k8sObjectMapper = k8sObjectMapper;
   }
 
+  /**
+   * Surfaces the real Kubernetes API failure (its HTTP status and message) instead of letting it
+   * fall through to the global handler, which masks every exception as an opaque {@code 500
+   * "Internal server error occurred"}. A 403 (RBAC denied) or 404 is far more actionable for an
+   * operator than a generic 500. All endpoints here are MANAGE_SYSTEM_OPERATIONS-gated, so
+   * returning the raw API message is acceptable.
+   */
+  @ExceptionHandler(KubernetesClientException.class)
+  public ResponseEntity<Map<String, String>> handleKubernetesClientException(
+      KubernetesClientException e) {
+    int code = e.getCode() > 0 ? e.getCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+    log.error("Kubernetes API call failed (HTTP {})", code, e);
+    return ResponseEntity.status(code).body(Map.of("error", e.getMessage()));
+  }
+
   // ==================== Status ====================
 
   @Tag(name = "Kubernetes Operations")
@@ -132,7 +149,9 @@ public class KubernetesController {
     OperationContext ctx =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actor, request, "getK8sStatus", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actor, request, "getK8sStatus", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             auth,
             true);
@@ -170,6 +189,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listDeployments",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.apps().deployments().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -192,6 +212,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getDeployment",
+        UsageOperation.OTHER_READ,
         () -> {
           var d = kubernetesClient.apps().deployments().inNamespace(ns()).withName(name).get();
           return d != null ? k8sResponse(d) : notFound("Deployment", name);
@@ -221,6 +242,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "scaleDeployment",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           boolean isActivate = AUTO_SCALING_ACTIVATE.equalsIgnoreCase(req.getAutoscalingMode());
 
@@ -319,6 +341,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "updateDeploymentEnv",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           boolean hasSet = req.getSet() != null && !req.getSet().isEmpty();
           boolean hasRemove = req.getRemove() != null && !req.getRemove().isEmpty();
@@ -391,6 +414,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listPods",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.pods().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -412,6 +436,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getPod",
+        UsageOperation.OTHER_READ,
         () -> {
           var pod = kubernetesClient.pods().inNamespace(ns()).withName(name).get();
           return pod != null ? k8sResponse(pod) : notFound("Pod", name);
@@ -438,6 +463,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getPodLogs",
+        UsageOperation.OTHER_READ,
         () -> {
           int limit = Math.min(Math.max(limitBytes, 1024), 1024 * 1024); // 1KB min, 1MB max
 
@@ -462,6 +488,14 @@ public class KubernetesController {
               logs = "[truncated...]\n" + logs.substring(logs.length() - limit);
             }
             return ResponseEntity.ok(logs != null ? logs : "");
+          } catch (KubernetesClientException e) {
+            // Surface the real API status (e.g. 403/404) rather than a blanket 500. Handled here
+            // rather than via handleKubernetesClientException because this endpoint produces
+            // text/plain, so the error body must stay text/plain too.
+            int code = e.getCode() > 0 ? e.getCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+            log.error(
+                "Failed to get logs for pod {}, container {} (HTTP {})", name, cr.name(), code, e);
+            return ResponseEntity.status(code).body("Failed to retrieve logs: " + e.getMessage());
           } catch (Exception e) {
             log.error("Failed to get logs for pod {}, container {}", name, cr.name(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -488,6 +522,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "deletePod",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           var pods = kubernetesClient.pods().inNamespace(ns());
           if (pods.withName(name).get() == null) return notFound("Pod", name);
@@ -516,6 +551,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listConfigMaps",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.configMaps().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -538,6 +574,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getConfigMap",
+        UsageOperation.OTHER_READ,
         () -> {
           var cm = kubernetesClient.configMaps().inNamespace(ns()).withName(name).get();
           return cm != null ? k8sResponse(cm) : notFound("ConfigMap", name);
@@ -565,6 +602,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "updateConfigMap",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           boolean hasSet = req.getSet() != null && !req.getSet().isEmpty();
           boolean hasRemove = req.getRemove() != null && !req.getRemove().isEmpty();
@@ -617,6 +655,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listCronJobs",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.batch().v1().cronjobs().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -639,6 +678,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getCronJob",
+        UsageOperation.OTHER_READ,
         () -> {
           var cj = kubernetesClient.batch().v1().cronjobs().inNamespace(ns()).withName(name).get();
           return cj != null ? k8sResponse(cj) : notFound("CronJob", name);
@@ -666,6 +706,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "triggerCronJob",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           if (req.getJobName() == null || req.getJobName().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Job name is required"));
@@ -729,6 +770,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "listJobs",
+        UsageOperation.OTHER_READ,
         () -> {
           var items = kubernetesClient.batch().v1().jobs().inNamespace(ns()).list().getItems();
           return k8sResponse(paginate(items, start, count));
@@ -750,6 +792,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "getJob",
+        UsageOperation.OTHER_READ,
         () -> {
           var job = kubernetesClient.batch().v1().jobs().inNamespace(ns()).withName(name).get();
           return job != null ? k8sResponse(job) : notFound("Job", name);
@@ -774,6 +817,7 @@ public class KubernetesController {
     return withAccess(
         request,
         "deleteJob",
+        UsageOperation.OTHER_OPERATIONS,
         () -> {
           var jobs = kubernetesClient.batch().v1().jobs().inNamespace(ns());
           if (jobs.withName(name).get() == null) return notFound("Job", name);
@@ -786,13 +830,16 @@ public class KubernetesController {
   // ==================== Helper Methods ====================
 
   /** Runs operation after auth and K8s availability checks. Returns error response or null. */
-  private ResponseEntity<?> checkAccess(HttpServletRequest request, String operation) {
+  private ResponseEntity<?> checkAccess(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication auth = AuthenticationContext.getAuthentication();
     String actor = auth.getActor().toUrnStr();
     OperationContext ctx =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actor, request, operation, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actor, request, operation, List.of())
+                .withUsageOperation(usageOperation),
             authorizerChain,
             auth,
             true);
@@ -810,8 +857,11 @@ public class KubernetesController {
 
   /** Executes operation if authorized and K8s available, otherwise returns error. */
   private ResponseEntity<?> withAccess(
-      HttpServletRequest request, String operation, Supplier<ResponseEntity<?>> handler) {
-    ResponseEntity<?> error = checkAccess(request, operation);
+      HttpServletRequest request,
+      String operation,
+      UsageOperation usageOperation,
+      Supplier<ResponseEntity<?>> handler) {
+    ResponseEntity<?> error = checkAccess(request, operation, usageOperation);
     return error != null ? error : handler.get();
   }
 

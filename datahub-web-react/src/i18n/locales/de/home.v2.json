@@ -80,6 +80,7 @@
     "navLinks.help.productTourDescription": "Eine kurze Tour über diese Seite machen",
     "navLinks.help.title": "Hilfe",
     "navLinks.home": "Startseite",
+    "navLinks.metrics": "Metriken",
     "navLinks.ingestion.description": "Datenintegrationen und Pipelines verwalten",
     "navLinks.ingestion.title": "Ingestion",
     "navLinks.settings.description": "Dein Konto und deine Präferenzen verwalten",

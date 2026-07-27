@@ -14,6 +14,23 @@ import {
     USER_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/azure';
 import {
+    BIGID_ACCESS_TOKEN,
+    BIGID_CONFIDENCE_LEVEL_TAG,
+    BIGID_CONNECTION_ALLOW,
+    BIGID_CONNECTION_DENY,
+    BIGID_CREATE_DATASETS,
+    BIGID_ENV,
+    BIGID_MIN_CONFIDENCE,
+    BIGID_PLATFORM_INSTANCE,
+    BIGID_STATEFUL_INGESTION,
+    BIGID_SYNC_IDSOR,
+    BIGID_SYNC_TAGS,
+    BIGID_SYNC_UNLINKED_CLASSIFIERS,
+    BIGID_SYNC_UNSTRUCTURED,
+    BIGID_URL,
+    BIGID_USER_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/bigid';
+import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
@@ -73,6 +90,26 @@ import {
     CSV_FILE_URL,
     CSV_WRITE_SEMANTICS,
 } from '@app/ingestV2/source/builder/RecipeForm/csv';
+import {
+    DATAPLEX_CLIENT_EMAIL,
+    DATAPLEX_CLIENT_ID,
+    DATAPLEX_ENTRIES_LOCATIONS,
+    DATAPLEX_ENTRY_ALLOW,
+    DATAPLEX_ENTRY_DENY,
+    DATAPLEX_ENTRY_GROUP_ALLOW,
+    DATAPLEX_ENTRY_GROUP_DENY,
+    DATAPLEX_GLOSSARY_LOCATIONS,
+    DATAPLEX_INCLUDE_GLOSSARIES,
+    DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+    DATAPLEX_INCLUDE_LINEAGE,
+    DATAPLEX_INCLUDE_SCHEMA,
+    DATAPLEX_LINEAGE_LOCATIONS,
+    DATAPLEX_PRIVATE_KEY,
+    DATAPLEX_PRIVATE_KEY_ID,
+    DATAPLEX_PROJECT_ALLOW,
+    DATAPLEX_PROJECT_DENY,
+    DATAPLEX_PROJECT_IDS,
+} from '@app/ingestV2/source/builder/RecipeForm/dataplex';
 import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
@@ -213,6 +250,40 @@ import {
     MATILLION_STREAMING_DENY,
 } from '@app/ingestV2/source/builder/RecipeForm/matillion-dpc';
 import {
+    MICROSTRATEGY_AUTH_TYPE,
+    MICROSTRATEGY_BASE_URL,
+    MICROSTRATEGY_DASHBOARD_ALLOW,
+    MICROSTRATEGY_DASHBOARD_DENY,
+    MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+    MICROSTRATEGY_EXTRACT_CHARTS,
+    MICROSTRATEGY_EXTRACT_CUBES,
+    MICROSTRATEGY_EXTRACT_DASHBOARDS,
+    MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+    MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+    MICROSTRATEGY_EXTRACT_LINEAGE,
+    MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+    MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_REPORTS,
+    MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+    MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+    MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+    MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+    MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+    MICROSTRATEGY_FOLDER_ALLOW,
+    MICROSTRATEGY_FOLDER_DENY,
+    MICROSTRATEGY_INCLUDE_HIDDEN,
+    MICROSTRATEGY_INGEST_OWNER,
+    MICROSTRATEGY_PASSWORD,
+    MICROSTRATEGY_PLATFORM_INSTANCE,
+    MICROSTRATEGY_PROJECT_ALLOW,
+    MICROSTRATEGY_PROJECT_DENY,
+    MICROSTRATEGY_REPORT_ALLOW,
+    MICROSTRATEGY_REPORT_DENY,
+    MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+    MICROSTRATEGY_USERNAME,
+    MICROSTRATEGY_VERIFY_SSL,
+} from '@app/ingestV2/source/builder/RecipeForm/microstrategy';
+import {
     MSSQL,
     MSSQL_DATABASE,
     MSSQL_HOST_PORT,
@@ -221,6 +292,26 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/mssql';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
+import {
+    ODCS_AWS_ACCESS_KEY_ID,
+    ODCS_AWS_REGION,
+    ODCS_AWS_SECRET_ACCESS_KEY,
+    ODCS_EMIT_ASSERTIONS,
+    ODCS_EMIT_LOGICAL_PARENT,
+    ODCS_EMIT_SCHEMA_ASSERTION,
+    ODCS_GCS_HMAC_KEY_ID,
+    ODCS_GCS_HMAC_KEY_SECRET,
+    ODCS_GIT_INFO_BRANCH,
+    ODCS_GIT_INFO_DEPLOY_KEY,
+    ODCS_GIT_INFO_REPO,
+    ODCS_HTTP_PASSWORD,
+    ODCS_HTTP_TOKEN,
+    ODCS_HTTP_USERNAME,
+    ODCS_HTTP_VERIFY_SSL,
+    ODCS_PATH,
+    ODCS_SOURCE_LOCATION,
+    ODCS_STRICT_VALIDATION,
+} from '@app/ingestV2/source/builder/RecipeForm/odcs';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -364,12 +455,14 @@ import {
 } from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
+    BIGID,
     CONFLUENCE,
     CSV,
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
     MATILLION_DPC,
+    MICROSTRATEGY,
     MYSQL,
     NOTION,
     OKTA,
@@ -379,10 +472,12 @@ import {
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { DATAPLEX } from '@app/ingestV2/source/conf/dataplex/dataplex';
 import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
 import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
 import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
@@ -467,6 +562,60 @@ export const RECIPE_FIELDS: RecipeFields = {
             VIEW_DENY,
         ],
         filterSectionTooltip: 'Include or exclude specific Projects, Datasets, Tables and Views from ingestion.',
+    },
+    [DATAPLEX]: {
+        fields: [
+            DATAPLEX_PROJECT_IDS,
+            DATAPLEX_PRIVATE_KEY,
+            DATAPLEX_PRIVATE_KEY_ID,
+            DATAPLEX_CLIENT_EMAIL,
+            DATAPLEX_CLIENT_ID,
+        ],
+        filterFields: [
+            DATAPLEX_PROJECT_ALLOW,
+            DATAPLEX_PROJECT_DENY,
+            DATAPLEX_ENTRY_ALLOW,
+            DATAPLEX_ENTRY_DENY,
+            DATAPLEX_ENTRY_GROUP_ALLOW,
+            DATAPLEX_ENTRY_GROUP_DENY,
+        ],
+        advancedFields: [
+            DATAPLEX_ENTRIES_LOCATIONS,
+            DATAPLEX_INCLUDE_SCHEMA,
+            DATAPLEX_INCLUDE_LINEAGE,
+            DATAPLEX_INCLUDE_GLOSSARIES,
+            DATAPLEX_INCLUDE_GLOSSARY_TERM_ASSOCIATIONS,
+            DATAPLEX_LINEAGE_LOCATIONS,
+            DATAPLEX_GLOSSARY_LOCATIONS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
+    },
+    [ODCS]: {
+        fields: [
+            ODCS_PATH,
+            ODCS_SOURCE_LOCATION,
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_ACCESS_KEY_ID,
+            ODCS_AWS_SECRET_ACCESS_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
+            ODCS_HTTP_TOKEN,
+            ODCS_HTTP_USERNAME,
+            ODCS_HTTP_PASSWORD,
+            ODCS_HTTP_VERIFY_SSL,
+        ],
+        filterFields: [DATASET_ALLOW, DATASET_DENY],
+        advancedFields: [
+            ODCS_EMIT_ASSERTIONS,
+            ODCS_EMIT_SCHEMA_ASSERTION,
+            ODCS_EMIT_LOGICAL_PARENT,
+            ODCS_STRICT_VALIDATION,
+            STATEFUL_INGESTION_ENABLED,
+        ],
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
@@ -680,6 +829,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
     },
+    [BIGID]: {
+        fields: [BIGID_URL, BIGID_USER_TOKEN, BIGID_ACCESS_TOKEN, BIGID_ENV, BIGID_PLATFORM_INSTANCE],
+        filterFields: [BIGID_CONNECTION_ALLOW, BIGID_CONNECTION_DENY],
+        advancedFields: [
+            BIGID_MIN_CONFIDENCE,
+            BIGID_CREATE_DATASETS,
+            BIGID_CONFIDENCE_LEVEL_TAG,
+            BIGID_SYNC_TAGS,
+            BIGID_SYNC_UNLINKED_CLASSIFIERS,
+            BIGID_SYNC_IDSOR,
+            BIGID_SYNC_UNSTRUCTURED,
+            BIGID_STATEFUL_INGESTION,
+        ],
+        filterSectionTooltip: 'Include or exclude specific BigID connections (data sources) from ingestion.',
+    },
     [MATILLION_DPC]: {
         fields: [
             MATILLION_CLIENT_ID,
@@ -715,6 +879,49 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific PowerBI Workspaces from ingestion.',
+    },
+    [MICROSTRATEGY]: {
+        fields: [
+            MICROSTRATEGY_BASE_URL,
+            MICROSTRATEGY_AUTH_TYPE,
+            MICROSTRATEGY_USERNAME,
+            MICROSTRATEGY_PASSWORD,
+            MICROSTRATEGY_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MICROSTRATEGY_PROJECT_ALLOW,
+            MICROSTRATEGY_PROJECT_DENY,
+            MICROSTRATEGY_FOLDER_ALLOW,
+            MICROSTRATEGY_FOLDER_DENY,
+            MICROSTRATEGY_DASHBOARD_ALLOW,
+            MICROSTRATEGY_DASHBOARD_DENY,
+            MICROSTRATEGY_REPORT_ALLOW,
+            MICROSTRATEGY_REPORT_DENY,
+        ],
+        advancedFields: [
+            MICROSTRATEGY_EXTRACT_DASHBOARDS,
+            MICROSTRATEGY_EXTRACT_CHARTS,
+            MICROSTRATEGY_EXTRACT_CUBES,
+            MICROSTRATEGY_EXTRACT_REPORTS,
+            MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
+            MICROSTRATEGY_EXTRACT_LINEAGE,
+            MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+            MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
+            MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+            MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+            MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
+            MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
+            MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
+            MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+            MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
+            MICROSTRATEGY_INGEST_OWNER,
+            MICROSTRATEGY_INCLUDE_HIDDEN,
+            MICROSTRATEGY_VERIFY_SSL,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Folders, Dashboards, and Reports from MicroStrategy ingestion.',
     },
     [VERTICA]: {
         fields: [VERTICA_HOST_PORT, VERTICA_DATABASE, VERTICA_USERNAME, VERTICA_PASSWORD],

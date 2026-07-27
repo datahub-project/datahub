@@ -1,0 +1,12 @@
+# Optional rate-limit override (Tier 2) — intentionally empty.
+#
+# Defaults live in application.yaml. This is the fallback target when RATE_LIMITS_CONFIG_FILE is
+# unset (contributes nothing). Point RATE_LIMITS_CONFIG_FILE at a mounted file to override keys;
+# scalars/map entries overlay per key, rule lists are index-bound (bundled lists are empty). Example:
+#
+#   datahub:
+#     gms:
+#       rateLimits:
+#         scoped:
+#           heavyResolvers:
+#             searchAcrossEntities: { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 }

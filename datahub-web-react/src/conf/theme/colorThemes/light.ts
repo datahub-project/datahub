@@ -21,7 +21,7 @@ const lightTheme: ColorTheme = {
     bgHover: colors.gray400,
     text: colors.gray800,
     textSecondary: colors.gray700,
-    textTertiary: colors.gray600,
+    textTertiary: colors.gray700,
     textBrand: colors.violet600,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,
@@ -231,7 +231,7 @@ const lightTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet600,
 
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,

@@ -1,7 +1,6 @@
 import logging
 import pathlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Callable, Iterable, List, Optional, Set, TypeVar
 
 from databricks.sdk.service.sql import QueryStatementType
@@ -16,6 +15,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -130,14 +130,6 @@ class UnityCatalogUsageExtractor:
             self.config.end_time,
             include_operational_stats=include_ops,
         )
-
-    @staticmethod
-    def _normalize_timestamp(ts: Optional[datetime]) -> Optional[datetime]:
-        if ts is None:
-            return None
-        if ts.tzinfo is not None:
-            return ts.astimezone(timezone.utc)
-        return ts.replace(tzinfo=timezone.utc)
 
     def _user_urn(self, query: Query) -> Optional[CorpUserUrn]:
         if not query.user_name:
@@ -277,7 +269,7 @@ class UnityCatalogUsageExtractor:
     def _to_preparsed_queries(self, query: Query) -> List[PreparsedQuery]:
         upstreams = self._resolve_table_urns(query.source_table_full_names)
         targets = self._resolve_table_urns(query.target_table_full_names)
-        ts = self._normalize_timestamp(query.start_time)
+        ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
 
@@ -323,7 +315,7 @@ class UnityCatalogUsageExtractor:
         aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query_text,
-                timestamp=self._normalize_timestamp(query.start_time),
+                timestamp=normalize_timestamp_to_utc(query.start_time),
                 user=self._user_urn(query),
                 default_db=default_db,
                 default_schema=None,
@@ -425,8 +417,11 @@ class UnityCatalogUsageExtractor:
             ),
         ):
             if count > 0:
-                self.report.report_warning(
-                    title=title, message=message, context=f"count={count}"
+                self.report.warning(
+                    title=title,
+                    message=message,
+                    context=f"count={count}",
+                    log=False,
                 )
 
         # Handled separately: it appends sample table names to the context.
@@ -435,26 +430,28 @@ class UnityCatalogUsageExtractor:
             context = f"count={self.report.num_lineage_tables_unresolvable}"
             if sample:
                 context += f"; examples={', '.join(sample[:3])}"
-            self.report.report_warning(
+            self.report.warning(
                 title="Unresolvable lineage table names",
                 message=(
                     "Table names from system.access.table_lineage could not be mapped "
                     "to dataset URNs and were omitted from preparsed usage."
                 ),
                 context=context,
+                log=False,
             )
 
     def _report_no_queries(self) -> None:
         # Zero usable queries: distinguish unparseable rows from an empty read,
         # with a path-specific permission hint.
         if self.report.num_queries_missing_info > 0:
-            self.report.report_warning(
+            self.report.warning(
                 title="Query history rows could not be parsed",
                 message=(
                     "Statements from system.query.history could not be "
                     "parsed and were skipped, so no usage was extracted."
                 ),
                 context=f"count={self.report.num_queries_missing_info}",
+                log=False,
             )
             return
 
@@ -476,13 +473,14 @@ class UnityCatalogUsageExtractor:
                 "verify CAN_MANAGE privilege on the SQL warehouse "
                 "and that the time window covers recent activity"
             )
-        self.report.report_warning(
+        self.report.warning(
             title="No queries found for usage",
             message=(
                 "No queries were found in the configured time range "
                 "for usage extraction."
             ),
             context=hint,
+            log=False,
         )
 
     def _parse_buffered_queries(
@@ -614,12 +612,13 @@ class UnityCatalogUsageExtractor:
                         shared_connection = None
                         audit_log_file.unlink(missing_ok=True)
                         use_cached_audit_log = False
-                        self.report.report_warning(
+                        self.report.warning(
                             title="Discarded unreadable cached audit log",
                             message="The persisted query-history cache could not be read "
                             "and was discarded; re-fetching query history.",
                             context=str(audit_log_file),
                             exc=cache_exc,
+                            log=False,
                         )
 
                 if not use_cached_audit_log:
@@ -650,9 +649,9 @@ class UnityCatalogUsageExtractor:
                 # valid cache on the next run.
                 if audit_log_file is not None:
                     audit_log_file.unlink(missing_ok=True)
-                self.report.report_failure(
+                self.report.failure(
                     title="Usage extraction failed",
-                    message=f"Usage extraction failed: {e!r}",
+                    message="Usage extraction failed",
                     exc=e,
                 )
                 return
@@ -663,7 +662,7 @@ class UnityCatalogUsageExtractor:
             if fetch_failed:
                 # Surface a query-history fetch failure as a run failure — covers both
                 # the zero-rows case and a mid-stream failure that yielded partial data.
-                self.report.report_failure(
+                self.report.failure(
                     title="Failed to fetch query history",
                     message="Could not fully read query history from system tables; usage statistics may be incomplete or missing. See the related SQL query failure warning for the underlying error.",
                 )
@@ -698,11 +697,12 @@ class UnityCatalogUsageExtractor:
                     Exception
                 ) as close_exc:  # surface close failures in the report, not just logs
                     logger.warning("Failed to close audit-log buffer", exc_info=True)
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to close usage buffer",
                         message="The query-history buffer failed to close cleanly; its "
                         "temporary resources may not have been released.",
                         exc=close_exc,
+                        log=False,
                     )
             if aggregator is not None:
                 try:
@@ -713,8 +713,9 @@ class UnityCatalogUsageExtractor:
                     logger.warning(
                         "Failed to close SqlParsingAggregator", exc_info=True
                     )
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to close usage aggregator",
                         message="The usage aggregator failed to close cleanly; its temporary resources may not have been released.",
                         exc=close_exc,
+                        log=False,
                     )

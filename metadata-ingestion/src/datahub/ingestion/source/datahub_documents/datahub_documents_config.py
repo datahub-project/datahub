@@ -2,7 +2,7 @@
 
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, ValidationInfo, field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.datahub_documents.document_chunking_state_handler import (
@@ -53,6 +53,59 @@ class EventModeConfig(ConfigModel):
     )
 
 
+class LockConfig(ConfigModel):
+    """Distributed lock configuration to prevent overlapping ingestion runs.
+
+    This source is typically scheduled on a short interval (e.g. every 15 minutes).
+    A full scroll + embedding pass can take longer than the schedule interval, so two
+    runs could otherwise overlap and redundantly re-embed the same documents. The lock
+    uses a ``dataHubStepState`` entity as a shared lease, written synchronously to the
+    primary store so concurrent runners observe it immediately.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description="Acquire a distributed lock before processing so overlapping "
+        "scheduled runs do not duplicate scroll + indexing work. When the lock is "
+        "held by another run, this run exits cleanly without processing.",
+    )
+    lock_id: Optional[str] = Field(
+        default=None,
+        description="Identifier for the lock's dataHubStepState entity. Defaults to "
+        "'datahub-documents-lock-{pipeline_name}'. Runs sharing a lock_id are mutually "
+        "exclusive; give unrelated pipelines distinct ids.",
+    )
+    lock_ttl_seconds: int = Field(
+        default=1800,
+        gt=0,
+        description="Lease duration in seconds. The lock holder renews its lease "
+        "periodically (see lock_renewal_interval_seconds) while it runs, so this only "
+        "needs to exceed the renewal interval (with margin for transient write failures), "
+        "NOT the total run duration. A lease not renewed within this window is treated as "
+        "stale (e.g. from a crashed run) and may be taken over. After a crash, future runs "
+        "are blocked for at most this long.",
+    )
+    lock_renewal_interval_seconds: int = Field(
+        default=300,
+        gt=0,
+        description="How often the lock holder renews (extends) its lease while running. "
+        "Must be comfortably smaller than lock_ttl_seconds. This lets a job run for hours "
+        "with a short TTL: the lease stays alive as long as the run is healthy.",
+    )
+
+    @field_validator("lock_renewal_interval_seconds")
+    @classmethod
+    def validate_renewal_below_ttl(cls, v: int, info: ValidationInfo) -> int:
+        ttl = info.data.get("lock_ttl_seconds")
+        if ttl is not None and v >= ttl:
+            raise ValueError(
+                f"lock_renewal_interval_seconds ({v}) must be smaller than "
+                f"lock_ttl_seconds ({ttl}); otherwise the lease can expire between "
+                "renewals. A ratio of ~4-6x (ttl >= 4 * renewal) is recommended."
+            )
+        return v
+
+
 class IncrementalConfig(ConfigModel):
     """Incremental processing configuration."""
 
@@ -91,9 +144,18 @@ class DataHubDocumentsSourceConfig(
         default=None,
         description="Filter documents by platforms. "
         "Default (None): Process all NATIVE documents (sourceType=NATIVE) regardless of platform. "
-        "To include external documents from specific platforms, add them here (e.g., ['notion', 'confluence']). "
-        "This will process NATIVE documents + EXTERNAL documents from the specified platforms. "
+        "EXTERNAL documents are also processed by default (see include_external_documents); "
+        "set platform_filter to restrict EXTERNAL documents to specific platforms (e.g., ['notion', 'confluence']). "
         "Use ['*'] or ['ALL'] to process all documents regardless of source type or platform.",
+    )
+
+    # External document handling
+    include_external_documents: bool = Field(
+        default=True,
+        description="Index EXTERNAL documents (sourceType=EXTERNAL), not just NATIVE ones. "
+        "When platform_filter is set, EXTERNAL documents are still restricted to those "
+        "platforms; when platform_filter is empty, all EXTERNAL documents are included. "
+        "Set to False to restore NATIVE-only behavior.",
     )
 
     # Optional URN filtering
@@ -127,11 +189,60 @@ class DataHubDocumentsSourceConfig(
     )
 
     max_documents: int = Field(
-        default=10000,
+        default=100000,
         ge=-1,
         description="Maximum number of documents to process per ingestion run. "
-        "The job will stop and fail with an error once this limit is reached. "
+        "The job will stop and fail with an error once this limit is reached. This is a "
+        "runaway-cost guardrail; it counts documents actually indexed, so incremental runs "
+        "rarely approach it and it mainly bounds initial bootstraps/backfills. "
         "Set to 0 or -1 to disable the limit.",
+    )
+
+    # Scroll pagination tuning (batch mode)
+    scroll_batch_size: int = Field(
+        default=1000,
+        gt=0,
+        description="Number of documents to fetch per scrollAcrossEntities page in batch mode. "
+        "scrollAcrossEntities uses cursor-based pagination, so all documents are fetched across "
+        "pages regardless of this value (no 10k Elasticsearch window limit). Tune for throughput "
+        "vs. memory/load on GMS.",
+    )
+    scroll_delay_seconds: float = Field(
+        default=0.0,
+        ge=0,
+        description="Delay in seconds between consecutive scroll page requests in batch mode. "
+        "Use a small delay to reduce read load on GMS/Elasticsearch when scrolling large document sets; "
+        "set to 0 to disable.",
+    )
+    index_delay_seconds: float = Field(
+        default=0.025,
+        ge=0,
+        description="Delay in seconds after each document that is actually indexed (embeddings "
+        "emitted). Skipped documents (unchanged, externally owned, empty, etc.) are not delayed. "
+        "Defaults to 0.025s to smooth write load during bootstrap without unduly slowing large "
+        "backfills (e.g. ~42 min of added pacing for 100k new documents); set to 0 to disable. "
+        "Sub-second values are supported.",
+    )
+
+    # Skip EXTERNAL documents that are already semantically indexed by their own source
+    skip_external_if_semantic_content_exists: bool = Field(
+        default=True,
+        description="For EXTERNAL documents only: before processing, check whether the document "
+        "already has a semanticContent aspect for the active embedding model and, if so, skip it "
+        "and leave it out of our incremental state. Some ingestion sources (e.g. Notion, "
+        "Confluence) perform their own semantic indexing, so an existing aspect means that source "
+        "owns the document. This source then only picks up EXTERNAL documents the source did NOT "
+        "index and takes ownership of them. NATIVE documents are never skipped this way. Adds one "
+        "metadata read per candidate EXTERNAL document not already in state. Incremental "
+        "content-hash skipping still applies once a document is owned. Set to False to always "
+        "re-embed EXTERNAL documents.",
+    )
+
+    # Locking (prevent overlapping scheduled runs)
+    locking: LockConfig = Field(
+        default_factory=LockConfig,
+        description="Distributed lock configuration to prevent overlapping scheduled runs "
+        "from duplicating scroll + indexing work.",
     )
 
     # Partitioning configuration

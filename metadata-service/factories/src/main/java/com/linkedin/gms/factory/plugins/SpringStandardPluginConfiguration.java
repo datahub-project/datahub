@@ -20,13 +20,17 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
+import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
+import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
@@ -52,6 +56,7 @@ import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidat
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -235,8 +240,10 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(FieldPathValidator.class.getName())
                 .enabled(true)
+                // PATCH is required so patch writes reach the proposed hook, where the field
+                // paths carried by the patch's own add/replace values are validated
                 .supportedOperations(
-                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE"))
+                    List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -311,7 +318,7 @@ public class SpringStandardPluginConfiguration {
                 .className(FormPromptValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
-                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE"))
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -455,6 +462,23 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  public AspectPayloadValidator corpUserPrivilegedFlagsValidator() {
+    return new CorpUserPrivilegedFlagsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(CorpUserPrivilegedFlagsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, CREATE, CREATE_ENTITY, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(CORP_USER_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   @ConditionalOnProperty(
       name = "metadataChangeProposal.validation.privilegeConstraints.enabled",
       havingValue = "true")
@@ -493,6 +517,28 @@ public class SpringStandardPluginConfiguration {
         .setConfig(
             AspectPluginConfig.builder()
                 .className(LogicalParentAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(LOGICAL_PARENT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.logicalParent.platformValidation.enabled",
+      havingValue = "true",
+      matchIfMissing = false)
+  public AspectPayloadValidator logicalParentPlatformValidator() {
+    return new LogicalParentPlatformValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LogicalParentPlatformValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(
                     List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
@@ -647,8 +693,12 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator propertyDefinitionValidator() {
+  public AspectPayloadValidator propertyDefinitionValidator(
+      @Nullable StructuredPropertyMappingLookup structuredPropertyMappingLookup) {
+    // Nullable: SqlSetup and other slim contexts load plugins without search factories.
+    // PropertyDefinitionValidator already skips ES mapping checks when the lookup is absent.
     return new PropertyDefinitionValidator()
+        .setStructuredPropertyMappingLookup(structuredPropertyMappingLookup)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(PropertyDefinitionValidator.class.getName())
@@ -676,11 +726,15 @@ public class SpringStandardPluginConfiguration {
         .setDropMissingPropertyValuesWithWarning(
             structuredPropertiesConfiguration != null
                 && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
+        .setKeywordMaxLength(
+            structuredPropertiesConfiguration != null
+                ? structuredPropertiesConfiguration.getKeywordMaxLength()
+                : 0)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, UPSERT, DELETE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, DELETE))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -777,7 +831,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(LifecycleStageValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -794,12 +848,29 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(PolicyFieldTypeValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE))
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(POLICY_ENTITY_NAME)
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator logicalParentFieldPathValidator() {
+    return new LogicalParentFieldPathValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LogicalParentFieldPathValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SCHEMA_FIELD_ENTITY_NAME)
+                            .aspectName(LOGICAL_PARENT_ASPECT_NAME)
                             .build()))
                 .build());
   }
@@ -816,5 +887,22 @@ public class SpringStandardPluginConfiguration {
         config.getPrePatch(),
         config.getPostPatch());
     return validator;
+  }
+
+  @Bean
+  public AspectPayloadValidator serviceDefinitionLargeStringValidator() {
+    return new ServiceDefinitionLargeStringValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ServiceDefinitionLargeStringValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SERVICE_ENTITY_NAME)
+                            .aspectName(SERVICE_DEFINITION_ASPECT_NAME)
+                            .build()))
+                .build());
   }
 }

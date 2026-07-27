@@ -1,10 +1,54 @@
 import logging
-from typing import Optional
+import time
+from collections.abc import Callable
+from typing import Any, Optional
 
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import get_admin_credentials, get_frontend_url, login_as
+from tests.utils import get_frontend_url
 
 logger = logging.getLogger(__name__)
+
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# plus async invalidate/rebuild under full-suite CI load.
+DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 60
+
+
+def is_graphql_auth_denied(res: dict[str, Any]) -> bool:
+    errors = res.get("errors", [])
+    if not errors:
+        return False
+    code = errors[0].get("extensions", {}).get("code")
+    return code in (401, 403)
+
+
+def wait_until_graphql_auth_denied(
+    request_fn: Callable[[], dict[str, Any]],
+    *,
+    timeout_seconds: float = DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    poll_interval_seconds: float = 1.0,
+    description: str = "authorization denial",
+) -> dict[str, Any]:
+    """Poll until request_fn returns a GraphQL authorization error.
+
+    GMS policy cache refresh is async; after deletePolicy, authorization may remain
+    permissive until the cache is rebuilt.
+    """
+    deadline = time.time() + timeout_seconds
+    last_res: dict[str, Any] = {}
+    while time.time() < deadline:
+        last_res = request_fn()
+        if is_graphql_auth_denied(last_res):
+            return last_res
+        logger.info(
+            "Waiting for policy cache to reflect %s (%.0fs remaining)",
+            description,
+            max(0.0, deadline - time.time()),
+        )
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        f"Timed out after {timeout_seconds}s waiting for {description}; "
+        f"last response: {last_res}"
+    )
 
 
 def get_current_user_info(session):
@@ -241,6 +285,10 @@ def create_user(session, email, password):
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token
+    # Snapshot admin cookies before /signUp overwrites them. Prefer restore over a
+    # fresh admin login_as — parallel xdist workers otherwise stampede /logIn and
+    # can get intermittent 400s while also invalidating each other's sessions.
+    admin_cookies = session.cookies.copy()
     # Create a new user using the invite token
     sign_up_json = {
         "fullName": "Test User",
@@ -254,10 +302,11 @@ def create_user(session, email, password):
     assert sign_up_response
     assert "error" not in sign_up_response
     wait_for_writes_to_sync()
+    # /signUp rotates cookies to the new user; put the admin cookies back on the
+    # same session object so callers (including TestSessionWrapper) stay admin.
     session.cookies.clear()
-    (admin_user, admin_pass) = get_admin_credentials()
-    admin_session = login_as(admin_user, admin_pass)
-    return admin_session
+    session.cookies.update(admin_cookies)
+    return session
 
 
 def remove_user(session, urn):
@@ -402,15 +451,23 @@ def create_metadata_policy(
     return res_data["data"]["createPolicy"]
 
 
-def create_user_policy(user_urn, privileges, session):
+def create_user_policy(
+    user_urn,
+    privileges,
+    session,
+    *,
+    name: str = "Test Policy Name",
+    description: str = "Test Policy Description",
+):
+    """Create a platform policy for a single user."""
     policy = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
             createPolicy(input: $input) }""",
         "variables": {
             "input": {
                 "type": "PLATFORM",
-                "name": "Test Policy Name",
-                "description": "Test Policy Description",
+                "name": name,
+                "description": description,
                 "state": "ACTIVE",
                 "resources": {"filter": {"criteria": []}},
                 "privileges": privileges,
@@ -561,18 +618,36 @@ def log_policies(session, context=""):
             logger.info(f"    Description: {desc_preview}")
 
 
-def clear_polices(session):
+def clear_polices(
+    session,
+    *,
+    name_prefix: str | None = None,
+    name_prefixes: list[str] | None = None,
+) -> None:
     logger.info("Starting policy cleanup (clear_polices)")
+
+    if name_prefixes is not None:
+        prefixes = name_prefixes
+    elif name_prefix is not None:
+        prefixes = [name_prefix]
+    else:
+        prefixes = []
 
     policies_data = list_policies(session)
     policies = policies_data["policies"]
 
     deleted_count = 0
     for policy in policies:
-        if "test" in policy["name"].lower() or "test" in policy["description"].lower():
-            logger.info(f"Deleting test policy: {policy['name']} ({policy['urn']})")
-            remove_policy(policy["urn"], session)
-            deleted_count += 1
+        name = policy.get("name") or ""
+        description = policy.get("description") or ""
+        if prefixes:
+            if not any(name.startswith(prefix) for prefix in prefixes):
+                continue
+        elif "test" not in name.lower() and "test" not in description.lower():
+            continue
+        logger.info(f"Deleting test policy: {name} ({policy['urn']})")
+        remove_policy(policy["urn"], session)
+        deleted_count += 1
 
     logger.info(f"Policy cleanup complete. Deleted {deleted_count} test policies")
 

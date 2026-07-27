@@ -88,6 +88,12 @@ framework_common = {
     "ruamel.yaml<0.20.0",
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
+    # The ingestion executor bootstraps per-source venvs by shelling out to
+    # `python -m pip download` (see acryl.executor). uv-created venvs omit pip
+    # by default, so pip must be present in the base environment. This was
+    # previously pulled in transitively via the classification extra; declare it
+    # explicitly here. No upper bound: pip is a system tool.
+    "pip",
 }
 
 rest_common = {
@@ -140,24 +146,12 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
-    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
-    # upstream, so we restore [c] here for performance.
-    "sqlglot[c]==30.8.0",
-    "patchy==2.8.0",
-}
-
-classification_lib = {
-    "acryl-datahub-classify==0.0.11",
-    # schwifty is needed for the classify plugin (year-based versioning)
-    "schwifty<2026.0.0",
-    # This is a bit of a hack. Because we download the SpaCy model at runtime in the classify plugin,
-    # we need pip to be available (no upper bound - system tool).
-    "pip",
-    # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
-    # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
-    # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-    "numpy<2",
+    # sqlglot[c] ships mypyc-compiled extensions for performance, but the native
+    # C lib has caused memory leaks in the past. Rather than dropping [c] from
+    # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C
+    # to force pure-Python sqlglot at runtime (see
+    # datahub/_force_pure_python_sqlglot.py).
+    "sqlglot[c]==30.12.0",
 }
 
 dbt_common = {
@@ -227,7 +221,6 @@ sql_common = (
     }
     | usage_common
     | sqlglot_lib
-    | classification_lib
 )
 
 aws_common = {
@@ -339,7 +332,6 @@ snowflake_common = {
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
-    *classification_lib,
 }
 
 trino = {
@@ -445,9 +437,10 @@ azure_data_factory = {
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
 }
 
-data_lake_profiling = {
-    "pydeequ>=1.1.0,<2.0.0",
-    "pyspark~=3.5.6,<4.0.0",
+file_profiling = {
+    # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
+    # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
+    "datasketches>=5.0.0,<6.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -485,7 +478,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -601,6 +593,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
+    "azure-auth": {"azure-identity>=1.21.0,<2.0.0"},
     "azure-data-factory": azure_data_factory,
     "fabric-data-factory": {
         "azure-core>=1.38.0,<2.0.0",
@@ -617,11 +610,8 @@ plugins: Dict[str, Set[str]] = {
     }
     | sqlglot_lib
     | usage_common,
-    "bigquery": sql_common
-    | bigquery_common
-    | sqlglot_lib
-    | classification_lib
-    | datacatalog_lineage_common,
+    "bigid": {"requests>=2.28.0,<3.0"},
+    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -632,8 +622,8 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common,
-    "delta-lake": {*data_lake_profiling, *delta_lake},
+    "dataplex": dataplex_common | cachetools_lib,
+    "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
         "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
@@ -644,7 +634,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt-cloud": {"requests<3.0.0"} | dbt_common,
     "dremio": {"requests<3.0.0"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2,<=0.6.9"},
-    "dynamodb": aws_common | classification_lib,
+    "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -656,7 +646,6 @@ plugins: Dict[str, Set[str]] = {
         *aws_common,
         *abs_base,
         *cachetools_lib,
-        *data_lake_profiling,
     },
     "cassandra": {
         "cassandra-driver>=3.28.0,<4.0.0",
@@ -678,8 +667,9 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
-    "glue": aws_common | cachetools_lib | sqlglot_lib,
+    "omni": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
+    # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
+    "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -718,10 +708,14 @@ plugins: Dict[str, Set[str]] = {
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
     | {"requests<3.0.0", "JPype1<2.0.0", "jdk4py>=21.0,<22.0"},
+    # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
+    # (kinesis_schema_registry imports protobuf_util at module load).
+    "kinesis": aws_common | kafka_protobuf,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
     "metabase": {"requests<3.0.0"} | sqlglot_lib,
+    "microstrategy": {"requests<3.0.0"} | sqlglot_lib,
     "mlflow": {
         "mlflow-skinny>=2.3.0,<2.21.0",
         # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
@@ -745,6 +739,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
+    "odcs": aws_common | {"GitPython>2,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -766,24 +761,23 @@ plugins: Dict[str, Set[str]] = {
     | redshift_common
     | usage_common
     | sqlglot_lib
-    | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
     # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib
-    | classification_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
-    "s3": {*s3_base, *data_lake_profiling},
-    "s3-slim": {*s3_base},
-    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "abs": {*abs_base, *data_lake_profiling},
+    # Profiling is now a lightweight pure-Python profiler (pyarrow + datasketches,
+    # no JVM), so the `-slim` variants no longer differ from the full extras. They
+    # are kept as deprecated aliases and will be removed in a follow-up (along with
+    # their CI/CD and image-building references).
+    "s3": {*s3_base, *file_profiling},
+    "s3-slim": {*s3_base, *file_profiling},
+    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "abs": {*abs_base, *file_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
@@ -846,6 +840,7 @@ plugins: Dict[str, Set[str]] = {
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    "quicksight": aws_common | sqlglot_lib,
     # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
     # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
     "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
@@ -912,7 +907,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb,kinesis,firehose,lakeformation,quicksight]==1.40.0",
     "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
@@ -945,7 +940,7 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.15.18",
+    "ruff==0.15.22",
     "mypy==2.1.0",
 }
 
@@ -963,6 +958,7 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0,<2.0.0",
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
     "pytest-httpserver>=1.0.0,<2.0.0",
@@ -993,6 +989,7 @@ base_dev_requirements = {
             "feast",
             "iceberg",
             "iceberg-catalog",
+            "microstrategy",
             "mlflow",
             "mongodb",
             "json-schema",
@@ -1003,11 +1000,13 @@ base_dev_requirements = {
             "mariadb",
             "tidb",
             "matillion-dpc",
+            "odcs",
             "okta",
             "oracle",
             "postgres",
             "sagemaker",
             "kafka",
+            "kinesis",
             "datahub-rest",
             "datahub-lite",
             "presto",
@@ -1040,6 +1039,7 @@ base_dev_requirements = {
             "fivetran",
             "kafka-connect",
             "qlik-sense",
+            "quicksight",
             "sigma",
             "sac",
             "cassandra",
@@ -1110,6 +1110,11 @@ full_test_dev_requirements = {
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
+    "datahub.token_provider.plugins": [
+        "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
+        "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
+        "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+    ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
     ],
@@ -1126,6 +1131,7 @@ entry_points = {
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "fabric-data-factory = datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource",
+        "bigid = datahub.ingestion.source.bigid.bigid_source:BigIDSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
@@ -1153,6 +1159,7 @@ entry_points = {
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
+        "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -1191,6 +1198,7 @@ entry_points = {
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "thoughtspot = datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource",
@@ -1217,10 +1225,12 @@ entry_points = {
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
+        "quicksight = datahub.ingestion.source.quicksight.quicksight:QuickSightSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
+        "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
@@ -1300,27 +1310,23 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/",
+        "Documentation": "https://docs.datahub.com/",
         "Source": "https://github.com/datahub-project/datahub",
-        "Changelog": "https://github.com/datahub-project/datahub/releases",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="A CLI to work with DataHub metadata",
-    long_description="""\
-The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
-as well as an integration framework for pulling/pushing metadata from external systems.
-
-See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
-""",
-    long_description_content_type="text/markdown",
+    description="DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -1344,10 +1350,19 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
     },
-    # Install .pth so setproctitle is patched at interpreter startup on macOS (avoids
-    # SIGSEGV when a multi-threaded process forks and something calls setproctitle).
+    # Install .pth files that run at interpreter startup:
+    # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
+    #   and something calls setproctitle (macOS).
+    # - force_pure_python_sqlglot honours DATAHUB_SQLGLOT_DISABLE_C by loading
+    #   sqlglot from .py instead of the mypyc .so extensions.
     data_files=[
-        (sysconfig.get_path("purelib"), ["datahub_setproctitle_patch.pth"]),
+        (
+            sysconfig.get_path("purelib"),
+            [
+                "datahub_setproctitle_patch.pth",
+                "datahub_force_pure_python_sqlglot.pth",
+            ],
+        ),
     ],
     entry_points=entry_points,
     # Dependencies.

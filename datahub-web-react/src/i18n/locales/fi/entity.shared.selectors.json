@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "Hae käyttäjiä tai ryhmiä",
+    "domainSelector.label": "Toimialueet",
+    "domainSelector.placeholder": "Valitse toimialueet",
+    "domainSelector.searchPlaceholder": "Hae kaikista toimialueista...",
+    "entitySearch.noEntitiesFound": "Entiteettejä ei löytynyt",
+    "entitySearch.placeholder": "Hae entiteettejä...",
+    "groupBy.displayValue": "Ryhmittele: {{label}}",
+    "groupBy.group": "Ryhmittele"
+}

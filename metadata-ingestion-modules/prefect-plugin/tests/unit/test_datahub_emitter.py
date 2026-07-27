@@ -11,6 +11,7 @@ from prefect.client.schemas.objects import Flow
 from requests.models import Response
 
 from datahub.api.entities.datajob import DataJob
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from prefect_datahub.datahub_emitter import DatahubEmitter
 from prefect_datahub.entities import Dataset, _Entity
@@ -489,6 +490,17 @@ def test_entities_to_urn_list(mock_emit):
     )
     for dataset_urn in dataset_urn_list:
         assert isinstance(dataset_urn, DatasetUrn)
+
+
+@patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
+def test_emit_mode_defaults_to_async_and_is_overridable(mock_emit):
+    """The block defaults to ASYNC emit so high-volume runs don't block
+    GMS, and the mode is forwarded to the underlying emitter."""
+    DatahubEmitter()
+    assert mock_emit.call_args.kwargs["default_emit_mode"] == EmitMode.ASYNC
+
+    DatahubEmitter(emit_mode=EmitMode.SYNC_WAIT)
+    assert mock_emit.call_args.kwargs["default_emit_mode"] == EmitMode.SYNC_WAIT
 
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)

@@ -79,6 +79,22 @@ class GitHubDocumentsSourceConfig(
         default=True,
         description="Whether imported documents appear in global search and navigation.",
     )
+    include_repository_in_browse_path: bool = Field(
+        default=True,
+        description=(
+            "Include the repository name as a top-level entry in the browse path. "
+            "When a repository root document is created, that document already "
+            "provides the repository entry; this adds it for configurations that "
+            "skip the root document or nest under a configured parent document."
+        ),
+    )
+    include_organization_in_browse_path: bool = Field(
+        default=False,
+        description=(
+            "Include the GitHub organization/owner name as the top-most entry in "
+            "the browse path, above the repository name."
+        ),
+    )
 
     document_mapping: DocumentMappingConfig = Field(
         default_factory=DocumentMappingConfig,

@@ -1,0 +1,84 @@
+namespace com.linkedin.api
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Properties of an API — a named callable with a typed input and output schema
+ * (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.).
+ * APIs are cataloged as first-class entities so both humans and agents can
+ * discover them before building new ones, and so caller -> API dependencies
+ * (services that compose APIs, agents that invoke them) are visible in the
+ * graph. The kind of API is captured via the standard subTypes aspect, and the
+ * input/output schema lives on the separate apiSignature aspect.
+ */
+@Aspect = {
+  "name": "apiProperties"
+}
+record ApiProperties {
+  /**
+   * Display name of the API.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Description of what the API does and when to use it.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * Optional link to the API's registry entry, documentation, or source.
+   */
+  externalUrl: optional string
+
+  /**
+   * The source-code repository this API is produced from (the SourcedFrom
+   * provenance edge). Lights up the repo -> service -> api -> app -> dataset chain.
+   */
+  @Relationship = {
+    "name": "SourcedFrom",
+    "entityTypes": [ "repository" ],
+    "isLineage": true,
+    "isUpstream": true
+  }
+  @Searchable = {
+    "fieldName": "sourceRepository",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  sourceRepository: optional Urn
+
+  /**
+   * When this API was registered.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * When this API was last modified.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  lastModified: optional AuditStamp
+}

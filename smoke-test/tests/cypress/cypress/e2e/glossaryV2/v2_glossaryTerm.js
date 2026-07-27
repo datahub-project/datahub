@@ -33,7 +33,10 @@ const createTerm = (glossaryTerm) => {
 const invokeTextFromElement = (selector) =>
   cy.get(selector).last().invoke("text");
 const deleteGlossary = (message) => {
-  cy.get(".anticon-edit").should("be.visible");
+  // Inline-edit pencil moved from antd `<EditOutlined>` (`.anticon-edit`) to a
+  // phosphor `<PencilSimple>`; the antd Typography.Text editable wrapper class
+  // (`.ant-typography-edit`) is what stays stable.
+  cy.get(".ant-typography-edit").should("be.visible");
   cy.get('[data-testid="MoreVertOutlinedIcon"]')
     .first()
     .should("be.visible")

@@ -60,7 +60,7 @@
     "removeFromApplication": "Remover da Aplicação",
     "removeFromDataProduct": "Remover do Data Product",
     "removeFromDomain": "Remover do Domínio",
-    "removeGlossaryTerm": "Remover GlossaryTerm",
+    "removeGlossaryTerm": "Remover Termo do Glossário",
     "sourceEntityFallback": "a Entity de origem",
     "term.removeConfirmContent": "Tem certeza que deseja remover o termo {{name}}?",
     "term.removeConfirmTitle": "Deseja remover o termo {{name}}?",

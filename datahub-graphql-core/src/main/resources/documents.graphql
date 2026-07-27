@@ -637,6 +637,13 @@ input SearchDocumentsInput {
   If not provided, searches all documents regardless of source.
   """
   sourceType: DocumentSourceType
+
+  """
+  Optional - the URN of a View to apply to the search. When provided, the View's
+  filter is combined with the document search filter so that document results are
+  scoped to the active View (mirrors searchAcrossEntities view scoping).
+  """
+  viewUrn: String
 }
 
 """

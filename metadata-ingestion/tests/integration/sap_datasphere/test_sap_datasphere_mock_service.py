@@ -217,7 +217,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
                     "SNOWFLAKE": {
                         "platform": "snowflake",
                         "platform_instance": "prod_snowflake",
-                        "lowercase_urn": True,
+                        "convert_urns_to_lowercase": True,
                     },
                 },
             },

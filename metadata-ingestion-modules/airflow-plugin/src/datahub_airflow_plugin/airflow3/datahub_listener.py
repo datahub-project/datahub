@@ -554,8 +554,10 @@ class DataHubListener:
                     bootstrap = ":".join(map(str, filter(None, [conn.host, conn.port])))
                     obj["connection"]["bootstrap"] = bootstrap
 
-                config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(
-                    obj
+                config = (
+                    datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.model_validate(
+                        obj
+                    )
                 )
                 logger.debug(
                     f"Retrieved connection '{conn_id}' from connection API: type=datahub-kafka"
@@ -610,6 +612,7 @@ class DataHubListener:
                     token,
                     client_mode=ClientMode.INGESTION,
                     datahub_component="airflow-plugin",
+                    default_emit_mode=self.config.emit_mode,
                     **extra_args,
                 )
         except Exception as e:

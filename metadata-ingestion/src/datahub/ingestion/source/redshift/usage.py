@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import cachetools
@@ -33,6 +33,7 @@ from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
@@ -53,7 +54,11 @@ REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 class RedshiftAccessEvent(BaseModel):
     userid: int
-    username: str
+    # Optional: the user-info metadata views (svl_user_info / SVV_USER_INFO) are
+    # superuser/self-only and are not opened by SYSLOG ACCESS UNRESTRICTED, so the
+    # username can be unresolvable even when the query log row is visible. A required
+    # str here would turn every such row into a ValidationError-skip.
+    username: Optional[str] = None
     query: int
     tbl: int
     text: str = Field(alias="querytxt")
@@ -72,16 +77,8 @@ class RedshiftAccessEvent(BaseModel):
         Pydantic V2 assumes local timezone for naive datetime strings, whereas Pydantic V1 assumed UTC.
         This validator restores V1 behavior to maintain timestamp consistency.
         """
-        if isinstance(v, str):
-            # Parse as naive datetime, then assume UTC (matching V1 behavior)
-            dt = datetime.fromisoformat(v)
-            if dt.tzinfo is None:
-                # Treat naive datetime as UTC (this was the V1 behavior)
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
-        elif isinstance(v, datetime) and v.tzinfo is None:
-            # If we get a naive datetime object, assume UTC
-            return v.replace(tzinfo=timezone.utc)
+        if isinstance(v, (str, datetime)):
+            return normalize_timestamp_to_utc(v)
         return v
 
 
@@ -99,6 +96,15 @@ class RedshiftUsageExtractor:
     ```sql
     ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
     ```
+    Note on username resolution: the user-info views (svl_user_info / SVV_USER_INFO) are
+    used only to enrich each query with a username, via a LEFT JOIN -- they never gate the
+    row. The rdsdb internal system user is excluded explicitly by its system user id (1),
+    not by the join. This matters because the views have no rdsdb row, and on Redshift
+    editions that keep them superuser/self-only a non-superuser datahub_user may also fail
+    to resolve real users; in both cases usage/lineage is still captured (username left
+    unresolved / attributed to "unknown") rather than dropped. Run as a superuser, or grant
+    read access to the user-info views, for complete per-user attribution.
+
     This plugin has the below functionalities -
     1. For a specific dataset this plugin ingests the following statistics -
        1. top n queries.
@@ -163,9 +169,10 @@ class RedshiftUsageExtractor:
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="usage-extraction",
+                log=False,
             )
             return False
 
@@ -414,7 +421,6 @@ class RedshiftUsageExtractor:
         for event in events_iterable:
             if not (
                 event.database
-                and event.username
                 and event.schema_
                 and event.table
                 and event.endtime
@@ -430,11 +436,17 @@ class RedshiftUsageExtractor:
 
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
-            user_email: str = event.username
+            # actor is optional on OperationClass: emit the operation even when the
+            # user can't be resolved rather than dropping the record entirely.
+            actor: Optional[str] = (
+                builder.make_user_urn(event.username.split("@")[0])
+                if event.username
+                else None
+            )
             operation_aspect = OperationClass(
                 timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
-                actor=builder.make_user_urn(user_email.split("@")[0]),
+                actor=actor,
                 operationType=(
                     OperationTypeClass.INSERT
                     if event.operation_type == "insert"
@@ -480,7 +492,7 @@ class RedshiftUsageExtractor:
         # name is the `db.schema.table` dataset name from the aggregator.
         return self.config.table_pattern.allowed(name)
 
-    def _user_urn(self, username: str) -> CorpUserUrn:
+    def _user_urn(self, username: Optional[str]) -> CorpUserUrn:
         # Preserve the legacy user identity: the urn id is the local part of the
         # email (domain stripped), so existing CorpUser links are unchanged.
         user_email = username if username else "unknown"

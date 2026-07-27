@@ -22,17 +22,20 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
     GRAFANA_DATASET = "Grafana Dataset"
+    QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
+    MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
     NEO4J_NODE = "Neo4j Node"
     NEO4J_RELATIONSHIP = "Neo4j Relationship"
     SNOWFLAKE_STREAM = "Snowflake Stream"
+    KINESIS_STREAM = "Stream"
     SEMANTIC_VIEW = "Semantic View"
     DYNAMIC_TABLE = "Dynamic Table"
     API_ENDPOINT = "API Endpoint"
@@ -44,6 +47,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
+    SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     SAP_ANALYTICAL_MODEL = "Analytic Model"
@@ -62,11 +66,14 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
+    # AWS Kinesis
+    KINESIS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
     # Generic SubTypes
     INSTANCE = "Instance"
+    SERVICE = "Service"
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
@@ -90,6 +97,7 @@ class DatasetContainerSubTypes(StrEnum):
     # Matillion
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
+    MATILLION_FOLDER = "Folder"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -121,6 +129,8 @@ class BIContainerSubTypes(StrEnum):
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
     THOUGHTSPOT_WORKSPACE = "Workspace"
+    MICROSTRATEGY_PROJECT = "Project"
+    MICROSTRATEGY_FOLDER = "Folder"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -157,6 +167,8 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_ANSWER = "Answer"
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
+    MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
@@ -205,24 +217,23 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
-    # SAP Datasphere flow objects — each flow is modelled as its own DataFlow
-    # (pipeline) with one DataJob per target it produces (a replication flow's
-    # N source->target pairs become N tasks) carrying that target's lineage.
+    # SAP Datasphere: each flow is its own DataFlow with one DataJob per target.
     SAP_DATA_FLOW = "Data Flow"
     SAP_REPLICATION_FLOW = "Replication Flow"
     SAP_TRANSFORMATION_FLOW = "Transformation Flow"
     SAP_TASK_CHAIN = "Task Chain"
+    # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
+    KINESIS_FIREHOSE_STREAM = "Firehose Stream"
 
 
 class DataJobSubTypes(StrEnum):
-    # SAP Datasphere flow tasks. The parent DataFlow already carries the flow
-    # *type* (Data Flow / Replication Flow / ...); a DataJob is one task within
-    # that flow (a replication flow's N source->target pairs are N tasks), so it
-    # takes a task-role label rather than repeating the flow type.
+    # SAP Datasphere flow tasks (one task per target within a flow).
     SAP_DATA_FLOW_TASK = "Data Flow Task"
     SAP_REPLICATION_TASK = "Replication Task"
     SAP_TRANSFORMATION_TASK = "Transformation Task"
     SAP_TASK_CHAIN_STEP = "Task Chain Step"
+    # Amazon Data Firehose — the single delivery step within a Firehose stream.
+    KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

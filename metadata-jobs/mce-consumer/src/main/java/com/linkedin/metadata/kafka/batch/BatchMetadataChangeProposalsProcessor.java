@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.batch;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -18,13 +19,16 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +47,17 @@ import org.springframework.stereotype.Component;
 @Conditional(BatchMetadataChangeProposalProcessorCondition.class)
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
+
+  private static final String AVRO_SYSTEM_METADATA_FIELD = "systemMetadata";
+  private static final String AVRO_PROPERTIES_FIELD = "properties";
+
+  private static final Set<String> TELEMETRY_PROPERTY_KEYS =
+      Set.of(
+          SystemTelemetryContext.TELEMETRY_TRACE_KEY,
+          SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY,
+          SystemTelemetryContext.TELEMETRY_LOG_KEY,
+          SystemTelemetryContext.TELEMETRY_ENQUEUED_AT);
+
   private final OperationContext systemOperationContext;
   private final SystemEntityClient entityClient;
   private final EventProducer kafkaProducer;
@@ -73,9 +88,9 @@ public class BatchMetadataChangeProposalsProcessor {
    * sliced upstream. Equivalent to {@link #consume(OperationContext, List)} with the system
    * context.
    *
-   * <p>The Kafka listener entry ({@link BatchMetadataChangeProposalsKafkaListener}) splits the
-   * inbound batch into affinity slices and calls {@link #consume(OperationContext, List)} once per
-   * slice with that slice's representative context.
+   * <p>The Kafka listener entry ({@link MCPBatchKafkaListenerRegistrar}) splits the inbound batch
+   * into affinity slices and calls {@link #consume(OperationContext, List)} once per slice with
+   * that slice's representative context.
    */
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     consume(systemOperationContext, consumerRecords);
@@ -118,8 +133,8 @@ public class BatchMetadataChangeProposalsProcessor {
       final List<ConsumerRecord<String, GenericRecord>> consumerRecords,
       @Nullable final List<InboundRecordProperties> inboundProperties) {
 
-    List<MetadataChangeProposal> allMCPs = new ArrayList<>(consumerRecords.size());
     String topicName = null;
+    List<SystemMetadata> tracingSystemMetadataList = new ArrayList<>();
 
     for (int i = 0; i < consumerRecords.size(); i++) {
       ConsumerRecord<String, GenericRecord> consumerRecord = consumerRecords.get(i);
@@ -154,53 +169,62 @@ public class BatchMetadataChangeProposalsProcessor {
           consumerRecord.serializedValueSize(),
           consumerRecord.timestamp());
 
-      try {
-        MetadataChangeProposal mcp = EventUtils.avroToPegasusMCP(record);
-        allMCPs.add(mcp);
-      } catch (IOException e) {
-        log.error(
-            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
+      SystemMetadata traceMetadata = getTelemetryTraceMetadata(record);
+      if (traceMetadata != null) {
+        tracingSystemMetadataList.add(traceMetadata);
       }
     }
 
-    // Create the span tracking for all records, even if allMCPs is empty
-    List<SystemMetadata> systemMetadataList =
-        allMCPs.stream().map(MetadataChangeProposal::getSystemMetadata).toList();
-
+    final String spanTopicName = topicName;
     sliceContext.withQueueSpan(
         "consume",
-        systemMetadataList,
-        topicName,
+        tracingSystemMetadataList,
+        spanTopicName,
         () -> {
-          if (!allMCPs.isEmpty()) {
-            // Now partition and process within the span
-            processInBatches(sliceContext, allMCPs);
-          } else {
-            log.info("No valid MCPs to process after deserialization");
+          if (consumerRecords.isEmpty()) {
+            log.info("No MCPs to process after deserialization");
+            return;
           }
+          processInBatches(sliceContext, consumerRecords);
         },
         BATCH_SIZE_ATTR,
-        String.valueOf(allMCPs.size()),
+        String.valueOf(consumerRecords.size()),
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "consume"));
   }
 
   /**
-   * Process MCPs in batches within the established span
+   * Stream-convert and sub-batch the poll's MCPs within the established span.
+   *
+   * <p>Each avro record is converted to a Pegasus MCP lazily and accumulated into a byte-budgeted
+   * sub-batch; when the budget is exceeded the sub-batch is ingested and released, so only one
+   * sub-batch of Pegasus MCPs is resident at a time (rather than the full poll).
    *
    * @param sliceContext slice-level OperationContext used for downstream ingest + FMCP emission
-   * @param allMCPs All MCPs to process
+   * @param consumerRecords the avro records for this consume call
    */
   private void processInBatches(
-      @Nonnull OperationContext sliceContext, List<MetadataChangeProposal> allMCPs) {
+      @Nonnull OperationContext sliceContext,
+      List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     List<MetadataChangeProposal> currentBatch = new ArrayList<>();
     long currentBatchSize = 0;
     int totalProcessed = 0;
 
-    for (MetadataChangeProposal mcp : allMCPs) {
+    for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
+      final GenericRecord record = consumerRecord.value();
+      final MetadataChangeProposal mcp;
+      try {
+        mcp = EventUtils.avroToPegasusMCP(record);
+      } catch (IOException e) {
+        log.error(
+            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
+        continue;
+      }
       long mcpSize = calculateMCPSize(mcp);
 
-      // If adding this MCP would exceed the batch size limit, process the current batch first
+      // If adding this MCP would exceed the batch size limit, process the current batch first.
+      // The limit is read only once currentBatch is non-empty, so a poll whose records all fail
+      // deserialization never touches the config provider (matching the pre-streaming behaviour).
       if (!currentBatch.isEmpty()
           && currentBatchSize + mcpSize
               > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
@@ -210,7 +234,7 @@ public class BatchMetadataChangeProposalsProcessor {
             "Processed batch of {} MCPs, total processed so far: {}/{}",
             currentBatch.size(),
             totalProcessed,
-            allMCPs.size());
+            consumerRecords.size());
 
         // Reset for the next batch
         currentBatch = new ArrayList<>();
@@ -230,7 +254,7 @@ public class BatchMetadataChangeProposalsProcessor {
           "Processed final batch of {} MCPs, total processed: {}/{}",
           currentBatch.size(),
           totalProcessed,
-          allMCPs.size());
+          consumerRecords.size());
     }
   }
 
@@ -267,6 +291,48 @@ public class BatchMetadataChangeProposalsProcessor {
 
       kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, batch, throwable);
     }
+  }
+
+  /**
+   * Read the telemetry trace properties off an avro MCP's {@code systemMetadata.properties} map
+   * into a lightweight, properties-only {@link SystemMetadata} — without converting the
+   * (potentially large) aspect via {@link EventUtils#avroToPegasusMCP}. Returns {@code null} unless
+   * the record carries both {@link SystemTelemetryContext#TELEMETRY_TRACE_KEY} and {@link
+   * SystemTelemetryContext#TELEMETRY_QUEUE_SPAN_KEY}, mirroring the filter {@link
+   * SystemTelemetryContext#withQueueSpan} applies.
+   *
+   * <p>{@code withQueueSpan}/{@code closeQueueSpan} only read {@code properties} (the trace id,
+   * queue span id, log-tracing flag, and enqueued-at timestamp) off each entry, so this trimmed
+   * SystemMetadata is all they need to link the consume span to the upstream trace and record queue
+   * latency on the receive span.
+   */
+  @Nullable
+  private SystemMetadata getTelemetryTraceMetadata(@Nullable GenericRecord record) {
+    if (record == null
+        || !(record.get(AVRO_SYSTEM_METADATA_FIELD) instanceof GenericRecord systemMetadataRecord)
+        || !(systemMetadataRecord.get(AVRO_PROPERTIES_FIELD) instanceof Map<?, ?> avroProperties)) {
+      return null;
+    }
+
+    // Avro deserializes map keys as Utf8, which never equals a String, so we can't look them up by
+    // key — iterate and stringify, copying only the telemetry entries into a Pegasus StringMap.
+    StringMap telemetryProps = new StringMap();
+    for (Map.Entry<?, ?> entry : avroProperties.entrySet()) {
+      String key = entry.getKey().toString();
+      if (entry.getValue() != null && TELEMETRY_PROPERTY_KEYS.contains(key)) {
+        telemetryProps.put(key, entry.getValue().toString());
+      }
+    }
+
+    // Both ids are required for withQueueSpan to link the consume span to the upstream trace.
+    if (!telemetryProps.containsKey(SystemTelemetryContext.TELEMETRY_TRACE_KEY)
+        || !telemetryProps.containsKey(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY)) {
+      return null;
+    }
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    systemMetadata.setProperties(telemetryProps);
+    return systemMetadata;
   }
 
   /**

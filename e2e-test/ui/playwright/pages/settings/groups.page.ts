@@ -126,7 +126,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.selectFromDropdown(this.addMembersSelectBase, this.addMembersSelectDropdown, username);
     await this.addMembersSelectBase.click();
     await this.addMemberConfirmButton.click();
-    await expect(this.page.getByText(TOAST_MESSAGES.GROUP_MEMBERS_ADDED)).toBeVisible();
+    await this.toast.expectVisible(TOAST_MESSAGES.GROUP_MEMBERS_ADDED);
     await expect(this.membersSection.getByText(username)).toBeVisible();
   }
 
@@ -138,7 +138,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.selectFromDropdown(this.addOwnersSelectBase, this.addOwnersSelectDropdown, username);
     await this.addOwnersSelectBase.click();
     await this.addOwnerConfirmButton.click();
-    await expect(this.page.getByText(TOAST_MESSAGES.OWNERS_ADDED)).toBeVisible();
+    await this.toast.expectVisible(TOAST_MESSAGES.OWNERS_ADDED);
   }
 
   async updateGroupInfo(email: string, slack: string, newName: string): Promise<void> {
@@ -153,11 +153,11 @@ export class GroupsPage extends BaseSettingsPage {
   }
 
   async verifyOwnersAdded(): Promise<void> {
-    await expect(this.page.getByText(TOAST_MESSAGES.OWNERS_ADDED)).toBeVisible();
+    await this.toast.expectVisible(TOAST_MESSAGES.OWNERS_ADDED);
   }
 
   async verifyGroupInfoUpdated(expectedEmail: string, expectedSlack: string): Promise<void> {
-    await expect(this.page.getByText(TOAST_MESSAGES.NAME_UPDATED)).toBeVisible();
+    await this.toast.expectVisible(TOAST_MESSAGES.NAME_UPDATED);
     await expect(this.page.getByText(expectedEmail)).toBeVisible();
     await expect(this.page.getByText(expectedSlack)).toBeVisible();
   }
@@ -172,7 +172,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.page.keyboard.press('End');
     await this.page.keyboard.type(append);
     await this.page.mouse.click(0, 0);
-    await this.waitForToast(TOAST_MESSAGES.CHANGES_SAVED);
+    await this.toast.expectVisibleThenHidden(TOAST_MESSAGES.CHANGES_SAVED);
     await expect(this.page.getByText(`${currentText}${append}`)).toBeVisible({ timeout: WAIT_TIMEOUT });
   }
 
@@ -197,7 +197,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.modalDeleteItem.click();
     await this.deleteGroupConfirmButton.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
     await this.deleteGroupConfirmButton.click();
-    await expect(this.page.getByText(`Deleted ${groupName}!`)).toBeVisible();
+    await this.toast.expectVisible(`Deleted ${groupName}!`);
     await expect(this.page.getByText(groupName)).toBeHidden();
   }
 }

@@ -210,6 +210,69 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
+   * Returns true when the actor may rename a data product ({@code dataProductProperties.name} or
+   * {@code updateName}). Requires {@code MANAGE_DATA_PRODUCTS} on at least one product domain, or
+   * {@code EDIT_ENTITY} on the data product itself.
+   */
+  public static boolean isAuthorizedToRenameDataProduct(
+      @Nonnull AuthorizationSession session,
+      @Nonnull Urn dataProductUrn,
+      @Nonnull Set<Urn> productDomainUrns) {
+    if (!productDomainUrns.isEmpty()
+        && isAuthorizedToManageDataProductsOnAnyDomain(session, productDomainUrns)) {
+      return true;
+    }
+    return isAuthorizedToEditDataProductEntity(session, dataProductUrn);
+  }
+
+  /**
+   * Returns data product URNs whose {@code dataProductProperties.name} change is not authorized.
+   */
+  @Nonnull
+  public static Set<Urn> filterUnauthorizedToRenameDataProduct(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AuthorizationSession session,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Set<Urn> dataProductUrnsWithNameChange,
+      @Nonnull Map<Urn, Aspect> proposedProductDomainsAspects) {
+    if (dataProductUrnsWithNameChange.isEmpty()) {
+      return Set.of();
+    }
+
+    Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext,
+            new HashSet<>(dataProductUrnsWithNameChange),
+            Set.of(DOMAINS_ASPECT_NAME));
+
+    Set<Urn> unauthorized = new HashSet<>();
+    for (Urn dataProductUrn : dataProductUrnsWithNameChange) {
+      Aspect productDomainsAspect = proposedProductDomainsAspects.get(dataProductUrn);
+      if (productDomainsAspect == null) {
+        productDomainsAspect =
+            persistedProductDomainsAspects
+                .getOrDefault(dataProductUrn, Map.of())
+                .get(DOMAINS_ASPECT_NAME);
+      }
+      Set<Urn> productDomainUrns = resolveUniqueDomainUrns(productDomainsAspect);
+      if (!isAuthorizedToRenameDataProduct(session, dataProductUrn, productDomainUrns)) {
+        unauthorized.add(dataProductUrn);
+      }
+    }
+    return unauthorized;
+  }
+
+  private static boolean isAuthorizedToEditDataProductEntity(
+      @Nonnull AuthorizationSession session, @Nonnull Urn dataProductUrn) {
+    EntitySpec productSpec =
+        new EntitySpec(dataProductUrn.getEntityType(), dataProductUrn.toString());
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session,
+        new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_ENTITY_PRIVILEGES)),
+        productSpec);
+  }
+
+  /**
    * Returns true when the actor may change {@code dataProductProperties.assets} via the
    * product-side path ({@code MANAGE_DATA_PRODUCTS} on any product domain) or the asset-side path
    * ({@code EDIT_ENTITY_DATA_PRODUCTS} on every changed asset).

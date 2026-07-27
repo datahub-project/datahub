@@ -117,17 +117,52 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test
-  public void testSkipWhenAssetsUnchanged() {
+  public void testNameChangeTriggersAuthorizationCheck() {
     DataProductProperties current = propertiesWithAssets(MEMBER_DATASET_URN);
-    DataProductProperties proposed = new DataProductProperties(current.data());
+    current.setName("Original name");
+    DataProductProperties proposed = propertiesWithAssets(MEMBER_DATASET_URN);
     proposed.setName("Updated name only");
     mockCurrentProperties(current);
+
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    any(), any(), any(), any(Set.class), any(Map.class)))
+        .thenReturn(Set.of());
+
+    TestMCP item = upsertItem(proposed);
+    validate(item);
+
+    authUtilsMockedStatic.verify(
+        () ->
+            EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                any(),
+                eq(mockAuthSession),
+                eq(mockAspectRetriever),
+                eq(Set.of(DATA_PRODUCT_URN)),
+                any(Map.class)));
+  }
+
+  @Test
+  public void testDenyNameChangeWithoutPrivilege() {
+    DataProductProperties current = new DataProductProperties();
+    current.setName("Original name");
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("Updated name");
+    mockCurrentProperties(current);
+
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    any(), any(), any(), any(Set.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
 
     TestMCP item = upsertItem(proposed);
     Stream<AspectValidationException> result = validate(item);
 
-    Assert.assertTrue(result.findAny().isEmpty());
-    authUtilsMockedStatic.verifyNoInteractions();
+    Assert.assertTrue(result.findAny().isPresent());
   }
 
   @Test

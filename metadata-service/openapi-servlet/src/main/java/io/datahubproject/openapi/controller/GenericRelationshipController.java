@@ -18,6 +18,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v2.models.GenericRelationship;
@@ -77,7 +78,8 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByType",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
@@ -180,7 +182,8 @@ public abstract class GenericRelationshipController {
                         authentication.getActor().toUrnStr(),
                         request,
                         "getRelationshipsByEntity",
-                        List.of()),
+                        List.of())
+                    .withUsageOperation(UsageOperation.METADATA_READ),
                 authorizationChain,
                 authentication,
                 true)
@@ -315,7 +318,6 @@ public abstract class GenericRelationshipController {
         sliceId,
         sliceMax,
         pitKeepAlive,
-        body,
-        null);
+        body);
   }
 }

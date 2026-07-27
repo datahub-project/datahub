@@ -398,6 +398,49 @@ New Ingestion Sources will automatically use your designated Default Pool if you
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
 </p>
 
+## Mutual TLS (mTLS) for Outbound HTTPS
+
+If DataHub Cloud GMS sits behind a proxy or load balancer that requires the client to present a certificate during the TLS handshake (mutual TLS), point the executor at a client certificate via two environment variables. The CLI / Python SDK reads these on every outbound HTTPS call, so configuring them once on the executor pod covers all of them.
+
+| Environment variable       | Purpose                                                                                                                                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATAHUB_CLIENT_CERT_PATH` | Path to a PEM file containing the client certificate. The file may be a combined PEM (cert + private key) when `DATAHUB_CLIENT_KEY_PATH` is not set.                                                                                             |
+| `DATAHUB_CLIENT_KEY_PATH`  | Path to a PEM file containing the private key matching `DATAHUB_CLIENT_CERT_PATH`. Required only when the cert and key live in separate files (e.g. the kubernetes `tls`-secret layout, where `tls.crt` and `tls.key` are mounted side by side). |
+
+When both env vars are unset, no client certificate is sent — fully backwards compatible.
+
+### Example: Kubernetes
+
+Mount a `kubernetes.io/tls` Secret into the executor pod and point the env vars at the mount.
+
+1. Create the TLS Secret from your cert and key files:
+
+```bash
+kubectl create secret tls datahub-executor-mtls-cert \
+  --cert=client.crt \
+  --key=client.key
+```
+
+2. Mount the Secret and set the env vars in your `values.yaml`:
+
+```yaml
+extraVolumes:
+  - name: mtls-cert
+    secret:
+      secretName: datahub-executor-mtls-cert
+extraVolumeMounts:
+  - name: mtls-cert
+    mountPath: /secrets/mtls
+    readOnly: true
+extraEnvs:
+  - name: DATAHUB_CLIENT_CERT_PATH
+    value: /secrets/mtls/tls.crt
+  - name: DATAHUB_CLIENT_KEY_PATH
+    value: /secrets/mtls/tls.key
+```
+
+3. Apply with `helm upgrade`. The pod restarts and presents the client cert on every outbound HTTPS call to GMS.
+
 ## Using Cloud Secret Managers
 
 You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.

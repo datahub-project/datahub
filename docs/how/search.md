@@ -133,6 +133,7 @@ If you want to:
 - Find a dataset with a column name, **latitude**
 
   - `/q fieldPaths: latitude` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)
+  - `/q fieldPaths: *latitude` to include columns that may use V2 fieldPaths such as [version=2.0].[type=string].latitude
   - fieldPaths is the name of the attribute that holds the column name in Datasets.
 
 - Find a dataset with the term **latitude** in the field description
@@ -328,6 +329,24 @@ the **term** `orders` is the same, however one location may be more important an
 **Note:** The customized query is a pass-through to Elasticsearch and must comply with their API, syntax errors are possible.
 It is recommended to test the customized queries prior to production deployment and knowledge of the Elasticsearch query
 language is required.
+
+### Default search entity types
+
+When GraphQL callers omit `types` (search, autocomplete, browse V2, and related resolvers), GMS uses configurable
+default entity-type lists from `elasticsearch.search` in `application.yaml`:
+
+| Config key                      | Environment variable                      | Used when callers omit `types` for |
+| ------------------------------- | ----------------------------------------- | ---------------------------------- |
+| `defaultEntityTypes`            | `SEARCH_DEFAULT_ENTITY_TYPES`             | Search / scroll / aggregate        |
+| `autocompleteEntityTypes`       | `SEARCH_AUTOCOMPLETE_ENTITY_TYPES`        | Autocomplete across entities       |
+| `browseEntityTypes`             | `SEARCH_BROWSE_ENTITY_TYPES`              | Browse V2                          |
+| `prioritizedSourceEntityTypes`  | `SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES`  | Source-entity quick filters        |
+| `prioritizedDatahubEntityTypes` | `SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES` | DataHub-entity quick filters       |
+
+Each list supports `value` / `add` / `remove` (and matching `*_ADD` / `*_REMOVE` env vars). Unset env vars keep the YAML
+defaults. An explicitly empty resolved list means GraphQL searches **no** entity types — it does not expand to all
+indices. Explicit non-empty `types` on the GraphQL request always win. Unknown registry names are soft-dropped with a
+warn at startup. Full variable reference: [Environment Variables](../deploy/environment-vars.md).
 
 ### Enable Custom Search
 

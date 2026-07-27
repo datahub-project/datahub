@@ -29,11 +29,13 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
     RedshiftView,
     TempTableRow,
+    unescape_stl_query_text,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
+from datahub.ingestion.source.usage.usage_common import normalize_timestamp_to_utc
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
 )
@@ -142,6 +144,13 @@ class RedshiftSqlLineage(Closeable):
             self.config.include_usage_statistics
             and self.config.include_column_usage_stats
         )
+        self.generate_query_usage = (
+            self.config.include_usage_statistics
+            and self.config.include_query_usage_statistics
+        )
+        # The unified all-statements feed must run to observe reads/SELECTs, which are
+        # required for per-query usage stats (and for column-level dataset usage).
+        self.run_unified_queries = self.generate_usage or self.generate_query_usage
         lineage_enabled = self.config.lineage_enabled
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
@@ -150,6 +159,7 @@ class RedshiftSqlLineage(Closeable):
             generate_lineage=lineage_enabled,
             generate_queries=self.config.lineage_generate_queries,
             generate_usage_statistics=self.generate_usage,
+            generate_query_usage_statistics=self.generate_query_usage,
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
@@ -395,7 +405,11 @@ class RedshiftSqlLineage(Closeable):
                     ),
                 )
             except ValueError as e:
-                self.report.warning("non-s3-lineage", str(e))
+                self.report.warning(
+                    message="Failed to resolve non-S3 lineage target",
+                    context="non-s3-lineage",
+                    exc=e,
+                )
                 return None
         else:
             target_platform = LineageDatasetPlatform.REDSHIFT
@@ -434,9 +448,7 @@ class RedshiftSqlLineage(Closeable):
         for rename_row in RedshiftDataDictionary.get_alter_table_commands(
             connection, query
         ):
-            # Redshift's system table has some issues where it encodes newlines as \n instead a proper
-            # newline character. This can cause issues in our parser.
-            query_text = rename_row.query_text.replace("\\n", "\n")
+            query_text = unescape_stl_query_text(rename_row.query_text)
 
             try:
                 schema, prev_name, new_name = parse_alter_table_rename(
@@ -462,7 +474,10 @@ class RedshiftSqlLineage(Closeable):
             )
 
             table_renames[new_urn] = TableRename(
-                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+                prev_urn,
+                new_urn,
+                query_text,
+                timestamp=normalize_timestamp_to_utc(rename_row.start_time),
             )
 
             # We want to generate lineage for the previous name too.
@@ -524,7 +539,7 @@ class RedshiftSqlLineage(Closeable):
                             default_db=self.database,
                             default_schema=self.config.default_schema,
                             session_id=temp_row.session_id,
-                            timestamp=temp_row.start_time,
+                            timestamp=normalize_timestamp_to_utc(temp_row.start_time),
                         ),
                         # The "temp table" query actually returns all CREATE TABLE statements, even if they
                         # aren't explicitly a temp table. As such, setting is_known_temp_table=True
@@ -549,7 +564,7 @@ class RedshiftSqlLineage(Closeable):
             LineageMode.SQL_BASED,
             LineageMode.MIXED,
         }:
-            if not self.generate_usage:
+            if not self.run_unified_queries:
                 # Populate lineage by parsing table creating sqls.
                 # Skipped in unified-feed mode: _populate_unified_queries feeds all
                 # queries (reads + writes) once, superseding this narrower feed and
@@ -629,7 +644,7 @@ class RedshiftSqlLineage(Closeable):
 
         # Queries-v2: feed every query (reads + writes) once so this aggregator also
         # produces usage, column usage and Query entities. (insert/create feed skipped above.)
-        if self.generate_usage:
+        if self.run_unified_queries:
             self._populate_unified_queries(connection)
 
         # Populate lineage for external tables.
@@ -677,12 +692,18 @@ class RedshiftSqlLineage(Closeable):
                             text = row[idx_query_text]
                             if not text:
                                 continue
+                            # STL_QUERYTEXT stores newlines/tabs as literal escape
+                            # sequences; unescape so sqlglot can parse multi-line
+                            # queries instead of silently dropping them.
+                            text = unescape_stl_query_text(text)
                             observed.append(
                                 ObservedQuery(
                                     query=text,
                                     default_db=self.database,
                                     default_schema=self.config.default_schema,
-                                    timestamp=row[idx_starttime],
+                                    timestamp=normalize_timestamp_to_utc(
+                                        row[idx_starttime]
+                                    ),
                                     user=self._user_urn(row[idx_username]),
                                     session_id=str(row[idx_session_id]),
                                 )
@@ -738,8 +759,8 @@ class RedshiftSqlLineage(Closeable):
         except Exception as e:
             self.report.warning(
                 title="Failed to extract some lineage",
-                message=f"Failed to extract lineage of type {lineage_type.name}",
-                context=f"Query: '{query}'",
+                message="Failed to extract lineage",
+                context=f"type={lineage_type.name}, query='{query}'",
                 exc=e,
             )
             self.report_status(f"extract-{lineage_type.name}", False)
@@ -756,7 +777,7 @@ class RedshiftSqlLineage(Closeable):
                 query=ddl,
                 default_db=self.database,
                 default_schema=self.config.default_schema,
-                timestamp=lineage_row.timestamp,
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
                 session_id=lineage_row.session_id,
             )
         )
@@ -798,7 +819,7 @@ class RedshiftSqlLineage(Closeable):
                 query_text=lineage_row.ddl,
                 downstream=target.urn(),
                 upstreams=[source.urn()],
-                timestamp=lineage_row.timestamp,
+                timestamp=normalize_timestamp_to_utc(lineage_row.timestamp),
             ),
             merge_lineage=True,
         )
@@ -939,10 +960,11 @@ class RedshiftSqlLineage(Closeable):
         for mcp in self.aggregator.gen_metadata():
             yield mcp.as_workunit()
         if len(self.aggregator.report.observed_query_parse_failures) > 0:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to extract some SQL lineage",
                 message="Unexpected error(s) while attempting to extract lineage from SQL queries. See the full logs for more details.",
                 context=f"Query Parsing Failures: {self.aggregator.report.observed_query_parse_failures}",
+                log=False,
             )
 
     def close(self) -> None:

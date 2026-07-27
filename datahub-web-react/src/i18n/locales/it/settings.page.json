@@ -1,0 +1,22 @@
+{
+    "logOut": "Esci",
+    "nav.access": "Accesso",
+    "nav.accessTokens": "Token di accesso",
+    "nav.appearance": "Aspetto",
+    "nav.developer": "Sviluppatore",
+    "nav.features": "Funzionalità",
+    "nav.homePage": "Pagina iniziale",
+    "nav.manage": "Gestisci",
+    "nav.myNotifications": "Le mie notifiche",
+    "nav.mySubscriptions": "Le mie Iscrizioni",
+    "nav.ownershipTypes": "Tipi di proprietà",
+    "nav.permissions": "Autorizzazioni",
+    "nav.personal": "Personale",
+    "nav.preferences": "Preferenze",
+    "nav.collapseSidebar": "Comprimi barra laterale impostazioni",
+    "nav.expandSidebar": "Espandi barra laterale impostazioni",
+    "nav.usersGroups": "Utenti e gruppi",
+    "nav.views": "Viste",
+    "subTitle": "Gestisci le impostazioni",
+    "title": "Impostazioni"
+}

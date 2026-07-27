@@ -103,8 +103,10 @@ public class NativeUserServiceTest {
       expectedExceptions = RuntimeException.class,
       expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserDatahub() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenReturn(true);
     _nativeUserService.createNativeUser(
-        opContext, DATAHUB_ACTOR, FULL_NAME, EMAIL, TITLE, PASSWORD);
+        opContext, "urn:li:corpuser:datahub", FULL_NAME, EMAIL, TITLE, PASSWORD);
   }
 
   @Test(

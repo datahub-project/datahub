@@ -134,6 +134,18 @@ class RedshiftConfig(
         description="Whether to generate queries entities for the SQL-based lineage collector.",
     )
 
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Generate per-query popularity statistics (queryUsageStatistics) for the "
+            "Query entities emitted by the SQL-based lineage collector. This is a "
+            "sub-flag of include_usage_statistics: it only takes effect when "
+            "include_usage_statistics is enabled, and is independent of "
+            "include_column_usage_stats. Requires lineage_generate_queries (default "
+            "True) so Query entities exist to attach stats to."
+        ),
+    )
+
     include_table_lineage: bool = Field(
         default=True, description="Whether table lineage should be ingested."
     )

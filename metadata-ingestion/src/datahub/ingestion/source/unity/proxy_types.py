@@ -137,6 +137,12 @@ class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
     type: Optional[Union[CatalogType, CustomCatalogType]]
+    connection_name: Optional[str] = None
+    options: Optional[Dict[str, str]] = None
+
+    @property
+    def is_foreign_catalog(self) -> bool:
+        return self.type == CatalogType.FOREIGN_CATALOG
 
 
 @dataclass
