@@ -1240,6 +1240,37 @@ def test_association_qualified_column_ref_resolves_to_target():
     assert [(t.name, t.qualified) for t in targets] == [("CUSTOMERS", False)]
 
 
+def test_used_composition_target_and_projected_column_resolve_to_target():
+    """A cds.Composition is a containment association; for lineage it behaves
+    exactly like a cds.Association. A used composition names a table-level
+    upstream, and a column projected through it resolves to the composition's
+    target entity (the parser only claims Association *and* Composition are both
+    navigations — this exercises the Composition half)."""
+    csn_def = {
+        "kind": "entity",
+        "elements": {
+            "_ITEMS": {"type": "cds.Composition", "target": "ORDER_ITEMS"},
+            "TOTAL": {"type": "cds.Decimal"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["ORDERS"], "as": "ORDERS"},
+                "columns": [
+                    {"ref": ["TOTAL"]},
+                    {"ref": ["_ITEMS", "SKU"], "as": "ITEM_SKU"},
+                ],
+            }
+        },
+    }
+    extractor = CsnLineageExtractor()
+    by_col = {p.downstream_col: p for p in extractor.extract_column_lineage(csn_def)}
+    assert by_col["ITEM_SKU"].upstream_refs == [
+        UpstreamColRef(qname="ORDER_ITEMS", col="SKU", qualified=False)
+    ]
+    targets = extractor.extract_association_targets(csn_def)
+    assert [(t.name, t.qualified) for t in targets] == [("ORDER_ITEMS", False)]
+
+
 # ---------------------------------------------------------------------------
 # UNION / SET lineage
 # ---------------------------------------------------------------------------

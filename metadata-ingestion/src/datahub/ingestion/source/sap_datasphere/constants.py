@@ -73,6 +73,8 @@ GRANT_CLIENT_CREDENTIALS: Final[str] = "client_credentials"
 OAUTH_TOKEN_PATH: Final[str] = "/oauth/token"
 HEADER_CONTENT_TYPE: Final[str] = "Content-Type"
 HEADER_ACCEPT: Final[str] = "Accept"
+HEADER_AUTHORIZATION: Final[str] = "Authorization"
+BEARER_PREFIX: Final[str] = "Bearer "
 PARAM_GRANT_TYPE: Final[str] = "grant_type"
 PARAM_REFRESH_TOKEN: Final[str] = "refresh_token"
 PARAM_CLIENT_ID: Final[str] = "client_id"
@@ -84,6 +86,10 @@ TOKEN_RESP_ERROR_DESCRIPTION: Final[str] = "error_description"
 # OData list-response body keys ({"value": [...], "@odata.nextLink": "..."}).
 ODATA_VALUE_KEY: Final[str] = "value"
 ODATA_NEXT_LINK_KEY: Final[str] = "@odata.nextLink"
+
+# OData server-driven paging query params for the catalog list endpoints.
+ODATA_PARAM_TOP: Final[str] = "$top"
+ODATA_PARAM_SKIP: Final[str] = "$skip"
 
 # Reserved CDS/CQN pseudo-alias: {"ref": ["$projection", "<col>"]} references
 # another OUTPUT column of the same query (a calculated column layered on a

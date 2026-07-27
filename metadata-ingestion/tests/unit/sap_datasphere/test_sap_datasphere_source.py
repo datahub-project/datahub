@@ -2901,6 +2901,50 @@ def test_convert_urns_to_lowercase_false_keeps_case(requests_mock):
     )
 
 
+def test_two_connection_lowercase_divergence_in_one_run():
+    """Two external connections in the same space resolve with divergent
+    convert_urns_to_lowercase: BigQuery preserves source case, Snowflake
+    lowercases. The flag is per-platform, so a single run cases each endpoint's
+    URN independently rather than applying one global rule."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "connection_to_platform_map": {
+                "BQ": {
+                    "platform": "bigquery",
+                    "convert_urns_to_lowercase": False,
+                    "database": "Proj",
+                },
+                "SF": {"platform": "snowflake", "convert_urns_to_lowercase": True},
+            },
+        }
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="two-conn-case"), cfg)
+    # Pre-seed the space resolver so no connections API call is made; the explicit
+    # per-connection map drives resolve_external.
+    source._resolvers["S1"] = PlatformMappingResolver(cfg, {}, report=source.report)
+
+    def _endpoint(connection: str, connection_type: str) -> FlowEndpoint:
+        return FlowEndpoint(
+            object_name="MixedTable",
+            is_local=False,
+            connection=connection,
+            connection_type=connection_type,
+            container="/DataSet",
+        )
+
+    bq_urn = source._resolve_flow_endpoint_urn("S1", _endpoint("BQ", "BIGQUERY"))
+    sf_urn = source._resolve_flow_endpoint_urn("S1", _endpoint("SF", "SNOWFLAKE"))
+    assert bq_urn is not None and sf_urn is not None
+    # BigQuery: database + schema + table, all case-preserved.
+    assert "urn:li:dataPlatform:bigquery" in bq_urn
+    assert "Proj.DataSet.MixedTable" in bq_urn
+    # Snowflake in the same run: schema + table, lowercased.
+    assert "urn:li:dataPlatform:snowflake" in sf_urn
+    assert "dataset.mixedtable" in sf_urn
+
+
 def test_report_has_column_lineage_unresolved_counter():
     """The report should expose a LossyList for column-lineage refs we couldn't resolve."""
     report = SapDatasphereReport()

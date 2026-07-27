@@ -1,7 +1,6 @@
 import logging
 from contextlib import contextmanager
 from typing import (
-    TYPE_CHECKING,
     Dict,
     Generator,
     Iterator,
@@ -20,6 +19,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     ACCEPT_JSON,
     ACCEPT_XML,
     ALT_OBJECT_TYPE,
+    BEARER_PREFIX,
     CATALOG_BASE,
     CONNECTIONS_TRUNCATION_THRESHOLD,
     CSN_CONTENT_TYPE,
@@ -29,10 +29,13 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     GRANT_CLIENT_CREDENTIALS,
     GRANT_REFRESH_TOKEN,
     HEADER_ACCEPT,
+    HEADER_AUTHORIZATION,
     HEADER_CONTENT_TYPE,
     OAUTH_TOKEN_PATH,
     OBJECT_TYPE_LOCAL_TABLES,
     ODATA_NEXT_LINK_KEY,
+    ODATA_PARAM_SKIP,
+    ODATA_PARAM_TOP,
     ODATA_VALUE_KEY,
     PARAM_CLIENT_ID,
     PARAM_CLIENT_SECRET,
@@ -48,10 +51,8 @@ from datahub.ingestion.source.sap_datasphere.models import (
     EdmxFetchResult,
     JsonDict,
 )
+from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 from datahub.utilities.perf_timer import PerfTimer
-
-if TYPE_CHECKING:
-    from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class SapDatasphereClient:
     def __init__(
         self,
         config: SapDatasphereConfig,
-        report: Optional["SapDatasphereReport"] = None,
+        report: Optional[SapDatasphereReport] = None,
     ) -> None:
         self.config = config
         self._report = report
@@ -68,8 +69,8 @@ class SapDatasphereClient:
         self._auth_initialized = False
         self._connections_cache: Dict[str, List[ConnectionRecord]] = {}
         if config.token:
-            self.session.headers["Authorization"] = (
-                f"Bearer {config.token.get_secret_value()}"
+            self.session.headers[HEADER_AUTHORIZATION] = (
+                f"{BEARER_PREFIX}{config.token.get_secret_value()}"
             )
             self._auth_initialized = True
 
@@ -83,7 +84,7 @@ class SapDatasphereClient:
         adapter = HTTPAdapter(max_retries=retry)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
-        session.headers.update({"Accept": ACCEPT_JSON})
+        session.headers.update({HEADER_ACCEPT: ACCEPT_JSON})
         return session
 
     @contextmanager
@@ -104,7 +105,7 @@ class SapDatasphereClient:
         if self._auth_initialized:
             return
         token = self._get_token()
-        self.session.headers["Authorization"] = f"Bearer {token}"
+        self.session.headers[HEADER_AUTHORIZATION] = f"{BEARER_PREFIX}{token}"
         self._auth_initialized = True
 
     def _refresh_auth(self) -> None:
@@ -284,7 +285,7 @@ class SapDatasphereClient:
             else:
                 resp = self._get(
                     url,
-                    params={"$top": page_size, "$skip": skip},
+                    params={ODATA_PARAM_TOP: page_size, ODATA_PARAM_SKIP: skip},
                     operation="catalog_list",
                 )
             try:
@@ -358,7 +359,7 @@ class SapDatasphereClient:
             # remaining asset — _get_with_refresh recovers it.
             with self._timed_api("edmx_fetch", metadata_url):
                 resp = self._get_with_refresh(
-                    metadata_url, headers={"Accept": ACCEPT_XML}
+                    metadata_url, headers={HEADER_ACCEPT: ACCEPT_XML}
                 )
             if resp.status_code == 403:
                 msg = (

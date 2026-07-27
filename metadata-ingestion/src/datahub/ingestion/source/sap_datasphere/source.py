@@ -325,6 +325,26 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 context=str(e),
             )
 
+    def _safe_list_objects(
+        self, space_name: str, object_type: str, *, entity_label: str, impact: str
+    ) -> Optional[List[JsonDict]]:
+        # Shared "list a dwaas-core object type, soften transport errors" wrapper
+        # for the local-table / remote-table / flow listings. Returns None when the
+        # listing failed (caller skips the type) so a per-space outage warns once
+        # and continues rather than aborting the run.
+        try:
+            return list(self._client.list_objects(space_name, object_type))
+        except requests.RequestException as e:
+            self.report.warning(
+                title=f"Failed to list {entity_label} in space",
+                message=(
+                    f"Could not enumerate {entity_label} in space {space_name}; "
+                    f"{impact}"
+                ),
+                context=str(e),
+            )
+            return None
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Emit standalone Tag entities once per run so the predefined SAP tag URNs
         # get display names + descriptions in the UI.
@@ -429,19 +449,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         phantom lineage edges into navigable nodes. Column schema is parsed from
         the per-table CSN when available so column-level edges render.
         """
-        try:
-            local_tables = list(self._client.list_local_tables(space_name))
-        except requests.RequestException as e:
-            self.report.warning(
-                title="Failed to list Local Tables in space",
-                message=(
-                    f"Could not enumerate Local Tables in space {space_name}; "
-                    f"phantom-lineage targets in this space will remain stubs."
-                ),
-                context=str(e),
-            )
-            return
-
+        local_tables = self._safe_list_objects(
+            space_name,
+            OBJECT_TYPE_LOCAL_TABLES,
+            entity_label="Local Tables",
+            impact="phantom-lineage targets in this space will remain stubs.",
+        )
         if not local_tables:
             return
 
@@ -562,17 +575,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         for object_type in flow_types:
-            try:
-                entries = list(self._client.list_objects(space_name, object_type))
-            except requests.RequestException as e:
-                self.report.warning(
-                    title="Failed to list flows in space",
-                    message=(
-                        f"Could not enumerate {object_type} in space {space_name}; "
-                        f"flow lineage from this type will be missing."
-                    ),
-                    context=str(e),
-                )
+            entries = self._safe_list_objects(
+                space_name,
+                object_type,
+                entity_label="flows",
+                impact=f"{object_type} flow lineage from this space will be missing.",
+            )
+            if entries is None:
                 continue
             for technical_name in self._iter_allowed_technical_names(entries):
                 self._bump_report(_FLOW_SCANNED_ATTR[object_type])
@@ -646,7 +655,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             display_name=parsed.technical_name,
-            subtype=DataFlowSubTypes(parsed.subtype),
+            subtype=parsed.subtype,
             parent_container=self._space_key(space_name),
         )
 
@@ -680,7 +689,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 name=self._maybe_lower(task.target_object),
                 flow=dataflow,
                 display_name=task.target_object,
-                subtype=_JOB_SUBTYPE_BY_FLOW[DataFlowSubTypes(parsed.subtype)],
+                subtype=_JOB_SUBTYPE_BY_FLOW[parsed.subtype],
                 custom_properties={
                     PROP_SAP_DATASPHERE_SPACE: space_name,
                     PROP_SAP_DATASPHERE_ASSET: parsed.technical_name,
@@ -961,21 +970,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         """Emit federated Remote Tables as Datasets on the sap_datasphere platform,
         with upstream lineage to their external source object parsed from the CSN
         ``@DataWarehouse.remote.*`` annotations."""
-        try:
-            entries = list(
-                self._client.list_objects(space_name, OBJECT_TYPE_REMOTE_TABLES)
-            )
-        except requests.RequestException as e:
-            self.report.warning(
-                title="Failed to list Remote Tables in space",
-                message=(
-                    f"Could not enumerate Remote Tables in space {space_name}; "
-                    f"federated lineage in this space will be missing."
-                ),
-                context=str(e),
-            )
-            return
-
+        entries = self._safe_list_objects(
+            space_name,
+            OBJECT_TYPE_REMOTE_TABLES,
+            entity_label="Remote Tables",
+            impact="federated lineage in this space will be missing.",
+        )
         if not entries:
             return
 
@@ -1976,12 +1976,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return filtered
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
-        column_pattern = self.config.column_pattern
         decorated: List[SchemaFieldClass] = []
-        for f in result.fields:
-            if not column_pattern.allowed(f.fieldPath):
-                self.report.columns_filtered += 1
-                continue
+        for f in self._apply_column_pattern(result.fields):
             field_props = result.field_custom_props.get(f.fieldPath, {})
             # SAP CDS annotations are surfaced as field tags only; the field
             # description stays the SAP-sourced Common.Label (or empty) rather

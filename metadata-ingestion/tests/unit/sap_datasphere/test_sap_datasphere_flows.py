@@ -103,6 +103,28 @@ def test_parse_data_flow_multiple_inputs_suppresses_column_lineage():
     assert parsed.column_mappings == []
 
 
+def test_parse_data_flow_duplicate_input_endpoints_collapse():
+    """Two consumer nodes naming the same (object, connection) collapse to one
+    input via _dedup_endpoints. The collapse is behaviorally load-bearing: with a
+    single distinct input the producer's column mappings are no longer ambiguous,
+    so column lineage is retained rather than suppressed as multi-input."""
+    payload = _data_flow_payload()
+    payload[OBJECT_TYPE_DATA_FLOWS]["MY_DATA_FLOW"]["contents"]["processes"]["p3"] = (
+        _process(
+            "com.sap.dataflow.table.consumer",
+            {
+                "dwcEntity": "SRC_TABLE",
+                "hanaConnection": {"connectionID": "$DWC"},
+            },
+        )
+    )
+    parsed = parse_flow(payload, OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
+    assert parsed is not None
+    assert [e.object_name for e in parsed.inputs] == ["SRC_TABLE"]
+    assert parsed.cll_suppressed_multi_input is False
+    assert len(parsed.column_mappings) == 1
+
+
 def test_parse_data_flow_body_falls_back_to_sole_entry_on_name_mismatch():
     payload = _data_flow_payload(name="ACTUAL_NAME")
     parsed = parse_flow(payload, OBJECT_TYPE_DATA_FLOWS, "REQUESTED_NAME")

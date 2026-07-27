@@ -46,7 +46,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
 
 # ParsedFlow.subtype is the flow's *pipeline* type (the DataFlow subtype). The
 # source layer maps it to the per-task DataJob subtype when emitting jobs.
-_SUBTYPE_BY_OBJECT_TYPE: Dict[str, str] = {
+_SUBTYPE_BY_OBJECT_TYPE: Dict[str, DataFlowSubTypes] = {
     OBJECT_TYPE_DATA_FLOWS: DataFlowSubTypes.SAP_DATA_FLOW,
     OBJECT_TYPE_REPLICATION_FLOWS: DataFlowSubTypes.SAP_REPLICATION_FLOW,
     OBJECT_TYPE_TRANSFORMATION_FLOWS: DataFlowSubTypes.SAP_TRANSFORMATION_FLOW,

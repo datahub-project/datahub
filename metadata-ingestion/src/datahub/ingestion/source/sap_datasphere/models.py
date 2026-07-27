@@ -12,6 +12,7 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 from datahub.ingestion.source.sap_datasphere.config import ConnectionPlatformConfig
 from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
@@ -169,6 +170,24 @@ class EdmxParseResult(BaseModel):
     error: Optional[str] = None  # set when parse failed; None on success
     unknown_edm_types: List[UnknownColumnType] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _check_failure_carries_no_payload(self) -> "EdmxParseResult":
+        # A failure result must not smuggle partial schema through: callers branch
+        # on ``error`` and skip the payload, so any fields/props set alongside an
+        # error would be silently dropped and mask a parser bug.
+        if self.error is not None and (
+            self.fields
+            or self.field_custom_props
+            or self.entity_label is not None
+            or self.entity_custom_props
+            or self.unknown_edm_types
+        ):
+            raise ValueError(
+                "EdmxParseResult with an error must carry no fields/props "
+                f"(error={self.error!r})"
+            )
+        return self
+
 
 class CsnSchemaResult(BaseModel):
     # CSN-elements schema parse output: the fields plus any columns whose CDS
@@ -266,7 +285,7 @@ class CsnSelectEnvelope(BaseModel):
     # None for a legitimate non-SELECT entity.
     model_config = ConfigDict(frozen=True)
 
-    select: Optional[Dict[str, Any]] = None
+    select: Optional[JsonDict] = None
     malformed: Optional["ColumnLineagePair"] = None
 
     @model_validator(mode="after")
@@ -383,7 +402,7 @@ class ParsedFlow(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     technical_name: str
-    subtype: str
+    subtype: DataFlowSubTypes
     inputs: List[FlowEndpoint] = Field(default_factory=list)
     outputs: List[FlowEndpoint] = Field(default_factory=list)
     column_mappings: List[FlowColumnMapping] = Field(default_factory=list)

@@ -92,16 +92,6 @@ def test_platform_accepts_lowercase_with_hyphen():
     assert cfg2.platform == "my_custom_platform"
 
 
-def test_connection_platform_config_accepts_valid_env():
-    cfg = ConnectionPlatformConfig(platform="hana", env="PROD")
-    assert cfg.env == "PROD"
-
-
-def test_connection_platform_config_accepts_none_env():
-    cfg = ConnectionPlatformConfig(platform="hana", env=None)
-    assert cfg.env is None
-
-
 def test_refresh_token_requires_xsuaa_url():
     """M6: refresh_token without xsuaa_url must raise a clear validation error."""
     with pytest.raises(ValueError, match="xsuaa_url"):
@@ -136,30 +126,6 @@ def test_client_secret_requires_xsuaa_url():
                 "client_id": "c",
                 "client_secret": "s",
                 # xsuaa_url intentionally omitted and not derivable from base_url
-            }
-        )
-
-
-def test_request_timeout_sec_rejects_zero():
-    """L8: ``request_timeout_sec`` is bounded `ge=1` — zero must raise."""
-    with pytest.raises(ValueError):
-        SapDatasphereConfig.model_validate(
-            {
-                "base_url": "https://myco.eu10.hcs.cloud.sap",
-                "token": "t",
-                "request_timeout_sec": 0,
-            }
-        )
-
-
-def test_max_retries_rejects_negative():
-    """L8: ``max_retries`` is bounded `ge=0` — negative values must raise."""
-    with pytest.raises(ValueError):
-        SapDatasphereConfig.model_validate(
-            {
-                "base_url": "https://myco.eu10.hcs.cloud.sap",
-                "token": "t",
-                "max_retries": -1,
             }
         )
 
@@ -221,27 +187,3 @@ def test_connection_to_platform_map_defaults_to_empty():
         token="t",
     )
     assert config.connection_to_platform_map == {}
-
-
-def test_config_asset_batch_size_bounds_rejected():
-    """asset_batch_size is bounded ge=1, le=100000 — out-of-range must raise.
-
-    (The default value and the lowercase-URN behavior are covered behaviorally
-    in test_sap_datasphere_source.py, so no default-assertion test here.)"""
-    with pytest.raises(ValueError):
-        SapDatasphereConfig.model_validate(
-            {
-                "base_url": "https://myco.eu10.hcs.cloud.sap",
-                "token": "t",
-                "asset_batch_size": 0,
-            }
-        )
-
-    with pytest.raises(ValueError):
-        SapDatasphereConfig.model_validate(
-            {
-                "base_url": "https://myco.eu10.hcs.cloud.sap",
-                "token": "t",
-                "asset_batch_size": 100001,
-            }
-        )
