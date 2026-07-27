@@ -181,8 +181,7 @@
                 "instance": "recorded_tenant",
                 "space": "demo_space"
             },
-            "name": "DEMO_SPACE",
-            "description": "SAP Datasphere Space: DEMO_SPACE"
+            "name": "DEMO_SPACE"
         }
     },
     "systemMetadata": {
@@ -2142,7 +2141,7 @@
                 {
                     "fieldPath": "DATE_SQL",
                     "nullable": false,
-                    "description": "Date [sap_calendar_type=date]",
+                    "description": "Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -2162,7 +2161,7 @@
                 {
                     "fieldPath": "DATE_SAP",
                     "nullable": true,
-                    "description": "Date (String) [sap_calendar_type=date]",
+                    "description": "Date (String)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2208,7 +2207,7 @@
                 {
                     "fieldPath": "CALMONTH",
                     "nullable": true,
-                    "description": "Calendar Month [sap_calendar_type=yearmonth]",
+                    "description": "Calendar Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2228,7 +2227,7 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "description": "Month [sap_calendar_type=month]",
+                    "description": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2274,7 +2273,7 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "description": "Year [sap_calendar_type=year]",
+                    "description": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -2779,7 +2778,7 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "description": "Year [sap_calendar_type=year]",
+                    "description": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3043,7 +3042,7 @@
                 {
                     "fieldPath": "CALMONTH",
                     "nullable": false,
-                    "description": "Calendar Month [sap_calendar_type=yearmonth]",
+                    "description": "Calendar Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3063,7 +3062,7 @@
                 {
                     "fieldPath": "MONTH",
                     "nullable": true,
-                    "description": "Month [sap_calendar_type=month]",
+                    "description": "Month",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3109,7 +3108,7 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": true,
-                    "description": "Year [sap_calendar_type=year]",
+                    "description": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -3405,7 +3404,7 @@
                 {
                     "fieldPath": "YEAR",
                     "nullable": false,
-                    "description": "Year [sap_calendar_type=year]",
+                    "description": "Year",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -4048,7 +4047,6 @@
                 "local_table": "true"
             },
             "name": "SAP.TIME.M_TIME_DIMENSION",
-            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
             "tags": []
         }
     },
@@ -4220,7 +4218,6 @@
                 "local_table": "true"
             },
             "name": "SAP.TIME.M_TIME_DIMENSION_TDAY",
-            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
             "tags": []
         }
     },
@@ -4392,7 +4389,6 @@
                 "local_table": "true"
             },
             "name": "SAP.TIME.M_TIME_DIMENSION_TMONTH",
-            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
             "tags": []
         }
     },
@@ -4564,7 +4560,6 @@
                 "local_table": "true"
             },
             "name": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
-            "description": "Local Table from SAP Datasphere space DEMO_SPACE.",
             "tags": []
         }
     },

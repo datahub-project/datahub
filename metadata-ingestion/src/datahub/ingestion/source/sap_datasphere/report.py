@@ -60,7 +60,7 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     association_upstreams_emitted: int = 0
 
     # Flow-based lineage (data / replication / transformation flows, task chains)
-    # emitted as DataJobs under a per-space DataFlow.
+    # emitted as a DataFlow + DataJob per flow, parented under the space container.
     data_flows_scanned: int = 0
     data_flows_emitted: int = 0
     replication_flows_scanned: int = 0

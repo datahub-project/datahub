@@ -482,23 +482,16 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{space_name}.{technical_name}",
                 )
 
-        if schema_fields:
-            description = f"Local Table from SAP Datasphere space {space_name}."
-        else:
-            description = (
-                f"Local Table from SAP Datasphere space {space_name}. "
-                f"This is a base table not exposed via the OData Consumption "
-                f"API — schema details are unavailable. Emitted to close "
-                f"phantom-lineage gaps from views referencing this table."
-            )
-
+        # Local Tables are base tables not exposed via the OData Consumption API,
+        # so SAP provides no description for them; they are emitted (with schema
+        # when available) to close phantom-lineage gaps from views that reference
+        # them. No description is synthesized.
         dataset = Dataset(
             platform=resolved.platform,
             name=dataset_name,
             platform_instance=resolved.platform_instance,
             env=resolved.env,
             display_name=technical_name,
-            description=description,
             subtype=DatasetSubTypes.SAP_LOCAL_TABLE,
             parent_container=space_key,
             custom_properties={
@@ -527,16 +520,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_flows_for_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
         """Emit each enabled flow object (data / replication / transformation flow,
-        task chain) as a DataJob under a single per-space DataFlow, wiring its IO
-        objects as inlets/outlets and its column mappings as fine-grained lineage.
+        task chain) as its own DataFlow (pipeline) with a single DataJob that
+        carries its IO objects as inlets/outlets and its column mappings as
+        fine-grained lineage. Each flow's DataFlow is parented under the space
+        container, so the space's flows sit directly beside its datasets.
         """
         flow_types = self._enabled_flow_types()
         if not flow_types:
             return
 
-        # The DataFlow is emitted lazily on the first parseable flow so a space
-        # with none doesn't get an empty pipeline node.
-        dataflow: Optional[DataFlow] = None
         for object_type in flow_types:
             try:
                 entries = list(self._client.list_objects(space_name, object_type))
@@ -565,9 +557,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 if parsed.cll_suppressed_multi_input:
                     self.report.flow_column_lineage_suppressed_multi_input += 1
-                if dataflow is None:
-                    dataflow = self._build_space_dataflow(space_name)
-                    yield from dataflow.as_workunits()
+                dataflow = self._build_flow_dataflow(space_name, parsed)
+                yield from dataflow.as_workunits()
                 yield from self._isolate(
                     f"{space_name}.{object_type}.{technical_name}",
                     self._emit_flow_job(space_name, dataflow, parsed),
@@ -612,15 +603,18 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
         return result.platform
 
-    def _build_space_dataflow(self, space_name: str) -> DataFlow:
+    def _build_flow_dataflow(self, space_name: str, parsed: ParsedFlow) -> DataFlow:
+        # One DataFlow per flow (pipeline), named <space>.<flow> for cross-space
+        # uniqueness and parented under the space container. parsed.subtype holds
+        # the flow-type label (e.g. "Data Flow"), which is a valid DataFlowSubTypes
+        # value, so it doubles as the pipeline's subtype.
         return DataFlow(
             platform=PLATFORM,
-            name=self._maybe_lower(space_name),
+            name=self._maybe_lower(f"{space_name}.{parsed.technical_name}"),
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            display_name=space_name,
-            description=f"SAP Datasphere flows in space {space_name}.",
-            subtype=DataFlowSubTypes.SAP_DATASPHERE_SPACE_FLOWS,
+            display_name=parsed.technical_name,
+            subtype=DataFlowSubTypes(parsed.subtype),
             parent_container=self._space_key(space_name),
         )
 
@@ -650,7 +644,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             parsed, input_urn_by_object, output_urn_by_object
         )
         job = DataJob(
-            name=self._maybe_lower(f"{space_name}.{parsed.technical_name}"),
+            # The flow's DataFlow URN already carries <space>.<flow>, so the job
+            # id is just the flow's technical name.
+            name=self._maybe_lower(parsed.technical_name),
             flow=dataflow,
             display_name=parsed.technical_name,
             subtype=parsed.subtype,
@@ -958,7 +954,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=local_resolved.platform_instance,
             env=local_resolved.env,
             display_name=technical_name,
-            description=f"Remote Table from SAP Datasphere space {space_name}.",
             subtype=DatasetSubTypes.SAP_REMOTE_TABLE,
             parent_container=space_key,
             custom_properties={
@@ -1164,10 +1159,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # state, so we must not add URNs manually (would double-count and race
         # with the parallel asset workers).
         key = self._space_key(space_name)
+        # SAP provides only the space label (used as display_name); no space
+        # description is available, so none is synthesized.
         container = Container(
             key,
             display_name=space_label,
-            description=f"SAP Datasphere Space: {space_name}",
             subtype=DatasetContainerSubTypes.SAP_DATASPHERE_SPACE,
         )
         yield from container.as_workunits()
@@ -1834,13 +1830,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.columns_filtered += 1
                 continue
             field_props = result.field_custom_props.get(f.fieldPath, {})
-            if field_props:
-                prop_str = ", ".join(f"{k}={v}" for k, v in field_props.items())
-                f.description = (
-                    f"{f.description} [{prop_str}]"
-                    if f.description
-                    else f"[{prop_str}]"
-                )
+            # SAP CDS annotations are surfaced as field tags only; the field
+            # description stays the SAP-sourced Common.Label (or empty) rather
+            # than a synthesized annotation dump.
             self._apply_field_tags(f, field_props)
             decorated.append(f)
         return decorated

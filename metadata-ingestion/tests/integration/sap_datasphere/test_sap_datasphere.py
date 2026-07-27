@@ -262,8 +262,8 @@ def test_sap_datasphere_golden_file_has_required_aspects() -> None:
     )
 
     schema_event_text = json.dumps(events)
-    assert "sap_calendar_type=date" in schema_event_text, (
-        "Expected calendar annotation in schema field description"
+    assert "urn:li:tag:sap:calendar:date" in schema_event_text, (
+        "Expected calendar annotation surfaced as a field tag"
     )
     assert "Analytic Model" in schema_event_text, (
         "Expected Analytic Model subtype from AM_REVENUE"
@@ -883,7 +883,7 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
     ``@DataWarehouse.remote.entity`` is the SQL-quoted dotted form.
 
     Exercises the dwaas-core flow/remote-table discovery path, the DataFlow /
-    DataJob emission (Space Flows), external URN assembly (BigQuery ``database``
+    DataFlow + DataJob emission (per flow), external URN assembly (BigQuery ``database``
     qualification + preserved casing), per-task source->target pairing, and the
     quoted-identifier stripping that lets HANA upstreams stitch to the native
     HANA connector.

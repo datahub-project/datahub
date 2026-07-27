@@ -3555,8 +3555,7 @@ def _wire_revenue_asset(requests_mock: rm.Mocker) -> None:
 
 def test_emit_sap_semantics_as_tags_default_true_emits_field_tags(requests_mock):
     """Field-level CDS semantic annotations surface as DataHub tags on
-    ``SchemaField.globalTags``, in addition to the existing custom-property
-    description suffix."""
+    ``SchemaField.globalTags``."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -3592,8 +3591,11 @@ def test_emit_sap_semantics_as_tags_default_true_emits_field_tags(requests_mock)
     # Plain ID field has no semantic annotation → no globalTags.
     assert fields_by_name["ID"].globalTags is None
 
-    # And the description-suffix custom props are still present (additive).
-    assert year.description is not None and "sap_calendar_type=year" in year.description
+    # The annotation is surfaced only as a tag now — not injected into the
+    # field description (which stays the SAP-sourced label, if any).
+    assert not (year.description or "").endswith("]"), (
+        "field description should not carry a synthesized annotation suffix"
+    )
 
 
 def test_emit_sap_semantics_as_tags_false_suppresses_tags(requests_mock):
@@ -3635,14 +3637,16 @@ def test_emit_sap_semantics_as_tags_false_suppresses_tags(requests_mock):
         if aspect_of(wu).__class__.__name__ == "TagPropertiesClass"
     ], "No TagProperties MCPs should be emitted when emission is off"
 
-    # The existing sap_* custom-property description suffix MUST still be present
-    # — the flag only suppresses tags, not the additive custom-property behaviour.
+    # Field descriptions never carry a synthesized annotation suffix, regardless
+    # of the tag-emission flag.
     year = next(
         f
         for f in aspect_as(schema_wu, SchemaMetadataClass).fields
         if f.fieldPath == "YEAR_VAL"
     )
-    assert year.description is not None and "sap_calendar_type=year" in year.description
+    assert not (year.description or "").endswith("]"), (
+        "field description should not carry a synthesized annotation suffix"
+    )
 
 
 def test_predefined_tag_entities_emitted_once_per_run(requests_mock):

@@ -322,9 +322,9 @@ class SapDatasphereConfig(
     include_data_flows: bool = Field(
         default=False,
         description=(
-            "If True, discover SAP Datasphere Data Flows and emit each as a "
-            "DataJob (grouped under a per-space DataFlow) with its source/target "
-            "tables as input/output datasets and column-level lineage from the "
+            "If True, discover SAP Datasphere Data Flows and emit each as its own "
+            "DataFlow + DataJob (parented under the space container) with its "
+            "source/target tables as input/output datasets and column-level lineage from the "
             "producer's attributeMappings. Data Flows are the primary lineage "
             "source for Local Tables populated by an ETL flow. Uses the supported "
             "`/dwaas-core/api/v1/spaces/X/dataflows` endpoint (one list call per "

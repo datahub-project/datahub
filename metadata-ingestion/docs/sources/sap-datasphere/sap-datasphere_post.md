@@ -49,21 +49,22 @@ the tables they read are _populated_. Several opt-in flags surface the
 design-time objects that move and transform data, so an otherwise phantom
 upstream Local Table becomes a navigable node with real upstream lineage:
 
-- **`include_data_flows: true`** — emits each Data Flow as a DataJob (grouped
-  under one DataFlow per space) with its source tables as inputs, its target
-  tables as outputs, and column-level lineage from the flow's column mappings.
-  Column lineage is attributed only when a target has a single input source.
-- **`include_replication_flows: true`** — emits each Replication Flow as a
-  DataJob wiring its source object(s) to target object(s), with per-task column
-  mappings. Source/target systems are routed to a DataHub platform via
+- **`include_data_flows: true`** — emits each Data Flow as its own DataFlow
+  (pipeline) with a single DataJob, parented under the space container, with its
+  source tables as inputs, its target tables as outputs, and column-level lineage
+  from the flow's column mappings. Column lineage is attributed only when a
+  target has a single input source.
+- **`include_replication_flows: true`** — emits each Replication Flow as its own
+  DataFlow + DataJob wiring its source object(s) to target object(s), with
+  per-task column mappings. Source/target systems are routed to a DataHub platform via
   `connection_to_platform_map` / `platform_type_defaults` (using the flow's own
   `connectionType` when the connection isn't in the space's connections list).
 - **`include_remote_tables: true`** — emits federated Remote Tables as datasets
   with upstream lineage to their external source object (parsed from the CSN
   `@DataWarehouse.remote.*` annotations and routed via the connection maps).
 - **`include_task_chains: true`** — **experimental**. Task Chains _are_
-  discovered against a live tenant and emitted as IO-less DataJobs (their
-  presence + subtype), but their internal member/reference grammar has not been
+  discovered against a live tenant and emitted as IO-less DataFlow + DataJob
+  pairs (their presence + subtype), but their internal member/reference grammar has not been
   reverse-engineered, so no lineage edges are produced. Enable to catalogue the
   objects; please share a payload sample if you need lineage.
 - **`include_transformation_flows: true`** — **experimental**. Parsed with the
