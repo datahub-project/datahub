@@ -37,6 +37,7 @@ from datahub.ingestion.source.informix.constants import PLATFORM
 from datahub.ingestion.source.informix.lineage import build_view_upstream_lineage
 from datahub.ingestion.source.informix.mapping import (
     build_foreign_key_constraints,
+    build_owners,
     columns_to_schema_fields,
     make_table_identifier,
 )
@@ -48,6 +49,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
+    OwnerClass,
     SchemaFieldClass,
     SchemalessClass,
     SchemaMetadataClass,
@@ -73,6 +75,11 @@ class _PendingView:
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Schema/table/view owner from `systables.owner`, via the `include_ownership` "
+    "config field",
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
@@ -158,6 +165,11 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
             domain_registry=self.domain_registry,
         )
 
+    def _owners(self, owner: str) -> Optional[List[OwnerClass]]:
+        if not self.config.include_ownership:
+            return None
+        return build_owners(owner)
+
     def _schema_key(self, owner: str) -> ContainerKey:
         # SchemaKey's db_schema attribute is aliased to "schema" (to avoid
         # shadowing pydantic's BaseModel.schema()), so construct by alias.
@@ -226,6 +238,7 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         subtype=DatasetContainerSubTypes.SCHEMA,
                         parent_container=db_key,
                         domain=self._domain_urn(table.owner),
+                        owners=self._owners(table.owner),
                     )
 
                 # Isolate per-table failures: one broken/inaccessible object
@@ -285,6 +298,7 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         schema=schema,
                         display_name=table.name,
                         domain=self._domain_urn(name),
+                        owners=self._owners(table.owner),
                     )
                     yield dataset
                     dataset_urn = dataset.urn.urn()

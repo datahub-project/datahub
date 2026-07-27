@@ -16,6 +16,7 @@ from datahub.ingestion.source.informix.models import (
 from datahub.ingestion.source.informix.source import InformixSource
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
+    OwnershipTypeClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
 )
@@ -470,6 +471,44 @@ def test_source_warns_on_composite_foreign_key():
     list(source.get_workunits_internal())
 
     assert any("Composite foreign key" in str(w.title) for w in source.report.warnings)
+
+
+def test_source_emits_owner_from_systables_owner():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    customers = next(
+        d for d in entities if isinstance(d, Dataset) and d.display_name == "customers"
+    )
+    assert customers.owners is not None
+    assert [o.owner for o in customers.owners] == ["urn:li:corpuser:informix"]
+    assert [o.type for o in customers.owners] == [OwnershipTypeClass.DATAOWNER]
+
+    # the schema container is owned by the same user it is named after
+    schema_container = next(
+        c for c in entities if isinstance(c, Container) and c.display_name == "informix"
+    )
+    assert schema_container.owners is not None
+    assert [o.owner for o in schema_container.owners] == ["urn:li:corpuser:informix"]
+
+
+def test_source_suppresses_ownership_when_disabled():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb", "include_ownership": False}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_FakeClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    assert all(
+        e.owners is None for e in entities if isinstance(e, (Dataset, Container))
+    )
 
 
 def test_source_assigns_domain_from_pattern():

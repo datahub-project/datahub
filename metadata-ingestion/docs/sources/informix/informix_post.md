@@ -1,6 +1,23 @@
 ### Capabilities
 
-Use the **Important Capabilities** table above as the source of truth for supported features. This module emits containers, tables/views, and schema fields; extracts foreign-key relationships; extracts table- and column-level lineage for views by parsing their SQL definitions; emits approximate row counts from `systables.nrows`; and supports stateful deletion detection.
+Use the **Important Capabilities** table above as the source of truth for supported features. This module emits containers, tables/views, and schema fields; extracts foreign-key relationships; extracts table- and column-level lineage for views by parsing their SQL definitions; emits approximate row counts from `systables.nrows`; assigns ownership from `systables.owner`; and supports stateful deletion detection.
+
+#### Ownership
+
+Ownership is taken from `systables.owner`, which Informix populates with the database
+user that created the object. Each schema, table and view is assigned that user as a
+`DATAOWNER`.
+
+Two things to be aware of before relying on this:
+
+- Informix records a **database account**, not a person or team. Objects created by an
+  administrative account all come back owned by that account (commonly `informix`), so
+  the resulting owner is an identity in the DataHub sense but not necessarily a useful
+  point of contact.
+- The owner name is also the schema name — in Informix the two are the same concept —
+  so a schema container is owned by the user it is named after.
+
+Set `include_ownership: false` to skip emitting it.
 
 ### Limitations
 

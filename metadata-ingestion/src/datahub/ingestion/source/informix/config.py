@@ -108,6 +108,13 @@ class InformixSourceConfig(
         default=True,
         description="Extract table- and column-level lineage for views by parsing their SQL definitions.",
     )
+    include_ownership: bool = Field(
+        default=True,
+        description="Emit ownership for schemas, tables and views from systables.owner. "
+        "Informix records the owning database user rather than a person, so this "
+        "produces a corpuser URN for that account (e.g. 'informix'), not an "
+        "individual's identity.",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Stateful ingestion / stale-entity removal config."
     )

@@ -3,12 +3,18 @@ from typing import List, Optional
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
+    make_user_urn,
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import PLATFORM, map_coltype
 from datahub.ingestion.source.informix.models import InformixColumn, InformixForeignKey
-from datahub.metadata.schema_classes import ForeignKeyConstraintClass, SchemaFieldClass
+from datahub.metadata.schema_classes import (
+    ForeignKeyConstraintClass,
+    OwnerClass,
+    OwnershipTypeClass,
+    SchemaFieldClass,
+)
 
 # Numeric/DECIMAL types pack precision+scale into collength rather than a
 # plain character length, so length is only meaningful for these string types.
@@ -32,6 +38,14 @@ def make_table_identifier(
 ) -> str:
     identifier = f"{database}.{owner}.{table}"
     return identifier.lower() if convert_to_lowercase else identifier
+
+
+def build_owners(owner: str) -> List[OwnerClass]:
+    # systables.owner is the database user that created the object, which is the
+    # closest thing Informix records to an owner -- there is no group or team
+    # concept to disambiguate against, so it always maps to a corpuser.
+    # DATAOWNER matches how the other SQL sources classify a catalog-derived owner.
+    return [OwnerClass(owner=make_user_urn(owner), type=OwnershipTypeClass.DATAOWNER)]
 
 
 def columns_to_schema_fields(

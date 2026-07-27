@@ -6,9 +6,10 @@ The DataHub integration for Informix covers tables, views, schema fields, and co
 
 ## Concept Mapping
 
-| Source Concept | DataHub Concept | Notes                                 |
-| -------------- | --------------- | ------------------------------------- |
-| Database       | Container       | Top-level container.                  |
-| Owner (schema) | Container       | Nested under the database container.  |
-| Table / View   | Dataset         | `tabtype` `'T'`/`'V'` in `systables`. |
-| Column         | SchemaField     | Mapped from `syscolumns.coltype`.     |
+| Source Concept | DataHub Concept         | Notes                                                        |
+| -------------- | ----------------------- | ------------------------------------------------------------ |
+| Database       | Container               | Top-level container.                                         |
+| Owner (schema) | Container               | Nested under the database container.                         |
+| Table / View   | Dataset                 | `tabtype` `'T'`/`'V'` in `systables`.                        |
+| Column         | SchemaField             | Mapped from `syscolumns.coltype`.                            |
+| `owner`        | Ownership (`DATAOWNER`) | The creating database user, applied to schemas and datasets. |
