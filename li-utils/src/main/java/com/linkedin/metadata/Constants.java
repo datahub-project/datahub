@@ -382,6 +382,7 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_RUN_SUMMARY_ASPECT_NAME = "assertionRunSummary";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
