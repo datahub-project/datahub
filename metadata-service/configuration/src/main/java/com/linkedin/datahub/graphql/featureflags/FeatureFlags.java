@@ -9,6 +9,12 @@ public class FeatureFlags {
   private boolean lineageSearchCacheEnabled = false;
   private boolean alwaysEmitChangeLog = false;
   private boolean cdcModeChangeLog = false;
+  // Moves aspect retention out of the ingest retry loop to a best-effort post-commit path.
+  // When false, retention runs inside the retry loop (legacy behavior). When true, retention
+  // runs after the upsert transaction commits and never triggers a retry on failure.
+  // Lifecycle: introduced for scale. Default OFF. Sunset target: remove in-tx retention block
+  // + this flag once post-commit path is validated in prod.
+  private boolean postCommitRetentionEnabled = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;

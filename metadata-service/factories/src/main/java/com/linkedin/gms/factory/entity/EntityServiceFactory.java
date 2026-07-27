@@ -48,6 +48,7 @@ public class EntityServiceFactory {
             featureFlags.getPreProcessHooks(),
             _ebeanMaxTransactionRetry,
             enableBrowsePathV2,
+            featureFlags.isPostCommitRetentionEnabled(),
             metricUtils);
 
     if (throttleSensors != null

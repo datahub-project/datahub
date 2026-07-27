@@ -182,6 +182,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
+  // When true, retention runs after upsert commit (best-effort). When false, legacy in-tx path.
+  private final boolean postCommitRetentionEnabled;
   private final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils;
 
   @Getter
@@ -201,6 +203,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -219,6 +222,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -237,6 +241,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2,
+        false,
         null);
   }
 
@@ -248,6 +253,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
       final boolean enableBrowseV2,
+      final boolean postCommitRetentionEnabled,
       @javax.annotation.Nullable
           final com.linkedin.metadata.utils.metrics.MetricUtils metricUtils) {
 
@@ -258,6 +264,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+    this.postCommitRetentionEnabled = postCommitRetentionEnabled;
     this.metricUtils = metricUtils;
     log.info("EntityService cdcModeChangeLog is {}", this.cdcModeChangeLog);
   }
@@ -1012,6 +1019,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     invalidateEntityGraphCacheOnSyncIngest(
         opContext, aspectsBatch, ingestResults.getUpdateAspectResults());
 
+    applyRetentionPostCommit(opContext, ingestResults.getUpdateAspectResults());
+
     return updateAspectResults;
   }
 
@@ -1025,6 +1034,69 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (!batch.isEmpty()) {
       opContext.getEntityGraphCache().invalidateOnSyncBatch(batch);
     }
+  }
+
+  /**
+   * Builds retention contexts from upsert results (Option B: no updatedLatestAspects map). Previous
+   * version existence is implied by oldValue != null.
+   */
+  private List<RetentionService.RetentionContext> buildRetentionContexts(
+      List<UpdateAspectResult> upsertResults) {
+    return upsertResults.stream()
+        .filter(
+            r -> {
+              RecordTemplate oldAspect = r.getOldValue();
+              return oldAspect != r.getNewValue() && oldAspect != null && retentionService != null;
+            })
+        .map(
+            r ->
+                RetentionService.RetentionContext.builder()
+                    .urn(r.getUrn())
+                    .aspectName(r.getRequest().getAspectName())
+                    .maxVersion(Optional.of(r.getMaxVersion()))
+                    .build())
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Best-effort retention applied AFTER the upsert transaction commits. Failures are logged and
+   * metric'd; they never throw, never retry, never poison the ingest batch. Only runs when
+   * postCommitRetentionEnabled is true.
+   */
+  private void applyRetentionPostCommit(
+      @Nonnull OperationContext opContext, @Nonnull List<UpdateAspectResult> upsertResults) {
+    if (!postCommitRetentionEnabled || retentionService == null) {
+      return;
+    }
+    List<RetentionService.RetentionContext> retentionBatch = buildRetentionContexts(upsertResults);
+    if (retentionBatch.isEmpty()) {
+      return;
+    }
+    opContext.withSpan(
+        "retentionPostCommit",
+        () -> {
+          // Per-context try/catch: one bad DELETE must not abort the rest of the cleanup.
+          for (RetentionService.RetentionContext ctx : retentionBatch) {
+            try {
+              retentionService.applyRetentionWithPolicyDefaults(opContext, List.of(ctx));
+            } catch (Exception e) {
+              // TODO: insert a row into the retention_dlq table (urn, aspectName, maxVersion,
+              // error, timestamp) once that table exists. For now: log + metric.
+              log.warn(
+                  "Post-commit retention failed for urn={} aspect={}; recorded to DLQ. "
+                      + "Upsert already committed; no data loss.",
+                  ctx.getUrn(),
+                  ctx.getAspectName(),
+                  e);
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      m -> m.increment(EntityServiceImpl.class, "post_commit_retention_failed", 1));
+            }
+          }
+        },
+        BATCH_SIZE_ATTR,
+        String.valueOf(retentionBatch.size()));
   }
 
   /**
@@ -1384,59 +1456,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               }
                             }
 
-                            // Retention optimization and tx
-                            if (retentionService != null) {
+                            // Retention optimization and tx (legacy path when flag OFF)
+                            if (!postCommitRetentionEnabled && retentionService != null) {
                               opContext.withSpan(
                                   "retentionService",
                                   () -> {
                                     List<RetentionService.RetentionContext> retentionBatch =
-                                        upsertResults.stream()
-                                            // Only consider retention when there was a previous
-                                            // version
-                                            .filter(
-                                                upsertResult ->
-                                                    updatedLatestAspects.containsKey(
-                                                            upsertResult.getUrn().toString())
-                                                        && updatedLatestAspects
-                                                            .get(upsertResult.getUrn().toString())
-                                                            .containsKey(
-                                                                upsertResult
-                                                                    .getRequest()
-                                                                    .getAspectName()))
-                                            .filter(
-                                                upsertResult -> {
-                                                  RecordTemplate oldAspect =
-                                                      upsertResult.getOldValue();
-                                                  RecordTemplate newAspect =
-                                                      upsertResult.getNewValue();
-                                                  // Apply retention policies if there was an update
-                                                  // to
-                                                  // existing
-                                                  // aspect
-                                                  // value
-                                                  return oldAspect != newAspect
-                                                      && oldAspect != null
-                                                      && retentionService != null;
-                                                })
-                                            .map(
-                                                upsertResult ->
-                                                    RetentionService.RetentionContext.builder()
-                                                        .urn(upsertResult.getUrn())
-                                                        .aspectName(
-                                                            upsertResult
-                                                                .getRequest()
-                                                                .getAspectName())
-                                                        .maxVersion(
-                                                            Optional.of(
-                                                                upsertResult.getMaxVersion()))
-                                                        .build())
-                                            .collect(Collectors.toList());
+                                        buildRetentionContexts(upsertResults);
                                     retentionService.applyRetentionWithPolicyDefaults(
                                         opContext, retentionBatch);
                                   },
                                   BATCH_SIZE_ATTR,
                                   String.valueOf(upsertResults.size()));
-                            } else {
+                            } else if (!postCommitRetentionEnabled) {
                               log.warn("Retention service is missing!");
                             }
                           } else {

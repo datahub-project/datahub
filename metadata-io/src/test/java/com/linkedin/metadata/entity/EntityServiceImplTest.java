@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -116,6 +117,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create test aspects
@@ -524,6 +526,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null); // metricUtils
 
     RecordTemplate sameAspect = newAspect;
@@ -947,6 +950,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create RestoreIndicesArgs
@@ -995,6 +999,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     // Create test inputs
@@ -1073,6 +1078,7 @@ public class EntityServiceImplTest {
             mock(PreProcessHooks.class),
             0,
             true,
+            false,
             null);
 
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
@@ -1404,6 +1410,7 @@ public class EntityServiceImplTest {
                 mock(PreProcessHooks.class),
                 0,
                 true,
+                false,
                 null));
 
     // Create test data
@@ -1480,6 +1487,7 @@ public class EntityServiceImplTest {
                 mock(PreProcessHooks.class),
                 0,
                 true,
+                false,
                 null));
     doReturn(Stream.empty())
         .when(service)
@@ -1596,5 +1604,119 @@ public class EntityServiceImplTest {
     inOrder
         .verify(mockAspectDao)
         .deleteUrn(any(OperationContext.class), any(), eq(propertyUrn.toString()));
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitFailureDoesNotPropagate() throws Exception {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            true,
+            null);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    doThrow(new RuntimeException("retention delete failed"))
+        .when(retentionService)
+        .applyRetentionWithPolicyDefaults(any(), any());
+    entityService.setRetentionService(retentionService);
+
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .tracer(SystemTelemetryContext.TEST.getTracer())
+                    .metricUtils(mockMetricUtils)
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
+
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    UpdateAspectResult upsertResult =
+        UpdateAspectResult.builder()
+            .urn(TEST_URN)
+            .request(request)
+            .oldValue(oldAspect)
+            .newValue(newAspect)
+            .maxVersion(2L)
+            .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build();
+
+    java.lang.reflect.Method method =
+        EntityServiceImpl.class.getDeclaredMethod(
+            "applyRetentionPostCommit", OperationContext.class, java.util.List.class);
+    method.setAccessible(true);
+
+    try {
+      method.invoke(entityService, testContext, List.of(upsertResult));
+    } catch (java.lang.reflect.InvocationTargetException e) {
+      fail("applyRetentionPostCommit must not propagate: " + e.getCause());
+    }
+
+    verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitSkippedWhenFlagDisabled() throws Exception {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            false,
+            null);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    UpdateAspectResult upsertResult =
+        UpdateAspectResult.builder()
+            .urn(TEST_URN)
+            .request(request)
+            .oldValue(oldAspect)
+            .newValue(newAspect)
+            .maxVersion(2L)
+            .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build();
+
+    java.lang.reflect.Method method =
+        EntityServiceImpl.class.getDeclaredMethod(
+            "applyRetentionPostCommit", OperationContext.class, java.util.List.class);
+    method.setAccessible(true);
+    method.invoke(entityService, opContext, List.of(upsertResult));
+
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
   }
 }
