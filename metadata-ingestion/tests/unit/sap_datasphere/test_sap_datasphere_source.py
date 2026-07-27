@@ -2517,11 +2517,6 @@ def test_scale_warning_not_emitted_when_stateful_ingestion_disabled(requests_moc
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# M4: column_pattern filter
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 def test_column_pattern_filters_columns_and_increments_report(requests_mock):
     """A column matching column_pattern.deny must NOT appear in SchemaFieldClass
     output and report.columns_filtered must increment by the dropped count."""
@@ -2582,11 +2577,6 @@ def test_column_pattern_filters_columns_and_increments_report(requests_mock):
     assert source.report.columns_filtered == 1, (
         f"Expected exactly 1 filtered column; got: {source.report.columns_filtered}"
     )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# M5: built-in defaults warning for S3/GCS without platform_instance
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def test_s3_builtin_default_without_instance_warns_once(requests_mock):
@@ -2664,11 +2654,6 @@ def test_s3_builtin_default_with_instance_does_not_warn():
     assert not any("S3" in t for t in titles), (
         f"Expected no S3 warning when platform_instance is set; got: {titles}"
     )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2-tier containers (Space → Object): no synthetic folder layer
-# ─────────────────────────────────────────────────────────────────────────────
 
 
 def _mixed_case_space_and_assets(requests_mock: rm.Mocker) -> None:
@@ -3580,11 +3565,6 @@ def test_include_local_tables_off_by_default(requests_mock):
     assert source.report.local_tables_emitted == 0
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tag emission for SAP CDS semantic annotations
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 _EDMX_FOR_TAGS = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
@@ -4066,13 +4046,9 @@ def test_view_definitions_disabled_emits_no_viewproperties(requests_mock):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Analytic-model business layer (businessLayerDefinitions): star-schema lineage
-# (fact + dimensions), measure/dimension field tags, and variables — exercised
-# through the catalog discovery path (the only discovery path). The catalog
-# `_emit_asset` fetches each analytic model's CSN (routed via
+# Analytic-model business layer is reachable only through the catalog discovery
+# path: `_emit_asset` fetches each model's CSN (routed via
 # supportsAnalyticalQueries) and runs it through `_apply_business_layer`.
-# ─────────────────────────────────────────────────────────────────────────────
 
 _AM_EDMX = """<?xml version="1.0" encoding="utf-8"?>
 <edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
@@ -4429,11 +4405,6 @@ def test_qualified_upstream_urn_respects_lowercase_false():
     src = SapDatasphereSource(PipelineContext(run_id="test-qualified-urn-case"), cfg)
     urn = src._qualified_upstream_urn("FINANCE_DATA.SALES_ALL_GE")
     assert "FINANCE_DATA.SALES_ALL_GE" in urn  # original case preserved
-
-
-# ---------------------------------------------------------------------------
-# Analytic-model business-layer fine-grained-lineage keep/drop logic
-# ---------------------------------------------------------------------------
 
 
 def _bl_source(run_id: str) -> SapDatasphereSource:
@@ -4985,11 +4956,6 @@ def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
     assert len(lineage.fineGrainedLineages) == 2
 
 
-# ---------------------------------------------------------------------------
-# Flow endpoint URN qualification + per-platform casing
-# ---------------------------------------------------------------------------
-
-
 def _flow_source(cfg_overrides: Optional[Dict] = None) -> SapDatasphereSource:
     cfg_dict: Dict = {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     cfg_dict.update(cfg_overrides or {})
@@ -5159,11 +5125,6 @@ def test_remote_table_upstream_unresolved_connection_increments_counter():
     )
     assert aspect is None
     assert len(source.report.remote_table_source_unresolved) == 1
-
-
-# ---------------------------------------------------------------------------
-# End-to-end (requests_mock) flow / remote-table orchestration
-# ---------------------------------------------------------------------------
 
 
 def _replication_flow_definition() -> Dict:

@@ -1091,11 +1091,6 @@ def test_association_projection_skip_is_silent_not_unresolved():
     assert pairs == []
 
 
-# ---------------------------------------------------------------------------
-# Association-based lineage (targets become upstream edges)
-# ---------------------------------------------------------------------------
-
-
 def test_used_association_target_becomes_table_upstream():
     """An association referenced by the query turns its target into a table-level upstream; a dotted target is flagged qualified so the source layer emits it as-is."""
     csn_def = {
@@ -1195,11 +1190,6 @@ def test_used_composition_target_and_projected_column_resolve_to_target():
     assert [(t.name, t.qualified) for t in targets] == [("ORDER_ITEMS", False)]
 
 
-# ---------------------------------------------------------------------------
-# UNION / SET lineage
-# ---------------------------------------------------------------------------
-
-
 def test_union_collects_upstreams_from_all_branches():
     csn_def = {
         "kind": "entity",
@@ -1252,11 +1242,6 @@ def test_union_merges_column_lineage_by_output_name():
         UpstreamColRef(qname="SALES_EU", col="AMOUNT"),
         UpstreamColRef(qname="SALES_US", col="AMOUNT"),
     }
-
-
-# ---------------------------------------------------------------------------
-# Remote Table federation source parsing
-# ---------------------------------------------------------------------------
 
 
 def test_parse_remote_table_source_extracts_connection_and_path():

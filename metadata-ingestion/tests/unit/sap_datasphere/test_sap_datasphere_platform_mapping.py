@@ -69,11 +69,6 @@ def test_config_accepts_custom_platform_type_defaults_override():
     assert cfg.platform_type_defaults["SNOWFLAKE"].platform_instance == "acct"
 
 
-# ---------------------------------------------------------------------------
-# PlatformMappingResolver tests
-# ---------------------------------------------------------------------------
-
-
 def _config_with(map_overrides=None, type_defaults_overrides=None):
     cfg_dict = {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     if map_overrides:
@@ -333,12 +328,6 @@ def test_federated_connection_unchanged():
     assert resolved.platform_instance == "acct_xyz"
 
 
-# ---------------------------------------------------------------------------
-# resolve_external — flow / replication-flow endpoints carrying an explicit
-# connectionType that may not appear in the space's connections list.
-# ---------------------------------------------------------------------------
-
-
 def test_resolve_external_uses_connection_type_when_name_absent():
     """An endpoint names a connectionId absent from the connections list; its connectionType resolves it via type defaults."""
     cfg = _config_with()
@@ -412,11 +401,6 @@ def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
     result = resolver.resolve_external("NOT_IN_LIST", "S3")
     assert result.platform is None
     assert result.skip_reason == ResolveSkipReason.DISABLED
-
-
-# ---------------------------------------------------------------------------
-# typeId / connectionType matching is case-insensitive
-# ---------------------------------------------------------------------------
 
 
 def test_resolve_external_connection_type_is_case_insensitive():
