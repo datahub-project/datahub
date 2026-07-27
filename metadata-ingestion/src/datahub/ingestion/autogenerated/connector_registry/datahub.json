@@ -2204,7 +2204,7 @@
       "classname": "datahub.ingestion.source.informix.source.InformixSource",
       "platform_id": "informix",
       "platform_name": "Informix",
-      "support_status": "INCUBATING"
+      "support_status": "TESTING"
     },
     "json-schema": {
       "capabilities": [

@@ -1,6 +1,6 @@
 ### Overview
 
-The `informix` module ingests metadata from IBM Informix into DataHub via JDBC. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+The `informix` module ingests metadata from IBM Informix into DataHub by querying the Informix system catalog over JDBC. Module-specific capabilities are documented below.
 
 ### Prerequisites
 

@@ -1,6 +1,14 @@
 ### Capabilities
 
-Use the **Important Capabilities** table above as the source of truth for supported features. This module emits containers, tables/views, and schema fields; extracts foreign-key relationships; extracts table- and column-level lineage for views by parsing their SQL definitions; emits approximate row counts from `systables.nrows`; assigns ownership from `systables.owner`; and supports stateful deletion detection.
+Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required. This module:
+
+- Emits a database → owner (schema) container hierarchy, with tables and views as datasets underneath.
+- Emits schema fields with native types (including length, e.g. `VARCHAR(100)`), nullability, and primary-key flags.
+- Extracts foreign-key relationships from `sysconstraints` / `sysreferences`, for tables (`include_foreign_keys`).
+- Extracts table- and column-level lineage for views by parsing `sysviews.viewtext` (`include_view_lineage`).
+- Emits approximate row counts from `systables.nrows`, for tables (`include_row_counts`).
+- Assigns ownership from `systables.owner` (`include_ownership`).
+- Supports stateful ingestion with stale-entity (deletion) detection.
 
 #### Ownership
 

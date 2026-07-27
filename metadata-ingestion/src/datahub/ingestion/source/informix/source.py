@@ -70,7 +70,7 @@ class _PendingView:
 
 @platform_name("Informix", id="informix")
 @config_class(InformixSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.TESTING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
