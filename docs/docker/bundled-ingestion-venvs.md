@@ -26,7 +26,7 @@ Used by **`build_bundled_venvs_unified.sh`** / **`.py`**. Published **`datahub-a
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`BUNDLED_VENV_PLUGINS`**          | Every plugin that gets a **`{plugin}-bundled`** path (comma-separated).                                                                                                           |
 | **`BUNDLED_VENV_PLUGINS_<suffix>`** | Plugins sharing one install → **`{suffix_lower}-venv`** (e.g. **`COMMON`** → **`common-venv`**).                                                                                  |
-| **`BUNDLED_CLI_VERSION`**           | Required by the shell wrapper. With **`/metadata-ingestion`** in the image, installs are editable; still must be set. PyPI-only builds need the real **`acryl-datahub`** version. |
+| **`BUNDLED_CLI_VERSION`**           | PyPI pin for **`acryl-datahub`**. Published images set this as **`ENV`** so extenders inherit it. If unset, the shell wrapper falls back to the installed **`acryl-datahub`** package version. |
 | **`BUNDLED_VENV_SLIM_MODE`**        | **`true`** uses **`-slim`** extras where applicable and checks PySpark is absent in slim builds.                                                                                  |
 | **`DATAHUB_BUNDLED_VENV_PATH`**     | Root for venvs (default **`/opt/datahub/venvs`**).                                                                                                                                |
 

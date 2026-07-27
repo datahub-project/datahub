@@ -7,7 +7,6 @@ To add connectors that aren't already bundled in your Remote Executor image, bui
 ```bash
 docker build \
   --build-arg EXECUTOR_IMAGE=<registry>/datahub-executor:<tag>-slim \
-  --build-arg BUNDLED_CLI_VERSION=<acryl-datahub version, e.g. 1.6.0.3> \
   --build-arg BUNDLED_VENV_PLUGINS=mysql,snowflake \
   -f Dockerfile.bundled .
 ```
@@ -15,8 +14,8 @@ docker build \
 Build args:
 
 - **`EXECUTOR_IMAGE`** — the **unlocked** executor image to build on (`:tag` or `:tag-slim`); not `:tag-locked`.
-- **`BUNDLED_CLI_VERSION`** — the `acryl-datahub` version to install the connectors at (typically your executor's version).
 - **`BUNDLED_VENV_PLUGINS`** — comma-separated connectors to add.
+- **`BUNDLED_CLI_VERSION`** _(optional)_ — override the `acryl-datahub` pin. Defaults to the base image's `BUNDLED_CLI_VERSION` (or the installed `acryl-datahub` version if that ENV is unset). Omit this unless you intentionally want a different CLI than the executor image.
 
 Each connector you list gets its own bundled environment; a connector already present in the base image is replaced, and everything else in the image is left unchanged. To bundle from a private/authenticated package index, add a BuildKit secret mount for your credentials to the bundle `RUN` step.
 
