@@ -45,7 +45,7 @@ public class LocalEbeanConfigFactory {
   @Value("${ebean.waitTimeoutMillis:1000}")
   private Integer ebeanWaitTimeoutMillis;
 
-  @Value("${ebean.autoCommit:false}")
+  @Value("${ebean.autoCommit:true}")
   private Boolean ebeanAutoCommit;
 
   @Value("${ebean.autoCreateDdl:false}")

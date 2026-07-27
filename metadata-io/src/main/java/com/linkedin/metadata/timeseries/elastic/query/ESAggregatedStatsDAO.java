@@ -2,6 +2,8 @@ package com.linkedin.metadata.timeseries.elastic.query;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
@@ -27,7 +29,9 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,6 +50,8 @@ import org.opensearch.search.aggregations.BucketOrder;
 import org.opensearch.search.aggregations.PipelineAggregatorBuilders;
 import org.opensearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.opensearch.search.aggregations.bucket.histogram.DateHistogramInterval;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedCardinality;
 import org.opensearch.search.aggregations.metrics.ParsedSum;
 import org.opensearch.search.aggregations.pipeline.MaxBucketPipelineAggregationBuilder;
@@ -63,6 +69,7 @@ public class ESAggregatedStatsDAO {
   private static final String ES_AGG_MAX_TIMESTAMP =
       ES_AGGREGATION_PREFIX + ES_MAX_AGGREGATION_PREFIX + ES_FIELD_TIMESTAMP;
   private static final int MAX_TERM_BUCKETS = 24 * 60; // minutes in a day.
+  static final String BATCH_URN_AGG_NAME = "batch_urn_outer";
   private final SearchClientShim<?> searchClient;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -418,7 +425,7 @@ public class ESAggregatedStatsDAO {
 
     try {
       final SearchResponse searchResponse =
-          searchClient.search(searchRequest, RequestOptions.DEFAULT);
+          searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
       return generateResponseFromElastic(
           searchResponse, groupingBuckets, aggregationSpecs, aspectSpec);
     } catch (Exception e) {
@@ -469,10 +476,39 @@ public class ESAggregatedStatsDAO {
     }
   }
 
+  /**
+   * Returns the first aggregation spec to use for bucket ordering when any bucket has
+   * orderByMetric=true, or null.
+   */
+  private static @Nullable AggregationSpec findOrderBySpec(
+      @Nullable GroupingBucket[] buckets, @Nonnull AggregationSpec[] aggregationSpecs) {
+    if (buckets == null || aggregationSpecs.length == 0) {
+      return null;
+    }
+    for (GroupingBucket b : buckets) {
+      if (b.hasOrderByMetric() && b.isOrderByMetric()) {
+        return aggregationSpecs[0];
+      }
+    }
+    return null;
+  }
+
+  /** Backward-compatible overload — delegates with no metric ordering. */
   private Pair<AggregationBuilder, AggregationBuilder> makeGroupingAggregationBuilder(
       AspectSpec aspectSpec,
       @Nullable AggregationBuilder baseAggregationBuilder,
       @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull OperationContext opContext,
+      @Nonnull AspectRetriever aspectRetriever) {
+    return makeGroupingAggregationBuilder(
+        aspectSpec, baseAggregationBuilder, groupingBuckets, null, opContext, aspectRetriever);
+  }
+
+  private Pair<AggregationBuilder, AggregationBuilder> makeGroupingAggregationBuilder(
+      AspectSpec aspectSpec,
+      @Nullable AggregationBuilder baseAggregationBuilder,
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nullable AggregationSpec orderBySpec,
       @Nonnull OperationContext opContext,
       @Nonnull AspectRetriever aspectRetriever) {
 
@@ -494,11 +530,19 @@ public class ESAggregatedStatsDAO {
           String fieldName =
               ESUtils.toKeywordField(opContext, curGroupingBucket.getKey(), true, aspectRetriever);
           DataSchema.Type fieldType = getGroupingBucketKeyType(aspectSpec, curGroupingBucket);
+          boolean asc = !curGroupingBucket.hasAscending() || curGroupingBucket.isAscending();
+          BucketOrder bucketOrder =
+              (orderBySpec != null
+                      && curGroupingBucket.hasOrderByMetric()
+                      && curGroupingBucket.isOrderByMetric())
+                  ? BucketOrder.aggregation(getAggregationSpecAggESName(orderBySpec), asc)
+                  : BucketOrder.aggregation("_key", asc);
           curAggregationBuilder =
               AggregationBuilders.terms(getGroupingBucketAggName(curGroupingBucket))
                   .field(fieldName)
-                  .size(MAX_TERM_BUCKETS)
-                  .order(BucketOrder.aggregation("_key", true));
+                  .size(
+                      curGroupingBucket.hasSize() ? curGroupingBucket.getSize() : MAX_TERM_BUCKETS)
+                  .order(bucketOrder);
         }
         if (firstAggregationBuilder == null) {
           firstAggregationBuilder = curAggregationBuilder;
@@ -532,28 +576,32 @@ public class ESAggregatedStatsDAO {
       GroupingBucket[] groupingBuckets,
       AggregationSpec[] aggregationSpecs,
       AspectSpec aspectSpec) {
+    return buildTableFromAggregations(
+        searchResponse.getAggregations(), groupingBuckets, aggregationSpecs, aspectSpec);
+  }
+
+  private GenericTable buildTableFromAggregations(
+      @Nonnull Aggregations aggregations,
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nonnull AspectSpec aspectSpec) {
+    GroupingBucket[] effectiveBuckets =
+        groupingBuckets != null ? groupingBuckets : new GroupingBucket[0];
+
     GenericTable resultTable = new GenericTable();
+    resultTable.setColumnNames(new StringArray(genColumnNames(effectiveBuckets, aggregationSpecs)));
+    resultTable.setColumnTypes(
+        new StringArray(genColumnTypes(aspectSpec, effectiveBuckets, aggregationSpecs)));
 
-    // 1. Generate the column names.
-    List<String> columnNames = genColumnNames(groupingBuckets, aggregationSpecs);
-    resultTable.setColumnNames(new StringArray(columnNames));
-
-    // 2. Generate the column types.
-    List<String> columnTypes = genColumnTypes(aspectSpec, groupingBuckets, aggregationSpecs);
-    resultTable.setColumnTypes(new StringArray(columnTypes));
-
-    // 3. Extract and populate the table rows.
     List<StringArray> rows = new ArrayList<>();
-
-    Aggregations aggregations = searchResponse.getAggregations();
     Stack<String> rowAcc = new Stack<>();
     rowGenHelper(
         aggregations,
         0,
-        groupingBuckets.length,
+        effectiveBuckets.length,
         rows,
         rowAcc,
-        ImmutableList.copyOf(groupingBuckets),
+        ImmutableList.copyOf(effectiveBuckets),
         ImmutableList.copyOf(aggregationSpecs),
         aspectSpec);
 
@@ -563,5 +611,125 @@ public class ESAggregatedStatsDAO {
 
     resultTable.setRows(new StringArrayArray(rows));
     return resultTable;
+  }
+
+  /**
+   * Fetch aggregated stats for a batch of URNs in a single ES query. The outer {@code
+   * terms(batch_urn_outer)} bucket groups results by {@code urnFieldPath}; the inner aggregation
+   * tree is the same as the single-URN path. URNs absent from the ES response (no matching
+   * documents) are filled with an empty {@link GenericTable}.
+   *
+   * <p>Callers are responsible for deciding whether to use this method or the single-URN {@link
+   * #getAggregatedStats} based on expected cardinality. With {@code STRING_GROUPING_BUCKET}, each
+   * outer URN bucket forces ES to materialise up to {@code MAX_TERM_BUCKETS} inner buckets, so
+   * total bucket count grows as {@code urns.size() × string_cardinality}. At high cardinality this
+   * can exceed OpenSearch's {@code search.max_buckets} limit and fail, or consume significantly
+   * more heap than equivalent individual queries.
+   */
+  @Nonnull
+  public Map<Urn, GenericTable> getBatchAggregatedStats(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nonnull List<Urn> urns,
+      @Nullable Filter sharedFilter,
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull String urnFieldPath) {
+
+    AspectSpec aspectSpec = getTimeseriesAspectSpec(opContext, entityName, aspectName);
+
+    // Pre-filter: restrict to the requested URNs, then apply any shared filter
+    BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery();
+    List<String> urnStrings = urns.stream().map(Urn::toString).collect(Collectors.toList());
+    filterQueryBuilder.filter(QueryBuilders.termsQuery(urnFieldPath, urnStrings));
+    if (sharedFilter != null) {
+      filterQueryBuilder.must(
+          ESUtils.buildFilterQuery(
+              sharedFilter,
+              true,
+              opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes(),
+              opContext,
+              queryFilterRewriteChain));
+    }
+
+    // Build the inner agg tree (grouping buckets + metric leaf aggs)
+    Pair<AggregationBuilder, AggregationBuilder> innerTree =
+        makeGroupingAggregationBuilder(
+            aspectSpec,
+            null,
+            groupingBuckets,
+            findOrderBySpec(groupingBuckets, aggregationSpecs),
+            opContext,
+            opContext.getAspectRetriever());
+    AggregationBuilder innerRoot = innerTree.getFirst();
+    AggregationBuilder mostNested = innerTree.getSecond();
+
+    // Outer URN bucket wrapping the inner tree
+    AggregationBuilder urnOuterAgg =
+        AggregationBuilders.terms(BATCH_URN_AGG_NAME).field(urnFieldPath).size(urns.size());
+
+    AggregationBuilder metricsTarget;
+    if (innerRoot != null) {
+      urnOuterAgg.subAggregation(innerRoot);
+      metricsTarget = mostNested;
+    } else {
+      metricsTarget = urnOuterAgg;
+    }
+    for (AggregationSpec aggSpec : aggregationSpecs) {
+      addAggregationBuildersFromAggregationSpec(aspectSpec, metricsTarget, aggSpec);
+    }
+
+    SearchSourceBuilder searchSourceBuilder =
+        new SearchSourceBuilder()
+            .aggregation(urnOuterAgg)
+            .query(QueryBuilders.boolQuery().must(filterQueryBuilder))
+            .size(0);
+
+    SearchRequest searchRequest = new SearchRequest();
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName));
+
+    log.debug("Batch aggregated stats search request: {}", searchRequest);
+
+    final SearchResponse searchResponse;
+    try {
+      searchResponse = searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Batch aggregated stats query failed: {}", e.getMessage());
+      throw new ESQueryException("Batch aggregated stats query failed:", e);
+    }
+
+    GroupingBucket[] effectiveBuckets =
+        groupingBuckets != null ? groupingBuckets : new GroupingBucket[0];
+    StringArray columnNames = new StringArray(genColumnNames(effectiveBuckets, aggregationSpecs));
+    StringArray columnTypes =
+        new StringArray(genColumnTypes(aspectSpec, effectiveBuckets, aggregationSpecs));
+
+    Map<Urn, GenericTable> result = new HashMap<>();
+    ParsedTerms urnBuckets = searchResponse.getAggregations().get(BATCH_URN_AGG_NAME);
+    for (Terms.Bucket bucket : urnBuckets.getBuckets()) {
+      Urn urn = UrnUtils.getUrn(bucket.getKeyAsString());
+      result.put(
+          urn,
+          buildTableFromAggregations(
+              bucket.getAggregations(), effectiveBuckets, aggregationSpecs, aspectSpec));
+    }
+
+    // URNs absent from the ES response (no matching docs) get empty tables
+    GenericTable emptyTable =
+        new GenericTable()
+            .setColumnNames(columnNames)
+            .setColumnTypes(columnTypes)
+            .setRows(new StringArrayArray());
+    for (Urn urn : urns) {
+      result.putIfAbsent(urn, emptyTable);
+    }
+
+    return result;
   }
 }

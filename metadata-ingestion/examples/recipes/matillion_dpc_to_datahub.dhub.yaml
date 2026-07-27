@@ -5,7 +5,7 @@ source:
     api_config:
       client_id: "${MATILLION_CLIENT_ID}"
       client_secret: "${MATILLION_CLIENT_SECRET}"
-      region: US1 # EU1 or US1
+      region: US1 # EU1, US1, or AU1
 
     env: PROD
     extract_projects_to_containers: true

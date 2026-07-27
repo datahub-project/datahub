@@ -1,0 +1,15 @@
+namespace com.linkedin.semanticmodel
+
+/**
+ * Discriminator enum that identifies the kind of a SemanticField inside a SemanticModel dataset.
+ */
+enum SemanticFieldType {
+  /** A grouping or filtering attribute — maps to a "dimension" in the semantic layer. */
+  DIMENSION
+  /** An aggregatable numeric value — maps to a "measure" or "fact" in the semantic layer. */
+  MEASURE
+  /** A named boolean predicate used to filter results, distinct from a dimension. */
+  FILTER
+  /** A field kind not yet represented as a named symbol. */
+  OTHER
+}

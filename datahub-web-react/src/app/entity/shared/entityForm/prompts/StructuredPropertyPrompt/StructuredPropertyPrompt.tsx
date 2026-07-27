@@ -53,7 +53,7 @@ const StyledButton = styled(Button)`
     margin-top: 16px;
 
     &:focus {
-        box-shadow: 0 0 3px 2px ${(props) => applyOpacity(props.theme.styles['primary-color'] || '', 50)};
+        box-shadow: 0 0 3px 2px ${(props) => applyOpacity(props.theme.colors.buttonFillBrand || '', 50)};
     }
 `;
 

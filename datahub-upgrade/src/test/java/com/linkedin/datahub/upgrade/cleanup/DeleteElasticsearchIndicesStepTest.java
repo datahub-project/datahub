@@ -60,11 +60,11 @@ public class DeleteElasticsearchIndicesStepTest {
     org.opensearch.client.Response notFoundResponse = mock(org.opensearch.client.Response.class);
     when(notFoundResponse.getStatusLine()).thenReturn(createStatusLine(404, "Not Found"));
     when(responseException.getResponse()).thenReturn(notFoundResponse);
-    doThrow(responseException).when(searchClient).getIndex(any(), any());
+    doThrow(responseException).when(searchClient).getIndex(any(), any(), any());
 
     // Default: low-level requests succeed
     when(rawResponse.getStatusLine()).thenReturn(createStatusLine(200, "OK"));
-    when(searchClient.performLowLevelRequest(any())).thenReturn(rawResponse);
+    when(searchClient.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
   }
 
   @Test
@@ -107,7 +107,7 @@ public class DeleteElasticsearchIndicesStepTest {
     // Non-404 IOException from getIndex: step logs warning but still succeeds
     when(searchClient.getEngineType())
         .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
-    doThrow(new IOException("connection refused")).when(searchClient).getIndex(any(), any());
+    doThrow(new IOException("connection refused")).when(searchClient).getIndex(any(), any(), any());
 
     UpgradeStepResult result =
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
@@ -122,19 +122,19 @@ public class DeleteElasticsearchIndicesStepTest {
     when(searchClient.getEngineType())
         .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
     when(getIndexResponse.getIndices()).thenReturn(new String[] {"test_datasetindex_v2"});
-    doReturn(getIndexResponse).when(searchClient).getIndex(any(), any());
+    doReturn(getIndexResponse).when(searchClient).getIndex(any(), any(), any());
 
     // IndexDeletionUtils: not an alias, index exists, delete succeeds
     when(getAliasesResponse.getAliases()).thenReturn(Collections.emptyMap());
-    doReturn(getAliasesResponse).when(searchClient).getIndexAliases(any(), any());
-    doReturn(true).when(searchClient).indexExists(any(), any());
-    doReturn(new AcknowledgedResponse(true)).when(searchClient).deleteIndex(any(), any());
+    doReturn(getAliasesResponse).when(searchClient).getIndexAliases(any(), any(), any());
+    doReturn(true).when(searchClient).indexExists(any(), any(), any());
+    doReturn(new AcknowledgedResponse(true)).when(searchClient).deleteIndex(any(), any(), any());
 
     UpgradeStepResult result =
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(searchClient, atLeastOnce()).deleteIndex(any(), any());
+    verify(searchClient, atLeastOnce()).deleteIndex(any(), any(), any());
   }
 
   @Test
@@ -144,14 +144,14 @@ public class DeleteElasticsearchIndicesStepTest {
     when(searchClient.getEngineType())
         .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
     when(getIndexResponse.getIndices()).thenReturn(new String[] {"test_datasetindex_v2"});
-    doReturn(getIndexResponse).when(searchClient).getIndex(any(), any());
+    doReturn(getIndexResponse).when(searchClient).getIndex(any(), any(), any());
 
     when(getAliasesResponse.getAliases()).thenReturn(Collections.emptyMap());
-    doReturn(getAliasesResponse).when(searchClient).getIndexAliases(any(), any());
-    doReturn(true).when(searchClient).indexExists(any(), any());
+    doReturn(getAliasesResponse).when(searchClient).getIndexAliases(any(), any(), any());
+    doReturn(true).when(searchClient).indexExists(any(), any(), any());
     doThrow(new IOException("cluster_block_exception"))
         .when(searchClient)
-        .deleteIndex(any(), any());
+        .deleteIndex(any(), any(), any());
 
     UpgradeStepResult result =
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
@@ -168,7 +168,7 @@ public class DeleteElasticsearchIndicesStepTest {
     when(responseException.getResponse()).thenReturn(mock(org.opensearch.client.Response.class));
     when(responseException.getResponse().getStatusLine())
         .thenReturn(createStatusLine(404, "Not Found"));
-    when(searchClient.performLowLevelRequest(any())).thenThrow(responseException);
+    when(searchClient.performLowLevelRequest(any(), any())).thenThrow(responseException);
 
     UpgradeStepResult result =
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
@@ -185,7 +185,7 @@ public class DeleteElasticsearchIndicesStepTest {
     when(responseException.getResponse()).thenReturn(mock(org.opensearch.client.Response.class));
     when(responseException.getResponse().getStatusLine())
         .thenReturn(createStatusLine(500, "Internal Server Error"));
-    when(searchClient.performLowLevelRequest(any())).thenThrow(responseException);
+    when(searchClient.performLowLevelRequest(any(), any())).thenThrow(responseException);
 
     UpgradeStepResult result =
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);

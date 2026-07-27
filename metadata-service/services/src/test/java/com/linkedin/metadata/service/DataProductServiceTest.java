@@ -9,17 +9,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.graph.GraphClient;
@@ -28,6 +30,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -52,7 +55,7 @@ public class DataProductServiceTest {
 
   @Test
   public void testBatchAddToDataProduct() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 
@@ -109,7 +112,7 @@ public class DataProductServiceTest {
 
   @Test
   public void testBatchAddToDataProductDoesNotDuplicateExisting() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 
@@ -174,7 +177,7 @@ public class DataProductServiceTest {
 
   @Test
   public void testBatchRemoveFromDataProduct() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 
@@ -236,7 +239,7 @@ public class DataProductServiceTest {
 
   @Test
   public void testBatchRemoveFromDataProductRemovesMultiple() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 
@@ -293,8 +296,64 @@ public class DataProductServiceTest {
   }
 
   @Test
+  public void testGetDataProductDomainsUsesNoCache() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+
+    final Urn domainUrn = UrnUtils.getUrn("urn:li:domain:marketing");
+    final Domains domains = new Domains().setDomains(new UrnArray(domainUrn));
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                Constants.DOMAINS_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(domains.data())))));
+
+    when(mockClient.batchGetV2NoCache(
+            any(OperationContext.class),
+            eq(Constants.DATA_PRODUCT_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_DATA_PRODUCT_URN)),
+            eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of(TEST_DATA_PRODUCT_URN, entityResponse));
+
+    final Domains result = service.getDataProductDomains(opContext, TEST_DATA_PRODUCT_URN);
+
+    assertNotNull(result);
+    assertEquals(result.getDomains().get(0), domainUrn);
+    verify(mockClient, times(1))
+        .batchGetV2NoCache(
+            any(OperationContext.class),
+            eq(Constants.DATA_PRODUCT_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_DATA_PRODUCT_URN)),
+            eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)));
+    verify(mockClient, never())
+        .getV2(
+            any(OperationContext.class),
+            eq(Constants.DATA_PRODUCT_ENTITY_NAME),
+            eq(TEST_DATA_PRODUCT_URN),
+            eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testGetDataProductDomainsMissingAspect() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+
+    when(mockClient.batchGetV2NoCache(
+            any(OperationContext.class),
+            eq(Constants.DATA_PRODUCT_ENTITY_NAME),
+            eq(ImmutableSet.of(TEST_DATA_PRODUCT_URN)),
+            eq(ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME))))
+        .thenReturn(Map.of());
+
+    assertNull(service.getDataProductDomains(opContext, TEST_DATA_PRODUCT_URN));
+  }
+
+  @Test
   public void testVerifyEntityExistsTrue() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 
@@ -308,7 +367,7 @@ public class DataProductServiceTest {
 
   @Test
   public void testVerifyEntityExistsFalse() throws Exception {
-    final EntityClient mockClient = mock(EntityClient.class);
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
     final DataProductService service = new DataProductService(mockClient, mockGraphClient);
 

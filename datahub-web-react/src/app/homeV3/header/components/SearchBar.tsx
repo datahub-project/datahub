@@ -24,7 +24,7 @@ const StyledButton = styled(Button)`
 `;
 
 export default function SearchBar() {
-    const { t } = useTranslation('home.v3');
+    const { t } = useTranslation(['home.v3', 'search']);
     const entityRegistry = useEntityRegistryV2();
     const searchViewAll = useSearchViewAll();
     const search = useGoToSearchPage(null);
@@ -33,7 +33,10 @@ export default function SearchBar() {
     return (
         <Container>
             <SearchBarV2
-                placeholderText={themeConfig.content.search.searchbarMessage}
+                placeholderText={t('searchBar.placeholder', {
+                    ns: 'search',
+                    defaultValue: themeConfig.content.search.searchbarMessage,
+                })}
                 onSearch={search}
                 entityRegistry={entityRegistry}
                 width="100%"

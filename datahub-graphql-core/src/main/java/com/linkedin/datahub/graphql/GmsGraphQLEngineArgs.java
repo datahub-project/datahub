@@ -40,6 +40,7 @@ import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -101,6 +102,7 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   AssertionService assertionService;
   DocumentService documentService;
+  DocumentImportService documentImportService;
   EntityVersioningService entityVersioningService;
   ApplicationService applicationService;
   PageTemplateService pageTemplateService;

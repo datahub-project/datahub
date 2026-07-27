@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import Fuse from 'fuse.js';
 import i18next from 'i18next';
 import React from 'react';
@@ -19,6 +19,7 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
     createAssertionGroups,
@@ -27,7 +28,6 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionInfo,
@@ -90,12 +90,6 @@ const RECOMMENDED_FILTER_NAME_MAP = {
     get [AssertionSourceType.External]() {
         return i18next.t('entity.profile.validations:sourceType.external');
     },
-    get [AssertionSourceType.Native]() {
-        return i18next.t('entity.profile.validations:sourceType.native');
-    },
-    get [AssertionSourceType.Inferred]() {
-        return i18next.t('entity.profile.validations:sourceType.smartAssertions');
-    },
 };
 
 // Create Group's Summary to name and number of records for each group
@@ -107,14 +101,14 @@ const getGroupNameBySummary = (record) => {
         font-size: 14px;
     `;
 
-    const Title = styled(Typography.Text)`
+    const Title = styled(Text)`
         && {
             padding-bottom: 0px;
             margin-bottom: 0px;
         }
     `;
 
-    const Message = styled(Typography.Text)`
+    const Message = styled(Text)`
         && {
             font-size: 12px;
             margin-left: 8px;
@@ -131,8 +125,10 @@ const getGroupNameBySummary = (record) => {
 
     return (
         <TextContainer>
-            <Title strong>{getStatusGroupDisplayName(record.name)}</Title>
-            <Message type="secondary">
+            <Title type="span" weight="bold">
+                {getStatusGroupDisplayName(record.name)}
+            </Title>
+            <Message type="span" color="textSecondary">
                 {i18next.t('entity.profile.validations:assertionList.groupHeaderSummaryListTemplate', {
                     listItems: list,
                 })}

@@ -38,7 +38,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                         <FlexContainer>
                             {t('allowedValues.title')}
                             <Tooltip title={t('allowedValues.fieldTooltip')} showArrow={false}>
-                                <Icon icon={Info} color="violet" size="lg" />
+                                <Icon icon={Info} color="iconBrand" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                     </FieldLabel>

@@ -1,0 +1,115 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_test.nested_schema.orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Test dataset with nested BigQuery fields for ING-2174 regression test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/bigquery/playwright_test/nested_schema/orders"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "playwright_test.nested_schema.orders",
+              "platform": "urn:li:dataPlatform:bigquery",
+              "version": 0,
+              "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": "schema"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "order_id",
+                  "nullable": false,
+                  "description": "Unique order identifier",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "INT64",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].address",
+                  "nullable": false,
+                  "description": "Shipping address struct",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.RecordType": {}
+                    }
+                  },
+                  "nativeDataType": "STRUCT",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].address.[type=struct].street",
+                  "nullable": true,
+                  "description": "Street line of the address",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=struct].address.[type=struct].city",
+                  "nullable": true,
+                  "description": "City of the address",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=string].rawcounterpartyid",
+                  "nullable": true,
+                  "description": "Schema path lowercased by convert_column_urns_to_lowercase; profiler emits camelCase rawCounterpartyId",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "STRING",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_test.nested_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"timestampMillis\": 1700000000000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 100, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"order_id\", \"uniqueCount\": 100, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"address\", \"uniqueCount\": 80, \"uniqueProportion\": 0.8, \"nullCount\": 5, \"nullProportion\": 0.05, \"sampleValues\": [\"123 Main St Seattle\", \"456 Oak Ave Portland\"]}, {\"fieldPath\": \"address.street\", \"uniqueCount\": 90, \"uniqueProportion\": 0.9, \"nullCount\": 5, \"nullProportion\": 0.05, \"sampleValues\": [\"123 Main St\", \"456 Oak Ave\", \"789 Pine Rd\"]}, {\"fieldPath\": \"address.city\", \"uniqueCount\": 20, \"uniqueProportion\": 0.2, \"nullCount\": 5, \"nullProportion\": 0.05, \"sampleValues\": [\"Seattle\", \"Portland\", \"San Francisco\"]}, {\"fieldPath\": \"rawCounterpartyId\", \"uniqueCount\": 85, \"uniqueProportion\": 0.85, \"nullCount\": 10, \"nullProportion\": 0.1, \"sampleValues\": [\"RAW-001\", \"RAW-002\", \"RAW-003\"]}]}"
+    }
+  }
+]

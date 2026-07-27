@@ -8,7 +8,7 @@ const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillDefault};
     border-radius: 0;
 `;

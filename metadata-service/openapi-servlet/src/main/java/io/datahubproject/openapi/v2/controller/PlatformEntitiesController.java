@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;
@@ -66,6 +67,10 @@ public class PlatformEntitiesController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
+    boolean asyncBool =
+        Objects.requireNonNullElseGet(
+            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
+    UsageOperation usageOperation = UsageOperation.METADATA_INGEST;
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -77,7 +82,8 @@ public class PlatformEntitiesController {
                     metadataChangeProposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
                         .distinct()
-                        .collect(Collectors.toList())),
+                        .collect(Collectors.toList()))
+                .withUsageOperation(usageOperation),
             _authorizerChain,
             authentication,
             true);
@@ -107,9 +113,6 @@ public class PlatformEntitiesController {
                   .collect(Collectors.toList()));
     }
 
-    boolean asyncBool =
-        Objects.requireNonNullElseGet(
-            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
     List<Pair<String, Boolean>> responses =
         proposals.stream()
             .map(

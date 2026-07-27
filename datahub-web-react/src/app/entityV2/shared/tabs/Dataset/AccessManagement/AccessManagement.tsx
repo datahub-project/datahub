@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
     RoleAccessData,
     renderAccessButton,
@@ -11,7 +11,7 @@ import {
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
-import { GetDatasetQuery, useGetExternalRolesQuery } from '@graphql/dataset.generated';
+import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
@@ -66,8 +66,7 @@ const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
 export default function AccessManagement() {
     const { t } = useTranslation('entity.profile.access');
     const { t: tl } = useTranslation('common.labels');
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const entityUrn = baseEntity?.dataset?.urn as string;
+    const { urn: entityUrn } = useEntityData();
 
     const { data: externalRoles } = useGetExternalRolesQuery({
         variables: { urn: entityUrn },

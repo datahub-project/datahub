@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Adicionar Atributo",
+    "addError": "Falha ao adicionar: \n {{error}}",
+    "addSuccess": "Atributo de negócio adicionado!",
+    "modal.addTitle": "Adicionar {{entityName}}s",
+    "modal.removeTitle": "Remover {{entityName}}s",
+    "removeAttributeError": "Falha ao remover o atributo de negócio: \n {{error}}",
+    "removeConfirm.content": "Tem certeza que deseja remover o atributo {{attributeName}}?",
+    "removeConfirm.title": "Deseja remover o atributo {{attributeName}}?",
+    "removeError": "Falha ao remover: \n {{error}}",
+    "removeSuccess": "Atributo de negócio removido!",
+    "searchPlaceholder": "Pesquisar por {{entityName}}..."
+}

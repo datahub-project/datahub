@@ -4,9 +4,11 @@ import pytest
 import time_machine
 
 from datahub.ingestion.source.unity.config import (
+    LineageDataSource,
     UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
+    UsageDataSource,
 )
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
@@ -27,9 +29,7 @@ def test_within_thirty_days():
     )
     assert config.start_time == FROZEN_TIME - timedelta(days=30)
 
-    with pytest.raises(
-        ValueError, match="Query history is only maintained for 30 days."
-    ):
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
         UnityCatalogSourceConfig.model_validate(
             {
                 "token": "token",
@@ -395,8 +395,6 @@ def test_lineage_data_source_default():
             "include_tags": False,
         }
     )
-    from datahub.ingestion.source.unity.config import LineageDataSource
-
     assert config.lineage_data_source == LineageDataSource.AUTO
 
 
@@ -428,8 +426,6 @@ def test_lineage_data_source_api_does_not_require_warehouse():
             "lineage_data_source": "API",
         }
     )
-    from datahub.ingestion.source.unity.config import LineageDataSource
-
     assert config.lineage_data_source == LineageDataSource.API
     assert config.warehouse_id is None
 
@@ -444,8 +440,6 @@ def test_usage_data_source_default():
             "include_tags": False,
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.AUTO
 
 
@@ -477,8 +471,6 @@ def test_usage_data_source_api_does_not_require_warehouse():
             "usage_data_source": "API",
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.API
     assert config.warehouse_id is None
 
@@ -495,8 +487,6 @@ def test_usage_data_source_can_be_set_with_warehouse():
             "usage_data_source": "SYSTEM_TABLES",
         }
     )
-    from datahub.ingestion.source.unity.config import UsageDataSource
-
     assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
     assert config.warehouse_id == "test_warehouse"
 
@@ -602,3 +592,134 @@ def test_uses_table_level_profiler_helpers():
     assert cfg.is_sqlalchemy_profiling() is False
     assert cfg.is_ge_profiling() is False
     assert cfg.uses_table_level_profiler() is False
+
+
+def _base(**kw):
+    cfg = {
+        "workspace_url": "https://x.cloud.databricks.com",
+        "token": "t",
+        **kw,
+    }
+    return cfg
+
+
+def test_emit_and_parse_flags_default_true():
+    c = UnityCatalogSourceConfig.model_validate(_base())
+    assert c.include_queries is True
+    assert c.include_query_usage_statistics is True
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_allows_365_days_with_warehouse_system_tables():
+    start = FROZEN_TIME - timedelta(days=120)
+    c = UnityCatalogSourceConfig.model_validate(
+        _base(warehouse_id="wh1", usage_data_source="SYSTEM_TABLES", start_time=start)
+    )
+    assert c.start_time == start
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_still_capped_at_30_days_for_api():
+    start = FROZEN_TIME - timedelta(days=120)
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.model_validate(
+            _base(usage_data_source="API", start_time=start)
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_capped_at_30_when_warehouse_set_but_all_api():
+    """warehouse_id is set, but both data sources are explicitly API → 30-day cap applies."""
+    start = FROZEN_TIME - timedelta(days=120)
+    with pytest.raises(ValueError, match="retains at most 30 days of history"):
+        UnityCatalogSourceConfig.model_validate(
+            _base(
+                warehouse_id="wh1",
+                usage_data_source="API",
+                lineage_data_source="API",
+                start_time=start,
+            )
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_window_allows_365_days_when_warehouse_only_in_profiling():
+    """Validator ordering: warehouse_id only in profiling.warehouse_id, not at the top level.
+    _validate_start_time_window() is invoked from inside set_warehouse_id_from_profiling AFTER
+    self.warehouse_id is resolved from profiling, so it reads the canonical self.warehouse_id
+    and correctly applies the 365-day cap instead of the 30-day cap."""
+    start = FROZEN_TIME - timedelta(days=120)
+    cfg = UnityCatalogSourceConfig.model_validate(
+        _base(
+            usage_data_source="SYSTEM_TABLES",
+            profiling={
+                "method": "sqlalchemy",
+                "enabled": True,
+                "warehouse_id": "wh1",
+            },
+            start_time=start,
+        )
+    )
+    assert cfg.start_time == start
+    assert cfg.warehouse_id == "wh1"
+
+
+def test_system_table_flags_warn_when_usage_not_system_tables(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    # API usage path → the system-table-only flags are no-ops and must warn.
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="API",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected a no-op flag warning"
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_system_table_flags_no_warning_on_system_tables_path(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings == []
+
+
+def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.config.add_global_warning",
+        lambda msg: warnings.append(msg),
+    )
+
+    UnityCatalogSourceConfig.model_validate(
+        _base(
+            warehouse_id="wh1",
+            usage_data_source="SYSTEM_TABLES",
+            include_column_usage_stats=True,
+            push_down_database_pattern_access_history=True,
+            skip_sqlglot_when_system_table_lineage_missing=True,
+        )
+    )
+    assert warnings, "expected override warning when column usage stats is enabled"
+    assert "include_column_usage_stats" in warnings[0]
+    assert "push_down_database_pattern_access_history" in warnings[0]
+    assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]

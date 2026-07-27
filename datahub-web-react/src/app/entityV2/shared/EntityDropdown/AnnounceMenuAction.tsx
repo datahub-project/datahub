@@ -4,7 +4,11 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 
 export default function AnnounceMenuAction() {
@@ -21,7 +25,7 @@ export default function AnnounceMenuAction() {
                     disabled={false}
                     onClick={() => setIsEntityAnnouncementModalVisible(true)}
                 >
-                    <MegaphoneSimple size={16} />
+                    <MegaphoneSimple size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
                 </ActionMenuItem>
             </Tooltip>
             {isEntityAnnouncementModalVisible && (

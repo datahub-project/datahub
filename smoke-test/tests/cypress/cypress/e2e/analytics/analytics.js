@@ -1,4 +1,5 @@
-describe("analytics", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("analytics", () => {
   it("can go to a chart and see analytics in tab views", () => {
     cy.login();
 

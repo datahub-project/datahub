@@ -48,6 +48,7 @@ export type OnCancelArguments = {
 export interface MultiStepFormProviderProps<TState, TSubmitOptions = any> {
     steps: Step[];
     initialState?: TState;
+    initialStepIndex?: number;
     onSubmit?: (state: TState | undefined, options?: TSubmitOptions | undefined) => Promise<void>;
     onCancel?: (args: OnCancelArguments) => void;
     isDirtyChecker?: (initialState: TState | undefined, state: TState | undefined) => boolean;

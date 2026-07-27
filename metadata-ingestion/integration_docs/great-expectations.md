@@ -60,6 +60,7 @@ This integration does not support
    - `extra_headers` (optional): Extra headers which will be added to the datahub request.
    - `parse_table_names_from_sql` (defaults to false): The integration can use an SQL parser to try to parse the datasets being asserted. This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
    - `convert_urns_to_lowercase` (optional): Whether to convert dataset urns to lowercase.
+   - `emit_mode` (defaults to `ASYNC`): Emit mode for writes to DataHub. `ASYNC` avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.
 
 ## Debugging
 

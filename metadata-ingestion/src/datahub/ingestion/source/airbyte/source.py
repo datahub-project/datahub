@@ -1,5 +1,4 @@
 import logging
-from functools import partial
 from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -20,9 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
@@ -53,7 +50,6 @@ from datahub.ingestion.source.airbyte.models import (
     PropertyFieldPath,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -217,11 +213,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 )
                 self.report.warning(
                     title="Platform Detection Fallback",
-                    message=(
-                        f"{entity_label} {request.entity_id} missing "
-                        f"{type_label}, using name '{request.name}' as fallback"
-                    ),
-                    context=", ".join(context_parts),
+                    message="Entity missing type info, using name as fallback",
+                    context=f"{entity_label} {request.entity_id}, {type_label}, fallback_name={request.name}, {', '.join(context_parts)}",
                 )
                 warned.add(request.entity_id)
             platform = _map_source_type_to_platform(
@@ -231,11 +224,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             if request.entity_id not in warned:
                 self.report.warning(
                     title="Platform Detection Failed",
-                    message=(
-                        f"{entity_label} {request.entity_id} missing both "
-                        f"{type_label} and name"
-                    ),
-                    context=f"{id_label}={request.entity_id}",
+                    message="Entity missing both type info and name",
+                    context=f"{entity_label} {request.entity_id}, {id_label}={request.entity_id}",
                 )
                 warned.add(request.entity_id)
             platform = ""
@@ -279,15 +269,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 kind=PlatformKind.DESTINATION,
             )
         )
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            partial(auto_incremental_lineage, self.source_config.incremental_lineage),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
-        ]
 
     def _get_pipelines(self) -> Iterable[AirbytePipelineInfo]:
         for workspace in self.client.list_workspaces(
@@ -357,7 +338,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                         conn_id = getattr(connection, "connection_id", "unknown")
                         conn_name = getattr(connection, "name", "unknown")
                         ws_id = getattr(workspace, "workspace_id", "unknown")
-                        self.report.report_failure(
+                        self.report.failure(
                             message="Failed to process connection",
                             context=f"workspace-{ws_id}/connection-{conn_id}/{conn_name}",
                             exc=e,
@@ -367,7 +348,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 raise
             except Exception as e:
                 workspace_id = getattr(workspace, "workspace_id", "unknown")
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process workspace",
                     context=f"workspace-{workspace_id}",
                     exc=e,
@@ -383,7 +364,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process pipeline",
                     context=f"pipeline-{conn_id}",
                     exc=e,
@@ -470,13 +451,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             if attempt_status not in self._warned_unknown_statuses:
                                 self.report.warning(
                                     title="Unknown Airbyte Job Status",
-                                    message=(
-                                        f"Encountered unrecognized Airbyte job "
-                                        f"status '{attempt_status}'; mapping to "
-                                        "FAILURE. Update AIRBYTE_JOB_STATUS_MAP "
-                                        "if this is a legitimate status."
-                                    ),
-                                    context=f"connection_id={connection_id}, job_id={job_id}",
+                                    message="Encountered unrecognized Airbyte job status; mapping to FAILURE. "
+                                    "Update AIRBYTE_JOB_STATUS_MAP if this is a legitimate status.",
+                                    context=f"status={attempt_status}, connection_id={connection_id}, job_id={job_id}",
                                 )
                                 self._warned_unknown_statuses.add(attempt_status)
 
@@ -551,7 +528,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     continue
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to process job executions",
                 context=f"job-executions-{connection_id}-{stream_name}",
                 exc=e,
@@ -578,7 +555,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if not pipeline_info.connection.sync_catalog:
             self.report.warning(
                 title="Missing Sync Catalog",
-                message=f"Connection {pipeline_info.connection.connection_id} has no sync_catalog",
+                message="Connection has no sync_catalog",
                 context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []
@@ -586,7 +563,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if not pipeline_info.connection.sync_catalog.streams:
             self.report.warning(
                 title="Empty Sync Catalog",
-                message=f"Connection {pipeline_info.connection.connection_id} sync_catalog has no streams",
+                message="Connection sync_catalog has no streams",
                 context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []
@@ -1123,7 +1100,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             except Exception as e:
                 conn_name = getattr(pipeline_info.connection, "name", "unknown")
                 ws_id = getattr(pipeline_info.workspace, "workspace_id", "unknown")
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to process stream",
                     context=f"workspace-{ws_id}/connection-{connection_id}/{conn_name}/stream-{stream_info.details.stream_name}",
                     exc=e,

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -73,6 +74,7 @@ public class AnalyticsService {
   }
 
   public List<NamedLine> getTimeseriesChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       DateRange dateRange,
       DateInterval granularity,
@@ -107,7 +109,7 @@ public class AnalyticsService {
     }
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
     try {
       if (dimension.isPresent()) {
         return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
@@ -131,6 +133,7 @@ public class AnalyticsService {
   }
 
   public List<NamedLine> getTimeseriesChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       DateRange dateRange,
       DateInterval granularity,
@@ -139,6 +142,7 @@ public class AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
     return getTimeseriesChart(
+        opContext,
         indexName,
         dateRange,
         granularity,
@@ -165,6 +169,7 @@ public class AnalyticsService {
   }
 
   public List<NamedBar> getBarChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       List<String> dimensions,
@@ -203,7 +208,7 @@ public class AnalyticsService {
     filteredAgg.subAggregation(termAgg);
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
 
     try {
       if (dimensions.size() == 1) {
@@ -254,6 +259,7 @@ public class AnalyticsService {
   }
 
   public List<Row> getTopNTableChart(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       String groupBy,
@@ -279,7 +285,7 @@ public class AnalyticsService {
     filteredAgg.subAggregation(termAgg);
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Aggregations aggregationResult = executeAndExtract(searchRequest).getAggregations();
+    Aggregations aggregationResult = executeAndExtract(opContext, searchRequest).getAggregations();
 
     try {
       return aggregationResult.<Terms>get(DIMENSION).getBuckets().stream()
@@ -297,6 +303,7 @@ public class AnalyticsService {
   }
 
   public int getHighlights(
+      @Nonnull OperationContext opContext,
       String indexName,
       Optional<DateRange> dateRange,
       Map<String, List<String>> filters,
@@ -311,7 +318,7 @@ public class AnalyticsService {
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
 
     SearchRequest searchRequest = constructSearchRequest(indexName, filteredAgg);
-    Filter aggregationResult = executeAndExtract(searchRequest);
+    Filter aggregationResult = executeAndExtract(opContext, searchRequest);
     try {
       if (uniqueOn.isPresent()) {
         return (int) aggregationResult.getAggregations().<Cardinality>get(UNIQUE).getValue();
@@ -334,10 +341,11 @@ public class AnalyticsService {
     return searchRequest;
   }
 
-  private Filter executeAndExtract(SearchRequest searchRequest) {
+  private Filter executeAndExtract(
+      @Nonnull OperationContext opContext, SearchRequest searchRequest) {
     try {
       final SearchResponse searchResponse =
-          _elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+          _elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {

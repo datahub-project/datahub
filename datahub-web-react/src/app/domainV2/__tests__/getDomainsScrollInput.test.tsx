@@ -224,4 +224,70 @@ describe('getDomainsScrollInput', () => {
             expect(result2.input.searchFlags).toEqual({ skipCache: true });
         });
     });
+
+    describe('Owner filter', () => {
+        it('omits the owners clause when selectedOwnerUrns is undefined / null / empty', () => {
+            // The "no filter" cases should produce the same orFilters shape as
+            // calling without the third argument at all.
+            const baseline = getDomainsScrollInput(null, null).input.orFilters;
+
+            expect(getDomainsScrollInput(null, null, undefined).input.orFilters).toEqual(baseline);
+            expect(getDomainsScrollInput(null, null, null).input.orFilters).toEqual(baseline);
+            expect(getDomainsScrollInput(null, null, []).input.orFilters).toEqual(baseline);
+        });
+
+        it('ANDs the owners clause with the root-domain scope', () => {
+            const result = getDomainsScrollInput(null, null, ['urn:li:corpuser:jane', 'urn:li:corpuser:john']);
+
+            // Single AND clause carrying BOTH the parent scope and the owner
+            // selection — server returns root domains that match both.
+            expect(result.input.orFilters).toEqual([
+                {
+                    and: [
+                        { field: 'parentDomain', condition: FilterOperator.Exists, negated: true },
+                        { field: 'owners', values: ['urn:li:corpuser:jane', 'urn:li:corpuser:john'] },
+                    ],
+                },
+            ]);
+        });
+
+        it('ANDs the owners clause with the child-domain scope', () => {
+            const result = getDomainsScrollInput('urn:li:domain:parent', null, ['urn:li:corpuser:jane']);
+
+            expect(result.input.orFilters).toEqual([
+                {
+                    and: [
+                        { field: 'parentDomain', values: ['urn:li:domain:parent'] },
+                        { field: 'owners', values: ['urn:li:corpuser:jane'] },
+                    ],
+                },
+            ]);
+        });
+    });
+
+    describe('ignoreParentScope (flat-list mode)', () => {
+        it('drops the parentDomain clause entirely so the query spans every depth', () => {
+            // This is the bug-fix John flagged: the sidebar's flat-list mode
+            // (active when an owner filter is selected) must NOT pin the
+            // query to root domains, or matching subdomains would silently
+            // disappear from the results.
+            const result = getDomainsScrollInput(null, null, ['urn:li:corpuser:jane'], true);
+
+            expect(result.input.orFilters).toEqual([{ and: [{ field: 'owners', values: ['urn:li:corpuser:jane'] }] }]);
+        });
+
+        it('drops the parentDomain clause even when a parentDomain argument is supplied', () => {
+            // `ignoreParentScope` wins over the parentDomain argument — the
+            // caller is explicitly opting into a global query.
+            const result = getDomainsScrollInput('urn:li:domain:parent', null, ['urn:li:corpuser:jane'], true);
+
+            expect(result.input.orFilters).toEqual([{ and: [{ field: 'owners', values: ['urn:li:corpuser:jane'] }] }]);
+        });
+
+        it('produces an empty AND clause when no filters apply (server treats this as "no filter")', () => {
+            const result = getDomainsScrollInput(null, null, undefined, true);
+
+            expect(result.input.orFilters).toEqual([{ and: [] }]);
+        });
+    });
 });

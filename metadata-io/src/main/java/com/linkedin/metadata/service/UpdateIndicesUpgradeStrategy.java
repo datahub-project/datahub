@@ -176,7 +176,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
           opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
       String document = searchDocument.get().toString();
 
-      elasticSearchService.upsertDocumentByIndexName(oldIndex, document, docId);
+      elasticSearchService.upsertDocumentByIndexName(opContext, oldIndex, document, docId);
 
       recordDualWriteStartIfNeeded(entityName, oldIndex);
 
@@ -213,7 +213,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     try {
       String docId =
           opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
-      elasticSearchService.deleteDocumentByIndexName(oldIndex, docId);
+      elasticSearchService.deleteDocumentByIndexName(opContext, oldIndex, docId);
 
       log.debug(
           "Rollback dual-write: deleted doc from '{}' for entity '{}', urn '{}'",

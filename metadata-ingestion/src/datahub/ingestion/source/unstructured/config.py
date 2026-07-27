@@ -92,7 +92,7 @@ class SourceConfig(ConfigModel):
 
     type: Literal["NATIVE", "EXTERNAL"] = Field(
         default="EXTERNAL",
-        description="Source type (always EXTERNAL for ingested docs)",
+        description="Document source type: NATIVE for editable DataHub documents, EXTERNAL for read-only references.",
     )
     include_external_url: bool = Field(
         default=True, description="Include external URL in DocumentSource"

@@ -634,75 +634,75 @@ class TestResolveDestinationDetails:
 
 
 class TestBuildDestinationUrnGlueMdl:
-    """Glue-routed Managed Data Lake destinations are treated as relational:
-    URN shape `glue.<database>.<schema>.<table>` where `<database>` is the
-    user-supplied actual Glue database name (Fivetran shares one Glue
-    database per region; the REST API does not expose its name). The
-    customer is responsible for verifying that Fivetran's Glue tables are
-    literally named `<schema>.<table>` so this URN aligns with DataHub's
-    Glue source.
+    """Fivetran's Managed Data Lake → Glue registers each destination SCHEMA
+    as its own Glue database and each table as a Glue table. So the dataset
+    URN is the two-part ``<schema>.<table>`` (schema == Glue database) —
+    matching DataHub's Glue source, which builds ``<glue_db>.<table>``. No
+    separate ``database`` segment is prepended, and a user-supplied
+    ``database`` is neither required nor used for Glue. Verified against a
+    live Fivetran MDL→Glue catalog: Glue database ``fivetran_log``, table
+    ``account``.
     """
 
-    def test_glue_requires_user_supplied_database(self):
-        # No `database` set → ValueError. Caller catches and skips the
-        # lineage edge with a structured warning. Pin this so the
-        # failure mode stays well-defined.
-        with pytest.raises(ValueError, match="database must be set"):
-            FivetranSource.build_destination_urn(
-                destination_table="public.employee",
-                destination_details=PlatformDetail(platform="glue"),
-            )
+    def test_glue_urn_is_two_part_schema_table(self):
+        urn = FivetranSource.build_destination_urn(
+            destination_table="fivetran_log.account",
+            destination_details=PlatformDetail(platform="glue"),
+        )
+        assert (
+            str(urn)
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_log.account,PROD)"
+        )
 
-    def test_glue_with_user_supplied_database(self):
-        # Customer inspects their Glue console, finds the actual database
-        # (e.g., `fivetran_managed_data_lake_us_west_2`), and pins it on
-        # `destination_to_platform_instance.<id>.database`. URN follows
-        # the relational shape with `<schema>.<table>` as the literal
-        # Glue table name.
+    def test_glue_does_not_require_database(self):
+        # The schema already IS the Glue database, so no user `database` is
+        # needed. Must not raise (the previous design raised ValueError here).
         urn = FivetranSource.build_destination_urn(
             destination_table="public.employee",
+            destination_details=PlatformDetail(platform="glue"),
+        )
+        assert (
+            str(urn) == "urn:li:dataset:(urn:li:dataPlatform:glue,public.employee,PROD)"
+        )
+
+    def test_glue_multi_schema_each_table_uses_its_own_schema(self):
+        # One destination holds many connectors, each writing its own schema
+        # → its own Glue database. A single `database` scalar cannot express
+        # this; the per-row schema must drive the URN.
+        details = PlatformDetail(platform="glue")
+        a = FivetranSource.build_destination_urn("fivetran_log.account", details)
+        b = FivetranSource.build_destination_urn("salesforce.opportunity", details)
+        assert (
+            str(a)
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_log.account,PROD)"
+        )
+        assert (
+            str(b)
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,salesforce.opportunity,PROD)"
+        )
+
+    def test_glue_respects_platform_instance(self):
+        urn = FivetranSource.build_destination_urn(
+            destination_table="fivetran_log.account",
             destination_details=PlatformDetail(
-                platform="glue",
-                database="fivetran_managed_data_lake_us_west_2",
+                platform="glue", platform_instance="glue_us_east"
             ),
         )
         assert (
             str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_managed_data_lake_us_west_2.public.employee,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,glue_us_east.fivetran_log.account,PROD)"
         )
 
-    def test_glue_database_is_lowercased(self):
-        # Same as the relational platforms: `database` is lowercased to
-        # match DataHub's Glue source URN convention. AWS Glue itself
-        # normalises database names to lowercase, so this is safe.
+    def test_glue_ignores_database_config(self):
+        # Guard against regressing to the old 3-part shape: a stray
+        # `database` must not prepend a segment.
         urn = FivetranSource.build_destination_urn(
-            destination_table="public.employee",
-            destination_details=PlatformDetail(
-                platform="glue",
-                database="Fivetran_DataLake",
-            ),
+            destination_table="fivetran_log.account",
+            destination_details=PlatformDetail(platform="glue", database="some_db"),
         )
         assert (
             str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_datalake.public.employee,PROD)"
-        )
-
-    def test_glue_database_case_preserved_when_opted_out(self):
-        # `database_lowercase=False` is the per-destination opt-out for
-        # users whose paired DataHub Glue source URN preserves database
-        # casing. Default (True) keeps the long-standing behaviour
-        # exercised by `test_glue_database_is_lowercased`.
-        urn = FivetranSource.build_destination_urn(
-            destination_table="public.employee",
-            destination_details=PlatformDetail(
-                platform="glue",
-                database="Fivetran_DataLake",
-                database_lowercase=False,
-            ),
-        )
-        assert (
-            str(urn)
-            == "urn:li:dataset:(urn:li:dataPlatform:glue,Fivetran_DataLake.public.employee,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:glue,fivetran_log.account,PROD)"
         )
 
 

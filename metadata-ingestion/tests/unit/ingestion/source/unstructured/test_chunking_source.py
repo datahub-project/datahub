@@ -1095,3 +1095,31 @@ def test_model_key_default_sanitizes_colon_in_titan_model_id(pipeline_context):
     keys = list(_semantic_embeddings(semantic_wu).keys())
     assert all(":" not in k for k in keys)
     assert "amazon_titan_embed_text_v2_0" in _semantic_embeddings(semantic_wu)
+
+
+def test_semantic_content_workunit_is_not_primary_source(pipeline_context):
+    """Workunits from _emit_semantic_content must have is_primary_source=False
+    so AutoStatusAspectProcessor does not inject a Status UPSERT that would
+    overwrite lifecycleStage set by other sources or users."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="bedrock",
+            model="cohere.embed-english-v3",
+            aws_region="us-east-1",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    source = DocumentChunkingSource(
+        ctx=pipeline_context, config=config, standalone=False, graph=None
+    )
+    source._provider = _mock_provider([[0.1, 0.2, 0.3]])
+
+    workunits = list(
+        source.process_elements_inline(
+            "urn:li:document:(test,doc1,PROD)",
+            [{"type": "NarrativeText", "text": "hello"}],
+        )
+    )
+    semantic_wu = next(wu for wu in workunits if "semanticContent" in wu.id)
+    assert semantic_wu.is_primary_source is False

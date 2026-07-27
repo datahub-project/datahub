@@ -11,6 +11,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Starting in version `0.8.25`, DataHub supports grouping data assets into logical collections called **Domains**. Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
 
+:::tip Domains and view-based access control
+Domains are ideal for **curation and organization**. Using them as the primary boundary for view-based access control can hurt performance. See [Domains and containers](./authorization/policies.md#domains-and-containers) in the Policies Guide.
+:::
+
 ## Domains Setup, Prerequisites, and Permissions
 
 What you need to create and add domains:

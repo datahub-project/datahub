@@ -269,7 +269,8 @@ public class ReindexDebugStepTest {
     Assert.assertEquals(result.stepId(), "ReindexDebugStep");
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    Mockito.verify(indexBuilder).buildIndex(reindexConfig1);
+    Mockito.verify(indexBuilder)
+        .buildIndex(Mockito.any(OperationContext.class), Mockito.eq(reindexConfig1));
     Mockito.verify(reindexConfig1).forceReindex();
   }
 
@@ -288,7 +289,9 @@ public class ReindexDebugStepTest {
     Mockito.when(reindexConfig1.name()).thenReturn("datahubpolicyindex_v2");
 
     IOException ioException = new IOException("Index build failed");
-    Mockito.doThrow(ioException).when(indexBuilder).buildIndex(reindexConfig1);
+    Mockito.doThrow(ioException)
+        .when(indexBuilder)
+        .buildIndex(Mockito.any(OperationContext.class), Mockito.eq(reindexConfig1));
 
     Function<UpgradeContext, UpgradeStepResult> executable = reindexDebugStep.executable();
 
@@ -546,7 +549,8 @@ public class ReindexDebugStepTest {
     Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
     // Only the first matching config should be used
-    Mockito.verify(indexBuilder).buildIndex(reindexConfig1);
+    Mockito.verify(indexBuilder)
+        .buildIndex(Mockito.any(OperationContext.class), Mockito.eq(reindexConfig1));
     Mockito.verify(reindexConfig1).forceReindex();
     Mockito.verify(reindexConfig2, Mockito.never()).forceReindex();
     Mockito.verify(reindexConfig3, Mockito.never()).forceReindex();

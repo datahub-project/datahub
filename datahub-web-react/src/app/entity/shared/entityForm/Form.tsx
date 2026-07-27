@@ -11,13 +11,19 @@ import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/Structured
 import VerificationPrompt from '@app/entity/shared/entityForm/prompts/VerificationPrompt';
 import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
 import useShouldShowVerificationPrompt from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { DeferredRenderComponent } from '@app/shared/DeferredRenderComponent';
 import Loading from '@app/shared/Loading';
 import useHasComponentRendered from '@app/shared/useHasComponentRendered';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { FormPrompt } from '@types';
+
+const PaddinglessEditor = styled(Editor)`
+    .remirror-editor.ProseMirror {
+        padding: 0;
+    }
+`;
 
 const TabWrapper = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};
@@ -79,7 +85,7 @@ function Form({ formUrn }: Props) {
                 )}
                 {description ? (
                     <SubTitle>
-                        <Editor content={description} readOnly editorStyle="padding: 0;" />
+                        <PaddinglessEditor content={description} readOnly />
                     </SubTitle>
                 ) : (
                     <SubTitle>

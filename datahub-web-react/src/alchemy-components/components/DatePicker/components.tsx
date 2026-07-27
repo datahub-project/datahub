@@ -1,6 +1,22 @@
 import styled from 'styled-components';
 
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { spacing } from '@components/theme';
+
 import AntdDatePicker from '@utils/DayjsDatePicker';
+
+export const DatePickerWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+`;
+
+export const Label = styled.div(({ theme }) => ({
+    ...formLabelTextStyles,
+    color: theme.colors.text,
+    marginBottom: spacing.xxsm,
+    textAlign: 'left',
+}));
 
 export const StyledAntdDatePicker = styled(AntdDatePicker)<{ $noDefaultPaddings?: boolean }>`
     &.ant-picker {

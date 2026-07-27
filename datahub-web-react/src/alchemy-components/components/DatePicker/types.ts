@@ -10,6 +10,7 @@ export type DatePickerProps = {
     disabledDate?: (value: DatePickerValue) => boolean;
     variant?: DatePickerVariant;
     placeholder?: string;
+    label?: string;
 };
 
 export type DatePickerState = {

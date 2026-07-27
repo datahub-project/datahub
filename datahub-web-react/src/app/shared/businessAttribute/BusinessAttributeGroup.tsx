@@ -1,5 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { Text } from '@components';
+import { Button } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -68,11 +69,11 @@ export default function BusinessAttributeGroup({
                 />
             )}
             {showEmptyMessage && canAddAttribute && businessAttributeEmpty && (
-                <Typography.Paragraph type="secondary">
+                <Text color="textSecondary">
                     {/* eslint-disable i18next/no-literal-string -- (untranslated-text) EMPTY_MESSAGES content from shared constants; only the punctuation separator is literal */}
                     {EMPTY_MESSAGES.businessAttributes.title}. {EMPTY_MESSAGES.businessAttributes.description}
                     {/* eslint-enable i18next/no-literal-string */}
-                </Typography.Paragraph>
+                </Text>
             )}
             {canAddAttribute && !readOnly && businessAttributeEmpty && (
                 <NoElementButton

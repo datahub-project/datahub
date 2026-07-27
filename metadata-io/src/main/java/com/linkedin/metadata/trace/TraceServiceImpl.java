@@ -388,7 +388,7 @@ public class TraceServiceImpl implements TraceService {
               .flatMap(
                   entry ->
                       systemMetadataService
-                          .findAspectsByUrn(entry.getKey(), entry.getValue(), true)
+                          .findAspectsByUrn(opContext, entry.getKey(), entry.getValue(), true)
                           .stream())
               .collect(Collectors.groupingBy(summary -> UrnUtils.getUrn(summary.getUrn())));
 

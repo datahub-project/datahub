@@ -31,7 +31,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -41,6 +40,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -131,7 +131,13 @@ public class EbeanEntityServiceTest
         EbeanTestUtils.createTestServer(
             EbeanEntityServiceTest.class.getSimpleName() + "_" + (cdcMode ? "CDC" : "NonCDC"));
 
-    _aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null, List.of(), null);
+    _aspectDao =
+        new EbeanAspectDao(
+            PrimaryStorageTestUtils.ebeanResolver(server),
+            EbeanConfiguration.testDefault,
+            null,
+            List.of(),
+            null);
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -247,7 +253,8 @@ public class EbeanEntityServiceTest
     // Use mutable maps because the code calls computeIfAbsent() on them
     when(aspectDao.getLatestAspects(any(), any(), anyBoolean()))
         .thenReturn(new java.util.HashMap<>());
-    when(aspectDao.getNextVersions(any(), any())).thenReturn(new java.util.HashMap<>());
+    when(aspectDao.getNextVersions(any(), any(), anyBoolean()))
+        .thenReturn(new java.util.HashMap<>());
     // Stub saveLatestAspect to return a Pair with the mocked entity aspects
     when(aspectDao.saveLatestAspect(any(), any(), any(), any(), anyInt()))
         .thenReturn(Pair.of(Optional.of(mockEntityAspect), Optional.of(mockEntityAspect)));
@@ -837,7 +844,7 @@ public class EbeanEntityServiceTest
             break;
           }
           final AuditStamp auditStamp = new AuditStamp();
-          auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
+          auditStamp.setActor(Urn.createFromString("urn:li:corpuser:datahub"));
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()

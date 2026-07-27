@@ -25,6 +25,7 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
     DEBEZIUM_JDBC_SINK_CONNECTOR_CLASS,
     S3_SINK_CONNECTOR_CLASS,
     SNOWFLAKE_SINK_CONNECTOR_CLASS,
+    SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ConfluentS3SinkConnector,
     JdbcSinkConnector,
@@ -227,6 +228,25 @@ class TestConnectorRegistrySinkConnectors:
 
         assert connector is not None
         assert isinstance(connector, SnowflakeSinkConnector)
+
+    def test_snowflake_streaming_sink_connector(self) -> None:
+        """Test routing for the high-performance (v4) Snowflake streaming sink connector.
+
+        The Snowpipe Streaming connector is config-compatible with the classic
+        sink connector and only differs by class name, so it must route to the
+        same SnowflakeSinkConnector implementation.
+        """
+        manifest = create_manifest(SINK, SNOWFLAKE_STREAMING_SINK_CONNECTOR_CLASS)
+        config = create_mock_config()
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, SnowflakeSinkConnector)
+        assert connector.get_platform() == "snowflake"
 
     def test_postgres_sink_cloud(self) -> None:
         """Test routing for Confluent Cloud Postgres sink connector."""

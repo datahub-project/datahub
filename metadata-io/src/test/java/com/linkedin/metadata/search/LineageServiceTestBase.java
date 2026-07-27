@@ -363,7 +363,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Verify that highlighting was turned off in the query
     ArgumentCaptor<SearchRequest> searchRequestCaptor =
         ArgumentCaptor.forClass(SearchRequest.class);
-    Mockito.verify(searchClientSpy, times(1)).search(searchRequestCaptor.capture(), any());
+    Mockito.verify(searchClientSpy, times(1))
+        .search(any(OperationContext.class), searchRequestCaptor.capture(), any());
     SearchRequest capturedRequest = searchRequestCaptor.getValue();
     assertNull(capturedRequest.source().highlighter());
     clearCache(false);

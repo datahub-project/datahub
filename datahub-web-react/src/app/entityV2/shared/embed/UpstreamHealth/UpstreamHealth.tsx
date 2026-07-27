@@ -1,4 +1,4 @@
-import { ErrorRounded } from '@mui/icons-material';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -236,7 +236,7 @@ export default function UpstreamHealth() {
             >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <ErrorRounded style={{ color: themeConfig.colors.textError, fontSize: '18' }} />
+                        <WarningCircle color={themeConfig.colors.textError} size={18} />
                         <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
                     <StyledArrow isOpen={isOpen} />

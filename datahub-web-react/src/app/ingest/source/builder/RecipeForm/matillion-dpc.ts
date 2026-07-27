@@ -38,12 +38,13 @@ export const MATILLION_CLIENT_SECRET: RecipeField = {
 export const MATILLION_REGION: RecipeField = {
     name: 'region',
     label: 'Region',
-    tooltip: 'Matillion Data Productivity Cloud region: EU1 (Europe) or US1 (United States).',
+    tooltip: 'Matillion Data Productivity Cloud region: EU1 (Europe), US1 (United States), or AU1 (Australia).',
     type: FieldType.SELECT,
     fieldPath: 'source.config.api_config.region',
     options: [
         { label: 'EU1 (Europe)', value: 'EU1' },
         { label: 'US1 (United States)', value: 'US1' },
+        { label: 'AU1 (Australia)', value: 'AU1' },
     ],
     rules: null,
 };

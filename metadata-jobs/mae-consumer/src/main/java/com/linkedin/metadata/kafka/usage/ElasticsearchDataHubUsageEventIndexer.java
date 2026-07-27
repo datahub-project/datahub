@@ -4,6 +4,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.kafka.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.kafka.elasticsearch.JsonElasticEvent;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -25,13 +26,14 @@ public class ElasticsearchDataHubUsageEventIndexer implements DataHubUsageEventI
    * them via {@code BulkProcessor}; the indexer itself does not need to manage a separate batch.
    */
   @Override
-  public void indexBatch(@Nonnull List<IndexableUsageEvent> events) {
+  public void indexBatch(
+      @Nonnull OperationContext opContext, @Nonnull List<IndexableUsageEvent> events) {
     for (IndexableUsageEvent event : events) {
       JsonElasticEvent elasticEvent = new JsonElasticEvent(event.document().getDocument());
       elasticEvent.setId(event.documentIdWithKafkaOffsetSuffix());
       elasticEvent.setIndex(indexName);
       elasticEvent.setActionType(ChangeType.CREATE);
-      elasticSearchConnector.feedElasticEvent(elasticEvent);
+      elasticSearchConnector.feedElasticEvent(opContext, elasticEvent);
     }
   }
 }

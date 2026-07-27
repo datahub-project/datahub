@@ -78,6 +78,19 @@ export const ASSETS_MODULE: PageModuleFragment = {
     },
 };
 
+export const OUTPUT_PORTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:output_ports',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:outputPorts.moduleName');
+        },
+        type: DataHubPageModuleType.OutputPorts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:child_hierarchy',
     type: EntityType.DatahubPageModule,
@@ -137,6 +150,97 @@ export const COLUMNS_MODULE: PageModuleFragment = {
             return i18next.t('modules:columns.moduleName');
         },
         type: DataHubPageModuleType.Columns,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SEMANTIC_MODEL_DATASETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_datasets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:semanticModelDatasets.moduleName');
+        },
+        type: DataHubPageModuleType.SemanticModelDatasets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SEMANTIC_MODEL_METRICS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_metrics',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:semanticModelMetrics.moduleName');
+        },
+        type: DataHubPageModuleType.SemanticModelMetrics,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SEMANTIC_MODEL_RELATIONSHIPS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_relationships',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:semanticModelRelationships.moduleName');
+        },
+        type: DataHubPageModuleType.SemanticModelRelationships,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SEMANTIC_MODEL_DIMENSIONS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:semantic_model_dimensions',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:semanticModelDimensions.moduleName');
+        },
+        type: DataHubPageModuleType.SemanticModelDimensions,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const AI_CONTEXT_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:ai_context',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:aiContext.moduleName');
+        },
+        type: DataHubPageModuleType.AiContext,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const SQL_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:sql',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:sql.moduleName');
+        },
+        type: DataHubPageModuleType.MetricSql,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const RELATED_METRICS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:related_metrics',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        get name() {
+            return i18next.t('modules:relatedMetrics.moduleName');
+        },
+        type: DataHubPageModuleType.RelatedMetrics,
         visibility: { scope: PageModuleScope.Global },
         params: {},
     },

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -440,7 +441,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when system metadata is no-op");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -472,7 +474,8 @@ public class EntityServiceImplTest {
 
     // Assert
     assertFalse(result.isEmitted(), "Should not produce MCL when aspects are equal");
-    verify(mockEventProducer, never()).produceMetadataChangeLog(any(), any(), any());
+    verify(mockEventProducer, never())
+        .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
 
   @Test
@@ -1056,6 +1059,66 @@ public class EntityServiceImplTest {
     // Verify metric was incremented
     verify(metricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("delete_nonexisting"), eq(1d));
+  }
+
+  @Test
+  public void testDeleteAspectWithoutMCL_EmptyVersionRangeRollsBack() throws URISyntaxException {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            null);
+
+    Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:emptyVersionRange");
+    String aspectName = STATUS_ASPECT_NAME;
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+
+    EbeanAspectV2 statusRow =
+        new EbeanAspectV2(
+            testUrn.toString(),
+            aspectName,
+            0L,
+            RecordUtils.toJsonString(new Status().setRemoved(false)),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            RecordUtils.toJsonString(systemMetadata));
+    SystemAspect latestStatus =
+        EbeanSystemAspect.builder().forUpdate(statusRow, testEntityRegistry);
+
+    when(mockAspectDao.getLatestAspect(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), eq(false)))
+        .thenReturn(latestStatus);
+    when(mockAspectDao.getVersionRange(
+            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName)))
+        .thenReturn(Pair.of(-1L, -1L));
+
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            opContext, testUrn.toString(), aspectName, Collections.emptyMap(), false);
+
+    assertNull(result);
+    verify(mockAspectDao)
+        .getVersionRange(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName));
+    verify(mockAspectDao, never())
+        .deleteUrn(any(OperationContext.class), any(), eq(testUrn.toString()));
+    verify(mockAspectDao, never())
+        .getAspect(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), anyLong());
   }
 
   @Test

@@ -32,6 +32,16 @@ def get_gms_management_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_MANAGEMENT_URL")
 
 
+def get_mce_management_url() -> Optional[str]:
+    """Override base URL for MCE consumer Actuator / Micrometer.
+
+    When unset, smoke tests auto-detect: probe a standalone ``datahub-mce-consumer:4319``
+    container if present, otherwise fall back to the GMS management URL (embedded consumers).
+    Set explicitly when your deployment uses a non-default host or port.
+    """
+    return os.getenv("DATAHUB_MCE_MANAGEMENT_URL")
+
+
 def get_gms_token() -> Optional[str]:
     """GMS Bearer token for authenticated API calls."""
     return os.getenv("DATAHUB_GMS_TOKEN")
@@ -187,6 +197,11 @@ def get_kafka_broker_container() -> Optional[str]:
     return os.getenv("KAFKA_BROKER_CONTAINER")
 
 
+def get_datahub_usage_event_topic() -> str:
+    """DataHub usage event topic name."""
+    return str(os.getenv("DATAHUB_USAGE_EVENT_NAME", "DataHubUsageEvent_v1"))
+
+
 # ============================================================================
 # Cypress Testing
 # ============================================================================
@@ -200,6 +215,12 @@ def get_cypress_record_key() -> Optional[str]:
 def get_filtered_tests_file() -> Optional[str]:
     """Path to file containing filtered test paths (one per line)."""
     return os.getenv("FILTERED_TESTS")
+
+
+def get_smoke_policy_phase() -> Optional[str]:
+    """Smoke-test policy phase: ``1`` (non-mutators), ``2`` (mutators), or unset (all)."""
+    raw = os.getenv("SMOKE_POLICY_PHASE", "").strip()
+    return raw or None
 
 
 # ============================================================================

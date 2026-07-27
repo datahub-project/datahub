@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config;
 
+import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import lombok.Data;
 
@@ -41,6 +42,9 @@ public class GMSConfiguration {
    * lag throttle.
    */
   private RateLimitProperties rateLimits;
+
+  /** Config-driven entity hierarchy graph cache (VBAC, filter expansion, policy fields). */
+  private EntityGraphCacheProperties entityGraphCache;
 
   @Data
   public static class TruststoreConfiguration {

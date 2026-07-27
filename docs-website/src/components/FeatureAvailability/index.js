@@ -8,38 +8,7 @@ import {
   ExperimentOutlined,
   MinusCircleFilled,
 } from "@ant-design/icons";
-
-const STAGE_META = {
-  alpha: {
-    label: "Alpha",
-    className: "stageAlpha",
-    description:
-      "Proof-of-concept, limited to a small set of accounts and built directly with our SE/FDE team. Expect high-touch collaboration and rapid iteration.",
-  },
-  "private-beta": {
-    label: "Private Beta",
-    className: "stagePrivateBeta",
-    description:
-      "Invite-only and evolving rapidly. Contact your DataHub Cloud representative to request access.",
-  },
-  "public-beta": {
-    label: "Public Beta",
-    className: "stagePublicBeta",
-    description:
-      "Available to all DataHub Cloud customers. Mostly stable with minor iteration; we welcome feedback on UX and bugs.",
-  },
-  ga: {
-    label: "Generally Available",
-    className: "stageGa",
-    description: "Production-ready and fully supported.",
-  },
-  deprecated: {
-    label: "Deprecated",
-    className: "stageDeprecated",
-    description:
-      "This feature is no longer being developed. It will continue to function but will be removed in a future release.",
-  },
-};
+import { STAGE_META } from "./stages";
 
 const renderSelfHostedIcon = (saasOnly, selfHostedPartial) => {
   if (saasOnly) return <CloseCircleFilled />;

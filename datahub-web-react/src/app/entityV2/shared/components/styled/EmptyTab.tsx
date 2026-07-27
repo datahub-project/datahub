@@ -1,4 +1,5 @@
-import { Empty, Typography } from 'antd';
+import { Heading, Text } from '@components';
+import { Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -41,8 +42,10 @@ export const EmptyTab = ({ tab, hideImage, children }: Props) => {
         <StyledEmpty
             description={
                 <EmptyDescription data-testid="empty-tab-description">
-                    <Typography.Title level={4}>{EMPTY_MESSAGES[tab]?.title}</Typography.Title>
-                    <Typography.Text type="secondary">{EMPTY_MESSAGES[tab]?.description}</Typography.Text>
+                    <Heading type="h4">{EMPTY_MESSAGES[tab]?.title}</Heading>
+                    <Text type="span" color="textSecondary">
+                        {EMPTY_MESSAGES[tab]?.description}
+                    </Text>
                 </EmptyDescription>
             }
             $hideImage={hideImage}

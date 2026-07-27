@@ -418,25 +418,28 @@ public class AspectDaoTest {
 
     @Override
     public EntityAspect getAspect(
-        OperationContext operationContext, String urn, String aspectName, long version) {
+        @Nonnull OperationContext opContext, String urn, String aspectName, long version) {
       return null;
     }
 
     @Override
-    public EntityAspect getAspect(OperationContext operationContext, EntityAspectIdentifier key) {
+    public EntityAspect getAspect(
+        @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
       return null;
     }
 
     @Override
     public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-        OperationContext operationContext, Set<EntityAspectIdentifier> keys, boolean forUpdate) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Set<EntityAspectIdentifier> keys,
+        boolean forUpdate) {
       return null;
     }
 
     @Override
     public List<EntityAspect> getAspectsInRange(
-        OperationContext operationContext,
-        Urn urn,
+        @Nonnull OperationContext opContext,
+        @Nonnull Urn urn,
         Set<String> aspectNames,
         long startTimeMillis,
         long endTimeMillis) {
@@ -540,7 +543,9 @@ public class AspectDaoTest {
 
     @Override
     public Map<String, Map<String, Long>> getNextVersions(
-        OperationContext operationContext, Map<String, Set<String>> urnAspectMap) {
+        @Nonnull OperationContext opContext,
+        @Nonnull Map<String, Set<String>> urnAspectMap,
+        boolean lockLatestForWrite) {
       return null;
     }
 

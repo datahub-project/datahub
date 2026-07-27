@@ -35,6 +35,9 @@ public class RAPServletFactory {
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
 
+  @Value("${" + INGESTION_MAX_SERIALIZED_NAME_LENGTH + ":16000000}")
+  private int maxSerializedNameLength;
+
   @Autowired private GMSConfiguration gmsConfiguration;
 
   @Bean(name = "restliSpringInjectResourceFactory")
@@ -68,7 +71,10 @@ public class RAPServletFactory {
     // Without this the limit is
     // whatever Jackson is defaulting to (5 MB currently).
     AbstractJacksonDataCodec.JSON_FACTORY.setStreamReadConstraints(
-        StreamReadConstraints.builder().maxStringLength(maxSerializedStringLength).build());
+        StreamReadConstraints.builder()
+            .maxStringLength(maxSerializedStringLength)
+            .maxNameLength(maxSerializedNameLength)
+            .build());
     // !!!!!!! IMPORTANT !!!!!!!
 
     RestLiConfig config = new RestLiConfig();

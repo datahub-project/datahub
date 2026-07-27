@@ -20,7 +20,8 @@ The Remote Executor is a powerful feature of DataHub Cloud that enables secure m
 
 ### Security & Control
 
-- Credentials stay in your environment
+- Credentials can stay in your environment when using **local secret backends** (recommended) — Kubernetes mounts, AWS/GCP Secret Manager, or ECS-deploy-time secrets
+- DataHub UI Secrets are supported but store credentials in DataHub and return plaintext to the executor over the API at runtime — see [Secret security considerations](../operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations)
 - Network access controlled by your policies
 - Support for AWS Secrets Manager integration and all secret management systems accessible by [External Secrets Operator](https://external-secrets.io/latest/provider/aws-secrets-manager/)
 - Full audit trail of execution activities
@@ -79,7 +80,14 @@ Remote Executor can be deployed on various platforms including:
 
 The Remote Executor is designed with security as a top priority:
 
-- All credentials remain in your environment
+- Sensitive operations run in your environment; use local secret backends to keep credentials there
+- **Secure by default:** `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE` blocks browser and user-PAT access to plaintext secret values via the API
 - No inbound connections required
-- Support for secret management systems
+- Support for enterprise secret management systems (Kubernetes Secrets, AWS/GCP SM, External Secrets Operator)
 - Regular security updates
+
+### Should I use DataHub UI Secrets with Remote Executor?
+
+For strict security requirements, **no** — use local secret backends in your executor environment instead of the DataHub UI **Secrets** tab. UI secrets are encrypted at rest in DataHub but are sent to the executor in plaintext over the DataHub API when a job runs.
+
+DataHub is **secure by default** for human secret reads: `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE` blocks browser sessions and user PATs from `getSecretValues`. That does not prevent an **embedded executor** from resolving UI secrets — use local backends when credentials must not leave your environment. (On DataHub OSS, [**datahub-actions**](../../actions/actions/executor.md) fills the same trusted-worker role.) See [Secret security considerations](../operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations).

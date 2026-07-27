@@ -17,11 +17,16 @@ from urllib.parse import urlparse
 
 import click
 import requests
+from requests.adapters import HTTPAdapter
+from typing_extensions import NotRequired, TypedDict
+from urllib3.util.retry import Retry
 
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
+from datahub.ingestion.auth.registry import AuthConfig
 from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +34,30 @@ CACHE_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-cache")
 LOADS_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-loads")
 
 EMIT_MODE_ENV = "DATAHUB_EMIT_MODE"
+
+# Datapack files are fetched from a public host (e.g. raw.githubusercontent.com)
+# that rate-limits with HTTP 429 under load. Without retries a transient 429
+# silently drops a file and produces a partial, broken load. Retry transient
+# statuses with backoff (urllib3 also honors Retry-After for 429/503).
+_FETCH_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_FETCH_RETRY_TOTAL = 5
+_FETCH_RETRY_BACKOFF_FACTOR = 1.0
+
+
+def _build_fetch_session() -> requests.Session:
+    """A requests session that retries transient HTTP errors with backoff."""
+    retry = Retry(
+        total=_FETCH_RETRY_TOTAL,
+        status_forcelist=list(_FETCH_RETRY_STATUSES),
+        allowed_methods=frozenset({"GET"}),
+        backoff_factor=_FETCH_RETRY_BACKOFF_FACTOR,
+        respect_retry_after_header=True,
+    )
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
 def _cache_key(url: str) -> str:
@@ -73,21 +102,22 @@ def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
             raise click.ClickException(f"Local file not found: {local_path}")
         shutil.copy2(local_path, dest)
     else:
-        response = requests.get(url, stream=True, timeout=120)
-        response.raise_for_status()
+        with _build_fetch_session() as session:
+            response = session.get(url, stream=True, timeout=120)
+            response.raise_for_status()
 
-        content_length = response.headers.get("content-length")
-        total = int(content_length) if content_length else None
+            content_length = response.headers.get("content-length")
+            total = int(content_length) if content_length else None
 
-        with open(dest, "wb") as f:
-            if total:
-                with click.progressbar(length=total, label="Downloading") as bar:
+            with open(dest, "wb") as f:
+                if total:
+                    with click.progressbar(length=total, label="Downloading") as bar:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+                            bar.update(len(chunk))
+                else:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
-                        bar.update(len(chunk))
-            else:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
 
 
 def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
@@ -431,6 +461,17 @@ def remove_load_record(pack_name: str) -> None:
     path.unlink(missing_ok=True)
 
 
+def _is_mcp_compatible(
+    specs: EntityAspectSpecs, entity_type: str, aspect_name: str
+) -> bool:
+    """Whether the server supports this entity/aspect, allowing unknown entity types."""
+    try:
+        return specs.supports(entity_type, aspect_name)
+    except ValueError:
+        # Unknown entity type -- let the server decide rather than dropping it.
+        return True
+
+
 def _apply_schema_filter(
     pack_path: pathlib.Path,
     client_config: DatahubClientConfig,
@@ -440,14 +481,10 @@ def _apply_schema_filter(
     Returns the original path if no filtering is needed, or a new
     temporary file with incompatible MCPs removed.
     """
-    from datahub.cli.datapack.schema_compat import (
-        fetch_server_schema,
-        is_mcp_compatible,
-    )
+    from datahub.ingestion.graph.client import DataHubGraph
 
-    token = client_config.token
-    server_schema = fetch_server_schema(str(client_config.server), token=token)
-    if not server_schema:
+    specs = DataHubGraph(client_config).get_entity_aspect_specs()
+    if specs is None:
         click.echo("Could not fetch server schema -- skipping compatibility filter.")
         return pack_path
 
@@ -463,7 +500,7 @@ def _apply_schema_filter(
         entity_type = mcp.get("entityType", "")
         aspect_name = mcp.get("aspectName", "")
 
-        if is_mcp_compatible(entity_type, aspect_name, server_schema):
+        if _is_mcp_compatible(specs, entity_type, aspect_name):
             filtered.append(mcp)
         else:
             key = f"{entity_type}/{aspect_name}"
@@ -618,15 +655,32 @@ def _check_referential_integrity(
         click.echo(f"  {ref_urn} (referenced by {len(referrers)} entities)")
 
 
-def _build_datapack_sink_config(client_config: DatahubClientConfig) -> dict[str, str]:
+class _DatapackSinkConfig(TypedDict):
+    """The datahub-rest sink config the datapack loader feeds to Pipeline.create."""
+
+    server: str
+    endpoint: str
+    mode: str
+    token: NotRequired[str]
+    auth: NotRequired[AuthConfig]
+
+
+def _build_datapack_sink_config(
+    client_config: DatahubClientConfig,
+) -> _DatapackSinkConfig:
     """Sink config for datapack ingest: OpenAPI endpoint with async_batch mode."""
-    sink_config: dict[str, str] = {
+    sink_config: _DatapackSinkConfig = {
         "server": str(client_config.server),
         "endpoint": "openapi",
         "mode": "async_batch",
     }
     if client_config.token:
         sink_config["token"] = client_config.token
+    if client_config.auth:
+        # Carry the OAuth token-provider config through — token and auth are
+        # mutually exclusive, and dropping auth here would make the datapack
+        # sink emit unauthenticated in OAuth mode.
+        sink_config["auth"] = client_config.auth
     return sink_config
 
 
@@ -648,7 +702,7 @@ def _datapack_emit_mode(wait_for_completion: bool) -> Iterator[str]:
 def _run_pipeline_for_file(
     file_path: pathlib.Path,
     run_id: str,
-    sink_config: dict[str, str],
+    sink_config: _DatapackSinkConfig,
     wait_for_completion: bool = False,
 ) -> None:
     """Run an ingestion pipeline for a single data file."""
@@ -668,7 +722,11 @@ def _run_pipeline_for_file(
     with _datapack_emit_mode(wait_for_completion) as emit_mode:
         if wait_for_completion:
             click.echo(f"  Using OpenAPI async_batch with emit mode {emit_mode}")
-        pipeline = Pipeline.create(pipeline_config)
+        # report_to=None disables the CLI ingestion-run reporter for these internal
+        # per-file pipelines. Without it, each "file" pipeline would register itself
+        # as a standalone "[CLI] file" ingestion source in the UI. The outer
+        # demo-data source / datapack-load command owns the run's provenance.
+        pipeline = Pipeline.create(pipeline_config, report_to=None)
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()

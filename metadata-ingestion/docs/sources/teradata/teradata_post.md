@@ -45,6 +45,18 @@ profile_pattern:
 
 When `databases` is not set the connector automatically scopes `DBC.QryLogV` queries to the databases discovered during metadata extraction, filtered by `database_pattern`. This avoids scanning the entire audit log. You can further restrict the scope with an explicit `databases` list.
 
+**Slow lineage query detection**
+
+Large `DBC.QryLogV` tables can cause individual lineage queries to run for several minutes without producing an obvious error. Set `lineage_slow_query_log_seconds` to emit a `WARNING`-level log line whenever the total database time for a single lineage query (execute call plus all `fetchmany` calls — downstream sqlglot processing time is excluded) exceeds the threshold. The warning includes the query label and elapsed DB time. The log line additionally includes the first 500 characters of the SQL text — check `WARNING`-level logs to see the SQL snippet.
+
+```yaml
+lineage_slow_query_log_seconds: 120 # warn if any lineage query takes longer than 2 minutes (DB time)
+```
+
+The default is `60` seconds. Set to `0` to disable slow-query warnings entirely. Each slow query is also counted in `report.lineage_slow_queries_detected`, and per-query DB timings are available in `report.lineage_query_timings` for post-run analysis.
+
+> **Note:** if the driver retries a failed fetchmany call, the retry backoff sleep time is included in the DB time measurement — set the threshold well above the expected base query time.
+
 **SQL parse cache size**
 
 When usage statistics or lineage are enabled, every query row from `DBC.QryLogV` is parsed with sqlglot to extract table references. Identical query text in a session (e.g. a BI dashboard query that runs thousands of times per day) hits an LRU cache and avoids re-parsing. The default cache holds 1 000 entries, which is too small for production Teradata installations where hundreds of distinct queries each execute thousands of times.

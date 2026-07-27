@@ -240,6 +240,7 @@ public class IncrementalReindexFlowTest {
               } else {
                 when(mockAspect.getUrn()).thenReturn("urn:li:chart:ch1");
               }
+              when(mockAspect.getMetadata()).thenReturn("{}");
               PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
               when(mockStream.partition(anyInt())).thenReturn(Stream.of(Stream.of(mockAspect)));
               return mockStream;

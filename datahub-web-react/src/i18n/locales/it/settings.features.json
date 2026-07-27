@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Propaga la nuova documentazione dagli asset a monte a quelli a valle in base alle relazioni di Lineage.",
+    "docPropagation.assetLevelTitle": "Propagazione a livello di asset",
+    "docPropagation.backfillButton": "Inizializza",
+    "docPropagation.backfillTitle": "Propaga retroattivamente la documentazione esistente dalle colonne/asset a monte a quelli a valle",
+    "docPropagation.columnLevelDescription": "Propaga la nuova documentazione dalle colonne a monte a quelle a valle in base alle relazioni di Lineage a livello di colonna.",
+    "docPropagation.columnLevelTitle": "Propagazione a livello di colonna",
+    "docPropagation.comingSoon": "Prossimamente!",
+    "docPropagation.description": "Propaga automaticamente la documentazione dalle colonne e dagli asset a monte a quelli a valle.",
+    "docPropagation.rollbackButton": "Ripristina",
+    "docPropagation.rollbackTitle": "Ripristina le modifiche di propagazione",
+    "docPropagation.title": "Propagazione della documentazione",
+    "docPropagation.updateError": "Impossibile aggiornare le impostazioni di propagazione della documentazione",
+    "docPropagation.updateSuccess": "Impostazioni di propagazione della documentazione aggiornate correttamente",
+    "learnMore": "Scopri di più",
+    "newLabel": "Novità!",
+    "onlyOnCloud": "Disponibile solo su DataHub Cloud",
+    "pageSubTitle": "Esplora e configura funzionalità specifiche",
+    "pageTitle": "Funzionalità"
+}

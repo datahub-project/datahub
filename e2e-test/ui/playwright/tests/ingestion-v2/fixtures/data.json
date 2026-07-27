@@ -5,7 +5,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataHubIngestionSourceInfo",
     "aspect": {
-      "value": "{\"name\":\"playwright execute source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "value": "{\"name\":\"playwright execute source\",\"type\":\"demo-data\",\"config\":{\"version\":\"1.6.0.10\",\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
       "contentType": "application/json"
     }
   },

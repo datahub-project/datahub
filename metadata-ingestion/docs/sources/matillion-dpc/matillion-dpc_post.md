@@ -34,6 +34,24 @@ Enable `parse_sql_for_lineage: true` to parse SQL queries from OpenLineage event
 
 **Postgres / Redshift:** 3-tier naming (`database.schema.table`). Set both `database` and `schema`
 
+#### Container Hierarchy
+
+Pipelines and their components are organized into a browsable container hierarchy that mirrors their
+path in Matillion:
+
+```
+Project › Environment › <folder> › … › Pipeline › Component
+```
+
+The folder levels come from the pipeline's path (e.g. `ingest/staging/orders/load.orch.yaml`
+yields `ingest › staging › orders` folders), so the browse tree lines up with the paths
+you match on in `pipeline_patterns`. Components (DataJobs) live in their pipeline's folder and browse
+directly under the pipeline.
+
+The environment and folder levels are always built. `extract_projects_to_containers` (default `true`)
+only controls whether the top-level **Project** container is added to the hierarchy; set it to `false`
+to hang environments (and their folders) directly at the root instead of under a project.
+
 #### Filtering Options
 
 The connector supports flexible regex-based filtering to control what metadata is ingested.
@@ -82,6 +100,14 @@ The connector automatically detects and tracks when pipelines call other pipelin
 
 No configuration needed — this feature is automatic when execution history is ingested.
 
+Child pipelines that only appear in lineage events (and were not discovered as project pipelines themselves) are, by default, created as their own DataFlows/DataJobs so the full dependency graph is captured. To suppress these lineage-only dependencies and keep ingestion scoped to discovered pipelines, disable:
+
+```yaml
+include_dependent_pipelines: false
+```
+
+Lineage is still emitted for discovered pipelines when this is disabled — only the lineage-only dependent pipelines are skipped.
+
 #### Published vs Unpublished Pipelines
 
 The connector can discover pipelines from two sources:
@@ -101,10 +127,44 @@ This is useful when:
 - You have many development/test pipelines that run but shouldn't be documented
 - You want to reduce ingestion time and API calls
 
+#### Run History (DataProcessInstances)
+
+Run history — per-execution `DataProcessInstance` entities with status and timing — is produced from the pipeline-executions API. Each execution surfaces a run on the **pipeline** (DataFlow) itself as well as on each of its **components** (DataJobs), so the "Runs" tab is populated at both levels. When `include_unpublished_pipelines: true`, this happens automatically as part of discovery.
+
+When `include_unpublished_pipelines: false`, discovery only lists published pipelines and does **not** fetch executions, so no runs are emitted by default. To get run history for your published pipelines without also ingesting unpublished ones, enable:
+
+```yaml
+include_unpublished_pipelines: false
+extract_run_history: true
+```
+
+This fetches executions within the configured time window and attaches runs to the matching published pipelines. It is off by default because it calls the pipeline-executions and per-execution steps APIs, which are slower and degrade over wider time windows — pair it with a narrow `start_time` / `end_time` and stateful ingestion.
+
+Enabling it has a second benefit: lineage often references **unpublished child orchestrations** (e.g. `SRC_*_ORCH` pipelines invoked by a published schedule). The OpenLineage namespace only carries an opaque environment UUID, so when such a pipeline is neither published nor seen in executions, its environment cannot be resolved and the connector **skips** it rather than placing it in a pipeline with no environment. Because executions report the environment name, enabling `extract_run_history` (or `include_unpublished_pipelines`) lets these child orchestrations resolve their environment and nest correctly under it.
+
+#### Time Window and Incremental Ingestion
+
+Pipeline-execution discovery and lineage are bounded by `start_time` / `end_time`. If you do not set them, `end_time` defaults to now and `start_time` defaults to the start (00:00 UTC) of the previous day — i.e. at least the last 24 hours of jobs. Set `start_time` to backfill more history on the first run, especially if your pipelines do not run daily:
+
+```yaml
+start_time: "2024-01-01T00:00:00Z" # absolute
+# start_time: "-30d"                # or relative to end_time
+```
+
+Enable stateful ingestion so subsequent runs only fetch new lineage instead of re-reading the whole window:
+
+```yaml
+stateful_ingestion:
+  enabled: true
+```
+
+**Lineage endpoint performance**: the Matillion lineage events API paginates by offset and gets progressively slower the further back it reads. Wide time windows therefore both increase total runtime and make individual requests more likely to time out. Lineage requests are automatically split into sub-windows of at most 31 days (the API's hard limit per request), but each sub-window still pages through its full result set. Prefer a narrower window plus stateful ingestion over a single very large backfill, and only raise `api_config.request_timeout_sec` when a genuinely large window is unavoidable (a high timeout multiplies the worst-case wait, since failed requests are retried).
+
 ### Limitations
 
 - SQL parsing for column-level lineage requires a DataHub graph connection and schema information in OpenLineage events. Unsupported SQL dialects or complex queries are skipped with a warning.
 - Column-level lineage is only available when Matillion pipelines emit SQL via OpenLineage; transformations without SQL output will have coarse-grained lineage only.
+- Matillion console links (project, run, and pipeline) are **off by default**; set `include_external_urls: true` to emit them. Pipeline names and the pipeline link use the pipeline **file name** — the only name the API exposes; a different display name set inside the Maia editor is not retrievable. The pipeline link opens the observability dashboard pre-filtered by that file name (there is no per-pipeline deep-link), so the pipeline must have run within the dashboard's time window to appear.
 
 ### Troubleshooting
 
@@ -123,13 +183,15 @@ Enable `parse_sql_for_lineage: true` (requires DataHub graph connection).
 1. Adjust `start_time` to query further back in time if needed
 2. Verify API permissions for Pipeline Executions API
 
-#### Performance Issues
+#### Performance Issues or Request Timeouts
 
-1. Reduce time window by adjusting `start_time` (e.g., only last 7 days instead of 30)
+The lineage events endpoint paginates by offset and slows down the further back in time it reads, so wide windows are the most common cause of slow runs and `request_timeout_sec` timeouts. In order of preference:
+
+1. Narrow the time window by adjusting `start_time` (e.g., last 7 days instead of 30) and enable `stateful_ingestion` so later runs stay incremental.
 2. Use filtering patterns to reduce scope:
    - `project_patterns` to filter projects
    - `environment_patterns` to filter environments
    - `pipeline_patterns` to filter pipelines
    - `streaming_pipeline_patterns` to filter streaming pipelines
-3. Disable `include_streaming_pipelines` if not needed
-4. Increase `api_config.request_timeout_sec` if needed
+3. Disable `include_streaming_pipelines` if not needed.
+4. As a last resort, raise `api_config.request_timeout_sec`. Keep it as low as practical — failed requests are retried, so a very high timeout multiplies the worst-case wait on a slow endpoint.

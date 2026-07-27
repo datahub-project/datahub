@@ -109,7 +109,7 @@ datahub:newpassword
 
 #### 2. Mount the updated config file
 
-Change the [docker-compose.yaml](https://github.com/datahub-project/datahub/blob/master/docker/docker-compose.yml) to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:`/datahub-frontend/conf/user.props`
+Change the [docker-compose file](https://github.com/datahub-project/datahub/blob/master/docker/profiles/docker-compose.frontend.yml) to mount an updated user.props file to the following location inside the `datahub-frontend-react` container using a volume:`/datahub-frontend/conf/user.props`
 
 ```yaml
   datahub-frontend-react:

@@ -14,6 +14,7 @@ import static org.testng.Assert.assertEquals;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.DefaultEntitySpecResolver;
@@ -34,6 +35,8 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -616,14 +619,23 @@ public class ESAccessControlUtilTest {
       super(
           ENABLED_CONTEXT,
           mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
+          new GroupService(
+              mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
+              mock(EntityService.class),
+              mock(GraphClient.class)),
           0,
           0,
           AuthorizationMode.DEFAULT,
           0);
 
+      SystemEntityClient specEntityClient =
+          mockUserGroupEntityClient(userGroups, resourceOwnerTypes);
       DefaultEntitySpecResolver specResolver =
           new DefaultEntitySpecResolver(
-              opContext, mockUserGroupEntityClient(userGroups, resourceOwnerTypes));
+              opContext,
+              specEntityClient,
+              new GroupService(
+                  specEntityClient, mock(EntityService.class), mock(GraphClient.class)));
 
       AuthorizerContext ctx = mock(AuthorizerContext.class);
       when(ctx.getEntitySpecResolver()).thenReturn(specResolver);

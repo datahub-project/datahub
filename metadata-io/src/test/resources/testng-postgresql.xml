@@ -5,6 +5,7 @@
         <packages>
             <package name="com.linkedin.metadata.sqlsetup.postgres.migration"/>
             <package name="com.linkedin.metadata.sqlsetup.postgres.pgqueue"/>
+            <package name="com.linkedin.metadata.entity.storage"/>
         </packages>
     </test>
 </suite>

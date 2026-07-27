@@ -108,6 +108,7 @@ shadowJar {
     relocate 'org.jspecify', 'datahub.shaded.org.jspecify'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
+    relocate 'org.apfloat', 'datahub.shaded.org.apfloat'
     relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
     relocate 'org.apache.hc', 'datahub.shaded.org.apache.hc'
  

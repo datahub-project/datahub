@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
@@ -17,19 +15,12 @@ const useSidebarPlatforms = ({ skip }: Props) => {
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const { error: baseError, platformAggregations: baseAggs } = useAggregationsQuery({
-        skip,
-        facets: [PLATFORM_FILTER_NAME],
-        excludeFilters: true,
-    });
-
-    const result = useMemo(() => {
-        if (filteredError || baseError) return filteredAggs; // Fallback to filtered aggs on any error
-        if (!filteredAggs || !baseAggs) return null; // If we're loading one of the queries, wait to render
-        return filteredAggs.filter((agg) => baseAggs.some((base) => base.value === agg.value && !!base.count));
-    }, [baseAggs, baseError, filteredAggs, filteredError]);
-
-    return { error: filteredError, platformAggregations: result, retry: retryFilteredAggs } as const;
+    // Show every platform that has results for the current query. We intentionally
+    // do NOT intersect with an unfiltered ("base") aggregation: the base aggregation
+    // is a top-N terms query, so any platform ranked below that cap (e.g. a long-tail
+    // source like Confluence on a dataset-heavy instance) would be dropped from the
+    // sidebar even when it matches the active search.
+    return { error: filteredError, platformAggregations: filteredAggs, retry: retryFilteredAggs } as const;
 };
 
 export default useSidebarPlatforms;

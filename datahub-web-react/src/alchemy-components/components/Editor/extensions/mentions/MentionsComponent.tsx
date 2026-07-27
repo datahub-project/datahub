@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { FloatingWrapper, useRemirrorContext } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import { Positioner, selectionPositioner } from 'remirror/extensions';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { MentionsDropdown } from '@components/components/Editor/extensions/mentions/MentionsDropdown';
 import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
@@ -44,6 +44,16 @@ const PortalPositioner = styled.div<{ $bottom: string; $left: number }>`
 const StyledEmpty = styled(Empty)`
     margin: 16px;
     color: ${(props) => props.theme.colors.textTertiary};
+`;
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingSpinner = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: ${({ theme }) => theme.colors.iconBrand};
 `;
 
 interface MentionsComponentProps {
@@ -108,7 +118,7 @@ export const MentionsComponent = ({ renderOutsideEditor = false }: MentionsCompo
     }));
 
     const dropdownContent = (
-        <Spin spinning={loading} delay={100} indicator={<LoadingOutlined />}>
+        <Spin spinning={loading} delay={100} indicator={<LoadingSpinner />}>
             {suggestions?.length > 0 ? (
                 <MentionsDropdown suggestions={suggestions} />
             ) : (

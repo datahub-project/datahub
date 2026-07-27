@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} columna",
+    "columnCount_other": "{{count}} columnas",
+    "matchCount_one": "{{count}} coincidencia",
+    "matchCount_other": "{{count}} coincidencias",
+    "ownerCount_one": "{{count}} Owner",
+    "ownerCount_other": "{{count}} Owners",
+    "queryCount_one": "{{count}} consulta",
+    "queryCount_other": "{{count}} consultas",
+    "rowCount_one": "{{count}} fila",
+    "rowCount_other": "{{count}} filas",
+    "tagCount_one": "{{count}} Tag",
+    "tagCount_other": "{{count}} Tags",
+    "termCount_one": "{{count}} término",
+    "termCount_other": "{{count}} términos"
+}

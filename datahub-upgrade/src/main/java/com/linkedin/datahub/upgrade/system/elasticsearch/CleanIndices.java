@@ -8,11 +8,13 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.CleanIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.List;
@@ -31,7 +33,10 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao) {
+      final AspectDao aspectDao,
+      final EntityService<?> entityService,
+      final GitVersion gitVersion,
+      final String revision) {
 
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
     if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
@@ -45,13 +50,18 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
             graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
+    String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
+
     _steps =
         List.of(
             new CleanIndicesStep(
                 baseElasticSearchComponents.getSearchClient(),
                 configurationProvider.getElasticSearch(),
                 indexedServices,
-                structuredProperties));
+                structuredProperties,
+                entityService,
+                upgradeVersion,
+                configurationProvider.getElasticSearch().getBuildIndices()));
   }
 
   @Override

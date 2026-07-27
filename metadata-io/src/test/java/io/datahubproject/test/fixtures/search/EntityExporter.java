@@ -2,6 +2,7 @@ package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.Set;
@@ -39,7 +40,10 @@ public class EntityExporter {
 
     // Fetch indices
     GetMappingsResponse response =
-        client.getIndexMapping(new GetMappingsRequest().indices("*"), RequestOptions.DEFAULT);
+        client.getIndexMapping(
+            OperationFingerprint.EMPTY,
+            new GetMappingsRequest().indices("*"),
+            RequestOptions.DEFAULT);
 
     response.mappings().keySet().stream()
         .filter(

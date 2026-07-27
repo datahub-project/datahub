@@ -6,6 +6,7 @@ import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
 import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
@@ -280,6 +281,15 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
+                        title: t('navLinks.metrics'),
+                        key: 'metrics',
+                        icon: <Sigma />,
+                        selectedIcon: <Sigma weight="fill" />,
+                        link: PageRoutes.METRICS,
+                        isHidden: !config?.featureFlags?.metricsEnabled,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
                         title: t('navLinks.govern.tags'),
                         key: 'tag',
                         icon: <Tag />,
@@ -482,7 +492,12 @@ export const NavSidebar = () => {
     return (
         <Container>
             {renderSvgSelectedGradientForReusingInIcons()}
-            <Content id={NAV_SIDEBAR_ID} data-collapsed={isCollapsed} $isCollapsed={isCollapsed}>
+            <Content
+                id={NAV_SIDEBAR_ID}
+                data-testid="nav-sidebar"
+                data-collapsed={isCollapsed}
+                $isCollapsed={isCollapsed}
+            >
                 {showSkeleton ? (
                     <NavSkeleton isCollapsed={isCollapsed} />
                 ) : (

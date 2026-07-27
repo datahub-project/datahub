@@ -1,23 +1,26 @@
 import logging
-from functools import partial
-from typing import Iterable, List
-from unittest.mock import Mock
+from typing import List
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.source.dremio.dremio_config import (
     DremioConnectionConfig,
     DremioSourceConfig,
 )
 from datahub.ingestion.source.dremio.dremio_source import DremioSource
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
+from datahub.ingestion.workunit_processors.auto_incremental_properties import (
+    AutoIncrementalPropertiesProcessor,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
@@ -191,14 +194,27 @@ class TestIncrementalLineageWiring:
         # Skip the stale-entity-removal handler (needs graph +
         # checkpointing wiring this test doesn't set up); just compose
         # the lineage / property handlers we're asserting on.
-        stream: Iterable["MetadataWorkUnit"] = iter([workunit])
-        stream = partial(auto_incremental_lineage, source.config.incremental_lineage)(
-            stream
+        stream = [workunit]
+
+        # Create processor context
+        ctx = WorkunitProcessorContext(
+            source_report=SourceReport(),
+            pipeline_context=MagicMock(),
+            source_config=source.config,
+            platform=None,
         )
-        stream = partial(
-            auto_incremental_properties, source.config.incremental_properties
-        )(stream)
-        return list(stream)
+
+        # Process through incremental lineage processor
+        if source.config.incremental_lineage:
+            lineage_processor = AutoIncrementalLineageProcessor.create(ctx)
+            stream = list(lineage_processor.process(stream))
+
+        # Process through incremental properties processor
+        if source.config.incremental_properties:
+            properties_processor = AutoIncrementalPropertiesProcessor.create(ctx)
+            stream = list(properties_processor.process(stream))
+
+        return stream
 
     def test_default_emits_upsert_full_overwrite(self, mock_ctx, patch_session):
         config = DremioSourceConfig(**self._base_kwargs())
