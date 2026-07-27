@@ -9,6 +9,7 @@ import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
@@ -68,7 +69,9 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 
@@ -81,11 +84,14 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    */
   @Override
   protected Stream<MCPItem> postMCPSideEffect(
-      Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCLItem> mclItems,
+      @Nonnull RetrieverContext retrieverContext) {
 
     // fetch existing aspects, if not already in the batch just committed
     Map<Urn, Map<String, Aspect>> aspectData =
-        fetchRequiredAspects(mclItems, REQUIRED_ASPECTS, retrieverContext.getAspectRetriever());
+        fetchRequiredAspects(
+            operationContext, mclItems, REQUIRED_ASPECTS, retrieverContext.getAspectRetriever());
 
     return Stream.concat(
         processUpserts(mclItems, aspectData, retrieverContext),
@@ -551,6 +557,7 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    * @return required aspects for the side effect processing
    */
   private static Map<Urn, Map<String, Aspect>> fetchRequiredAspects(
+      OperationFingerprint operationContext,
       Collection<MCLItem> mclItems,
       Set<String> requiredAspectNames,
       AspectRetriever aspectRetriever) {
@@ -585,7 +592,9 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
     missingAspectData.forEach(
         (urn, aspectNames) -> {
           Map<String, Aspect> fetchedData =
-              aspectRetriever.getLatestAspectObjects(Set.of(urn), aspectNames).get(urn);
+              aspectRetriever
+                  .getLatestAspectObjects(operationContext, Set.of(urn), aspectNames)
+                  .get(urn);
           if (fetchedData != null) {
             fetchedData.forEach(
                 (aspectName, aspectValue) ->

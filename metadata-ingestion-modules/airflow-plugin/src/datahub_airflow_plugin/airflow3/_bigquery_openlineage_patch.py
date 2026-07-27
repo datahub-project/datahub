@@ -25,13 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 def _should_patch_bigquery_operator(operator_class: Any) -> bool:
-    """Check if BigQuery operator should be patched."""
-    if not hasattr(operator_class, "get_openlineage_facets_on_complete"):
-        logger.debug(
-            "BigQueryInsertJobOperator.get_openlineage_facets_on_complete not found - "
-            "likely Airflow 2.x, skipping patch"
-        )
-        return False
+    """Skip when the operator has already been patched."""
     if hasattr(operator_class, "_datahub_openlineage_patched"):
         logger.debug("BigQueryInsertJobOperator already patched for OpenLineage")
         return False

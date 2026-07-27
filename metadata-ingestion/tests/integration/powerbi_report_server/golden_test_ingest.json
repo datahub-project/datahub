@@ -9,12 +9,34 @@
             "customProperties": {},
             "active": true,
             "displayName": "TEST_USER",
-            "email": ""
+            "email": "",
+            "system": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:TEST_USER",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -28,8 +50,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -43,8 +66,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -60,8 +84,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -84,6 +109,7 @@
             "description": "",
             "charts": [],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -98,8 +124,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -113,8 +140,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -129,8 +157,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -150,6 +179,7 @@
                     "type": "NONE"
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
@@ -157,8 +187,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -191,8 +222,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -205,12 +237,34 @@
             "customProperties": {},
             "active": true,
             "displayName": "TEST_USER",
-            "email": ""
+            "email": "",
+            "system": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:TEST_USER",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -224,8 +278,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -239,56 +294,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:TEST_USER",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "active": true,
-            "displayName": "TEST_USER",
-            "email": ""
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:TEST_USER",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:TEST_USER",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "TEST_USER"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -304,8 +312,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -328,6 +337,7 @@
             "description": "",
             "charts": [],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -342,8 +352,72 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/ee56dc21-248a-4138-a446-ee5ab1fc938c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:TEST_USER",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:TEST_USER",
+                    "type": "NONE"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -376,67 +450,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardKey",
-    "aspect": {
-        "json": {
-            "dashboardTool": "powerbi",
-            "dashboardId": "powerbi.linkedin.com/dashboards/ee56dc21-248a-4138-a446-ee5ab1fc938c"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938c)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "TECHNICAL_OWNER"
-                },
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "NONE"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -449,12 +465,34 @@
             "customProperties": {},
             "active": true,
             "displayName": "TEST_USER",
-            "email": ""
+            "email": "",
+            "system": false
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:TEST_USER",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643893200000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -468,8 +506,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -483,8 +522,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -500,8 +540,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -524,6 +565,7 @@
             "description": "",
             "charts": [],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -538,8 +580,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -553,8 +596,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -569,8 +613,39 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938d)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:TEST_USER",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:TEST_USER",
+                    "type": "NONE"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -603,36 +678,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938d)",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "TECHNICAL_OWNER"
-                },
-                {
-                    "owner": "urn:li:corpuser:TEST_USER",
-                    "type": "NONE"
-                }
-            ],
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-report-server-test"
+        "lastObserved": 1643893200000,
+        "runId": "powerbi-report-server-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

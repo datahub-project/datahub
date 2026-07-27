@@ -1,5 +1,6 @@
 import { AppstoreOutlined } from '@ant-design/icons';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -16,7 +17,6 @@ import {
     SummaryTabHeaderWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -34,6 +34,8 @@ const ViewAllButton = styled.div`
 `;
 
 export const ContentsSection = () => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { entityState } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -63,9 +65,12 @@ export const ContentsSection = () => {
     return (
         <SectionContainer>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
+                <SummaryTabHeaderTitle
+                    icon={<AppstoreOutlined />}
+                    title={t('shared.assetsCountTitle', { count: contentsCount })}
+                />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    View all
+                    {tc('viewAll')}
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}
@@ -92,7 +97,7 @@ export const ContentsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

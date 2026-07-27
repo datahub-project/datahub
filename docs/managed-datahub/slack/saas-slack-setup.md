@@ -57,7 +57,11 @@ Now proceed to [connect your Slack account](#connect-your-slack-account) so you 
 
 ### DataHub Slack Bot Permissions
 
-The DataHub Slack bot requires a certain set of Slack scopes to function properly.
+The DataHub Slack bot requires a certain set of Slack scopes to function properly. By default, all
+scopes listed below — including the four message-history scopes — are **required** at install time.
+If your security or compliance team objects to granting broad message-read access, the four
+`*:history` scopes can be made optional for your instance; see
+[Optional scopes and trade-offs](#optional-scopes-and-trade-offs) below.
 
 <details>
 <summary>View all required Slack bot scopes</summary>
@@ -88,6 +92,39 @@ The DataHub Slack bot requires a certain set of Slack scopes to function properl
 | `reactions:write`       | Future-proofing                                                                                 |
 
 </details>
+
+### Optional scopes and trade-offs
+
+By default, the four message-history scopes (`channels:history`, `groups:history`, `im:history`,
+`mpim:history`) are **required** at install time. The DataHub Slack app supports running these
+scopes as Slack [optional scopes](https://docs.slack.dev/changelog/2026/03/16/optional-scopes/)
+instead — letting your Slack workspace admin decline them — but this is **not the default** and is
+**not something you can toggle yourself in the Slack app settings.**
+
+To make the four `*:history` scopes optional for your DataHub Cloud instance, **contact your
+DataHub Cloud representative** to enable it. Once enabled, your workspace admin can decline those
+scopes during install (or remove them later) and the trade-offs below will apply.
+
+These scopes are only used to give **Ask DataHub** access to the surrounding conversation when
+someone @-mentions the bot, so that follow-up questions ("what about the staging table?") can be
+resolved against earlier messages in the thread or channel.
+
+#### What changes if the `*:history` scopes are not granted
+
+If optional scopes have been enabled for your instance and your Slack admin declines (or removes)
+the four `*:history` scopes:
+
+- **Notifications, slash commands, subscriptions, and incident management continue to work as
+  normal.** None of these features need to read message history.
+- **Ask DataHub will only see the message that @-mentions the bot.** It cannot read prior messages
+  in the thread or channel, so it cannot use earlier discussion as context. Users should phrase
+  each question to @DataHub as a self-contained message.
+- **Bot-to-bot relays will lose context.** If you have a centralized bot in your workspace that
+  forwards a user's message to @DataHub (for example, an internal "ask" router that re-tags the
+  bot on the user's behalf), DataHub will only see the relay message — not the original user
+  question. To make this pattern work without history scopes, the relaying bot must include the
+  full original question in the message that @-mentions DataHub, instead of only quoting or
+  linking to it.
 
 ### Workspace Admin Approval
 

@@ -1,5 +1,6 @@
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DataHubView } from '@types';
@@ -15,14 +16,18 @@ interface Props {
 }
 
 const MatchingViewsLabel = ({ view, selectedViewUrn, setSelectedViewUrn }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     if (selectedViewUrn === view?.urn) {
         return (
             <StyledMatchingViewsLabel>
-                Only showing entities in the
-                <Typography.Text strong> {view?.name} </Typography.Text>
-                view.
+                <Trans
+                    t={t}
+                    i18nKey="embeddedSearch.matchingViews"
+                    components={{ strong: <Typography.Text strong /> }}
+                    values={{ viewName: view?.name }}
+                />
                 <Button data-testid="view-select-clear" type="link" onClick={() => setSelectedViewUrn?.(undefined)}>
-                    Clear view
+                    {t('embeddedSearch.clearView')}
                 </Button>
             </StyledMatchingViewsLabel>
         );

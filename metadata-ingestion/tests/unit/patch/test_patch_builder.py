@@ -34,11 +34,11 @@ from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.testing import mce_helpers
 
 TAG_PATCH_VALUE = {
-    "arrayPrimaryKeys": {"tags": ["tag", "attribution\u241fsource"]},
+    "arrayPrimaryKeys": {"tags": ["attribution\u241fsource", "tag"]},
     "patch": [
         {
             "op": "add",
-            "path": "/tags/urn:li:tag:test_tag/",
+            "path": "/tags//urn:li:tag:test_tag",
             "value": {"tag": "urn:li:tag:test_tag"},
         }
     ],
@@ -62,6 +62,44 @@ def test_basic_dataset_patch_builder():
             ),
         ),
     ]
+
+
+def test_add_tag_uses_source_first_path():
+    """Regression test: add_tag must NOT produce a trailing-slash path like /tags/TAG_URN/.
+
+    The old tag-first ordering produced paths of the form /tags/TAG_URN/ (empty source
+    at the end). The Jakarta JSON-P (Parsson) library in GMS cannot apply an 'add'
+    operation when the last JSON Pointer component is an empty string, causing a
+    JsonException when the globalTags aspect does not yet exist for the entity.
+
+    The fix is source-first ordering, which places the empty-source component in the
+    middle: /tags//TAG_URN.  Parsson handles this correctly.
+    """
+    patcher = DatasetPatchBuilder(
+        make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+    ).add_tag(TagAssociationClass(tag=make_tag_urn("my_tag")))
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    payload = json.loads(mcps[0].aspect.value)  # type: ignore[union-attr]
+
+    apk = payload["arrayPrimaryKeys"]["tags"]
+    patch_ops = payload["patch"]
+
+    # APK must be source-first to avoid the trailing-slash Parsson bug.
+    assert apk == ["attribution\u241fsource", "tag"], (
+        f"Expected source-first APK, got {apk}"
+    )
+
+    add_paths = [op["path"] for op in patch_ops if op["op"] == "add"]
+    for path in add_paths:
+        assert not path.endswith("/"), (
+            f"Patch path '{path}' ends with '/' — this causes GMS to throw "
+            "JsonException when the aspect doesn't yet exist (Parsson bug)."
+        )
+        assert "/tags//" in path or path.startswith("/tags//"), (
+            f"Expected source-first path (source component before tag), got '{path}'"
+        )
 
 
 def test_complex_dataset_patch(

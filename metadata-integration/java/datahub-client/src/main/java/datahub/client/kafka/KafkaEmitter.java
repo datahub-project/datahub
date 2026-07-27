@@ -49,6 +49,7 @@ public class KafkaEmitter implements Emitter {
    * @param config KafkaEmitterConfig
    * @throws IOException when Avro Serialization fails
    */
+  @SuppressWarnings("unchecked")
   public KafkaEmitter(KafkaEmitterConfig config, String mcpKafkaTopic) throws IOException {
     this.config = config;
     kafkaConfigProperties = new Properties();
@@ -63,7 +64,18 @@ public class KafkaEmitter implements Emitter {
     kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
     kafkaConfigProperties.putAll(config.getProducerConfig());
 
-    producer = new KafkaProducer<>(kafkaConfigProperties);
+    KafkaProducer<Object, Object> retryingProducer =
+        (KafkaProducer<Object, Object>)
+            KafkaProducerInitializationRetry.createWithRetry(
+                kafkaConfigProperties,
+                KafkaProducerInitializationRetry.Settings.builder()
+                    .maxAttempts(config.getInitializationRetryCount())
+                    .initialBackoffMs(config.getInitializationRetryBackoffMs())
+                    .maxBackoffMs(config.getInitializationRetryMaxBackoffMs())
+                    .maxTotalWaitMs(config.getInitializationRetryMaxTotalWaitMs())
+                    .build(),
+                KafkaProducer::new);
+    producer = retryingProducer;
     _avroSerializer = new AvroSerializer();
     this.mcpKafkaTopic = mcpKafkaTopic;
   }

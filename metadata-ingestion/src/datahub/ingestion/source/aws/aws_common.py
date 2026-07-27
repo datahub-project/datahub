@@ -9,7 +9,7 @@ import boto3
 import requests
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
-from botocore.exceptions import ClientError, NoCredentialsError
+from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
@@ -675,3 +675,26 @@ class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
+
+
+def aws_error_code(e: Union[ClientError, BotoCoreError]) -> str:
+    """Return a short human-readable code for an AWS SDK exception.
+
+    For ``ClientError`` (the structured API error: 4xx/5xx with a wire-format
+    response body), returns ``e.response["Error"]["Code"]`` —
+    e.g. ``AccessDeniedException``, ``ThrottlingException``,
+    ``ValidationException``.
+
+    For ``BotoCoreError`` (the unstructured client-side errors:
+    ``NoCredentialsError``, ``EndpointConnectionError``, ``ConnectTimeoutError``,
+    etc., which don't have a ``.response`` attribute), returns the exception's
+    class name, since that's the only stable identifier those exceptions
+    expose.
+
+    The returned string is safe to log without further sanitization.
+    """
+    if isinstance(e, ClientError):
+        return e.response.get("Error", {}).get("Code", "")
+    # BotoCoreError subclasses don't carry a structured code; the class name
+    # (e.g. "NoCredentialsError") is the next-best stable identifier.
+    return type(e).__name__

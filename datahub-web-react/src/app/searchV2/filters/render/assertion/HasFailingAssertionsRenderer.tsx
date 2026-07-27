@@ -1,4 +1,5 @@
 import { CloseCircleOutlined } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -14,8 +15,8 @@ export class HasFailingAssertionsRenderer implements FilterRenderer {
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Failing Assertions</>;
+            return <>{i18next.t('search:filters.assertions.hasFailingLabel')}</>;
         }
-        return <>Has Passing Assertions</>;
+        return <>{i18next.t('search:filters.assertions.hasPassingLabel')}</>;
     };
 }

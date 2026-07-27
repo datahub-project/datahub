@@ -1,5 +1,6 @@
 import { Modal, Progress } from 'antd';
 import React, { useCallback, useContext, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -43,6 +44,7 @@ const modalMaskStyle = {
 };
 
 export default function PersonalizationLoadingModal() {
+    const { t } = useTranslation('home.v2');
     const { isUserInitializing, setIsUserInitializing } = useContext(OnboardingContext);
     const [percent, setPercent] = React.useState(0);
 
@@ -73,7 +75,7 @@ export default function PersonalizationLoadingModal() {
             closable={false}
             maskStyle={modalMaskStyle}
         >
-            <ModalContent>{`Hang tight! We're getting everything ready for you.`}</ModalContent>
+            <ModalContent>{t('personalizationModal.loadingText')}</ModalContent>
             <ProgressStyle percent={percent} showInfo={false} />
         </ModalStyle>
     );

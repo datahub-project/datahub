@@ -532,6 +532,10 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_usage_statistics`",
 )
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_log_operations`",
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     Source that extracts tables, views, and dictionaries from ClickHouse via SQLAlchemy.
@@ -744,9 +748,10 @@ ORDER BY event_time ASC
             result = engine.execute(text(query))
             rows = list(result)
         except Exception as e:
-            self.report.report_failure(
-                "query_log_extraction",
-                f"Failed to fetch query log: {e}",
+            self.report.failure(
+                message="Failed to fetch query log",
+                context="query_log_extraction",
+                exc=e,
             )
             return
 

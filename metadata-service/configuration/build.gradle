@@ -8,20 +8,129 @@ apply from: "../../gradle/versioning/versioning.gradle"
 dependencies {
     implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
+    implementation externalDependency.jacksonDataFormatYaml
     implementation externalDependency.fabric8KubernetesClient
+    // Needed by CliVersionResolutionHelper to build the typed CliVersionResolution PDL record
+    // stamped on ExecutionRequestInput. The `dataTemplate` configuration exposes the generated
+    // Java classes; metadata-models has no dependency on this module, so no cycle.
+    implementation project(path: ':metadata-models', configuration: 'dataTemplate')
 
     implementation externalDependency.slf4jApi
 
     // Newer Spring libraries require JDK17 classes, allow for JDK11
     compileOnly externalDependency.springBootAutoconfigureJdk11
-
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
 
     testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
-    testImplementation externalDependency.jacksonDataFormatYaml
+    testImplementation externalDependency.graphqlJava
+    testImplementation project(':metadata-operation-context')
+    testImplementation project(':metadata-io')
+}
+
+test {
+    exclude '**/cigate/GraphqlUsageRegistryCiGateTest.class'
+    exclude '**/cigate/OpenApiUsageRegistryCiGateTest.class'
+    exclude '**/cigate/RestliUsageRegistryCiGateTest.class'
+}
+
+// Usage registry CI gates skip when git detects no relevant changes. Force a full scan:
+//   -PgraphqlUsageCheckForce=true -PopenApiUsageCheckForce=true -PrestliUsageCheckForce=true
+// Optional fork profile: -PusageRegistryCiGateProfile=com.example.CustomUsageRegistryCiGateProfile
+def graphqlUsageInputs = files(
+    fileTree("${rootProject.projectDir}/datahub-graphql-core/src/main/resources") { include '**/*.graphql' },
+    fileTree("${rootProject.projectDir}/datahub-web-react/src") { include '**/*.graphql' },
+    file("${projectDir}/src/test/resources/graphql_usage_exemptions.snapshot.yaml"),
+    file("${projectDir}/src/main/resources/usage_operations.yaml"),
+)
+
+tasks.register('graphqlUsageRegistryCheck', Test) {
+    description = 'Validate GraphQL surface is usage-classified or exempt. Force: -PgraphqlUsageCheckForce=true'
+    group = 'verification'
+    // graphqlUsageInputs scans datahub-web-react/src for *.graphql; those frontend tasks write into
+    // that dir, so declare the dependency to avoid a parallel-execution race (see #18375 CI failure).
+    dependsOn ':datahub-web-react:yarnGenerate', ':datahub-web-react:generateLazyIconStubs'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/cigate/GraphqlUsageRegistryCiGateTest.class'
+    inputs.files graphqlUsageInputs
+    outputs.file("${layout.buildDirectory.get()}/graphql-usage-registry-check.stamp")
+    systemProperty 'graphql.usage.check.force', project.findProperty('graphqlUsageCheckForce') ?: 'false'
+    systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
+    systemProperty 'usage.registry.cigate.profile', project.findProperty('usageRegistryCiGateProfile') ?: ''
+    reports.junitXml.required = true
+    reports.html.required = true
+}
+
+def openApiUsageInputs = files(
+    fileTree("${rootProject.projectDir}/metadata-service/openapi-servlet/src/main/java"),
+    fileTree("${rootProject.projectDir}/metadata-service/openapi-entity-servlet/src/main/java"),
+    fileTree("${rootProject.projectDir}/metadata-service/openapi-analytics-servlet/src/main/java"),
+    fileTree("${rootProject.projectDir}/metadata-service/openapi-metadatatests-servlet/src/main/java"),
+    fileTree("${rootProject.projectDir}/metadata-service/auth-servlet-impl/src/main/java"),
+    fileTree("${rootProject.projectDir}/metadata-service/iceberg-catalog/src/main/java"),
+    file("${projectDir}/src/test/resources/openapi_usage_exemptions.snapshot.yaml"),
+)
+
+tasks.register('openApiUsageRegistryCheck', Test) {
+    description = 'Validate OpenAPI handlers are instrumented or exempt. Force: -PopenApiUsageCheckForce=true'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/cigate/OpenApiUsageRegistryCiGateTest.class'
+    inputs.files openApiUsageInputs
+    outputs.file("${layout.buildDirectory.get()}/openapi-usage-registry-check.stamp")
+    systemProperty 'openapi.usage.check.force', project.findProperty('openApiUsageCheckForce') ?: 'false'
+    systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
+    systemProperty 'usage.registry.cigate.profile', project.findProperty('usageRegistryCiGateProfile') ?: ''
+    reports.junitXml.required = true
+    reports.html.required = true
+}
+
+def restLiUsageInputs = files(
+    fileTree("${rootProject.projectDir}/metadata-service/restli-servlet-impl/src/main/java"),
+    file("${projectDir}/src/test/resources/restli_usage_exemptions.snapshot.yaml"),
+)
+
+tasks.register('restLiUsageRegistryCheck', Test) {
+    description = 'Validate Rest.li handlers are instrumented or exempt. Force: -PrestliUsageCheckForce=true'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/cigate/RestliUsageRegistryCiGateTest.class'
+    inputs.files restLiUsageInputs
+    outputs.file("${layout.buildDirectory.get()}/restli-usage-registry-check.stamp")
+    systemProperty 'restli.usage.check.force', project.findProperty('restliUsageCheckForce') ?: 'false'
+    systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
+    systemProperty 'usage.registry.cigate.profile', project.findProperty('usageRegistryCiGateProfile') ?: ''
+    reports.junitXml.required = true
+    reports.html.required = true
+}
+
+check.dependsOn graphqlUsageRegistryCheck, openApiUsageRegistryCheck, restLiUsageRegistryCheck
+
+tasks.register('updateGraphqlUsageExemptionSnapshot', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.linkedin.metadata.config.usage.cigate.graphql.GraphqlUsageExemptionSnapshotGenerator'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('updateOpenApiUsageExemptionSnapshot', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.linkedin.metadata.config.usage.cigate.openapi.OpenApiUsageExemptionSnapshotGenerator'
+    workingDir = rootProject.projectDir
+}
+
+tasks.register('updateRestLiUsageExemptionSnapshot', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.linkedin.metadata.config.usage.cigate.restli.RestliUsageExemptionSnapshotGenerator'
+    workingDir = rootProject.projectDir
 }
 
 processResources.configure {

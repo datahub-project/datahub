@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import os
 import re
@@ -401,6 +402,9 @@ LEGACY_REFS_HEADERS = (
     "### DataHub security scans: git branch/tag",
 )
 LEGACY_REFS_MARKER = "<!-- datahub-trivy-refs -->"
+# Other automation sharing this Linear workspace may append this section to the same
+# comment; rebuilding the comment from ref keys alone would silently erase it.
+SLACK_NOTIFIED_SECTION_HEADER = "### Slack notifications"
 
 
 def plain_scalar_for_cell(val: Any) -> str:
@@ -670,7 +674,7 @@ def build_description(
 def parse_existing_ref_keys(comment_body: str) -> dict[str, str]:
     keys: dict[str, str] = {}
     for line in comment_body.splitlines():
-        m = re.match(r"^\s*-\s+\*\*(Branch|Tag)\*\*:\s+`([^`]+)`\b", line)
+        m = re.match(r"^\s*-\s+\*\*(Branch|Tag)\*\*:\s+`([^`]+)`", line)
         if not m:
             continue
         kind = m.group(1).lower()
@@ -717,10 +721,15 @@ def merge_refs_comment(
     if previous_body:
         keys = parse_existing_ref_keys(previous_body)
     key = f"{scan_ref_kind}:{scan_ref_name}"
-    if key in keys:
-        return format_refs_comment_body(keys)
-    keys[key] = new_line
-    return format_refs_comment_body(keys)
+    if key not in keys:
+        keys[key] = new_line
+    new_body = format_refs_comment_body(keys)
+    # format_refs_comment_body rebuilds from scratch, so re-append any trailing section this
+    # comment already had that we don't own (e.g. a Slack-notified stamp from another deployment).
+    if previous_body and SLACK_NOTIFIED_SECTION_HEADER in previous_body:
+        idx = previous_body.index(SLACK_NOTIFIED_SECTION_HEADER)
+        new_body = new_body.rstrip() + "\n\n" + previous_body[idx:].rstrip() + "\n"
+    return new_body
 
 
 def comment_has_refs_anchor(body: str) -> bool:
@@ -762,7 +771,6 @@ def issue_pairs_cve_or_pkg(created: list[tuple[str, str, str]]) -> set[tuple[str
             _, vid_j, pkg_j = created[j]
             if vid_i == vid_j or (bool(pkg_i) and bool(pkg_j) and pkg_i == pkg_j):
                 union(i, j)
-    from collections import defaultdict
 
     comp: dict[int, list[str]] = defaultdict(list)
     for i in range(n):
@@ -777,3 +785,47 @@ def issue_pairs_cve_or_pkg(created: list[tuple[str, str, str]]) -> set[tuple[str
                 a, b = members[i], members[j]
                 out.add(undirected_pair_key(a, b))
     return out
+
+
+SECURITY_SCAN_SUMMARY_SCHEMA_VERSION = 1
+
+
+def write_security_scan_summary_json(
+    path: Path,
+    *,
+    created_issue_records: list[dict[str, Any]],
+    created_count: int,
+    updated_count: int,
+    run_url: str,
+    scan_ref_kind: str,
+    scan_ref_name: str,
+    commit_sha: str,
+    docker_tag: str,
+    severity_levels: str,
+) -> None:
+    """Write grouped-by-vulnerability summary JSON for ``--output-summary-json`` (CI / integrations)."""
+    by_vid: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in created_issue_records:
+        vid = rec["vulnerability_id"]
+        entry = {k: v for k, v in rec.items() if k != "vulnerability_id"}
+        by_vid[vid].append(entry)
+    for vid_key in by_vid:
+        by_vid[vid_key].sort(
+            key=lambda x: (x.get("identifier") or "", x.get("repo_scope") or "")
+        )
+    ordered = {k: by_vid[k] for k in sorted(by_vid.keys())}
+    payload: dict[str, Any] = {
+        "schema_version": SECURITY_SCAN_SUMMARY_SCHEMA_VERSION,
+        "created_issue_count": created_count,
+        "updated_existing_count": updated_count,
+        "created_issues_by_vulnerability_id": ordered,
+        "run_url": run_url,
+        "scan_ref": {"kind": scan_ref_kind, "name": scan_ref_name},
+        "docker_tag": docker_tag,
+        "severity_levels": severity_levels,
+        "github_sha": commit_sha,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )

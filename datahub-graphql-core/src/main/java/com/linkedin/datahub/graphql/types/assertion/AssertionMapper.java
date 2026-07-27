@@ -100,6 +100,8 @@ public class AssertionMapper {
               context, new GlobalTags(envelopedTags.getValue().data()), entityUrn));
     }
 
+    AssertionOwnershipAspectMapper.applyOwnershipIfPresent(context, entityUrn, aspects, result);
+
     return result;
   }
 

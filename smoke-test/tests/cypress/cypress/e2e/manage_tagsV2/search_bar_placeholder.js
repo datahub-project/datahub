@@ -1,4 +1,5 @@
-describe("tags - search bar placeholder", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("tags - search bar placeholder", () => {
   beforeEach(() => {
     cy.login();
   });

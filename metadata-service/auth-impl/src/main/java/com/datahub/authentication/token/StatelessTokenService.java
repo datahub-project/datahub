@@ -173,7 +173,7 @@ public class StatelessTokenService {
               .build();
 
       // Use the existing isActive check from ActorContext
-      if (!actorContext.isActive(aspectRetriever)) {
+      if (!actorContext.isActive(systemOperationContext, aspectRetriever)) {
         throw new TokenException("Actor is not active");
       }
     } catch (Exception e) {

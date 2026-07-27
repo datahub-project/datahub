@@ -186,16 +186,16 @@ Each term is emitted as a `GlossaryTerm` with:
 - `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
 - `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
 
-When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires `roles/resourcemanager.projectViewer` on all configured projects.
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
 
 **Configuration:**
 
-| Field                                | Default    | Description                                                                                                              |
-| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                     |
-| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires `roles/resourcemanager.projectViewer` (opt-in) |
-| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                   |
-| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                     |
+| Field                                | Default    | Description                                                                                                                                                                                                                |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                                                                                                                       |
+| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires a role granting `resourcemanager.projects.get` such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) (opt-in) |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                                                                                                                     |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                                                                                                                       |
 
 **Example:**
 
@@ -213,7 +213,8 @@ source:
     glossary_locations:
       - "global"
 
-    # Term-to-asset associations (opt-in; requires roles/resourcemanager.projectViewer)
+    # Term-to-asset associations (opt-in; requires roles/browser or another
+    # role granting resourcemanager.projects.get on each configured project)
     # include_glossary_term_associations: true
 ```
 

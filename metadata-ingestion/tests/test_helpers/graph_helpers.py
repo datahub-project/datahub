@@ -115,7 +115,7 @@ class MockDataHubGraph(DataHubGraph):
             UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
-        emit_mode: EmitMode = EmitMode.ASYNC,
+        emit_mode: Optional[EmitMode] = None,
     ) -> None:
         self.emitted.append(item)  # type: ignore
 
@@ -126,7 +126,7 @@ class MockDataHubGraph(DataHubGraph):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
-        emit_mode: EmitMode = EmitMode.ASYNC,
+        emit_mode: Optional[EmitMode] = None,
         wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)

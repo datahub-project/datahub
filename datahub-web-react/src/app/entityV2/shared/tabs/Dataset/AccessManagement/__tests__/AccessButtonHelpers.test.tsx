@@ -3,7 +3,6 @@ import React from 'react';
 import { ThemeProvider } from 'styled-components';
 
 import {
-    ACCESS_GRANTED_TOOLTIP,
     AccessButton,
     getAccessButtonText,
     handleAccessButtonClick,
@@ -59,8 +58,8 @@ describe('AccessButtonHelpers', () => {
 
             fireEvent.mouseEnter(screen.getByRole('button'));
 
-            await screen.findByText(ACCESS_GRANTED_TOOLTIP);
-            expect(screen.getByText(ACCESS_GRANTED_TOOLTIP)).toBeInTheDocument();
+            await screen.findByText('You already have access to this role');
+            expect(screen.getByText('You already have access to this role')).toBeInTheDocument();
         });
 
         it('should not show tooltip when user does not have access', () => {
@@ -69,7 +68,7 @@ describe('AccessButtonHelpers', () => {
 
             fireEvent.mouseOver(screen.getByRole('button'));
 
-            expect(screen.queryByText(ACCESS_GRANTED_TOOLTIP)).not.toBeInTheDocument();
+            expect(screen.queryByText('You already have access to this role')).not.toBeInTheDocument();
         });
 
         it('should render button for hasAccess=true with no URL', () => {

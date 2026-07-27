@@ -109,11 +109,14 @@ USER 0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install --no-install-recommends -y -qq \
-    openjdk-21-jre-headless \
+    openjdk-25-jre-headless \
     build-essential
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
+
+RUN --mount=type=bind,source=./docker/snippets/mssql_odbc.sh,target=/mssql_odbc.sh \
+    /mssql_odbc.sh
 
 USER datahub
 # INLINE-END

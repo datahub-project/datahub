@@ -31,7 +31,7 @@ export const DEFAULT_BUILDER_STATE = {
 };
 
 export enum DataContractCategoryType {
-    FRESHNESS = 'Freshness',
-    SCHEMA = 'Schema',
-    DATA_QUALITY = 'Data Quality',
+    FRESHNESS = 'FRESHNESS',
+    SCHEMA = 'SCHEMA',
+    DATA_QUALITY = 'DATA_QUALITY',
 }

@@ -1,5 +1,6 @@
 import { ApiOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export const ProviderSummarySection = ({ assertion, showDivider = true }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const platformName = assertion?.platform?.properties?.displayName || assertion?.platform?.name;
     const hasPlatformLogo = !!assertion?.platform?.properties?.logoUrl;
     return (
@@ -30,10 +32,8 @@ export const ProviderSummarySection = ({ assertion, showDivider = true }: Props)
                     />
                 )) || <StyledApiOutlined />
             }
-            title={`Provided by ${platformName || 'an external platform'}`}
-            subtitle={`This assertion and its results are provided by ${
-                platformName || 'an external data quality tool'
-            }.`}
+            title={platformName ? t('provider.providedBy', { platformName }) : t('provider.providedByFallback')}
+            subtitle={platformName ? t('provider.description', { platformName }) : t('provider.descriptionFallback')}
             showDivider={showDivider}
         />
     );

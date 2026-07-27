@@ -1,5 +1,6 @@
 import { debounce } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
 import useInfiniteScrollDomains, {
@@ -43,10 +44,13 @@ type DomainSelectorProps = {
 const DomainSelector: React.FC<DomainSelectorProps> = ({
     selectedDomains,
     onDomainsChange,
-    placeholder = 'Select domains',
-    label = 'Domains',
+    placeholder,
+    label,
     isMultiSelect = false,
 }) => {
+    const { t } = useTranslation('entity.shared.selectors');
+    const resolvedPlaceholder = placeholder ?? t('domainSelector.placeholder');
+    const resolvedLabel = label ?? t('domainSelector.label');
     const entityRegistry = useEntityRegistryV2();
     const [useSearch, setUseSearch] = useState(false);
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
@@ -214,9 +218,9 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
 
     return (
         <InfiniteScrollNestedSelect
-            label={label}
-            placeholder={placeholder}
-            searchPlaceholder="Search all domains..."
+            label={resolvedLabel}
+            placeholder={resolvedPlaceholder}
+            searchPlaceholder={t('domainSelector.searchPlaceholder')}
             options={useSearch ? searchOptionsWithSelected : defaultOptions}
             initialValues={initialOptions}
             loadData={handleLoad}

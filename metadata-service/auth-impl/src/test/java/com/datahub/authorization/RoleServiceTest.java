@@ -1,6 +1,9 @@
 package com.datahub.authorization;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
+import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -9,8 +12,10 @@ import com.datahub.authorization.role.RoleService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -55,7 +60,12 @@ public class RoleServiceTest {
 
     _roleService.batchAssignRoleToActors(
         opContext, ImmutableList.of(FIRST_ACTOR_URN_STRING, SECOND_ACTOR_URN_STRING), roleUrn);
-    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient, times(1))
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture(), eq(false));
+    assertEquals(
+        UI_SOURCE, proposalCaptor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
   }
 
   @Test

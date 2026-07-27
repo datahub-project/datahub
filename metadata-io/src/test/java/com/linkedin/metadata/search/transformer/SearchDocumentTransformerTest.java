@@ -6,6 +6,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.test.TestEntitySnapshot;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -249,7 +250,10 @@ public class SearchDocumentTransformerTest {
 
     // Mock Behaviour
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
-    Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(aspect);
+    Mockito.when(
+            aspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), any(Urn.class), anyString()))
+        .thenReturn(aspect);
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
@@ -315,7 +319,9 @@ public class SearchDocumentTransformerTest {
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(
             aspectRetriever.getLatestAspectObject(
-                eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
+                any(OperationFingerprint.class),
+                eq(Urn.createFromString("urn:li:refEntity:1")),
+                anyString()))
         .thenThrow(new RuntimeException("Error"));
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
@@ -358,7 +364,9 @@ public class SearchDocumentTransformerTest {
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(
             aspectRetriever.getLatestAspectObject(
-                eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
+                any(OperationFingerprint.class),
+                eq(Urn.createFromString("urn:li:refEntity:1")),
+                anyString()))
         .thenReturn(aspect)
         .thenThrow(new RuntimeException("Error"));
     OperationContext opContext =
@@ -398,7 +406,10 @@ public class SearchDocumentTransformerTest {
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
     Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
-    Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(null);
+    Mockito.when(
+            aspectRetriever.getLatestAspectObject(
+                any(OperationFingerprint.class), any(Urn.class), anyString()))
+        .thenReturn(null);
     SearchableRefFieldSpec searchableRefFieldSpec =
         TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     OperationContext opContext =
@@ -512,7 +523,9 @@ public class SearchDocumentTransformerTest {
     aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, structuredPropertyDefinitionAspect);
     mockDefinitions.put(UrnUtils.getUrn(structuredPropertyUrn), aspectMap);
 
-    Mockito.when(aspectRetriever.getLatestAspectObjects(any(Set.class), any(Set.class)))
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(OperationFingerprint.class), any(Set.class), any(Set.class)))
         .thenReturn(mockDefinitions);
 
     OperationContext opContext =

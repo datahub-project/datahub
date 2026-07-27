@@ -85,6 +85,11 @@ public class AuthorizationUtils {
     return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
   }
 
+  public static boolean canCreateLogicalModels(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.CREATE_LOGICAL_MODELS_PRIVILEGE);
+  }
+
   public static boolean canManageDomains(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);

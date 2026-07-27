@@ -28,7 +28,12 @@ from datahub.utilities.urns.structured_properties_urn import StructuredPropertyU
 from datahub.utilities.urns.urn import Urn
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.file_emitter import FileEmitter
-from tests.utils import delete_urns, delete_urns_from_file, ingest_file_via_rest
+from tests.utils import (
+    delete_urns,
+    delete_urns_from_file,
+    ingest_file_via_rest,
+    with_test_retry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -394,20 +399,25 @@ def test_structured_property_search(
         dataset_urns[0], dataset_property_name, [property_value], graph=graph_client
     )
 
-    # [] = default entities which includes datasets, does not include fields
-    entity_urns = list(
-        graph_client.get_urns_by_filter(
-            extraFilters=[
-                {
-                    "field": to_es_filter_name(dataset_property_name),
-                    "negated": False,
-                    "condition": "EXISTS",
-                }
-            ]
+    @with_test_retry(max_attempts=15)
+    def _assert_dataset_property_indexed() -> None:
+        entity_urns = list(
+            graph_client.get_urns_by_filter(
+                extraFilters=[
+                    {
+                        "field": to_es_filter_name(dataset_property_name),
+                        "negated": False,
+                        "condition": "EXISTS",
+                    }
+                ],
+                skip_cache=True,
+            )
         )
-    )
-    assert len(entity_urns) == 1
-    assert entity_urns[0] == dataset_urns[0]
+        assert len(entity_urns) == 1
+        assert entity_urns[0] == dataset_urns[0]
+
+    # [] = default entities which includes datasets, does not include fields
+    _assert_dataset_property_indexed()
 
     # Search over schema field specifically
     field_structured_prop = graph_client.get_aspect(
@@ -422,38 +432,48 @@ def test_structured_property_search(
         ]
     )
 
-    # Search over entities that do not include the field
-    field_urns = list(
-        graph_client.get_urns_by_filter(
-            entity_types=["tag"],
-            extraFilters=[
-                {
-                    "field": to_es_filter_name(
-                        field_property_name, namespace="io.datahubproject.test"
-                    ),
-                    "negated": False,
-                    "condition": "EXISTS",
-                }
-            ],
+    @with_test_retry(max_attempts=15)
+    def _assert_field_property_not_in_tags() -> None:
+        field_urns = list(
+            graph_client.get_urns_by_filter(
+                entity_types=["tag"],
+                extraFilters=[
+                    {
+                        "field": to_es_filter_name(
+                            field_property_name, namespace="io.datahubproject.test"
+                        ),
+                        "negated": False,
+                        "condition": "EXISTS",
+                    }
+                ],
+                skip_cache=True,
+            )
         )
-    )
-    assert len(field_urns) == 0
+        assert len(field_urns) == 0
+
+    # Search over entities that do not include the field
+    _assert_field_property_not_in_tags()
+
+    @with_test_retry(max_attempts=15)
+    def _assert_dataset_property_in_mixed_types() -> None:
+        field_urns = list(
+            graph_client.get_urns_by_filter(
+                entity_types=["dataset", "tag"],
+                extraFilters=[
+                    {
+                        "field": to_es_filter_name(dataset_property_name),
+                        "negated": False,
+                        "condition": "EXISTS",
+                    }
+                ],
+                skip_cache=True,
+            )
+        )
+        assert len(field_urns) == 1
+        assert dataset_urns[0] in field_urns
 
     # OR the two properties together to return both results
-    field_urns = list(
-        graph_client.get_urns_by_filter(
-            entity_types=["dataset", "tag"],
-            extraFilters=[
-                {
-                    "field": to_es_filter_name(dataset_property_name),
-                    "negated": False,
-                    "condition": "EXISTS",
-                }
-            ],
-        )
-    )
-    assert len(field_urns) == 1
-    assert dataset_urns[0] in field_urns
+    _assert_dataset_property_in_mixed_types()
 
 
 def test_dataset_structured_property_patch(ingest_cleanup_data, graph_client, caplog):
@@ -792,10 +812,12 @@ def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
     assert property1.urn in structured_properties_urns
     assert property2.urn in structured_properties_urns
 
-    # list structured properties (full)
-    structured_properties = StructuredProperties.list(graph_client)
+    # Hydrate only URNs created above; global list() fails on orphan properties from other tests.
+    target_urns = {property1.urn, property2.urn}
     matched_properties = [
-        p for p in structured_properties if p.urn in [property1.urn, property2.urn]
+        StructuredProperties.from_datahub(graph=graph_client, urn=urn)
+        for urn in StructuredProperties.list_urns(graph_client)
+        if urn in target_urns
     ]
     assert len(matched_properties) == 2
     retrieved_property1 = next(p for p in matched_properties if p.urn == property1.urn)

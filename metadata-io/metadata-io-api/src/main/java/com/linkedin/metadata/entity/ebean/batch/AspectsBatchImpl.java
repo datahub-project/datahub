@@ -1,6 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
-import com.datahub.authorization.AuthorizationSession;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -17,6 +17,7 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -65,6 +66,7 @@ public class AspectsBatchImpl implements AspectsBatch {
    */
   @Override
   public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      @Nonnull OperationFingerprint operationContext,
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Map<String, Long>> nextVersions,
       BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert) {
@@ -72,6 +74,7 @@ public class AspectsBatchImpl implements AspectsBatch {
     // Process proposals to change items
     Stream<? extends BatchItem> mutatedProposalsStream =
         proposedItemsToChangeItemStream(
+            operationContext,
             items.stream()
                 .filter(item -> item instanceof ProposedItem)
                 .map(item -> (MCPItem) item)
@@ -110,10 +113,11 @@ public class AspectsBatchImpl implements AspectsBatch {
             .collect(Collectors.toCollection(LinkedList::new));
 
     // Apply write hooks before side effects
-    applyWriteMutationHooks(upsertBatchItems);
+    applyWriteMutationHooks(operationContext, upsertBatchItems);
 
     LinkedList<ChangeMCP> newItems =
-        applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
+        applyMCPSideEffects(operationContext, upsertBatchItems)
+            .collect(Collectors.toCollection(LinkedList::new));
     upsertBatchItems.addAll(newItems);
 
     Map<String, Set<String>> newUrnAspectNames =
@@ -122,7 +126,8 @@ public class AspectsBatchImpl implements AspectsBatch {
     return Pair.of(newUrnAspectNames, upsertBatchItems);
   }
 
-  private Stream<? extends BatchItem> proposedItemsToChangeItemStream(List<MCPItem> proposedItems) {
+  private Stream<? extends BatchItem> proposedItemsToChangeItemStream(
+      OperationFingerprint operationFingerprint, List<MCPItem> proposedItems) {
     List<MutationHook> mutationHooks =
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks();
     Stream<? extends BatchItem> unmutatedItems =
@@ -138,7 +143,8 @@ public class AspectsBatchImpl implements AspectsBatch {
                                     proposedItem.getAspectName())))
             .map(mcpItem -> patchDiscriminator(mcpItem, retrieverContext.getAspectRetriever()));
     List<MCPItem> mutatedItems =
-        applyProposalMutationHooks(proposedItems, retrieverContext).collect(Collectors.toList());
+        applyProposalMutationHooks(operationFingerprint, proposedItems, retrieverContext)
+            .collect(Collectors.toList());
     Stream<? extends BatchItem> proposedItemsToChangeItems =
         mutatedItems.stream()
             .filter(mcpItem -> mcpItem.getMetadataChangeProposal() != null)
@@ -239,14 +245,18 @@ public class AspectsBatchImpl implements AspectsBatch {
       return result;
     }
 
-    public AspectsBatchImpl build(@Nullable AuthorizationSession session) {
+    public AspectsBatchImpl build(@Nullable OperationContext operationContext) {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
       this.nonRepeatedItems = filterRepeats(this.items);
 
+      // operationContext serves dual roles here: OperationFingerprint for routing (1st arg)
+      // and AuthorizationSession for per-user auth checks (4th arg). OperationContext
+      // implements both interfaces; this matches pre-refactor behaviour.
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext, session);
+          AspectsBatch.validateProposed(
+              operationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
       if (!exceptions.isEmpty()) {
         throw new ValidationException("Failed to validate MCP due to: " + exceptions);
       }

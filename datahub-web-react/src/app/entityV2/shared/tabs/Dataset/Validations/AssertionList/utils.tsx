@@ -1,5 +1,6 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import Fuse from 'fuse.js';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -18,6 +19,7 @@ import {
     AssertionTable,
     AssertionWithDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     ASSERTION_INFO,
     createAssertionGroups,
@@ -26,7 +28,6 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
-import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionInfo,
@@ -40,30 +41,55 @@ import {
 } from '@src/types.generated';
 
 const ASSERTION_TYPE_NAME_MAP = {
-    VOLUME: 'Volume',
-    SQL: 'Sql',
-    FIELD: 'Column',
-    FRESHNESS: 'Freshness',
-    DATASET: 'Other',
-    DATA_SCHEMA: 'Schema',
-    Unknown: 'Unknown',
+    get VOLUME() {
+        return i18next.t('entity.profile.validations:assertionType.volume');
+    },
+    get SQL() {
+        return i18next.t('entity.profile.validations:assertionType.sql');
+    },
+    get FIELD() {
+        return i18next.t('entity.profile.validations:assertionType.column');
+    },
+    get FRESHNESS() {
+        return i18next.t('entity.profile.validations:assertionType.freshness');
+    },
+    get DATASET() {
+        return i18next.t('entity.profile.validations:assertionType.other');
+    },
+    get DATA_SCHEMA() {
+        return i18next.t('entity.profile.validations:assertionType.schema');
+    },
+    get Unknown() {
+        return i18next.t('entity.profile.validations:assertionType.unknown');
+    },
 };
 const NO_STATUS = 'NO_STATUS';
 
 const ASSERTION_STATUS_NAME_MAP = {
-    FAILURE: 'Failing',
-    SUCCESS: 'Passing',
-    ERROR: 'Error',
-    INIT: 'Initializing',
-    [NO_STATUS]: 'No Status',
+    get FAILURE() {
+        return i18next.t('entity.profile.validations:status.failing');
+    },
+    get SUCCESS() {
+        return i18next.t('entity.profile.validations:status.passing');
+    },
+    get ERROR() {
+        return i18next.t('entity.profile.validations:status.error');
+    },
+    get INIT() {
+        return i18next.t('entity.profile.validations:status.initializing');
+    },
+    get [NO_STATUS]() {
+        return i18next.t('entity.profile.validations:status.noStatus');
+    },
 };
 
-const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
+const getStatusGroupDisplayName = (name: string): string =>
+    ASSERTION_STATUS_NAME_MAP[name] || ASSERTION_TYPE_NAME_MAP[name] || name;
 
 const RECOMMENDED_FILTER_NAME_MAP = {
-    [AssertionSourceType.External]: 'External',
-    [AssertionSourceType.Native]: 'Native',
-    [AssertionSourceType.Inferred]: 'Smart Assertions',
+    get [AssertionSourceType.External]() {
+        return i18next.t('entity.profile.validations:sourceType.external');
+    },
 };
 
 // Create Group's Summary to name and number of records for each group
@@ -75,14 +101,14 @@ const getGroupNameBySummary = (record) => {
         font-size: 14px;
     `;
 
-    const Title = styled(Typography.Text)`
+    const Title = styled(Text)`
         && {
             padding-bottom: 0px;
             margin-bottom: 0px;
         }
     `;
 
-    const Message = styled(Typography.Text)`
+    const Message = styled(Text)`
         && {
             font-size: 12px;
             margin-left: 8px;
@@ -93,14 +119,20 @@ const getGroupNameBySummary = (record) => {
     const list: string[] = [];
     Object.keys(newSummary).forEach((key) => {
         if (newSummary[key] > 0) {
-            list.push(`${newSummary[key]} ${STATUS_GROUP_NAME_MAP[key]}`);
+            list.push(`${newSummary[key]} ${getStatusGroupDisplayName(key)}`);
         }
     });
 
     return (
         <TextContainer>
-            <Title strong>{STATUS_GROUP_NAME_MAP[record.name]}</Title>
-            <Message type="secondary">{list.join(', ')}</Message>
+            <Title type="span" weight="bold">
+                {getStatusGroupDisplayName(record.name)}
+            </Title>
+            <Message type="span" color="textSecondary">
+                {i18next.t('entity.profile.validations:assertionList.groupHeaderSummaryListTemplate', {
+                    listItems: list,
+                })}
+            </Message>
         </TextContainer>
     );
 };
@@ -182,7 +214,7 @@ export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup
 // Build the Filter Options as per the type & status
 const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
     Object.entries(value).forEach(([name, count]) => {
-        let displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        let displayName = key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name);
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }

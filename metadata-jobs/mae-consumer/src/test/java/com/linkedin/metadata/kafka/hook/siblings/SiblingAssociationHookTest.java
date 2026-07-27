@@ -101,7 +101,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     final Siblings dbtSiblingsAspect =
         new Siblings()
@@ -187,7 +187,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     final Siblings dbtSiblingsAspect =
         new Siblings()
@@ -231,7 +231,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     final Siblings dbtSiblingsAspect =
         new Siblings()
@@ -305,7 +305,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     final Siblings dbtSiblingsAspect =
         new Siblings()
@@ -373,7 +373,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
         .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));
@@ -402,7 +402,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(2))
         .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));
@@ -431,7 +431,7 @@ public class SiblingAssociationHookTest {
     event.setEntityUrn(
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    _siblingAssociationHook.invoke(event);
+    _siblingAssociationHook.invoke(opContext, event);
 
     Mockito.verify(_mockEntityClient, Mockito.times(0))
         .ingestProposal(any(OperationContext.class), Mockito.any(), eq(true));

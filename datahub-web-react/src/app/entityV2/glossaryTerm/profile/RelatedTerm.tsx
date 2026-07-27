@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entityV2/Entity';
@@ -57,6 +58,7 @@ interface Props {
 function RelatedTerm(props: Props) {
     const { urn, relationshipType, isEditable } = props;
 
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
     let displayName = '';
@@ -70,7 +72,7 @@ function RelatedTerm(props: Props) {
     return (
         <ListItem>
             <SearchCardContext.Provider
-                value={{ showRemovalFromList: isEditable, removeText: 'Remove Relationship', onRemove }}
+                value={{ showRemovalFromList: isEditable, removeText: t('glossaryTerm.removeRelationship'), onRemove }}
             >
                 <Profile>
                     {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}

@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import ContextDocumentsPage from '@app/context/ContextDocumentsPage';
 import { ContextLayoutProvider } from '@app/context/ContextLayoutContext';
 import ContextSidebar, { SIDEBAR_COLLAPSED_WIDTH } from '@app/context/ContextSidebar';
+import { DocumentFiltersProvider } from '@app/document/DocumentFiltersContext';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -76,22 +77,27 @@ export default function ContextRoutes() {
             isSidebarHidden={isSidebarHidden}
             setSidebarHidden={setSidebarHidden}
         >
-            <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
-                {!isSidebarHidden && (
-                    <ContextSidebar
-                        isEntityProfile={isEntityProfile}
-                        isCollapsed={isCollapsed}
-                        onToggleCollapsed={toggleCollapsed}
-                        onExpandSidebar={expandSidebar}
-                    />
-                )}
-                <MainContent>
-                    <Switch>
-                        <Route path={documentPath} render={() => <EntityPageV2 entityType={EntityType.Document} />} />
-                        <Route path={PageRoutes.CONTEXT_DOCUMENTS} render={() => <ContextDocumentsPage />} />
-                    </Switch>
-                </MainContent>
-            </ContentWrapper>
+            <DocumentFiltersProvider>
+                <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
+                    {!isSidebarHidden && (
+                        <ContextSidebar
+                            isEntityProfile={isEntityProfile}
+                            isCollapsed={isCollapsed}
+                            onToggleCollapsed={toggleCollapsed}
+                            onExpandSidebar={expandSidebar}
+                        />
+                    )}
+                    <MainContent>
+                        <Switch>
+                            <Route
+                                path={documentPath}
+                                render={() => <EntityPageV2 entityType={EntityType.Document} />}
+                            />
+                            <Route path={PageRoutes.CONTEXT_DOCUMENTS} render={() => <ContextDocumentsPage />} />
+                        </Switch>
+                    </MainContent>
+                </ContentWrapper>
+            </DocumentFiltersProvider>
         </ContextLayoutProvider>
     );
 }

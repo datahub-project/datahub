@@ -1,6 +1,7 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
-describe("attribute list adding tags and terms", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("attribute list adding tags and terms", () => {
   let businessAttributeEntityEnabled;
 
   beforeEach(() => {
@@ -39,13 +40,24 @@ describe("attribute list adding tags and terms", () => {
         () => cy.contains("Add Tags").click(),
       );
 
-      cy.enterTextInTestId("tag-term-modal-input", "CypressAddTagToAttribute");
+      // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+      // portal-rendered dropdown, then type into its search input. When the
+      // typed query doesn't match any existing tag, a synthetic "Create <name>"
+      // option appears that opens CreateNewTagModal (the modern alchemy create
+      // modal used by the /tags admin page).
+      cy.getWithTestId("tag-term-modal-input").click();
+      cy.get('[data-testid="dropdown-search-input"]').type(
+        "CypressAddTagToAttribute",
+      );
 
       cy.contains("Create CypressAddTagToAttribute").click({ force: true });
 
-      cy.get("textarea").type("CypressAddTagToAttribute Test Description");
-
-      cy.contains(/Create$/).click({ force: true });
+      // CreateNewTagModal: tag-name-field is pre-filled via initialTagName, so
+      // we only need to fill the description and submit.
+      cy.get('[data-testid="tag-description-field"]').type(
+        "CypressAddTagToAttribute Test Description",
+      );
+      cy.clickOptionWithTestId("create-tag-modal-create-button");
 
       // wait a breath for elasticsearch to index the tag being applied to the business attribute- if we navigate too quick ES
       // wont know and we'll see applied to 0 entities

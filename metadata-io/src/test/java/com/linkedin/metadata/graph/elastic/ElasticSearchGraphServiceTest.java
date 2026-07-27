@@ -87,14 +87,15 @@ public class ElasticSearchGraphServiceTest {
 
   @Test
   public void testSetEdgeStatus() {
+    OperationContext mockOpContext = TestOperationContexts.systemContextNoValidate();
     final Urn testUrn = UrnUtils.getUrn("urn:li:container:test");
     for (boolean removed : Set.of(true, false)) {
-      test.setEdgeStatus(testUrn, removed, EdgeUrnType.values());
+      test.setEdgeStatus(mockOpContext, testUrn, removed, EdgeUrnType.values());
 
       ArgumentCaptor<Script> scriptCaptor = ArgumentCaptor.forClass(Script.class);
       ArgumentCaptor<QueryBuilder> queryCaptor = ArgumentCaptor.forClass(QueryBuilder.class);
       verify(mockWriteDAO, times(EdgeUrnType.values().length))
-          .updateByQuery(scriptCaptor.capture(), queryCaptor.capture());
+          .updateByQuery(eq(mockOpContext), scriptCaptor.capture(), queryCaptor.capture());
 
       queryCaptor
           .getAllValues()
@@ -327,7 +328,8 @@ public class ElasticSearchGraphServiceTest {
     when(mockHits.getHits()).thenReturn(searchHits);
 
     // Mock the executeSearch method
-    when(mockReadDAO.executeSearch(any(SearchRequest.class))).thenReturn(mockResponse);
+    when(mockReadDAO.executeSearch(any(OperationContext.class), any(SearchRequest.class)))
+        .thenReturn(mockResponse);
 
     // Execute the method
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
@@ -335,7 +337,7 @@ public class ElasticSearchGraphServiceTest {
 
     // Verify the search request was made
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockReadDAO).executeSearch(requestCaptor.capture());
+    verify(mockReadDAO).executeSearch(any(OperationContext.class), requestCaptor.capture());
 
     // Verify results
     assertEquals(results.size(), 2);
@@ -398,7 +400,8 @@ public class ElasticSearchGraphServiceTest {
     searchHits[0] = createMockSearchHit("urn:li:dataset:3", "urn:li:dataset:4", "ValidRel", null);
     when(mockHits.getHits()).thenReturn(searchHits);
 
-    when(mockReadDAO.executeSearch(any(SearchRequest.class))).thenReturn(mockResponse);
+    when(mockReadDAO.executeSearch(any(OperationContext.class), any(SearchRequest.class)))
+        .thenReturn(mockResponse);
 
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
     List<Map<String, Object>> results = test.raw(opContext, edgeTuples);

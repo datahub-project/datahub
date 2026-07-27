@@ -1,5 +1,6 @@
 import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -31,7 +32,6 @@ const defaults: Partial<Props<any>> = {
     isReadOnly: false,
     isRequired: false,
     width: 255,
-    placeholder: 'Select an option ',
     disabledValues: [],
 };
 
@@ -76,7 +76,7 @@ export default function AutoCompleteSelect<T>({
     isReadOnly = defaults.isReadOnly,
     isRequired = defaults.isRequired,
     size = defaults.size,
-    placeholder = defaults.placeholder,
+    placeholder,
     disabledValues = defaults.disabledValues,
     icon,
     searchPlaceholder,
@@ -84,6 +84,9 @@ export default function AutoCompleteSelect<T>({
     className,
     ...props
 }: Props<T>) {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedPlaceholder = placeholder ?? t('select.placeholder');
     const [query, setQuery] = useState('');
     const [selectedValue, setSelectedValue] = useState<Suggestion<T> | undefined>(undefined);
     const selectRef = useRef<HTMLDivElement>(null);
@@ -155,7 +158,7 @@ export default function AutoCompleteSelect<T>({
                                 {!displayedSuggestions.length && (
                                     <NoSuggestions>
                                         <Text type="span" weight="semiBold">
-                                            No results found
+                                            {tc('noResults')}
                                         </Text>
                                     </NoSuggestions>
                                 )}
@@ -185,7 +188,9 @@ export default function AutoCompleteSelect<T>({
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}
                             <LabelsWrapper>
-                                {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
+                                {!selectedValue && resolvedPlaceholder && (
+                                    <Placeholder>{resolvedPlaceholder}</Placeholder>
+                                )}
                                 {selectedValue && render(selectedValue.data)}
                             </LabelsWrapper>
                         </SelectLabelContainer>

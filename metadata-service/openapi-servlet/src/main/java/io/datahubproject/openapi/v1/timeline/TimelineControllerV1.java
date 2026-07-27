@@ -16,6 +16,7 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -82,7 +83,8 @@ public class TimelineControllerV1 {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType()),
+                .buildOpenapi(actorUrnStr, request, "getTimeline", urn.getEntityType())
+                .withUsageOperation(UsageOperation.METADATA_QUERY),
             _authorizerChain,
             authentication,
             true);
@@ -104,6 +106,13 @@ public class TimelineControllerV1 {
     }
     return ResponseEntity.ok(
         _timelineService.getTimeline(
-            urn, categories, startTime, endTime, startVersionStamp, endVersionStamp, raw));
+            opContext,
+            urn,
+            categories,
+            startTime,
+            endTime,
+            startVersionStamp,
+            endVersionStamp,
+            raw));
   }
 }

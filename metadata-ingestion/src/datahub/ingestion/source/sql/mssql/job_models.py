@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
+    QueryLanguageClass,
     SubTypesClass,
 )
 
@@ -147,7 +148,7 @@ class StoredProcedure:
             comment=None,
             argument_signature=None,
             return_type=None,
-            language="SQL",
+            language=QueryLanguageClass.SQL,
             extra_properties=None,
         )
 

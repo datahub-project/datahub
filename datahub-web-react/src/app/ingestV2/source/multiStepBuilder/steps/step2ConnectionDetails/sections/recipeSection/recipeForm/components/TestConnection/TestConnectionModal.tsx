@@ -3,6 +3,7 @@ import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import {
@@ -70,17 +71,18 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
 
     const renderTitlePill = useCallback(() => {
         if (isLoading) return null;
 
         if (testConnectionFailed) {
-            return <Pill leftIcon={X} color="red" label="Failed" />;
+            return <Pill leftIcon={X} color="red" label={t('multiStep.testConnection.failed')} />;
         }
 
-        return <Pill leftIcon={Check} color="green" label="Successful" />;
-    }, [isLoading, testConnectionFailed]);
+        return <Pill leftIcon={Check} color="green" label={t('multiStep.testConnection.successful')} />;
+    }, [isLoading, testConnectionFailed, t]);
 
     return (
         <Modal
@@ -88,10 +90,10 @@ function TestConnectionModal({
             onCancel={hideModal}
             title={
                 <ModalHeader style={{ margin: 0 }}>
-                    <SourceIcon alt="source logo" src={logoUrl} />
+                    <SourceIcon alt={t('multiStep.testConnection.sourceLogoAlt')} src={logoUrl} />
                     <HeaderText>
-                        {sourceConfig?.displayName} Connection Test
-                        <Text color="gray">Here&apos;s what DataHub can access with your provided credentials</Text>
+                        {t('multiStep.testConnection.title', { displayName: sourceConfig?.displayName })}
+                        <Text color="gray">{t('multiStep.testConnection.subtitle')}</Text>
                     </HeaderText>
                 </ModalHeader>
             }
@@ -100,8 +102,8 @@ function TestConnectionModal({
         >
             {isLoading && (
                 <ResultsWrapper>
-                    <LoadingHeader level={4}>Testing your connection...</LoadingHeader>
-                    <LoadingSubheader>This could take a few minutes.</LoadingSubheader>
+                    <LoadingHeader level={4}>{t('multiStep.testConnection.loading')}</LoadingHeader>
+                    <LoadingSubheader>{t('multiStep.testConnection.loadingSubheader')}</LoadingSubheader>
                     <LoadingWrapper>
                         <LoadingSvg height={100} width={100} />
                     </LoadingWrapper>
@@ -111,7 +113,7 @@ function TestConnectionModal({
                 <ResultsWrapper>
                     {testConnectionResult?.internal_failure ? (
                         <ConnectionCapabilityView
-                            capability="Internal Failure"
+                            capability={t('multiStep.testConnection.internalFailure')}
                             displayMessage={testConnectionResult?.internal_failure_reason || ''}
                             success={false}
                             tooltipMessage={null}
@@ -119,13 +121,13 @@ function TestConnectionModal({
                     ) : (
                         <PageTitle
                             variant="sectionHeader"
-                            title="Capabilities"
-                            subTitle="The following are supported with your credentials"
+                            title={t('multiStep.testConnection.capabilities')}
+                            subTitle={t('multiStep.testConnection.capabilitiesSubtitle')}
                         />
                     )}
                     {testConnectionResult?.basic_connectivity && (
                         <ConnectionCapabilityView
-                            capability="Basic Connectivity"
+                            capability={t('multiStep.testConnection.basicConnectivity')}
                             displayMessage={testConnectionResult?.basic_connectivity?.failure_reason}
                             success={testConnectionResult?.basic_connectivity?.capable}
                             tooltipMessage={testConnectionResult?.basic_connectivity?.mitigation_message}

@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -27,9 +28,9 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
 
     getPathName = () => 'dataPlatformInstance';
 
-    getEntityName = () => 'Data Platform Instance';
+    getEntityName = () => i18next.t('entity.types:dataPlatformInstance.name');
 
-    getCollectionName = () => 'Data Platform Instances';
+    getCollectionName = () => i18next.t('entity.types:dataPlatformInstance.namePlural');
 
     renderProfile = () => <></>;
 

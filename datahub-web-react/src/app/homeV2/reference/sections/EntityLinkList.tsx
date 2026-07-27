@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -74,6 +75,7 @@ export const EntityLinkList = ({
     onClickEntity,
     render,
 }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistryV2();
     const isEmpty = entities.length === 0 && !loading;
     const { isUserInitializing } = useContext(OnboardingContext);
@@ -116,7 +118,9 @@ export const EntityLinkList = ({
             </List>
             {showMore && (
                 <ShowMoreButton onClick={onClickMore}>
-                    {showMoreComponent || (showMoreCount && <>show {showMoreCount} more</>) || <>show more</>}
+                    {showMoreComponent || (showMoreCount && <>{tc('showCountMore', { count: showMoreCount })}</>) || (
+                        <>{tc('showMore')}</>
+                    )}
                 </ShowMoreButton>
             )}
         </EntityListContainer>

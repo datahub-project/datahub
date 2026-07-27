@@ -24,11 +24,13 @@ def test_stateful_ingestion(auth_session):
 
     def create_table(engine: Any, name: str, defn: str) -> None:
         create_table_query = text(f"CREATE TABLE IF NOT EXISTS {name}{defn};")
-        engine.execute(create_table_query)
+        with engine.begin() as conn:
+            conn.execute(create_table_query)
 
     def drop_table(engine: Any, table_name: str) -> None:
-        drop_table_query = text(f"DROP TABLE {table_name};")
-        engine.execute(drop_table_query)
+        drop_table_query = text(f"DROP TABLE IF EXISTS {table_name};")
+        with engine.begin() as conn:
+            conn.execute(drop_table_query)
 
     def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
         pipeline = Pipeline.create(pipeline_config_dict)

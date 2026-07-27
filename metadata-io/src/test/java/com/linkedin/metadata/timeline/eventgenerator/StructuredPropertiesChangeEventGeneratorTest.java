@@ -2,8 +2,12 @@ package com.linkedin.metadata.timeline.eventgenerator;
 
 import static org.testng.AssertJUnit.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -12,6 +16,7 @@ import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import java.util.List;
+import java.util.Map;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
@@ -48,6 +53,63 @@ public class StructuredPropertiesChangeEventGeneratorTest extends AbstractTestNG
     List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, to, to, auditStamp);
 
     assertEquals(0, actual.size());
+  }
+
+  @Test
+  public void testAddedPropertyWithAttributionEmitsSourceDetails() throws Exception {
+    StructuredPropertyChangeEventGenerator test = new StructuredPropertyChangeEventGenerator();
+    ObjectMapper objectMapper = new ObjectMapper();
+
+    Urn urn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)");
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString("urn:li:corpuser:__datahub_system"))
+            .setTime(1683829509553L);
+
+    StringMap sourceDetail =
+        new StringMap(
+            ImmutableMap.of(
+                "propagated",
+                "true",
+                "propagation_direction",
+                "downstream",
+                "propagation_relationship",
+                "lineage",
+                "propagation_depth",
+                "1"));
+
+    StructuredProperties structuredPropertiesTo = new StructuredProperties();
+    StructuredPropertyValueAssignmentArray a = new StructuredPropertyValueAssignmentArray();
+    StructuredPropertyValueAssignment prop1 = new StructuredPropertyValueAssignment();
+    prop1.setPropertyUrn(new Urn("urn:li:structuredProperty:io.acryl.privacy.retentionTime"));
+    PrimitivePropertyValueArray value = new PrimitivePropertyValueArray();
+    value.add(PrimitivePropertyValue.create("90"));
+    prop1.setValues(value);
+    prop1.setAttribution(
+        new MetadataAttribution()
+            .setTime(auditStamp.getTime())
+            .setActor(auditStamp.getActor())
+            .setSource(Urn.createFromString("urn:li:dataHubAction:test"))
+            .setSourceDetail(sourceDetail));
+    a.add(prop1);
+    structuredPropertiesTo.setProperties(a);
+
+    Aspect<StructuredProperties> from = new Aspect<>(null, new SystemMetadata());
+    Aspect<StructuredProperties> to = new Aspect<>(structuredPropertiesTo, new SystemMetadata());
+
+    List<ChangeEvent> actual =
+        test.getChangeEvents(urn, "dataset", "structuredProperties", from, to, auditStamp);
+
+    assertEquals(1, actual.size());
+    assertEquals("ADD", actual.get(0).getOperation().toString());
+
+    // sourceDetails is a JSON-stringified copy of the assignment's attribution sourceDetail map.
+    Map<String, String> parsedSourceDetails =
+        objectMapper.readValue(
+            (String) actual.get(0).getParameters().get("sourceDetails"),
+            objectMapper.getTypeFactory().constructMapType(Map.class, String.class, String.class));
+    assertEquals(sourceDetail, parsedSourceDetails);
   }
 
   @Test

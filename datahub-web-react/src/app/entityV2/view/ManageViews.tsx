@@ -1,6 +1,7 @@
 import { Button, PageTitle, Tabs } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -42,13 +43,32 @@ const HeaderActionsContainer = styled.div`
 
 const ListContainer = styled.div`
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    color: ${(props) => props.theme.colors.text};
+
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: ${(props) => props.theme.colors.text};
-    overflow: auto;
+
+    .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .ant-tabs-content {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ant-tabs-tabpane-active {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
 `;
 
 enum TabType {
@@ -65,6 +85,7 @@ const tabUrlMap = {
  * Component used for displaying the 'Manage Views' experience.
  */
 export const ManageViews = () => {
+    const { t } = useTranslation('entity.views');
     const location = useLocation();
     const [showViewBuilder, setShowViewBuilder] = useState(false);
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -77,12 +98,12 @@ export const ManageViews = () => {
         {
             component: <ViewsList viewType={DataHubViewType.Personal} />,
             key: TabType.Personal,
-            name: TabType.Personal,
+            name: t('personalTab'),
         },
         {
             component: <ViewsList viewType={DataHubViewType.Global} />,
             key: TabType.Global,
-            name: TabType.Global,
+            name: t('publicTab'),
         },
     ];
 
@@ -103,10 +124,7 @@ export const ManageViews = () => {
         <PageContainer>
             <PageHeaderContainer>
                 <TitleContainer>
-                    <PageTitle
-                        title="Views"
-                        subTitle="Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse when browsing DataHub."
-                    />
+                    <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
                 </TitleContainer>
                 <HeaderActionsContainer>
                     <Button
@@ -117,7 +135,7 @@ export const ManageViews = () => {
                         icon={{ icon: Plus }}
                         disabled={false}
                     >
-                        Create View
+                        {t('createView')}
                     </Button>
                 </HeaderActionsContainer>
             </PageHeaderContainer>

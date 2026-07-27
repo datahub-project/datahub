@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Falhando",
+    "resultText.passing": "Passando",
+    "summary.allFailing": "Todos os testes estão falhando",
+    "summary.allPassing": "Todos os testes estão passando",
+    "summary.countsSubtitle": "{{passing}} testes passando, {{failing}} testes falhando",
+    "summary.noTestsRun": "Nenhum teste foi executado",
+    "summary.someFailing": "Alguns testes estão falhando",
+    "summary.statusTooltip": "Este status é baseado na execução mais recente de cada teste.",
+    "testResults.empty": "Nenhum teste encontrado :(",
+    "testResults.noEvaluations": "Sem avaliações",
+    "testResults.title": "Resultados dos testes de governança"
+}

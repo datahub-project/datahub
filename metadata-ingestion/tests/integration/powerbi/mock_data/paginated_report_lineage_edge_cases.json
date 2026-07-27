@@ -1,0 +1,120 @@
+{
+  "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "workspaces": [
+        {
+          "id": "64ED5CAD-7C10-4684-8180-826122881108",
+          "name": "demo-workspace",
+          "type": "Workspace",
+          "state": "Active",
+          "datasets": [],
+          "dashboards": [],
+          "reports": [
+            {
+              "id": "aaaa1111-0000-0000-0000-000000000001",
+              "reportType": "PaginatedReport",
+              "name": "rdl-datasources-http-error",
+              "description": "datasources endpoint returns 500",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/aaaa1111-0000-0000-0000-000000000001"
+            },
+            {
+              "id": "bbbb2222-0000-0000-0000-000000000002",
+              "reportType": "PaginatedReport",
+              "name": "rdl-datasources-empty",
+              "description": "datasources endpoint returns no rows",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/bbbb2222-0000-0000-0000-000000000002"
+            },
+            {
+              "id": "cccc3333-0000-0000-0000-000000000003",
+              "reportType": "PaginatedReport",
+              "name": "rdl-dataset-binding-unresolved",
+              "description": "bound to a dataset that is not in any scanned workspace",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/cccc3333-0000-0000-0000-000000000003"
+            },
+            {
+              "id": "dddd4444-0000-0000-0000-000000000004",
+              "reportType": "PaginatedReport",
+              "name": "rdl-unmapped-datasource-type",
+              "description": "embedded datasource whose type has no DataHub platform mapping",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/dddd4444-0000-0000-0000-000000000004"
+            },
+            {
+              "id": "eeee5555-0000-0000-0000-000000000005",
+              "reportType": "PaginatedReport",
+              "name": "rdl-platform-excluded-from-mapping",
+              "description": "valid platform (Sql) that is excluded from dataset_type_mapping",
+              "webUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/eeee5555-0000-0000-0000-000000000005"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/aaaa1111-0000-0000-0000-000000000001/datasources": {
+    "method": "GET",
+    "status_code": 500,
+    "json": {
+      "error": {
+        "code": "InternalServerError",
+        "message": "simulated failure"
+      }
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/bbbb2222-0000-0000-0000-000000000002/datasources": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "value": []
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/cccc3333-0000-0000-0000-000000000003/datasources": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "value": [
+        {
+          "name": "unresolved-binding",
+          "datasourceType": "AnalysisServices",
+          "connectionDetails": {
+            "server": "pbiazure://api.powerbi.com/",
+            "database": "sobe_wowvirtualserver-99999999-9999-9999-9999-999999999999"
+          }
+        }
+      ]
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/dddd4444-0000-0000-0000-000000000004/datasources": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "value": [
+        {
+          "name": "unmapped",
+          "datasourceType": "Db2",
+          "connectionDetails": {
+            "server": "db2host.internal",
+            "database": "SAMPLE"
+          }
+        }
+      ]
+    }
+  },
+  "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/eeee5555-0000-0000-0000-000000000005/datasources": {
+    "method": "GET",
+    "status_code": 200,
+    "json": {
+      "value": [
+        {
+          "name": "excluded-sql",
+          "datasourceType": "Sql",
+          "connectionDetails": {
+            "server": "excluded-sqlhost.internal",
+            "database": "EXCLUDED"
+          }
+        }
+      ]
+    }
+  }
+}

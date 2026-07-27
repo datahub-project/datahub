@@ -10,6 +10,7 @@ export function sortBusinessAttributes(entityRegistry: EntityRegistry, nodeA?: E
 
 export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: string) {
     return `${entityRegistry.getEntityUrl(EntityType.BusinessAttribute, urn)}/${encodeURIComponent(
+        /* untranslated-text -- programmatic route/tab key embedded in a URL, not rendered as standalone UI text */
         'Related Entities',
     )}`;
 }

@@ -130,7 +130,8 @@ public class SearchUtils {
           EntityType.MLFEATURE_TABLE,
           EntityType.DATA_FLOW,
           EntityType.DATA_JOB,
-          EntityType.NOTEBOOK);
+          EntityType.NOTEBOOK,
+          EntityType.DOCUMENT);
 
   /** A prioritized list of source filter types used to generate quick filters */
   public static final List<String> PRIORITIZED_SOURCE_ENTITY_TYPES =

@@ -1,0 +1,359 @@
+package com.linkedin.datahub.upgrade.sqlsetup.postgres;
+
+import com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperations;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * PostgreSQL-specific implementation of database operations for SqlSetup.
+ *
+ * <p><strong>PostgreSQL DDL Limitations:</strong>
+ *
+ * <p>PostgreSQL has strict limitations on prepared statements for DDL operations:
+ *
+ * <ul>
+ *   <li><strong>Object Names Cannot Be Parameterized:</strong> PostgreSQL does not allow parameter
+ *       placeholders (?) for database object names in DDL statements. For example:
+ *       <ul>
+ *         <li>❌ {@code CREATE USER ? WITH PASSWORD ?} - Invalid
+ *         <li>✅ {@code CREATE USER "username" WITH PASSWORD 'password'} - Valid
+ *       </ul>
+ *   <li><strong>Transaction Block Restrictions:</strong> Some DDL operations like {@code CREATE
+ *       DATABASE} cannot run inside transaction blocks, requiring special handling with
+ *       auto-commit.
+ *   <li><strong>Identifier Quoting:</strong> PostgreSQL uses double quotes for identifier quoting
+ *       and single quotes for string literals. Proper escaping prevents SQL injection.
+ * </ul>
+ *
+ * <p>This implementation uses string concatenation with proper escaping instead of prepared
+ * statements for DDL operations, while still using prepared statements where possible (e.g.,
+ * existence checks).
+ */
+@Slf4j
+public class PostgresDatabaseOperations implements DatabaseOperations {
+
+  @Override
+  public String createIamUserSql(String username, String iamRole) {
+    // PostgreSQL RDS - IAM authentication uses the rds_iam role
+    // The iamRole parameter is not used for PostgreSQL (IAM permissions are managed by AWS IAM)
+    // The actual IAM permissions are managed by AWS IAM policies, not stored in PostgreSQL
+    String escapedUser = escapePostgresIdentifier(username);
+    String escapedUserLiteral = escapePostgresStringLiteral(username);
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH LOGIN;
+            END IF;
+        END
+        $$;
+        GRANT rds_iam TO %s;
+        """,
+        escapedUserLiteral, escapedUser, escapedUser);
+  }
+
+  @Override
+  public String createTraditionalUserSql(String username, String password) {
+    String escapedUser = escapePostgresIdentifier(username);
+    String escapedPassword = escapePostgresStringLiteral(password);
+    String escapedUserLiteral = escapePostgresStringLiteral(username);
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH PASSWORD %s;
+            END IF;
+        END
+        $$;
+        """,
+        escapedUserLiteral, escapedUser, escapedPassword);
+  }
+
+  @Override
+  public String grantPrivilegesSql(String username, String databaseName) {
+    String escapedUser = escapePostgresIdentifier(username);
+    String escapedDatabase = escapePostgresIdentifier(databaseName);
+    return "GRANT ALL PRIVILEGES ON DATABASE " + escapedDatabase + " TO " + escapedUser + ";";
+  }
+
+  @Override
+  public String createCdcUserSql(String cdcUser, String cdcPassword) {
+    // PostgreSQL CDC user creation with comprehensive privileges
+    // Properly escape identifiers and string literals to prevent SQL injection
+    String escapedUser = escapePostgresIdentifier(cdcUser);
+    String escapedPassword = escapePostgresStringLiteral(cdcPassword);
+    String escapedUserLiteral = escapePostgresStringLiteral(cdcUser);
+
+    return String.format(
+        """
+        DO
+        $$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = %s) THEN
+                CREATE USER %s WITH PASSWORD %s;
+            END IF;
+        END
+        $$;
+        """,
+        escapedUserLiteral, escapedUser, escapedPassword);
+  }
+
+  @Override
+  public List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema) {
+    // PostgreSQL comprehensive CDC privileges (matching original init-cdc.sql)
+    // Return as separate statements since JDBC doesn't support multiple statements in one execution
+    String escapedUser = escapePostgresIdentifier(cdcUser);
+    String escapedDatabase = escapePostgresIdentifier(databaseName);
+    String metaSchema =
+        postgresMetadataSchema == null || postgresMetadataSchema.isBlank()
+            ? "public"
+            : postgresMetadataSchema.trim();
+    String escapedMetaSchema = escapePostgresIdentifier(metaSchema);
+    String qualifiedAspectTable =
+        escapedMetaSchema + "." + escapePostgresIdentifier("metadata_aspect_v2");
+
+    return Arrays.asList(
+        String.format("ALTER USER %s WITH REPLICATION;", escapedUser),
+        String.format("GRANT CONNECT ON DATABASE %s TO %s", escapedDatabase, escapedUser),
+        String.format("GRANT USAGE ON SCHEMA %s TO %s", escapedMetaSchema, escapedUser),
+        String.format("GRANT CREATE ON DATABASE %s TO %s", escapedDatabase, escapedUser),
+        String.format(
+            "GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", escapedMetaSchema, escapedUser),
+        String.format(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT SELECT ON TABLES TO %s",
+            escapedMetaSchema, escapedUser),
+        String.format("ALTER USER %s WITH SUPERUSER", escapedUser),
+        String.format("ALTER TABLE %s OWNER TO %s", qualifiedAspectTable, escapedUser),
+        String.format("ALTER TABLE %s REPLICA IDENTITY FULL", qualifiedAspectTable),
+        String.format("CREATE PUBLICATION dbz_publication FOR TABLE %s", qualifiedAspectTable));
+  }
+
+  @Override
+  public List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+    // Secondary indexes are created in ensureAspectIndexes() via CREATE INDEX CONCURRENTLY so
+    // existing populated tables are not blocked by long exclusive locks during index builds.
+    return List.of(
+        """
+        CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
+          urn                           varchar(500) not null,
+          aspect                        varchar(200) not null,
+          version                       bigint not null,
+          metadata                      text not null,
+          systemmetadata                text,
+          createdon                     timestamp not null,
+          createdby                     varchar(255) not null,
+          createdfor                    varchar(255),
+          CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version)
+        );
+        """);
+  }
+
+  @Override
+  public void dropLegacyAspectTableIndexes(Connection connection) throws SQLException {
+    // DROP INDEX CONCURRENTLY cannot run inside a transaction block.
+    boolean prevAutoCommit = connection.getAutoCommit();
+    connection.setAutoCommit(true);
+    try (Statement stmt = connection.createStatement()) {
+      stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS urnindex");
+      stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS aspectindex");
+      stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS versionindex");
+    } finally {
+      connection.setAutoCommit(prevAutoCommit);
+    }
+  }
+
+  @Override
+  public void ensureAspectIndexes(Connection connection) throws SQLException {
+    // CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
+    boolean prevAutoCommit = connection.getAutoCommit();
+    connection.setAutoCommit(true);
+    try (Statement stmt = connection.createStatement()) {
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);");
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_v0_urn_aspect ON metadata_aspect_v2 (urn, aspect) WHERE version = 0;");
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpuser_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpuser:%' AND version = 0;");
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_corpgroup_aspect_v0 ON metadata_aspect_v2 (urn, aspect) WHERE urn LIKE 'urn:li:corpGroup:%' AND version = 0;");
+    } finally {
+      connection.setAutoCommit(prevAutoCommit);
+    }
+  }
+
+  @Override
+  public void postSetup(Connection connection) throws SQLException {
+    // Drop the index if it exists but is invalid (e.g. a previous CONCURRENTLY run was
+    // interrupted). IF NOT EXISTS on the CREATE below would otherwise leave the invalid index
+    // in place and skip re-creation on retries.
+
+    // Unquoted index names are awlays stored in lower case by postgres.
+    String checkSql =
+        """
+        SELECT i.relname
+        FROM pg_index ix
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_class t ON t.oid = ix.indrelid
+        WHERE t.relname = 'metadata_aspect_v2'
+          AND i.relname = 'schemaversionindex'
+          AND NOT ix.indisvalid
+        """;
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql);
+        ResultSet rs = stmt.executeQuery()) {
+      if (rs.next()) {
+        log.info("Dropping invalid schemaVersionIndex to allow re-creation");
+        boolean prevAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(true);
+        try (Statement dropStmt = connection.createStatement()) {
+          dropStmt.execute("DROP INDEX CONCURRENTLY schemaversionindex");
+        } finally {
+          connection.setAutoCommit(prevAutoCommit);
+        }
+      }
+    }
+    // CREATE INDEX CONCURRENTLY cannot run inside a transaction block; autoCommit must be true.
+    boolean prevAutoCommit = connection.getAutoCommit();
+    connection.setAutoCommit(true);
+    try (Statement stmt = connection.createStatement()) {
+      stmt.execute(
+          "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
+    } finally {
+      connection.setAutoCommit(prevAutoCommit);
+    }
+  }
+
+  @Override
+  public void createDatabaseIfNotExists(String databaseName, Connection connection)
+      throws SQLException {
+    // PostgreSQL database creation with existence check using PreparedStatement
+    String checkDbSql = "SELECT 1 FROM pg_database WHERE datname = ?";
+
+    try (PreparedStatement stmt = connection.prepareStatement(checkDbSql)) {
+      stmt.setString(1, databaseName);
+      try (ResultSet result = stmt.executeQuery()) {
+        if (!result.next()) {
+          // PostgreSQL CREATE DATABASE cannot run inside a transaction block
+          // Use direct JDBC connection outside of Ebean transaction
+          createPostgresDatabaseDirectly(databaseName, connection);
+          log.info("Created PostgreSQL database: {}", databaseName);
+        } else {
+          log.info("PostgreSQL database {} already exists", databaseName);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("PostgreSQL database check failed, assuming database exists: {}", e.getMessage());
+      // If we can't check, assume the database exists to avoid unnecessary creation attempts
+    }
+  }
+
+  @Override
+  public void selectDatabase(String databaseName, Connection connection) throws SQLException {
+    // PostgreSQL doesn't need a USE statement - it connects directly to the target database
+    log.debug("PostgreSQL doesn't require database selection, skipping");
+  }
+
+  @Override
+  public String modifyJdbcUrl(String originalUrl, boolean createDb) {
+    // For PostgreSQL: always use the original URL (target database)
+    // Database creation will be handled separately using a direct JDBC connection
+    log.info(
+        "SqlSetup PostgreSQL: Using original database URL '{}' (database creation handled separately)",
+        originalUrl);
+    return originalUrl;
+  }
+
+  /**
+   * Create PostgreSQL database using direct JDBC connection outside of transaction. This is
+   * required because PostgreSQL's CREATE DATABASE cannot run inside a transaction block.
+   *
+   * <p><strong>Why Prepared Statements Cannot Be Used:</strong>
+   *
+   * <p>PostgreSQL's {@code CREATE DATABASE} statement cannot be parameterized with prepared
+   * statements. The database name must be embedded directly in the SQL string. This is a
+   * fundamental limitation of PostgreSQL's DDL implementation, not a choice in this code.
+   *
+   * <p>Example of what doesn't work:
+   *
+   * <pre>{@code
+   * // ❌ This is invalid PostgreSQL syntax
+   * PreparedStatement stmt = connection.prepareStatement("CREATE DATABASE ?");
+   * stmt.setString(1, databaseName);
+   * }</pre>
+   *
+   * <p>Instead, we use proper identifier escaping to prevent SQL injection:
+   *
+   * <pre>{@code
+   * // ✅ This is the correct approach
+   * String escapedDatabaseName = databaseName.replace("\"", "\"\"");
+   * String createDbSql = "CREATE DATABASE \"" + escapedDatabaseName + "\"";
+   * }</pre>
+   */
+  private void createPostgresDatabaseDirectly(String databaseName, Connection connection)
+      throws SQLException {
+    // Ensure auto-commit is enabled for this connection
+    connection.setAutoCommit(true);
+
+    // Check if database exists using PreparedStatement
+    String checkDbSql = "SELECT 1 FROM pg_database WHERE datname = ?";
+    try (PreparedStatement checkStmt = connection.prepareStatement(checkDbSql)) {
+      checkStmt.setString(1, databaseName);
+      try (ResultSet rs = checkStmt.executeQuery()) {
+        if (!rs.next()) {
+          // Database doesn't exist, create it
+          // Note: CREATE DATABASE cannot be parameterized, so we use proper identifier quoting
+          String escapedDatabaseName = databaseName.replace("\"", "\"\"");
+          String createDbSql = "CREATE DATABASE \"" + escapedDatabaseName + "\"";
+          try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
+            createStmt.executeUpdate();
+            log.info("Successfully created PostgreSQL database: {}", databaseName);
+          }
+        } else {
+          log.info("PostgreSQL database {} already exists", databaseName);
+        }
+      }
+    }
+  }
+
+  /**
+   * Escape PostgreSQL identifier by wrapping in double quotes and escaping any existing double
+   * quotes. This prevents SQL injection when using identifiers in DDL statements.
+   *
+   * @param identifier the identifier to escape
+   * @return the escaped identifier wrapped in double quotes
+   */
+  private String escapePostgresIdentifier(String identifier) {
+    if (identifier == null) {
+      throw new IllegalArgumentException("Identifier cannot be null");
+    }
+    // Escape double quotes by doubling them, then wrap in double quotes
+    String escaped = identifier.replace("\"", "\"\"");
+    return "\"" + escaped + "\"";
+  }
+
+  /**
+   * Escape PostgreSQL string literal by wrapping in single quotes and escaping any existing single
+   * quotes. This prevents SQL injection when using string literals in DDL statements.
+   *
+   * @param literal the string literal to escape
+   * @return the escaped string literal wrapped in single quotes
+   */
+  private String escapePostgresStringLiteral(String literal) {
+    if (literal == null) {
+      throw new IllegalArgumentException("String literal cannot be null");
+    }
+    // Escape single quotes by doubling them, then wrap in single quotes
+    String escaped = literal.replace("'", "''");
+    return "'" + escaped + "'";
+  }
+}

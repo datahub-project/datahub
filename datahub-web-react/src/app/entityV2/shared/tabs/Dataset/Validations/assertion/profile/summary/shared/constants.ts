@@ -1,5 +1,6 @@
 import { AssertionStdOperator } from '@types';
 
+/* untranslated-text -- sentence fragments inserted mid-sentence, verb agreement depends on surrounding sentence */
 export const GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP = ({ isPlural }) => ({
     [AssertionStdOperator.EqualTo]: `${isPlural ? 'are' : 'Is'} equal to`,
     [AssertionStdOperator.NotEqualTo]: `${isPlural ? 'are' : 'Is'} not equal to`,

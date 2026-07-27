@@ -431,8 +431,14 @@ public class SearchClientShimUtil {
   }
 
   /**
-   * Auto-detect the search engine type by connecting to the cluster and examining the version. This
-   * is useful when you want to automatically adapt to the target environment.
+   * Auto-detect the search engine type by connecting to the cluster and examining the version.
+   *
+   * <p>Bootstrap-only: this runs once at Spring bean construction to pick the right client
+   * implementation by reading the cluster's version string from {@code /} or {@code /_version}.
+   * Conceptually it's infrastructure introspection — same category as {@link
+   * SearchClientShim#getEngineType()}, {@link SearchClientShim#partialNgramConfig()}, {@link
+   * SearchClientShim#supportsFeature(String)}. It has no actor, no tenant, no per-request filters;
+   * nothing useful would be carried in an {@link OperationContext} here.
    *
    * @param config Base configuration with connection parameters (engine type will be overridden)
    * @return A SearchClientShim implementation suitable for the detected engine type

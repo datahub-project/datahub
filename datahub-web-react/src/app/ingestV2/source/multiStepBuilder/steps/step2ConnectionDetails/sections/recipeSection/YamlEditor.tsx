@@ -5,6 +5,7 @@ import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutL
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import '@conf/monaco';
@@ -56,20 +57,24 @@ const NoPaddingButton = styled(Button)`
 
 const LINE_HEIGHT = 19;
 
+const EDITOR_LANGUAGE = 'yaml';
+
 type Props = {
     value: string;
     onChange: (value: any) => void;
 };
 
 export function YamlEditor({ value, onChange }: Props) {
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const editorRef = useRef<any>(null);
     const editorWrapperRef = useRef<HTMLDivElement>(null);
 
     const onCopy = useCallback(() => {
         navigator.clipboard.writeText(value);
-        message.success('Copied!');
-    }, [value]);
+        message.success(tf('copiedSuccess'));
+    }, [value, tf]);
 
     const toggleExpanded = useCallback(() => {
         setIsExpanded((currentIsExpanded) => !currentIsExpanded);
@@ -119,7 +124,7 @@ export function YamlEditor({ value, onChange }: Props) {
                 </Text>
                 <Spacer />
                 <NoPaddingButton variant="text" size="md" color="gray" onClick={onCopy}>
-                    <Icon size="md" icon={Copy} /> Copy
+                    <Icon size="md" icon={Copy} /> {tc('copy')}
                 </NoPaddingButton>
                 <NoPaddingButton
                     variant="text"
@@ -148,7 +153,7 @@ export function YamlEditor({ value, onChange }: Props) {
                         scrollBeyondLastLine: false,
                     }}
                     height={isExpanded ? fullContentHeight : '30vh'}
-                    defaultLanguage="yaml"
+                    defaultLanguage={EDITOR_LANGUAGE}
                     defaultValue={value}
                     onChange={onChange}
                     onMount={handleEditorMount}

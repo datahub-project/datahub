@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { Dropdown, Menu, Tooltip, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -21,11 +22,11 @@ import MoveGlossaryEntityModal from '@app/entity/shared/EntityDropdown/MoveGloss
 import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import {
+    canShowEditDeprecation,
     isDeleteDisabled,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
 } from '@app/entity/shared/EntityDropdown/utils';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
@@ -34,7 +35,10 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { Deprecation, EntityType } from '@types';
+
+// Programmatic tab/path segment passed to getEntityPath — not user-visible copy.
+const INCIDENTS_TAB_NAME = 'Incidents';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -59,7 +63,7 @@ export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
 const MenuItem = styled.div`
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
@@ -70,7 +74,7 @@ const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
         props.disabled
             ? `
             ${MenuItem} {
-                color: ${ANTD_GRAY[7]};
+                color: ${props.theme.colors.textDisabled};
             }
     `
             : ''}
@@ -95,6 +99,9 @@ interface Props {
 }
 
 function EntityDropdown(props: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
     const history = useHistory();
 
     const {
@@ -128,11 +135,12 @@ function EntityDropdown(props: Props) {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isCloneEntityModalVisible, setIsCloneEntityModalVisible] = useState<boolean>(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
+    const [deprecationModalInitialValues, setDeprecationModalInitialValues] = useState<Deprecation | null>(null);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tf('updating') });
         try {
             await updateDeprecation({
                 variables: {
@@ -145,11 +153,19 @@ function EntityDropdown(props: Props) {
                 },
             });
             message.destroy();
-            message.success({ content: 'Deprecation Updated', duration: 2 });
+            message.success({
+                content: deprecatedStatus
+                    ? t('deprecation.markedDeprecatedSuccess')
+                    : t('deprecation.markedUnDeprecatedSuccess'),
+                duration: 2,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
+                message.error({
+                    content: t('deprecation.updateError', { errorMessage: e.message || '' }),
+                    duration: 2,
+                });
             }
         }
         refetchForEntity?.();
@@ -166,6 +182,65 @@ function EntityDropdown(props: Props) {
      */
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
 
+    type DropdownMenuItem = {
+        key: string | number;
+        label: React.ReactNode;
+    };
+
+    const deprecationItems: DropdownMenuItem[] = (() => {
+        if (!menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
+            return [];
+        }
+
+        if (!entityData?.deprecation?.deprecated) {
+            return [
+                {
+                    key: 1,
+                    label: (
+                        <MenuItem
+                            onClick={() => {
+                                setDeprecationModalInitialValues(null);
+                                setIsDeprecationModalVisible(true);
+                            }}
+                        >
+                            <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markDeprecated')}
+                        </MenuItem>
+                    ),
+                },
+            ];
+        }
+
+        const itemsForDeprecatedEntity: DropdownMenuItem[] = [];
+
+        if (canShowEditDeprecation(entityData.privileges)) {
+            itemsForDeprecatedEntity.push({
+                key: '1-edit',
+                label: (
+                    <MenuItem
+                        data-testid="entity-menu-edit-deprecation-button"
+                        onClick={() => {
+                            setDeprecationModalInitialValues(entityData.deprecation ?? null);
+                            setIsDeprecationModalVisible(true);
+                        }}
+                    >
+                        <ExclamationCircleOutlined /> &nbsp; {t('deprecation.editDeprecated')}
+                    </MenuItem>
+                ),
+            });
+        }
+
+        itemsForDeprecatedEntity.push({
+            key: '1-un',
+            label: (
+                <MenuItem onClick={() => handleUpdateDeprecation(false)}>
+                    <ExclamationCircleOutlined /> &nbsp; {t('deprecation.markUnDeprecated')}
+                </MenuItem>
+            ),
+        });
+
+        return itemsForDeprecatedEntity;
+    })();
+
     const items = [
         menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard
             ? {
@@ -174,28 +249,15 @@ function EntityDropdown(props: Props) {
                       <MenuItem
                           onClick={() => {
                               navigator.clipboard.writeText(pageUrl);
-                              message.info('Copied URL!', 1.2);
+                              message.info(t('menuItem.copiedUrl'), 1.2);
                           }}
                       >
-                          <LinkOutlined /> &nbsp; Copy Url
+                          <LinkOutlined /> &nbsp; {t('menuItem.copyUrl')}
                       </MenuItem>
                   ),
               }
             : null,
-        menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)
-            ? {
-                  key: 1,
-                  label: !entityData?.deprecation?.deprecated ? (
-                      <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                          <ExclamationCircleOutlined /> &nbsp; Mark as deprecated
-                      </MenuItem>
-                  ) : (
-                      <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                          <ExclamationCircleOutlined /> &nbsp; Mark as un-deprecated
-                      </MenuItem>
-                  ),
-              }
-            : null,
+        ...deprecationItems,
         menuItems.has(EntityMenuItems.ADD_TERM)
             ? {
                   key: 2,
@@ -207,7 +269,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsCreateTermModalVisible(true)}
                       >
                           <MenuItem>
-                              <PlusOutlined /> &nbsp;Add Term
+                              <PlusOutlined /> &nbsp;{t('menuItem.addTerm')}
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -223,7 +285,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsCreateNodeModalVisible(true)}
                       >
                           <MenuItem>
-                              <FolderAddOutlined /> &nbsp;Add Term Group
+                              <FolderAddOutlined /> &nbsp;{t('menuItem.addTermGroup')}
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -240,7 +302,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsMoveModalVisible(true)}
                       >
                           <MenuItem>
-                              <FolderOpenOutlined /> &nbsp;Move
+                              <FolderOpenOutlined /> &nbsp;{tc('move')}
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -257,15 +319,20 @@ function EntityDropdown(props: Props) {
                       >
                           <Tooltip
                               title={
+                                  // eslint-disable-next-line no-nested-ternary
                                   shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                                      ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                                            isDomainEntity ? 'sub-domain' : 'child'
-                                        } entities.`
+                                      ? isDomainEntity
+                                          ? t('delete.cantDeleteSubDomain', {
+                                                entityName: entityRegistry.getEntityName(entityType),
+                                            })
+                                          : t('delete.cantDeleteChild', {
+                                                entityName: entityRegistry.getEntityName(entityType),
+                                            })
                                       : undefined
                               }
                           >
                               <MenuItem data-testid="entity-menu-delete-button">
-                                  <DeleteOutlined /> &nbsp;Delete
+                                  <DeleteOutlined /> &nbsp;{tc('delete')}
                               </MenuItem>
                           </Tooltip>
                       </StyledMenuItem>
@@ -282,7 +349,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsCloneEntityModalVisible(true)}
                       >
                           <MenuItem>
-                              <CopyOutlined /> &nbsp;Clone
+                              <CopyOutlined /> &nbsp;{t('menuItem.clone')}
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -294,7 +361,7 @@ function EntityDropdown(props: Props) {
                   label: (
                       <StyledMenuItem key="6" disabled={false}>
                           <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                              <WarningOutlined /> &nbsp;Raise Incident
+                              <WarningOutlined /> &nbsp;{t('menuItem.raiseIncident')}
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -332,7 +399,11 @@ function EntityDropdown(props: Props) {
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
-                    onClose={() => setIsDeprecationModalVisible(false)}
+                    initialDeprecation={deprecationModalInitialValues}
+                    onClose={() => {
+                        setIsDeprecationModalVisible(false);
+                        setDeprecationModalInitialValues(null);
+                    }}
                     refetch={refetchForEntity}
                 />
             )}
@@ -355,7 +426,7 @@ function EntityDropdown(props: Props) {
                                     entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    'Incidents',
+                                    INCIDENTS_TAB_NAME,
                                 )}`,
                             );
                         }) as any

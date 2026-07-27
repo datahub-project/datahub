@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.HashMap;
@@ -36,7 +37,8 @@ public class IndexExistenceCheckTest {
       Map<String, Object> result = new HashMap<>();
 
       // This is the code under test
-      if (!searchClient.indexExists(getIndexRequest, RequestOptions.DEFAULT)) {
+      if (!searchClient.indexExists(
+          OperationFingerprint.EMPTY, getIndexRequest, RequestOptions.DEFAULT)) {
         result.put("skipped", true);
         result.put("reason", "Index does not exist");
         return result;
@@ -58,7 +60,8 @@ public class IndexExistenceCheckTest {
   @Test
   public void testIndexDoesNotExist() throws IOException {
     // Setup
-    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenReturn(false);
 
     // Execute
@@ -71,13 +74,16 @@ public class IndexExistenceCheckTest {
     assertNull(result.get("operation"));
 
     // Verify the method was called
-    verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient)
+        .indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
   public void testIndexExists() throws IOException {
     // Setup
-    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenReturn(true);
 
     // Execute
@@ -90,13 +96,16 @@ public class IndexExistenceCheckTest {
     assertEquals("completed", result.get("operation"));
 
     // Verify the method was called
-    verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient)
+        .indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
   public void testExceptionDuringExistenceCheck() throws IOException {
     // Setup
-    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Connection error"));
     try {
       testClass.checkIndexAndPerformOperation(getIndexRequest);
@@ -105,7 +114,9 @@ public class IndexExistenceCheckTest {
       // Verify the exception message
       assertEquals("Connection error", exception.getMessage());
       // Verify the method was called
-      verify(searchClient).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+      verify(searchClient)
+          .indexExists(
+              any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT));
     }
   }
 
@@ -124,7 +135,8 @@ public class IndexExistenceCheckTest {
   @Test
   public void testMultipleCallsToExists() throws IOException {
     // Setup
-    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenReturn(false);
 
     // Execute multiple times
@@ -133,7 +145,9 @@ public class IndexExistenceCheckTest {
     testClass.checkIndexAndPerformOperation(getIndexRequest);
 
     // Verify the method was called exactly 3 times
-    verify(searchClient, times(3)).indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    verify(searchClient, times(3))
+        .indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -141,9 +155,10 @@ public class IndexExistenceCheckTest {
     // This test verifies that we're using RequestOptions.DEFAULT specifically
 
     // Setup - mock any request options to return true
-    when(searchClient.indexExists(any(), any())).thenReturn(true);
+    when(searchClient.indexExists(any(), any(), any())).thenReturn(true);
     // But specifically mock DEFAULT options with getIndexRequest to return false
-    when(searchClient.indexExists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenReturn(false);
 
     // Execute

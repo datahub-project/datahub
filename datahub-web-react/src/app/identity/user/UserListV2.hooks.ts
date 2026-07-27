@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
+import i18next from 'i18next';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -234,8 +235,15 @@ export function useRoleAssignment(
                     message.success({
                         content:
                             roleToAssign?.urn === NO_ROLE_URN
-                                ? `Removed role from user ${roleAssignmentState.username}!`
-                                : `Assigned role ${roleToAssign?.name} to user ${roleAssignmentState.username}!`,
+                                ? i18next.t('users.roleAssign.removeSuccess', {
+                                      ns: 'entity.identity',
+                                      name: roleAssignmentState.username,
+                                  })
+                                : i18next.t('users.roleAssign.assignSuccess', {
+                                      ns: 'entity.identity',
+                                      role: roleToAssign?.name,
+                                      name: roleAssignmentState.username,
+                                  }),
                         duration: 2,
                     });
                     setRoleAssignmentState(null);
@@ -253,8 +261,17 @@ export function useRoleAssignment(
                 message.error({
                     content:
                         roleToAssign?.urn === NO_ROLE_URN
-                            ? `Failed to remove role from ${roleAssignmentState.username}: \n ${e.message || ''}`
-                            : `Failed to assign role ${roleToAssign?.name} to ${roleAssignmentState.username}: \n ${e.message || ''}`,
+                            ? i18next.t('users.roleAssign.removeError', {
+                                  ns: 'entity.identity',
+                                  name: roleAssignmentState.username,
+                                  error: e.message || '',
+                              })
+                            : i18next.t('users.roleAssign.assignError', {
+                                  ns: 'entity.identity',
+                                  role: roleToAssign?.name,
+                                  name: roleAssignmentState.username,
+                                  error: e.message || '',
+                              }),
                     duration: 3,
                 });
             });

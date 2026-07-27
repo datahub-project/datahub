@@ -190,7 +190,7 @@ Data packs can consist of multiple files, referenced by an `index.json`:
 }
 ```
 
-Files are loaded sequentially. When `wait_for_completion` is set, the loader verifies all entities from that file exist on the server before proceeding to the next file. This ensures ordering dependencies are respected (e.g., structured property definitions must exist before assignments can reference them).
+Files are loaded sequentially via OpenAPI **`async_batch`** ingestion. When `wait_for_completion` is set, that file is emitted with **`async_wait`** so the loader blocks on OpenAPI trace completion before starting the next file. Other files use **`async`** (same batch sink, no trace wait). This ensures ordering dependencies are respected (e.g., structured property definitions must be persisted before assignments in a later file can reference them).
 
 Each entry in `files` can be a plain string (filename) or an object with `path` and optional `wait_for_completion`.
 

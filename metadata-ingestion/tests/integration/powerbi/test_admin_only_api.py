@@ -53,115 +53,6 @@ def register_mock_admin_api(
                 "value": [],
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                        "isReadOnly": True,
-                        "displayName": "test_dashboard",
-                        "embedUrl": "https://localhost/dashboards/embed/1",
-                        "webUrl": "https://localhost/dashboards/web/1",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/reports/5b218778-e7a5-4d73-8187-f10824047715/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                        "reportUserAccessRight": "Read",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                        "reportUserAccessRight": "Owner",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "User1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User2@foo.com",
-                        "displayName": "user2",
-                        "emailAddress": "User2@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-8FFC-4505-9215-655BCA5BEBAE/users": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "identifier": "User3@foo.com",
-                        "displayName": "user3",
-                        "emailAddress": "User3@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
-                    },
-                    {
-                        "identifier": "User4@foo.com",
-                        "displayName": "user4",
-                        "emailAddress": "User4@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
-                        "principalType": "User",
-                    },
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
-                        "title": "test_tile",
-                        "embedUrl": "https://localhost/tiles/embed/1",
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                    },
-                    {
-                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
-                        "title": "yearly_sales",
-                        "embedUrl": "https://localhost/tiles/embed/2",
-                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
-                    },
-                ]
-            },
-        },
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
             "method": "GET",
             "status_code": 200,
@@ -352,6 +243,41 @@ def register_mock_admin_api(
                             {
                                 "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
                                 "isReadOnly": True,
+                                "displayName": "test_dashboard",
+                                "embedUrl": "https://localhost/dashboards/embed/1",
+                                "webUrl": "https://localhost/dashboards/web/1",
+                                "users": [
+                                    {
+                                        "identifier": "User1@foo.com",
+                                        "displayName": "user1",
+                                        "emailAddress": "User1@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                                        "principalType": "User",
+                                    },
+                                    {
+                                        "identifier": "User2@foo.com",
+                                        "displayName": "user2",
+                                        "emailAddress": "User2@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "principalType": "User",
+                                    },
+                                ],
+                                "tiles": [
+                                    {
+                                        "id": "B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0",
+                                        "title": "test_tile",
+                                        "embedUrl": "https://localhost/tiles/embed/1",
+                                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                                    },
+                                    {
+                                        "id": "23212598-23b5-4980-87cc-5fc0ecd84385",
+                                        "title": "yearly_sales",
+                                        "embedUrl": "https://localhost/tiles/embed/2",
+                                        "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed",
+                                    },
+                                ],
                             }
                         ],
                         "reports": [
@@ -361,6 +287,26 @@ def register_mock_admin_api(
                                 "reportType": "PowerBIReport",
                                 "name": "SalesMarketing",
                                 "description": "Acryl sales marketing report",
+                                "users": [
+                                    {
+                                        "identifier": "User1@foo.com",
+                                        "displayName": "user1",
+                                        "emailAddress": "User1@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                                        "principalType": "User",
+                                        "reportUserAccessRight": "Read",
+                                    },
+                                    {
+                                        "identifier": "User2@foo.com",
+                                        "displayName": "user2",
+                                        "emailAddress": "User2@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A5REWS",
+                                        "principalType": "User",
+                                        "reportUserAccessRight": "Owner",
+                                    },
+                                ],
                             }
                         ],
                     },
@@ -380,36 +326,6 @@ def register_mock_admin_api(
             "method": "POST",
             "status_code": 200,
             "json": scan_init_response,
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                        "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                        "name": "SalesMarketing",
-                        "reportType": "PowerBIReport",
-                        "description": "Acryl sales marketing report",
-                        "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                        "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-                    }
-                ]
-            },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
-                "id": "5b218778-e7a5-4d73-8187-f10824047715",
-                "name": "SalesMarketing",
-                "reportType": "PowerBIReport",
-                "description": "Acryl sales marketing report",
-                "webUrl": "https://app.powerbi.com/groups/f089354e-8366-4e18-aea3-4cb4a3a50b48/reports/5b218778-e7a5-4d73-8187-f10824047715",
-                "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5b218778-e7a5-4d73-8187-f10824047715&groupId=f089354e-8366-4e18-aea3-4cb4a3a50b48",
-            },
         },
         "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/5b218778-e7a5-4d73-8187-f10824047715/pages": {
             "method": "GET",

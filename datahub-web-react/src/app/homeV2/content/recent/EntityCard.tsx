@@ -22,7 +22,7 @@ const Container = styled.div`
     gap: 12px;
 
     :hover {
-        border: 1.5px solid ${(props) => props.theme.colors.hyperlinks};
+        border: 1.5px solid ${(props) => props.theme.colors.borderBrand};
     }
 `;
 
@@ -44,7 +44,7 @@ const Context = styled.div`
 
 const SubHeader = styled.div`
     font-size: 14px;
-    color: ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-top: 4px;
     overflow: hidden;
     text-overflow: ellipsis;

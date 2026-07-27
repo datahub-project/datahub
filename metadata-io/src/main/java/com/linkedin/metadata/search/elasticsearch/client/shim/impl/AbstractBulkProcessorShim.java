@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.datahub.context.OperationFingerprint;
 import java.util.function.Supplier;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
 
@@ -33,8 +35,15 @@ public abstract class AbstractBulkProcessorShim<T> {
   /**
    * Add a write request using URN-based consistent hashing for entity document consistency.
    * Subclasses must implement the actual processor-specific add logic.
+   *
+   * <p>The {@link OperationContext} is forwarded for wrapper-layer decoration (e.g. tenant routing
+   * on the underlying write request). The base impl ignores it — bulk batching is intrinsically
+   * cross-tenant, so per-request enrichment lives in the wrapper.
    */
-  public void addBulk(String urn, DocWriteRequest<?> writeRequest) {
+  public void addBulk(
+      @Nonnull OperationFingerprint opContext,
+      @Nonnull String urn,
+      @Nonnull DocWriteRequest<?> writeRequest) {
     int index = Math.abs(urn.hashCode()) % threadCount;
     addToProcessor(bulkProcessors[index], writeRequest);
   }

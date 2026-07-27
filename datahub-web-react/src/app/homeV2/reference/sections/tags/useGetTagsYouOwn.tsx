@@ -18,7 +18,6 @@ export const useGetTagsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_F
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn as string],
                     },
                 ],

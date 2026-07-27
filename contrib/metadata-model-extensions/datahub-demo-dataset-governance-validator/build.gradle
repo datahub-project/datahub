@@ -6,10 +6,6 @@ plugins {
 group = 'com.linkedin.datahub'
 version = '0.1.0'
 
-repositories {
-    mavenCentral()
-}
-
 def datahubRoot = file('../../../')
 
 dependencies {

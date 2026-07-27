@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -18,6 +18,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     JobContainerSubTypes,
 )
+from datahub.ingestion.source.sql.stored_procedures.constants import (
+    STORED_PROCEDURES_CONTAINER,
+)
 from datahub.ingestion.source.sql.stored_procedures.lineage import parse_procedure_code
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -33,9 +36,6 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
-
-# Container name for stored procedures and functions
-STORED_PROCEDURES_CONTAINER = "stored_procedures"
 
 
 @dataclass
@@ -212,7 +212,7 @@ def _generate_job_workunits(
                             value=procedure.procedure_definition,
                             language=(
                                 QueryLanguageClass.SQL
-                                if procedure.language == "SQL"
+                                if procedure.language == QueryLanguageClass.SQL
                                 # The language field uses a pretty limited enum.
                                 # The "UNKNOWN" enum value is pretty new, so we don't want to
                                 # emit it until it has broader server-side support. As a
@@ -240,7 +240,7 @@ def generate_procedure_lineage(
     report_failure: Optional[Callable[[str], None]] = None,
     additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    if procedure.procedure_definition and procedure.language == "SQL":
+    if procedure.procedure_definition and procedure.language == QueryLanguageClass.SQL:
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,
@@ -252,10 +252,19 @@ def generate_procedure_lineage(
         )
 
         if datajob_input_output and additional_input_jobs:
-            if datajob_input_output.inputDatajobs:
-                datajob_input_output.inputDatajobs.extend(additional_input_jobs)
-            else:
-                datajob_input_output.inputDatajobs = additional_input_jobs
+            # ``additional_input_jobs`` comes from sources that read procedure
+            # dependencies from a system catalogue (e.g. Oracle's
+            # ALL_DEPENDENCIES). ``parse_procedure_code`` may have already
+            # populated ``inputDatajobs`` by parsing CALL/EXEC out of the
+            # procedure body. Both paths are authoritative, so we merge them
+            # but deduplicate to keep ``inputDatajobs`` a true set.
+            existing = list(datajob_input_output.inputDatajobs or [])
+            seen: Set[str] = set(existing)
+            for urn in additional_input_jobs:
+                if urn not in seen:
+                    existing.append(urn)
+                    seen.add(urn)
+            datajob_input_output.inputDatajobs = existing
 
         if datajob_input_output:
             yield MetadataChangeProposalWrapper(

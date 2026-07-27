@@ -11,6 +11,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -21,6 +22,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
@@ -127,7 +129,8 @@ public class EntitiesController {
                     entityUrns.stream()
                         .map(Urn::getEntityType)
                         .distinct()
-                        .collect(Collectors.toList())),
+                        .collect(Collectors.toList()))
+                .withUsageOperation(UsageOperation.METADATA_READ),
             _authorizerChain,
             authentication,
             true);
@@ -193,17 +196,32 @@ public class EntitiesController {
             .map(proposal -> MappingUtil.mapToServiceProposal(proposal, _objectMapper))
             .collect(Collectors.toList());
 
+    boolean asyncBool =
+        Objects.requireNonNullElseGet(
+            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
+    UsageOperation usageOperation = UsageOperation.METADATA_INGEST;
+
+    RequestContext.RequestContextBuilder requestContextBuilder =
+        RequestContext.builder()
+            .buildOpenapi(
+                actorUrnStr,
+                request,
+                "postEntities",
+                proposals.stream()
+                    .map(MetadataChangeProposal::getEntityType)
+                    .collect(Collectors.toSet()))
+            .withUsageOperation(usageOperation);
+    try {
+      requestContextBuilder.withMaterializedInputUtf8Bytes(
+          _objectMapper.writeValueAsString(aspectRequests));
+    } catch (JsonProcessingException e) {
+      log.debug("Could not materialize postEntities body for usage bytes", e);
+    }
+
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(
-                    actorUrnStr,
-                    request,
-                    "postEntities",
-                    proposals.stream()
-                        .map(MetadataChangeProposal::getEntityType)
-                        .collect(Collectors.toSet())),
+            requestContextBuilder.withUsageQuantity(proposals.size()),
             _authorizerChain,
             authentication,
             true);
@@ -227,9 +245,6 @@ public class EntitiesController {
                   .collect(Collectors.toList()));
     }
 
-    boolean asyncBool =
-        Objects.requireNonNullElseGet(
-            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
     List<Pair<String, Boolean>> responses =
         MappingUtil.ingestBatchProposal(
             opContext, proposals, actorUrnStr, _entityService, asyncBool);
@@ -264,32 +279,47 @@ public class EntitiesController {
           @RequestParam(value = "soft", defaultValue = "true")
           boolean soft,
       @RequestParam(required = false, name = "async") Boolean async) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    final Set<Urn> entityUrns =
+        Arrays.stream(urns)
+            // Have to decode here because of frontend routing, does No-op for already unencoded
+            // through direct API access
+            .map(URLDecoder::decode)
+            .map(UrnUtils::getUrn)
+            .collect(Collectors.toSet());
+
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    actorUrnStr,
+                    request,
+                    "deleteEntities",
+                    entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet()))
+                .withUsageOperation(UsageOperation.ENTITY_DELETE),
+            _authorizerChain,
+            authentication,
+            true);
+
+    return deleteEntities(opContext, actorUrnStr, entityUrns, soft, async);
+  }
+
+  /**
+   * Deletes entities using an existing request session. Callers that already opened an {@link
+   * OperationContext} (for example OpenAPI v2 aspect delete) should use this overload to avoid
+   * double-counting usage metrics.
+   */
+  public ResponseEntity<List<RollbackRunResultDto>> deleteEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull String actorUrnStr,
+      @Nonnull Set<Urn> entityUrns,
+      boolean soft,
+      @Nullable Boolean async) {
     Throwable exceptionally = null;
     try {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      String actorUrnStr = authentication.getActor().toUrnStr();
-
-      final Set<Urn> entityUrns =
-          Arrays.stream(urns)
-              // Have to decode here because of frontend routing, does No-op for already unencoded
-              // through direct API access
-              .map(URLDecoder::decode)
-              .map(UrnUtils::getUrn)
-              .collect(Collectors.toSet());
-
-      OperationContext opContext =
-          OperationContext.asSession(
-              systemOperationContext,
-              RequestContext.builder()
-                  .buildOpenapi(
-                      actorUrnStr,
-                      request,
-                      "deleteEntities",
-                      entityUrns.stream().map(Urn::getEntityType).collect(Collectors.toSet())),
-              _authorizerChain,
-              authentication,
-              true);
-
       if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
         throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
       }
@@ -338,7 +368,7 @@ public class EntitiesController {
     } catch (Exception e) {
       exceptionally = e;
       throw new RuntimeException(
-          String.format("Failed to batch delete entities with urns: %s", Arrays.asList(urns)), e);
+          String.format("Failed to batch delete entities with urns: %s", entityUrns), e);
     } finally {
       if (metricUtils != null) {
         if (exceptionally != null) {

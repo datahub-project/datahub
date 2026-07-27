@@ -2,6 +2,11 @@
 version: '3.4'
 services:
   testhana:
+    # saplabs/hanaexpress is published only for linux/amd64. Pinning the
+    # platform lets the image be pulled and run under Rosetta / QEMU on
+    # ARM hosts (the test process itself still needs hdbcli, which SAP
+    # only publishes for x86_64 — see the skipif in test_hana.py).
+    platform: linux/amd64
     image: "saplabs/hanaexpress:latest"
     container_name: "testhana"
     restart: "unless-stopped"

@@ -15,6 +15,7 @@ dependencies {
     implementation project(':metadata-service:factories')
     implementation project(':metadata-service:auth-filter')
     implementation project(':metadata-jobs:mce-consumer')
+    implementation project(':metadata-io')
     implementation project(':entity-registry')
     implementation project(':metadata-jobs:common')
 
@@ -34,6 +35,8 @@ dependencies {
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
+    implementation externalDependency.janino
+    implementation externalDependency.lokiLogbackAppender
     runtimeOnly externalDependency.opentelemetryExporter
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon
@@ -83,15 +86,9 @@ docker {
     if (project.hasProperty('dockerBaseImage')) {
         dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
     }
-    if (project.hasProperty('apkRepositoryUrl')) {
-        dockerBuildArgs.APK_REPOSITORY_URL = project.getProperty('apkRepositoryUrl')
-    }
-    if (project.hasProperty('githubMirrorUrl')) {
-        dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
-    }
-    if (project.hasProperty('mavenCentralRepositoryUrl')) {
-        dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
-    }
+    dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
+    dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
+    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
 
     if (dockerBuildArgs.size() > 0) {
         buildArgs(dockerBuildArgs)

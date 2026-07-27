@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
-import { Input } from '@src/alchemy-components';
+import { Button, Input } from '@src/alchemy-components';
 
 import { Document, DocumentSourceType, DocumentState } from '@types';
 
@@ -15,7 +16,10 @@ const PopoverContainer = styled.div`
     flex-direction: column;
     background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    // The parent antd Popover overlay renders with boxShadow: none (transparent
+    // wrapper), so this container owns the elevation — use a large shadow so the
+    // dropdown reads clearly against light summary backgrounds.
+    box-shadow: ${(props) => props.theme.colors.shadowXl};
 `;
 
 const HeaderContainer = styled.div`
@@ -60,6 +64,17 @@ const EmptyState = styled.div`
     font-size: 14px;
 `;
 
+const FooterContainer = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+`;
+
+const BREADCRUMB_SEPARATOR = ' > ';
+
 interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
@@ -90,6 +105,23 @@ interface DocumentPopoverBaseProps {
      * - [DocumentSourceType.Native, DocumentSourceType.External]: Search all documents
      */
     sourceTypes: DocumentSourceType[];
+    /**
+     * Enables multi-select (checkbox) mode. When true, every row renders a checkbox
+     * whose checked state is driven by the controlled `checkedUrns` set, and clicking
+     * a row (or its checkbox) fires `onToggleUrn` with the post-click state. Toggling
+     * only updates the parent's staged selection — nothing is persisted until `onSave`.
+     */
+    multiSelect?: boolean;
+    /** Controlled set of currently-checked URNs (already-linked docs render pre-checked). */
+    checkedUrns?: Set<string>;
+    /** Fired when a row toggles; `isNowChecked` is the state after the click. */
+    onToggleUrn?: (urn: string, isNowChecked: boolean) => void;
+    /** Commits the staged selection. When provided (with `multiSelect`), a Save footer renders. */
+    onSave?: () => void;
+    /** Disables the Save button (e.g. no pending changes). */
+    saveDisabled?: boolean;
+    /** Shows the Save button in a loading state while the commit is in flight. */
+    isSaving?: boolean;
 }
 
 /**
@@ -109,7 +141,15 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     searchDisabled = false,
     filterSearchResults,
     sourceTypes,
+    multiSelect = false,
+    checkedUrns,
+    onToggleUrn,
+    onSave,
+    saveDisabled = false,
+    isSaving = false,
 }) => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -121,7 +161,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Search for documents
+    // Search for documents. Pickers bypass the active View so users can find and link
+    // any document they have access to, regardless of the current View scoping.
     const { documents: searchResults, loading: searchLoading } = useSearchDocuments({
         query: debouncedSearchQuery || '*',
         states: [DocumentState.Published, DocumentState.Unpublished],
@@ -129,18 +170,30 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
         fetchPolicy: 'network-only',
         includeParentDocuments: true,
         sourceTypes,
+        applyView: false,
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
-    const filteredSearchResults = filterSearchResults ? searchResults.filter(filterSearchResults) : searchResults;
+    const filteredSearchResults = useMemo(
+        () => (filterSearchResults ? searchResults.filter(filterSearchResults) : searchResults),
+        [searchResults, filterSearchResults],
+    );
 
     const handleDocumentTreeSelect = (urn: string) => {
+        if (multiSelect) {
+            onToggleUrn?.(urn, !checkedUrns?.has(urn));
+            return;
+        }
         if (onSelectDocument) {
             onSelectDocument(urn);
         }
     };
 
     const handleSearchResultSelect = (urn: string) => {
+        if (multiSelect) {
+            onToggleUrn?.(urn, !checkedUrns?.has(urn));
+            return;
+        }
         if (onSelectSearchResult) {
             onSelectSearchResult(urn);
         }
@@ -151,7 +204,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <SearchContainer>
                 <Input
                     label=""
-                    placeholder="Search context..."
+                    placeholder={t('documents.searchPlaceholder')}
                     value={searchQuery}
                     setValue={setSearchQuery}
                     disabled={searchDisabled}
@@ -161,9 +214,9 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             <TreeScrollContainer $maxHeight={maxHeight}>
                 {isSearching ? (
                     <>
-                        {searchLoading && <EmptyState>Searching...</EmptyState>}
+                        {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (
-                            <EmptyState>No results found</EmptyState>
+                            <EmptyState>{tc('noResults')}</EmptyState>
                         )}
                         {!searchLoading &&
                             filteredSearchResults.map((doc) => {
@@ -171,10 +224,12 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                                 let breadcrumb: string | null = null;
                                 if (doc.parentDocuments?.documents && doc.parentDocuments.documents.length > 0) {
                                     const parents = [...doc.parentDocuments.documents].reverse();
-                                    breadcrumb = parents.map((parent) => parent.info?.title || 'Untitled').join(' > ');
+                                    breadcrumb = parents
+                                        .map((parent) => parent.info?.title || t('untitled'))
+                                        .join(BREADCRUMB_SEPARATOR);
                                 }
 
-                                const isSelected = selectedUrn === doc.urn;
+                                const isSelected = multiSelect ? !!checkedUrns?.has(doc.urn) : selectedUrn === doc.urn;
 
                                 return (
                                     <SearchResultItem
@@ -189,6 +244,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                                         onSelect={() => handleSearchResultSelect(doc.urn)}
                                         onToggleExpand={() => {}}
                                         onCreateChild={onCreateChild}
+                                        multiSelect={multiSelect}
                                     />
                                 );
                             })}
@@ -203,10 +259,27 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
                             hideActions={hideActions}
                             hideActionsMenu={hideActionsMenu}
                             hideCreate={hideCreate}
+                            multiSelect={multiSelect}
+                            checkedUrns={checkedUrns}
                         />
                     </>
                 )}
             </TreeScrollContainer>
+            {multiSelect && onSave && (
+                <FooterContainer>
+                    <Button
+                        variant="filled"
+                        color="primary"
+                        size="sm"
+                        onClick={onSave}
+                        disabled={saveDisabled || isSaving}
+                        isLoading={isSaving}
+                        data-testid="document-popover-save"
+                    >
+                        {tc('save')}
+                    </Button>
+                </FooterContainer>
+            )}
         </PopoverContainer>
     );
 };

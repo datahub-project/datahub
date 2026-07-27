@@ -1,0 +1,77 @@
+source:
+  type: thoughtspot
+  config:
+    connection:
+      base_url: "https://your-cluster.thoughtspot.cloud"
+
+      # Trusted authentication (recommended for production).
+      # Generate the secret key under:
+      # Develop > Customizations > Security Settings > Enable Trusted Authentication
+      auth:
+        type: trusted
+        username: "${THOUGHTSPOT_USERNAME}"
+        secret_key: "${THOUGHTSPOT_SECRET_KEY}"
+
+      # (Optional) Scope ingestion to a specific org in multi-org tenants.
+      # Use the numeric org id or the org name. Leave unset for single-org
+      # deployments or to use the principal's primary org.
+      # org_identifier: "production"
+
+      # (Optional) HTTP request tuning.
+      # timeout_seconds: 30        # default 30
+      # max_retries: 3             # default 3; 429 / 5xx retried with exponential backoff
+
+    # (Optional) Filter entities by name. Defaults allow everything.
+    # liveboard_pattern:
+    #   allow:
+    #     - "^Customer.*"
+    #   deny:
+    #     - "^Draft.*"
+    # answer_pattern:
+    #   allow:
+    #     - ".*"
+    # worksheet_pattern:
+    #   allow:
+    #     - ".*"
+
+    # (Optional) Server-side tag filters. Only ingest Liveboards / Answers
+    # tagged with at least one of the listed tags. Cheaper than client-side
+    # name filtering at scale; tag names are case-sensitive.
+    # liveboard_tag_filter:
+    #   - "Production"
+    # answer_tag_filter:
+    #   - "Curated"
+
+    include_ownership: true
+
+    # Per-entity view counts via metadata_search include_stats (same counter as
+    # the TS UI "Views" column). Enabled by default; set to ``false`` to skip
+    # emitting the usage aspects entirely.
+    include_usage_stats: true
+
+    # Cross-platform upstream lineage from TS Worksheets to the underlying
+    # Databricks / Snowflake / BigQuery / etc. tables. On by default.
+    include_external_lineage: true
+
+    # (Optional) Per-TS-connection settings for cross-platform lineage. Keys
+    # are the TS connection GUID (stable across renames) or display name.
+    # external_connections:
+    #   conn-guid-prod-dbx:
+    #     # Must match the platform_instance your DataHub Databricks
+    #     # ingestion uses, otherwise the upstream URNs won't resolve.
+    #     platform_instance: prod-databricks
+    #     env: PROD
+    #   "Prod BigQuery":
+    #     platform_instance: prod-bq
+    #     # BigQuery preserves source case in column URNs — opt in here.
+    #     # Default is to lowercase external column names (Databricks /
+    #     # Snowflake / Postgres / MySQL / Redshift convention).
+    #     preserve_column_case: true
+
+    # Stateful ingestion soft-deletes entities that disappear between runs.
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+# Default sink is datahub-rest and doesn't need to be configured.
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options.

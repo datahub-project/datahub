@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 /**
  * The type of a well-supported operator.
  */
@@ -68,66 +70,114 @@ export type Operator = {
 const OPERATORS: Operator[] = [
     {
         id: OperatorId.EQUAL_TO,
-        displayName: 'Equals',
-        description: 'Exactly equals a value',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.equals');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.equalsDesc');
+        },
     },
     {
         id: OperatorId.CONTAINS_STR,
-        displayName: 'Contains',
-        description: 'Contains a specific substring',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.containsStr');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.containsStrDesc');
+        },
     },
     {
         id: OperatorId.CONTAINS_ANY,
-        displayName: 'Contains Any',
-        description: 'Contains any selected items',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.containsAny');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.containsAnyDesc');
+        },
     },
     {
         id: OperatorId.REGEX_MATCH,
-        displayName: 'Matches Regex',
-        description: 'Matches a regex value',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.regexMatch');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.regexMatchDesc');
+        },
     },
     {
         id: OperatorId.STARTS_WITH,
-        displayName: 'Starts with',
-        description: 'Starts with a value',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.startsWith');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.startsWithDesc');
+        },
     },
     {
         id: OperatorId.NOT,
-        displayName: 'Not',
-        description: 'Not',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.not');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.notDesc');
+        },
     },
     {
         id: OperatorId.GREATER_THAN,
-        displayName: 'Greater Than',
-        description: 'Greater than a value',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.greaterThan');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.greaterThanDesc');
+        },
     },
     {
         id: OperatorId.LESS_THAN,
-        displayName: 'Less Than',
-        description: 'Less than a value',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.lessThan');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.lessThanDesc');
+        },
     },
     {
         id: OperatorId.EXISTS,
-        displayName: 'Exists',
-        description: 'The property exists',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.exists');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.existsDesc');
+        },
         operandCount: 1,
     },
     {
         id: OperatorId.IS_TRUE,
-        displayName: 'Is True',
-        description: 'The property value is True',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.isTrue');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.isTrueDesc');
+        },
         operandCount: 1,
     },
     {
         id: OperatorId.IS_FALSE,
-        displayName: 'Is False',
-        description: 'The property value is False',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.isFalse');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.isFalseDesc');
+        },
         operandCount: 1,
     },
     {
         id: OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS,
-        displayName: 'Have Descriptions',
-        description: 'All columns / fields have a description',
+        get displayName() {
+            return i18next.t('shared.query-builder:operators.haveDescriptions');
+        },
+        get description() {
+            return i18next.t('shared.query-builder:operators.haveDescriptionsDesc');
+        },
         operandCount: 1,
     },
 ];

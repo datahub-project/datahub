@@ -6,9 +6,8 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
-from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
-from datahub.ingestion.source.profiling.common import Cardinality
+from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
@@ -69,7 +68,7 @@ def mock_report():
     """Create a mock SQLSourceReport."""
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
-    report.report_warning = MagicMock()
+    report.warning = MagicMock()
     return report
 
 

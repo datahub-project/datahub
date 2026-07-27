@@ -39,7 +39,6 @@ public class UpsertStructuredPropertiesResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)";
   private static final String PROPERTY_URN_1 = "urn:li:structuredProperty:test1";
   private static final String PROPERTY_URN_2 = "urn:li:structuredProperty:test2";
-
   private static final StructuredPropertyInputParams PROP_INPUT_1 =
       new StructuredPropertyInputParams(
           PROPERTY_URN_1, ImmutableList.of(new PropertyValueInput("test1", null)));

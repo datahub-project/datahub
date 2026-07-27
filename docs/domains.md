@@ -11,6 +11,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Starting in version `0.8.25`, DataHub supports grouping data assets into logical collections called **Domains**. Domains are curated, top-level folders or categories where related assets can be explicitly grouped. Management of Domains can be centralized, or distributed out to Domain owners Currently, an asset can belong to only one Domain at a time.
 
+:::tip Domains and view-based access control
+Domains are ideal for **curation and organization**. Using them as the primary boundary for view-based access control can hurt performance. See [Domains and containers](./authorization/policies.md#domains-and-containers) in the Policies Guide.
+:::
+
 ## Domains Setup, Prerequisites, and Permissions
 
 What you need to create and add domains:
@@ -184,7 +188,7 @@ On the homepage, you'll also find a list of the most popular Domains in your org
 **Supercharge Data Mesh with Domains in DataHub**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL

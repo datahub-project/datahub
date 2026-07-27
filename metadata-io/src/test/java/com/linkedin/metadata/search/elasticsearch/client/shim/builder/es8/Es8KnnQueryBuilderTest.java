@@ -154,7 +154,10 @@ public class Es8KnnQueryBuilderTest {
 
     assertTrue(
         body.containsKey("_source"), "Body should contain _source when fieldsToFetch is set");
-    assertEquals(body.get("_source"), List.of("urn", "name"), "_source should match fieldsToFetch");
+    assertEquals(
+        body.get("_source"),
+        Map.of("includes", List.of("urn", "name")),
+        "_source should use includes format for ES 8 client compatibility");
   }
 
   @Test(

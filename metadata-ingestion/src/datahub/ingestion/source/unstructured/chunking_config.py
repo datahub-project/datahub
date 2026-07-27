@@ -1,5 +1,6 @@
 """Configuration for Document Chunking and Embedding Source."""
 
+import re
 from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -26,7 +27,7 @@ class ServerSemanticSearchConfig(ConfigModel):
 
     enabled: bool
     enabled_entities: list[str]
-    embedding_config: ServerEmbeddingConfig
+    embedding_config: Optional[ServerEmbeddingConfig] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -94,6 +95,11 @@ class EmbeddingConfig(ConfigModel):
     batch_size: int = Field(
         default=25, description="Batch size for embedding API calls"
     )
+    request_timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Per-call HTTP timeout in seconds for embedding providers.",
+    )
     input_type: Optional[str] = Field(
         default="search_document",
         description="Input type for Cohere embeddings",
@@ -122,11 +128,19 @@ class EmbeddingConfig(ConfigModel):
     @field_validator("model_embedding_key")
     @classmethod
     def validate_model_embedding_key(cls, v: Optional[str]) -> Optional[str]:
-        """Validate model_embedding_key is Elasticsearch-compatible (no dots)."""
-        if v is not None and "." in v:
+        """Validate model_embedding_key is Elasticsearch-compatible.
+
+        Elasticsearch rejects field names containing characters like ``.`` or
+        ``:`` — the latter shows up in Bedrock Titan model IDs
+        (``amazon.titan-embed-text-v2:0``). Restrict to alphanumerics and
+        underscore so anything that survives is safe to use as a field name.
+        """
+        if v is not None and not re.fullmatch(r"[A-Za-z0-9_]+", v):
             raise ValueError(
-                f"model_embedding_key '{v}' contains '.' which is not allowed in Elasticsearch field names. "
-                f"Use underscores instead (e.g., 'cohere_embed_v3' not 'cohere.embed.v3')"
+                f"model_embedding_key '{v}' contains characters other than letters, "
+                f"digits, or underscore. Elasticsearch field names disallow '.', ':', "
+                f"'-', and other punctuation — use underscores instead "
+                f"(e.g., 'cohere_embed_v3' not 'cohere.embed.v3')."
             )
         return v
 
@@ -556,7 +570,10 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    query = """
+    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
+    # Older servers reject it with FieldUndefined; we fall back to the base
+    # query in that case rather than propagating a confusing schema error.
+    _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
             semanticSearchConfig {
@@ -578,10 +595,43 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
           }
         }
     """
+    _QUERY_BASE = """
+        query getSemanticSearchConfig {
+          appConfig {
+            semanticSearchConfig {
+              enabled
+              enabledEntities
+              embeddingConfig {
+                provider
+                modelId
+                modelEmbeddingKey
+                awsProviderConfig {
+                  region
+                }
+              }
+            }
+          }
+        }
+    """
 
-    response = graph.execute_graphql(
-        query=query, operation_name="getSemanticSearchConfig"
-    )
+    try:
+        response = graph.execute_graphql(
+            query=_QUERY_FULL,
+            operation_name="getSemanticSearchConfig",
+            strip_unsupported_fields=True,
+        )
+    except GraphError as e:
+        # Older servers don't have vertexProviderConfig in their schema. When the
+        # graphql-core library is absent, strip_unsupported_fields is a no-op and
+        # the full query reaches the server, which rejects it with FieldUndefined.
+        # Retry with the base query — vertex fields will simply be None.
+        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+            response = graph.execute_graphql(
+                query=_QUERY_BASE,
+                operation_name="getSemanticSearchConfig",
+            )
+        else:
+            raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
 
@@ -591,8 +641,16 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             "Ensure DataHub server version supports semantic search config API (v0.14.0+)."
         )
 
-    # Parse into ServerSemanticSearchConfig model
-    embedding_config_dict = semantic_search_config["embeddingConfig"]
+    is_enabled = semantic_search_config["enabled"]
+
+    # embeddingConfig is null when semantic search is disabled on the server.
+    embedding_config_dict = semantic_search_config.get("embeddingConfig")
+    if not embedding_config_dict:
+        return ServerSemanticSearchConfig(
+            enabled=is_enabled,
+            enabled_entities=semantic_search_config["enabledEntities"],
+            embedding_config=None,
+        )
 
     # Extract AWS region from nested awsProviderConfig
     aws_region = None
@@ -631,7 +689,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     )
 
     return ServerSemanticSearchConfig(
-        enabled=semantic_search_config["enabled"],
+        enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
     )

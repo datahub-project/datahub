@@ -9,7 +9,7 @@ import {
     AssertionTable,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { DataContract } from '@src/types.generated';
@@ -21,6 +21,7 @@ type Props = {
 };
 
 const HEADER_AND_PAGINATION_HEIGHT_PX = 130;
+const TABLE_SCROLL_X = 'max-content' as const;
 
 const TableContainer = styled.div`
     overflow: hidden;
@@ -91,7 +92,7 @@ export const AcrylAssertionListTable = ({ assertionData, refetch, contract }: Pr
                     showHeader
                     scroll={{
                         y: tableHeight,
-                        x: 'max-content',
+                        x: TABLE_SCROLL_X,
                     }}
                     pagination={{
                         pageSize: 50,

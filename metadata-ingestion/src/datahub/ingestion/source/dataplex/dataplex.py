@@ -32,7 +32,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -52,9 +51,6 @@ from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageEx
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -120,11 +116,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog.
 
     To add support for a new Dataplex entry type, first define its identity model
-    in ``dataplex_ids.py`` by adding a SchemaKey class at the correct level in the
-    existing hierarchy (for example project -> instance -> database -> table). Then
-    register the entry type in ``DATAPLEX_ENTRY_TYPE_MAPPINGS`` with required fields:
-    DataHub platform, DataHub entity type (Container or Dataset), subtype constant
-    from ``subtypes.py``, FQN regex, parent-entry regex (if applicable), and key classes.
+    in ``dataplex_ids.py`` by adding a ContainerKey class at the correct level in
+    the existing hierarchy (for example project -> instance -> database -> table)
+    and the FQN / parent-entry regexes it needs. Then add a small ``EntryMapper``
+    subclass in ``dataplex_mappers.py`` that declares the DataHub platform, its
+    main entity type (Container or Dataset), the subtype constant from
+    ``subtypes.py``, and delegates to the shared ``build_dataset`` /
+    ``build_container`` helper; finally register the mapper in ``ENTRY_MAPPERS``.
     FQN formats and parent hierarchy must be derived from:
     https://cloud.google.com/dataplex/docs/fully-qualified-names
 
@@ -292,7 +290,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
             if self.config.include_glossary_term_associations:
                 # Project numbers are required for the lookupEntryLinks term entry path.
-                # Requires roles/resourcemanager.projectViewer on all configured projects.
+                # Requires a role granting resourcemanager.projects.get (e.g. roles/browser)
+                # on all configured projects.
                 try:
                     self.ctx_data.project_numbers = _resolve_project_numbers(
                         self._project_ids, credentials
@@ -302,7 +301,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         title="Failed to resolve GCP project numbers",
                         message=(
                             "Could not resolve project numbers via the Resource Manager API. "
-                            "Ensure the service account has roles/resourcemanager.projectViewer "
+                            "Ensure the service account has a role granting "
+                            "resourcemanager.projects.get (e.g. roles/browser) "
                             "on all configured projects."
                         ),
                         context=str(self._project_ids),
@@ -393,20 +393,6 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     def get_report(self) -> DataplexReport:
         """Return the ingestion report."""
         return self.report
-
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        """
-        Get workunit processors for stateful ingestion.
-
-        Returns processors for:
-        - Stale entity removal (deletion detection)
-        """
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""

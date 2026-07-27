@@ -29,12 +29,12 @@ import javax.inject.Named;
 
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 
 /** Rest.li entry point: /analytics */
 @Slf4j
@@ -72,7 +72,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
             final Authentication auth = AuthenticationContext.getAuthentication();
             final OperationContext opContext = OperationContext.asSession(
                     systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                            ACTION_GET_TIMESERIES_STATS, entityName), authorizer, auth, true);
+                            ACTION_GET_TIMESERIES_STATS, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
             if (!AuthUtil.isAPIAuthorizedEntityType(
                     opContext,
@@ -87,7 +87,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
           resp.setEntityName(entityName);
           resp.setAspectName(aspectName);
           resp.setAggregationSpecs(new AggregationSpecArray(Arrays.asList(aggregationSpecs)));
-          final Filter finalFilter = validateAndConvert(filter);
+          final Filter finalFilter = filter;
           if (finalFilter != null) {
             resp.setFilter(finalFilter);
           }

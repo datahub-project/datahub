@@ -61,6 +61,7 @@ export function EmptyState({
                             icon={action.icon}
                             variant={action.variant ?? 'filled'}
                             size="md"
+                            data-testid={action.dataTestId}
                         >
                             {action.label}
                         </Button>
@@ -71,6 +72,7 @@ export function EmptyState({
                             icon={secondaryAction.icon}
                             variant={secondaryAction.variant ?? 'text'}
                             size="md"
+                            data-testid={secondaryAction.dataTestId}
                         >
                             {secondaryAction.label}
                         </Button>

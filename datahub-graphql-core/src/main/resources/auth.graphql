@@ -387,6 +387,13 @@ type EntityPrivileges {
   canEditAssertions: Boolean
 
   """
+  Whether or not a user can update owners on assertions belonging to this entity.
+  Mirrors the assertee-delegation logic used by EDIT_ENTITY_ASSERTIONS: true when the
+  actor has Edit Owners or Edit Assertions on this entity (the assertee).
+  """
+  canEditAssertionOwners: Boolean
+
+  """
   Whether or not a user can update the deprecation status for an entity
   """
   canEditDeprecation: Boolean

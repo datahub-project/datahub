@@ -7,6 +7,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -32,6 +33,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -239,7 +241,9 @@ public class SampleDataFixtureConfiguration {
         indexBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
         TEST_ES_SEARCH_CONFIG,
-        new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+        new V2MappingsBuilder(
+            TEST_ES_SEARCH_CONFIG.getEntityIndex(),
+            OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
@@ -370,10 +374,10 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
+    when(mockAspectDao.batchGet(any(OperationContext.class), anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
-              Set<EntityAspectIdentifier> ids = args.getArgument(0);
+              Set<EntityAspectIdentifier> ids = args.getArgument(1);
               return ids.stream()
                   .map(
                       id -> {

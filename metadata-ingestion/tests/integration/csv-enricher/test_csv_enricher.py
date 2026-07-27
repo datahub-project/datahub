@@ -16,6 +16,10 @@ def test_csv_enricher_config():
             write_semantics="OVERRIDE",
             delimiter=",",
             array_delimiter="|",
+            structured_properties={
+                "tier": "io.acryl.metadata.tier",
+                "classification": "urn:li:structuredProperty:io.acryl.privacy.classification",
+            },
         )
     )
     assert config
@@ -37,6 +41,9 @@ def test_csv_enricher_source(pytestconfig, tmp_path):
                     "write_semantics": "OVERRIDE",
                     "delimiter": ",",
                     "array_delimiter": "|",
+                    "structured_properties": {
+                        "classification": "io.acryl.test.classification",
+                    },
                 },
             },
             "sink": {

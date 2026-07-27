@@ -3,6 +3,7 @@ package com.linkedin.metadata.boot.kafka;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Component;
 // backwards incompatible query logic dependent on system updates.
 @Component("dataHubUpgradeKafkaListener")
 @Slf4j
+@KafkaMessagingEnabled
 @EnableKafka
 public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, BootstrapDependency {
 

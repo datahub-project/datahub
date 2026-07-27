@@ -3,7 +3,8 @@ const documentation_edited = `This is test${test_id} documentation EDITED`;
 const wrong_url = "https://www.linkedincom";
 const correct_url = "https://www.linkedin.com";
 
-describe("edit documentation and link to dataset", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("edit documentation and link to dataset", () => {
   it("edit field documentation", () => {
     cy.login();
     cy.visit(

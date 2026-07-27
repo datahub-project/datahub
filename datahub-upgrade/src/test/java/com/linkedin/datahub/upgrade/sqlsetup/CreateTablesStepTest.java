@@ -8,6 +8,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import io.ebean.SqlUpdate;
@@ -65,8 +66,9 @@ public class CreateTablesStepTest {
             "localhost", // host
             3306, // port
             "testdb", // databaseName
-            false // createSchemaVersionIndex
-            );
+            null, // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
     createTablesStep = new CreateTablesStep(mockDatabase, defaultSetupArgs);
     when(mockUpgradeContext.report()).thenReturn(mockUpgradeReport);
 
@@ -132,8 +134,9 @@ public class CreateTablesStepTest {
             "localhost", // host
             5432, // port
             "testdb", // databaseName
-            false // createSchemaVersionIndex
-            );
+            "public", // postgresMetadataSchema
+            false, // createSchemaVersionIndex
+            null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresSetupArgs);
     when(mockDatabase.dataSource()).thenReturn(mockDataSource);
     when(mockDataSource.getConnection()).thenReturn(mockConnection);
@@ -240,8 +243,8 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement, times(6))
-        .executeQuery(); // schema + 3 legacy drops + 2 ensureAspectIndexes existence checks
+    verify(mockPreparedStatement, times(7))
+        .executeQuery(); // schema + 3 legacy drops + 2 ensureAspectIndexes + 1 collation check
     verify(mockConnection).prepareStatement(contains("CREATE DATABASE"));
     verify(mockConnection).prepareStatement("USE `testdb`");
     verify(mockPreparedStatement, times(2))
@@ -332,7 +335,9 @@ public class CreateTablesStepTest {
             "localhost",
             5432,
             "testdb",
-            false);
+            "testdb",
+            false,
+            null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock that database exists (ResultSet.next() returns true)
@@ -352,8 +357,9 @@ public class CreateTablesStepTest {
 
     // Mock that database exists (ResultSet.next() returns true)
     when(mockResultSet.next()).thenReturn(true);
-    // Legacy index counts 0 (nothing to drop); timeIndex + idx_version_urn_aspect already present
-    when(mockResultSet.getInt(1)).thenReturn(0, 0, 0, 1, 1);
+    // Legacy index counts 0 (nothing to drop); timeIndex + idx_version_urn_aspect already present;
+    // final 0 = key columns already utf8mb4_bin (no collation conversion needed)
+    when(mockResultSet.getInt(1)).thenReturn(0, 0, 0, 1, 1, 0);
 
     Function<UpgradeContext, UpgradeStepResult> executable = createTablesStep.executable();
     UpgradeStepResult result = executable.apply(mockUpgradeContext);
@@ -362,8 +368,8 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement, times(6))
-        .executeQuery(); // schema + 3 legacy + 2 ensureAspectIndexes
+    verify(mockPreparedStatement, times(7))
+        .executeQuery(); // schema + 3 legacy + 2 ensureAspectIndexes + 1 collation check
   }
 
   @Test
@@ -384,7 +390,9 @@ public class CreateTablesStepTest {
             "localhost",
             5432,
             "testdb",
-            false);
+            "testdb",
+            false,
+            null);
     CreateTablesStep postgresStep = new CreateTablesStep(mockDatabase, postgresArgs);
 
     // Mock database check failure - PreparedStatement throws exception
@@ -410,6 +418,7 @@ public class CreateTablesStepTest {
         .thenReturn(mockResultSet)
         .thenReturn(mockResultSet)
         .thenReturn(mockResultSet)
+        .thenReturn(mockResultSet)
         .thenReturn(mockResultSet);
     when(mockResultSet.next()).thenReturn(false);
 
@@ -420,11 +429,11 @@ public class CreateTablesStepTest {
     verify(mockConnection)
         .prepareStatement(contains("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA"));
     verify(mockPreparedStatement).setString(1, "testdb");
-    verify(mockPreparedStatement, times(6)).executeQuery();
+    verify(mockPreparedStatement, times(7)).executeQuery();
   }
 
   @Test
-  public void testCreateTablesMysqlAcquiresFourConnectionsWhenCreateDatabaseEnabled()
+  public void testCreateTablesMysqlAcquiresFiveConnectionsWhenCreateDatabaseEnabled()
       throws SQLException {
     SqlSetupArgs args =
         new SqlSetupArgs(
@@ -441,18 +450,21 @@ public class CreateTablesStepTest {
             "localhost",
             3306,
             "testdb",
-            false);
+            null,
+            false,
+            null);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     SqlSetupResult result = step.createTables(args);
 
     assertEquals(result.getTablesCreated(), 1);
     assertTrue(result.getExecutionTimeMs() >= 0);
-    verify(mockDataSource, times(4)).getConnection();
+    // createDatabase + selectDatabase + dropLegacyIndexes + ensureAspectIndexes + ensureCollation
+    verify(mockDataSource, times(5)).getConnection();
   }
 
   @Test
-  public void testCreateTablesMysqlAcquiresThreeConnectionsWhenCreateDatabaseDisabled()
+  public void testCreateTablesMysqlAcquiresFourConnectionsWhenCreateDatabaseDisabled()
       throws SQLException {
     SqlSetupArgs args =
         new SqlSetupArgs(
@@ -469,12 +481,15 @@ public class CreateTablesStepTest {
             "localhost",
             3306,
             "testdb",
-            false);
+            null,
+            false,
+            null);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     step.createTables(args);
 
-    verify(mockDataSource, times(3)).getConnection();
+    // selectDatabase + dropLegacyIndexes + ensureAspectIndexes + ensureCollation
+    verify(mockDataSource, times(4)).getConnection();
   }
 
   @Test
@@ -495,17 +510,19 @@ public class CreateTablesStepTest {
             "localhost",
             5432,
             "testdb",
-            false);
+            "testdb",
+            false,
+            null);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
 
     step.createTables(args);
 
     verify(mockDatabase, times(1)).sqlUpdate(contains("CREATE TABLE IF NOT EXISTS"));
-    verify(mockStatement, times(7)).execute(anyString());
+    verify(mockStatement, times(9)).execute(anyString());
   }
 
   @Test
-  public void testCreateTablesPostgresWithSchemaVersionAcquiresFifthConnectionAndRunsPostSetup()
+  public void testCreateTablesPostgresWithSchemaVersionAcquiresSeventhConnectionAndRunsPostSetup()
       throws SQLException {
     SqlSetupArgs args =
         new SqlSetupArgs(
@@ -522,14 +539,18 @@ public class CreateTablesStepTest {
             "localhost",
             5432,
             "testdb",
-            true);
+            "testdb",
+            true,
+            null);
     CreateTablesStep step = new CreateTablesStep(mockDatabase, args);
     when(mockResultSet.next()).thenReturn(false);
 
     step.createTables(args);
 
-    verify(mockDataSource, times(5)).getConnection();
-    verify(mockStatement, times(8)).execute(anyString());
+    // createDatabase + ensureSchema + selectDatabase + dropLegacyIndexes + ensureAspectIndexes
+    // + ensureCollation (no-op for Postgres but still opens a connection) + postSetup
+    verify(mockDataSource, times(7)).getConnection();
+    verify(mockStatement, times(10)).execute(anyString());
     verify(mockStatement)
         .execute(
             "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");

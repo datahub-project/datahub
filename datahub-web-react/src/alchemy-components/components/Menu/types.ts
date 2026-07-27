@@ -16,6 +16,7 @@ export interface MenuItemType extends BaseItemType {
     disabled?: boolean;
     danger?: boolean;
     children?: ItemType[];
+    dataTestId?: string;
 
     onClick?: () => void;
     render?: (item: MenuItemType) => React.ReactNode;

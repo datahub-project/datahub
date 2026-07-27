@@ -1,12 +1,17 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { isMoveDisabled } from '@app/entityV2/shared/EntityDropdown/utils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -14,6 +19,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType } from '@types';
 
 export default function MoveEntityMenuAction() {
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const { entityData, entityType, urn } = useEntityData();
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
@@ -28,14 +34,18 @@ export default function MoveEntityMenuAction() {
     }
 
     return (
-        <Tooltip placement="bottom" title={`Move this ${entityRegistry.getEntityName(entityType)}`} showArrow={false}>
+        <Tooltip
+            placement="bottom"
+            title={t('menuAction.moveTooltip', { entityName: entityRegistry.getEntityName(entityType) })}
+            showArrow={false}
+        >
             <ActionMenuItem
                 key="move"
                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                 onClick={() => setIsMoveModalVisible(true)}
                 data-testid="entity-menu-move-button"
             >
-                <FolderOpenOutlined style={{ display: 'flex' }} />
+                <FolderOpen size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
             {isMoveModalVisible && isGlossaryEntity && (
                 <MoveGlossaryEntityModal

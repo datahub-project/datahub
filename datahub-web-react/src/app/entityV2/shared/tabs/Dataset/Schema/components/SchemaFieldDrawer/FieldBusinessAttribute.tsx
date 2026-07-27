@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function FieldBusinessAttribute({ expandedField, refetch }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     if (!businessAttributesFlag) {
@@ -35,7 +37,11 @@ export default function FieldBusinessAttribute({ expandedField, refetch }: Props
 
     return (
         <>
-            <SidebarSection title="Business Attribute" content={businessAttributeContent} collapsible />
+            <SidebarSection
+                title={t('fieldBusinessAttribute.sectionTitle')}
+                content={businessAttributeContent}
+                collapsible
+            />
             <StyledDivider dashed />
         </>
     );

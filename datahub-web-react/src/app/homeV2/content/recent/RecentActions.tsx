@@ -36,8 +36,8 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
  * Component for displaying recent actions, e.g. things recently viewed or edited for a given user.
  */
 export const RecentActions = () => {
-    const { user, loaded } = useUserContext();
-    const { viewed, loading } = useGetRecentActions(user);
+    const { loaded } = useUserContext();
+    const { viewed, loading } = useGetRecentActions();
     const { isUserInitializing } = useContext(OnboardingContext);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 

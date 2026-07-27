@@ -441,7 +441,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
                             new CriterionArray(
                                 new Criterion()
                                     .setField("platform")
-                                    .setValue("snowflake")
+                                    .setValues(new StringArray("snowflake"))
                                     .setCondition(Condition.EQUAL)))));
     DataHubViewInfo viewInfo =
         new DataHubViewInfo()

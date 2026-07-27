@@ -4,11 +4,14 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -68,6 +71,26 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
     public EntityRegistry entityRegistry(
         @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
       return systemOperationContext.getEntityRegistry();
+    }
+
+    @Bean(name = "searchClientShim")
+    @Primary
+    @SuppressWarnings("unchecked")
+    public SearchClientShim<?> searchClientShim() {
+      SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
+      Mockito.when(mock.getEngineType())
+          .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+      Mockito.when(mock.partialNgramConfig())
+          .thenReturn(
+              com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim
+                  .PARTIAL_NGRAM_CONFIG);
+      return mock;
+    }
+
+    @Bean(name = IndexConventionFactory.INDEX_CONVENTION_BEAN)
+    @Primary
+    public IndexConvention indexConvention() {
+      return Mockito.mock(IndexConvention.class);
     }
   }
 

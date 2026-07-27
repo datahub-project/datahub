@@ -64,6 +64,17 @@ fragment entityProfileVersionProperties on SupportsVersions {
     }
 }
 
+query getVersionSetLatest($versionSetUrn: String!) {
+    versionSet(urn: $versionSetUrn) {
+        latestVersion {
+            urn
+        }
+        versionsSearch(input: { query: "*", count: 0 }) {
+            total
+        }
+    }
+}
+
 query searchAcrossVersions($versionSetUrn: String!, $input: SearchAcrossEntitiesInput!) {
     versionSet(urn: $versionSetUrn) {
         versionsSearch(input: $input) {

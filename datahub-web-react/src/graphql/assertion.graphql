@@ -1,5 +1,3 @@
-#import "./assertion_monitor_shared.graphql"
-
 fragment assertionInfo on AssertionInfo {
     type
     description
@@ -282,6 +280,7 @@ fragment assertionStdParametersDetails on AssertionStdParameters {
 
 fragment assertionResultDetails on AssertionResult {
     type
+    severity
     actualAggValue
     rowCount
     missingCount

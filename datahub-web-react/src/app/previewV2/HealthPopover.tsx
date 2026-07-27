@@ -1,6 +1,8 @@
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { Typography } from 'antd';
+import i18next from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -82,6 +84,8 @@ function healthIcon({ type }: Health) {
             return <ReportProblemOutlinedIcon fontSize="inherit" />;
         case HealthStatusType.Assertions:
             return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+        case HealthStatusType.Tests:
+            return <AssignmentOutlinedIcon fontSize="inherit" />;
         default:
             return null;
     }
@@ -93,6 +97,8 @@ function healthUrlSuffix({ type }: Health) {
             return '/Incidents';
         case HealthStatusType.Assertions:
             return '/Quality/List';
+        case HealthStatusType.Tests:
+            return '/Governance';
         default:
             return null;
     }
@@ -103,9 +109,11 @@ function healthMessage({ message, status, type }: Health) {
     if (status === HealthStatus.Pass) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'All assertions are passing';
+                return i18next.t('entity.preview:health.assertionsPassing');
             case HealthStatusType.Incidents:
-                return 'No active incidents';
+                return i18next.t('entity.preview:health.noActiveIncidents');
+            case HealthStatusType.Tests:
+                return i18next.t('entity.preview:health.testsPassing');
             default:
                 return null;
         }

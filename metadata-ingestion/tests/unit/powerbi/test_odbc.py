@@ -5,6 +5,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_server,
     normalize_platform_name,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 
 test_connection_strings = [
     "Driver={SQL Server};Server=server;Database=database;Uid=sa;Pwd=pass",
@@ -17,6 +18,7 @@ test_connection_strings = [
     "Driver={SnowflakeDSIIDriver};Server=account.snowflakecomputing.com;Database=mydb;Warehouse=warehouse;UID=username;PWD=mypassword;Role=role;Schema=schema;",
     "Driver={Simba Spark ODBC Driver};Host=dbc-xxxxxxxx-xxxx.cloud.databricks.com;Port=443;HTTPPath=/sql/protocolv1/o/xxxxxxxxxx/xxxxxxxxxx;AuthMech=3;UID=token;PWD=dapi_xxxxxxxxxxxxxxxxxxxxxx;SSL=1;ThriftTransport=2;",
     "Driver={Simba Google BigQuery ODBC Driver};OAuthMechanism=0;Catalog=project;ProjectId=project;RefreshToken=refreshtoken;",
+    "Driver={Cloudera ODBC Driver for Apache Hive};Host=hive.example.com;Port=10000;Schema=default;",
 ]
 
 dsn_connection_strings = [
@@ -48,6 +50,7 @@ server_list = [
     "account.snowflakecomputing.com",
     "dbc-xxxxxxxx-xxxx.cloud.databricks.com",
     None,
+    "hive.example.com",
 ]
 
 platform_list = [
@@ -61,6 +64,7 @@ platform_list = [
     ("snowflake", "Snowflake"),
     ("databricks", "Databricks"),
     ("bigquery", "Google BigQuery"),
+    ("hive", "Hive"),
 ]
 
 driver_list = [
@@ -74,6 +78,7 @@ driver_list = [
     "SnowflakeDSIIDriver",
     "Simba Spark ODBC Driver",
     "Simba Google BigQuery ODBC Driver",
+    "Cloudera ODBC Driver for Apache Hive",
 ]
 
 
@@ -86,7 +91,7 @@ def test_server_extraction():
 
 def test_platform_extraction():
     for connection_string, result in zip(
-        test_connection_strings, platform_list, strict=False
+        test_connection_strings, platform_list, strict=True
     ):
         assert extract_platform(connection_string) == result
 
@@ -108,3 +113,28 @@ def test_dsn_mapping():
             dsn_to_platform_map[dsn]
         )
         assert mapped_platform == expected
+
+
+def test_hive_resolves_distinctly_from_hadoop():
+    """Hive and Hadoop must resolve to separate DataHub platforms.
+
+    Previously both were folded into 'hadoop' via a shared ``(hadoop|hive)``
+    regex, which (a) emitted upstream URNs under the wrong platform and
+    (b) broke native SQL parsing because sqlglot has no 'hadoop' dialect.
+    """
+    assert normalize_platform_name("hive") == ("hive", "Hive")
+    assert normalize_platform_name("hadoop") == ("hadoop", "Hadoop")
+
+
+def test_hive_platform_has_valid_sqlglot_dialect():
+    """A 'hive' DSN must resolve to a platform sqlglot can parse.
+
+    Direct regression guard for the runtime warning
+    ``SQL Parsing Failure ... error=Unknown dialect 'hadoop'``: the Power BI
+    ODBC handler feeds the resolved platform straight into ``get_dialect``
+    when parsing native SQL, so the platform must map to a real dialect.
+    """
+    platform, _ = normalize_platform_name("hive")
+    assert platform is not None
+    # Must not raise "Unknown dialect '<platform>'".
+    get_dialect(platform)

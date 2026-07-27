@@ -1,5 +1,6 @@
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -10,6 +11,11 @@ import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { Operation, UsageQueryResult } from '@types';
+
+/* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
+const STATS_TAB = 'Stats';
+const QUERIES_TAB = 'Queries';
+/* eslint-enable i18next/no-literal-string */
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;
@@ -34,6 +40,7 @@ const INFO_ITEM_WIDTH_PX = '150px';
 const LAST_UPDATED_WIDTH_PX = '220px';
 
 export const SidebarStatsSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const toLocalDateTimeString = (time: number) => {
@@ -71,9 +78,9 @@ export const SidebarStatsSection = () => {
     return (
         <div>
             <HeaderContainer>
-                <SidebarHeader title="Stats" />
-                <StatsButton onClick={() => routeToTab({ tabName: 'Stats' })} type="link">
-                    More stats &gt;
+                <SidebarHeader title={t('sidebar.stats.sectionTitle')} />
+                <StatsButton onClick={() => routeToTab({ tabName: STATS_TAB })} type="link">
+                    {t('sidebar.stats.moreStatsLink')}
                 </StatsButton>
             </HeaderContainer>
             {/* Dataset Profile Entry */}
@@ -81,15 +88,15 @@ export const SidebarStatsSection = () => {
                 <StatsRow>
                     {latestProfile?.rowCount ? (
                         <InfoItem
-                            title="Rows"
-                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            title={t('sidebar.stats.rowsLabel')}
+                            onClick={() => routeToTab({ tabName: QUERIES_TAB })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
                             <HeaderInfoBody>{formatNumberWithoutAbbreviation(latestProfile?.rowCount)}</HeaderInfoBody>
                         </InfoItem>
                     ) : null}
                     {latestProfile?.columnCount ? (
-                        <InfoItem title="Columns" width={INFO_ITEM_WIDTH_PX}>
+                        <InfoItem title={t('sidebar.stats.columnsLabel')} width={INFO_ITEM_WIDTH_PX}>
                             <HeaderInfoBody>{latestProfile?.columnCount}</HeaderInfoBody>
                         </InfoItem>
                     ) : null}
@@ -100,8 +107,8 @@ export const SidebarStatsSection = () => {
                 <StatsRow>
                     {usageStats?.aggregations?.totalSqlQueries ? (
                         <InfoItem
-                            title="Monthly Queries"
-                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            title={t('sidebar.stats.monthlyQueriesLabel')}
+                            onClick={() => routeToTab({ tabName: QUERIES_TAB })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
                             <HeaderInfoBody>
@@ -112,7 +119,7 @@ export const SidebarStatsSection = () => {
                         </InfoItem>
                     ) : null}
                     {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
-                        <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
+                        <InfoItem title={t('sidebar.stats.topUsersLabel')} width={INFO_ITEM_WIDTH_PX}>
                             <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
                         </InfoItem>
                     ) : null}
@@ -122,8 +129,8 @@ export const SidebarStatsSection = () => {
             {hasLatestOperation ? (
                 <StatsRow>
                     <InfoItem
-                        title="Last Updated"
-                        onClick={() => routeToTab({ tabName: 'Queries' })}
+                        title={t('sidebar.stats.lastUpdatedLabel')}
+                        onClick={() => routeToTab({ tabName: QUERIES_TAB })}
                         width={LAST_UPDATED_WIDTH_PX}
                     >
                         <HeaderInfoBody>{lastUpdatedTime}</HeaderInfoBody>

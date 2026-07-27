@@ -2,18 +2,21 @@ package com.linkedin.datahub.graphql.analytics.resolver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Highlight;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -27,8 +30,9 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
   @Override
   public final List<Highlight> get(DataFetchingEnvironment environment) throws Exception {
+    final QueryContext context = environment.getContext();
     try {
-      return getHighlights();
+      return getHighlights(context.getOperationContext());
     } catch (Exception e) {
       log.error("Failed to retrieve analytics highlights!", e);
       return Collections.emptyList(); // Simply return nothing.
@@ -36,6 +40,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   private Highlight getTimeBasedHighlight(
+      @Nonnull final OperationContext opContext,
       final String title,
       final String changeString,
       final DateTime endDateTime,
@@ -51,6 +56,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     int activeUsersThisRange =
         _analyticsService.getHighlights(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(dateRangeThis),
             ImmutableMap.of(),
@@ -58,6 +64,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
             Optional.of("browserId"));
     int activeUsersLastRange =
         _analyticsService.getHighlights(
+            opContext,
             _analyticsService.getUsageIndexName(),
             Optional.of(dateRangeLast),
             ImmutableMap.of(),
@@ -86,49 +93,56 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
   }
 
   /** TODO: Config Driven Charts Instead of Hardcoded. */
-  private List<Highlight> getHighlights() {
+  private List<Highlight> getHighlights(@Nonnull final OperationContext opContext) {
     final List<Highlight> highlights = new ArrayList<>();
 
     DateTime endDate = DateTime.now();
     highlights.add(
         getTimeBasedHighlight(
+            opContext,
             "Weekly Active Users",
             "%.2f%% %s from last week",
             endDate,
             (date) -> date.minusWeeks(1)));
     highlights.add(
         getTimeBasedHighlight(
+            opContext,
             "Monthly Active Users",
             "%.2f%% %s from last month",
             endDate,
             (date) -> date.minusMonths(1)));
 
     // Entity metadata statistics
-    getEntityMetadataStats("Datasets", EntityType.DATASET).ifPresent(highlights::add);
-    getEntityMetadataStats("Dashboards", EntityType.DASHBOARD).ifPresent(highlights::add);
-    getEntityMetadataStats("Charts", EntityType.CHART).ifPresent(highlights::add);
-    getEntityMetadataStats("Pipelines", EntityType.DATA_FLOW).ifPresent(highlights::add);
-    getEntityMetadataStats("Tasks", EntityType.DATA_JOB).ifPresent(highlights::add);
-    getEntityMetadataStats("Domains", EntityType.DOMAIN).ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Datasets", EntityType.DATASET).ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Dashboards", EntityType.DASHBOARD)
+        .ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Charts", EntityType.CHART).ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Pipelines", EntityType.DATA_FLOW).ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Tasks", EntityType.DATA_JOB).ifPresent(highlights::add);
+    getEntityMetadataStats(opContext, "Domains", EntityType.DOMAIN).ifPresent(highlights::add);
     return highlights;
   }
 
-  private Optional<Highlight> getEntityMetadataStats(String title, EntityType entityType) {
+  private Optional<Highlight> getEntityMetadataStats(
+      @Nonnull final OperationContext opContext, String title, EntityType entityType) {
     String index = _analyticsService.getEntityIndexName(entityType);
-    int numEntities = getNumEntitiesFiltered(index, ImmutableMap.of());
+    int numEntities = getNumEntitiesFiltered(opContext, index, ImmutableMap.of());
     // If there are no entities for the type, do not show the highlight
     if (numEntities == 0) {
       return Optional.empty();
     }
     int numEntitiesWithOwners =
-        getNumEntitiesFiltered(index, ImmutableMap.of("hasOwners", ImmutableList.of("true")));
+        getNumEntitiesFiltered(
+            opContext, index, ImmutableMap.of("hasOwners", ImmutableList.of("true")));
     int numEntitiesWithTags =
-        getNumEntitiesFiltered(index, ImmutableMap.of("hasTags", ImmutableList.of("true")));
+        getNumEntitiesFiltered(
+            opContext, index, ImmutableMap.of("hasTags", ImmutableList.of("true")));
     int numEntitiesWithGlossaryTerms =
         getNumEntitiesFiltered(
-            index, ImmutableMap.of("hasGlossaryTerms", ImmutableList.of("true")));
+            opContext, index, ImmutableMap.of("hasGlossaryTerms", ImmutableList.of("true")));
     int numEntitiesWithDescription =
-        getNumEntitiesFiltered(index, ImmutableMap.of("hasDescription", ImmutableList.of("true")));
+        getNumEntitiesFiltered(
+            opContext, index, ImmutableMap.of("hasDescription", ImmutableList.of("true")));
 
     String bodyText = "";
     if (numEntities > 0) {
@@ -147,7 +161,8 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
                 percentWithDescription);
       } else {
         int numEntitiesWithDomains =
-            getNumEntitiesFiltered(index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
+            getNumEntitiesFiltered(
+                opContext, index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
         double percentWithDomains = 100.0 * numEntitiesWithDomains / numEntities;
         bodyText =
             String.format(
@@ -163,8 +178,10 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
         Highlight.builder().setTitle(title).setValue(numEntities).setBody(bodyText).build());
   }
 
-  private int getNumEntitiesFiltered(String index, Map<String, List<String>> filters) {
+  private int getNumEntitiesFiltered(
+      @Nonnull final OperationContext opContext, String index, Map<String, List<String>> filters) {
     return _analyticsService.getHighlights(
+        opContext,
         index,
         Optional.empty(),
         filters,

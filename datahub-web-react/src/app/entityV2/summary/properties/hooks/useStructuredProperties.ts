@@ -3,15 +3,20 @@ import { useMemo } from 'react';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES } from '@app/entityV2/summary/properties/constants';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
-import { getStructuredPropertiesSearchInputs, isStructuredProperty } from '@app/govern/structuredProperties/utils';
+import {
+    getStructuredPropertiesSearchInputs,
+    isStructuredProperty,
+    matchesAllowedPlatforms,
+} from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { SummaryElementType } from '@types';
+import { DataPlatform, SummaryElementType } from '@types';
 
 export default function useStructuredProperties(query: string | undefined) {
-    const { entityType } = useEntityData();
+    const { entityType, entityData } = useEntityData();
     const preprocessedQuery = (query ?? '').trim();
+    const platformUrn = (entityData?.platform as DataPlatform | undefined)?.urn;
 
     const entityRegistry = useEntityRegistry();
 
@@ -66,6 +71,7 @@ export default function useStructuredProperties(query: string | undefined) {
                 .filter((property) =>
                     SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES.includes(property.definition.valueType.urn),
                 )
+                .filter((property) => matchesAllowedPlatforms(property, platformUrn))
                 ?.map((structuredProperty) => ({
                     key: structuredProperty.urn,
                     name: structuredProperty.definition.displayName ?? '',
@@ -74,7 +80,7 @@ export default function useStructuredProperties(query: string | undefined) {
                 }))
                 .filter((property) => !!property.name) as AssetProperty[]) ?? []
         );
-    }, [data]);
+    }, [data, platformUrn]);
 
     return { structuredProperties, loading };
 }

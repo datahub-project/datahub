@@ -61,7 +61,14 @@ public class GetSchemaBlameResolver
                 Collections.singleton(ChangeCategory.TECHNICAL_SCHEMA);
             final List<ChangeTransaction> changeTransactionList =
                 _timelineService.getTimeline(
-                    datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
+                    context.getOperationContext(),
+                    datasetUrn,
+                    changeCategorySet,
+                    startTime,
+                    endTime,
+                    null,
+                    null,
+                    false);
             return SchemaBlameMapper.map(changeTransactionList, version);
           } catch (Exception e) {
             log.error("Failed to list schema blame data", e);

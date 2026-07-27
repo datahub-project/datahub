@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -10,6 +11,7 @@ import { useAddLinkMutation, useRemoveLinkMutation, useUpdateLinkMutation } from
 import { InstitutionalMemoryMetadata } from '@types';
 
 export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = null) {
+    const { t } = useTranslation('entity.shared.components');
     const { urn: entityUrn, entityType } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -40,7 +42,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: 'Link Removed', duration: 2 });
+            toast.success(t('links.removed'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -48,9 +50,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 actionType: EntityActionType.DeleteLink,
             });
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Error removing link: \n ${e.message || ''}`, duration: 2 });
+                toast.error(t('links.removeError', { message: e.message || '' }));
             }
         }
         refetch?.();
@@ -69,7 +70,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: 'Link Added', duration: 2 });
+            toast.success(t('links.added'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -78,9 +79,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
             });
             refetch?.();
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
+                toast.error(t('links.addError', { message: e.message || '' }));
             }
         }
     };
@@ -101,7 +101,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: 'Link Updated', duration: 2 });
+            toast.success(t('links.updated'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -109,9 +109,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 actionType: EntityActionType.UpdateLinks,
             });
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Error updating link: \n ${e.message || ''}`, duration: 2 });
+                toast.error(t('links.updateError', { message: e.message || '' }));
             }
         }
         refetch?.();

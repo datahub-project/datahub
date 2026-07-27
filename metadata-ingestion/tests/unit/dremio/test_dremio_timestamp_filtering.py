@@ -100,33 +100,33 @@ class TestDremioTimestampFiltering:
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
 
     def test_query_structure_unchanged(self):
-        """Test that core query structure remains unchanged"""
+        # Pin the WHERE invariants that gate which jobs feed lineage —
+        # silently dropping them changes lineage output without a test failure.
         query = DremioSQLQueries.get_query_all_jobs()
 
-        # Check that all original WHERE conditions are still present
         assert "STATUS = 'COMPLETED'" in query
         assert "LENGTH(queried_datasets)>0" in query
         assert "user_name != '$dremio$'" in query
         assert "query_type not like '%INTERNAL%'" in query
 
-        # Check that SELECT fields are unchanged
-        assert "job_id" in query
-        assert "user_name" in query
-        assert "submitted_ts" in query
-        assert "query" in query
-        assert "queried_datasets" in query
+        for field in (
+            "job_id",
+            "user_name",
+            "submitted_ts",
+            "query",
+            "queried_datasets",
+        ):
+            assert field in query, f"SELECT clause missing {field!r}"
 
     def test_cloud_query_structure_unchanged(self):
-        """Test that core cloud query structure remains unchanged"""
+        # On-prem invariants plus the Dremio 26.1.0+ ARRAY → string CONCAT
+        # projection for `queried_datasets` (see PR #17647).
         query = DremioSQLQueries.get_query_all_jobs_cloud()
 
-        # Check that all original WHERE conditions are still present
         assert "STATUS = 'COMPLETED'" in query
         assert "ARRAY_SIZE(queried_datasets)>0" in query
         assert "user_name != '$dremio$'" in query
         assert "query_type not like '%INTERNAL%'" in query
-
-        # Check that SELECT fields are unchanged including cloud-specific formatting
         assert (
             "CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets"
             in query

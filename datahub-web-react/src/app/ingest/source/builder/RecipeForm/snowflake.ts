@@ -1,4 +1,4 @@
-import { get, omit } from 'lodash';
+import { get, omit, set } from 'lodash';
 
 import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
@@ -9,25 +9,27 @@ const privateKeyFieldPath = 'source.config.private_key';
 const privateKeyPasswordFieldPath = 'source.config.private_key_password';
 
 /**
- * Cleans up stale authentication credentials when switching authentication types.
- * This prevents both password and private key from being submitted together.
+ * Writes the selected authentication type to the recipe and clears stale credentials
+ * belonging to the other auth type. Without setting the field explicitly, the YAML
+ * recipe would omit `authentication_type` and Snowflake would fall back to the
+ * default authenticator regardless of the user's selection.
  *
  * @param recipe - The current recipe configuration
- * @returns Updated recipe with only relevant credentials for the selected auth type
+ * @param value - The authentication type selected in the form
+ * @returns Updated recipe with the new auth type and only its relevant credentials
  */
-function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
-    let updatedRecipe = { ...recipe };
-    const authType = get(updatedRecipe, authTypeFieldPath);
+function setSnowflakeAuthTypeOnRecipe(recipe: any, value: string | undefined): any {
+    let updatedRecipe = set({ ...recipe }, authTypeFieldPath, value);
 
     const passwordFields = [passwordFieldPath];
     const keyPairFields = [privateKeyFieldPath, privateKeyPasswordFieldPath];
 
     // Remove password when using key pair authentication
-    if (authType === 'KEY_PAIR_AUTHENTICATOR') {
+    if (value === 'KEY_PAIR_AUTHENTICATOR') {
         updatedRecipe = omit(updatedRecipe, passwordFields);
     }
     // Remove key pair credentials when using username/password authentication
-    else if (authType === 'DEFAULT_AUTHENTICATOR') {
+    else if (value === 'DEFAULT_AUTHENTICATOR') {
         updatedRecipe = omit(updatedRecipe, keyPairFields);
     }
     // For any other auth type or undefined, clean up all credential fields

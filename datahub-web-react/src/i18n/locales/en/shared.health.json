@@ -1,0 +1,15 @@
+{
+    "failAssertions": "See failing assertions →",
+    "failChecks": "See failed checks →",
+    "failIncidents": "See active incidents →",
+    "passAssertions": "All assertions are passing",
+    "passChecks": "All checks are passing",
+    "passIncidents": "No active incidents",
+    "summaryHealthy": "This asset is healthy",
+    "summaryUnhealthy": "This asset may be unhealthy",
+    "typeAssertions": "Assertions",
+    "typeIncidents": "Incidents",
+    "typeTests": "Tests",
+    "warnAssertions": "Some assertions have problems.",
+    "warnChecks": "Some checks have problems."
+}

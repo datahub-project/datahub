@@ -1,14 +1,15 @@
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Button, Dropdown, List, Popover, Tag, Tooltip, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
 import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
@@ -55,7 +56,7 @@ const IncidentTitle = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 700;
     margin-right: 16px;
-    color: #000000;
+    color: ${(props) => props.theme.colors.text};
     line-height: 22px;
     text-align: justify;
     max-width: 500px;
@@ -68,7 +69,7 @@ const IncidentTypeTag = styled(Tag)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     padding: 2px 15px;
     white-space: nowrap;
     overflow: hidden;
@@ -81,7 +82,7 @@ const IncidentDescriptionText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     display: block;
     word-wrap: break-word;
     white-space: normal;
@@ -92,7 +93,7 @@ const IncidentDescriptionLabel = styled(Typography.Text)`
     margin-top: 4px;
     font-weight: 400;
     font-size: 10px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
     display: block;
     word-wrap: break-word;
     white-space: normal;
@@ -103,14 +104,14 @@ const IncidentCreatedTime = styled(Typography.Text)`
     font-weight: 500;
     font-size: 10px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const IncidentResolvedText = styled(Typography.Text)`
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
-    color: #8c8c8c;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const IncidentResolvedTextContainer = styled.div`
@@ -125,12 +126,12 @@ const IncidentResolvedContainer = styled.div`
 `;
 
 const IncidentResolvedButton = styled(Button)`
-    background: #ffffff;
-    border: 1px solid #d9d9d9;
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     box-sizing: border-box;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     border-radius: 5px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
@@ -146,6 +147,9 @@ const MenuIcon = styled(MoreOutlined)`
 `;
 
 export default function IncidentListItem({ incident, refetch }: Props) {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation(['common.feedback', 'common.labels']);
+    const theme = useTheme();
     const { entityType } = useEntityData();
     const refetchEntity = useRefetch();
     const entityRegistry = useEntityRegistry();
@@ -168,7 +172,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
 
     // Updating the incident status on button click
     const updateIncidentStatus = (state: IncidentState, resolvedMessage: string) => {
-        message.loading({ content: 'Updating...' });
+        message.loading({ content: tc('common.feedback:updating') });
         updateIncidentStatusMutation({
             variables: { urn: incident.urn, input: { state, message: resolvedMessage } },
         })
@@ -180,7 +184,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     entityUrn: incident.urn,
                     actionType: EntityActionType.ResolvedIncident,
                 });
-                message.success({ content: 'Incident updated! .', duration: 2 });
+                message.success({ content: t('resolution.success'), duration: 2 });
                 refetchEntity?.();
                 refetch?.();
                 setIsResolvedModalVisible(false);
@@ -188,9 +192,8 @@ export default function IncidentListItem({ incident, refetch }: Props) {
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to update incident! An unexpected error occurred',
-                    permissionMessage:
-                        'Unauthorized to update incident for this asset. Please contact your DataHub administrator.',
+                    defaultMessage: t('resolution.updateFailed'),
+                    permissionMessage: t('resolution.updateUnauthorizedAsset'),
                 });
             });
     };
@@ -208,7 +211,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     onClick={() => updateIncidentStatus(IncidentState.Active, '')}
                     data-testid="reopen-incident"
                 >
-                    Reopen incident
+                    {t('list.reopen')}
                 </MenuItemStyle>
             ),
         },
@@ -229,13 +232,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 </IncidentTypeTag>
                             </TitleContainer>
                             <DescriptionContainer>
-                                <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
+                                <IncidentDescriptionLabel>{tc('common.labels:description')}</IncidentDescriptionLabel>
                                 <MarkdownViewer source={incident?.description || ''} />
                                 {incident.incidentStatus?.state === IncidentState.Resolved ? (
                                     <>
-                                        <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
+                                        <IncidentDescriptionLabel>
+                                            {t('editor.resolutionNoteLabel')}
+                                        </IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.incidentStatus?.message || 'No additional details'}
+                                            {incident?.incidentStatus?.message || t('list.noAdditionalDetails')}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -243,19 +248,30 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <DescriptionContainer>
                                 <Tooltip placement="right" showArrow={false} title={toLocalDateTimeString(createdDate)}>
                                     <IncidentCreatedTime>
-                                        Created {toRelativeTimeString(createdDate)} by{' '}
+                                        <Trans
+                                            i18nKey={createdActor?.corpUser ? 'list.createdBy' : 'list.created'}
+                                            t={t}
+                                            values={{ time: toRelativeTimeString(createdDate) }}
+                                            components={{
+                                                actor: createdActor?.corpUser ? (
+                                                    <Link
+                                                        to={entityRegistry.getEntityUrl(
+                                                            EntityType.CorpUser,
+                                                            createdActor?.corpUser?.urn,
+                                                        )}
+                                                    >
+                                                        {entityRegistry.getDisplayName(
+                                                            EntityType.CorpUser,
+                                                            createdActor?.corpUser,
+                                                        )}
+                                                    </Link>
+                                                ) : (
+                                                    <span />
+                                                ),
+                                            }}
+                                        />
                                     </IncidentCreatedTime>
                                 </Tooltip>
-                                {createdActor?.corpUser && (
-                                    <Link
-                                        to={entityRegistry.getEntityUrl(
-                                            EntityType.CorpUser,
-                                            createdActor?.corpUser?.urn,
-                                        )}
-                                    >
-                                        {entityRegistry.getDisplayName(EntityType.CorpUser, createdActor?.corpUser)}
-                                    </Link>
-                                )}
                             </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
@@ -264,10 +280,12 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <Popover
                                 overlayStyle={{ maxWidth: 240 }}
                                 placement="left"
-                                title={<Typography.Text strong>Note</Typography.Text>}
+                                title={<Typography.Text strong>{t('resolution.noteLabel')}</Typography.Text>}
                                 content={
                                     incident?.incidentStatus?.message === null ? (
-                                        <Typography.Text type="secondary">No additional details</Typography.Text>
+                                        <Typography.Text type="secondary">
+                                            {t('list.noAdditionalDetails')}
+                                        </Typography.Text>
                                     ) : (
                                         <Typography.Text type="secondary">
                                             {incident?.incidentStatus?.message}
@@ -278,26 +296,36 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 <IncidentResolvedText>
                                     {incident?.incidentStatus?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
-                                            Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
+                                            <Trans
+                                                i18nKey={
+                                                    lastUpdatedActor?.corpUser ? 'list.resolvedBy' : 'list.resolved'
+                                                }
+                                                t={t}
+                                                values={{ time: toRelativeTimeString(lastModifiedDate) }}
+                                                components={{
+                                                    actor: lastUpdatedActor?.corpUser ? (
+                                                        <Link
+                                                            to={entityRegistry.getEntityUrl(
+                                                                EntityType.CorpUser,
+                                                                lastUpdatedActor?.corpUser?.urn,
+                                                            )}
+                                                        >
+                                                            {entityRegistry.getDisplayName(
+                                                                EntityType.CorpUser,
+                                                                lastUpdatedActor?.corpUser,
+                                                            )}
+                                                        </Link>
+                                                    ) : (
+                                                        <span />
+                                                    ),
+                                                }}
+                                            />
                                         </Tooltip>
-                                    )}
-                                    {lastUpdatedActor?.corpUser && (
-                                        <Link
-                                            to={entityRegistry.getEntityUrl(
-                                                EntityType.CorpUser,
-                                                lastUpdatedActor?.corpUser?.urn,
-                                            )}
-                                        >
-                                            {entityRegistry.getDisplayName(
-                                                EntityType.CorpUser,
-                                                lastUpdatedActor?.corpUser,
-                                            )}
-                                        </Link>
                                     )}
                                 </IncidentResolvedText>
                             </Popover>
                             <CheckCircleFilled
-                                style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
+                                style={{ fontSize: '28px', color: theme.colors.iconSuccess, marginLeft: '16px' }}
                             />
                             <Dropdown menu={{ items }} trigger={['click']}>
                                 <MenuIcon data-testid="incident-menu" />
@@ -310,9 +338,11 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 onClick={() => handleResolved()}
                                 data-testid="resolve-incident"
                             >
-                                Resolve
+                                {t('resolution.resolveButton')}
                             </IncidentResolvedButton>
-                            <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
+                            <WarningFilled
+                                style={{ fontSize: '28px', marginLeft: '16px', color: theme.colors.iconError }}
+                            />
                         </IncidentResolvedContainer>
                     )}
                 </IncidentItemContainer>

@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "Søk etter brukere eller grupper",
+    "domainSelector.label": "Domener",
+    "domainSelector.placeholder": "Velg domener",
+    "domainSelector.searchPlaceholder": "Søk i alle domener...",
+    "entitySearch.noEntitiesFound": "Ingen entiteter funnet",
+    "entitySearch.placeholder": "Søk etter entiteter...",
+    "groupBy.displayValue": "Gruppert etter {{label}}",
+    "groupBy.group": "Grupper"
+}

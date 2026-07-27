@@ -7,6 +7,7 @@
 
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './base.page';
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
 import type { DataHubLogger } from '../utils/logger';
 
 export class DatasetHealthPage extends BasePage {
@@ -15,12 +16,12 @@ export class DatasetHealthPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.healthPopover = page.locator('[data-testid="assertions-details"]');
+    this.healthPopover = page.getByTestId('assertions-details');
   }
 
   // Health icon testid includes the full dataset URN — dynamic, returned as a locator
   healthIconForUrn(urn: string): Locator {
-    return this.page.locator(`[data-testid="${urn}-health-icon"]`).first();
+    return this.page.getByTestId(`${urn}-health-icon`).first();
   }
 
   async navigateToDataset(urn: string, datasetName: string): Promise<void> {
@@ -28,7 +29,7 @@ export class DatasetHealthPage extends BasePage {
     // the entity fetch completes (prevents a "Not Found" race condition).
     await Promise.all([
       this.page.waitForResponse(
-        (resp) => resp.url().includes('/api/v2/graphql') && resp.request().method() === 'POST',
+        (resp) => resp.url().includes(DATAHUB_GRAPHQL_PATH) && resp.request().method() === 'POST',
         { timeout: 30000 },
       ),
       this.page.goto(`/dataset/${encodeURIComponent(urn)}/`),
@@ -51,7 +52,7 @@ export class DatasetHealthPage extends BasePage {
 
   async expectHealthLinksPresent(): Promise<void> {
     // Due to search index timing in CI, at least one link must be shown.
-    const links = this.healthPopover.locator('a');
+    const links = this.healthPopover.getByRole('link');
     await expect(links.first()).toBeVisible({ timeout: 5000 });
     expect(await links.count()).toBeGreaterThanOrEqual(1);
   }

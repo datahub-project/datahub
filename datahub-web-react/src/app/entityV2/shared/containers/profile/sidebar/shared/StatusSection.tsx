@@ -2,6 +2,7 @@ import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -36,6 +37,8 @@ const EmptyText = styled.span`
 `;
 
 const StatusSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tl } = useTranslation('common.labels');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isDeprecationExpanded, setIsDeprecationExpanded] = useState(false);
@@ -80,23 +83,32 @@ const StatusSection = () => {
 
     return (
         <SidebarSection
-            title="Status"
+            title={tl('status')}
             content={
                 <SyncedAssetContainer>
-                    {!!created && <TimeProperty labelText="Created:" time={created} />}
+                    {!!created && <TimeProperty labelText={t('sidebar.status.createdLabel')} time={created} />}
                     {(entityType === EntityType.Dashboard || entityType === EntityType.Chart) && (
                         <>
-                            {!!lastModified && <TimeProperty labelText="Last Modified:" time={lastModified} />}
-                            {!!lastRefreshed && <TimeProperty labelText="Data Last Refreshed:" time={lastRefreshed} />}
+                            {!!lastModified && (
+                                <TimeProperty labelText={t('sidebar.status.lastModifiedLabel')} time={lastModified} />
+                            )}
+                            {!!lastRefreshed && (
+                                <TimeProperty
+                                    labelText={t('sidebar.status.dataLastRefreshedLabel')}
+                                    time={lastRefreshed}
+                                />
+                            )}
                         </>
                     )}
                     {!!lastUpdated && entityType === EntityType.Dataset && (
                         <TimeProperty
-                            labelText="Last Updated:"
+                            labelText={t('sidebar.status.lastUpdatedLabel')}
                             time={lastUpdated}
-                            titleTip={`Time when the asset was last modified ${
-                                baseEntityPlatformName ? `in ${baseEntityPlatformName}` : null
-                            }`}
+                            titleTip={
+                                baseEntityPlatformName
+                                    ? t('sidebar.status.lastUpdatedTip', { platform: baseEntityPlatformName })
+                                    : undefined
+                            }
                         />
                     )}
                     {isDeprecated && (
@@ -104,23 +116,28 @@ const StatusSection = () => {
                             <DeprecatedHeader onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
                                 <Icon icon={isDeprecationExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
                                 <TimeProperty
-                                    labelText={`Deprecated${
-                                        !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`
-                                    }`}
+                                    labelText={
+                                        deprecatedByEntityName
+                                            ? t('sidebar.status.deprecatedByLabel', { name: deprecatedByEntityName })
+                                            : t('sidebar.status.deprecatedLabel')
+                                    }
                                 />
                             </DeprecatedHeader>
                             {isDeprecationExpanded && (
                                 <DeprecatedContent>
                                     {deprecationReplacement && (
-                                        <EntityProperty labelText="Replacement:" entity={deprecationReplacement} />
+                                        <EntityProperty
+                                            labelText={t('sidebar.status.replacementLabel')}
+                                            entity={deprecationReplacement}
+                                        />
                                     )}
                                     {decommissionTime ? (
                                         <TimeProperty
-                                            labelText="Scheduled Decommission:"
+                                            labelText={t('sidebar.status.scheduledDecommissionLabel')}
                                             time={entityData.deprecation?.decommissionTime}
                                         />
                                     ) : (
-                                        <EmptyText>No additional information</EmptyText>
+                                        <EmptyText>{t('sidebar.status.noAdditionalInfoText')}</EmptyText>
                                     )}
                                 </DeprecatedContent>
                             )}
@@ -128,7 +145,7 @@ const StatusSection = () => {
                     )}
                     {!!lastIngested && (
                         <SyncedOrShared
-                            labelText="Synced:"
+                            labelText={t('sidebar.status.syncedLabel')}
                             time={lastIngested}
                             platformName={rootSiblingPlatformName}
                             platform={platform}

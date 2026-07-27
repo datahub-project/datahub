@@ -28,6 +28,8 @@ If **no** `BUNDLED_VENV_PLUGINS_*` variables are set, each plugin in `BUNDLED_VE
 
 `BUNDLED_VENV_PLUGINS` remains the **authoritative full list** of plugins that must receive a `{plugin}-bundled` path; every member of every group must appear in that list, and each plugin appears in **at most one** group (or as a singleton).
 
+**Source aliases:** When a plugin is built, the builder also creates `{alias}-bundled` symlinks for known alias pairs in `bundled_venv_config.py` (e.g. list only `unity-catalog` and both `unity-catalog-bundled` and `databricks-bundled` are created). Do not list both names in `BUNDLED_VENV_PLUGINS`.
+
 ## Slim mode and PySpark
 
 When **`BUNDLED_VENV_SLIM_MODE`** is `true`, extras for plugins in `PLUGINS_WITH_SLIM_VARIANT` use the corresponding **`-slim`** extra (e.g. `s3-slim` instead of `s3`) so PySpark is not pulled for data-lake stacks that support it.

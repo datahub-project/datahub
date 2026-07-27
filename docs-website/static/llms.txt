@@ -1,0 +1,111 @@
+# DataHub
+
+> DataHub is the open-source context platform for your data and AI stack — a unified context graph that powers discovery, governance, and observability for both human teams and AI agents. Originally built at LinkedIn and now used by thousands of organizations worldwide, DataHub is released under Apache 2.0.
+
+DataHub goes beyond a traditional data catalog: it connects technical metadata, business context, lineage, and documentation into a single graph that's accessible to humans (via search and UI) and machines (via MCP, APIs, and SDKs). DataHub Core is the open-source project on GitHub. DataHub Cloud is the managed offering with additional enterprise features (sections marked "Cloud" in the docs).
+
+## Getting Started
+
+- [What Is DataHub?](https://docs.datahub.com/docs/features): Overview of capabilities, architecture, and use cases
+- [Quickstart](https://docs.datahub.com/docs/quickstart): Run DataHub locally with Docker in under 10 minutes
+- [DataHub Concepts](https://docs.datahub.com/docs/what-is-datahub/datahub-concepts): Core terminology — entities, aspects, URNs, lineage
+- [Live Demo](https://demo.datahub.com/): Explore a fully-loaded DataHub instance
+
+## AI & Agents
+
+- [MCP Server](https://docs.datahub.com/docs/features/feature-guides/mcp): Connect AI assistants (Claude, Cursor, Cline) directly to your DataHub metadata via Model Context Protocol
+- [Agent Context Kit](https://docs.datahub.com/docs/dev-guides/agent-context/agent-context): Bring DataHub context to LangChain, Cursor, Claude, Gemini CLI, Vertex AI, Snowflake Cortex, Databricks Genie, and Microsoft Copilot Studio
+- [DataHub Skills](https://docs.datahub.com/docs/dev-guides/agent-context/skills): Pre-built skills for AI agents
+- [Ask DataHub](https://docs.datahub.com/docs/features/feature-guides/ask-datahub): Natural-language search across your metadata (Cloud)
+- [Analytics Agent](https://docs.datahub.com/docs/features/feature-guides/analytics-agent): Conversational analytics over data assets
+- [AI Documentation](https://docs.datahub.com/docs/automations/ai-docs): Auto-generate table and column descriptions (Cloud)
+
+## Ingestion & Integrations
+
+- [Ingestion Overview](https://docs.datahub.com/docs/metadata-ingestion/): How metadata flows into DataHub
+- [Snowflake Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview)
+- [BigQuery Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/bigquery/overview)
+- [Redshift Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/redshift/overview)
+- [Tableau Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/tableau/overview)
+- [Looker Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview)
+- [Power BI Quickstart](https://docs.datahub.com/docs/quick-ingestion-guides/powerbi/overview)
+- [Airflow Lineage](https://docs.datahub.com/docs/lineage/airflow)
+- [Dagster Lineage](https://docs.datahub.com/docs/lineage/dagster)
+- [Spark Lineage](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage/)
+- [OpenLineage](https://docs.datahub.com/docs/lineage/openlineage)
+
+## APIs & SDKs
+
+- [API Overview](https://docs.datahub.com/docs/api/datahub-apis): Comparison of GraphQL, OpenAPI, and Rest.li
+- [Python SDK](https://docs.datahub.com/docs/metadata-ingestion/as-a-library): Build, ingest, and query metadata from Python
+- [Java SDK V2](https://docs.datahub.com/docs/metadata-integration/java/as-a-library-v2): Modern Java client
+- [DataHub CLI](https://docs.datahub.com/docs/cli): Command-line tool for ingestion, search, and admin
+- [GraphQL API](https://docs.datahub.com/docs/api/graphql/overview): Schema reference and guides
+- [OpenAPI](https://docs.datahub.com/docs/api/openapi/openapi-usage-guide): REST endpoints
+
+## Core Features
+
+- [Lineage](https://docs.datahub.com/docs/features/feature-guides/lineage): End-to-end data flow visualization
+- [Search](https://docs.datahub.com/docs/how/search): Find any data asset across your stack
+- [Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary): Standardize business terminology
+- [Data Products](https://docs.datahub.com/docs/dataproducts): Group related assets for ownership and discovery
+- [Domains](https://docs.datahub.com/docs/domains): Organize assets by team or business unit
+- [Tags](https://docs.datahub.com/docs/tags): Apply free-form labels to any asset
+- [Ownership](https://docs.datahub.com/docs/ownership/ownership-types): Assign and track asset owners
+- [Data Contracts](https://docs.datahub.com/docs/managed-datahub/observe/data-contract): Agreements between data producers and consumers
+- [Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions): Data quality checks and anomaly detection
+- [Compliance Forms](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/overview): Structured metadata collection workflows
+- [Automations](https://docs.datahub.com/docs/automations/docs-propagation): Propagate documentation, tags, and terms automatically
+- [Incidents](https://docs.datahub.com/docs/incidents/incidents): Track and resolve data issues
+
+## Authentication & Authorization
+
+- [Authentication Overview](https://docs.datahub.com/docs/authentication)
+- [Single Sign-On (OIDC)](https://docs.datahub.com/docs/authentication/guides/sso/initialize-oidc)
+- [Personal Access Tokens](https://docs.datahub.com/docs/authentication/personal-access-tokens)
+- [Policies & Roles](https://docs.datahub.com/docs/authorization/policies)
+- [Groups](https://docs.datahub.com/docs/authorization/groups)
+
+## Deployment
+
+- [Deploy on AWS](https://docs.datahub.com/docs/deploy/aws)
+- [Deploy on GCP](https://docs.datahub.com/docs/deploy/gcp)
+- [Deploy on Azure](https://docs.datahub.com/docs/deploy/azure)
+- [Kubernetes](https://docs.datahub.com/docs/deploy/kubernetes)
+- [Docker](https://docs.datahub.com/docs/docker)
+- [Environment Variables](https://docs.datahub.com/docs/deploy/environment-vars)
+
+## Architecture & Development
+
+- [Architecture Overview](https://docs.datahub.com/docs/architecture/architecture)
+- [Metadata Model](https://docs.datahub.com/docs/metadata-modeling/metadata-model): Entities, aspects, and relationships
+- [Metadata Change Proposals (MCP/MCL)](https://docs.datahub.com/docs/advanced/mcp-mcl): DataHub's event-driven metadata model
+- [Developing on DataHub](https://docs.datahub.com/docs/developers): Local setup for contributors
+- [Adding a New Ingestion Source](https://docs.datahub.com/docs/metadata-ingestion/adding-source)
+- [Extending the Metadata Model](https://docs.datahub.com/docs/metadata-modeling/extending-the-metadata-model)
+
+## DataHub Cloud
+
+- [Cloud Overview](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
+- [Upgrade from Core to Cloud](https://docs.datahub.com/docs/managed-datahub/upgrade_core_to_cloud)
+- [Remote Executor](https://docs.datahub.com/docs/managed-datahub/remote-executor/about): Run ingestion in your own VPC
+- [Subscriptions & Notifications](https://docs.datahub.com/docs/managed-datahub/subscription-and-notification)
+- [Slack Integration](https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-app)
+- [Chrome Extension](https://docs.datahub.com/docs/managed-datahub/chrome-extension)
+
+## Community
+
+- [Slack Community](https://docs.datahub.com/docs/slack): Join 15,000+ practitioners for support and discussion
+- [Town Halls](https://docs.datahub.com/docs/townhalls): Monthly calls with customer stories, roadmap updates, demos, and Q&A
+- [Contributing Guide](https://docs.datahub.com/docs/contributing): How to contribute code, docs, and bug reports
+- [Code of Conduct](https://docs.datahub.com/docs/code_of_conduct): Community standards for respectful collaboration
+- [GitHub](https://github.com/datahub-project/datahub): Source code, issues, and pull requests
+
+## Optional
+
+- [Release Notes](https://docs.datahub.com/docs/releases): DataHub OSS release history with version notes and breaking changes
+- [GraphQL Schema Reference](https://docs.datahub.com/docs/graphql/queries): Full schema definitions
+- [DataHub Actions](https://docs.datahub.com/docs/act-on-metadata): Event-driven automation framework
+- [Logical Models](https://docs.datahub.com/docs/features/feature-guides/logical-models/overview)
+- [Iceberg Catalog](https://docs.datahub.com/docs/iceberg-catalog)
+

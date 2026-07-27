@@ -9,6 +9,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.UpdateParentNodeInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -17,6 +19,8 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -58,6 +62,19 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
     GlossaryNodeUrn finalParentNodeUrn = parentNodeUrn;
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          if (Constants.GLOSSARY_NODE_ENTITY_NAME.equals(targetUrn.getEntityType())
+              && finalParentNodeUrn != null
+              && (finalParentNodeUrn.equals(targetUrn)
+                  || BoundHierarchyAccess.isDescendant(
+                      context.getOperationContext(),
+                      HierarchyBindings.glossarySpec(context.getOperationContext()),
+                      finalParentNodeUrn,
+                      targetUrn))) {
+            throw new DataHubGraphQLException(
+                "Cannot move a glossary node under one of its own descendants.",
+                DataHubGraphQLErrorCode.BAD_REQUEST);
+          }
+
           Urn currentParentUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
           // need to be able to manage current parent node and new parent node
           if (GlossaryUtils.canManageChildrenEntities(context, currentParentUrn, _entityClient)

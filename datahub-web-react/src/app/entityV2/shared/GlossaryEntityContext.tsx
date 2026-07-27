@@ -11,7 +11,10 @@ interface GlossaryEntityContextType {
     // sidebar when to refetch for a given node or at the root level (if we're editing a term or node without a parent).
     // This will happen when you edit a name, move a term/group, create a new term/group, and delete a term/group
     urnsToUpdate: string[];
-    setUrnsToUpdate: (updatdUrns: string[]) => void;
+    // Full Dispatch signature so consumers can use the functional setter
+    // (`setUrnsToUpdate(prev => prev.filter(...))`) and avoid stale-closure bugs when multiple
+    // updates are queued in the same render — see `GlossaryBrowser` and `useGlossaryChildren`.
+    setUrnsToUpdate: React.Dispatch<React.SetStateAction<string[]>>;
     isSidebarOpen: boolean;
     setIsSidebarOpen: (isOpen: boolean) => void;
     nodeToNewEntity: Record<string, Entity>;

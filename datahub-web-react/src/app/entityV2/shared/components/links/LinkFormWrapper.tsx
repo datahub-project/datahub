@@ -1,6 +1,7 @@
 import { Input } from '@components';
 import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { UploadFileForm } from '@app/entityV2/shared/components/links/UploadFileForm';
 import { UrlLinkForm } from '@app/entityV2/shared/components/links/UrlLinkForm';
@@ -16,6 +17,8 @@ const TAB_KEY_URL = 'URL';
 const TAB_KEY_UPLOAD_FILE = 'uploadFile';
 
 export function LinkFormWrapper({ initialValues }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const isDocumentationFileUploadV1Enabled = useIsDocumentationFileUploadV1Enabled();
 
     const form = Form.useFormInstance<LinkFormData>();
@@ -62,7 +65,7 @@ export function LinkFormWrapper({ initialValues }: Props) {
         () => [
             {
                 key: TAB_KEY_UPLOAD_FILE,
-                label: 'Upload',
+                label: tc('upload'),
                 content: <UploadFileForm initialValues={initialValues} />,
             },
             {
@@ -71,7 +74,7 @@ export function LinkFormWrapper({ initialValues }: Props) {
                 content: <UrlLinkForm />,
             },
         ],
-        [initialValues],
+        [initialValues, tc],
     );
 
     return (
@@ -94,13 +97,13 @@ export function LinkFormWrapper({ initialValues }: Props) {
                 rules={[
                     {
                         required: true,
-                        message: 'A label is required.',
+                        message: t('links.labelRequired'),
                     },
                 ]}
             >
                 <Input
-                    label="Label"
-                    placeholder="A short label for this link"
+                    label={t('links.fieldLabel')}
+                    placeholder={t('links.fieldLabelPlaceholder')}
                     inputTestId="label-input"
                     onClear={() => setLabel('')}
                     isRequired

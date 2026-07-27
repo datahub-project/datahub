@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { LinkAttributes } from '@app/entityV2/shared/externalUrl/types';
 import { sendClickExternalLinkAnalytics } from '@app/entityV2/shared/externalUrl/utils';
@@ -23,6 +24,7 @@ export default function usePlatrofmLinks(
     suffix: string,
     className: string | undefined,
 ): LinkAttributes[] {
+    const { t } = useTranslation('entity.shared.profile');
     const separateSiblings = useIsSeparateSiblingsMode();
 
     const appConfig = useAppConfig();
@@ -39,7 +41,9 @@ export default function usePlatrofmLinks(
 
         const externalUrl = genericEntityData?.properties?.externalUrl;
         const parentPlatformName = getExternalUrlDisplayName(genericEntityData) + (suffix ?? '');
-        const defaultAction = externalUrl ? [{ displayName: parentPlatformName || 'source', url: externalUrl }] : [];
+        const defaultAction = externalUrl
+            ? [{ displayName: parentPlatformName || t('externalUrl.sourceFallback'), url: externalUrl }]
+            : [];
 
         let visibleActions: Action[] = [...defaultAction];
         if (!(hideSiblingActions ?? separateSiblings)) {
@@ -63,7 +67,7 @@ export default function usePlatrofmLinks(
 
         return visibleActions.map((action) => ({
             url: action.url,
-            label: action.displayName ? `View in ${action.displayName}` : action.url,
+            label: action.displayName ? t('externalUrl.viewIn', { displayName: action.displayName }) : action.url,
             onClick: sendAnalytics,
             className,
         }));
@@ -75,5 +79,6 @@ export default function usePlatrofmLinks(
         separateSiblings,
         sendAnalytics,
         showDefaultExternalLinks,
+        t,
     ]);
 }

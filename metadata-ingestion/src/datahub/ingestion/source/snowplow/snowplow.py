@@ -94,9 +94,6 @@ from datahub.ingestion.source.snowplow.utils.cache_manager import CacheManager
 from datahub.ingestion.source.snowplow.utils.field_reference_parser import (
     FieldReferenceParser,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -171,9 +168,6 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
         self.user_resolver.load_users()
 
         # Initialize stale entity removal handler
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
-            self, self.config, self.ctx
-        )
 
         # Domain registry (optional)
         self.domain_registry: Optional[DomainRegistry] = None
@@ -499,10 +493,12 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for pipeline in pipelines:
                 self._extract_pii_fields_from_pipeline(pipeline.id, pii_fields)
         except Exception as e:
-            self.report.report_warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from enrichments: {e}. "
+            self.report.warning(
+                message="Failed to extract PII fields from enrichments. "
                 "PII field tagging may be incomplete.",
+                context="pii_extraction",
+                exc=e,
+                log=False,
             )
             logger.warning(f"Failed to extract PII fields from enrichments: {e}")
 
@@ -519,10 +515,12 @@ class SnowplowSource(StatefulIngestionSourceBase, TestableSource):
             for enrichment in enrichments:
                 self._extract_pii_fields_from_enrichment(enrichment, pii_fields)
         except Exception as e:
-            self.report.report_warning(
-                "pii_extraction",
-                f"Failed to extract PII fields from pipeline {pipeline_id}: {e}. "
+            self.report.warning(
+                message="Failed to extract PII fields from pipeline. "
                 "PII field tagging may be incomplete for this pipeline.",
+                context=f"pii_extraction: pipeline_id={pipeline_id}",
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Failed to extract PII fields from pipeline {pipeline_id}: {e}"

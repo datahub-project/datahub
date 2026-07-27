@@ -1,0 +1,69 @@
+name: PDL Aspect Change Report
+
+on:
+  schedule:
+    # Daily at 06:00 UTC. Runs against acryl-main with auto-resolved baseline.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base ref (tag/branch/commit). Leave blank to auto-resolve the latest stable -cloud release tag in the repo (falls back to latest -cloud tag if no stable release exists yet). Independent of --head ancestry."
+        required: false
+        default: ""
+      head:
+        description: "Head ref (tag/branch/commit). Leave blank to default to acryl-main."
+        required: false
+        default: ""
+      per_pr:
+        description: "Per-PR audit mode: classify every PDL-touching commit in base..head in isolation, then aggregate. Catches per-PR `bump_spurious` cases that wide cumulative windows mask. Slower (~10–60s)."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdl-change-report-${{ github.ref }}-${{ inputs.base }}-${{ inputs.head }}-${{ inputs.per_pr }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: depot-ubuntu-24.04-small
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Generate PDL aspect change report
+        env:
+          INPUT_BASE: ${{ inputs.base }}
+          INPUT_HEAD: ${{ inputs.head }}
+          INPUT_PER_PR: ${{ inputs.per_pr }}
+        run: |
+          BASE_ARG=()
+          HEAD_ARG=()
+          PER_PR_ARG=()
+          [ -n "$INPUT_BASE" ] && BASE_ARG=(--base "$INPUT_BASE")
+          [ -n "$INPUT_HEAD" ] && HEAD_ARG=(--head "$INPUT_HEAD")
+          [ "$INPUT_PER_PR" = "true" ] && PER_PR_ARG=(--per-pr)
+          python3 .github/scripts/report_aspect_changes.py \
+            "${BASE_ARG[@]}" "${HEAD_ARG[@]}" "${PER_PR_ARG[@]}" \
+            --output pdl-change-report.md
+          cat pdl-change-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: pdl-change-report
+          path: |
+            pdl-change-report.md
+            release_test_pdl_changes.md
+          if-no-files-found: warn

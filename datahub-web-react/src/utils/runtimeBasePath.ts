@@ -11,7 +11,13 @@ export function getBasePath(): string {
     const baseTag = document.querySelector('base');
     if (baseTag) {
         const href = baseTag.getAttribute('href');
-        if (href) {
+        // index.html ships `<base href="@basePath" />` as a placeholder that the datahub-frontend
+        // server substitutes at serve time. Static hosts (e.g. the Cloudflare Pages preview used
+        // for Meticulous) don't substitute it, leaving the literal "@basePath". Trusting that value
+        // makes every relative URL resolve under /@basePath/... — assets and /mfe/config 404, and an
+        // early "Failed to fetch" can hit the top-level error boundary. Treat any unsubstituted
+        // placeholder (leading '@') as "no base tag" and fall through to the root fallback.
+        if (href && !href.startsWith('@')) {
             // Remove trailing slash for consistency (except for root)
             return href === '/' ? '' : href.replace(/\/$/, '');
         }

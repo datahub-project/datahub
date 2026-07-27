@@ -1,6 +1,7 @@
 import { Input } from '@components';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ResetCredentialsFormValues } from '@app/auth/shared/types';
@@ -27,6 +28,8 @@ interface Props {
 }
 
 export default function ResetCredentialsForm({ form, handleSubmit, onFormChange, isSubmitDisabled }: Props) {
+    const { t } = useTranslation('auth');
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !isSubmitDisabled) {
             form.submit();
@@ -36,21 +39,21 @@ export default function ResetCredentialsForm({ form, handleSubmit, onFormChange,
         <FormContainer>
             <Form form={form} onFinish={handleSubmit} onFieldsChange={onFormChange} onKeyDown={handleKeyDown}>
                 <ItemContainer>
-                    <FieldLabel label="Email" required />
-                    <Form.Item rules={[{ required: true, message: 'Please fill in your email' }]} name="email">
-                        <Input placeholder="abc@company.com" inputTestId="email" />
+                    <FieldLabel label={t('emailLabel')} required />
+                    <Form.Item rules={[{ required: true, message: t('emailRequired') }]} name="email">
+                        <Input placeholder={t('emailPlaceholder')} inputTestId="email" />
                     </Form.Item>
                 </ItemContainer>
 
                 <ItemContainer>
-                    <FieldLabel label="Password" required />
+                    <FieldLabel label={t('passwordLabel')} required />
                     <Form.Item
                         rules={[
-                            { required: true, message: 'Please fill in your password' },
+                            { required: true, message: t('passwordRequired') },
                             ({ getFieldValue }) => ({
                                 validator() {
                                     if (getFieldValue('password').length < 8) {
-                                        return Promise.reject(new Error('Must be 8 characters long; case sensitive'));
+                                        return Promise.reject(new Error(t('passwordHint')));
                                     }
                                     return Promise.resolve();
                                 },
@@ -62,14 +65,14 @@ export default function ResetCredentialsForm({ form, handleSubmit, onFormChange,
                     </Form.Item>
                 </ItemContainer>
                 <ItemContainer>
-                    <FieldLabel label="Confirm Password" required />
+                    <FieldLabel label={t('confirmPasswordLabel')} required />
                     <Form.Item
                         rules={[
-                            { required: true, message: 'Please confirm your password' },
+                            { required: true, message: t('confirmPasswordRequired') },
                             ({ getFieldValue }) => ({
                                 validator() {
                                     if (getFieldValue('confirmPassword') !== getFieldValue('password')) {
-                                        return Promise.reject(new Error('Your passwords do not match'));
+                                        return Promise.reject(new Error(t('passwordsDoNotMatch')));
                                     }
                                     return Promise.resolve();
                                 },

@@ -1,5 +1,6 @@
 import { Image } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import datahubPlatforms from '@images/datahub-platforms.svg';
@@ -37,17 +38,15 @@ const AcrylTitle = styled.div`
 `;
 
 export const IntroduceYourselfLeftSidebar = () => {
+    const { t } = useTranslation('home.v2');
     return (
         <Container>
             <AcrylTitle>
                 <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
             </AcrylTitle>
             <div>
-                <Title>Start your data journey</Title>
-                <Subtitle>
-                    Thousands of data professionals use DataHub to discover trusted data, ensure data quality and
-                    collaborate with their colleagues
-                </Subtitle>
+                <Title>{t('introduceYourself.leftSidebar.title')}</Title>
+                <Subtitle>{t('introduceYourself.leftSidebar.subTitle')}</Subtitle>
             </div>
         </Container>
     );

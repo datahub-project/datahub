@@ -1,0 +1,28 @@
+namespace com.linkedin.metric
+
+/**
+ * AI-specific context attached to a metric or field to improve disambiguation,
+ * retrieval, and generation quality (OSI ai_context shape).
+ */
+record AiContext {
+
+  /**
+   * Alternative names or abbreviations by which this metric is known.
+   */
+  synonyms: optional array[string]
+
+  /**
+   * Human-readable guidance for AI models on how to interpret this metric.
+   */
+  instructions: optional string
+
+  /**
+   * Example values or usage patterns to ground AI reasoning.
+   */
+  examples: optional array[string]
+
+  /**
+   * Additional free-form instructions for AI model customisation.
+   */
+  customInstructions: optional string
+}

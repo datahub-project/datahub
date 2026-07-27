@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -73,6 +74,41 @@ class SqlEndpointConfig(ConfigModel):
         description="Timeout for SQL queries in seconds",
         ge=1,
         le=300,
+    )
+
+
+class FabricUsageConfig(BaseUsageConfig):
+    """Usage tracking configuration for Fabric OneLake.
+
+    Retention is 30 days per Microsoft Fabric documentation:
+    https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights
+    """
+
+    include_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Master toggle for Fabric usage extraction. When False, no "
+            "`datasetUsageStatistics` or `operation` aspects are emitted from "
+            "queryinsights, regardless of `include_operational_stats`."
+        ),
+    )
+
+    skip_failed_queries: bool = Field(
+        default=True,
+        description=(
+            "When True, the SQL filter excludes rows where status != 'Succeeded' "
+            "(canceled / failed queries are skipped at the source)."
+        ),
+    )
+
+    include_queries: bool = Field(
+        default=True,
+        description=(
+            "If enabled, emit a `Query` entity for each unique parsed queryinsights "
+            "row so the SQL becomes a first-class, searchable asset in DataHub "
+            "(visible on the Queries tab and as standalone Query pages). "
+            "Requires `include_usage_statistics=True`."
+        ),
     )
 
 
@@ -208,26 +244,48 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # Usage tracking
+    usage: FabricUsageConfig = Field(
+        default_factory=FabricUsageConfig,
+        description=(
+            "Usage tracking configuration. Reads `queryinsights.exec_requests_history` "
+            "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires a "
+            "configured and enabled `sql_endpoint`."
+        ),
+    )
+
     @model_validator(mode="after")
     def validate_sql_endpoint_dependencies(self):
         """sql_endpoint must be configured when any feature that uses it is enabled.
 
-        Both view discovery (INFORMATION_SCHEMA.VIEWS) and column-level schema
-        extraction (INFORMATION_SCHEMA.COLUMNS) go through the SQL Analytics
-        Endpoint, but they are otherwise independent — a user may enable either
-        one without the other.
+        View discovery (INFORMATION_SCHEMA.VIEWS), column-level schema extraction
+        (INFORMATION_SCHEMA.COLUMNS), and usage statistics
+        (queryinsights.exec_requests_history) all go through the SQL Analytics
+        Endpoint but are otherwise independent.
         """
-        needs_sql_endpoint = self.extract_views or (
+        sql_endpoint_enabled = (
+            self.sql_endpoint is not None and self.sql_endpoint.enabled
+        )
+        if sql_endpoint_enabled:
+            return self
+
+        requiring_features = []
+        if self.extract_views:
+            requiring_features.append("extract_views=True")
+        if (
             self.extract_schema.enabled
             and self.extract_schema.method == "sql_analytics_endpoint"
-        )
-        if needs_sql_endpoint and (
-            self.sql_endpoint is None or not self.sql_endpoint.enabled
         ):
+            requiring_features.append(
+                "extract_schema with method='sql_analytics_endpoint'"
+            )
+        if self.usage.include_usage_statistics:
+            requiring_features.append("usage.include_usage_statistics=True")
+
+        if requiring_features:
             raise ValueError(
-                "sql_endpoint.enabled must be True when extract_views=True or "
-                "when extract_schema.enabled=True with "
-                "method='sql_analytics_endpoint'. "
-                "Both features query the SQL Analytics Endpoint."
+                f"sql_endpoint must be configured with enabled=True when any of "
+                f"the following are set: {', '.join(requiring_features)}. "
+                f"These features all query the SQL Analytics Endpoint."
             )
         return self

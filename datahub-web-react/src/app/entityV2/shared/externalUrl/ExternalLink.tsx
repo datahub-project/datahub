@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Popover } from '@src/alchemy-components';
+import { safeUrl } from '@src/app/shared/urlUtils';
 import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
 
 const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
@@ -51,7 +52,7 @@ export default function ExternalLink({ href, label, onClick, className, isEntity
     return (
         <Popover content={isHorizontallyTruncated ? <PopoverWrapper>{label}</PopoverWrapper> : undefined}>
             <Link
-                href={href}
+                href={safeUrl(href)}
                 target="_blank"
                 onClick={onClick}
                 className={className}

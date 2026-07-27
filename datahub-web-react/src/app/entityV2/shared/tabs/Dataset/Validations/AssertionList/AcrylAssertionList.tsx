@@ -1,5 +1,6 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -14,7 +15,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getFilteredTransformedAssertionData } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
-import { tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { extractAssertionsFromQuery } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
@@ -33,6 +34,7 @@ const AssertionListContainer = styled.div`
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -42,7 +44,7 @@ export const AcrylAssertionList = () => {
     // TODO we need to create setter function to set the filter as per the filter component
     const [selectedFilters, setSelectedFilters] = useState<AssertionListFilter>(ASSERTION_DEFAULT_FILTERS);
 
-    const [assertionMonitorData, setAssertionMonitorData] = useState<Assertion[]>([]);
+    const [assertionListData, setAssertionListData] = useState<Assertion[]>([]);
 
     const { data, refetch, loading } = useGetDatasetAssertionsWithRunEventsQuery({
         variables: { urn },
@@ -63,17 +65,16 @@ export const AcrylAssertionList = () => {
 
     useEffect(() => {
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
-        const assertionsWithMonitorsDetails: Assertion[] =
-            tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
-        setAssertionMonitorData(assertionsWithMonitorsDetails);
-        getFilteredAssertions(assertionsWithMonitorsDetails);
+        const assertions: Assertion[] = extractAssertionsFromQuery(combinedData) ?? [];
+        setAssertionListData(assertions);
+        getFilteredAssertions(assertions);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
     useEffect(() => {
         // after filter change need to get filtered assertions
-        if (assertionMonitorData?.length > 0) {
-            getFilteredAssertions(assertionMonitorData);
+        if (assertionListData?.length > 0) {
+            getFilteredAssertions(assertionListData);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedFilters]);
@@ -98,13 +99,13 @@ export const AcrylAssertionList = () => {
                 />
             );
         }
-        return <Empty description="No assertions have run" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('assertionList.noAssertionsRun')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (
         <AssertionListContainer>
             <AssertionListTitleContainer />
-            {assertionMonitorData?.length > 0 && (
+            {assertionListData?.length > 0 && (
                 <AcrylAssertionListFilters
                     filterOptions={visibleAssertions?.filterOptions}
                     originalFilterOptions={visibleAssertions?.originalFilterOptions}

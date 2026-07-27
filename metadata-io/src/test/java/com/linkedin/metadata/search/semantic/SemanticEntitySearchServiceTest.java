@@ -92,7 +92,7 @@ public class SemanticEntitySearchServiceTest {
     when(mockSearchFlags.isFilterNonLatestVersions()).thenReturn(false);
 
     // Default: return empty KnnSearchResponse so tests without specific setup don't NPE
-    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
+    when(searchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(new KnnSearchResponse(List.of()));
 
     service =
@@ -170,7 +170,7 @@ public class SemanticEntitySearchServiceTest {
     // Verify searchKnn was called with the correct index name
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
-    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     KnnSearchRequest capturedRequest = requestCaptor.getValue();
     assertTrue(
         capturedRequest.indexName().contains(TEST_SEMANTIC_INDEX),
@@ -198,7 +198,7 @@ public class SemanticEntitySearchServiceTest {
     assertEquals(result.getPageSize().intValue(), 5);
 
     // Verify searchKnn was called
-    verify(searchClientShim).searchKnn(any(KnnSearchRequest.class));
+    verify(searchClientShim).searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
   }
 
   @Test
@@ -256,7 +256,7 @@ public class SemanticEntitySearchServiceTest {
 
   @Test
   public void testSearchKnnIOException() throws IOException {
-    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
+    when(searchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenThrow(new IOException("Connection failed"));
 
     assertThrows(
@@ -310,7 +310,7 @@ public class SemanticEntitySearchServiceTest {
     // Verify searchKnn was called with comma-joined index names
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
-    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String indexName = requestCaptor.getValue().indexName();
     assertTrue(indexName.contains("datasetindex_v2_semantic"), "indexName must include dataset");
     assertTrue(indexName.contains("chartindex_v2_semantic"), "indexName must include chart");
@@ -350,7 +350,8 @@ public class SemanticEntitySearchServiceTest {
             List.of(
                 new KnnSearchResponse.Hit(
                     "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95, source)));
-    when(searchClientShim.searchKnn(any(KnnSearchRequest.class))).thenReturn(response);
+    when(searchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(response);
 
     // Setup fetchExtraFields
     StringArray extraFields = new StringArray();
@@ -382,7 +383,7 @@ public class SemanticEntitySearchServiceTest {
 
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
-    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
 
     // fieldsToFetch must not be empty — default fields should always be populated
     assertTrue(
@@ -401,7 +402,7 @@ public class SemanticEntitySearchServiceTest {
 
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
-    verify(searchClientShim).searchKnn(requestCaptor.capture());
+    verify(searchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
 
     KnnSearchRequest req = requestCaptor.getValue();
     assertEquals(req.indexName(), TEST_SEMANTIC_INDEX, "indexName must be the semantic index");
@@ -427,7 +428,7 @@ public class SemanticEntitySearchServiceTest {
               "urn:li:dataPlatform:test");
       hits.add(new KnnSearchResponse.Hit(urns.get(i), scores.get(i), source));
     }
-    when(searchClientShim.searchKnn(any(KnnSearchRequest.class)))
+    when(searchClientShim.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(new KnnSearchResponse(hits));
   }
 

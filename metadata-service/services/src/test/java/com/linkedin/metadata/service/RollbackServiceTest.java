@@ -89,15 +89,18 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> expectedAspects = createTestAspectRows(false);
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(expectedAspects);
 
     // Act
-    List<AspectRowSummary> result = rollbackService.rollbackTargetAspects(TEST_RUN_ID, true);
+    List<AspectRowSummary> result =
+        rollbackService.rollbackTargetAspects(operationContext, TEST_RUN_ID, true);
 
     // Assert
     assertEquals(result, expectedAspects);
-    verify(mockSystemMetadataService).findByRunId(TEST_RUN_ID, true, 0, MAX_SEARCH_RESULTS);
+    verify(mockSystemMetadataService)
+        .findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
   }
 
   @Test
@@ -105,11 +108,12 @@ public class RollbackServiceTest {
     // Arrange
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects);
 
     // For each urn in test aspects
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
@@ -134,7 +138,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>()); // Second call returns empty to end the loop
 
@@ -165,7 +169,8 @@ public class RollbackServiceTest {
         .thenReturn(timeseriesResult);
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
@@ -203,7 +208,11 @@ public class RollbackServiceTest {
     List<AspectRowSummary> secondPageAspects = createMoreTestAspectRows();
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), anyInt(), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class),
+            eq(TEST_RUN_ID),
+            eq(true),
+            anyInt(),
+            eq(MAX_SEARCH_RESULTS)))
         .thenReturn(firstPageAspects)
         .thenReturn(secondPageAspects)
         .thenReturn(new ArrayList<>()); // Third call returns empty to end the loop
@@ -245,7 +254,8 @@ public class RollbackServiceTest {
         .thenReturn(timeseriesResult);
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
@@ -338,7 +348,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>());
 
@@ -359,7 +369,8 @@ public class RollbackServiceTest {
         .thenReturn(timeseriesResult);
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
@@ -385,7 +396,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>());
 
@@ -427,7 +438,8 @@ public class RollbackServiceTest {
         .thenReturn(timeseriesResult);
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
@@ -449,15 +461,18 @@ public class RollbackServiceTest {
     // Test handling empty results
     // Arrange
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act
-    List<AspectRowSummary> result = rollbackService.rollbackTargetAspects(TEST_RUN_ID, true);
+    List<AspectRowSummary> result =
+        rollbackService.rollbackTargetAspects(operationContext, TEST_RUN_ID, true);
 
     // Assert
     assertTrue(result.isEmpty());
-    verify(mockSystemMetadataService).findByRunId(TEST_RUN_ID, true, 0, MAX_SEARCH_RESULTS);
+    verify(mockSystemMetadataService)
+        .findByRunId(
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS));
   }
 
   @Test
@@ -467,7 +482,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> testAspects = createTestAspectRows(false);
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>());
 
@@ -483,7 +498,8 @@ public class RollbackServiceTest {
         .thenThrow(new RuntimeException("Timeseries rollback failed"));
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act & Assert
@@ -564,7 +580,7 @@ public class RollbackServiceTest {
     List<AspectRowSummary> testAspects = createTestAspectRows(true);
 
     when(mockSystemMetadataService.findByRunId(
-            eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
+            any(OperationContext.class), eq(TEST_RUN_ID), eq(true), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(testAspects)
         .thenReturn(new ArrayList<>());
 
@@ -597,7 +613,8 @@ public class RollbackServiceTest {
         .thenReturn(timeseriesResult);
 
     // Mock empty lists for unsafe entities calculation
-    when(mockSystemMetadataService.findByUrn(anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
+    when(mockSystemMetadataService.findByUrn(
+            any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
 
     // Act

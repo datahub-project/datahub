@@ -1,6 +1,7 @@
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import ConnectionCapabilityView from '@app/ingestV2/source/builder/RecipeForm/TestConnection/ConnectionCapabilityView';
@@ -101,25 +102,27 @@ function TestConnectionModal({
     testConnectionResult,
     hideModal,
 }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
+    const { t: tc } = useTranslation('common.actions');
     const logoUrl = useGetSourceLogoUrl(sourceConfig?.name || '');
 
     return (
         <Modal
             open
             onCancel={hideModal}
-            footer={<Button onClick={hideModal}>Done</Button>}
+            footer={<Button onClick={hideModal}>{tc('done')}</Button>}
             title={
                 <ModalHeader style={{ margin: 0 }}>
-                    <SourceIcon alt="source logo" src={logoUrl} />
-                    {sourceConfig?.displayName} Connection Test
+                    <SourceIcon alt={t('testConnection.sourceLogoAlt')} src={logoUrl} />
+                    {t('testConnection.modalTitle', { sourceName: sourceConfig?.displayName })}
                 </ModalHeader>
             }
             width={750}
         >
             {isLoading && (
                 <ResultsWrapper>
-                    <LoadingHeader level={4}>Testing your connection...</LoadingHeader>
-                    <LoadingSubheader>This could take a few minutes.</LoadingSubheader>
+                    <LoadingHeader level={4}>{t('testConnection.loading.title')}</LoadingHeader>
+                    <LoadingSubheader>{t('testConnection.loading.subheader')}</LoadingSubheader>
                     <LoadingWrapper>
                         <LoadingSvg height={100} width={100} />
                     </LoadingWrapper>
@@ -130,38 +133,36 @@ function TestConnectionModal({
                     <ResultsHeader success={!testConnectionFailed}>
                         {testConnectionFailed ? (
                             <>
-                                <StyledClose /> Connection Failed
+                                <StyledClose /> {t('testConnection.failed.title')}
                             </>
                         ) : (
                             <>
-                                <StyledCheck /> Connection Succeeded
+                                <StyledCheck /> {t('testConnection.succeeded.title')}
                             </>
                         )}
                     </ResultsHeader>
                     <ResultsSubHeader>
                         {testConnectionFailed
-                            ? `A connection was not able to be established with ${sourceConfig?.displayName}.`
-                            : `A connection was successfully established with ${sourceConfig?.displayName}.`}
+                            ? t('testConnection.failed.description', { sourceName: sourceConfig?.displayName })
+                            : t('testConnection.succeeded.description', { sourceName: sourceConfig?.displayName })}
                     </ResultsSubHeader>
                     <Divider />
                     {testConnectionResult?.internal_failure ? (
                         <ConnectionCapabilityView
-                            capability="Internal Failure"
+                            capability={t('testConnection.internalFailure.label')}
                             displayMessage={testConnectionResult?.internal_failure_reason || ''}
                             success={false}
                             tooltipMessage={null}
                         />
                     ) : (
                         <CapabilitiesHeader>
-                            <CapabilitiesTitle>Capabilities</CapabilitiesTitle>
-                            <ResultsSubHeader>
-                                The following connector capabilities are supported with your credentials
-                            </ResultsSubHeader>
+                            <CapabilitiesTitle>{t('testConnection.capabilities.title')}</CapabilitiesTitle>
+                            <ResultsSubHeader>{t('testConnection.capabilities.description')}</ResultsSubHeader>
                         </CapabilitiesHeader>
                     )}
                     {testConnectionResult?.basic_connectivity && (
                         <ConnectionCapabilityView
-                            capability="Basic Connectivity"
+                            capability={t('testConnection.basicConnectivity.label')}
                             displayMessage={testConnectionResult?.basic_connectivity?.failure_reason}
                             success={testConnectionResult?.basic_connectivity?.capable}
                             tooltipMessage={testConnectionResult?.basic_connectivity?.mitigation_message}

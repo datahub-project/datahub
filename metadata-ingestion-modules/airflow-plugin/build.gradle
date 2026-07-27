@@ -3,6 +3,7 @@ plugins {
 }
 
 apply from: "../../gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 
 ext {
   python_executable = 'python3'
@@ -72,24 +73,15 @@ task installTest(type: Exec, dependsOn: [installDev]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check src/ tests/ && " +
-    "ruff format --check src/ tests/ && " +
-    // Detect Airflow version and exclude incompatible plugin implementation
-    // This mirrors the tox approach: check only one implementation at a time
-    "AIRFLOW_VERSION=\$(python -c 'import airflow; print(airflow.__version__)') && " +
-    "if python -c 'import packaging.version; import airflow; exit(0 if packaging.version.parse(airflow.__version__) >= packaging.version.parse(\"3.0.0\") else 1)'; then " +
-      "echo \"Detected Airflow \$AIRFLOW_VERSION (3.x) - excluding airflow2 from mypy\" && " +
-      "mypy --exclude 'src/datahub_airflow_plugin/airflow2' --show-traceback --show-error-codes src/ tests/; " +
-    "else " +
-      "echo \"Detected Airflow \$AIRFLOW_VERSION (2.x) - excluding airflow3 from mypy\" && " +
-      "mypy --exclude 'src/datahub_airflow_plugin/airflow3' --show-traceback --show-error-codes src/ tests/; " +
-    "fi"
+    "ruff check . && " +
+    "ruff format --check . && " +
+    "mypy --show-traceback --show-error-codes ."
 }
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix src/ tests/ && " +
-    "ruff format src/ tests/ "
+    "ruff check --fix . && " +
+    "ruff format . "
 }
 
 // HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).

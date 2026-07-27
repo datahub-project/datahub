@@ -1,6 +1,7 @@
 package com.datahub.telemetry;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -14,7 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
@@ -25,9 +26,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Optional;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.TopicPartition;
+import java.util.concurrent.CompletableFuture;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.testng.annotations.BeforeMethod;
@@ -67,7 +66,7 @@ public class TrackingServiceTest {
   private EntityService<?> _entityService;
   private TrackingService _trackingService;
   private OperationContext opContext;
-  private GenericProducer<String> dataHubUsageProducer;
+  private UsageEventPublisher usageEventPublisher;
   private TrackingService _noObfuscationTrackingService;
 
   @BeforeMethod
@@ -86,17 +85,9 @@ public class TrackingServiceTest {
     TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
     when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
 
-    dataHubUsageProducer = mock(GenericProducer.class);
-    when(dataHubUsageProducer.send(any(ProducerRecord.class), any()))
-        .thenAnswer(
-            invocation -> {
-              // Get the callback from the second argument
-              org.apache.kafka.clients.producer.Callback callback = invocation.getArgument(1);
-              TopicPartition partition = new TopicPartition("DataHubUsageEvent_v1", 1);
-              RecordMetadata metadata = new RecordMetadata(partition, 0, 0, 0, 0, 0);
-              callback.onCompletion(metadata, null);
-              return null;
-            });
+    usageEventPublisher = mock(UsageEventPublisher.class);
+    when(usageEventPublisher.publish(anyString(), nullable(String.class), anyString()))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     // Mock the operation context
     opContext = mock(OperationContext.class);
@@ -113,7 +104,7 @@ public class TrackingServiceTest {
             _mixpanelAPI,
             _entityService,
             gitVersion,
-            dataHubUsageProducer);
+            usageEventPublisher);
   }
 
   @Test
@@ -156,7 +147,7 @@ public class TrackingServiceTest {
     verify(_mixpanelAPI, times(1)).sendMessage(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
-    verify(dataHubUsageProducer, times(1)).send(any(ProducerRecord.class), any());
+    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
 
     // For testing the empty destination path
     _trackingService.track(EVENT_TYPE, opContext, null, null, eventNode, Collections.emptySet());
@@ -164,17 +155,9 @@ public class TrackingServiceTest {
 
   @Test
   public void testTrackEventWithKafkaError() throws IOException {
-    // Create a new producer that simulates an error
-    GenericProducer<String> errorProducer = mock(GenericProducer.class);
-    when(errorProducer.send(any(ProducerRecord.class), any()))
-        .thenAnswer(
-            invocation -> {
-              // Get the callback from the second argument
-              org.apache.kafka.clients.producer.Callback callback = invocation.getArgument(1);
-              // Execute the callback with an error (null metadata, non-null exception)
-              callback.onCompletion(null, new RuntimeException("Kafka error"));
-              return null;
-            });
+    UsageEventPublisher errorProducer = mock(UsageEventPublisher.class);
+    when(errorProducer.publish(anyString(), nullable(String.class), anyString()))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Kafka error")));
 
     // Create a new tracking service with the error producer
     TopicsConfiguration topicsConfiguration = mock(TopicsConfiguration.class);
@@ -215,7 +198,7 @@ public class TrackingServiceTest {
     int numDestinations = errorTrackingService.track(EVENT_TYPE, opContext, null, null, eventNode);
 
     // Verify that the Kafka producer was called
-    verify(errorProducer, times(1)).send(any(ProducerRecord.class), any());
+    verify(errorProducer, times(1)).publish(anyString(), nullable(String.class), anyString());
 
     assertEquals(numDestinations, 2);
   }
@@ -251,7 +234,7 @@ public class TrackingServiceTest {
     verify(_mixpanelAPI, never()).sendMessage(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
-    verify(dataHubUsageProducer, times(1)).send(any(ProducerRecord.class), any());
+    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
 
     // Should return 1 for Kafka destination
     assertEquals(numDestinations, 1);
@@ -374,7 +357,7 @@ public class TrackingServiceTest {
             EVENT_TYPE, opContext, null, null, eventNode, EnumSet.of(TrackingDestination.KAFKA));
 
     // Verify that the Kafka producer was called
-    verify(dataHubUsageProducer, times(1)).send(any(ProducerRecord.class), any());
+    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
 
     // Should return 1 for Kafka destination
     assertEquals(numDestinations, 1);

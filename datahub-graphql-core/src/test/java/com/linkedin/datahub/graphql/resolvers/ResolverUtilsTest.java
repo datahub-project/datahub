@@ -55,7 +55,6 @@ public class ResolverUtilsTest {
         criterionFromFilter(
             new FacetFilterInput(
                 "tags",
-                null,
                 ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def"),
                 false,
                 FilterOperator.EQUAL));
@@ -64,16 +63,16 @@ public class ResolverUtilsTest {
         buildCriterion(
             "tags", Condition.EQUAL, ImmutableList.of("urn:li:tag:abc", "urn:li:tag:def")));
 
-    // this is the legacy pathway
-    Criterion valueCriterion =
+    Criterion singleValueCriterion =
         criterionFromFilter(
-            new FacetFilterInput("tags", "urn:li:tag:abc", null, true, FilterOperator.EQUAL));
-    assertEquals(valueCriterion, buildCriterion("tags", Condition.EQUAL, true, "urn:li:tag:abc"));
+            new FacetFilterInput(
+                "tags", ImmutableList.of("urn:li:tag:abc"), true, FilterOperator.EQUAL));
+    assertEquals(
+        singleValueCriterion, buildCriterion("tags", Condition.EQUAL, true, "urn:li:tag:abc"));
 
-    // check that both being null doesn't cause a NPE. this should never happen except via API
-    // interaction
+    // check that null values doesn't cause a NPE
     Criterion doubleNullCriterion =
-        criterionFromFilter(new FacetFilterInput("tags", null, null, true, FilterOperator.EQUAL));
+        criterionFromFilter(new FacetFilterInput("tags", null, true, FilterOperator.EQUAL));
     assertEquals(
         doubleNullCriterion, buildCriterion("tags", Condition.EQUAL, true, ImmutableList.of()));
   }
@@ -246,7 +245,7 @@ public class ResolverUtilsTest {
     List<FacetFilterInput> inputs =
         ImmutableList.of(
             new FacetFilterInput(
-                "field.keyword", "v1", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
+                "field.keyword", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
     Map<String, String> result = buildFacetFilters(inputs, Set.of("field.keyword"));
     assertEquals(result.get("field.keyword"), "v1");
   }
@@ -255,8 +254,7 @@ public class ResolverUtilsTest {
   public void testBuildFacetFilters_invalidField() {
     List<FacetFilterInput> inputs =
         ImmutableList.of(
-            new FacetFilterInput(
-                "invalid", "v1", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
+            new FacetFilterInput("invalid", ImmutableList.of("v1"), false, FilterOperator.EQUAL));
     buildFacetFilters(inputs, Set.of("field.keyword"));
   }
 
@@ -276,7 +274,7 @@ public class ResolverUtilsTest {
   @Test
   public void testBuildFilter_andFiltersOnly() {
     FacetFilterInput and =
-        new FacetFilterInput("f.keyword", "v", ImmutableList.of("v"), false, FilterOperator.EQUAL);
+        new FacetFilterInput("f.keyword", ImmutableList.of("v"), false, FilterOperator.EQUAL);
     Filter f = buildFilter(ImmutableList.of(and), null);
     assertNotNull(f);
     assertNotNull(f.getOr());

@@ -172,16 +172,18 @@ public class EmbeddingProviderFactoryTest {
 
   /**
    * Until the ingestion-side client supports propagating non-default dimensions, the factory must
-   * reject any non-default outputDimensionality to prevent server/client embedding-dimension
-   * mismatch that would silently break kNN search.
+   * reject any non-default outputDimensionality to prevent server/client embedding-dimension Guard
+   * was removed — any positive outputDimensionality is now accepted.
    */
   @Test
-  public void rejectsVertexAiWithNonDefaultDimensions() {
+  public void acceptsVertexAiWithNonDefaultDimensions() {
     EmbeddingProviderConfiguration config =
         configWithVertexAi("my-gcp-project", "us-central1", "gemini-embedding-001", 1024);
 
     EmbeddingProviderFactory factory = new TestableFactory();
-    assertThrows(IllegalStateException.class, () -> factory.createVertexAiProvider(config));
+    EmbeddingProvider provider = factory.createVertexAiProvider(config);
+    assertNotNull(provider);
+    assertTrue(provider instanceof VertexAiEmbeddingProvider);
   }
 
   /** Routes through {@code getInstance()} switch-case with type="vertex_ai". */

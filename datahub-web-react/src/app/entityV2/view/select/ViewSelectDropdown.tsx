@@ -41,7 +41,7 @@ export const ViewSelectDropdown = ({
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     return (
-        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="views-popover">
             <ViewSelectHeader
                 onClickViewTypeFilter={onClickViewTypeFilter}
                 publicView={publicView}

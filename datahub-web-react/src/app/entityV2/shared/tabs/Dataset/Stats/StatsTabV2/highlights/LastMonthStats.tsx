@@ -1,5 +1,6 @@
 import { Card, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import { ViewButton } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/highlights/ViewButton';
@@ -13,10 +14,10 @@ import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTa
 import { useGetStatsSections } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsSections';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { capitalizeFirstLetter, pluralize } from '@src/app/shared/textUtil';
 import { countFormatter } from '@src/utils/formatter';
 
 const LastMonthStats = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const { users, queryCount, totalOperations } = useGetStatsData();
     const { scrollToSection } = useGetStatsSections();
     const { sections } = useStatsSectionsContext();
@@ -24,12 +25,12 @@ const LastMonthStats = () => {
     return (
         <LastMonthStatsContainer data-testid="last-month-stats">
             <Text size="sm" weight="bold">
-                Last 30 days
+                {t('lastMonthStats.label')}
             </Text>
             <StatCards>
                 <Card
                     title={users?.length !== undefined ? formatNumberWithoutAbbreviation(users.length) : ''}
-                    subTitle={pluralize(users?.length || 0, 'User')}
+                    subTitle={t('lastMonthStats.user', { count: users?.length || 0 })}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={users === undefined}
@@ -39,7 +40,7 @@ const LastMonthStats = () => {
                 />
                 <Card
                     title={queryCount !== undefined ? countFormatter(queryCount) : ''}
-                    subTitle={capitalizeFirstLetter(pluralize(queryCount || 0, 'Query'))}
+                    subTitle={t('lastMonthStats.query', { count: queryCount || 0 })}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={queryCount === undefined}
@@ -49,7 +50,7 @@ const LastMonthStats = () => {
                 />
                 <Card
                     title={totalOperations !== undefined ? countFormatter(totalOperations) : ''}
-                    subTitle={pluralize(totalOperations || 0, 'Change')}
+                    subTitle={t('lastMonthStats.change', { count: totalOperations || 0 })}
                     maxWidth={CARD_WIDTH}
                     height={CARD_HEIGHT}
                     isEmpty={totalOperations === undefined}

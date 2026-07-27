@@ -167,12 +167,7 @@ class DocumentEventConsumer:
         params = {k: v for k, v in params.items() if v is not None and v != ""}
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()
@@ -225,12 +220,7 @@ class DocumentEventConsumer:
         }
 
         try:
-            import requests
-
-            headers = dict(self.graph._session.headers)
-            response = requests.get(
-                endpoint, params=params, headers=headers, timeout=30
-            )
+            response = self.graph.session.get(endpoint, params=params, timeout=30)
             response.raise_for_status()
 
             data = response.json()

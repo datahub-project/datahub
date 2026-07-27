@@ -370,7 +370,8 @@ def sort_by_update_time(
     items: List[T], time_field: str = "update_time", reverse: bool = True
 ) -> None:
     items.sort(
-        key=lambda item: getattr(item, time_field, None)
-        or datetime.min.replace(tzinfo=timezone.utc),
+        key=lambda item: (
+            getattr(item, time_field, None) or datetime.min.replace(tzinfo=timezone.utc)
+        ),
         reverse=reverse,
     )

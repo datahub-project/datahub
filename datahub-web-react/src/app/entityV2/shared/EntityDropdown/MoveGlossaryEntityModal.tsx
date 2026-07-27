@@ -1,5 +1,6 @@
 import { Form, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
@@ -29,6 +30,9 @@ interface Props {
 }
 
 function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props) {
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcf } = useTranslation('common.feedback');
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn, setNodeToNewEntity } =
         useGlossaryEntityData();
     const [form] = Form.useForm();
@@ -48,10 +52,12 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
             },
         })
             .then(() => {
-                message.loading({ content: 'Updating...', duration: 2 });
+                message.loading({ content: tcf('updating'), duration: 2 });
                 setTimeout(() => {
                     message.success({
-                        content: `Moved ${entityRegistry.getEntityName(entityType)}!`,
+                        content: t('move.success', {
+                            entityName: entityRegistry.getEntityName(entityType),
+                        }),
                         duration: 2,
                     });
                     refetch();
@@ -75,7 +81,7 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to move: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('move.error', { errorMessage: e.message || '' }), duration: 3 });
             });
         onClose();
     }
@@ -83,17 +89,19 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
     return (
         <Modal
             data-testid="move-glossary-entity-modal"
-            title={`Move ${entityType === EntityType.GlossaryNode ? 'Term Group' : 'Term'}`}
+            title={
+                entityType === EntityType.GlossaryNode ? t('moveGlossary.titleTermGroup') : t('moveGlossary.titleTerm')
+            }
             open
             onCancel={onClose}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'outline',
                     onClick: onClose,
                 },
                 {
-                    text: 'Move',
+                    text: tc('move'),
                     variant: 'filled',
                     onClick: moveGlossaryEntity,
                     buttonDataTestId: 'glossary-entity-modal-move-button',
@@ -104,7 +112,7 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                            <Trans t={t} i18nKey="move.toLabel" components={{ optional: <OptionalWrapper /> }} />
                         </Typography.Text>
                     }
                 >

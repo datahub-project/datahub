@@ -5,7 +5,9 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api project(':metadata-utils')
+  api project(':entity-registry')
   api project(':metadata-auth:auth-api')
+  implementation project(path: ':li-utils')
 
   // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
   // latest caffeine 3.1.8 compatible
@@ -24,4 +26,8 @@ dependencies {
   annotationProcessor externalDependency.lombok
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
+  // Spring's MockHttpServletRequest — used in EnrichmentPropagationTest to stamp the
+  // REQUEST_ENRICHMENTS_ATTR attribute and drive buildOpenapi through the full read-back chain.
+  // Test-only; production code has no Spring dependency.
+  testImplementation externalDependency.springBootTest
 }

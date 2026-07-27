@@ -138,8 +138,12 @@ jobs:
           if [ -z "$TEAM_MEMBERS" ]; then
             echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           else
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
           fi

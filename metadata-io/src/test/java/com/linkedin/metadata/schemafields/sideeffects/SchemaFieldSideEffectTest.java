@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -127,6 +129,7 @@ public class SchemaFieldSideEffectTest {
               .build(mockAspectRetriever);
       testOutput =
           test.postMCPSideEffect(
+                  OperationFingerprint.EMPTY,
                   List.of(
                       MCLItemImpl.builder()
                           .build(
@@ -204,7 +207,9 @@ public class SchemaFieldSideEffectTest {
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(
-            Set.of(TEST_URN), Set.of(SCHEMA_METADATA_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(Set.of(TEST_URN)),
+            eq(Set.of(SCHEMA_METADATA_ASPECT_NAME))))
         .thenReturn(
             Map.of(
                 TEST_URN, Map.of(SCHEMA_METADATA_ASPECT_NAME, new Aspect(schemaMetadata.data()))));
@@ -227,6 +232,7 @@ public class SchemaFieldSideEffectTest {
               .build(mockAspectRetriever);
       testOutput =
           test.postMCPSideEffect(
+                  OperationFingerprint.EMPTY,
                   List.of(
                       MCLItemImpl.builder()
                           .build(
@@ -280,7 +286,8 @@ public class SchemaFieldSideEffectTest {
     // Case 2. status (exists), then schemaMetadata
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(Set.of(TEST_URN), Set.of(STATUS_ASPECT_NAME)))
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), eq(Set.of(STATUS_ASPECT_NAME))))
         .thenReturn(Map.of(TEST_URN, Map.of(STATUS_ASPECT_NAME, new Aspect(status.data()))));
 
     for (ChangeType changeType : List.of(ChangeType.CREATE, ChangeType.UPSERT)) {
@@ -300,6 +307,7 @@ public class SchemaFieldSideEffectTest {
               .build(mockAspectRetriever);
       testOutput =
           test.postMCPSideEffect(
+                  OperationFingerprint.EMPTY,
                   List.of(
                       MCLItemImpl.builder()
                           .build(
@@ -416,7 +424,9 @@ public class SchemaFieldSideEffectTest {
             .build(retrieverContext.getAspectRetriever());
 
     List<MCPItem> testOutput =
-        test.postMCPSideEffect(List.of(schemaMetadataChangeItem), retrieverContext).toList();
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(schemaMetadataChangeItem), retrieverContext)
+            .toList();
 
     List<MCPItem> expectedEveryAspectPerField = new ArrayList<>();
     for (String schemaField :
@@ -459,7 +469,8 @@ public class SchemaFieldSideEffectTest {
     // mock response
     reset(mockAspectRetriever);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
-    when(mockAspectRetriever.getLatestAspectObjects(eq(Set.of(TEST_URN)), anySet()))
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(TEST_URN)), anySet()))
         .thenReturn(
             Map.of(
                 TEST_URN,
@@ -479,7 +490,9 @@ public class SchemaFieldSideEffectTest {
             .build(retrieverContext.getAspectRetriever());
 
     List<MCPItem> testOutput =
-        test.postMCPSideEffect(List.of(statusChangeItem), retrieverContext).toList();
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY, List.of(statusChangeItem), retrieverContext)
+            .toList();
 
     List<MCPItem> expectedStatusDeletePerField = new ArrayList<>();
     for (String schemaField :
@@ -540,6 +553,7 @@ public class SchemaFieldSideEffectTest {
               .build(mockAspectRetriever);
       testOutput =
           test.postMCPSideEffect(
+                  OperationFingerprint.EMPTY,
                   List.of(
                       MCLItemImpl.builder()
                           .build(
@@ -645,6 +659,7 @@ public class SchemaFieldSideEffectTest {
 
       testOutput =
           test.postMCPSideEffect(
+                  OperationFingerprint.EMPTY,
                   List.of(
                       MCLItemImpl.builder()
                           .build(

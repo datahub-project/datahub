@@ -1,5 +1,6 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
+import { Trans } from 'react-i18next';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
@@ -11,86 +12,98 @@ export const USERS_ASSIGN_ROLE_ID = 'users-assign-role';
 export const UsersOnboardingConfig: OnboardingStep[] = [
     {
         id: USERS_INTRO_ID,
-        title: 'Users',
+        title: <Trans i18nKey="onboarding:users.introTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    Welcome to DataHub <strong>Users</strong>!
+                    <Trans i18nKey="onboarding:users.introWelcome" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    There are a few different ways to onboard new <strong>Users</strong> onto DataHub.
+                    <Trans i18nKey="onboarding:users.introDescription" components={{ bold: <strong /> }} />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: USERS_SSO_ID,
-        title: 'Configuring Single Sign-On (SSO)',
+        title: <Trans i18nKey="onboarding:users.ssoTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    The preferred way to onboard new <strong>Users</strong> is to use <strong>Single Sign-On</strong>.
-                    Currently, DataHub supports OIDC SSO.
+                    <Trans i18nKey="onboarding:users.ssoDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about how to configure <strong>Single Sign-On</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authentication/guides/sso/configure-oidc-react/#configuring-oidc-in-react"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:users.ssoLearnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authentication/guides/sso/configure-oidc-react/#configuring-oidc-in-react"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: USERS_INVITE_LINK_ID,
         selector: `#${USERS_INVITE_LINK_ID}`,
-        title: 'Invite New Users',
+        title: <Trans i18nKey="onboarding:users.inviteTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    Easily share an invite link with your colleagues to onboard them onto DataHub. Optionally assign a{' '}
-                    <strong>Role</strong> to anyone who joins using the link.
+                    <Trans i18nKey="onboarding:users.inviteDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about configuring invite links{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authentication/guides/add-users/#send-prospective-users-an-invite-link"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:users.inviteLearnMore"
+                        components={{
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authentication/guides/add-users/#send-prospective-users-an-invite-link"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
         id: USERS_ASSIGN_ROLE_ID,
         selector: `#${USERS_ASSIGN_ROLE_ID}`,
-        title: 'Assigning Roles',
+        title: <Trans i18nKey="onboarding:users.assignRoleTitle" />,
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
-                    You can assign <strong>Roles</strong> to existing <strong>Users</strong> here.
+                    <Trans i18nKey="onboarding:users.assignRoleDescription" components={{ bold: <strong /> }} />
                 </p>
                 <p>
-                    Learn more about <strong>Roles</strong>{' '}
-                    <a
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        href="https://docs.datahub.com/docs/authorization/roles"
-                    >
-                        {' '}
-                        here.
-                    </a>
+                    <Trans
+                        i18nKey="onboarding:users.assignRoleLearnMore"
+                        components={{
+                            bold: <strong />,
+                            anchor: (
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                <a
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    href="https://docs.datahub.com/docs/authorization/roles"
+                                />
+                            ),
+                        }}
+                    />
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

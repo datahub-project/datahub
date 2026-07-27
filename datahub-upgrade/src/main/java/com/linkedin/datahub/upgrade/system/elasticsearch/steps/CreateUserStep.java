@@ -82,7 +82,8 @@ public class CreateUserStep implements UpgradeStep {
             log.warn("IAM authentication is only supported for AWS OpenSearch Service");
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
-          setupElasticsearchCloudUser(indexPrefix, roleName, username, password);
+          setupElasticsearchCloudUser(
+              context.opContext(), indexPrefix, roleName, username, password);
         }
 
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -94,9 +95,15 @@ public class CreateUserStep implements UpgradeStep {
   }
 
   private void setupElasticsearchCloudUser(
-      String prefix, String roleName, String username, String password) throws Exception {
+      OperationContext operationContext,
+      String prefix,
+      String roleName,
+      String username,
+      String password)
+      throws Exception {
     log.info("Creating Elasticsearch Cloud user and role");
-    IndexRoleUtils.createElasticsearchCloudUser(esComponents, roleName, username, password, prefix);
+    IndexRoleUtils.createElasticsearchCloudUser(
+        operationContext, esComponents, roleName, username, password, prefix);
   }
 
   private void setupOpenSearchUser(
@@ -116,19 +123,20 @@ public class CreateUserStep implements UpgradeStep {
       log.info("Detected AWS OpenSearch Service. Creating AWS-specific role.");
 
       // Create the role first (required for both modes)
-      IndexRoleUtils.createAwsOpenSearchRole(esComponents, roleName, prefix);
+      IndexRoleUtils.createAwsOpenSearchRole(operationContext, esComponents, roleName, prefix);
 
       if (usingIam) {
         // IAM authentication: create role mapping to IAM role
         log.info("IAM mode: Creating role mapping for IAM role: {}", iamRoleArn);
-        IndexRoleUtils.createAwsOpenSearchRoleMapping(esComponents, roleName, iamRoleArn);
+        IndexRoleUtils.createAwsOpenSearchRoleMapping(
+            operationContext, esComponents, roleName, iamRoleArn);
       }
 
       if (usingUserPassword) {
         // Internal user authentication: create internal user
         log.info("Internal user mode: Creating internal user: {}", username);
         IndexRoleUtils.createAwsOpenSearchUser(
-            esComponents, username, password, roleName, null, operationContext);
+            operationContext, esComponents, username, password, roleName, null);
       }
     } else {
       log.warn("Detected self-hosted OpenSearch. Creating user and role not supported.");
