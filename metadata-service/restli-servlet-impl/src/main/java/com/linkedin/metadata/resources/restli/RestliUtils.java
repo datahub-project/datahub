@@ -50,22 +50,34 @@ public class RestliUtils {
         finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException apiThrottleException) {
         finalException = apiThrottled(apiThrottleException);
-      } else if (throwable instanceof DatabaseTransactionConflictException
-          || throwable.getCause() instanceof DatabaseTransactionConflictException) {
-        Throwable conflict =
-            throwable instanceof DatabaseTransactionConflictException
-                ? throwable
-                : throwable.getCause();
-        finalException =
-            new RestLiServiceException(HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict);
-      } else if (throwable instanceof RestLiServiceException) {
-        finalException = (RestLiServiceException) throwable;
       } else {
-        finalException = new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        DatabaseTransactionConflictException conflict =
+            findDatabaseTransactionConflict(throwable);
+        if (conflict != null) {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict);
+        } else if (throwable instanceof RestLiServiceException) {
+          finalException = (RestLiServiceException) throwable;
+        } else {
+          finalException =
+              new RestLiServiceException(HttpStatus.S_500_INTERNAL_SERVER_ERROR, throwable);
+        }
       }
 
       throw finalException;
     }
+  }
+
+  @Nullable
+  private static DatabaseTransactionConflictException findDatabaseTransactionConflict(
+      @Nonnull Throwable throwable) {
+    while (throwable != null) {
+      if (throwable instanceof DatabaseTransactionConflictException conflict) {
+        return conflict;
+      }
+      throwable = throwable.getCause();
+    }
+    return null;
   }
 
   @Nonnull

@@ -1001,7 +1001,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
               transactionRetryPolicy.backoffMillis(transactionContext.exceptions().size() - 1));
         } else if (backoff) {
           if (metricUtils != null) {
-            metricUtils.increment(MetricRegistry.name(this.getClass(), "txTransientBackoff"), 1);
+            metricUtils.increment(MetricRegistry.name(this.getClass(), "txTransientExhausted"), 1);
           }
           log.warn(
               "Retryable PersistenceException with backoff (retries exhausted): sqlState={}, vendorCode={}, message={}",
@@ -1041,6 +1041,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       Thread.sleep(backoffMs);
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
+      throw new RetryLimitReached("Interrupted during retry backoff", ie);
     }
   }
 

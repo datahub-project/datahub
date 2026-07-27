@@ -15,8 +15,8 @@ public class TransactionRetryConfiguration {
   public static final long DEFAULT_INITIAL_BACKOFF_MS = 50L;
   public static final long DEFAULT_MAX_BACKOFF_MS = 1000L;
 
-  @Builder.Default private String backoffSqlStates = DEFAULT_BACKOFF_SQL_STATES;
-  @Builder.Default private String backoffVendorCodes = DEFAULT_BACKOFF_VENDOR_CODES;
-  @Builder.Default private long initialBackoffMs = DEFAULT_INITIAL_BACKOFF_MS;
-  @Builder.Default private long maxBackoffMs = DEFAULT_MAX_BACKOFF_MS;
+  private String backoffSqlStates = DEFAULT_BACKOFF_SQL_STATES;
+  private String backoffVendorCodes = DEFAULT_BACKOFF_VENDOR_CODES;
+  private long initialBackoffMs = DEFAULT_INITIAL_BACKOFF_MS;
+  private long maxBackoffMs = DEFAULT_MAX_BACKOFF_MS;
 }

@@ -39,6 +39,11 @@ public class TransactionRetryPolicy {
             ? config.getMaxBackoffMs()
             : TransactionRetryConfiguration.DEFAULT_MAX_BACKOFF_MS;
     this.jitterEnabled = jitterEnabled;
+    if (backoffSqlStates.isEmpty() && backoffVendorCodes.isEmpty()) {
+      log.warn(
+          "ebean.transactionRetry has empty backoffSqlStates and backoffVendorCodes; "
+              + "transient deadlock/serialization retry backoff is disabled");
+    }
   }
 
   public boolean shouldBackoff(@Nullable Throwable throwable) {

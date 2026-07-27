@@ -542,4 +542,22 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
     assertEquals(error.getErrorCode(), 409);
   }
+
+  @Test
+  public void testValidationExceptionTakesPriorityOverDatabaseTransactionConflict()
+      throws ExecutionException, InterruptedException {
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+    ValidationException validation = new ValidationException("Validation failed", conflict);
+    Mockito.when(mockParameters.getException()).thenReturn(validation);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("Validation failed"));
+    assertEquals(error.getErrorCode(), 400);
+  }
 }

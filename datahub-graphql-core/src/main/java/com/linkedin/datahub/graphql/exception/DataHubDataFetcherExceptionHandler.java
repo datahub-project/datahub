@@ -52,7 +52,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
 
     DatabaseTransactionConflictException conflictException =
         findFirstThrowableCauseOfClass(exception, DatabaseTransactionConflictException.class);
-    if (conflictException != null) {
+    if (message.equals(DEFAULT_ERROR_MESSAGE) && conflictException != null) {
       log.error("Failed to execute", conflictException);
       errorCode = DataHubGraphQLErrorCode.CONFLICT;
       // Do not append nested SQL / vendor deadlock details for this stable client-facing error.

@@ -62,6 +62,26 @@ public class RestliUtilsTest {
   }
 
   @Test
+  public void testToTask_DoubleWrappedDatabaseTransactionConflict_Returns503() {
+    DatabaseTransactionConflictException conflict =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw new RuntimeException(
+                          "outer", new RuntimeException("inner", conflict));
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
+    assertEquals(thrown.getCause(), conflict);
+  }
+
+  @Test
   public void testToTask_GenericRuntime_Returns500() {
     RuntimeException boom = new RuntimeException("boom");
 
