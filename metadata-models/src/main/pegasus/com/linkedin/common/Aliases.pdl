@@ -3,6 +3,9 @@ namespace com.linkedin.common
 /**
  * Alternate identifiers an entity is also known by, used to resolve references that point at the
  * same entity under a different identifier.
+ *
+ * System-owned: derived and written by GMS, not by ingestion clients. Currently holds a single
+ * field, lowercasedUrn.
  */
 @Aspect = {
   "name": "aliases"

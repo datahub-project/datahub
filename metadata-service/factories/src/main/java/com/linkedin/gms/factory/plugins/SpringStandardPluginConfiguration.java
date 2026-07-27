@@ -21,7 +21,6 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
-import com.linkedin.metadata.aspect.validation.AliasesValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
@@ -199,26 +198,6 @@ public class SpringStandardPluginConfiguration {
 
     log.info("Initialized {}", AliasesSideEffect.class.getName());
     return new AliasesSideEffect().setConfig(config);
-  }
-
-  @Bean
-  @ConditionalOnProperty(
-      name = "metadataChangeProposal.sideEffects.aliases.enabled",
-      havingValue = "true")
-  public AspectPayloadValidator aliasesValidator() {
-    return new AliasesValidator()
-        .setConfig(
-            AspectPluginConfig.builder()
-                .className(AliasesValidator.class.getName())
-                .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, RESTATE))
-                .supportedEntityAspectNames(
-                    List.of(
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(Constants.DATASET_ENTITY_NAME)
-                            .aspectName(Constants.ALIASES_ASPECT_NAME)
-                            .build()))
-                .build());
   }
 
   @Bean
