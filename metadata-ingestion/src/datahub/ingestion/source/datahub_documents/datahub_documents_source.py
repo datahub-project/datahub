@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, cast
 
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -72,6 +73,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_unchanged: int = 0
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
+    num_documents_skipped_orphaned: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
@@ -101,6 +103,10 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     def report_document_skipped_existing_embeddings(self) -> None:
         """Report document skipped because it already has semanticContent for the model."""
         self.num_documents_skipped_existing_embeddings += 1
+
+    def report_document_skipped_orphaned(self) -> None:
+        """Report a URN skipped because it has no resolvable backing entity."""
+        self.num_documents_skipped_orphaned += 1
 
     def report_embeddings_generated(self, count: int) -> None:
         self.num_embeddings_generated += count
@@ -896,12 +902,85 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return parts[-1]
         return None
 
+    # URNs hydrated per GraphQL request. Kept modest so a single response stays
+    # within GMS's GraphQL limits even for large documents.
+    _HYDRATE_BATCH_SIZE = 100
+
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
-        """Fetch Document entities from DataHub using GraphQL."""
-        # scrollAcrossEntities uses cursor-based pagination and is not subject to
-        # Elasticsearch's max_result_window limit (default 10,000), unlike offset-based search.
+        """Fetch Document entities from DataHub with their text content.
+
+        URNs are enumerated first (``_scroll_document_urns``) and then hydrated
+        in batches (``_hydrate_documents``), so a single orphaned index entry can
+        no longer abort the whole run.
+        """
+        try:
+            documents: list[dict[str, Any]] = []
+
+            urns = list(self._scroll_document_urns())
+            logger.info(f"Enumerated {len(urns)} document URN(s) from DataHub")
+
+            for entity in self._hydrate_documents(urns):
+                urn = entity.get("urn")
+                if not urn:
+                    continue
+
+                # Filter by specific URNs if provided
+                if self.config.document_urns and urn not in self.config.document_urns:
+                    continue
+
+                # Extract text content (GraphQL returns null for missing aspects).
+                # semanticText overrides text as the embedding source; see _resolve_embed_text.
+                info = entity.get("info") or {}
+                contents = info.get("contents") or {}
+                text = self._resolve_embed_text(contents)
+
+                # Default to NATIVE when sourceType is absent (older documents).
+                source = info.get("source") or {}
+                source_type = source.get("sourceType") or "NATIVE"
+
+                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
+                if not self._should_process_by_source_type(entity, info):
+                    continue
+
+                # Skip if no text or too short
+                if not text or (
+                    self.config.skip_empty_text
+                    and len(text) < self.config.min_text_length
+                ):
+                    logger.debug(
+                        f"Skipping document {urn} (empty or too short: {len(text)} chars)"
+                    )
+                    continue
+
+                documents.append({"urn": urn, "text": text, "source_type": source_type})
+                self.report.report_document_fetched()
+
+            logger.info(
+                f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
+            )
+            return documents
+
+        except Exception as e:
+            logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
+            raise
+
+    def _scroll_document_urns(self) -> Iterable[str]:
+        """Enumerate Document URNs via scrollAcrossEntities.
+
+        Only the URN is selected here — never an aspect-backed field. An
+        orphaned index entry (a URN present in the search index with no backing
+        entity) would make GMS null the non-null ``SearchResult.entity`` and
+        abort the whole scroll if any aspect field were selected; requesting the
+        URN alone reads it straight off the search hit and stays orphan-safe.
+        Content is resolved separately in ``_hydrate_documents``, where orphans
+        come back null and are skipped.
+
+        scrollAcrossEntities uses cursor-based pagination and is not subject to
+        Elasticsearch's max_result_window limit (default 10,000), unlike
+        offset-based search.
+        """
         query = """
-        query scrollDocuments(
+        query scrollDocumentUrns(
             $scrollId: String,
             $batchSize: Int!,
             $orFilters: [AndFilterInput!]
@@ -922,36 +1001,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             searchResults {
               entity {
                 urn
-                type
-                ... on Document {
-                  info {
-                    contents {
-                      text
-                      semanticText
-                    }
-                    customProperties {
-                      key
-                      value
-                    }
-                    source {
-                      sourceType
-                    }
-                  }
-                  dataPlatformInstance {
-                    platform {
-                      urn
-                    }
-                  }
-                }
               }
             }
           }
         }
         """
 
-        page_size = self.config.scroll_batch_size
-
-        # Build optional platform filter
         or_filters = None
         if (
             self.config.platform_filter
@@ -972,86 +1027,176 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 }
             ]
 
-        try:
-            documents = []
-            scroll_id: Optional[str] = None
-            first_iter = True
+        scroll_id: Optional[str] = None
+        first_iter = True
+        while first_iter or scroll_id:
+            # Keep the distributed lock lease alive while scrolling large sets.
+            if self.lock is not None:
+                self.lock.heartbeat()
+            # Throttle between pages (not before the first) to reduce load on
+            # GMS/Elasticsearch when scrolling large document sets.
+            if not first_iter and self.config.scroll_delay_seconds > 0:
+                time.sleep(self.config.scroll_delay_seconds)
+            first_iter = False
 
-            while first_iter or scroll_id:
-                # Keep the distributed lock lease alive while scrolling large document sets.
-                if self.lock is not None:
-                    self.lock.heartbeat()
-                # Throttle between pages (not before the first) to reduce load on
-                # GMS/Elasticsearch when scrolling large document sets.
-                if not first_iter and self.config.scroll_delay_seconds > 0:
-                    time.sleep(self.config.scroll_delay_seconds)
-                first_iter = False
-                variables: dict[str, Any] = {
-                    "batchSize": page_size,
-                    "scrollId": scroll_id,
-                    "orFilters": or_filters,
-                }
-                response = self.graph.execute_graphql(query, variables)
-                scroll_data = response.get("scrollAcrossEntities") or {}
-                scroll_id = scroll_data.get("nextScrollId")
-                search_results = scroll_data.get("searchResults") or []
-
-                logger.debug(
-                    f"Fetched page of {len(search_results)} documents (scrollId={scroll_id})"
+            variables: dict[str, Any] = {
+                "batchSize": self.config.scroll_batch_size,
+                "scrollId": scroll_id,
+                "orFilters": or_filters,
+            }
+            response = self.graph.execute_graphql(query, variables)
+            scroll_data = response.get("scrollAcrossEntities")
+            if scroll_data is None:
+                # A response missing the scroll payload (vs. one with an empty
+                # page) means enumeration broke; surface it rather than silently
+                # reporting success with too few documents embedded.
+                self.report.warning(
+                    title="Document enumeration returned no scroll payload",
+                    message="scrollAcrossEntities was missing from the GraphQL "
+                    "response; document enumeration may be incomplete.",
                 )
-
-                for result in search_results:
-                    entity = result.get("entity") or {}
-                    urn = entity.get("urn")
-
-                    if not urn:
-                        continue
-
-                    # Filter by specific URNs if provided
-                    if (
-                        self.config.document_urns
-                        and urn not in self.config.document_urns
-                    ):
-                        continue
-
-                    # Extract text content (GraphQL returns null for missing aspects).
-                    # semanticText overrides text as the embedding source; see _resolve_embed_text.
-                    info = entity.get("info") or {}
-                    contents = info.get("contents") or {}
-                    text = self._resolve_embed_text(contents)
-
-                    # Default to NATIVE when sourceType is absent (older documents).
-                    source = info.get("source") or {}
-                    source_type = source.get("sourceType") or "NATIVE"
-
-                    # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                    should_process = self._should_process_by_source_type(entity, info)
-                    if not should_process:
-                        continue
-
-                    # Skip if no text or too short
-                    if not text or (
-                        self.config.skip_empty_text
-                        and len(text) < self.config.min_text_length
-                    ):
-                        logger.debug(
-                            f"Skipping document {urn} (empty or too short: {len(text)} chars)"
-                        )
-                        continue
-
-                    documents.append(
-                        {"urn": urn, "text": text, "source_type": source_type}
-                    )
-                    self.report.report_document_fetched()
-
-            logger.info(
-                f"Fetched {len(documents)} documents with text content from platforms: {self.config.platform_filter}"
+                break
+            scroll_id = scroll_data.get("nextScrollId")
+            search_results = scroll_data.get("searchResults") or []
+            logger.debug(
+                f"Scrolled page of {len(search_results)} document URN(s) (scrollId={scroll_id})"
             )
-            return documents
+            # A full page with no continuation cursor is suspicious: the scroll
+            # likely truncated, so some documents may never be enumerated.
+            if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
+                self.report.warning(
+                    title="Document enumeration ended without a scroll cursor",
+                    message="A full page returned no nextScrollId; enumeration "
+                    "may have stopped early and some documents may be missing.",
+                )
+            for result in search_results:
+                entity = result.get("entity") or {}
+                urn = entity.get("urn")
+                if urn:
+                    yield urn
 
-        except Exception as e:
-            logger.error(f"Failed to fetch documents from DataHub: {e}", exc_info=True)
-            raise
+    def _hydrate_documents(self, urns: list[str]) -> Iterable[dict[str, Any]]:
+        """Resolve document URNs to entities in batches.
+
+        Uses the nullable ``entities(urns:)`` query: an orphaned URN comes back
+        as null and is counted and skipped, instead of aborting the run as the
+        non-null ``SearchResult.entity`` in ``scrollAcrossEntities`` would.
+        """
+        query = """
+        query hydrateDocuments($urns: [String!]!) {
+          entities(urns: $urns) {
+            urn
+            type
+            ... on Document {
+              info {
+                contents {
+                  text
+                  semanticText
+                }
+                customProperties {
+                  key
+                  value
+                }
+                source {
+                  sourceType
+                }
+              }
+              dataPlatformInstance {
+                platform {
+                  urn
+                }
+              }
+            }
+          }
+        }
+        """
+        for start in range(0, len(urns), self._HYDRATE_BATCH_SIZE):
+            batch = urns[start : start + self._HYDRATE_BATCH_SIZE]
+            if self.lock is not None:
+                self.lock.heartbeat()
+
+            try:
+                response = self.graph.execute_graphql(query, {"urns": batch})
+            except OperationalError:
+                # Transport/outage error — abort rather than silently skipping
+                # every document (which would report success with 0 embeddings).
+                raise
+            except GraphError:
+                # One document with an unexpected null in a non-null field (e.g.
+                # DocumentContent.text) makes GMS fail the whole batch. Retry the
+                # batch one URN at a time so a single bad document can't drop the
+                # rest.
+                logger.warning(
+                    f"Batch hydration failed for {len(batch)} URN(s); retrying individually"
+                )
+                hydrated_any = False
+                for entity in self._hydrate_individually(query, batch):
+                    hydrated_any = True
+                    yield entity
+                if not hydrated_any:
+                    # Every URN in the batch failed the same way — a systemic
+                    # error (typically a GraphQL schema mismatch, e.g. the GMS is
+                    # missing a queried field), not per-document data. Fail loudly
+                    # rather than reporting a successful run that embedded nothing.
+                    self.report.failure(
+                        title="Document hydration failed for an entire batch",
+                        message="Every URN in a hydration batch failed to resolve; "
+                        "this usually means a GraphQL schema mismatch (the GMS is "
+                        "missing a queried field) rather than per-document issues.",
+                        context=batch[0],
+                    )
+                continue
+
+            entities = response.get("entities") or []
+            if len(entities) != len(batch):
+                # GMS returns one (possibly null) entity per requested URN, in
+                # order. A different count means entities can't be lined up with
+                # URNs — surface it instead of silently dropping the tail.
+                self.report.warning(
+                    title="Hydration returned an unexpected entity count",
+                    message="GMS returned a different number of entities than URNs "
+                    "requested; some documents may be missing from this run.",
+                )
+            for urn, entity in zip(batch, entities, strict=False):
+                if entity is None:
+                    self._skip_orphaned(urn)
+                    continue
+                yield entity
+
+    def _hydrate_individually(
+        self, query: str, urns: list[str]
+    ) -> Iterable[dict[str, Any]]:
+        """Hydrate URNs one at a time so a single un-resolvable document is
+        skipped instead of failing its whole batch."""
+        for urn in urns:
+            try:
+                response = self.graph.execute_graphql(query, {"urns": [urn]})
+            except OperationalError:
+                raise
+            except GraphError:
+                self.report.warning(
+                    title="Skipped document that failed to hydrate",
+                    message="A document's content could not be resolved from GMS "
+                    "(a non-null field returned null); it was skipped.",
+                    context=urn,
+                )
+                continue
+            entities = response.get("entities") or []
+            entity = entities[0] if entities else None
+            if entity is None:
+                self._skip_orphaned(urn)
+                continue
+            yield entity
+
+    def _skip_orphaned(self, urn: str) -> None:
+        """Record an orphaned index entry (a URN with no resolvable entity)."""
+        self.report.report_document_skipped_orphaned()
+        self.report.warning(
+            title="Skipped orphaned document",
+            message="A document URN is present in the search index but has no "
+            "resolvable entity (likely index/entity-store drift); it was skipped.",
+            context=urn,
+        )
 
     def _should_process(self, document_urn: str, text: str) -> bool:
         """Check if document should be processed based on content hash."""
