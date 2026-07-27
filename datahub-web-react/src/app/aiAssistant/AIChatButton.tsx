@@ -90,6 +90,27 @@ const CloseBtn = styled.button`
     &:hover { opacity: 1; background: rgba(255,255,255,0.15); }
 `;
 
+// Model picker lives in the chat panel (not settings) so it can be switched per-conversation.
+const ModelSelect = styled.select`
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    font-size: 11px;
+    padding: 3px 6px;
+    margin-top: 4px;
+    cursor: pointer;
+    &:focus { outline: none; }
+    option { color: #333; }
+`;
+
+// Available models the user can switch between in the chat. V1 = Claude family.
+const CHAT_MODELS: { value: string; label: string }[] = [
+    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+];
+
 const MessagesArea = styled.div`
     flex: 1;
     overflow-y: auto;
@@ -200,8 +221,10 @@ const getPageContext = (): PageContext => {
     };
 };
 
-// ─── AI endpoint — swap this URL once backend is ready ──────────────────────────
-const AI_CHAT_ENDPOINT = '/api/ai/chat';
+// ─── AI endpoint — points at the local AI Orchestrator (see ai-orchestrator/) ───
+// Override at build time with VITE_AI_CHAT_ENDPOINT if needed.
+const AI_CHAT_ENDPOINT =
+    (import.meta as any)?.env?.VITE_AI_CHAT_ENDPOINT || 'http://localhost:8000/api/ai/chat';
 
 // ─── Mock fallback (used when backend is unavailable) ───────────────────────────
 
@@ -227,6 +250,7 @@ export const AIChatButton: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const [model, setModel] = useState(CHAT_MODELS[0].value);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -249,6 +273,7 @@ export const AIChatButton: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
+                    model,                        // model chosen in the chat header
                     context: getPageContext(),   // current page URL + entity type
                 }),
             });
@@ -312,6 +337,17 @@ export const AIChatButton: React.FC = () => {
                     <PanelHeader>
                         <div>
                             <HeaderTitle>🤖 DataHub AI Assistant</HeaderTitle>
+                            <ModelSelect
+                                value={model}
+                                onChange={(e) => setModel(e.target.value)}
+                                title="Choose the model for this conversation"
+                            >
+                                {CHAT_MODELS.map((m) => (
+                                    <option key={m.value} value={m.value}>
+                                        {m.label}
+                                    </option>
+                                ))}
+                            </ModelSelect>
                         </div>
                         <CloseBtn onClick={() => setIsOpen(false)}>✕</CloseBtn>
                     </PanelHeader>

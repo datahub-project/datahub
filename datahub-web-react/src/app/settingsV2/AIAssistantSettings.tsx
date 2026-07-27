@@ -119,16 +119,35 @@ const InfoBox = styled.div`
     line-height: 1.5;
 `;
 
+// Provider metadata — V1 ships Claude, but the structure supports multiple providers.
+const PROVIDERS: Record<string, { label: string; keyPrefix: string; consoleUrl: string; consoleName: string }> = {
+    anthropic: {
+        label: 'Anthropic (Claude)',
+        keyPrefix: 'sk-ant-...',
+        consoleUrl: 'https://console.anthropic.com',
+        consoleName: 'console.anthropic.com',
+    },
+    openai: {
+        label: 'OpenAI (ChatGPT)',
+        keyPrefix: 'sk-...',
+        consoleUrl: 'https://platform.openai.com/api-keys',
+        consoleName: 'platform.openai.com',
+    },
+};
+
 export const AIAssistantSettings = () => {
+    const [provider, setProvider] = useState('anthropic');
     const [apiKey, setApiKey] = useState('');
-    const [model, setModel] = useState('claude-sonnet-5');
     const [saved, setSaved] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    const providerMeta = PROVIDERS[provider];
+
     const handleSave = async () => {
         setSaving(true);
-        // TODO: POST to orchestrator /api/ai-config
-        // For now, simulate save
+        // TODO: POST to backend /api/ai-config/key  { provider, apiKey }
+        // The key is encrypted by DataHub's secret service (Postgres RDS) and never
+        // returned in full. Model selection lives separately (chosen in the chat panel).
         await new Promise((resolve) => setTimeout(resolve, 800));
         setSaved(true);
         setSaving(false);
@@ -141,38 +160,49 @@ export const AIAssistantSettings = () => {
         <PageContainer>
             <PageTitle>🤖 AI Assistant</PageTitle>
             <PageSubtitle>
-                Configure Claude to power the DataHub AI Assistant. Once configured, users can ask questions about
-                datasets, schemas, lineage, and privacy risk directly from any DataHub page.
+                Configure an LLM provider to power the DataHub AI Assistant. Once configured, users can ask questions
+                about datasets, schemas, lineage, and privacy risk directly from any DataHub page. The model is chosen
+                per-conversation in the chat panel.
             </PageSubtitle>
 
             <Divider />
 
             <Section>
-                <Label htmlFor="api-key">Claude API Key</Label>
+                <Label htmlFor="provider">Provider</Label>
+                <Select
+                    id="provider"
+                    value={provider}
+                    onChange={(e) => {
+                        setProvider(e.target.value);
+                        setApiKey('');
+                    }}
+                >
+                    {Object.entries(PROVIDERS).map(([value, meta]) => (
+                        <option key={value} value={value}>
+                            {meta.label}
+                        </option>
+                    ))}
+                </Select>
+                <HelpText>V1 supports Claude. Other providers are shown for the multi-provider roadmap.</HelpText>
+            </Section>
+
+            <Section>
+                <Label htmlFor="api-key">API Key</Label>
                 <Input
                     id="api-key"
                     type="password"
-                    placeholder="sk-ant-..."
+                    placeholder={providerMeta.keyPrefix}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                 />
                 <HelpText>
                     Get your API key from{' '}
-                    <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">
-                        console.anthropic.com
+                    <a href={providerMeta.consoleUrl} target="_blank" rel="noreferrer">
+                        {providerMeta.consoleName}
                     </a>
-                    . This key is stored securely and never exposed to end users.
+                    . The key is encrypted by DataHub&apos;s secret service, stored in the backend, and never exposed
+                    to end users or sent on each chat request.
                 </HelpText>
-            </Section>
-
-            <Section>
-                <Label htmlFor="model">Model</Label>
-                <Select id="model" value={model} onChange={(e) => setModel(e.target.value)}>
-                    <option value="claude-sonnet-5">Claude Sonnet 5 (Recommended — best balance of speed &amp; cost)</option>
-                    <option value="claude-opus-4-8">Claude Opus 4.8 (Most capable — complex reasoning)</option>
-                    <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fastest &amp; cheapest)</option>
-                </Select>
-                <HelpText>Claude Sonnet 5 is recommended for data governance tasks — strong reasoning at lower cost than Opus.</HelpText>
             </Section>
 
             <ButtonRow>
@@ -184,6 +214,13 @@ export const AIAssistantSettings = () => {
                     <StatusBadge $success={false}>⚠ API key looks too short</StatusBadge>
                 )}
             </ButtonRow>
+
+            <Divider />
+
+            <InfoBox>
+                <strong>Model selection has moved.</strong> Pick the model (e.g. Claude Sonnet 5, Opus, Haiku) directly
+                in the 🤖 chat panel — so you can switch per conversation without changing this configuration.
+            </InfoBox>
         </PageContainer>
     );
 };
