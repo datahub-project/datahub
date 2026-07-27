@@ -6,9 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     copyTextToClipboard,
     useAssertionURNCopyLink,
+    useDeleteAssertionMutationWithCache,
     useOpenAssertionDetailModal,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 
 vi.mock('antd', () => ({
     message: {
@@ -25,6 +28,62 @@ vi.mock('react-router', () => ({
 vi.mock('@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils', () => ({
     getQueryParams: vi.fn(),
 }));
+
+vi.mock('@graphql/assertion.generated', () => ({
+    useDeleteAssertionMutation: vi.fn(),
+}));
+
+describe('useDeleteAssertionMutationWithCache', () => {
+    it('evicts a successfully deleted assertion from Apollo cache', () => {
+        const mutation = vi.fn();
+        let update;
+        (useDeleteAssertionMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((options) => {
+            update = options.update;
+            return [mutation, { loading: false }];
+        });
+        const baseUpdate = vi.fn();
+        const cache = {
+            identify: vi.fn().mockReturnValue('Assertion:urn:li:assertion:test'),
+            evict: vi.fn(),
+            gc: vi.fn(),
+        };
+
+        const { result } = renderHook(() =>
+            useDeleteAssertionMutationWithCache({ update: baseUpdate } as Parameters<
+                typeof useDeleteAssertionMutationWithCache
+            >[0]),
+        );
+        update(cache, { data: { deleteAssertion: true } }, { variables: { urn: 'urn:li:assertion:test' } });
+
+        expect(result.current[0]).toBe(mutation);
+        expect(baseUpdate).toHaveBeenCalled();
+        expect(cache.identify).toHaveBeenCalledWith({
+            __typename: 'Assertion',
+            urn: 'urn:li:assertion:test',
+        });
+        expect(cache.evict).toHaveBeenCalledWith({ id: 'Assertion:urn:li:assertion:test' });
+        expect(cache.gc).toHaveBeenCalled();
+    });
+
+    it('does not evict when deletion is not acknowledged', () => {
+        let update;
+        (useDeleteAssertionMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((options) => {
+            update = options.update;
+            return [vi.fn(), { loading: false }];
+        });
+        const cache = {
+            identify: vi.fn(),
+            evict: vi.fn(),
+            gc: vi.fn(),
+        };
+
+        renderHook(() => useDeleteAssertionMutationWithCache());
+        update(cache, { data: { deleteAssertion: false } }, { variables: { urn: 'urn:li:assertion:test' } });
+
+        expect(cache.evict).not.toHaveBeenCalled();
+        expect(cache.gc).not.toHaveBeenCalled();
+    });
+});
 
 describe('copyTextToClipboard', () => {
     const originalClipboard = navigator.clipboard;
