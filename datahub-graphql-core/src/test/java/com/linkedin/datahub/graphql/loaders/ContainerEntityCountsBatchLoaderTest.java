@@ -19,6 +19,9 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.dataloader.DataLoader;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -166,5 +169,98 @@ public class ContainerEntityCountsBatchLoaderTest {
     assertEquals(results.size(), 60);
     // 60 containers at 25 per aggregation → 3 searches: a constant factor, not 60.
     verifySearchCount(3);
+  }
+
+  @Test
+  public void testCreatedDataLoaderResolvesThroughBatchFunction() throws Exception {
+    // Exercises create() — the path GmsGraphQLEngine actually registers — rather than calling
+    // batchLoad directly, so the DataLoader wiring and context provider are covered too.
+    stubSearch(resultWithContainerCounts(Map.of(SALES, 9L, FINANCE, 2L)));
+
+    final DataLoader<String, Long> loader =
+        ContainerEntityCountsBatchLoader.create(_entityClient, _context);
+    final CompletableFuture<Long> sales = loader.load(SALES);
+    final CompletableFuture<Long> finance = loader.load(FINANCE);
+    loader.dispatch();
+
+    assertEquals(sales.get(30, TimeUnit.SECONDS), Long.valueOf(9L));
+    assertEquals(finance.get(30, TimeUnit.SECONDS), Long.valueOf(2L));
+    // Both keys coalesced into a single batch, hence a single aggregation.
+    verifySearchCount(1);
+  }
+
+  @Test
+  public void testNullSearchResultYieldsZeros() throws Exception {
+    // Defensive: a null result from the search layer must not NPE.
+    stubSearch(null);
+
+    assertEquals(
+        ContainerEntityCountsBatchLoader.batchLoad(
+            List.of(SALES, FINANCE), _context, _entityClient),
+        List.of(0L, 0L));
+  }
+
+  @Test
+  public void testUnrelatedFacetIsIgnoredWhileContainerFacetIsCounted() throws Exception {
+    // A same-named bucket on a different facet must not leak into container counts. Asserting
+    // FINANCE's real count alongside proves the unrelated facet was skipped rather than the
+    // whole aggregation block being discarded.
+    final AggregationMetadata unrelated =
+        new AggregationMetadata()
+            .setName("platform")
+            .setAggregations(new LongMap(Map.of(SALES, 77L)))
+            .setFilterValues(new FilterValueArray());
+    final AggregationMetadata containers =
+        new AggregationMetadata()
+            .setName(CONTAINER_FACET)
+            .setAggregations(new LongMap(Map.of(FINANCE, 3L)))
+            .setFilterValues(new FilterValueArray());
+    stubSearch(
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(
+                new SearchResultMetadata()
+                    .setAggregations(new AggregationMetadataArray(unrelated, containers))));
+
+    // SALES appears only under the platform facet, so it must stay 0.
+    assertEquals(
+        ContainerEntityCountsBatchLoader.batchLoad(
+            List.of(SALES, FINANCE), _context, _entityClient),
+        List.of(0L, 3L));
+  }
+
+  @Test
+  public void testMalformedContainerFacetDegradesToZeros() throws Exception {
+    // `aggregations` is a required PDL field, so omitting it makes the getter throw. That must
+    // degrade this chunk to zeros rather than propagating out of the loader.
+    final AggregationMetadata empty =
+        new AggregationMetadata().setName(CONTAINER_FACET).setFilterValues(new FilterValueArray());
+    stubSearch(
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setNumEntities(0)
+            .setFrom(0)
+            .setPageSize(0)
+            .setMetadata(
+                new SearchResultMetadata().setAggregations(new AggregationMetadataArray(empty))));
+
+    assertEquals(
+        ContainerEntityCountsBatchLoader.batchLoad(List.of(SALES), _context, _entityClient),
+        List.of(0L));
+  }
+
+  @Test
+  public void testMalformedUrnKeyIsSkippedWithoutFailingTheBatch() throws Exception {
+    // A malformed key must be dropped from the filter and answered as zero, while its
+    // well-formed neighbours still resolve.
+    stubSearch(resultWithContainerCounts(Map.of(SALES, 4L)));
+
+    assertEquals(
+        ContainerEntityCountsBatchLoader.batchLoad(
+            List.of("not-a-urn", SALES), _context, _entityClient),
+        List.of(0L, 4L));
   }
 }

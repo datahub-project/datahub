@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
 import org.mockito.ArgumentCaptor;
@@ -214,6 +215,54 @@ public class ContainerEntitiesResolverTest {
     new ContainerEntitiesResolver(mockClient).get(mockEnv).get();
 
     verifySearchCount(mockClient, 1);
+  }
+
+  @Test
+  public void testMissingInputArgumentFallsBackToDefaults() throws Exception {
+    // `entities` with no argument at all must use DEFAULT_ENTITIES_INPUT (query "*", count 20).
+    EntityClient mockClient = mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = mockEnv(null, mockCountLoader(11L), "total");
+
+    assertEquals((int) new ContainerEntitiesResolver(mockClient).get(mockEnv).get().getTotal(), 11);
+    verifySearchCount(mockClient, 0);
+  }
+
+  @Test
+  public void testNullLoaderResultYieldsZeroTotal() throws Exception {
+    // A failed aggregation surfaces as a null count; the resolver must report 0, not NPE.
+    EntityClient mockClient = mock(EntityClient.class);
+    @SuppressWarnings("unchecked")
+    final DataLoader<String, Long> loader = mock(DataLoader.class);
+    Mockito.when(loader.load(Mockito.anyString()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    DataFetchingEnvironment mockEnv =
+        mockEnv(new ContainerEntitiesInput(null, 0, 0, null), loader, "total");
+
+    assertEquals((int) new ContainerEntitiesResolver(mockClient).get(mockEnv).get().getTotal(), 0);
+  }
+
+  @Test
+  public void testDirectSearchFailureIsWrapped() throws Exception {
+    // The direct path must not leak the raw client exception.
+    EntityClient mockClient = mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                any(),
+                any(),
+                nullable(Filter.class),
+                anyInt(),
+                nullable(Integer.class),
+                any()))
+        .thenThrow(new RuntimeException("search is down"));
+    DataFetchingEnvironment mockEnv =
+        mockEnv(TEST_INPUT, mockCountLoader(1L), "total", "searchResults");
+
+    final ExecutionException e =
+        expectThrows(
+            ExecutionException.class,
+            () -> new ContainerEntitiesResolver(mockClient).get(mockEnv).get());
+    assertTrue(e.getCause().getMessage().contains(CONTAINER_URN));
   }
 
   private static DataLoader<String, Long> mockCountLoader(final long total) {
