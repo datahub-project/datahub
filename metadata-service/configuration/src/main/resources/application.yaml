@@ -1855,6 +1855,8 @@ metadataChangeProposal:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
     dataProductUnset:
       enabled: ${MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED:true}
+    aliases:
+      enabled: ${MCP_SIDE_EFFECTS_ALIASES_ENABLED:false}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 
