@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.*;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -47,7 +48,8 @@ import org.testng.annotations.Test;
       "metadataChangeProposal.validation.ignoreUnknown=true",
       "metadataChangeProposal.validation.extensions.enabled=false",
       "metadataChangeProposal.sideEffects.schemaField.enabled=true",
-      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true"
+      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true",
+      "metadataChangeProposal.sideEffects.aliases.enabled=true"
     })
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
@@ -109,6 +111,19 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertNotNull(sideEffect.getConfig());
     assertTrue(sideEffect.getConfig().isEnabled());
     assertEquals(sideEffect.getConfig().getClassName(), SchemaFieldSideEffect.class.getName());
+  }
+
+  @Test
+  public void testAliasesSideEffectBeanCreation() {
+    assertTrue(context.containsBean("aliasesSideEffect"));
+    MCPSideEffect sideEffect = context.getBean("aliasesSideEffect", MCPSideEffect.class);
+    assertNotNull(sideEffect);
+    assertTrue(sideEffect instanceof AliasesSideEffect);
+
+    // Verify configuration
+    assertNotNull(sideEffect.getConfig());
+    assertTrue(sideEffect.getConfig().isEnabled());
+    assertEquals(sideEffect.getConfig().getClassName(), AliasesSideEffect.class.getName());
   }
 
   @Test
