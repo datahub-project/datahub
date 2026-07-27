@@ -60,6 +60,11 @@ DATA_FILES = {
     "data/food_parquet.parquet": "folder_a/folder_aa/folder_aaa/food_parquet.parquet",
     "data/chord_progressions_avro.avro": "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
 }
+# A high-cardinality numeric dataset profiled on its own so the profiler emits
+# real min/max/mean/median/stddev (for the numeric columns) alongside the
+# distinct-value-frequency stats (for the low-cardinality categorical column).
+PROFILE_BLOB = "profile/measurements.csv"
+PROFILE_SOURCE = test_resources_dir.parent / "s3/test_data/profiling/measurements.csv"
 # Two partitions seeded with a >1s gap so the (second-resolution) emulator gives
 # them a strict order and the max-partition selection is deterministic.
 PARTITION_FILES = [
@@ -88,6 +93,8 @@ def _seed() -> None:
 
     for dest, src in DATA_FILES.items():
         upload(dest, src)
+    with open(PROFILE_SOURCE, "rb") as fh:
+        cc.upload_blob(name=PROFILE_BLOB, data=fh, overwrite=True)
     for blob in MEDIA_BLOBS:
         upload(blob, "folder_a/folder_aa/folder_aaa/small.csv")
     for part in PARTITION_FILES:
@@ -215,4 +222,32 @@ def test_abs_blob_properties(abs_emulator, pytestconfig, tmp_path, mock_time):
         pytestconfig,
         _run(config, tmp_path, "abs_blob_properties_mces.json"),
         "abs_blob_properties_mces_golden.json",
+    )
+
+
+@pytest.mark.integration
+def test_abs_profiling(abs_emulator, pytestconfig, tmp_path, mock_time):
+    # Exercises the (pure-Python, pyarrow-backed) data-lake profiler reading a
+    # blob through the injected BlobServiceClient against the emulator — column
+    # null/min/max/mean/median/stddev/distinct/sample stats end up in a
+    # datasetProfile aspect.
+    config = {
+        "path_specs": [{"include": f"{BLOB_BASE}/{PROFILE_BLOB}"}],
+        "azure_config": _azure_config(),
+        "profiling": {
+            "enabled": True,
+            "include_field_null_count": True,
+            "include_field_min_value": True,
+            "include_field_max_value": True,
+            "include_field_mean_value": True,
+            "include_field_median_value": True,
+            "include_field_stddev_value": True,
+            "include_field_distinct_value_frequencies": True,
+            "include_field_sample_values": True,
+        },
+    }
+    _check(
+        pytestconfig,
+        _run(config, tmp_path, "abs_profiling_mces.json"),
+        "abs_profiling_mces_golden.json",
     )

@@ -112,6 +112,13 @@ def s3_emulator(docker_compose_runner):
         s3 = _client("s3")
         for bucket in BUCKET_NAMES:
             _seed_bucket(s3, bucket, data_dir)
+        # High-cardinality numeric dataset for the profiler, under a prefix no
+        # other recipe matches so it doesn't affect their goldens.
+        s3.upload_file(
+            str(test_resources_dir / "test_data/profiling/measurements.csv"),
+            "my-test-bucket",
+            "profiling_input/measurements.csv",
+        )
         yield
 
 
@@ -140,5 +147,53 @@ def test_data_lake_s3_ingest(
         pytestconfig,
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_{source_file}",
+        ignore_paths=IGNORE_PATHS,
+    )
+
+
+def test_data_lake_s3_profiling(s3_emulator, pytestconfig, tmp_path, mock_time):
+    # Exercises the (pure-Python, pyarrow-backed) data-lake profiler reading a
+    # file through the S3 boto3 client against the emulator — column null/min/max/
+    # mean/median/stddev/distinct/sample stats end up in a datasetProfile aspect.
+    source = {
+        "type": "s3",
+        "config": {
+            "path_specs": [
+                {"include": "s3://my-test-bucket/profiling_input/measurements.csv"}
+            ],
+            "aws_config": {
+                "aws_endpoint_url": ENDPOINT_URL,
+                "aws_region": REGION,
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+            "profiling": {
+                "enabled": True,
+                "include_field_null_count": True,
+                "include_field_min_value": True,
+                "include_field_max_value": True,
+                "include_field_mean_value": True,
+                "include_field_median_value": True,
+                "include_field_stddev_value": True,
+                "include_field_distinct_value_frequencies": True,
+                "include_field_sample_values": True,
+            },
+        },
+    }
+    output = f"{tmp_path}/s3_profiling_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "s3-profiling",
+            "source": source,
+            "sink": {"type": "file", "config": {"filename": output}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output,
+        golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_s3_profiling.json",
         ignore_paths=IGNORE_PATHS,
     )
