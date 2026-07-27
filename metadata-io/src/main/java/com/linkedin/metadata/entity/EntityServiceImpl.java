@@ -1037,8 +1037,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Builds retention contexts from upsert results (Option B: no updatedLatestAspects map). Previous
-   * version existence is implied by oldValue != null.
+   * Builds retention contexts from upsert results. Previous version existence is implied by
+   * oldValue != null.
    */
   private List<RetentionService.RetentionContext> buildRetentionContexts(
       List<UpdateAspectResult> upsertResults) {
@@ -1046,7 +1046,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .filter(
             r -> {
               RecordTemplate oldAspect = r.getOldValue();
-              return oldAspect != r.getNewValue() && oldAspect != null && retentionService != null;
+              return oldAspect != r.getNewValue() && oldAspect != null;
             })
         .map(
             r ->
@@ -1063,9 +1063,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * metric'd; they never throw, never retry, never poison the ingest batch. Only runs when
    * postCommitRetentionEnabled is true.
    */
-  private void applyRetentionPostCommit(
+  @VisibleForTesting
+  void applyRetentionPostCommit(
       @Nonnull OperationContext opContext, @Nonnull List<UpdateAspectResult> upsertResults) {
-    if (!postCommitRetentionEnabled || retentionService == null) {
+    if (!postCommitRetentionEnabled) {
+      return;
+    }
+    if (retentionService == null) {
+      log.warn("Retention service is missing!");
       return;
     }
     List<RetentionService.RetentionContext> retentionBatch = buildRetentionContexts(upsertResults);
@@ -1080,11 +1085,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             try {
               retentionService.applyRetentionWithPolicyDefaults(opContext, List.of(ctx));
             } catch (Exception e) {
-              // TODO: insert a row into the retention_dlq table (urn, aspectName, maxVersion,
-              // error, timestamp) once that table exists. For now: log + metric.
+              // TODO: no retention_dlq table yet; do not claim DLQ. FMCP is for failed MCPs only,
+              // not retention prune. For now: log + metric only.
               log.warn(
-                  "Post-commit retention failed for urn={} aspect={}; recorded to DLQ. "
-                      + "Upsert already committed; no data loss.",
+                  "Post-commit retention failed for urn={} aspect={}; recorded metric only (no DLQ"
+                      + " yet). Upsert already committed; no data loss.",
                   ctx.getUrn(),
                   ctx.getAspectName(),
                   e);

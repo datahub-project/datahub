@@ -81,9 +81,9 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
                 })
             .collect(Collectors.toList());
 
-    // Execute separate DELETE statements for each retention context within the same transaction
-    // This provides significantly better index usage (10-20x performance improvement) compared to
-    // a single DELETE with many OR clauses, while maintaining transactional consistency
+    // Separate DELETEs per retention context (better index use than one DELETE with many ORs).
+    // Tx scope depends on caller: legacy in-tx path shares the upsert transaction; when invoked
+    // from the post-commit path (postCommitRetentionEnabled), deletes run outside that upsert tx.
     if (!nonEmptyContexts.isEmpty()) {
       int deletedCount = 0;
       for (RetentionContext context : nonEmptyContexts) {

@@ -1607,7 +1607,7 @@ public class EntityServiceImplTest {
   }
 
   @Test
-  public void testApplyRetentionPostCommitFailureDoesNotPropagate() throws Exception {
+  public void testApplyRetentionPostCommitFailureDoesNotPropagate() {
     AspectDao mockAspectDao = mock(AspectDao.class);
     EntityServiceImpl entityService =
         new EntityServiceImpl(
@@ -1657,16 +1657,7 @@ public class EntityServiceImplTest {
             .auditStamp(TEST_AUDIT_STAMP)
             .build();
 
-    java.lang.reflect.Method method =
-        EntityServiceImpl.class.getDeclaredMethod(
-            "applyRetentionPostCommit", OperationContext.class, java.util.List.class);
-    method.setAccessible(true);
-
-    try {
-      method.invoke(entityService, testContext, List.of(upsertResult));
-    } catch (java.lang.reflect.InvocationTargetException e) {
-      fail("applyRetentionPostCommit must not propagate: " + e.getCause());
-    }
+    entityService.applyRetentionPostCommit(testContext, List.of(upsertResult));
 
     verify(retentionService, times(1)).applyRetentionWithPolicyDefaults(any(), any());
     verify(mockMetricUtils, times(1))
@@ -1674,7 +1665,7 @@ public class EntityServiceImplTest {
   }
 
   @Test
-  public void testApplyRetentionPostCommitSkippedWhenFlagDisabled() throws Exception {
+  public void testApplyRetentionPostCommitSkippedWhenFlagDisabled() {
     AspectDao mockAspectDao = mock(AspectDao.class);
     EntityServiceImpl entityService =
         new EntityServiceImpl(
@@ -1711,11 +1702,7 @@ public class EntityServiceImplTest {
             .auditStamp(TEST_AUDIT_STAMP)
             .build();
 
-    java.lang.reflect.Method method =
-        EntityServiceImpl.class.getDeclaredMethod(
-            "applyRetentionPostCommit", OperationContext.class, java.util.List.class);
-    method.setAccessible(true);
-    method.invoke(entityService, opContext, List.of(upsertResult));
+    entityService.applyRetentionPostCommit(opContext, List.of(upsertResult));
 
     verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
   }

@@ -181,6 +181,7 @@ public class SystemUpdateConfig {
             featureFlags.getPreProcessHooks(),
             ebeanMaxTransactionRetry,
             enableBrowsePathV2,
+            featureFlags.isPostCommitRetentionEnabled(),
             null); // metricUtils
 
     if (throttleSensors != null
