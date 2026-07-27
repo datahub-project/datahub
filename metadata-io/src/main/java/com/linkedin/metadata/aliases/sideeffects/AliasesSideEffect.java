@@ -26,9 +26,8 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Derives the system-owned {@code aliases.lowercasedUrn} for an entity from its own URN. Keyed on
- * the entity's key aspect so it fires once, at creation, since the lowercased form depends only on
- * the URN and never changes for a given entity.
+ * Derives the system-computed {@code aliases.lowercasedUrn} field from the entity's URN. Keyed on
+ * the dataset key aspect so it runs once, at creation.
  */
 @Slf4j
 @Getter

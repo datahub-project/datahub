@@ -23,9 +23,10 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Keeps the system-owned {@code lowercasedUrn} trustworthy: when set, it must equal the lowercased
- * form of the entity's own URN. The side effect always writes the correct value, so any direct
- * client write that disagrees is rejected — the field cannot be spoofed into a wrong resolution.
+ * Keeps the system-computed {@code lowercasedUrn} field trustworthy: when set, it must equal the
+ * lowercased form of the entity's own URN. The side effect always writes the correct value, so any
+ * direct client write that disagrees is rejected — the field cannot be spoofed into a wrong
+ * resolution.
  */
 @Slf4j
 @Setter

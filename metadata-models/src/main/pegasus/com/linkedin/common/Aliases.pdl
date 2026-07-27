@@ -3,18 +3,16 @@ namespace com.linkedin.common
 /**
  * Alternate identifiers an entity is also known by, used to resolve references that point at the
  * same entity under a different identifier.
- *
- * This aspect is system-owned: its fields are derived by GMS, not written by ingestion clients.
  */
 @Aspect = {
   "name": "aliases"
 }
 record Aliases {
   /**
-   * The entity's own URN with its casing lowered: platform and name are lowercased while the
-   * environment (FabricType) is preserved so the result stays a valid URN. Indexed as an exact-match
-   * keyword so that a reference in any casing can be resolved to the entity's real URN with a single
-   * batchable lookup.
+   * System-computed. The entity's own URN with its casing lowered: platform and name are lowercased
+   * while the environment (FabricType) is preserved so the result stays a valid URN. Indexed as an
+   * exact-match keyword so that a reference in any casing can be resolved to the entity's real URN
+   * with a single batchable lookup.
    */
   @Searchable = {
     "fieldType": "KEYWORD",
