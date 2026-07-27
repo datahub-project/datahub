@@ -143,13 +143,15 @@ public final class ContainerEntityCountsBatchLoader {
             Collections.singletonList(CONTAINER_FIELD));
 
     final Map<String, Long> countsByContainer = new HashMap<>();
-    if (searchResult == null
-        || searchResult.getMetadata() == null
-        || searchResult.getMetadata().getAggregations() == null) {
+    if (searchResult == null) {
       return countsByContainer;
     }
+    // `metadata`, its `aggregations` array (which defaults to []), and each entry's own
+    // `aggregations` map are all required PDL fields, so none can be null here — their getters
+    // throw when absent. A malformed response therefore surfaces as an exception that batchLoad
+    // catches, leaving this chunk's counts at zero, rather than as a null to guard against.
     for (AggregationMetadata agg : searchResult.getMetadata().getAggregations()) {
-      if (!CONTAINER_FIELD.equals(agg.getName()) || agg.getAggregations() == null) {
+      if (!CONTAINER_FIELD.equals(agg.getName())) {
         continue;
       }
       // container-facet bucket keys are container urns; ignore anything outside the chunk.
