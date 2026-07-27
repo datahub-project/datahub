@@ -46,11 +46,11 @@ From **Documents**, click **Import**, choose a source, and configure the connect
 
 By default, all sources create **Native** (editable) documents in DataHub. Switch **Document import mode** to **External** in the data source configuration if you want read-only documents that stay linked to the source system.
 
-| Source         | Direction                                     | Notes                                                                             | Guide                                            |
-| -------------- | --------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **Notion**     | One-way (Notion → DataHub)                    | Native by default; optionally External (read-only). No sync-back.                 | [Import from Notion](./import-notion.md)         |
-| **Confluence** | One-way (Confluence → DataHub)                | Native by default; optionally External (read-only). No sync-back.                 | [Import from Confluence](./import-confluence.md) |
-| **GitHub**     | Import, optional sync-back (DataHub → GitHub) | Native by default; optionally External (read-only). Optional sync-back to GitHub. | [Import from GitHub](./import-github.md)         |
+| Source         | Direction                               | Notes                                                                                    | Guide                                            |
+| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **Notion**     | One-way (Notion → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from Notion](./import-notion.md)         |
+| **Confluence** | One-way (Confluence → DataHub)          | Native by default; optionally External (read-only). No sync-back.                        | [Import from Confluence](./import-confluence.md) |
+| **GitHub**     | Import; sync-back on DataHub Cloud only | Native by default; optionally External (read-only). Sync-back is **DataHub Cloud only**. | [Import from GitHub](./import-github.md)         |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-import.png"/>
