@@ -492,6 +492,12 @@ When `schemaField` is view-restricted, **View Entity Page** on a schema field su
 can view the containing parent URN in the schemaField key (typically a dataset) **or** has a direct
 grant on the schemaField URN. This uses the same parent-candidate order as logical-parent writes.
 
+On **DataHub Cloud** with Search Access Controls, query-time filters for columns are narrower than
+entity-page inheritance: domain / container / resource-owner criteria do not match schemaField docs,
+and `TYPE = dataset` policies exclude them. URN dataset grants can match columns via a Cloud-only
+prefix. Details:
+[Columns (`schemaField`) after you restrict them](../features/feature-guides/search-access-controls.md#columns-schemafield-after-you-restrict-them).
+
 View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
 
 #### Logical parent (`logicalParent` aspect)

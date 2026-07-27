@@ -182,8 +182,13 @@ Requirements:
   `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField`), **View Entity Page** checks inherit from the
   parent dataset encoded in the schemaField URN
   (`urn:li:schemaField:(<datasetUrn>,<fieldPath>)`), then fall back to a direct grant on the column
-  URN. This matches the existing logical-parent write candidate order. Query-time search filtering
-  (SBAC) remains DataHub Cloud–only; OSS still includes `schemaField` in default search.
+  URN. This matches the existing logical-parent write candidate order. **DataHub Cloud Search Access
+  Controls** can also match columns under **URN** dataset grants via a
+  `urn:li:schemaField:(<datasetUrn>,` prefix, but domain / container / resource-owner filters still do
+  not match column docs (those facets are not on schemaField), and policies with `TYPE = dataset`
+  continue to exclude `schemaField` hits. See
+  [Columns (`schemaField`) after you restrict them](../features/feature-guides/search-access-controls.md#columns-schemafield-after-you-restrict-them).
+  OSS has no SBAC pushdown and still includes `schemaField` in default search.
 
 - **(GMS / search defaults)** Default entity-type lists for GraphQL search, autocomplete, browse V2, and quick-filter priority are now configurable via `elasticsearch.search.*EntityTypes` (`value` / `add` / `remove`) and the matching `SEARCH_*_ENTITY_TYPES{,_ADD,_REMOVE}` environment variables. Stock YAML defaults match the former hardcoded GraphQL lists. An explicitly empty resolved list means GraphQL searches **no** entity types (it does not expand to all indices). Unknown registry names in these lists are soft-dropped with a warn at startup. See [Environment Variables](../deploy/environment-vars.md) and [Customizing Search](search.md#default-search-entity-types).
 
