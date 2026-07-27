@@ -138,6 +138,8 @@ public class Constants {
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
+  public static final String SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME = "semanticFieldAnnotation";
+  public static final String SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME = "semanticModelProperties";
   // Service (MCP servers, etc.)
   public static final String SERVICE_ENTITY_NAME = "service";
   public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
@@ -197,6 +199,7 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String AI_CONTEXT_ASPECT_NAME = "aiContext";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
