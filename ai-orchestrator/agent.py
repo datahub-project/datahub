@@ -15,7 +15,7 @@ from typing import AsyncIterator
 
 import anthropic
 
-from datahub_tools import TOOL_DEFINITIONS, execute_tool
+from mcp_tools import mcp_session
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 MAX_TOKENS = int(os.environ.get("ANTHROPIC_MAX_TOKENS", "1024"))
@@ -62,43 +62,46 @@ async def run_agent(user_message: str, context: dict | None) -> AsyncIterator[st
         ctx_note = f"\n\n[Page context: {json.dumps(context)}]"
     messages: list[dict] = [{"role": "user", "content": user_message + ctx_note}]
 
-    for _ in range(MAX_TOOL_ITERATIONS):
-        assistant_blocks: list[dict] = []
-        tool_uses: list[dict] = []
+    # Tools come from DataHub's MCP server for this request (the "MCP way"). The loop
+    # below is unchanged from the GraphQL version — only the tool source differs.
+    async with mcp_session() as tools:
+        for _ in range(MAX_TOOL_ITERATIONS):
+            assistant_blocks: list[dict] = []
+            tool_uses: list[dict] = []
 
-        async with client.stream(messages, TOOL_DEFINITIONS) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    yield event.delta.text  # stream text tokens to the UI
+            async with client.stream(messages, tools.definitions) as stream:
+                async for event in stream:
+                    if event.type == "content_block_delta" and event.delta.type == "text_delta":
+                        yield event.delta.text  # stream text tokens to the UI
 
-            final = await stream.get_final_message()
+                final = await stream.get_final_message()
 
-        # Collect assistant content blocks (text + tool_use) for the transcript.
-        for block in final.content:
-            if block.type == "text":
-                assistant_blocks.append({"type": "text", "text": block.text})
-            elif block.type == "tool_use":
-                assistant_blocks.append(
-                    {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
+            # Collect assistant content blocks (text + tool_use) for the transcript.
+            for block in final.content:
+                if block.type == "text":
+                    assistant_blocks.append({"type": "text", "text": block.text})
+                elif block.type == "tool_use":
+                    assistant_blocks.append(
+                        {"type": "tool_use", "id": block.id, "name": block.name, "input": block.input}
+                    )
+                    tool_uses.append({"id": block.id, "name": block.name, "input": block.input})
+
+            messages.append({"role": "assistant", "content": assistant_blocks})
+
+            if not tool_uses:
+                return  # model produced a final answer, we're done
+
+            # Execute each requested tool via MCP and feed results back.
+            tool_results = []
+            for tu in tool_uses:
+                result = await tools.execute_tool(tu["name"], tu["input"] or {})
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tu["id"],
+                        "content": json.dumps(result),
+                    }
                 )
-                tool_uses.append({"id": block.id, "name": block.name, "input": block.input})
-
-        messages.append({"role": "assistant", "content": assistant_blocks})
-
-        if not tool_uses:
-            return  # model produced a final answer, we're done
-
-        # Execute each requested tool and feed results back.
-        tool_results = []
-        for tu in tool_uses:
-            result = await execute_tool(tu["name"], tu["input"] or {})
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tu["id"],
-                    "content": json.dumps(result),
-                }
-            )
-        messages.append({"role": "user", "content": tool_results})
+            messages.append({"role": "user", "content": tool_results})
 
     yield "\n\n[Reached max tool iterations]"

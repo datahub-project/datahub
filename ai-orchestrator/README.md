@@ -17,6 +17,7 @@ Browser (AIChatButton) --POST /api/ai/chat--> Orchestrator (this) --> Claude API
 ```
 
 Files:
+
 - `main.py` — FastAPI server, SSE endpoint, config endpoints
 - `agent.py` — model-agnostic agent loop (tool-use cycle)
 - `datahub_tools.py` — tool definitions + GraphQL executors
@@ -30,12 +31,19 @@ pip install -r requirements.txt
 
 export ANTHROPIC_API_KEY="sk-ant-..."     # required
 export ANTHROPIC_MODEL="claude-sonnet-5"  # optional
-export DATAHUB_GMS_URL="http://localhost:8080"  # optional
+
+# --- Tool source: DataHub's MCP server ---
+# Option A (default): stdio — spawns `uvx mcp-server-datahub` against your GMS.
+#   Requires `uv` installed (https://github.com/astral-sh/uv).
+export DATAHUB_GMS_URL="http://localhost:8080"      # your DataHub GMS (local or remote)
+export DATAHUB_GMS_TOKEN="<pat>"                    # optional (if GMS auth is on)
+
 
 uvicorn main:app --port 8000 --reload
 ```
 
 Test:
+
 ```bash
 curl -N -X POST http://localhost:8000/api/ai/chat \
   -H "Content-Type: application/json" \

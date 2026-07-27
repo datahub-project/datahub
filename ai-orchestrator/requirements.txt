@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
 anthropic
+mcp
 httpx
 pydantic
