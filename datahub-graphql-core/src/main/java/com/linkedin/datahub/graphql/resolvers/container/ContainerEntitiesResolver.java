@@ -74,8 +74,13 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
         () -> {
           try {
 
+            final CriterionArray criteria = new CriterionArray();
             final Criterion filterCriterion =
                 buildCriterion(CONTAINER_FIELD_NAME + ".keyword", Condition.EQUAL, urn);
+            criteria.add(filterCriterion);
+            if (input.getFilters() != null) {
+              input.getFilters().forEach(filter -> criteria.add(criterionFromFilter(filter)));
+            }
 
             return UrnSearchResultsMapper.map(
                 context,
@@ -86,9 +91,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                     new Filter()
                         .setOr(
                             new ConjunctiveCriterionArray(
-                                new ConjunctiveCriterion()
-                                    .setAnd(
-                                        new CriterionArray(ImmutableList.of(filterCriterion))))),
+                                new ConjunctiveCriterion().setAnd(criteria))),
                     start,
                     count,
                     Collections.emptyList()));

@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.container;
 
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
@@ -12,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.ContainerEntitiesInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -94,5 +97,61 @@ public class ContainerEntitiesResolverTest {
     assertEquals(resolver.get(mockEnv).get().getSearchResults().size(), 1);
     assertEquals(
         resolver.get(mockEnv).get().getSearchResults().get(0).getEntity().getUrn(), childUrn);
+  }
+
+  @Test
+  public void testFiltersAreAppliedToSearch() throws Exception {
+    // Facet filters from the input must be ANDed onto the container criterion rather than dropped.
+    EntityClient mockClient = mock(EntityClient.class);
+    final String containerUrn = "urn:li:container:test-container";
+
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                any(),
+                any(),
+                nullable(Filter.class),
+                anyInt(),
+                nullable(Integer.class),
+                any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray())
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
+
+    final FacetFilterInput typeFilter = new FacetFilterInput();
+    typeFilter.setField("_entityType");
+    typeFilter.setValues(ImmutableList.of("DATASET"));
+
+    QueryContext mockContext = mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(new ContainerEntitiesInput(null, 0, 20, ImmutableList.of(typeFilter)));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Container parentContainer = new Container();
+    parentContainer.setUrn(containerUrn);
+    Mockito.when(mockEnv.getSource()).thenReturn(parentContainer);
+
+    new ContainerEntitiesResolver(mockClient).get(mockEnv).get();
+
+    final org.mockito.ArgumentCaptor<Filter> captor =
+        org.mockito.ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(), any(), any(), captor.capture(), anyInt(), nullable(Integer.class), any());
+
+    final CriterionArray criteria = captor.getValue().getOr().get(0).getAnd();
+    assertEquals(criteria.size(), 2);
+    assertEquals(criteria.get(0).getField(), "container.keyword");
+    assertTrue(criteria.get(0).getValues().contains(containerUrn));
+    assertEquals(criteria.get(1).getField(), "_entityType");
+    assertTrue(criteria.get(1).getValues().contains("DATASET"));
   }
 }
