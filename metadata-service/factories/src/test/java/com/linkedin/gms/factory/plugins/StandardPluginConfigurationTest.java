@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.plugins;
 import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -13,7 +14,6 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.*;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
-import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
