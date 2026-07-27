@@ -1,0 +1,27 @@
+# Patch for DataHub customizations in Spark40DatasetBuilderFactory.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-07-26 11:09:27 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/Spark40DatasetBuilderFactory.patch
+#
+--- src/main/java/io/openlineage/spark/agent/lifecycle/Spark40DatasetBuilderFactory.java
++++ src/main/java/io/openlineage/spark/agent/lifecycle/Spark40DatasetBuilderFactory.java
+@@ -34,6 +34,7 @@
+ import io.openlineage.spark3.agent.lifecycle.plan.TableContentChangeDatasetBuilder;
+ import io.openlineage.spark33.agent.lifecycle.plan.ReplaceIcebergDataDatasetBuilder;
+ import io.openlineage.spark34.agent.lifecycle.plan.WriteIcebergDeltaDatasetBuilder;
++import io.openlineage.spark34.agent.lifecycle.plan.WriteToMicroBatchDataSourceV1DatasetBuilder;
+ import io.openlineage.spark34.agent.lifecycle.plan.column.CreateReplaceInputDatasetBuilder;
+ import io.openlineage.spark34.agent.lifecycle.plan.column.DropTableDatasetBuilder;
+ import io.openlineage.spark35.agent.lifecycle.plan.CreateReplaceOutputDatasetBuilder;
+@@ -91,7 +92,8 @@
+             .add(new SubqueryAliasOutputDatasetBuilder(context))
+             .add(new DropTableDatasetBuilder(context))
+             .add(new MergeIntoCommandEdgeOutputDatasetBuilder(context))
+-            .add(new AlterTableCommandDatasetBuilder(context));
++            .add(new AlterTableCommandDatasetBuilder(context))
++            .add(new WriteToMicroBatchDataSourceV1DatasetBuilder(context, datasetFactory));
+ 
+     if (ReplaceIcebergDataDatasetBuilder.hasClasses()) {
+       builder.add(new ReplaceIcebergDataDatasetBuilder(context));

@@ -23,11 +23,13 @@ FILES=(
   "spark/agent/util/PlanUtils.java"
   "spark/agent/util/RemovePathPatternUtils.java"
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
+  "spark/agent/lifecycle/Spark40DatasetBuilderFactory.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
   "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
   "spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
+  "spark34/agent/lifecycle/plan/WriteToMicroBatchDataSourceV1DatasetBuilder.java"
 )
 
 echo "Generating patches for DataHub customizations vs OpenLineage $UPSTREAM_VERSION..."
@@ -61,7 +63,11 @@ for file in "${FILES[@]}"; do
   fi
 
   # Generate unified diff
-  if diff -u "$UPSTREAM_FILE" "$DATAHUB_FILE" > "$PATCH_FILE" 2>/dev/null; then
+  if diff -u \
+      --label "src/main/java/io/openlineage/$file" \
+      --label "src/main/java/io/openlineage/$file" \
+      "$UPSTREAM_FILE" \
+      "$DATAHUB_FILE" > "$PATCH_FILE" 2>/dev/null; then
     # No differences found
     echo "No customizations in: $file"
     rm -f "$PATCH_FILE"

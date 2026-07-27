@@ -32,12 +32,14 @@ FILES=(
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PlanUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/RemovePathPatternUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
+  "integration/spark/app/src/main/java/io/openlineage|spark/agent/lifecycle/Spark40DatasetBuilderFactory.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/FileStreamMicroBatchStreamStrategy.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
   "integration/spark/spark3/src/main/java/io/openlineage|spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
   "integration/spark/spark3/src/main/java/io/openlineage|spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
+  "integration/spark/spark34/src/main/java/io/openlineage|spark34/agent/lifecycle/plan/WriteToMicroBatchDataSourceV1DatasetBuilder.java"
 )
 
 echo "Fetching OpenLineage $VERSION files from GitHub..."
@@ -61,11 +63,11 @@ for entry in "${FILES[@]}"; do
 
   if curl -sf "$URL" -o "$OUTPUT" 2>/dev/null; then
     echo "✓"
-    ((SUCCESS_COUNT++))
+    ((SUCCESS_COUNT+=1))
   else
     echo "✗ (not found - may be DataHub-specific)"
     rm -f "$OUTPUT"
-    ((FAIL_COUNT++))
+    ((FAIL_COUNT+=1))
   fi
 done
 

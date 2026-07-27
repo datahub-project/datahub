@@ -19,6 +19,24 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 // Define supported Scala versions - always build for both
 def scalaVersions = ['2.12', '2.13']
 
+def openLineageSourceDir = file('src/main/java/io/openlineage')
+def openLineageOverrideClassPatterns =
+    fileTree(openLineageSourceDir) {
+      include '**/*.java'
+    }.files.collectMany { source ->
+      def relativeSource =
+          openLineageSourceDir
+              .toPath()
+              .relativize(source.toPath())
+              .toString()
+              .replace(File.separator, '/')
+      def className = relativeSource.substring(0, relativeSource.length() - '.java'.length())
+      return [
+          "io/openlineage/${className}.class",
+          "io/openlineage/${className}\$*.class",
+      ]
+    }
+
 //mark implementaion dependencies which needs to excluded along with transitive dependencies from shadowjar
 //functionality is exactly same as "implementation"
 configurations {
@@ -239,10 +257,19 @@ scalaVersions.each { sv ->
     scalaConfig.dependencies.add(project.dependencies.create(externalDependency.jacksonDataFormatYaml))
     scalaConfig.canBeResolved = true
     inputs.files(scalaConfig)
-    // Manually add resolved dependencies from scalaConfig during task execution
-    doFirst {
-      scalaConfig.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-        from zipTree(artifact.file)
+    // Manually add resolved dependencies from scalaConfig. DataHub's source overrides must replace
+    // the same classes from openlineage-spark; retaining both ZIP entries lets the dependency copy
+    // win at runtime on some JVMs.
+    from {
+      scalaConfig.resolvedConfiguration.resolvedArtifacts.collect { artifact ->
+        if (artifact.moduleVersion.id.group == 'io.openlineage'
+            && artifact.name.startsWith('openlineage-spark')) {
+          zipTree(artifact.file).matching {
+            exclude openLineageOverrideClassPatterns
+          }
+        } else {
+          zipTree(artifact.file)
+        }
       }
     }
 

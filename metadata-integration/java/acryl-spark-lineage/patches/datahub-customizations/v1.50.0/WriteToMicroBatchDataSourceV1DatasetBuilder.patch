@@ -1,0 +1,100 @@
+# Patch for DataHub customizations in WriteToMicroBatchDataSourceV1DatasetBuilder.java
+# Upstream version: OpenLineage 1.50.0
+# Generated: 2026-07-26 11:09:27 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/WriteToMicroBatchDataSourceV1DatasetBuilder.patch
+#
+--- src/main/java/io/openlineage/spark34/agent/lifecycle/plan/WriteToMicroBatchDataSourceV1DatasetBuilder.java
++++ src/main/java/io/openlineage/spark34/agent/lifecycle/plan/WriteToMicroBatchDataSourceV1DatasetBuilder.java
+@@ -6,15 +6,19 @@
+ package io.openlineage.spark34.agent.lifecycle.plan;
+ 
+ import io.openlineage.client.OpenLineage;
++import io.openlineage.spark.agent.util.ReflectionUtils;
+ import io.openlineage.spark.api.AbstractQueryPlanOutputDatasetBuilder;
+ import io.openlineage.spark.api.DatasetFactory;
+ import io.openlineage.spark.api.OpenLineageContext;
++import java.net.URI;
+ import java.util.Collections;
+ import java.util.List;
++import java.util.Optional;
+ import lombok.extern.slf4j.Slf4j;
+ import org.apache.spark.scheduler.SparkListenerEvent;
+ import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
+ import org.apache.spark.sql.execution.streaming.FileStreamSink;
++import org.apache.spark.sql.execution.streaming.Sink;
+ import org.apache.spark.sql.execution.streaming.sources.WriteToMicroBatchDataSourceV1;
+ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
+ 
+@@ -27,6 +30,9 @@
+ public class WriteToMicroBatchDataSourceV1DatasetBuilder
+     extends AbstractQueryPlanOutputDatasetBuilder<WriteToMicroBatchDataSourceV1> {
+ 
++  private static final String DELTA_SINK_CLASS_NAME =
++      "org.apache.spark.sql.delta.sources.DeltaSink";
++
+   private final DatasetFactory<OpenLineage.OutputDataset> factory;
+ 
+   public WriteToMicroBatchDataSourceV1DatasetBuilder(
+@@ -52,20 +58,47 @@
+   @Override
+   protected List<OpenLineage.OutputDataset> apply(
+       SparkListenerEvent event, WriteToMicroBatchDataSourceV1 writeToMicroBatchV1) {
+-    // Currently, only FileStreamSink is supported
+-    if (writeToMicroBatchV1.sink() instanceof FileStreamSink) {
+-      if (writeToMicroBatchV1.catalogTable().isDefined()) {
+-        return Collections.singletonList(
+-            factory
+-                .sparkDatasetBuilder()
+-                .dataset(writeToMicroBatchV1.catalogTable().get())
+-                .schema(writeToMicroBatchV1.schema())
+-                .build());
+-      } else {
+-        return Collections.emptyList();
+-      }
++    Sink sink = writeToMicroBatchV1.sink();
++    String sinkClassName = sink.getClass().getCanonicalName();
++    boolean fileSink = sink instanceof FileStreamSink;
++    boolean deltaSink = DELTA_SINK_CLASS_NAME.equals(sinkClassName);
++
++    if (!fileSink && !deltaSink) {
++      log.debug("Unsupported Sink type: {}", sink.getClass().getName());
++      return Collections.emptyList();
++    }
++
++    if (writeToMicroBatchV1.catalogTable().isDefined()) {
++      return Collections.singletonList(
++          factory
++              .sparkDatasetBuilder()
++              .dataset(writeToMicroBatchV1.catalogTable().get())
++              .schema(writeToMicroBatchV1.schema())
++              .build());
++    }
++
++    if (deltaSink) {
++      return deltaPath(sink)
++          .map(
++              path ->
++                  Collections.singletonList(
++                      factory
++                          .sparkDatasetBuilder()
++                          .dataset(path)
++                          .schema(writeToMicroBatchV1.schema())
++                          .build()))
++          .orElseGet(Collections::emptyList);
+     }
+-    log.debug("Unsupported Sink type: {}", writeToMicroBatchV1.sink().getClass().getName());
++
+     return Collections.emptyList();
+   }
++
++  private Optional<URI> deltaPath(Sink sink) {
++    try {
++      return ReflectionUtils.tryExecuteMethod(sink, "path").map(Object::toString).map(URI::create);
++    } catch (IllegalArgumentException e) {
++      log.warn("Could not extract a valid path from {}", sink.getClass().getName(), e);
++      return Optional.empty();
++    }
++  }
+ }
