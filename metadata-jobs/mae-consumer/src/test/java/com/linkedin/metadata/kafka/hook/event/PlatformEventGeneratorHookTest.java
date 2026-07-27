@@ -804,7 +804,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", newDescription),
+            ImmutableMap.of("description", newDescription, "previousDescription", "Old desc"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent);
   }
@@ -920,7 +920,7 @@ public class PlatformEventGeneratorHookTest {
             ChangeCategory.DOCUMENTATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("description", newDescription),
+            ImmutableMap.of("description", newDescription, "previousDescription", "Old desc"),
             actorUrn);
     verifyProducePlatformEvent(mockProducer, platformEvent);
   }
