@@ -29,8 +29,7 @@ from datahub.utilities.str_enum import StrEnum
 _T = TypeVar("_T")
 
 # A parsed JSON object at an API boundary (response body / CSN node). Values are
-# arbitrary JSON, so callers must narrow before use; this alias just documents
-# the shape and replaces bare ``Dict`` at those boundaries.
+# arbitrary JSON, so callers must narrow before use.
 JsonDict = Dict[str, Any]
 
 
@@ -47,8 +46,6 @@ def dedup_preserving_order(items: Iterable[_T]) -> List[_T]:
 def _require_exactly_one(
     model: str, primary_field: str, primary: object, alt_field: str, alt: object
 ) -> None:
-    # Shared "exactly one of two mutually-exclusive fields is set" invariant used
-    # by the success/skip result models below.
     if (primary is None) == (alt is None):
         raise ValueError(
             f"{model} must carry exactly one of {primary_field}/{alt_field} "
@@ -57,8 +54,6 @@ def _require_exactly_one(
 
 
 class TagDefinition(BaseModel):
-    """Display name + description for a predefined tag URN."""
-
     model_config = ConfigDict(frozen=True)
 
     name: str
@@ -142,10 +137,9 @@ class TypeIdDefault(BaseModel):
 
 class AssetCsn(BaseModel):
     # The design-time CSN of a View / Analytic Model asset, resolved once so the
-    # emit path doesn't re-fetch or re-navigate: ``csn_obj`` is the raw fetched
-    # body, ``csn_def`` its definitions[name] node (None when absent/unparseable),
-    # and ``connection_name`` the routing connection (the managed HANA key unless
-    # the CSN declared a federated @remote.source).
+    # emit path doesn't re-fetch or re-navigate. ``connection_name`` is the routing
+    # connection (the managed HANA key unless the CSN declared a federated
+    # @remote.source).
     model_config = ConfigDict(frozen=True)
 
     connection_name: str

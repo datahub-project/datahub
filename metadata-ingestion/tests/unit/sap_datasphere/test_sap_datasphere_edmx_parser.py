@@ -53,7 +53,6 @@ def test_parser_extracts_fields_with_correct_native_types():
     assert field_types["DATE_SQL"] == "Edm.Date"
     assert field_types["YEAR_VAL"] == "Edm.Int32"
     assert field_types["MONTH_NAME"] == "Edm.String"
-    # Decimal with precision/scale should be formatted
     assert field_types["PRICE_USD"] == "Edm.Decimal(18,2)"
 
 
@@ -96,11 +95,7 @@ def test_parser_returns_empty_result_on_malformed_xml():
 
 
 def test_parser_returns_structured_error_on_unsafe_dtd_payload():
-    """A payload with a DTD (e.g. a hostile response or proxy/error page) makes
-    defusedxml raise a DefusedXmlException (a ValueError subclass, not
-    ParseError). The parser must catch it and return a structured error result
-    so the source records assets_schema_failed, rather than letting it escape to
-    the generic per-asset handler (finding #3)."""
+    """A DTD payload makes defusedxml raise a DefusedXmlException (a ValueError, not ParseError); the parser must catch it and return a structured error."""
     xml = """<?xml version="1.0"?>
 <!DOCTYPE edmx:Edmx [ <!ENTITY x "expanded"> ]>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
@@ -140,14 +135,11 @@ def test_parser_falls_back_to_nulltype_for_unknown_edm_type(caplog):
     with caplog.at_level(logging.WARNING):
         result = EdmxParser.parse(xml)
     assert len(result.fields) == 1
-    # Should have logged a warning about the unknown type
     assert any("Edm.GarbageType" in r.message for r in caplog.records)
 
 
 def test_parser_collects_unknown_edm_types_for_report():
-    """An EDMX with an Edm.* type the connector doesn't know about parses to a
-    NullType field AND surfaces (edm_type, property_name) tuples in
-    ``unknown_edm_types`` so the source can attribute the issue per-asset."""
+    """Unknown Edm.* types parse to a NullType field and surface in unknown_edm_types for per-asset attribution."""
     xml = """<?xml version="1.0"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
@@ -161,22 +153,19 @@ def test_parser_collects_unknown_edm_types_for_report():
   </edmx:DataServices>
 </edmx:Edmx>"""
     result = EdmxParser.parse(xml)
-    # Both fields parsed; the Edm.Stream column falls back to NullType.
     field_paths = {f.fieldPath for f in result.fields}
     assert field_paths == {"BLOB_COL", "OK_COL"}
     blob_field = next(f for f in result.fields if f.fieldPath == "BLOB_COL")
-    # NullType is exposed as schemaFieldDataType.type with class name NullTypeClass
+    # NullType surfaces as schemaFieldDataType.type, so assert on the class name.
     assert type(blob_field.type.type).__name__ == "NullTypeClass"
-    # And the unknown_edm_types list MUST contain the unknown column entry.
     assert (
         UnknownColumnType(type="Edm.Stream", column="BLOB_COL")
         in result.unknown_edm_types
     )
-    # OK_COL is a known String type so should not be flagged.
     assert all(u.column != "OK_COL" for u in result.unknown_edm_types)
 
 
 def test_parser_empty_unknown_edm_types_on_clean_doc():
-    """A clean EDMX document yields an empty ``unknown_edm_types`` list, not None."""
+    """A clean document yields an empty unknown_edm_types list, not None."""
     result = EdmxParser.parse(_MINIMAL_EDMX)
     assert result.unknown_edm_types == []

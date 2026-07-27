@@ -49,9 +49,7 @@ def _sanitize_for_report(value: object) -> str:
 
 
 class CsnLineageExtractor:
-    """Extracts table- and column-level lineage from a CSN definition.
-
-    Scope: plain SELECT, INNER/LEFT/RIGHT joins of named refs, the ``$projection``
+    """Scope: plain SELECT, INNER/LEFT/RIGHT joins of named refs, the ``$projection``
     pseudo-alias, and inline scalar subqueries. Unions, CTEs, and correlated
     subqueries fall back to "no lineage" — the asset still emits without the edge.
     """
@@ -104,8 +102,8 @@ class CsnLineageExtractor:
         return CsnSelectEnvelope(select=select)
 
     def _resolve_output_name(self, col: dict) -> Optional[str]:
-        # Prefer the `as` alias; fall back to the last `ref` segment. An unnamed
-        # aggregate (SUM(x) with no alias) can't produce lineage and is skipped.
+        # An unnamed aggregate (SUM(x) with no alias) can't produce lineage and
+        # is skipped.
         as_alias = col.get(CSN_AS)
         if isinstance(as_alias, str):
             return as_alias
@@ -150,9 +148,7 @@ class CsnLineageExtractor:
         return selects
 
     def extract_upstream_refs(self, csn_def: dict) -> List[UpstreamRef]:
-        """Return the FROM-clause upstream entities of a view/query.
-
-        A dotted ref (e.g. ``SAP_BW.V_X`` or a built-in ``SAP.TIME.*``) is already
+        """A dotted ref (e.g. ``SAP_BW.V_X`` or a built-in ``SAP.TIME.*``) is already
         space-qualified and used as-is; a bare technical name is a same-space
         sibling that the source layer prefixes with the asset's space. Setting
         ``qualified`` here (rather than blindly in the source) is what keeps a
@@ -173,9 +169,8 @@ class CsnLineageExtractor:
         if not isinstance(node, dict):
             return
         if CSN_REF in node and isinstance(node[CSN_REF], list) and node[CSN_REF]:
-            # Only string refs name an upstream object; dict refs (parametrized /
-            # inline-defined entities) carry no target name and are skipped to
-            # avoid malformed URNs downstream.
+            # Dict refs (parametrized / inline-defined entities) carry no target
+            # name and are skipped to avoid malformed URNs downstream.
             first = node[CSN_REF][0]
             if isinstance(first, str):
                 out.append(first)
@@ -190,9 +185,7 @@ class CsnLineageExtractor:
                 self._walk_from(inner_select[CSN_FROM], out)
 
     def _build_alias_map(self, from_node: object) -> Dict[str, str]:
-        """Build an alias→qualified-name map from a CSN FROM clause.
-
-        For single-source FROMs the empty-string key ``""`` also maps to the
+        """For single-source FROMs the empty-string key ``""`` also maps to the
         source so unqualified column refs resolve unambiguously — real SAP CSN
         frequently uses ``FROM T AS T`` with unqualified column refs. For
         multi-source JOINs only explicit aliases appear; unqualified refs there
@@ -237,16 +230,11 @@ class CsnLineageExtractor:
         visited: Optional[Set[str]] = None,
         association_map: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Walk a column expression, appending an ``UpstreamColRef`` per resolvable
-        column reference and a diagnostic string per unresolvable one.
-
-        Handles direct 1-/2-segment refs, the ``$projection`` pseudo-alias, ``func``
-        calls, ``xpr``/``case``/``cast`` containers, and inline scalar subqueries.
-        A scalar subquery is walked against its OWN FROM's alias map (built afresh);
-        correlated subqueries referencing the outer scope are not supported and land
-        in ``unresolved``. The outer ``projection_map`` is intentionally not
-        propagated into a subquery — a ``$projection`` ref there targets the
-        subquery's own projection, not the outer query's.
+        """A scalar subquery is walked against its OWN FROM's alias map (built
+        afresh); correlated subqueries referencing the outer scope are not
+        supported and land in ``unresolved``. The outer ``projection_map`` is
+        intentionally not propagated into a subquery — a ``$projection`` ref there
+        targets the subquery's own projection, not the outer query's.
         """
         if isinstance(node, list):
             for item in node:
@@ -286,7 +274,7 @@ class CsnLineageExtractor:
                     )
                 elif association_map and alias in association_map:
                     # A field projected through a CDS association navigates to the
-                    # association's target entity; attribute the column there.
+                    # association's target entity.
                     target = association_map[alias]
                     out.append(
                         UpstreamColRef(
@@ -335,11 +323,10 @@ class CsnLineageExtractor:
     def _is_qualified(name: str) -> bool:
         # A dotted target is already space-qualified (cross-space or a built-in
         # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
-        # KNOWN EDGE CASE: this is a dot-heuristic, not a real parse. A same-space
-        # object whose technical name legitimately contains a dot would be treated
-        # as already-qualified and not space-prefixed. Datasphere technical names
-        # are effectively alphanumeric/underscore, so a dotted bare name is not
-        # observed in practice; accepted as low risk.
+        # Dot-heuristic, not a real parse: a same-space object whose technical name
+        # legitimately contains a dot would be mis-treated as already-qualified, but
+        # Datasphere technical names are effectively alphanumeric/underscore so this
+        # is not observed in practice.
         return "." in name
 
     def _resolve_projection_ref(
@@ -352,8 +339,7 @@ class CsnLineageExtractor:
         visited: Optional[Set[str]],
         association_map: Optional[Dict[str, str]] = None,
     ) -> None:
-        # Follow the sibling output column's expression down to its real upstream
-        # refs; ``visited`` guards against reference cycles (a -> b -> a).
+        # ``visited`` guards against reference cycles (a -> b -> a).
         if not projection_map:
             unresolved.append(
                 f"<$projection ref to {_sanitize_for_report(col)} (no projection context)>"
@@ -414,10 +400,10 @@ class CsnLineageExtractor:
         )
 
         if downstream_name is None:
-            # Unnamed expression. If it has refs the user probably meant to alias
-            # it; surface as unresolved so the silent drop is visible.
+            # If it has refs the user probably meant to alias it; surface as
+            # unresolved so the silent drop is visible.
             if not raw_refs and not unresolved:
-                return None  # pure literal
+                return None
             deduped_refs = dedup_preserving_order(raw_refs)
             deduped_unresolved = dedup_preserving_order(unresolved)
             return ColumnLineagePair(
@@ -430,7 +416,7 @@ class CsnLineageExtractor:
             )
 
         if not raw_refs and not unresolved:
-            return None  # pure literal
+            return None
 
         return ColumnLineagePair(
             downstream_col=downstream_name,
@@ -441,9 +427,7 @@ class CsnLineageExtractor:
 
     @staticmethod
     def _association_map(elements: object) -> Dict[str, str]:
-        """Map association/composition element name -> its target entity.
-
-        Elements without a string ``target`` are ignored (a navigation with no
+        """Elements without a string ``target`` are ignored (a navigation with no
         resolvable destination can't become a lineage edge).
         """
         result: Dict[str, str] = {}
@@ -541,9 +525,7 @@ class CsnLineageExtractor:
         return merged
 
     def extract_column_lineage(self, csn_def: dict) -> List[ColumnLineagePair]:
-        """Return one ``ColumnLineagePair`` per downstream column.
-
-        Returns ``[]`` for legitimate non-SELECT entities, and a single
+        """Returns ``[]`` for legitimate non-SELECT entities, and a single
         ``<malformed>`` pair (carrying a diagnostic) when the CSN is structurally
         broken, so the caller can tell a corrupt CSN apart from a base table.
         A ``SET`` (UNION/INTERSECT/EXCEPT) query is handled by merging each
@@ -588,9 +570,7 @@ class CsnLineageExtractor:
             self._collect_used_associations(value, association_map, out)
 
     def extract_association_targets(self, csn_def: dict) -> List[UpstreamRef]:
-        """Return the target entities of associations the query actually uses.
-
-        These become table-level upstream edges (the association navigates to
+        """These become table-level upstream edges (the association navigates to
         another entity the model consumes). Targets are de-duplicated; a dotted
         target is treated as already space-qualified, a bare one as a same-space
         sibling.

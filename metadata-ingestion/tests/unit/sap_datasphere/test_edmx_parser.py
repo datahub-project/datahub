@@ -72,10 +72,7 @@ def test_dimension_type_in_entity_props():
 
 
 def test_dimension_type_hash_prefix_normalized():
-    """Regression: live SAP tenants emit ``EnumMember="#TIME"`` (CDS short form)
-    rather than the OData-canonical ``"Analytics.DimensionType/Time"``. Both
-    must normalize to the same human-readable value.
-    """
+    """Regression: live tenants emit EnumMember="#TIME" (CDS short form), which must normalize like the OData-canonical value."""
     edmx = """<?xml version="1.0" encoding="utf-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
   <edmx:DataServices>

@@ -36,9 +36,7 @@ def test_base_url_trailing_slash_stripped():
 
 
 def test_base_url_without_scheme_rejected():
-    """A base_url missing the scheme would silently produce broken request URLs
-    and an unmatched xsuaa_url derivation, surfacing far downstream as a confusing
-    OAuth error. Reject it at config-load time with an actionable message."""
+    """Reject a scheme-less base_url at load time; otherwise it fails far downstream as a confusing OAuth error."""
     with pytest.raises(ValueError, match="base_url must start with"):
         SapDatasphereConfig.model_validate(
             {"base_url": "myco.eu10.hcs.cloud.sap", "token": "t"}
@@ -46,7 +44,6 @@ def test_base_url_without_scheme_rejected():
 
 
 def test_tenant_url_backcompat_alias_maps_to_base_url():
-    """The legacy `tenant_url` field name still works for back-compat."""
     cfg = SapDatasphereConfig.model_validate(
         {"tenant_url": "https://myco.eu10.hcs.cloud.sap", "token": "t"}
     )
@@ -71,20 +68,17 @@ def test_connection_platform_config_rejects_invalid_env():
 
 
 def test_connection_platform_config_normalizes_env_case():
-    # Mirrors EnvConfigMixin: a lowercase env must be accepted and upper-cased,
-    # so a per-connection `env` behaves the same as the top-level `env`.
+    # Mirrors EnvConfigMixin so a per-connection env behaves like the top-level env.
     cfg = ConnectionPlatformConfig(platform="hana", env="prod")
     assert cfg.env == "PROD"
 
 
 def test_platform_rejects_uppercase():
-    """L11: platform values must be kebab-case-ish; ``Snowflake`` is a typo."""
     with pytest.raises(ValueError, match="lowercase"):
         ConnectionPlatformConfig(platform="Snowflake")
 
 
 def test_platform_rejects_empty_string():
-    """L11: empty / whitespace platform values must raise."""
     with pytest.raises(ValueError, match="non-empty"):
         ConnectionPlatformConfig(platform="")
     with pytest.raises(ValueError, match="non-empty"):
@@ -92,7 +86,6 @@ def test_platform_rejects_empty_string():
 
 
 def test_platform_accepts_lowercase_with_hyphen():
-    """L11: kebab-case platform names (e.g. ``sap-hana``) must validate."""
     cfg = ConnectionPlatformConfig(platform="sap-hana")
     assert cfg.platform == "sap-hana"
     cfg2 = ConnectionPlatformConfig(platform="my_custom_platform")
@@ -100,53 +93,44 @@ def test_platform_accepts_lowercase_with_hyphen():
 
 
 def test_refresh_token_requires_xsuaa_url():
-    """M6: refresh_token without xsuaa_url must raise a clear validation error."""
     with pytest.raises(ValueError, match="xsuaa_url"):
         SapDatasphereConfig.model_validate(
             {
                 "base_url": "https://myco.example.com",  # not derivable
                 "refresh_token": "r",
                 "client_id": "c",
-                # xsuaa_url intentionally omitted and not derivable from base_url
             }
         )
 
 
 def test_refresh_token_requires_client_id():
-    """M6: refresh_token without client_id must raise a validation error."""
     with pytest.raises(ValueError, match="client_id"):
         SapDatasphereConfig.model_validate(
             {
                 "base_url": "https://myco.eu10.hcs.cloud.sap",
                 "refresh_token": "r",
-                # client_id intentionally omitted
             }
         )
 
 
 def test_client_secret_requires_xsuaa_url():
-    """M6: client_secret without xsuaa_url must raise a validation error."""
     with pytest.raises(ValueError, match="xsuaa_url"):
         SapDatasphereConfig.model_validate(
             {
                 "base_url": "https://myco.example.com",  # not derivable
                 "client_id": "c",
                 "client_secret": "s",
-                # xsuaa_url intentionally omitted and not derivable from base_url
             }
         )
 
 
 def test_stateful_lineage_field_absent():
-    """The connector emits full lineage from CSN and never consumes
-    enable_stateful_lineage_ingestion, so StatefulLineageConfigMixin (and its
-    misleading no-op knob) must not be part of the config."""
+    """The connector emits full lineage from CSN, so the misleading no-op stateful-lineage knob must not exist."""
     assert "enable_stateful_lineage_ingestion" not in SapDatasphereConfig.model_fields
 
 
 def test_stale_entity_removal_still_works_without_lineage_mixin():
-    """Stale-entity soft-delete comes from StatefulIngestionConfigBase, not the
-    lineage mixin — a config with stateful_ingestion still constructs."""
+    """Stale-entity soft-delete comes from StatefulIngestionConfigBase, not the lineage mixin."""
     cfg = SapDatasphereConfig(
         base_url="https://myco.eu10.hcs.cloud.sap",
         token="t",
@@ -157,20 +141,19 @@ def test_stale_entity_removal_still_works_without_lineage_mixin():
 
 
 def test_include_table_lineage_backcompat_alias_maps_to_include_lineage():
-    """The legacy `include_table_lineage` field name still maps to include_lineage
-    AND emits a ConfigurationWarning so operators see the deprecation message."""
+    """Legacy include_table_lineage maps to include_lineage and emits a ConfigurationWarning."""
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
         cfg = SapDatasphereConfig.model_validate(
             {
                 "base_url": "https://test.eu10.hcs.cloud.sap",
                 "token": "t",
-                "include_table_lineage": True,  # legacy name
+                "include_table_lineage": True,
             }
         )
     assert cfg.include_lineage is True
 
-    # `pydantic_renamed_field` calls warnings.warn(..., ConfigurationWarning).
+    # pydantic_renamed_field emits the deprecation via warnings.warn(..., ConfigurationWarning).
     relevant = [
         w
         for w in captured
@@ -185,10 +168,7 @@ def test_include_table_lineage_backcompat_alias_maps_to_include_lineage():
 
 
 def test_connection_to_platform_map_defaults_to_empty():
-    """The `_managed: hana` default is gone — managed assets resolve to
-    sap-datasphere via the resolver short-circuit, not via this config field.
-    Customers only populate connection_to_platform_map for FEDERATED routing.
-    """
+    """Managed assets resolve to sap-datasphere via the resolver short-circuit; this map is only for federated routing."""
     config = SapDatasphereConfig(
         base_url="https://example.com",
         token="t",

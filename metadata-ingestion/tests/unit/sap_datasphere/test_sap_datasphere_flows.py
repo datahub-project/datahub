@@ -9,8 +9,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 )
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
 
-# Anonymized payloads that mirror the shape of live dwaas-core flow definitions
-# (generic table/column names — no customer identifiers).
+# Anonymized payloads mirroring live dwaas-core flow definitions (no customer identifiers).
 
 
 def _process(component: str, config: Dict) -> Dict:
@@ -85,8 +84,7 @@ def test_parse_data_flow_external_source_endpoint():
 
 
 def test_parse_data_flow_multiple_inputs_suppresses_column_lineage():
-    """With more than one input the producer's source columns can't be
-    unambiguously attributed, so only table-level edges are kept."""
+    """With more than one input the source columns can't be unambiguously attributed, so only table-level edges are kept."""
     payload = _data_flow_payload()
     payload[OBJECT_TYPE_DATA_FLOWS]["MY_DATA_FLOW"]["contents"]["processes"]["p3"] = (
         _process(
@@ -104,10 +102,7 @@ def test_parse_data_flow_multiple_inputs_suppresses_column_lineage():
 
 
 def test_parse_data_flow_duplicate_input_endpoints_collapse():
-    """Two consumer nodes naming the same (object, connection) collapse to one
-    input via _dedup_endpoints. The collapse is behaviorally load-bearing: with a
-    single distinct input the producer's column mappings are no longer ambiguous,
-    so column lineage is retained rather than suppressed as multi-input."""
+    """Deduping two identical inputs leaves a single distinct input, so column lineage is retained rather than suppressed as multi-input."""
     payload = _data_flow_payload()
     payload[OBJECT_TYPE_DATA_FLOWS]["MY_DATA_FLOW"]["contents"]["processes"]["p3"] = (
         _process(
@@ -204,9 +199,7 @@ def test_parse_replication_flow_endpoints_and_column_lineage():
 
 
 def test_parse_replication_flow_dwc_target_is_local():
-    # A $DWC (managed) target system means the object lives in the tenant's own
-    # HANA Cloud and must be emitted on the sap_datasphere platform, not treated
-    # as an external HANA table.
+    # A $DWC (managed) target lives in the tenant's own HANA Cloud, so it's emitted on sap_datasphere, not as an external HANA table.
     parsed = parse_flow(
         _replication_flow_payload(
             target_system={"connectionId": "$DWC", "connectionType": "HANA"},
@@ -222,8 +215,7 @@ def test_parse_replication_flow_dwc_target_is_local():
 
 
 def test_parse_replication_flow_carries_system_container():
-    # The system container (schema/dataset path) is captured on each external
-    # endpoint so the URN can be schema-qualified downstream.
+    # The system container is captured per endpoint so the URN can be schema-qualified downstream.
     parsed = parse_flow(
         _replication_flow_payload(
             source_system={
@@ -274,9 +266,7 @@ def _multi_task_replication_payload(name: str = "MY_REPL_FLOW") -> Dict:
 
 
 def test_parse_replication_flow_pairs_each_task_source_to_its_own_target():
-    """Pure-copy tasks carry no column mapping, so per-task table_mappings are the
-    only thing that keeps a target attributed to its own source instead of the
-    flow-wide cross-product."""
+    """Pure-copy tasks carry no column mapping, so per-task table_mappings are what prevent a flow-wide cross-product."""
     parsed = parse_flow(
         _multi_task_replication_payload(),
         OBJECT_TYPE_REPLICATION_FLOWS,
@@ -289,8 +279,7 @@ def test_parse_replication_flow_pairs_each_task_source_to_its_own_target():
 
 
 def test_parse_data_flow_leaves_table_mappings_empty():
-    # A connected process graph relies on the source layer's all-inputs fallback,
-    # so it must not populate per-task pairings.
+    # A connected process graph relies on the source layer's all-inputs fallback, so per-task pairings stay empty.
     parsed = parse_flow(_data_flow_payload(), OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
     assert parsed is not None
     assert parsed.table_mappings == []

@@ -1,4 +1,3 @@
-# tests/unit/test_sap_datasphere_source.py
 import json
 import re
 from pathlib import Path
@@ -65,15 +64,9 @@ from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
 
 @pytest.fixture(autouse=True)
 def _default_csn_endpoint_404(requests_mock):
-    """include_view_definitions defaults to True, so the connector now fetches
-    each asset's CSN from the per-object-type /dwaas-core/ endpoint even when
-    lineage is off. Tests that don't care about CSN don't mock that endpoint;
-    register a low-priority 404 fallback so those fetches degrade gracefully
-    (fetch_object_definition catches RequestException and returns None) instead
-    of raising NoMockAddress. Tests that register a specific CSN URL override
-    this — requests_mock checks matchers in reverse registration order, and this
-    autouse fixture registers before each test body runs.
-    """
+    """Low-priority 404 fallback so CSN fetches for assets that don't mock the
+    per-object-type endpoint degrade gracefully; a test's own specific CSN mock
+    overrides this (requests_mock matches in reverse registration order)."""
     requests_mock.get(
         re.compile(
             r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)/"
@@ -240,7 +233,6 @@ def test_schema_failure_appends_to_lossy_list_and_warns(requests_mock):
 
     assert isinstance(source.report.assets_schema_failed, LossyList)
     assert "BROKEN" in list(source.report.assets_schema_failed)
-    # report.warning() should have been called (visible in report.warnings)
     warning_messages = [w.message for w in source.report.warnings]
     assert any("BROKEN" in m for m in warning_messages), (
         f"Expected a warning mentioning BROKEN, got: {warning_messages}"
@@ -364,11 +356,8 @@ def test_spaces_endpoint_failure_emits_failure(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     list(source.get_workunits())  # should NOT raise
 
-    # The point is: even with the root spaces endpoint failing, we exit
-    # gracefully without crashing — and record a failure (not a warning) so the
-    # run is marked failed rather than a silent empty success. We don't need to
-    # assert what workunits are produced (with SDK V2 + no spaces, there may be
-    # none).
+    # A failed root spaces listing must record a failure (not a warning) so the
+    # run is marked failed rather than a silent empty success.
     failure_messages = [f.message for f in source.report.failures]
     assert any("space" in m.lower() for m in failure_messages)
 
@@ -378,8 +367,8 @@ def test_paginate_concatenates_pages(requests_mock):
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
 
-    # Two-page response: 2 items first (full page), 1 item second (partial → stop).
-    # Use page_size=2 so the first page is recognised as full and pagination continues.
+    # page_size=2: the full first page (2 items) continues pagination; the
+    # partial second page (1 item) stops it.
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
         [
@@ -436,8 +425,8 @@ def test_client_does_not_fetch_token_in_init():
     )
     # Should not raise even though we haven't mocked any HTTP calls
     client = SapDatasphereClient(cfg)
-    # For raw-token configs, the Authorization header may be set eagerly (no network call needed).
-    # The key requirement: no network exception is raised during construction.
+    # The key requirement: construction raises no network exception (raw-token
+    # configs may set the Authorization header eagerly, with no network call).
     assert client is not None
 
 
@@ -500,7 +489,6 @@ def test_dataset_picks_up_entity_label_and_custom_props_from_edmx(requests_mock)
         if aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass"
     )
     props = aspect_as(props_wu, DatasetPropertiesClass)
-    # Custom properties should include the parsed annotations
     assert props.customProperties.get("sap_dimension_type") == "Time"
     assert props.customProperties.get("sap_is_measure") == "true"
 
@@ -530,8 +518,6 @@ def test_client_fetches_refresh_token_lazily(requests_mock):
 
     # No mock for XSUAA yet — construction must NOT call it
     client = SapDatasphereClient(cfg)
-    # If __init__ tried to call XSUAA, requests_mock would have raised NoMockAddress
-    # (or the call would appear in request_history).
     xsuaa_calls_during_init = [
         h for h in requests_mock.request_history if "authentication" in h.url
     ]
@@ -539,7 +525,6 @@ def test_client_fetches_refresh_token_lazily(requests_mock):
         f"Token fetched during __init__: {[h.url for h in xsuaa_calls_during_init]}"
     )
 
-    # Now arm the mocks and make a real request
     requests_mock.post(
         "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
         json={"access_token": "fresh_token"},
@@ -551,7 +536,6 @@ def test_client_fetches_refresh_token_lazily(requests_mock):
 
     list(client.list_spaces())
 
-    # NOW the token should have been fetched (exactly once)
     token_calls = [
         h for h in requests_mock.request_history if "authentication" in h.url
     ]
@@ -592,13 +576,10 @@ def test_emits_dataplatforminstance_for_dataset(requests_mock):
     workunits = list(source.get_workunits())
 
     aspect_types = [aspect_of(wu).__class__.__name__ for wu in workunits]
-    # Both container and dataset should emit DataPlatformInstanceClass
     assert aspect_types.count("DataPlatformInstanceClass") >= 2, (
         f"Expected ≥2 DataPlatformInstanceClass aspects (one per entity), got: {aspect_types}"
     )
-    # Subtype aspect for the dataset should be present
     assert "SubTypesClass" in aspect_types
-    # Container subtype "Space" should appear
     subtypes_lists = [
         aspect_as(wu, SubTypesClass).typeNames
         for wu in workunits
@@ -610,11 +591,8 @@ def test_emits_dataplatforminstance_for_dataset(requests_mock):
 
 
 def test_asset_pattern_deny_filters_emitted_datasets(requests_mock):
-    """L2: asset_pattern.deny must prevent dataset emission for matching assets
-    and bump the `assets_filtered` counter without emitting the dataset URN.
-
-    Symmetric to ``test_space_pattern_actually_filters_emitted_containers``.
-    """
+    """asset_pattern.deny prevents dataset emission for matching assets and bumps
+    assets_filtered without emitting the dataset URN."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -662,7 +640,7 @@ def test_asset_pattern_deny_filters_emitted_datasets(requests_mock):
         for wu in workunits
         if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
     }
-    # KEEP_ME emits a dataset, TMP_DROP does not. URNs are lowercased by default.
+    # URNs are lowercased by default.
     assert any("keep_me" in u for u in dataset_urns), (
         f"Expected KEEP_ME dataset URN; got: {dataset_urns}"
     )
@@ -674,7 +652,6 @@ def test_asset_pattern_deny_filters_emitted_datasets(requests_mock):
 
 
 def test_space_pattern_actually_filters_emitted_containers(requests_mock):
-    """Verify space_pattern.deny prevents container emission for matching spaces."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -707,8 +684,8 @@ def test_space_pattern_actually_filters_emitted_containers(requests_mock):
         for wu in workunits
         if aspect_of(wu).__class__.__name__ == "ContainerPropertiesClass"
     }
-    # ALLOWED should be emitted, BLOCKED_HR should not. The container key's
-    # `space` segment is lowercased (convert_urns_to_lowercase default True).
+    # The container key's `space` segment is lowercased (convert_urns_to_lowercase
+    # default True).
     assert "allowed" in emitted_spaces
     assert "blocked_hr" not in emitted_spaces
     assert source.report.spaces_scanned == 2
@@ -719,12 +696,9 @@ def test_space_pattern_actually_filters_emitted_containers(requests_mock):
 
 
 def test_dataset_urn_includes_space_and_asset_and_platform_instance(requests_mock):
-    """Dataset URNs must encode platform, name=<space>.<asset>, and platform_instance.
-
-    Managed assets are emitted under the ``sap-datasphere`` platform with the
-    top-level ``platform_instance`` — any ``_managed`` entry's platform/instance
-    fields are ignored.
-    """
+    """Dataset URNs encode platform, <space>.<asset>, and the top-level
+    platform_instance; a ``_managed`` entry's own platform/instance fields are
+    ignored."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -820,9 +794,8 @@ def test_malformed_edmx_emits_warning_and_appends_to_failed_list(requests_mock):
 
 
 def test_edmx_404_skips_quietly_without_warning(requests_mock):
-    """A 404 from the EDMX endpoint is benign (asset not OData-exposed). The
-    source must NOT emit an 'EDMX schema fetch failed' warning and must NOT
-    track the asset in assets_schema_failed."""
+    """A 404 from EDMX is benign (asset not OData-exposed): no 'EDMX schema fetch
+    failed' warning and not tracked in assets_schema_failed."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -868,9 +841,8 @@ def test_edmx_404_skips_quietly_without_warning(requests_mock):
 
 
 def test_edmx_403_not_double_warned_by_parse_schema(requests_mock):
-    """A 403 is already warned by the client (fetch_edmx). _parse_schema must
-    NOT emit a second 'EDMX schema fetch failed' warning for it, though the
-    asset is still tracked in assets_schema_failed."""
+    """A 403 is already warned by the client, so _parse_schema must not double-warn
+    it, though the asset is still tracked in assets_schema_failed."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -906,11 +878,8 @@ def test_edmx_403_not_double_warned_by_parse_schema(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     list(source.get_workunits())
 
-    # The asset is still tracked as a schema failure.
     assert "DENIED" in list(source.report.assets_schema_failed)
     titles = [w.title or "" for w in source.report.warnings]
-    # The client already warned with the forbidden title; _parse_schema must
-    # not add the generic fetch-failed warning on top.
     assert "EDMX schema fetch failed" not in titles, (
         f"A 403 must not be double-warned by _parse_schema; got: {titles}"
     )
@@ -1050,7 +1019,6 @@ def test_subtype_is_analytical_model_when_supportsanalyticalqueries(requests_moc
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
 
-    # Map dataset URN → list of subtypes
     subtypes_per_urn: Dict[str, List[str]] = {}
     for wu in workunits:
         if aspect_of(wu).__class__.__name__ == "SubTypesClass":
@@ -1065,10 +1033,8 @@ def test_subtype_is_analytical_model_when_supportsanalyticalqueries(requests_moc
 
 
 def test_analytic_model_csn_200_but_unparseable_is_reported(requests_mock):
-    """HTTP 200 whose CSN ``definitions`` map has no entry for the asset (key
-    mismatch / empty / non-dict) must be recorded in ``assets_csn_unparseable``
-    with a warning — not emitted as a silent schema-less, lineage-less stub that
-    an operator can't distinguish from a healthy run (finding #1)."""
+    """A 200 whose CSN definitions map has no entry for the asset must be recorded
+    in assets_csn_unparseable with a warning, not emitted as a silent stub."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1114,8 +1080,8 @@ def test_analytic_model_csn_200_but_unparseable_is_reported(requests_mock):
 
 
 def test_analytic_model_csn_200_non_dict_definitions_does_not_crash(requests_mock):
-    """A 200 whose ``definitions`` is explicitly null/non-dict must route to the
-    unparseable report path, not raise AttributeError (finding #6)."""
+    """A 200 whose ``definitions`` is null/non-dict must route to the unparseable
+    path, not raise AttributeError."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1155,10 +1121,9 @@ def test_analytic_model_csn_200_non_dict_definitions_does_not_crash(requests_moc
 
 
 def test_get_resolver_softens_transport_error_but_propagates_auth(monkeypatch):
-    """_get_resolver softens a transport error (RequestException) to a per-space
-    warning and an empty resolver, but lets a credentials-rejected ValueError
-    propagate so a total auth outage aborts rather than silently resolving every
-    asset to unknown_connection (finding #2, mirroring _safe_list_spaces)."""
+    """_get_resolver softens a transport error to a warning + empty resolver, but
+    lets a credentials-rejected ValueError propagate so a total auth outage aborts
+    rather than silently resolving every asset to unknown_connection."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1189,10 +1154,9 @@ def test_get_resolver_softens_transport_error_but_propagates_auth(monkeypatch):
 def test_business_layer_failure_degrades_to_no_lineage_not_dropped(
     requests_mock, monkeypatch
 ):
-    """If _apply_business_layer raises (e.g. malformed dataEntity.key breaking
-    URN construction), the analytic-model dataset must still be emitted (with
-    its pre-business-layer lineage), NOT dropped by the per-asset isolation
-    handler. A degradation report.warning must be recorded."""
+    """If _apply_business_layer raises, the analytic-model dataset must still be
+    emitted (with pre-business-layer lineage) and a degradation warning recorded,
+    not dropped by the per-asset isolation handler."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1230,8 +1194,7 @@ def test_business_layer_failure_degrades_to_no_lineage_not_dropped(
 
     workunits = list(source.get_workunits())
 
-    # The analytic-model dataset must still be emitted (a subtype workunit for
-    # it is sufficient evidence the dataset was not dropped).
+    # A subtype workunit is sufficient evidence the dataset was not dropped.
     am_urns = {
         entity_urn_of(wu)
         for wu in workunits
@@ -1251,9 +1214,9 @@ def test_business_layer_failure_degrades_to_no_lineage_not_dropped(
 
 
 def test_managed_asset_urn_uses_sap_datasphere_platform_by_default(requests_mock):
-    """A local/managed asset (no @remote.source) should emit under the
-    sap-datasphere platform — managed assets belong to the Datasphere tenant's
-    identity, not the underlying HANA storage."""
+    """A local/managed asset (no @remote.source) emits under sap-datasphere —
+    managed assets belong to the Datasphere tenant identity, not the underlying
+    HANA storage."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1298,11 +1261,9 @@ def test_managed_asset_urn_uses_sap_datasphere_platform_by_default(requests_mock
 
 
 def test_managed_asset_respects_platform_instance_override(requests_mock):
-    """Managed assets inherit the top-level ``platform_instance``.
-
-    Any ``_managed`` entry's platform/platform_instance fields are ignored —
-    the synthetic ``_managed`` key only honors ``enabled``.
-    """
+    """Managed assets inherit the top-level platform_instance; the synthetic
+    ``_managed`` key only honors ``enabled`` (its platform/platform_instance are
+    ignored)."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1423,7 +1384,6 @@ def test_space_container_data_platform_instance_aspect_uses_sap_datasphere(
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
 
-    # Find the container's dataPlatformInstance aspect.
     dpi_urns = []
     for wu in workunits:
         if (
@@ -1493,7 +1453,6 @@ def test_table_lineage_emitted_from_csn_query_from_ref(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
 
-    # Find an UpstreamLineage aspect for VIEW_X
     lineage_wus = [
         wu
         for wu in workunits
@@ -1511,10 +1470,9 @@ def test_table_lineage_emitted_from_csn_query_from_ref(requests_mock):
 
 
 def test_association_lineage_emitted_from_csn_elements(requests_mock):
-    """A view referencing another entity through a CDS association (rather than a
-    SELECT FROM/join) surfaces the association target as an upstream edge, with a
-    fine-grained edge for the projected association field. Same-space bare targets
-    are space-prefixed under the resolved platform."""
+    """A view referencing another entity via a CDS association (not a SELECT FROM)
+    surfaces the association target as an upstream edge, with a fine-grained edge
+    for the projected association field."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1586,7 +1544,6 @@ def test_association_lineage_emitted_from_csn_elements(requests_mock):
         f"Expected association target upstream sap-datasphere:S1.CUSTOMERS, "
         f"got: {upstream_urns}"
     )
-    # And a fine-grained edge attributes CUSTOMER_NAME to CUSTOMERS.NAME.
     assert lineage.fineGrainedLineages
     assert any(
         any(
@@ -1651,9 +1608,8 @@ def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
 def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     requests_mock,
 ):
-    """Assets routed to an unknown-typeId connection should NOT be lumped into
-    assets_filtered. They should land in the new assets_skipped_unknown_typeid
-    counter for distinguishability."""
+    """Assets routed to an unknown-typeId connection land in
+    assets_skipped_unknown_typeid, not lumped into assets_filtered."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1708,7 +1664,7 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
     assert dataset_urns == set(), (
         f"Expected no dataset URNs for unknown-typeId asset; got: {dataset_urns}"
     )
-    # The new counter should be 1; assets_filtered should NOT increment for this.
+    # assets_filtered must NOT increment for this — the dedicated counter does.
     assert source.report.assets_skipped_unknown_typeid is not None
     skipped = list(source.report.assets_skipped_unknown_typeid)
     assert any("FED_TABLE" in s or "SF_PROD" in s for s in skipped), (
@@ -1717,8 +1673,8 @@ def test_unknown_connection_typeid_counts_as_assets_skipped_unknown_typeid(
 
 
 def test_keyerror_in_asset_record_does_not_crash_ingestion(requests_mock):
-    """A malformed asset record (missing 'name') should not abort the whole space.
-    Other assets in the same space should still be ingested."""
+    """A malformed asset record (missing 'name') must not abort the space — other
+    assets still ingest."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1738,9 +1694,8 @@ def test_keyerror_in_asset_record_does_not_crash_ingestion(requests_mock):
         json={
             "value": [
                 {
-                    # NOTE: missing "name" key — _emit_asset guards this with a
-                    # specific "malformed asset record" warning (mirroring the
-                    # malformed-space guard) rather than raising KeyError.
+                    # missing "name" key — _emit_asset guards this instead of
+                    # raising KeyError
                     "label": "Malformed",
                     "spaceName": "S1",
                     "assetRelationalMetadataUrl": None,
@@ -1768,8 +1723,7 @@ def test_keyerror_in_asset_record_does_not_crash_ingestion(requests_mock):
     assert any("good_asset" in urn for urn in dataset_urns), (
         f"Expected GOOD_ASSET to still ingest after malformed record; got: {dataset_urns}"
     )
-    # A SPECIFIC malformed-record warning should be emitted (not the generic
-    # isolation-wrapper catch-all), mirroring the malformed-space-record guard.
+    # A specific malformed-record warning, not the generic isolation catch-all.
     warning_titles = [w.title or "" for w in source.report.warnings]
     assert any("malformed Datasphere asset record" in t for t in warning_titles), (
         f"Expected a specific malformed-asset-record warning; got: {warning_titles}"
@@ -1777,8 +1731,8 @@ def test_keyerror_in_asset_record_does_not_crash_ingestion(requests_mock):
 
 
 def test_keyerror_in_space_record_does_not_crash_ingestion(requests_mock):
-    """A malformed space record (missing 'name') should not abort the whole run.
-    Other spaces should still be processed."""
+    """A malformed space record (missing 'name') must not abort the run — other
+    spaces still process."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1817,9 +1771,8 @@ def test_keyerror_in_space_record_does_not_crash_ingestion(requests_mock):
 
 
 def test_lowercase_urn_lowercases_emitted_dataset_name(requests_mock):
-    """The dataset name portion of the URN is lowercased by default
-    (convert_urns_to_lowercase defaults True), including for federated assets
-    routed through an external connection such as Snowflake."""
+    """The dataset name portion of the URN is lowercased by default, including for
+    federated assets routed through an external connection (e.g. Snowflake)."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1879,7 +1832,6 @@ def test_lowercase_urn_lowercases_emitted_dataset_name(requests_mock):
         entity_urn_of(wu) for wu in workunits if "urn:li:dataset:" in entity_urn_of(wu)
     }
     assert len(dataset_urns) >= 1
-    # The dataset name portion of the URN should be all-lowercase ("s1.dim_day")
     for urn in dataset_urns:
         # URN shape: urn:li:dataset:(urn:li:dataPlatform:snowflake,<instance>.<name>,<env>)
         assert "s1.dim_day" in urn, (
@@ -1891,9 +1843,9 @@ def test_lowercase_urn_lowercases_emitted_dataset_name(requests_mock):
 
 
 def test_federated_asset_routes_to_remote_source_platform(requests_mock):
-    """When include_lineage=True and CSN has @remote.source pointing at a
-    configured external connection, the dataset URN should be under the FEDERATED
-    storage platform (e.g., Snowflake), NOT under sap-datasphere."""
+    """With @remote.source pointing at a configured external connection, the
+    dataset URN is under the federated storage platform (e.g. Snowflake), not
+    sap-datasphere."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1909,7 +1861,6 @@ def test_federated_asset_routes_to_remote_source_platform(requests_mock):
     )
     ctx = PipelineContext(run_id="test-federated")
 
-    # Tenant has a Snowflake connection
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
         json=[{"name": "SNOWFLAKE_PROD", "typeId": "SNOWFLAKE"}],
@@ -1932,7 +1883,6 @@ def test_federated_asset_routes_to_remote_source_platform(requests_mock):
             ]
         },
     )
-    # CSN for this asset has @remote.source pointing at SNOWFLAKE_PROD
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/FED_CUSTOMERS",
         json={
@@ -1956,7 +1906,6 @@ def test_federated_asset_routes_to_remote_source_platform(requests_mock):
         f"Expected at least one dataset URN; got none. Workunits: "
         f"{[type(aspect_of(wu)).__name__ for wu in workunits]}"
     )
-    # The federated dataset should be under snowflake platform, lowercased
     for urn in dataset_urns:
         assert "urn:li:dataPlatform:snowflake" in urn, (
             f"Expected snowflake platform URN for federated asset; got: {urn}"
@@ -1973,13 +1922,9 @@ def test_federated_asset_routes_to_remote_source_platform(requests_mock):
 
 
 def test_federated_remote_table_still_emits_on_storage_platform(requests_mock):
-    """Regression test for Tasks 1-3: routing managed assets to sap-datasphere
-    must NOT break federated routing.
-
-    A Datasphere view that federates via @remote.source to a Snowflake
-    connection (configured explicitly in ``connection_to_platform_map``) MUST
-    emit its URN under the Snowflake platform, NOT under sap-datasphere.
-    """
+    """Routing managed assets to sap-datasphere must not break federated routing:
+    a view federating via @remote.source to a configured Snowflake connection
+    emits under snowflake, not sap-datasphere."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -2059,11 +2004,10 @@ def test_federated_remote_table_still_emits_on_storage_platform(requests_mock):
 
 
 def test_remote_table_emits_one_to_one_column_lineage_with_case_preserved():
-    """A federated Remote Table mirrors its external source 1:1, so it must emit
-    a table-level COPY edge AND column-level FineGrainedLineage (one edge per
-    field). With a per-platform ``convert_urns_to_lowercase: false`` mapping
-    (BigQuery preserves source case), both the dataset name and the upstream
-    column names keep their case so they stitch to the native connector's URNs."""
+    """A federated Remote Table mirrors its source 1:1, emitting a table-level
+    COPY edge and per-field FineGrainedLineage. With convert_urns_to_lowercase=false
+    (BigQuery) both the dataset and upstream column names keep case so they stitch
+    to the native connector's URNs."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -2144,10 +2088,9 @@ _EDMX_WITH_UNKNOWN_TYPE = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def test_unknown_edm_type_surfaces_to_report(requests_mock):
-    """When EDMX parsing encounters an Edm.* type that the connector doesn't
-    understand, the dataset is still emitted (with NullType for that column) and
-    the report records the asset + a structured warning so operators can identify
-    which assets need type-map extensions."""
+    """An unknown Edm.* type still emits the dataset (NullType for that column)
+    plus a report entry and warning so operators can spot assets needing type-map
+    extensions."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -2264,7 +2207,6 @@ def test_lineage_extraction_failure_emits_dataset_without_upstream(
         f"got: {dataset_urns}"
     )
 
-    # Ensure no UpstreamLineage workunit was emitted for the asset.
     upstream_lineage_workunits = [
         wu
         for wu in workunits
@@ -2367,8 +2309,8 @@ def test_max_workers_assets_parallel_path_emits_same_workunits(requests_mock):
 
 
 def test_chunked_helper_exact_and_remainder_sizes():
-    """``_chunked`` yields successive lists of up to ``size`` items, lazily —
-    covering both exact multiples and a trailing partial (remainder) chunk."""
+    """``_chunked`` lazily yields lists of up to ``size`` items, including a
+    trailing partial chunk."""
 
     # `_chunked` is element-type agnostic; integers exercise the chunk boundaries
     # most readably even though the source signature annotates Iterable[Dict].
@@ -2377,13 +2319,11 @@ def test_chunked_helper_exact_and_remainder_sizes():
             List[List[object]], list(_chunked(cast(Iterable[Dict], items), size))
         )
 
-    # Remainder cases: final chunk is shorter than `size` (the classic off-by-one).
+    # Remainder: final chunk shorter than `size` (classic off-by-one).
     assert chunk([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]
     assert chunk([1, 2, 3, 4, 5, 6, 7], 3) == [[1, 2, 3], [4, 5, 6], [7]]
-    # Exact multiple: no trailing partial chunk.
     assert chunk([1, 2, 3, 4], 2) == [[1, 2], [3, 4]]
     assert chunk([1], 5) == [[1]]
-    # Empty input -> no chunks at all.
     assert chunk([], 3) == []
     # Works on an exhaustible iterator (generator), not just a list.
     assert chunk((x for x in range(5)), 2) == [[0, 1], [2, 3], [4]]
@@ -2516,8 +2456,7 @@ def test_scale_warning_emitted_above_threshold(requests_mock):
     enabled should fire a single ``Approaching stateful-ingestion scaling
     ceiling`` warning."""
     # Construct with stateful disabled (so we don't need a real state provider),
-    # then flip the enabled flag on the loaded config object so the warning
-    # condition is satisfied.
+    # then flip the flag on the loaded config to satisfy the warning condition.
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -2537,7 +2476,6 @@ def test_scale_warning_emitted_above_threshold(requests_mock):
     assert source.config.stateful_ingestion is not None
     source.config.stateful_ingestion.enabled = True
 
-    # Pre-threshold — no warning yet.
     source._datasets_emitted = 49999
     source._check_scale_warning()
     titles_before = [w.title or "" for w in source.report.warnings]
@@ -2545,7 +2483,6 @@ def test_scale_warning_emitted_above_threshold(requests_mock):
         f"Premature warning: {titles_before}"
     )
 
-    # Cross the threshold — warning fires exactly once.
     source._datasets_emitted = 50000
     source._check_scale_warning()
     source._datasets_emitted = 50001
@@ -2682,7 +2619,6 @@ def test_s3_builtin_default_without_instance_warns_once(requests_mock):
             ]
         },
     )
-    # All three assets route through an S3 connection that triggers the S3 built-in default
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
         json=[
@@ -2691,11 +2627,8 @@ def test_s3_builtin_default_without_instance_warns_once(requests_mock):
     )
 
     source = SapDatasphereSource(ctx, cfg)
-    # Force each asset's connection to MY_S3_CONN by injecting CSN-like routing
-    # Since we don't fetch CSN here (include_lineage=False), all assets go
-    # to the _managed (hana) path. To exercise the S3 builtin path, simulate the
-    # warning helper directly with a ResolvedPlatform.
-
+    # include_lineage=False here, so assets go to the _managed path; call the
+    # warning helper directly to exercise the S3 built-in path.
     resolved_s3 = ResolvedPlatform(
         platform="s3",
         platform_instance=None,
@@ -2739,12 +2672,9 @@ def test_s3_builtin_default_with_instance_does_not_warn():
 
 
 def _mixed_case_space_and_assets(requests_mock: rm.Mocker) -> None:
-    """Wire up a single mixed-case space with a View and an Analytical Model.
-
-    Used by the 2-tier / lowercase tests below. Asset names use SAP's dotted
-    technical-name convention with mixed case so we can assert URN lowercasing
-    independently of display/property case preservation.
-    """
+    """Wire a mixed-case space with a View and Analytic Model. Asset names use
+    mixed case so tests can assert URN lowercasing independently of
+    display/property case preservation."""
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
         json={"value": [{"name": "MySpace", "label": "My Space"}]},
@@ -2779,8 +2709,8 @@ def _mixed_case_space_and_assets(requests_mock: rm.Mocker) -> None:
 
 
 def test_datasets_parent_directly_to_space_no_folders(requests_mock):
-    """Option B: datasets are parented directly to the Space container; no
-    folder containers are emitted."""
+    """Datasets are parented directly to the Space container; no folder containers
+    are emitted."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -2790,7 +2720,6 @@ def test_datasets_parent_directly_to_space_no_folders(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
 
-    # The Space container (subtype "Space") must be emitted.
     space_container_urns = {
         entity_urn_of(wu)
         for wu in workunits
@@ -2813,7 +2742,6 @@ def test_datasets_parent_directly_to_space_no_folders(requests_mock):
         f"Expected no Folder-subtype containers; got: {folder_subtype_urns}"
     )
 
-    # Each dataset's container aspect must point at the Space container.
     dataset_parents = {
         entity_urn_of(wu): aspect_as(wu, ContainerClass).container
         for wu in workunits
@@ -2847,11 +2775,9 @@ def test_urns_lowercased_by_default_display_preserves_case(requests_mock):
         for wu in workunits
         if (entity_urn_of(wu) or "").startswith("urn:li:dataset:")
     }
-    # The View dataset URN name segment must be fully lowercase.
     assert any("sap.time.view_dimension_day" in urn for urn in dataset_urns), (
         f"Expected a lowercased dataset URN name segment; got: {dataset_urns}"
     )
-    # And NOT present in original mixed case anywhere in a URN.
     assert not any("SAP.TIME.VIEW_DIMENSION_DAY" in urn for urn in dataset_urns), (
         f"URN name segments must be lowercased; got: {dataset_urns}"
     )
@@ -2907,10 +2833,9 @@ def test_convert_urns_to_lowercase_false_keeps_case(requests_mock):
 
 
 def test_two_connection_lowercase_divergence_in_one_run():
-    """Two external connections in the same space resolve with divergent
-    convert_urns_to_lowercase: BigQuery preserves source case, Snowflake
-    lowercases. The flag is per-platform, so a single run cases each endpoint's
-    URN independently rather than applying one global rule."""
+    """Two connections in one space resolve with divergent convert_urns_to_lowercase
+    (BigQuery preserves case, Snowflake lowercases): the flag is per-platform, not
+    global."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -3232,7 +3157,6 @@ def test_malformed_csn_populates_column_lineage_unresolved_counter(requests_mock
         f"Dataset should still emit even when CSN is malformed; got URNs: {dataset_urns}"
     )
 
-    # And the malformed marker reaches the report counter.
     unresolved_entries = list(source.report.column_lineage_unresolved)
     assert any("<malformed>" in entry for entry in unresolved_entries), (
         f"Expected <malformed> marker in column_lineage_unresolved. "
@@ -3302,7 +3226,6 @@ def test_lineage_aspect_assembly_failure_emits_dataset_without_lineage(
 
     workunits = list(source.get_workunits())
 
-    # Dataset still emitted.
     dataset_urns = {
         entity_urn_of(wu) for wu in workunits if "urn:li:dataset:" in entity_urn_of(wu)
     }
@@ -3310,7 +3233,6 @@ def test_lineage_aspect_assembly_failure_emits_dataset_without_lineage(
         f"Dataset should still be emitted even when assembly fails; got: {dataset_urns}"
     )
 
-    # No UpstreamLineage workunit was emitted.
     upstream_lineage_workunits = [
         wu
         for wu in workunits
@@ -3320,7 +3242,6 @@ def test_lineage_aspect_assembly_failure_emits_dataset_without_lineage(
         "No UpstreamLineageClass should be emitted when assembly raises"
     )
 
-    # Warning surfaced via the report.
     warning_titles = [w.title or "" for w in source.report.warnings]
     assert any("Failed to build lineage aspect" in t for t in warning_titles), (
         f"Expected assembly failure warning; got: {warning_titles}"
@@ -3328,10 +3249,9 @@ def test_lineage_aspect_assembly_failure_emits_dataset_without_lineage(
 
 
 def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
-    """When the per-object-type CSN endpoint returns 500 with
-    include_lineage=True, the dataset is still emitted (without UpstreamLineage),
-    the failure is recorded in report.assets_csn_fetch_failed (as documented in
-    the config docstring), and a structured warning is surfaced."""
+    """A 500 from the CSN endpoint with include_lineage=True still emits the
+    dataset (no UpstreamLineage), records assets_csn_fetch_failed, and surfaces a
+    warning."""
     tenant = "https://t.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3354,7 +3274,6 @@ def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
         f"{tenant}/api/v1/datasphere/spaces/S1/connections",
         json=[],
     )
-    # The CSN endpoint blows up with a 500.
     requests_mock.get(
         f"{tenant}/dwaas-core/api/v1/spaces/S1/views/MID_VIEW",
         status_code=500,
@@ -3370,7 +3289,6 @@ def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
 
-    # Dataset still emitted.
     dataset_urns = {
         entity_urn_of(wu) for wu in workunits if "urn:li:dataset:" in entity_urn_of(wu)
     }
@@ -3378,7 +3296,7 @@ def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
         f"Dataset should still be emitted when CSN fetch fails; got: {dataset_urns}"
     )
 
-    # No UpstreamLineage emitted (no CSN means no lineage to extract).
+    # No CSN means no lineage to extract.
     upstream_lineage_workunits = [
         wu
         for wu in workunits
@@ -3388,13 +3306,11 @@ def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
         "No UpstreamLineageClass should be emitted when CSN fetch returns 500"
     )
 
-    # report.assets_csn_fetch_failed populated (as documented in config.py:239).
     assert "S1.MID_VIEW" in list(source.report.assets_csn_fetch_failed), (
         f"Expected S1.MID_VIEW in assets_csn_fetch_failed; "
         f"got: {list(source.report.assets_csn_fetch_failed)}"
     )
 
-    # Structured warning surfaced.
     warning_titles = [w.title or "" for w in source.report.warnings]
     assert any("Failed to fetch object definition" in t for t in warning_titles), (
         f"Expected object-definition fetch warning; got: {warning_titles}"
@@ -3404,11 +3320,9 @@ def test_csn_fetch_500_emits_dataset_without_lineage_and_warns(requests_mock):
 def test_build_fine_grained_lineages_reports_wildcard_missing_qname_and_unresolved(
     requests_mock: rm.Mocker,
 ) -> None:
-    """Direct unit test for ``_build_fine_grained_lineages``: feed a hand-built
-    ``ColumnLineageContext`` with mixed pairs and assert which entries land in
-    the report counter."""
+    """Given mixed column-lineage pairs, _build_fine_grained_lineages emits an FGL
+    only for the resolvable pair and reports the rest."""
 
-    # Minimal config + source setup (no HTTP requests needed for this test).
     config = SapDatasphereConfig(
         base_url="https://test.eu10.hcs.cloud.sap",
         token="t",
@@ -3472,10 +3386,8 @@ def test_build_fine_grained_lineages_reports_wildcard_missing_qname_and_unresolv
 
 
 def test_include_lineage_does_not_emit_kba_warning():
-    """After PR-3 migrated lineage extraction off the internal /deepsea/
-    endpoint and onto the supported /dwaas-core/ per-object-type API, the
-    runtime KBA #3517441 disclosure warning must NOT fire — lineage is now a
-    fully supported feature."""
+    """Lineage now uses the supported /dwaas-core/ per-object-type API, so the
+    runtime KBA #3517441 disclosure warning must not fire."""
     config = SapDatasphereConfig(
         base_url="https://test.eu10.hcs.cloud.sap",
         token="t",
@@ -3487,7 +3399,7 @@ def test_include_lineage_does_not_emit_kba_warning():
         "3517441" in str(w.context or "") or "3517441" in str(w.message or "")
         for w in source.report.warnings
     ), (
-        f"include_lineage=True should not emit the KBA warning after PR-3; "
+        f"include_lineage=True should not emit the KBA warning; "
         f"got warnings: {[(w.title, w.context) for w in source.report.warnings]}"
     )
 
@@ -3557,9 +3469,8 @@ def test_include_local_tables_emits_dataset_stubs(requests_mock):
     )
     assert source.report.local_tables_emitted == 2
 
-    # Local Tables now carry schemaMetadata from the per-table CSN fetch — this
-    # is what lets DataHub render column-level lineage edges between Views and
-    # the Local Tables they reference (see Task B follow-up).
+    # Local Tables carry schemaMetadata from the per-table CSN fetch, which lets
+    # DataHub render column-level lineage between Views and referenced Local Tables.
     schema_aspects = [
         wu.metadata
         for wu in workunits
@@ -3915,7 +3826,6 @@ def test_analytics_dimension_type_emits_entity_level_tag(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
 
-    # Find the Dataset-level GlobalTagsClass aspect for the REVENUE dataset.
     dataset_tag_aspects = [
         wu
         for wu in workunits
@@ -3937,12 +3847,9 @@ def test_analytics_dimension_type_emits_entity_level_tag(requests_mock):
 def _setup_view_with_csn_query(
     requests_mock: rm.Mocker, *, analytic: bool = False, sql: Optional[str] = None
 ) -> str:
-    """Wire a single Space with one View (or Analytic Model) whose CSN carries a
-    `query` dict, plus a Local Table with only `elements` (no query).
-
-    When ``sql`` is provided the View's CSN also carries the
-    ``@DataWarehouse.sqlEditor.query`` annotation, marking it an SQL view.
-    """
+    """Wire a Space with one View (or Analytic Model) whose CSN carries a
+    ``query`` dict; when ``sql`` is given, the CSN also carries
+    @DataWarehouse.sqlEditor.query (marking an SQL view)."""
     tenant = "https://myco.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/spaces/S1/connections",
@@ -4183,12 +4090,10 @@ _AM_EDMX = """<?xml version="1.0" encoding="utf-8"?>
 
 
 def _wire_business_layer_analytic_model(requests_mock: rm.Mocker) -> str:
-    """Wire S1 with a single analytic model AM, discovered via the consumption
-    catalog. Its CSN carries a businessLayerDefinitions block (fact + dimension
-    sources, measures, attributes, variables). The fact source lives in a
-    DIFFERENT space (FINANCE_DATA), so its upstream URN must be built from the
-    qualified key directly, not re-prefixed with S1. Schema fields come from the
-    EDMX `$metadata` document (the catalog path's schema source)."""
+    """Wire S1 with an analytic model AM (via the consumption catalog) whose CSN
+    carries a businessLayerDefinitions block. The fact source lives in a DIFFERENT
+    space (FINANCE_DATA), so its upstream URN must be built from the qualified key
+    directly, not re-prefixed with S1."""
     tenant = "https://myco.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -4475,7 +4380,6 @@ def test_catalog_mode_unchanged(requests_mock):
     source = SapDatasphereSource(PipelineContext(run_id="test-catalog"), cfg)
     workunits = list(source.get_workunits())
 
-    # Catalog path discovers via the consumption catalog assets endpoint.
     catalog_asset_calls = [
         h
         for h in requests_mock.request_history
@@ -4712,7 +4616,6 @@ def test_report_slowest_api_calls_keeps_largest_and_caps_at_ten():
     """The slowest-N tracker keeps only the 10 largest individual calls and drops
     the smallest once full."""
     report = SapDatasphereReport()
-    # Push 15 calls with strictly increasing durations.
     for i in range(1, 16):
         report.report_api_call("csn_fetch", i * 0.01, url=f"http://x/{i}")
 
@@ -5003,14 +4906,9 @@ def _data_flow_payload(name: str, src_object: str) -> dict:
 
 
 def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
-    """Two data flows writing to the same target must not clobber each other.
-
-    Each flow emits a *full* UpstreamLineage on the shared target, so without
-    aggregation the second flow's aspect would overwrite the first and drop its
-    edges. The source merges them into a single aspect carrying both upstreams.
-    The shared target is scanned as a Local Table so the merged lineage is
-    actually emitted (an unscanned target would be skipped entirely).
-    """
+    """Two data flows writing to the same target must merge into one
+    UpstreamLineage: each emits a full aspect on the shared target, so without
+    aggregation the second would overwrite the first and drop its edges."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -5371,11 +5269,10 @@ def test_replication_flow_pairs_targets_and_qualifies_external_urns(requests_moc
         assert len(wus) == 1, f"expected one UpstreamLineage on {target_urn}"
         return {u.dataset for u in aspect_as(wus[0], UpstreamLineageClass).upstreams}
 
-    # The crux of the blocker fix: each target is paired with its own source only.
+    # Each target is paired with its own source only, not the flow-wide cross product.
     assert _upstreams_of(tgt1) == {src1}
     assert _upstreams_of(tgt2) == {src2}
 
-    # The flow itself is emitted as a DataJob.
     assert any(
         aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
         for wu in workunits
@@ -5906,12 +5803,9 @@ def test_remote_table_200_without_definition_is_reported_not_silent(requests_moc
 
 
 def test_remote_table_parseable_csn_no_remote_annotation_is_reported(requests_mock):
-    """A Remote Table whose CSN parses into a definition but carries no
-    @DataWarehouse.remote.* annotations must be recorded on the
-    remote_tables_missing_remote_annotation counter + a warning — not silently
-    emit a lineage-less stub. Federation is the whole point of a remote table, so
-    a missing source annotation is indistinguishable from a healthy run without
-    this signal (mirrors remote_tables_csn_unparseable, one branch over)."""
+    """A Remote Table whose CSN parses but carries no @DataWarehouse.remote.*
+    annotations must be recorded on remote_tables_missing_remote_annotation with a
+    warning, not silently emit a lineage-less stub."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -5956,12 +5850,10 @@ def test_remote_table_parseable_csn_no_remote_annotation_is_reported(requests_mo
 
 
 def test_incremental_lineage_emits_upstream_as_patch(requests_mock):
-    """With incremental_lineage=True the connector's full UpstreamLineageClass
-    MCP must be converted to a PATCH so it merges with — rather than overwrites —
-    lineage a sibling connector emitted for the same external URN. This is wired
-    purely via the base get_workunit_processors() (AutoIncrementalLineageProcessor
-    reads config.incremental_lineage); the connector must not override
-    get_workunits, or the processor would silently no-op."""
+    """With incremental_lineage=True the UpstreamLineageClass MCP must become a
+    PATCH so it merges with (not overwrites) a sibling connector's lineage. It's
+    wired via the base get_workunit_processors, so the connector must not override
+    get_workunits."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",

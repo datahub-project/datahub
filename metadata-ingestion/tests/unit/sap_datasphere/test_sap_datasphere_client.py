@@ -1,5 +1,3 @@
-# tests/unit/test_sap_datasphere_client.py
-
 import logging
 import urllib.parse
 from typing import Dict
@@ -33,10 +31,7 @@ def test_bearer_header_set_from_token():
 
 
 def test_edmx_fetch_result_enforces_xml_iff_ok():
-    """EdmxFetchResult's invariant (xml present iff reason is OK) is enforced at
-    construction, so callers can branch on `reason` and trust `xml`. The legal
-    combinations build; the two illegal ones raise."""
-    # Legal: OK carries xml; non-OK reasons carry no xml.
+    """EdmxFetchResult enforces xml-present-iff-OK at construction, so callers can trust `xml` after branching on `reason`."""
     assert EdmxFetchResult(xml="<edmx/>", reason=EdmxFetchReason.OK).xml == "<edmx/>"
     for reason in (
         EdmxFetchReason.FORBIDDEN,
@@ -44,7 +39,6 @@ def test_edmx_fetch_result_enforces_xml_iff_ok():
         EdmxFetchReason.ERROR,
     ):
         assert EdmxFetchResult(xml=None, reason=reason).reason is reason
-    # Illegal: OK without xml, and a non-OK reason carrying xml.
     with pytest.raises(ValidationError, match="xml must be set iff reason is OK"):
         EdmxFetchResult(xml=None, reason=EdmxFetchReason.OK)
     with pytest.raises(ValidationError, match="xml must be set iff reason is OK"):
@@ -63,9 +57,7 @@ def test_list_spaces_returns_values(requests_mock):
 
 
 def test_list_spaces_handles_bare_array_response(requests_mock):
-    """The real SAP Datasphere tenant returns `/api/v1/datasphere/consumption/catalog/spaces` as a
-    bare JSON array (no `{value: [...]}` wrapper), unlike the assets endpoint.
-    Discovered via live probe against a trial Datasphere tenant."""
+    """The live spaces endpoint returns a bare JSON array (no `{value: [...]}` wrapper), unlike the assets endpoint."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
@@ -77,9 +69,7 @@ def test_list_spaces_handles_bare_array_response(requests_mock):
 
 
 def test_list_spaces_non_json_response_raises(requests_mock):
-    """A proxy/login redirect can return HTTP 200 with an HTML body. A top-level
-    listing (spaces) drives stale-entity soft-deletes, so this must hard-fail the
-    run rather than silently degrade to zero spaces and mark the run green."""
+    """A top-level listing drives stale-entity soft-deletes, so an HTML-200 (proxy/login redirect) must hard-fail rather than degrade to zero spaces."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces"
     requests_mock.get(
@@ -94,22 +84,19 @@ def test_list_spaces_non_json_response_raises(requests_mock):
 
 
 def test_list_spaces_wrong_shape_json_warns_and_yields_nothing(requests_mock):
-    """A 200 returning a JSON dict (e.g. an error envelope) where a bare array
-    is expected must be treated as empty AND surface a report.warning."""
+    """A 200 returning a dict where a bare array is expected must be treated as empty AND surface a report.warning."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces"
     requests_mock.get(url, json={"error": "x"})
     report = SapDatasphereReport()
     client = SapDatasphereClient(cfg, report=report)
     spaces = list(client.list_spaces())
-    # A dict has no "value" key, so _paginate yields nothing. The dict branch is
-    # only hit for non-dict-non-list shapes; a dict is handled via the value key.
+    # A dict has no "value" key, so _paginate yields nothing.
     assert spaces == []
 
 
 def test_list_spaces_non_dict_non_list_json_raises(requests_mock):
-    """A 200 returning a bare JSON scalar (neither dict nor list) is a wrong-shape
-    top-level listing and must hard-fail rather than degrade to empty."""
+    """A bare JSON scalar (neither dict nor list) is a wrong-shape top-level listing and must hard-fail rather than degrade to empty."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces"
     requests_mock.get(url, json="not-a-collection")
@@ -125,7 +112,6 @@ def test_list_spaces_paginates(requests_mock):
     all_spaces = [{"name": f"S{i}", "label": f"L{i}"} for i in range(1001)]
 
     def respond(request, context):
-        # Honour the requested window, like a well-behaved OData service.
         skip = int(request.qs.get("$skip", ["0"])[0])
         top = int(request.qs.get("$top", ["500"])[0])
         return {"value": all_spaces[skip : skip + top]}
@@ -137,22 +123,14 @@ def test_list_spaces_paginates(requests_mock):
 
 
 def test_list_assets_follows_odata_nextlink(requests_mock):
-    """Regression: SAP's catalog service caps each page at 500 records (default
-    AND max page size, per the OData API docs) and returns an ``@odata.nextLink``
-    to fetch the remainder. The old paginator ignored nextLink and treated the
-    capped (shorter-than-requested) first page as the final page — silently
-    dropping every asset past the server's cap (data loss for any space with
-    >500 exposed assets). The connector must follow ``@odata.nextLink`` to
-    completion."""
+    """Regression: SAP caps each catalog page at 500 records and returns ``@odata.nextLink``; the paginator must follow it to completion or silently drop every asset past the cap."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S')/assets"
     all_assets = [
         {"name": f"A{i}", "spaceName": "S", "assetRelationalMetadataUrl": "http://x"}
         for i in range(5)
     ]
-    # The server returns at most server_cap records per page regardless of the
-    # requested $top, and points to the next page via @odata.nextLink — mimicking
-    # the 500-record catalog cap at small scale.
+    # server_cap mimics the 500-record catalog cap at small scale.
     server_cap = 2
 
     def respond(request, context):
@@ -171,9 +149,7 @@ def test_list_assets_follows_odata_nextlink(requests_mock):
 
 
 def test_list_assets_offset_fallback_stops_on_short_page(requests_mock):
-    """When an endpoint returns NO @odata.nextLink, a page shorter than the
-    requested size is the genuine end of data — the paginator must stop rather
-    than loop forever (which would happen against an endpoint ignoring $skip)."""
+    """Without an @odata.nextLink, a page shorter than requested is the genuine end of data; the paginator must stop, not loop forever against an endpoint ignoring $skip."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S')/assets"
     # Always returns the same single record, never a nextLink, ignores $skip.
@@ -243,9 +219,7 @@ def test_fetch_edmx_returns_error_on_request_exception(requests_mock):
 
 
 def test_fetch_edmx_401_triggers_refresh_and_retry(requests_mock):
-    """A bearer expiring during the EDMX phase must trigger one token refresh +
-    retry, not lose schema for the rest of the run (the other request paths
-    already refresh)."""
+    """A bearer expiring during the EDMX phase must trigger one token refresh + retry, not lose schema for the rest of the run."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -280,8 +254,7 @@ def test_fetch_edmx_401_triggers_refresh_and_retry(requests_mock):
 
 
 def test_no_auth_raises_error():
-    # The model_validator raises ValidationError at config-parse time when no
-    # credential path is configured; the client itself is never reached.
+    # The model_validator raises at config-parse time; the client is never reached.
     with pytest.raises(ValidationError, match="credential"):
         SapDatasphereConfig.model_validate(
             {"base_url": "https://myco.eu10.hcs.cloud.sap"}
@@ -308,7 +281,6 @@ def test_client_credentials_token(requests_mock):
     list(client.list_spaces())
     assert client.session.headers["Authorization"] == "Bearer cc-token"
 
-    # L4: the POST body must carry the right grant_type / client_id / client_secret.
     xsuaa_call = next(
         req for req in requests_mock.request_history if "oauth/token" in req.url
     )
@@ -321,8 +293,6 @@ def test_client_credentials_token(requests_mock):
 
 
 def test_refresh_token_grant_posts_expected_body(requests_mock):
-    """L4: the refresh_token flow must post the right grant_type / refresh_token /
-    client_id form fields to the XSUAA token endpoint."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -355,15 +325,12 @@ def test_refresh_token_grant_posts_expected_body(requests_mock):
 
 
 def test_post_token_helper_used_by_both_flows(requests_mock):
-    """L1: both OAuth flows funnel through ``_post_token``. Exercise each flow and
-    assert that the shared helper sees the right form payload, including the
-    grant_type discriminator."""
+    """Both OAuth flows funnel through the shared ``_post_token``; each must post the right grant_type-discriminated form body."""
     requests_mock.post(
         "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
         json={"access_token": "tok-from-helper"},
     )
 
-    # ── refresh_token flow ──────────────────────────────────────────────────
     cfg_rt = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -375,7 +342,6 @@ def test_post_token_helper_used_by_both_flows(requests_mock):
     client_rt = SapDatasphereClient(cfg_rt)
     assert client_rt._exchange_refresh_token() == "tok-from-helper"
 
-    # ── client_credentials flow ─────────────────────────────────────────────
     cfg_cc = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -387,7 +353,6 @@ def test_post_token_helper_used_by_both_flows(requests_mock):
     client_cc = SapDatasphereClient(cfg_cc)
     assert client_cc._fetch_client_credentials_token() == "tok-from-helper"
 
-    # The shared helper saw two POST bodies — one per grant_type.
     posted_bodies = [
         dict(urllib.parse.parse_qsl(r.text))
         for r in requests_mock.request_history
@@ -449,7 +414,6 @@ def test_list_connections_is_cached_per_space(requests_mock):
     client = SapDatasphereClient(cfg)
     client.list_connections("S1")
     client.list_connections("S1")
-    # only one HTTP call total despite two invocations
     calls = [
         h
         for h in requests_mock.request_history
@@ -463,7 +427,6 @@ def test_fetch_object_definition_returns_csn(requests_mock):
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
 
-    # Per-object-type endpoint under /dwaas-core/api/v1/spaces/{S}/{views,analyticmodels}/{name}.
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/VIEW_DIMENSION_DAY",
         json={
@@ -489,9 +452,7 @@ def test_fetch_object_definition_returns_csn(requests_mock):
 
 
 def test_fetch_object_definition_401_triggers_refresh_and_retry(requests_mock):
-    """The CSN endpoint has its own 401-refresh-retry block (separate from
-    ``_get_inner``); a token expiring mid-run must refresh once and retry rather
-    than dropping lineage for the remaining assets."""
+    """The CSN endpoint has its own 401-refresh-retry block; a token expiring mid-run must refresh once and retry rather than dropping lineage for the remaining assets."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -526,8 +487,7 @@ def test_fetch_object_definition_401_triggers_refresh_and_retry(requests_mock):
 
 
 def test_fetch_object_definition_sends_supported_content_accept_header(requests_mock):
-    """The supported endpoint only returns full CSN when called with the
-    ``application/vnd.sap.datasphere.object.content+json`` Accept header."""
+    """The endpoint only returns full CSN when called with the ``application/vnd.sap.datasphere.object.content+json`` Accept header."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -550,8 +510,6 @@ def test_fetch_object_definition_sends_supported_content_accept_header(requests_
 
 
 def test_fetch_object_definition_routes_analytic_models(requests_mock):
-    """The connector caller passes ``analyticmodels`` for analytic-model assets;
-    the client must hit the matching per-type sub-path."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -575,7 +533,6 @@ def test_fetch_object_definition_returns_none_on_http_error(requests_mock):
         status_code=500,
     )
     client = SapDatasphereClient(cfg)
-    # Should NOT raise; should return None.
     assert client.fetch_object_definition("S1", "views", "VIEW_X") is None
 
 
@@ -604,21 +561,17 @@ def test_fetch_object_definition_returns_none_on_invalid_json(requests_mock):
 
 
 def test_connections_cache_initialized_in_constructor():
-    """The per-space `_connections_cache` should be a real instance attribute set
-    by ``__init__`` rather than lazily allocated via ``hasattr``."""
+    """The per-space `_connections_cache` should be a real instance attribute set by ``__init__`` rather than lazily allocated via ``hasattr``."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     client = SapDatasphereClient(cfg)
-    # The attribute must exist immediately, before any call to ``list_connections``.
     assert hasattr(client, "_connections_cache")
     assert client._connections_cache == {}
 
 
 def test_fetch_object_definition_500_surfaces_report_warning(requests_mock):
-    """A 500 from the per-object-type endpoint must emit a report warning AND
-    record the technical name under ``assets_csn_fetch_failed`` so that operators
-    can see how many assets lost lineage."""
+    """A 500 must emit a report warning AND record the technical name under ``assets_csn_fetch_failed`` so operators can see how many assets lost lineage."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -638,10 +591,7 @@ def test_fetch_object_definition_500_surfaces_report_warning(requests_mock):
 
 
 def test_fetch_object_definition_403_surfaces_not_a_member_warning(requests_mock):
-    """A 403 on the CSN endpoint means the principal isn't a member of the space —
-    a systemic, fixable misconfiguration. It must surface the actionable
-    'not a member' hint, NOT the generic 'failed to fetch' message, so that one
-    permission problem isn't buried under thousands of generic per-asset warnings."""
+    """A 403 means the principal isn't a member of the space; it must surface the actionable 'not a member' hint, not the generic failure buried under thousands of per-asset warnings."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -657,15 +607,12 @@ def test_fetch_object_definition_403_surfaces_not_a_member_warning(requests_mock
     assert any("Not a member" in t for t in warning_titles), (
         f"Expected not-a-member warning on 403; got: {warning_titles}"
     )
-    # Must NOT also raise the generic failure warning for the same 403.
     assert not any("Failed to fetch object definition" in t for t in warning_titles)
     assert "S1.VIEW_X" in list(report.assets_csn_fetch_failed)
 
 
 def test_fetch_object_definition_404_is_benign_no_warning(requests_mock):
-    """A 404 means the object was deleted between catalog listing and CSN fetch —
-    benign. It must NOT emit an operator-facing warning (debug-log only), but
-    should still record the asset as having no CSN."""
+    """A 404 (object deleted between listing and fetch) is benign: no operator-facing warning, but still record the asset as having no CSN."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -674,8 +621,7 @@ def test_fetch_object_definition_404_is_benign_no_warning(requests_mock):
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/VIEW_X",
         status_code=404,
     )
-    # The object doesn't exist under the sibling type either — the fallback probe
-    # also 404s, so this stays the genuinely-missing (benign) case.
+    # The fallback probe under the sibling type also 404s, keeping this the genuinely-missing (benign) case.
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/VIEW_X",
         status_code=404,
@@ -693,11 +639,7 @@ def test_fetch_object_definition_404_is_benign_no_warning(requests_mock):
 def test_fetch_object_definition_404_falls_back_to_alternate_object_type(
     requests_mock,
 ):
-    """The catalog ``supportsAnalyticalQueries`` flag can misroute an asset: an
-    analytic-enabled view reports ``true`` (routing to ``/analyticmodels/``) but
-    only serves CSN under ``/views/``. A 404 on the primary type must transparently
-    retry the sibling type, recover the CSN, and record the correction WITHOUT
-    counting a fetch failure."""
+    """The ``supportsAnalyticalQueries`` flag can misroute an asset, so a 404 on the primary type must retry the sibling type, recover the CSN, and record the correction without counting a fetch failure."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -715,7 +657,6 @@ def test_fetch_object_definition_404_falls_back_to_alternate_object_type(
 
     assert result is not None
     assert "ASSET_X" in result["definitions"]
-    # Recovery recorded, not a failure.
     assert "S1.ASSET_X" not in list(report.assets_csn_fetch_failed)
     corrected = list(report.assets_csn_object_type_corrected)
     assert corrected == ["S1.ASSET_X: analyticmodels->views"], (
@@ -726,9 +667,7 @@ def test_fetch_object_definition_404_falls_back_to_alternate_object_type(
 def test_fetch_object_definition_404_both_types_reports_failed_exactly_once(
     requests_mock,
 ):
-    """When BOTH the primary and sibling object types 404, the asset is genuinely
-    missing: return None and record the failure exactly once (the fallback attempt
-    must not double-count it), with no correction recorded."""
+    """When both primary and sibling types 404, return None and record the failure exactly once (the fallback must not double-count it), with no correction recorded."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -752,8 +691,7 @@ def test_fetch_object_definition_404_both_types_reports_failed_exactly_once(
 
 
 def test_fetch_object_definition_localtables_404_has_no_alternate(requests_mock):
-    """Local Tables have no sibling object type — a 404 must be reported as a
-    failure directly, with no fallback request attempted."""
+    """Local Tables have no sibling object type, so a 404 is reported as a failure directly with no fallback request."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -767,14 +705,12 @@ def test_fetch_object_definition_localtables_404_has_no_alternate(requests_mock)
 
     assert "S1.T1" in list(report.assets_csn_fetch_failed)
     assert list(report.assets_csn_object_type_corrected) == []
-    # Only the single localtables request was made — no fallback probe.
     csn_calls = [h for h in requests_mock.request_history if "/dwaas-core/" in h.url]
     assert len(csn_calls) == 1, f"Expected no fallback probe; got: {csn_calls}"
 
 
 def test_fetch_object_definition_429_warning_mentions_rate_limit(requests_mock):
-    """A sustained 429 (after retries) must surface a rate-limit-specific hint so
-    the operator knows to lower max_workers_assets, rather than a vague failure."""
+    """A sustained 429 must surface a rate-limit-specific hint to lower max_workers_assets, not a vague failure."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -797,10 +733,7 @@ def test_fetch_object_definition_429_warning_mentions_rate_limit(requests_mock):
 
 
 def test_list_connections_non_json_surfaces_warning_and_skips(requests_mock):
-    """An SSO/proxy redirect can return HTTP 200 with an HTML login page. The
-    connections fetch must surface a structured warning and treat the space as
-    having no connections (skip federated assets) instead of letting a
-    JSONDecodeError propagate as a misleading generic error."""
+    """An HTML-200 (SSO/proxy login page) must surface a structured warning and treat the space as having no connections, not let a JSONDecodeError propagate as a misleading generic error."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -812,8 +745,7 @@ def test_list_connections_non_json_surfaces_warning_and_skips(requests_mock):
     )
     client = SapDatasphereClient(cfg, report=report)
     assert client.list_connections("S1") == []
-    # Per-space degrade: the warning names the space and the federated-skip impact
-    # (routed through the shared list-response warning helper).
+    # Per-space degrade: the warning names the space and the federated-skip impact.
     assert any(
         "S1" in " ".join(w.context or []) and "federated assets" in w.message.lower()
         for w in report.warnings
@@ -823,8 +755,7 @@ def test_list_connections_non_json_surfaces_warning_and_skips(requests_mock):
 
 
 def test_list_connections_unexpected_shape_surfaces_report_warning(requests_mock):
-    """When the connections API returns a non-list, the client should both log
-    AND attach a structured warning to the report (if provided)."""
+    """When the connections API returns a non-list, the client should both log AND attach a structured warning to the report."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -842,12 +773,7 @@ def test_list_connections_unexpected_shape_surfaces_report_warning(requests_mock
 
 
 def test_oauth_401_triggers_refresh_and_retry(requests_mock):
-    """A 401 from a normal API call should force one token refresh + retry.
-
-    Wire two GET responses (401 then 200) and two XSUAA token responses
-    (initial then refreshed); after the call the session header must reflect
-    the refreshed token and the XSUAA endpoint must have been hit twice.
-    """
+    """A 401 from a normal API call should force one token refresh + retry."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -873,7 +799,6 @@ def test_oauth_401_triggers_refresh_and_retry(requests_mock):
     )
 
     client = SapDatasphereClient(cfg)
-    # First call: 401 -> refresh -> 200. Must NOT raise.
     list(client.list_spaces())
 
     assert client.session.headers["Authorization"] == "Bearer fresh_token"
@@ -887,10 +812,7 @@ def test_oauth_401_triggers_refresh_and_retry(requests_mock):
 
 
 def test_oauth_401_after_refresh_raises_actionable_credentials_error(requests_mock):
-    """When the second response is STILL 401 after a successful token refresh,
-    the client must raise an actionable credentials error (not a bare HTTP 401)
-    and must not loop indefinitely. The message should make clear that the
-    credentials were rejected even after refreshing the token."""
+    """A second 401 after a successful refresh must raise an actionable credentials error (not a bare HTTP 401) and must not loop indefinitely."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -900,8 +822,7 @@ def test_oauth_401_after_refresh_raises_actionable_credentials_error(requests_mo
         }
     )
 
-    # XSUAA refresh "succeeds" (returns a token) both times — so the second 401
-    # is genuinely a rejected-credentials/permission problem, not a stale token.
+    # XSUAA refresh "succeeds" both times, so the second 401 is genuinely rejected credentials, not a stale token.
     requests_mock.post(
         "https://myco.authentication.eu10.hana.ondemand.com/oauth/token",
         json={"access_token": "stale_token"},
@@ -934,9 +855,7 @@ def test_oauth_401_after_refresh_raises_actionable_credentials_error(requests_mo
 
 
 def test_post_token_surfaces_xsuaa_error_description(requests_mock):
-    """A 400 from the XSUAA token endpoint carries a JSON body with
-    ``error``/``error_description`` (e.g. invalid_grant: refresh token expired).
-    The client must surface that detail instead of a bare ``400 Client Error``."""
+    """The client must surface the XSUAA ``error``/``error_description`` detail instead of a bare ``400 Client Error``."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -962,13 +881,11 @@ def test_post_token_surfaces_xsuaa_error_description(requests_mock):
     msg = str(exc_info.value)
     assert "invalid_grant" in msg
     assert "Refresh token expired" in msg
-    # Bare "400 Client Error" must not be the only signal.
     assert "400" in msg
 
 
 def test_post_token_falls_back_to_text_when_body_not_json(requests_mock):
-    """If the XSUAA error body is not the expected JSON shape, the raised error
-    must still include the response text rather than dropping the detail."""
+    """If the XSUAA error body isn't the expected JSON shape, the raised error must still include the response text."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -994,9 +911,7 @@ def test_post_token_falls_back_to_text_when_body_not_json(requests_mock):
 
 
 def test_post_token_transport_error_is_labeled_with_endpoint(requests_mock):
-    """A transport-level failure (connection refused/timeout) to the XSUAA
-    endpoint must be re-raised as an auth error naming the token endpoint, not
-    propagate as a raw requests error that gets mislabeled upstream."""
+    """A transport-level failure to the XSUAA endpoint must be re-raised as an auth error naming the token endpoint, not a raw requests error mislabeled upstream."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1016,8 +931,7 @@ def test_post_token_transport_error_is_labeled_with_endpoint(requests_mock):
 
 
 def test_post_token_non_json_2xx_body_is_labeled(requests_mock):
-    """HTTP 200 with a non-JSON body (e.g. a proxy/SSO login page) must raise a
-    ValueError naming the token endpoint rather than a bare JSON decode error."""
+    """HTTP 200 with a non-JSON body (proxy/SSO login page) must raise a ValueError naming the token endpoint, not a bare JSON decode error."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1039,9 +953,7 @@ def test_post_token_non_json_2xx_body_is_labeled(requests_mock):
 
 
 def test_fetch_edmx_returns_none_on_403_with_permission_signal(requests_mock, caplog):
-    """A 403 from the EDMX endpoint means the ingestion principal lacks OData
-    read on the space — distinct from a benign 404. It must still return None
-    (the caller handles None) but emit a permission-oriented signal."""
+    """A 403 (principal lacks OData read on the space, distinct from a benign 404) must still return None but emit a permission-oriented signal."""
     cfg = _make_config()
     report = SapDatasphereReport()
     requests_mock.get("http://edmx-url/$metadata", status_code=403)
@@ -1052,7 +964,6 @@ def test_fetch_edmx_returns_none_on_403_with_permission_signal(requests_mock, ca
 
     assert result.xml is None
     assert result.reason == EdmxFetchReason.FORBIDDEN
-    # report.warning carries a permission-oriented signal (self._report available).
     warnings = [(w.title or "", w.message) for w in report.warnings]
     assert any(
         "403" in (title + message) or "forbidden" in (title + message).lower()
@@ -1065,8 +976,7 @@ def test_fetch_edmx_returns_none_on_403_with_permission_signal(requests_mock, ca
 
 
 def test_fetch_edmx_404_does_not_emit_permission_signal(requests_mock, caplog):
-    """A 404 is the benign 'asset not exposed' case and must NOT raise the
-    403-style permission warning — otherwise operators chase a non-issue."""
+    """A 404 is the benign 'asset not exposed' case and must NOT raise the 403-style permission warning, else operators chase a non-issue."""
     cfg = _make_config()
     report = SapDatasphereReport()
     requests_mock.get("http://edmx-url/$metadata", status_code=404)
@@ -1077,7 +987,6 @@ def test_fetch_edmx_404_does_not_emit_permission_signal(requests_mock, caplog):
 
     assert result.xml is None
     assert result.reason == EdmxFetchReason.NOT_FOUND
-    # No 403/forbidden permission warning for the benign 404.
     warnings = [(w.title or "", w.message) for w in report.warnings]
     assert not any(
         "403" in (title + message) or "forbidden" in (title + message).lower()
@@ -1086,9 +995,7 @@ def test_fetch_edmx_404_does_not_emit_permission_signal(requests_mock, caplog):
 
 
 def test_list_connections_warns_at_truncation_threshold(requests_mock):
-    """When the connections API returns >=100 entries, both the logger and the
-    report should surface a structured warning so operators can investigate
-    silent truncation."""
+    """When the connections API returns >=100 entries, surface a structured warning so operators can investigate silent truncation."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1110,7 +1017,6 @@ def test_list_connections_warns_at_truncation_threshold(requests_mock):
 
 
 def test_list_connections_no_truncation_warning_below_threshold(requests_mock):
-    """Below the threshold the warning must NOT fire."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -1131,8 +1037,7 @@ def test_list_connections_no_truncation_warning_below_threshold(requests_mock):
 
 
 def test_list_local_tables_returns_technical_names(requests_mock):
-    """list_local_tables hits /dwaas-core/api/v1/spaces/{X}/localtables and
-    returns the bare-array response shape verified against the live tenant."""
+    """The localtables endpoint returns a bare-array shape verified against the live tenant."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables",
@@ -1150,8 +1055,7 @@ def test_list_local_tables_returns_technical_names(requests_mock):
 
 
 def test_list_local_tables_handles_unexpected_shape(requests_mock):
-    """If the endpoint returns a dict (unexpected), the generator yields nothing
-    and logs a warning rather than crashing."""
+    """An unexpected dict response must yield nothing and log a warning rather than crash."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables",
@@ -1163,8 +1067,7 @@ def test_list_local_tables_handles_unexpected_shape(requests_mock):
 
 
 def test_list_local_tables_unexpected_shape_records_report_warning(requests_mock):
-    """A non-list 200 (e.g. an error envelope) must surface a report.warning,
-    not just a logger.warning, so a silent-empty localtables list is explained."""
+    """A non-list 200 must surface a report.warning, not just a logger.warning, so a silent-empty localtables list is explained."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
     requests_mock.get(url, json={"unexpected": "shape"})
@@ -1192,12 +1095,10 @@ def test_list_local_tables_non_json_records_report_warning(requests_mock):
 
 
 def test_list_connections_logs_when_shape_is_not_list(requests_mock, caplog):
-    """If SAP wraps the response as {value: [...]} in a future API change, we should
-    emit a logger.warning so observers can detect the silent skip."""
+    """If a future API wraps the response as {value: [...]}, emit a logger.warning so observers can detect the silent skip."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
-    # Future API returns a wrapped object instead of a bare array
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
         json={"value": [{"name": "X", "typeId": "HANA"}]},
@@ -1220,9 +1121,7 @@ def test_list_connections_logs_when_shape_is_not_list(requests_mock, caplog):
 
 
 def test_list_local_tables_403_warns_and_yields_nothing(requests_mock):
-    """A 403 means the ingestion principal is not a member of the space. The
-    client should emit a report.warning about membership and yield nothing
-    rather than crash."""
+    """A 403 (principal not a member of the space) must emit a membership report.warning and yield nothing rather than crash."""
     cfg = _make_config()
     report = SapDatasphereReport()
     requests_mock.get(
@@ -1240,8 +1139,7 @@ def test_list_local_tables_403_warns_and_yields_nothing(requests_mock):
 
 
 def test_list_local_tables_still_works(requests_mock):
-    """Regression: existing behavior preserved after refactoring onto the shared
-    _list_dwaas_objects helper."""
+    """Regression: existing behavior preserved after refactoring onto the shared _list_dwaas_objects helper."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables",
@@ -1259,8 +1157,7 @@ def test_list_local_tables_still_works(requests_mock):
 
 
 def test_api_timing_recorded_for_catalog_list(requests_mock):
-    """list_spaces routes through _get(operation="catalog_list"); the report must
-    gain a catalog_list timing bucket."""
+    """list_spaces routes through _get(operation="catalog_list"), so the report must gain a catalog_list timing bucket."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
@@ -1339,8 +1236,7 @@ def test_api_timing_recorded_for_oauth_token(requests_mock):
 
 
 def test_api_timing_failed_call_still_recorded(requests_mock):
-    """A failed CSN fetch (500) must still be timed — timing lives in try/finally
-    so the operator sees latency for slow-failing endpoints too."""
+    """A failed CSN fetch (500) must still be timed (try/finally) so operators see latency for slow-failing endpoints too."""
     cfg = _make_config()
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/views/VIEW_X",

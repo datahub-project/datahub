@@ -50,7 +50,6 @@ def test_lineage_returns_empty_when_no_query():
 
 
 def test_lineage_returns_empty_when_no_from_ref():
-    # A CSN definition without a 'from' clause (degenerate / synthetic entity)
     csn_def = {"kind": "entity", "query": {"SELECT": {"columns": [{"val": 1}]}}}
     extractor = CsnLineageExtractor()
     assert extractor.extract_upstream_refs(csn_def) == []
@@ -82,11 +81,7 @@ def test_lineage_handles_join_with_two_refs():
 
 
 def test_cross_space_from_ref_is_qualified_not_space_prefixed():
-    """A dotted FROM ref (``SPACE.OBJECT``) is already space-qualified and must be
-    flagged so the source layer uses it as-is; a bare sibling stays unqualified
-    and gets the asset's space prefixed. Regression: a cross-space ref like
-    ``SAP_BW.V_X`` was being double-prefixed into a phantom ``<space>.sap_bw.v_x``
-    URN, dropping the real lineage edge."""
+    """Regression: a dotted FROM ref (``SPACE.OBJECT``) is already space-qualified; double-prefixing a cross-space ref into a phantom URN dropped the real lineage edge."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -127,8 +122,7 @@ def test_lineage_returns_none_for_remote_source_when_absent():
 
 
 def test_walk_from_handles_inline_subquery():
-    """L5: CSN ``query.SELECT.from.SELECT.from.ref[]`` — an inline subquery should
-    be unwrapped one level so the inner table reference becomes the upstream."""
+    """An inline subquery should be unwrapped one level so the inner table reference becomes the upstream."""
     extractor = CsnLineageExtractor()
     csn_def = {
         "kind": "entity",
@@ -139,7 +133,7 @@ def test_walk_from_handles_inline_subquery():
 
 
 def test_walk_from_handles_doubly_nested_subquery():
-    """L5: arbitrary nesting depth — three-level inline subquery still resolves."""
+    """Arbitrary nesting depth — a three-level inline subquery still resolves."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -153,8 +147,7 @@ def test_walk_from_handles_doubly_nested_subquery():
 
 
 def test_lineage_skips_non_string_ref_element():
-    """If CSN ref[0] is a dict (parametrized reference) instead of a string,
-    the extractor should skip it rather than yielding a non-string upstream."""
+    """A dict ref[0] (parametrized reference) must be skipped rather than yielding a non-string upstream."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -166,14 +159,12 @@ def test_lineage_skips_non_string_ref_element():
     }
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
-    # Non-string ref should be skipped entirely
     assert upstreams == [], (
         f"Expected non-string ref[0] to be skipped; got: {upstreams}"
     )
 
 
 def test_column_lineage_pair_carries_downstream_and_refs():
-    """ColumnLineagePair carries the downstream column name + its upstream refs."""
     pair = ColumnLineagePair(
         downstream_col="total",
         upstream_refs=[UpstreamColRef(qname="BASE_TABLE", col="AMOUNT")],
@@ -185,26 +176,21 @@ def test_column_lineage_pair_carries_downstream_and_refs():
 
 
 def test_alias_map_single_source_uses_empty_string_key():
-    """A single-source FROM with no `as` alias maps the empty-string key to the
-    qualified name. This lets `{"ref": ["X"]}` (one segment) resolve unambiguously."""
+    """A single-source FROM with no `as` alias maps the empty-string key so a one-segment ref resolves unambiguously."""
     extractor = CsnLineageExtractor()
     alias_map = extractor._build_alias_map({"ref": ["BASE_TABLE"]})
     assert alias_map == {"": "BASE_TABLE", "BASE_TABLE": "BASE_TABLE"}
 
 
 def test_alias_map_with_explicit_alias():
-    """Single-source FROM with explicit `as` — both the alias AND `""` map to the
-    source. Unqualified column refs MUST still resolve in this shape (real SAP
-    CSN uses `FROM T AS T` with unqualified column refs — verified against the
-    live tenant)."""
+    """With explicit `as`, both the alias AND `""` map to the source, since real SAP CSN uses `FROM T AS T` with unqualified column refs."""
     extractor = CsnLineageExtractor()
     alias_map = extractor._build_alias_map({"ref": ["BASE_TABLE"], "as": "b"})
     assert alias_map == {"b": "BASE_TABLE", "": "BASE_TABLE"}
 
 
 def test_alias_map_single_source_with_self_alias_still_resolves_unqualified():
-    """Real-world case from live SAP tenant: `FROM SAP.TIME.M_TIME_DIMENSION
-    AS M_TIME_DIMENSION` with unqualified column refs like `{ref: ["DATE_SQL"]}`."""
+    """Real live-tenant case: `FROM SAP.TIME.M_TIME_DIMENSION AS M_TIME_DIMENSION` with unqualified column refs must still resolve."""
     extractor = CsnLineageExtractor()
     alias_map = extractor._build_alias_map(
         {"ref": ["SAP.TIME.M_TIME_DIMENSION"], "as": "M_TIME_DIMENSION"}
@@ -251,8 +237,7 @@ def test_walk_expr_collects_qualified_ref_via_alias():
 
 
 def test_walk_expr_unqualified_ref_in_multi_source_skipped():
-    """When the FROM is a JOIN (no empty-string key), unqualified refs cannot be
-    safely attributed — collect nothing rather than guess."""
+    """When the FROM is a JOIN (no empty-string key), unqualified refs cannot be safely attributed — collect nothing rather than guess."""
     extractor = CsnLineageExtractor()
     alias_map = {"u": "USERS", "o": "ORDERS"}  # no "" key
     out: List[UpstreamColRef] = []
@@ -328,9 +313,7 @@ def test_walk_expr_handles_nested_case():
 
 
 def test_walk_expr_scalar_subquery_resolves_against_inner_from():
-    """A scalar subquery `(SELECT MAX(amount) FROM SALES)` appearing as a column
-    expression should produce a ref to SALES.amount — resolved against the
-    SUBQUERY's own FROM, NOT the outer alias map."""
+    """A scalar subquery column must resolve against the SUBQUERY's own FROM, not the outer alias map."""
     extractor = CsnLineageExtractor()
     outer_alias_map = {"": "OUTER_BASE", "OUTER_BASE": "OUTER_BASE"}
     out: List[UpstreamColRef] = []
@@ -344,14 +327,13 @@ def test_walk_expr_scalar_subquery_resolves_against_inner_from():
         }
     }
     extractor._walk_expr(scalar_subquery, outer_alias_map, out, unresolved)
-    # Ref resolves to SALES.amount (inner FROM), NOT to OUTER_BASE.amount
+    # Ref resolves to SALES.amount (inner FROM), not OUTER_BASE.amount.
     assert out == [UpstreamColRef(qname="SALES", col="amount")]
     assert unresolved == []
 
 
 def test_walk_expr_scalar_subquery_with_join_in_inner_from():
-    """Subquery whose inner FROM is a JOIN — refs there use qualified aliases
-    against the subquery's own alias map."""
+    """Subquery whose inner FROM is a JOIN — refs use qualified aliases against the subquery's own alias map."""
     extractor = CsnLineageExtractor()
     outer_alias_map = {"": "OUTER_BASE", "OUTER_BASE": "OUTER_BASE"}
     out: List[UpstreamColRef] = []
@@ -379,9 +361,7 @@ def test_walk_expr_scalar_subquery_with_join_in_inner_from():
 
 
 def test_walk_expr_subquery_without_from_records_unresolved_for_correlated_refs():
-    """Subqueries without a FROM clause (e.g., correlated subqueries that rely
-    on the outer scope) can't be resolved by us in v1. Refs inside such
-    subqueries land in `unresolved` because the inner alias map is empty."""
+    """Subqueries without a FROM clause (e.g. correlated subqueries) can't be resolved in v1; their refs land in `unresolved` because the inner alias map is empty."""
     extractor = CsnLineageExtractor()
     outer_alias_map = {"": "OUTER_BASE", "OUTER_BASE": "OUTER_BASE"}
     out: List[UpstreamColRef] = []
@@ -389,20 +369,17 @@ def test_walk_expr_subquery_without_from_records_unresolved_for_correlated_refs(
     correlated = {
         "SELECT": {
             "columns": [
-                # This is a correlated ref to the outer scope — we cannot resolve it
                 {"func": "COUNT", "args": [{"ref": ["x"]}]},
             ],
         }
     }
     extractor._walk_expr(correlated, outer_alias_map, out, unresolved)
-    # The inner alias map is empty (no FROM), so the ref to `x` is unresolvable
     assert out == []
     assert len(unresolved) == 1
 
 
 def test_walk_expr_subquery_with_no_columns_emits_unresolved():
-    """A scalar subquery without an explicit `columns` array (e.g., `SELECT *`)
-    cannot be unrolled — record the limitation in `unresolved`."""
+    """A scalar subquery without an explicit `columns` array (e.g. `SELECT *`) cannot be unrolled — record the limitation in `unresolved`."""
     extractor = CsnLineageExtractor()
     outer_alias_map = {"": "OUTER_BASE", "OUTER_BASE": "OUTER_BASE"}
     out: List[UpstreamColRef] = []
@@ -415,8 +392,7 @@ def test_walk_expr_subquery_with_no_columns_emits_unresolved():
 
 
 def test_extract_column_lineage_aliased_scalar_subquery():
-    """End-to-end through `extract_column_lineage`: a view with one column that
-    is itself a scalar subquery `(SELECT MAX(amount) FROM SALES) AS peak`."""
+    """End-to-end: a view whose single column is itself a scalar subquery `(SELECT MAX(amount) FROM SALES) AS peak`."""
     extractor = CsnLineageExtractor()
     csn_def = {
         "kind": "entity",
@@ -629,17 +605,12 @@ def test_extract_column_lineage_literal_column_skipped():
 
 
 def test_extract_column_lineage_returns_empty_for_legitimate_non_select_csn():
-    """Legitimate non-SELECT entity shapes (base table, no query, no columns)
-    return [] silently — they are not malformed."""
+    """Legitimate non-SELECT entity shapes (base table, no query, no columns) return [] silently — they are not malformed."""
     extractor = CsnLineageExtractor()
     assert extractor.extract_column_lineage({}) == []
-    # No query → base table
     assert extractor.extract_column_lineage({"kind": "entity"}) == []
-    # No SELECT under query
     assert extractor.extract_column_lineage({"query": {}}) == []
-    # No `from`
     assert extractor.extract_column_lineage({"query": {"SELECT": {}}}) == []
-    # No `columns`
     assert (
         extractor.extract_column_lineage(
             {"query": {"SELECT": {"from": {"ref": ["X"]}}}}
@@ -649,21 +620,17 @@ def test_extract_column_lineage_returns_empty_for_legitimate_non_select_csn():
 
 
 def test_extract_column_lineage_surfaces_malformed_csn_structurally():
-    """Structurally-broken CSN (wrong types at expected fields) is surfaced as a
-    synthetic <malformed> pair so the caller can populate the report counter."""
+    """Structurally-broken CSN (wrong types at expected fields) is surfaced as a synthetic <malformed> pair so the caller can populate the report counter."""
     extractor = CsnLineageExtractor()
-    # query is a string, not a dict
     pairs = extractor.extract_column_lineage({"query": "not-a-dict"})
     assert len(pairs) == 1
     assert pairs[0].downstream_col == "<malformed>"
     assert pairs[0].unresolved_refs
 
-    # SELECT is a string
     pairs = extractor.extract_column_lineage({"query": {"SELECT": "not-a-dict"}})
     assert len(pairs) == 1
     assert pairs[0].downstream_col == "<malformed>"
 
-    # columns is a string
     pairs = extractor.extract_column_lineage(
         {"query": {"SELECT": {"from": {"ref": ["X"]}, "columns": "not-a-list"}}}
     )
@@ -721,8 +688,7 @@ def test_extract_column_lineage_unnamed_expression_records_to_unresolved():
 
 
 def test_extract_column_lineage_records_walker_unresolved_per_pair():
-    """A column that mixes resolvable refs with unresolvable ones records both
-    on the same pair."""
+    """A column mixing resolvable and unresolvable refs records both on the same pair."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -774,8 +740,7 @@ def test_extract_column_lineage_deduplicates_repeated_upstreams():
 
 
 def test_extract_column_lineage_skips_columns_with_no_resolvable_refs():
-    """SELECT * (star expansion) produces a tuple with `*` as col name; the source
-    layer is expected to filter it out. The extractor emits whatever CSN gives."""
+    """SELECT * yields a `*` col name; the source layer filters it out, so the extractor just emits whatever CSN gives."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -798,8 +763,7 @@ def test_extract_column_lineage_skips_columns_with_no_resolvable_refs():
 
 
 def test_upstream_col_ref_exposes_named_fields():
-    """UpstreamColRef is a Pydantic model addressed by name (qname/col), not by
-    tuple position."""
+    """UpstreamColRef is addressed by name (qname/col), not by tuple position."""
     ref = UpstreamColRef(qname="BASE", col="AMOUNT")
     assert ref.qname == "BASE"
     assert ref.col == "AMOUNT"
@@ -807,7 +771,6 @@ def test_upstream_col_ref_exposes_named_fields():
 
 
 def test_walk_expr_emits_upstream_col_ref_instances():
-    """``_walk_expr`` records ``UpstreamColRef`` instances addressed by name."""
     extractor = CsnLineageExtractor()
     alias_map = {"u": "USERS"}
     out: List[UpstreamColRef] = []
@@ -819,8 +782,7 @@ def test_walk_expr_emits_upstream_col_ref_instances():
 
 
 def test_column_lineage_context_bundles_pairs_with_downstream_urn():
-    """The ColumnLineageContext value object bundles the two pieces of state
-    needed by ``_build_upstream_lineage`` so they can't be passed inconsistently."""
+    """ColumnLineageContext bundles the state needed by ``_build_upstream_lineage`` so the pieces can't be passed inconsistently."""
     pair = ColumnLineagePair(
         downstream_col="total",
         upstream_refs=[UpstreamColRef(qname="BASE", col="AMOUNT")],
@@ -862,14 +824,13 @@ def test_safe_select_returns_malformed_pair_for_non_dict_select():
 
 def test_safe_select_returns_empty_for_legitimate_base_table():
     extractor = CsnLineageExtractor()
-    envelope = extractor._safe_select({"kind": "entity"})  # no query
+    envelope = extractor._safe_select({"kind": "entity"})
     assert envelope.select is None
     assert envelope.malformed is None
 
 
 def test_safe_select_returns_empty_for_select_without_select_key():
-    """``query`` present but no ``SELECT`` is legitimate (e.g. INSERT/UPDATE
-    CSN forms) — caller should return [] rather than emit malformed."""
+    """``query`` present but no ``SELECT`` is legitimate (e.g. INSERT/UPDATE CSN forms) — return [] rather than emit malformed."""
     extractor = CsnLineageExtractor()
     envelope = extractor._safe_select({"query": {"INSERT": {}}})
     assert envelope.select is None
@@ -892,10 +853,8 @@ def test_malformed_pair_carries_reason_in_unresolved_refs():
 
 
 def test_column_lineage_pair_sentinel_with_upstream_refs_raises():
-    """Constructing a sentinel-valued pair WITH upstream_refs violates the invariant."""
-    # Must be a ValueError (not AssertionError): the invariant prevents a
-    # malformed schemaField URN and must hold under ``python -O``, which strips
-    # ``assert`` statements.
+    # Must be a ValueError (not AssertionError): the invariant prevents a malformed
+    # schemaField URN and must hold under ``python -O``, which strips asserts.
     with pytest.raises(ValidationError, match="Sentinel ColumnLineagePair"):
         ColumnLineagePair(
             downstream_col=MALFORMED_COL_SENTINEL,
@@ -904,14 +863,11 @@ def test_column_lineage_pair_sentinel_with_upstream_refs_raises():
 
 
 def test_walk_expr_diagnostic_escapes_newlines_in_repr():
-    """Diagnostic strings emitted by the walker must not contain raw newlines
-    (would break per-line scanning of report.column_lineage_unresolved)."""
+    """Walker diagnostics must not contain raw newlines, which would break per-line scanning of report.column_lineage_unresolved."""
     extractor = CsnLineageExtractor()
     alias_map = {"u": "USERS"}
     out: List[UpstreamColRef] = []
     unresolved: List[str] = []
-    # 3-segment ref with embedded newline in inner segment — exercises the
-    # `<unresolvable ref shape ...>` branch (len(segs) != 1 and != 2).
     weird_ref = {"ref": ["x", "y\nz", "w"]}
     extractor._walk_expr(weird_ref, alias_map, out, unresolved)
     assert len(unresolved) == 1
@@ -924,8 +880,7 @@ def test_walk_expr_diagnostic_escapes_newlines_in_repr():
 
 
 def test_extract_column_lineage_dedups_repeated_unresolved_refs():
-    """An xpr referencing the same unknown alias N times should produce ONE
-    unresolved_refs entry, not N."""
+    """An xpr referencing the same unknown alias N times should produce ONE unresolved_refs entry, not N."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -955,8 +910,7 @@ def test_extract_column_lineage_dedups_repeated_unresolved_refs():
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     assert len(pairs) == 1
     pair = pairs[0]
-    # Both x.A and x.B references unresolvable; the x.A pair should be deduped
-    # but x.B should still be present (different col).
+    # x.A is deduped but x.B stays (different col), so two unresolved entries.
     assert len(pair.unresolved_refs) == 2, (
         f"Expected 2 deduped unresolved entries (x.A + x.B), got "
         f"{len(pair.unresolved_refs)}: {pair.unresolved_refs}"
@@ -964,12 +918,7 @@ def test_extract_column_lineage_dedups_repeated_unresolved_refs():
 
 
 def test_projection_pseudo_alias_resolves_to_sibling_upstream():
-    """A calculated column that references a sibling OUTPUT column via the
-    ``$projection`` pseudo-alias must resolve to that sibling's real upstream —
-    NOT be recorded as an unknown-alias failure. Mirrors the common SAP shape
-    ``CALC AS ($projection.base_measure)`` observed on the live tenant, where
-    ``base_measure`` itself projects a FROM-source column.
-    """
+    """A calculated column referencing a sibling output via the ``$projection`` pseudo-alias must resolve to that sibling's real upstream, not an unknown-alias failure."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -987,13 +936,11 @@ def test_projection_pseudo_alias_resolves_to_sibling_upstream():
     assert by_name["calc_measure"].upstream_refs == [
         UpstreamColRef(qname="BASE_SRC", col="base_measure"),
     ]
-    # The $projection ref must NOT surface as unresolved.
     assert by_name["calc_measure"].unresolved_refs == []
 
 
 def test_projection_pseudo_alias_inside_expression_resolves():
-    """``$projection`` refs nested inside an ``xpr`` (e.g. a formula built on a
-    sibling base measure) resolve transitively to the underlying upstream."""
+    """``$projection`` refs nested inside an ``xpr`` resolve transitively to the underlying upstream."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -1018,8 +965,7 @@ def test_projection_pseudo_alias_inside_expression_resolves():
 
 
 def test_projection_pseudo_alias_chained_resolves_transitively():
-    """A chain ``c -> $projection.b -> $projection.a -> BASE.x`` resolves all the
-    way down to the real upstream column."""
+    """A chain ``c -> $projection.b -> $projection.a -> BASE.x`` resolves all the way down to the real upstream column."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -1040,8 +986,7 @@ def test_projection_pseudo_alias_chained_resolves_transitively():
 
 
 def test_projection_pseudo_alias_cycle_terminates_and_records_unresolved():
-    """A reference cycle (``a -> $projection.b -> $projection.a``) must terminate
-    instead of recursing forever, and the unresolved break is surfaced."""
+    """A reference cycle must terminate instead of recursing forever, and the unresolved break is surfaced."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -1056,13 +1001,11 @@ def test_projection_pseudo_alias_cycle_terminates_and_records_unresolved():
     }
     pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
     by_name = {p.downstream_col: p for p in pairs}
-    # Cycle is broken and reported rather than hanging.
     assert any("cycle" in u for u in by_name["a"].unresolved_refs)
 
 
 def test_projection_pseudo_alias_to_unknown_output_col_is_unresolved():
-    """A ``$projection`` ref to an output column that doesn't exist is recorded as
-    unresolved (not silently dropped, not resolved to a phantom upstream)."""
+    """A ``$projection`` ref to a non-existent output column is recorded as unresolved, not silently dropped or resolved to a phantom upstream."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -1081,9 +1024,7 @@ def test_projection_pseudo_alias_to_unknown_output_col_is_unresolved():
 
 
 def test_walk_expr_projection_without_context_records_unresolved():
-    """Called without a projection_map (e.g. inside a subquery scope), a
-    ``$projection`` ref cannot be resolved and lands in ``unresolved`` rather than
-    being attributed to a FROM alias."""
+    """Without a projection_map (e.g. inside a subquery scope), a ``$projection`` ref lands in ``unresolved`` rather than being attributed to a FROM alias."""
     extractor = CsnLineageExtractor()
     alias_map = {"": "BASE", "BASE": "BASE"}
     out: List[UpstreamColRef] = []
@@ -1095,12 +1036,7 @@ def test_walk_expr_projection_without_context_records_unresolved():
 
 
 def test_association_projection_columns_are_skipped():
-    """SELECT columns that project a CDS association element (leading-underscore
-    name declared as type cds.Association in the view's elements) must NOT
-    produce column-lineage pairs — they are navigations to other entities,
-    not scalar columns of the FROM table. Regression for phantom fine-grained
-    edges that never render in the UI.
-    """
+    """Regression: columns projecting a CDS association element are navigations, not scalar columns, and must not produce phantom column-lineage pairs."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1130,16 +1066,14 @@ def test_association_projection_columns_are_skipped():
     downstream_cols = {p.downstream_col for p in pairs}
     assert "DAY_OF_WEEK" in downstream_cols
     assert "MONTH" in downstream_cols
-    # the association projection must NOT appear, and must NOT add a phantom
-    # upstream ref to a "_DAY_OF_WEEK" column
+    # The association projection must not add a phantom "_DAY_OF_WEEK" upstream.
     assert "_DAY_OF_WEEK" not in downstream_cols
     all_upstream_cols = {ref.col for p in pairs for ref in p.upstream_refs}
     assert "_DAY_OF_WEEK" not in all_upstream_cols
 
 
 def test_association_projection_skip_is_silent_not_unresolved():
-    """Skipping an association projection should be silent — it must not be
-    recorded as an unresolved ref (it's a legitimate, understood skip)."""
+    """Skipping an association projection must be silent — not recorded as an unresolved ref, since it's a legitimate skip."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1154,7 +1088,6 @@ def test_association_projection_skip_is_silent_not_unresolved():
     }
     extractor = CsnLineageExtractor()
     pairs = extractor.extract_column_lineage(csn_def)
-    # No pairs at all (the only column was an association projection)
     assert pairs == []
 
 
@@ -1164,9 +1097,7 @@ def test_association_projection_skip_is_silent_not_unresolved():
 
 
 def test_used_association_target_becomes_table_upstream():
-    """An association the query references (here via a bare projection) turns its
-    target into a table-level upstream. A dotted target is flagged qualified so
-    the source layer emits it as-is rather than space-prefixing it."""
+    """An association referenced by the query turns its target into a table-level upstream; a dotted target is flagged qualified so the source layer emits it as-is."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1191,8 +1122,7 @@ def test_used_association_target_becomes_table_upstream():
 
 
 def test_declared_but_unused_association_is_not_a_lineage_edge():
-    """An association declared in elements but never referenced by the query must
-    NOT produce an upstream edge (used-only semantics)."""
+    """An association declared but never referenced by the query must not produce an upstream edge (used-only semantics)."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1210,9 +1140,7 @@ def test_declared_but_unused_association_is_not_a_lineage_edge():
 
 
 def test_association_qualified_column_ref_resolves_to_target():
-    """A field projected through an association (``["_assoc", "col"]``) is
-    attributed to the association's target entity, not dropped as an unknown
-    alias, and the same-space (bare) target is not flagged qualified."""
+    """A field projected through an association is attributed to the association's target entity, not dropped as an unknown alias."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1241,11 +1169,7 @@ def test_association_qualified_column_ref_resolves_to_target():
 
 
 def test_used_composition_target_and_projected_column_resolve_to_target():
-    """A cds.Composition is a containment association; for lineage it behaves
-    exactly like a cds.Association. A used composition names a table-level
-    upstream, and a column projected through it resolves to the composition's
-    target entity (the parser only claims Association *and* Composition are both
-    navigations — this exercises the Composition half)."""
+    """A cds.Composition behaves like a cds.Association for lineage: a used composition names a table-level upstream and a projected column resolves to its target."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1298,8 +1222,7 @@ def test_union_collects_upstreams_from_all_branches():
 
 
 def test_union_merges_column_lineage_by_output_name():
-    """A UNION output column draws from the aligned column in every branch, so its
-    upstream refs are the union of both branches' contributions."""
+    """A UNION output column draws from the aligned column in every branch, so its upstream refs are the union of both branches."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -1351,8 +1274,7 @@ def test_parse_remote_table_source_extracts_connection_and_path():
 
 
 def test_parse_remote_table_source_drops_null_database_segment():
-    """SAP encodes an absent database segment as the literal '<NULL>'; the
-    qualified name should drop it and any empties."""
+    """SAP encodes an absent database segment as the literal '<NULL>'; the qualified name should drop it and any empties."""
     entity = {
         REMOTE_CONNECTION_KEY: "MY_REMOTE_CONN",
         REMOTE_ENTITY_KEY: REMOTE_ENTITY_DELIMITER.join(
@@ -1371,10 +1293,7 @@ def test_parse_remote_table_source_returns_none_when_not_federated():
 
 
 def test_parse_remote_table_source_strips_sql_quoted_identifier():
-    """Some adapters (e.g. HANA DP Agent) encode the origin as a single
-    SQL-quoted dotted identifier ('"SCHEMA"."/BIC/TABLE"') instead of the
-    delimiter form. The quotes must be stripped so the upstream URN matches the
-    native HANA connector's unquoted SCHEMA./BIC/TABLE and stitches."""
+    """Some adapters (e.g. HANA DP Agent) encode the origin as a SQL-quoted dotted identifier; the quotes must be stripped so the upstream URN matches the native HANA connector's unquoted form and stitches."""
     entity = {
         REMOTE_CONNECTION_KEY: "HANA_DP_AGENT",
         REMOTE_ENTITY_KEY: '"SAPTCH"."/BIC/AEADOSCM282"',

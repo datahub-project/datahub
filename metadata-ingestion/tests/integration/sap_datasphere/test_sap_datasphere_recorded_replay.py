@@ -1,23 +1,3 @@
-"""Recorded-replay integration test: the closest-to-real end-to-end test.
-
-A mock SAP Datasphere is stood up from REAL captured API responses (a SAP-
-delivered demo space from a trial tenant) and the connector is driven
-through it via a real in-process HTTP server (pytest_httpserver). Unlike the
-sibling ``test_sap_datasphere_mock_service.py`` — which uses synthetic CSN
-payloads — every response body here is a static fixture derived from a live
-tenant capture (catalog spaces/assets/connections, per-view CSN, EDMX XML, and
-local-table CSN). The output is asserted against a golden built from those real
-payload shapes.
-
-The pipeline is configured with NO pre-set ``token`` / ``refresh_token`` —
-only ``client_id`` + ``client_secret`` + ``xsuaa_url`` — so the connector is
-forced through its full cold-start ``client_credentials`` OAuth grant (
-``_fetch_client_credentials_token``) before any data call. This exercises the
-previously-untested cold-start grant: the test asserts the token endpoint was
-hit with ``grant_type=client_credentials`` and that the fetched bearer is
-actually attached to subsequent data requests.
-"""
-
 import json
 from pathlib import Path
 from typing import Dict, List
@@ -53,15 +33,9 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
 ) -> None:
     base_url = httpserver.url_for("").rstrip("/")
 
-    # The mock wiring (token endpoint + all data endpoints) lives in the
-    # shared mock_datasphere_server module so the standalone dev server and
-    # this test register exactly the same handlers (DRY). The test layers its
-    # extra assertions on top via the on_token / on_request spying hooks:
-    #
-    #   * on_token captures every /oauth/token POST body so we can assert the
-    #     cold-start client_credentials grant fired with the right creds.
-    #   * on_request captures the Authorization header on catalog-spaces calls
-    #     to prove the freshly-fetched bearer is actually used on data calls.
+    # Wiring lives in the shared mock_datasphere_server module so the dev server
+    # and this test register the same handlers; the hooks let the test capture
+    # the token POST body and the data-call Authorization header for assertions.
     token_calls: List[Dict[str, List[str]]] = []
     seen_auth_headers: List[str] = []
 
@@ -89,8 +63,8 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
             "type": "sap-datasphere",
             "config": {
                 "base_url": base_url,
-                # NO token / refresh_token -> forces the cold-start
-                # client_credentials grant via _fetch_client_credentials_token.
+                # No token / refresh_token forces the cold-start
+                # client_credentials grant.
                 "client_id": "recorded-cid",
                 "client_secret": "recorded-secret",
                 "xsuaa_url": base_url,
@@ -111,7 +85,6 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
     pipeline.run()
     pipeline.raise_from_status()
 
-    # --- Assertion: cold-start client_credentials grant actually fired. ---
     assert token_calls, "XSUAA /oauth/token was never called (cold-start OAuth)"
     first = token_calls[0]
     assert first.get("grant_type") == ["client_credentials"], (
@@ -120,14 +93,12 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
     assert first.get("client_id") == ["recorded-cid"]
     assert first.get("client_secret") == ["recorded-secret"]
 
-    # --- Assertion: the fetched bearer is attached to data requests. ---
     assert seen_auth_headers, "Spaces endpoint was never called"
     assert any(h == f"Bearer {RECORDED_TOKEN}" for h in seen_auth_headers), (
         "No data request carried the freshly-fetched bearer token; "
         f"saw Authorization headers: {seen_auth_headers}"
     )
 
-    # --- Belt-and-suspenders entity assertions on top of the golden. ---
     events = json.loads(output_file.read_text())
     assert events, "Pipeline produced no events"
 
@@ -136,7 +107,7 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
         for e in events
         if "urn:li:dataset:" in (e.get("entityUrn") or "")
     }
-    # All managed (no @remote.source in the captured CSN) -> sap-datasphere.
+    # All managed (captured CSN has no @remote.source) -> sap-datasphere.
     for urn in dataset_urns:
         assert "urn:li:dataPlatform:sap-datasphere" in urn, (
             f"Recorded demo content is managed; expected sap-datasphere URN, got {urn}"

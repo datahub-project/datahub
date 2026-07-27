@@ -32,12 +32,10 @@ def _names(block: object) -> List[str]:
 
 
 def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
-    """Extract the star-schema pieces (fact/dimension sources, measures,
-    attributes, variables) from an analytic model's ``businessLayerDefinitions``.
-
-    This block is separate from the CSN ``query``/``elements`` the generic CSN
-    walker reads, so the pieces here are what the emit path needs for
-    star-schema lineage and measure/dimension classification.
+    """Extract the star-schema pieces from an analytic model's
+    ``businessLayerDefinitions`` — separate from the CSN ``query``/``elements``
+    the generic walker reads, and what the emit path needs for star-schema
+    lineage and measure/dimension classification.
     """
     model = (bld or {}).get(name) or {}
     sm = model.get(BLD_SOURCE_MODEL) or {}

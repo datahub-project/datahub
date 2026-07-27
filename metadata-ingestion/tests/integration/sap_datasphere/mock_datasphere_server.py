@@ -1,27 +1,3 @@
-"""Standalone runnable mock SAP Datasphere built from recorded API captures.
-
-This module serves the same REAL captured tenant responses that the
-recorded-replay integration test uses (catalog spaces/assets/connections,
-per-view CSN, EDMX XML, local-table list + per-table CSN) plus a permissive
-``/oauth/token`` endpoint, so the full connector path — including the OAuth
-cold-start — can be exercised without a real SAP tenant.
-
-Two ways to use it:
-
-* As a library, from the recorded-replay test: call ``register_handlers`` to
-  wire every endpoint onto a ``pytest_httpserver.HTTPServer`` (the test layers
-  its own spying assertions on top via the ``on_token`` / ``on_request`` hooks).
-
-* As a standalone dev server, from the command line::
-
-      python tests/integration/sap_datasphere/mock_datasphere_server.py --sink http://localhost:8080
-      datahub ingest -c /tmp/sap_datasphere_mock_recipe.yml
-
-  It boots a real in-process HTTP server, writes a ready-to-run ingestion
-  recipe, and blocks until Ctrl-C. A developer can then point ``datahub
-  ingest`` (CLI) or the DataHub UI ingestion source at it.
-"""
-
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
@@ -32,16 +8,13 @@ if TYPE_CHECKING:
 
 RECORDED_DIR = Path(__file__).parent / "fixtures" / "recorded"
 
-# The placeholder host baked into the committed assets fixture's
-# assetRelationalMetadataUrl fields — rewritten to the mock server URL at
-# runtime. The real tenant host was scrubbed to this placeholder when
-# the fixture was derived from the capture.
+# Placeholder host baked into the assets fixture's assetRelationalMetadataUrl
+# fields; rewritten to the mock server URL at runtime.
 RECORDED_TENANT_HOST = "https://RECORDED_TENANT"
 
 SPACE = "DEMO_SPACE"
 RECORDED_TOKEN = "recorded-replay-token"
 
-# The real SAP-delivered demo content captured from the tenant.
 VIEW_NAMES = [
     "SAP.TIME.VIEW_DIMENSION_DAY",
     "SAP.TIME.VIEW_DIMENSION_MONTH",
@@ -54,8 +27,8 @@ LOCAL_TABLE_NAMES = [
     "SAP.TIME.M_TIME_DIMENSION_TMONTH",
     "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
 ]
-# Analytic Models (supportsAnalyticalQueries -> /analyticmodels/). Their CSN
-# carries businessLayerDefinitions (fact/dimension sources) for star-schema lineage.
+# Analytic models (supportsAnalyticalQueries) route to /analyticmodels/ and
+# carry businessLayerDefinitions for star-schema lineage.
 ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
 ]
@@ -66,7 +39,6 @@ def _fixture_text(rel: str) -> str:
 
 
 def _assets_payload_rewritten(base_url: str) -> str:
-    """Point the captured assetRelationalMetadataUrl fields at the mock server."""
     return _fixture_text("catalog_assets.json").replace(RECORDED_TENANT_HOST, base_url)
 
 
@@ -76,31 +48,14 @@ def register_handlers(
     on_token: Optional[Callable[["WerkzeugRequest"], None]] = None,
     on_request: Optional[Callable[["WerkzeugRequest"], None]] = None,
 ) -> None:
-    """Register every recorded-replay handler onto ``httpserver``.
-
-    Wires the permissive OAuth token endpoint plus all data endpoints
-    (catalog spaces / assets / connections, per-view EDMX + CSN, local-table
-    list + per-table CSN) from the recorded fixtures.
-
-    Optional spying hooks (used by the test, no-ops for the standalone server):
-
-    * ``on_token`` — called with the werkzeug request for every
-      ``/oauth/token`` POST (e.g. to capture the grant_type / client creds).
-    * ``on_request`` — called with the werkzeug request for every
-      catalog-spaces GET (e.g. to capture the Authorization header and prove
-      the freshly-fetched bearer is actually used on data calls).
-    """
-    # Imported lazily so this module is importable (e.g. for the test) even if
-    # the optional werkzeug dep isn't present; register_handlers needs it.
+    # Imported lazily so the module imports even without the optional werkzeug dep.
     from werkzeug.wrappers import (
         Request as WerkzeugRequest,
         Response as WerkzeugResponse,
     )
 
-    # --- XSUAA token endpoint: permissive for ANY grant so the server works
-    # for every auth mode (client_credentials cold-start, refresh_token, ...).
-    # A standalone dev server must not assert grant types — that assertion
-    # lives in the test, layered on via on_token. ---
+    # Permissive for any grant so the server works for every auth mode; the
+    # test layers grant-type assertions on top via on_token.
     def _token_handler(request: WerkzeugRequest) -> WerkzeugResponse:
         if on_token is not None:
             on_token(request)
@@ -120,7 +75,6 @@ def register_handlers(
         _token_handler
     )
 
-    # --- Catalog spaces. ---
     def _spaces_handler(request: WerkzeugRequest) -> WerkzeugResponse:
         if on_request is not None:
             on_request(request)
@@ -135,7 +89,6 @@ def register_handlers(
         method="GET",
     ).respond_with_handler(_spaces_handler)
 
-    # --- Catalog assets (URLs rewritten to the mock server). ---
     httpserver.expect_request(
         f"/api/v1/datasphere/consumption/catalog/spaces('{SPACE}')/assets",
         method="GET",
@@ -144,7 +97,6 @@ def register_handlers(
         content_type="application/json",
     )
 
-    # --- Connections list (bare JSON array). ---
     httpserver.expect_request(
         f"/api/v1/datasphere/spaces/{SPACE}/connections",
         method="GET",
@@ -153,7 +105,6 @@ def register_handlers(
         content_type="application/json",
     )
 
-    # --- EDMX per view (assetRelationalMetadataUrl path). ---
     for name in VIEW_NAMES:
         httpserver.expect_request(
             f"/api/v1/dwc/consumption/relational/{SPACE}/{name}/$metadata",
@@ -163,7 +114,7 @@ def register_handlers(
             content_type="application/xml",
         )
 
-    # --- Per-view CSN (all four views are non-analytical -> /views/). ---
+    # Non-analytical views route to /views/.
     for name in VIEW_NAMES:
         httpserver.expect_request(
             f"/dwaas-core/api/v1/spaces/{SPACE}/views/{name}",
@@ -173,7 +124,7 @@ def register_handlers(
             content_type="application/json",
         )
 
-    # --- Per-analytic-model CSN (supportsAnalyticalQueries -> /analyticmodels/). ---
+    # Analytic models route to /analyticmodels/.
     for name in ANALYTIC_MODEL_NAMES:
         httpserver.expect_request(
             f"/dwaas-core/api/v1/spaces/{SPACE}/analyticmodels/{name}",
@@ -183,7 +134,6 @@ def register_handlers(
             content_type="application/json",
         )
 
-    # --- Local tables list. ---
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/localtables",
         method="GET",
@@ -192,7 +142,6 @@ def register_handlers(
         content_type="application/json",
     )
 
-    # --- Per-local-table CSN. ---
     for name in LOCAL_TABLE_NAMES:
         httpserver.expect_request(
             f"/dwaas-core/api/v1/spaces/{SPACE}/localtables/{name}",
@@ -204,14 +153,6 @@ def register_handlers(
 
 
 def build_recipe(base_url: str, sink_url: Optional[str] = None) -> str:
-    """Return a ready-to-run DataHub ingestion recipe YAML string.
-
-    The source points ``base_url`` / ``client_id`` / ``client_secret`` /
-    ``xsuaa_url`` all at the mock server (forcing a client_credentials
-    cold-start through the permissive token endpoint). When ``sink_url`` is
-    given the sink is a ``datahub-rest`` to it; otherwise a ``file`` sink with
-    a comment showing how to switch to datahub-rest.
-    """
     if sink_url is not None:
         sink_block = (
             "sink:\n"

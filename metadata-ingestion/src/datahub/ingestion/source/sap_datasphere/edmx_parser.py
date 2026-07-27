@@ -187,7 +187,7 @@ class EdmxParser:
             if "Common.IsUnit" in prop_annots:
                 custom_props[PROP_SAP_SEMANTIC] = SEMANTIC_UNIT
             # CDS allows @Analytics.Dimension/@Analytics.Measure on properties, not
-            # just on the entity; capture the field-level signal here.
+            # just on the entity.
             if "Analytics.Dimension" in prop_annots:
                 custom_props[PROP_SAP_IS_DIMENSION] = PROP_VALUE_TRUE
             if "Analytics.Measure" in prop_annots:

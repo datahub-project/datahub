@@ -228,11 +228,8 @@ class SapDatasphereClient:
         headers: Optional[Dict[str, str]] = None,
         params: Optional[Dict] = None,
     ) -> requests.Response:
-        """GET that transparently refreshes the OAuth bearer once on a 401 and
-        retries. Returns the final response (which may itself still be a 401 if
-        the refreshed credentials are also rejected); each caller decides how to
-        treat a surviving 401 / non-2xx. ``_get_token`` uses ``requests.post``
-        directly, so a 401 from the token endpoint can't loop back in here."""
+        """GET that refreshes the OAuth bearer once on a 401 and retries; the result
+        may itself still be a 401, which each caller decides how to handle."""
         self._ensure_auth()
         resp = self.session.get(
             url, headers=headers, params=params, timeout=self.config.request_timeout_sec
@@ -268,16 +265,11 @@ class SapDatasphereClient:
     def _paginate(
         self, url: str, page_size: int = DEFAULT_PAGE_SIZE
     ) -> Generator[JsonDict, None, None]:
-        """Yield items from a list endpoint, transparently paginating.
-
-        Handles both shapes the tenant uses: OData ``{"value": [...]}`` (paginated)
-        and a bare JSON list (single page). Prefers the server-driven
-        ``@odata.nextLink`` cursor (can't loop); falls back to ``$top``/``$skip``
-        where no cursor is returned, treating a short page as end-of-data (an
-        OData service that truncates below the requested size must return a
-        nextLink, so a short page here genuinely means no more data — advancing
-        blindly would loop forever against a server that ignores ``$skip``).
-        """
+        """Yield items from a list endpoint, paginating over both shapes the tenant
+        uses: OData ``{"value": [...]}`` and a bare JSON list. Prefers the
+        ``@odata.nextLink`` cursor, falling back to ``$top``/``$skip`` and treating a
+        short page as end-of-data (advancing blindly would loop forever against a
+        server that ignores ``$skip``)."""
         skip = 0
         next_url: Optional[str] = None
         while True:
@@ -317,7 +309,6 @@ class SapDatasphereClient:
             yield from items
             next_link = body.get(ODATA_NEXT_LINK_KEY)
             if next_link:
-                # Resolve relative links against the endpoint URL.
                 next_url = urljoin(url, next_link)
                 continue
             next_url = None
@@ -335,11 +326,8 @@ class SapDatasphereClient:
         yield from self._paginate(url)
 
     def fetch_edmx(self, metadata_url: str) -> EdmxFetchResult:
-        """Fetch OData EDMX XML, distinguishing the no-schema cases via
-        ``EdmxFetchResult.reason``: OK (xml present), NOT_FOUND (404, benign — not
-        OData-exposed), FORBIDDEN (403 — already warned here, caller must not
-        re-warn), ERROR (network / non-2xx / other).
-        """
+        """Fetch OData EDMX XML. FORBIDDEN (403) is already warned here, so the caller
+        must not re-warn; NOT_FOUND (404) is benign (asset not OData-exposed)."""
         try:
             # Time the whole fetch (incl. refresh+retry) as one sample so the
             # edmx_fetch metric isn't double-counted on a 401 refresh. A token
@@ -430,7 +418,6 @@ class SapDatasphereClient:
     def _dwaas_object_url(
         self, space: str, object_type: str, technical_name: Optional[str] = None
     ) -> str:
-        # {base}/{space}/{type} for a list, or .../{name} for a single object.
         quoted_space = quote(space, safe="")
         url = f"{self.config.base_url}{DWAAS_SPACES_BASE}/{quoted_space}/{object_type}"
         if technical_name is not None:
@@ -565,16 +552,13 @@ class SapDatasphereClient:
         technical_name: str,
         _try_alternate: bool = True,
     ) -> Optional[JsonDict]:
-        """Fetch the design-time CSN of a Datasphere object via the dwaas-core
-        per-type endpoint. Returns the parsed CSN body on success, or ``None`` on
-        any HTTP failure (the source then emits without lineage). Failures
-        populate ``report.assets_csn_fetch_failed``.
+        """Fetch the design-time CSN of a Datasphere object, returning the parsed body
+        or ``None`` on any HTTP failure (emitted without lineage; failures populate
+        ``report.assets_csn_fetch_failed``).
 
-        ``_try_alternate`` is internal: on the first call it is ``True``; if the
-        primary object_type 404s and has a sibling (views <-> analyticmodels), the
-        method retries once under the sibling with it set to ``False``. The retry
-        reports nothing so a genuinely-missing object is counted exactly once.
-        """
+        ``_try_alternate`` gates the one internal retry: on a primary 404 with a
+        sibling (views <-> analyticmodels) it retries once under the sibling,
+        reporting nothing so a missing object is counted exactly once."""
         url = self._dwaas_object_url(space, object_type, technical_name)
         try:
             return self._fetch_csn(url, "csn_fetch")

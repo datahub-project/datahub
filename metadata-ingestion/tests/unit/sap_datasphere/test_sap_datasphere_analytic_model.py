@@ -59,7 +59,7 @@ def test_extracts_measure_names():
     assert "BW_ORDERVALUE" in r.measure_names
     assert (
         "AUX" in r.measure_names
-    )  # auxiliary measures are still measures (included); document the choice
+    )  # auxiliary measures are still measures, included by design
 
 
 def test_extracts_attribute_and_variable_names():

@@ -26,9 +26,7 @@ SAP_DATASPHERE_PLATFORM = PLATFORM
 
 
 class PlatformMappingResolver:
-    """Resolves each asset's connection to a DataHub platform/instance/env.
-
-    Priority: explicit ``connection_to_platform_map`` entry, then the
+    """Priority: explicit ``connection_to_platform_map`` entry, then the
     ``platform_type_defaults`` entry for the connection's typeId, else a skip
     with a reason recorded once per unknown connection/typeId.
     """

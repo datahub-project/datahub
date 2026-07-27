@@ -85,15 +85,10 @@ def _native_type_string(root: str, element: Dict) -> str:
 def parse_csn_elements_to_schema_fields(
     elements: Dict[str, Dict],
 ) -> CsnSchemaResult:
-    """Convert a CSN ``elements`` map to DataHub schema fields.
-
-    Consumes CSN directly (mirroring the EDMX path) so Local Table and analytic
-    model schemas are available even without an OData ``$metadata`` endpoint.
-    Returns the fields plus any columns whose CDS type literal is unmapped;
-    those still emit as ``StringTypeClass`` with the raw type in
-    ``nativeDataType``, but the caller surfaces them in the report rather than
-    silently degrading. Dict insertion order is preserved so the rendered schema
-    matches the upstream column order.
+    """Convert a CSN ``elements`` map to schema fields — the CSN path, so schemas
+    are available even without an OData ``$metadata`` endpoint. Unmapped CDS types
+    still emit as ``StringTypeClass`` but are surfaced in the report; column order
+    is preserved.
     """
     fields: List[SchemaFieldClass] = []
     unknown_types: List[UnknownColumnType] = []
@@ -103,16 +98,12 @@ def parse_csn_elements_to_schema_fields(
         if not isinstance(element, dict):
             continue
         cds_type = element.get(CSN_TYPE, "")
-        # Associations/compositions are navigations, not columns: skip them from
-        # the scalar schema (the lineage extractor consumes their targets) and do
-        # not misreport them as unknown scalar types.
         if cds_type in _NAVIGATION_TYPES:
             navigation_elements.append(col_name)
             continue
         if not cds_type:
-            # A missing type key is a structural concern, not an unknown type: the
-            # column still emits as StringType/"UNKNOWN" below, but it is tracked
-            # separately so it isn't mistaken for a healthy string column.
+            # Tracked separately from unknown-but-present types so a column whose
+            # type the API failed to emit isn't mistaken for a healthy string column.
             columns_missing_type.append(col_name)
         elif cds_type not in _TYPE_MAP:
             unknown_types.append(UnknownColumnType(type=cds_type, column=col_name))

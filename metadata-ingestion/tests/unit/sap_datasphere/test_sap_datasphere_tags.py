@@ -1,5 +1,3 @@
-"""Unit tests for the SAP Datasphere tags module."""
-
 from datahub.ingestion.source.sap_datasphere.tags import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
@@ -17,15 +15,13 @@ from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
 
 
 def test_universal_bi_tag_urns_are_flat():
-    """Dimension and Measure URNs intentionally collide cross-connector — they
-    must NOT carry the ``sap:`` namespace prefix."""
+    """Dimension/Measure URNs intentionally collide cross-connector, so they carry no sap: prefix."""
     assert DIMENSION_TAG_URN == "urn:li:tag:Dimension"
     assert MEASURE_TAG_URN == "urn:li:tag:Measure"
 
 
 def test_sap_specific_tag_urns_are_namespaced():
-    """SAP-specific concepts live under ``sap:`` so they never collide with
-    unrelated tags emitted by other connectors."""
+    """SAP-specific concepts live under sap: so they never collide with other connectors' tags."""
     assert SAP_CURRENCY_TAG_URN == "urn:li:tag:sap:semantic:currency"
     assert SAP_UNIT_TAG_URN == "urn:li:tag:sap:semantic:unit"
     for cal_type, urn in SAP_CALENDAR_TAG_URNS.items():
@@ -33,8 +29,7 @@ def test_sap_specific_tag_urns_are_namespaced():
 
 
 def test_sap_calendar_tag_urns_cover_all_six_types():
-    """The mapping must cover the six SAP CDS calendar terms the EDMX parser
-    surfaces via ``sap_calendar_type``."""
+    """Must cover the six SAP CDS calendar terms the EDMX parser surfaces via sap_calendar_type."""
     assert set(SAP_CALENDAR_TAG_URNS) == {
         "year",
         "month",
@@ -46,8 +41,7 @@ def test_sap_calendar_tag_urns_cover_all_six_types():
 
 
 def test_sap_dimension_type_tag_urn_builds_namespaced_urn():
-    """``Analytics.DimensionType`` values build URNs on the fly because the
-    set of allowed values is open-ended in CDS."""
+    """Analytics.DimensionType values build URNs on the fly because the allowed set is open-ended in CDS."""
     assert sap_dimension_type_tag_urn("Time") == "urn:li:tag:sap:dimension_type:Time"
     assert (
         sap_dimension_type_tag_urn("Customer")
@@ -56,12 +50,9 @@ def test_sap_dimension_type_tag_urn_builds_namespaced_urn():
 
 
 def test_predefined_tag_workunits_emit_one_mcp_per_tag_urn_with_name_and_description():
-    """Each predefined tag URN must yield a TagPropertiesClass MCP with both a
-    display name and a description so the DataHub UI renders the tag with
-    proper metadata instead of a bare URN."""
+    """Each predefined tag URN must yield a TagPropertiesClass MCP with name and description so the UI renders it properly."""
     workunits = list(get_predefined_tag_workunits())
-    # 10 predefined tags: Dimension, Measure, 6 calendar types, currency, unit.
-    # Dynamic sap:dimension_type:* tags are NOT in this set.
+    # 10 = Dimension, Measure, 6 calendar types, currency, unit; dynamic sap:dimension_type:* tags are excluded.
     assert len(workunits) == 10
 
     urns = set()

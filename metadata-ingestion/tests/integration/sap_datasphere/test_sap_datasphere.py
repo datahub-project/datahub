@@ -59,10 +59,8 @@ def _install_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/api/v1/datasphere/spaces/S2/connections",
         json=[],
     )
-    # Local Tables (include_local_tables=True in the pipeline config below).
-    # S1 has two base tables, S2 has none — exercises both the populated and
-    # empty branches, plus the per-table CSN fetch that backfills schemas so
-    # column-level lineage edges from views can render in the UI.
+    # S1 has two base tables, S2 none — exercises both the populated and empty
+    # branches plus the per-table CSN fetch that backfills schemas for CLL.
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S1/localtables",
         json=[
@@ -74,12 +72,8 @@ def _install_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S2/localtables",
         json=[],
     )
-    # Per-object-type CSN for the exposed Views / Analytic Model. With
-    # include_view_definitions defaulting to True, the connector fetches each
-    # asset's CSN to surface the query tree as the viewProperties aspect (and
-    # also for lineage when include_lineage is on). The CSN `query` dict is what
-    # drives the viewProperties emission; assets with only `elements` (base
-    # tables) get none.
+    # include_view_definitions defaults True, so each asset's CSN is fetched; the
+    # `query` dict drives viewProperties emission (elements-only tables get none).
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S1/views/DIM_DAY",
         json={
@@ -147,7 +141,7 @@ def _install_mocks(m: rm_module.Mocker) -> None:
             }
         },
     )
-    # Per-table CSN — the parser maps cds.* literals to DataHub field types.
+    # Per-table CSN: the parser maps cds.* literals to DataHub field types.
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/S1/localtables/SAP.TIME.M_TIME_DIMENSION",
         json={
@@ -196,7 +190,6 @@ def test_sap_datasphere_end_to_end_golden_file(
     pytestconfig: pytest.Config,
     tmp_path: Path,
 ) -> None:
-    """Drive the full pipeline against mocked SAP Datasphere endpoints and check golden file."""
     output_file = tmp_path / "sap_datasphere_mces.json"
     golden_file = Path(__file__).parent / "sap_datasphere_mces_golden.json"
 
@@ -209,7 +202,7 @@ def test_sap_datasphere_end_to_end_golden_file(
                 "token": "test-token",
                 "env": "PROD",
                 "platform_instance": "test_tenant",
-                # Exercise the Local Table emission path including the new
+                # Exercises the local-table emission path including the
                 # per-table CSN fetch that backfills schemaMetadata aspects.
                 "include_local_tables": True,
             },
@@ -235,7 +228,6 @@ def test_sap_datasphere_end_to_end_golden_file(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_sap_datasphere_golden_file_has_required_aspects() -> None:
-    """Sanity-check the golden file content (size + presence of key aspects)."""
     golden_file = Path(__file__).parent / "sap_datasphere_mces_golden.json"
     assert golden_file.exists(), (
         "Golden file must exist (run --update-golden-files first)"
@@ -269,9 +261,8 @@ def test_sap_datasphere_golden_file_has_required_aspects() -> None:
         "Expected Analytic Model subtype from AM_REVENUE"
     )
 
-    # Managed assets (Local Tables, native Views, Analytical Models) emit under
-    # `sap-datasphere` — the Datasphere tenant's identity, not the underlying
-    # HANA storage. Containers (Spaces) also stay under `sap-datasphere`.
+    # Managed assets emit under `sap-datasphere` (the tenant's identity), not the
+    # underlying HANA storage; containers (Spaces) too.
     dataset_events = [
         e for e in events if "urn:li:dataset:" in (e.get("entityUrn") or "")
     ]
@@ -284,7 +275,6 @@ def test_sap_datasphere_golden_file_has_required_aspects() -> None:
         e for e in events if "urn:li:container:" in (e.get("entityUrn") or "")
     ]
     assert len(container_events) > 0, "Expected at least one container event"
-    # Container's dataPlatformInstance should reference sap-datasphere
     container_dpi = [
         e for e in container_events if e.get("aspectName") == "dataPlatformInstance"
     ]
@@ -296,13 +286,7 @@ def test_sap_datasphere_golden_file_has_required_aspects() -> None:
 
 
 def _lineage_csn_by_name() -> dict:
-    """Per-asset CSN bodies served by the supported per-object-type endpoint.
-
-    Each value matches the shape returned by
-    ``/dwaas-core/api/v1/spaces/X/views/<name>`` with
-    ``Accept: application/vnd.sap.datasphere.object.content+json``:
-    ``{"definitions": {name: {...}}}``.
-    """
+    """CSN bodies keyed by asset name, shaped like the per-object-type endpoint response."""
     return {
         "BASE_TABLE": {"definitions": {"BASE_TABLE": {"kind": "entity"}}},
         "MID_VIEW": {
@@ -347,19 +331,7 @@ def _lineage_csn_by_name() -> dict:
 
 
 def _lineage_analytic_model_csn() -> dict:
-    """CSN for the AM_REVENUE analytic model served by the /analyticmodels/
-    endpoint.
-
-    Includes a top-level ``businessLayerDefinitions`` block (sibling of
-    ``definitions``) shaped like the real SAP Datasphere payload: a star schema
-    whose fact source is ``LINEAGE_TEST.BASE_TABLE`` and dimension source is
-    ``LINEAGE_TEST.MID_VIEW`` (both existing assets in this space). The query's
-    FROM references the fact too; the business layer is authoritative for
-    table-level lineage so the golden should show the fact + dimension upstreams
-    (not a double-prefixed query-FROM fact). ``REVENUE`` is a measure and
-    ``REGION`` a dimension/attribute, matching the EDMX fields so the tags
-    attach.
-    """
+    """Analytic-model CSN whose businessLayerDefinitions star schema is authoritative for table-level lineage."""
     return {
         "definitions": {
             "AM_REVENUE": {
@@ -398,10 +370,7 @@ def _lineage_analytic_model_csn() -> dict:
 
 
 def _install_lineage_mocks(m: rm_module.Mocker) -> None:
-    """Install all fixtures used by the federated-lineage scenario.
-
-    Shared between the golden-file test and the determinism test (L3).
-    """
+    """Fixtures for the federated-lineage scenario, shared by the golden and determinism tests."""
     fixtures_dir = Path(__file__).parent / "fixtures"
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
@@ -429,15 +398,13 @@ def _install_lineage_mocks(m: rm_module.Mocker) -> None:
     )
     csn_by_name = _lineage_csn_by_name()
     for name, body in csn_by_name.items():
-        # The non-analytical assets in the lineage_test fixture route to the
-        # /views/ sub-path. See assets_lineage_test.json.
+        # Non-analytical assets route to the /views/ sub-path.
         m.get(
             f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views/{name}",
             json=body,
         )
-    # AM_REVENUE has supportsAnalyticalQueries=true, so it routes to the
-    # /analyticmodels/ sub-path and carries a businessLayerDefinitions block
-    # (star-schema fact + dimension sources) alongside its query.
+    # AM_REVENUE (supportsAnalyticalQueries=true) routes to /analyticmodels/ and
+    # carries a businessLayerDefinitions star schema alongside its query.
     m.get(
         f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/analyticmodels/AM_REVENUE",
         json=_lineage_analytic_model_csn(),
@@ -445,14 +412,7 @@ def _install_lineage_mocks(m: rm_module.Mocker) -> None:
 
 
 def _lineage_pipeline_config(output_file: Path, max_workers_assets: int = 4) -> dict:
-    """Build the pipeline config used by both the lineage golden + determinism tests.
-
-    ``max_workers_assets`` defaults to 4 so the golden test exercises the
-    parallel asset-fetch path; tests that need byte-identical output across
-    runs (determinism test) pass ``max_workers_assets=1`` explicitly because
-    ``LossyList.append`` is not thread-safe (thread-safety of report
-    mutations is tracked as a separate follow-up).
-    """
+    """max_workers_assets defaults to 4; the determinism test passes 1 because LossyList.append is not thread-safe."""
     return {
         "run_id": "sap-datasphere-lineage-test",
         "source": {
@@ -464,10 +424,9 @@ def _lineage_pipeline_config(output_file: Path, max_workers_assets: int = 4) -> 
                 "platform_instance": "test_tenant",
                 "include_lineage": True,
                 "max_workers_assets": max_workers_assets,
-                # `_managed` is no longer routed via connection_to_platform_map —
-                # managed assets always resolve to `sap-datasphere` with the
-                # top-level `platform_instance`. This config only routes the
-                # federated (non-managed) connections below.
+                # Managed assets always resolve to `sap-datasphere` with the
+                # top-level platform_instance; this map only routes federated
+                # (non-managed) connections.
                 "connection_to_platform_map": {},
                 "platform_type_defaults": {
                     "SNOWFLAKE": {
@@ -475,9 +434,8 @@ def _lineage_pipeline_config(output_file: Path, max_workers_assets: int = 4) -> 
                         "platform_instance": "prod_snowflake",
                         "lowercase_urn": True,
                     },
-                    # SALESFORCE intentionally unmapped (not a builtin default and
-                    # not added here) — FED_UNSUPPORTED lands in
-                    # assets_skipped_unknown_typeid.
+                    # SALESFORCE intentionally unmapped, so FED_UNSUPPORTED lands
+                    # in assets_skipped_unknown_typeid.
                 },
             },
         },
@@ -491,8 +449,6 @@ def test_sap_datasphere_lineage_federated_end_to_end_golden_file(
     pytestconfig: pytest.Config,
     tmp_path: Path,
 ) -> None:
-    """End-to-end scenario exercising include_lineage, federated remote tables,
-    lowercase_urn, custom platform_instance, and the unknown-typeId skip path."""
     output_file = tmp_path / "sap_datasphere_lineage_federated_mces.json"
     golden_file = (
         Path(__file__).parent / "sap_datasphere_lineage_federated_mces_golden.json"
@@ -518,15 +474,7 @@ def test_sap_datasphere_lineage_federated_end_to_end_golden_file(
 def test_sap_datasphere_lineage_federated_is_deterministic_across_runs(
     tmp_path: Path,
 ) -> None:
-    """L3: two consecutive runs against the same mocks must produce byte-identical
-    output. Catches regressions where dict/set iteration order or other sources
-    of non-determinism leak into the emitted MCPs.
-
-    Pinned to ``max_workers_assets=1`` because ``LossyList.append`` is not
-    thread-safe; under parallel workers report mutations can interleave non-
-    deterministically and break byte-identical output between runs. Thread-
-    safety of report mutations is tracked as a separate follow-up.
-    """
+    """Two runs must be byte-identical; pinned to max_workers_assets=1 because LossyList.append is not thread-safe."""
     output_1 = tmp_path / "run1.json"
     output_2 = tmp_path / "run2.json"
 
@@ -557,14 +505,7 @@ def test_sap_datasphere_lineage_federated_set_determinism_at_workers_4(
     pytestconfig: pytest.Config,
     tmp_path: Path,
 ) -> None:
-    """Set-based determinism check at the production-default ``max_workers_assets=4``.
-
-    Byte-equality across runs is intentionally NOT asserted because
-    ``LossyList.append`` is not thread-safe (a known cross-cutting follow-up).
-    What we DO guarantee is that the SET of MCP ``(entityUrn, aspectName)``
-    tuples emitted is identical across runs — a stable contract regardless of
-    worker thread scheduling.
-    """
+    """At max_workers_assets=4, byte-equality isn't asserted (LossyList.append isn't thread-safe); the SET of emitted (entityUrn, aspectName) tuples must match."""
     output_1 = tmp_path / "run1.json"
     output_2 = tmp_path / "run2.json"
 
@@ -579,7 +520,6 @@ def test_sap_datasphere_lineage_federated_set_determinism_at_workers_4(
     events_1 = json.loads(output_1.read_text())
     events_2 = json.loads(output_2.read_text())
 
-    # Set-based comparison: (entityUrn, aspectName) tuples must match exactly
     set_1 = {(e.get("entityUrn"), e.get("aspectName")) for e in events_1}
     set_2 = {(e.get("entityUrn"), e.get("aspectName")) for e in events_2}
     assert set_1 == set_2, (
@@ -587,7 +527,6 @@ def test_sap_datasphere_lineage_federated_set_determinism_at_workers_4(
         f"In run 1 but not run 2: {set_1 - set_2}\n"
         f"In run 2 but not run 1: {set_2 - set_1}"
     )
-    # Same event count
     assert len(events_1) == len(events_2), (
         f"Workers=4 event count differs: {len(events_1)} vs {len(events_2)}"
     )
@@ -596,7 +535,6 @@ def test_sap_datasphere_lineage_federated_set_determinism_at_workers_4(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None:
-    """Structural sanity assertions on the lineage+federated golden file."""
     golden_file = (
         Path(__file__).parent / "sap_datasphere_lineage_federated_mces_golden.json"
     )
@@ -605,7 +543,6 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
     )
     events = json.loads(golden_file.read_text())
 
-    # Collect dataset URN platforms
     dataset_platforms = set()
     dataset_urns_all = set()
     for e in events:
@@ -616,8 +553,6 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
                 plat = urn.split("urn:li:dataPlatform:")[1].split(",")[0]
                 dataset_platforms.add(plat)
 
-    # We expect both sap-datasphere (managed BASE_TABLE/MID_VIEW) and snowflake
-    # (federated FED_SNOWFLAKE_CUST) datasets in this scenario.
     assert "sap-datasphere" in dataset_platforms, (
         f"Expected at least one sap-datasphere dataset URN; "
         f"got platforms: {dataset_platforms}"
@@ -627,13 +562,11 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
         f"got platforms: {dataset_platforms}"
     )
 
-    # FED_UNSUPPORTED must NOT appear as a dataset (unmapped typeId → skipped)
     assert not any("FED_UNSUPPORTED" in u for u in dataset_urns_all), (
         f"FED_UNSUPPORTED should be skipped, but found dataset URN: "
         f"{[u for u in dataset_urns_all if 'FED_UNSUPPORTED' in u]}"
     )
 
-    # MID_VIEW should have an upstreamLineage aspect pointing at BASE_TABLE
     upstream_events = [e for e in events if e.get("aspectName") == "upstreamLineage"]
     assert len(upstream_events) >= 1, (
         f"Expected at least one upstreamLineage event; aspects: "
@@ -652,18 +585,16 @@ def test_sap_datasphere_lineage_federated_golden_has_expected_features() -> None
         f"Expected MID_VIEW upstreamLineage to reference BASE_TABLE; got: {upstream_text}"
     )
 
-    # platform_instance for managed assets should be the top-level "test_tenant"
-    # (managed assets always inherit the source-level platform_instance now).
+    # Managed assets always inherit the source-level platform_instance ("test_tenant").
     assert any("test_tenant" in u for u in dataset_urns_all), (
         f"Expected managed datasets to use platform_instance test_tenant; got: {dataset_urns_all}"
     )
 
-    # Snowflake URNs should be lowercase (lowercase_urn=True)
+    # Snowflake URNs are lowercase because lowercase_urn=True.
     snowflake_urns = [
         u for u in dataset_urns_all if "urn:li:dataPlatform:snowflake" in u
     ]
     for s in snowflake_urns:
-        # The name portion (between the platform URN and ,PROD)) should be lowercase
         name_portion = s.split("urn:li:dataPlatform:snowflake,")[1].split(",")[0]
         assert name_portion == name_portion.lower(), (
             f"Expected lowercase Snowflake URN name; got: {name_portion}"
@@ -679,7 +610,6 @@ def _stateful_pipeline_config(
     run_id: str,
     sink_filename: str,
 ) -> dict:
-    """Build a pipeline config dict with stateful ingestion enabled."""
     return {
         "pipeline_name": "sap-datasphere-stale-test",
         "run_id": run_id,
@@ -697,7 +627,7 @@ def _stateful_pipeline_config(
                         "config": {"datahub_api": {"server": GMS_SERVER}},
                     },
                 },
-                # Only ingest S1 to keep the test focused
+                # Only ingest S1 to keep the test focused.
                 "space_pattern": {"allow": ["^S1$"]},
             },
         },
@@ -714,10 +644,6 @@ def test_sap_datasphere_stale_entity_removal(
     tmp_path: Path,
     mock_datahub_graph: mock.MagicMock,
 ) -> None:
-    """Run the pipeline twice with different asset sets; verify the dropped dataset
-    (FACT_SALES) is no longer tracked in checkpoint state after the second run."""
-
-    # ── Run 1: S1 has DIM_DAY + FACT_SALES ──────────────────────────────────────
     assets_s1_run1 = {
         "value": [
             {
@@ -768,7 +694,7 @@ def test_sap_datasphere_stale_entity_removal(
             f"{TENANT_URL}/api/v1/datasphere/spaces/S1/connections",
             json=[],
         )
-        # include_view_definitions defaults True → CSN is fetched per view.
+        # include_view_definitions defaults True, so CSN is fetched per view.
         for _view in ("DIM_DAY", "FACT_SALES"):
             m.get(
                 f"{TENANT_URL}/dwaas-core/api/v1/spaces/S1/views/{_view}",
@@ -792,7 +718,6 @@ def test_sap_datasphere_stale_entity_removal(
     assert checkpoint1 is not None, "Run 1 must produce a checkpoint"
     assert checkpoint1.state is not None
 
-    # ── Run 2: FACT_SALES is gone — only DIM_DAY remains ────────────────────────
     assets_s1_run2 = {
         "value": [
             {
@@ -853,7 +778,6 @@ def test_sap_datasphere_stale_entity_removal(
     assert checkpoint2 is not None, "Run 2 must produce a checkpoint"
     assert checkpoint2.state is not None
 
-    # ── Validate both runs committed state successfully ──────────────────────────
     validate_all_providers_have_committed_successfully(
         pipeline=pipeline_run1, expected_providers=1
     )
@@ -861,7 +785,6 @@ def test_sap_datasphere_stale_entity_removal(
         pipeline=pipeline_run2, expected_providers=1
     )
 
-    # ── FACT_SALES must appear in run-1 state but NOT in run-2 state ────────────
     state1 = cast(GenericCheckpointState, checkpoint1.state)
     state2 = cast(GenericCheckpointState, checkpoint2.state)
 
@@ -877,17 +800,7 @@ def test_sap_datasphere_stale_entity_removal(
 
 
 def _install_federation_mocks(m: rm_module.Mocker) -> None:
-    """Install fixtures for the federation scenario: one process-graph data flow
-    (local SRC -> local TGT with a column map), one replication flow (ABAP ->
-    BigQuery, two independent 1:1 tasks) and one HANA remote table whose
-    ``@DataWarehouse.remote.entity`` is the SQL-quoted dotted form.
-
-    Exercises the dwaas-core flow/remote-table discovery path, the DataFlow /
-    DataFlow + DataJob emission (per flow), external URN assembly (BigQuery ``database``
-    qualification + preserved casing), per-task source->target pairing, and the
-    quoted-identifier stripping that lets HANA upstreams stitch to the native
-    HANA connector.
-    """
+    """Fixtures for the federation scenario: a data flow, a replication flow (ABAP -> BigQuery), and a HANA remote table with a SQL-quoted identifier to exercise quote-stripping."""
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/consumption/catalog/spaces",
         json={"value": [{"name": "FED_TEST", "label": "Federation Test Space"}]},
@@ -940,22 +853,20 @@ def _federation_pipeline_config(output_file: Path) -> dict:
                 "include_data_flows": True,
                 "include_replication_flows": True,
                 "include_remote_tables": True,
-                # Single-threaded: replication/remote-table emission is ordered,
-                # keeping the golden byte-stable without the LossyList follow-up.
+                # Single-threaded keeps replication/remote-table emission ordered
+                # and the golden byte-stable.
                 "max_workers_assets": 1,
                 "connection_to_platform_map": {
                     "ABAP_SRC": {"platform": "abap"},
-                    # BigQuery: the API never returns the GCP project, so the
-                    # `database` qualifier is required for the target URN to
-                    # stitch, and casing must be preserved.
+                    # BigQuery API never returns the GCP project, so `database` is
+                    # required for the target URN to stitch; casing must be preserved.
                     "BQ_TGT": {
                         "platform": "bigquery",
                         "database": "my-gcp-project",
                         "convert_urns_to_lowercase": False,
                     },
-                    # HANA stores unquoted identifiers uppercase; the native HANA
-                    # connector preserves that, so we must too (else the upstream
-                    # URN won't match).
+                    # HANA stores unquoted identifiers uppercase and the native HANA
+                    # connector preserves that, so we must too or the URN won't match.
                     "HANA_DP_AGENT": {
                         "platform": "hana",
                         "convert_urns_to_lowercase": False,
@@ -973,8 +884,6 @@ def test_sap_datasphere_replication_flow_and_remote_table_golden_file(
     pytestconfig: pytest.Config,
     tmp_path: Path,
 ) -> None:
-    """Golden coverage for the flow (DataFlow/DataJob) + federated remote-table
-    paths, including the quoted-HANA-identifier stitching fix."""
     output_file = tmp_path / "sap_datasphere_flow_remote_table_mces.json"
     golden_file = (
         Path(__file__).parent / "sap_datasphere_flow_remote_table_mces_golden.json"
@@ -996,15 +905,11 @@ def test_sap_datasphere_replication_flow_and_remote_table_golden_file(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_sap_datasphere_federation_golden_has_expected_stitching() -> None:
-    """Structural assertions on the flow + remote-table golden: BigQuery target
-    URN is project-qualified with preserved casing, and the HANA upstream is the
-    unquoted schema.table the native HANA connector emits."""
     golden = Path(__file__).parent / "sap_datasphere_flow_remote_table_mces_golden.json"
     events = json.loads(golden.read_text())
     text = json.dumps(events)
 
-    # Quoted-HANA fix: the remote-table upstream must be unquoted SCHEMA.TABLE,
-    # never the raw '"MY_SCHEMA"."/BIC/MY_MATERIAL"' form.
+    # Remote-table upstream must be unquoted SCHEMA.TABLE, never the raw quoted form.
     assert (
         "urn:li:dataset:(urn:li:dataPlatform:hana,MY_SCHEMA./BIC/MY_MATERIAL,PROD)"
         in text
@@ -1013,12 +918,10 @@ def test_sap_datasphere_federation_golden_has_expected_stitching() -> None:
         "HANA upstream URN still carries SQL identifier quotes"
     )
 
-    # BigQuery replication targets: project-qualified + casing preserved.
     assert (
         "urn:li:dataPlatform:bigquery,my-gcp-project.staging.CUSTOMER,PROD" in text
     ), "Expected project-qualified, case-preserved BigQuery target URN"
 
-    # A DataJob (replication task) and DataFlow were emitted for the flow.
     entity_types = {e.get("entityType") for e in events if e.get("entityType")}
     assert "dataJob" in entity_types, "Expected a DataJob for the replication flow"
     assert "dataFlow" in entity_types, "Expected a DataFlow for the replication flow"
@@ -1026,8 +929,6 @@ def test_sap_datasphere_federation_golden_has_expected_stitching() -> None:
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_sap_datasphere_lineage_federated_golden_has_column_lineage() -> None:
-    """The federated golden file should contain fineGrainedLineages with at least
-    one AGGREGATE transformation."""
     golden = Path(__file__).parent / "sap_datasphere_lineage_federated_mces_golden.json"
     events = json.loads(golden.read_text())
     upstream_events = [e for e in events if e.get("aspectName") == "upstreamLineage"]

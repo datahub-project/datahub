@@ -1,15 +1,3 @@
-"""End-to-end integration test driving the connector through a real in-process
-HTTP server (pytest_httpserver) instead of `requests_mock`.
-
-This catches bugs that requests-level mocking cannot:
-- URL-encoding of OData path segments (quote(space_with_apostrophe))
-- OData $top/$skip pagination handshake
-- Session connection pooling under max_workers_assets parallelism
-- _refresh_auth 401 retry against real status codes
-- OAuth POST body x-www-form-urlencoded encoding
-- urllib3.Retry + status_forcelist behavior
-"""
-
 import json
 from pathlib import Path
 from typing import Iterator
@@ -24,8 +12,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 
 FROZEN_TIME = "2024-01-15 12:00:00+00:00"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-# The hardcoded host baked into the fixture file's assetRelationalMetadataUrl
-# fields — we rewrite to the mock server's URL at runtime.
+# Host baked into the fixture's assetRelationalMetadataUrl fields; rewritten to
+# the mock server's URL at runtime.
 FIXTURE_TENANT_HOST = "https://test.eu10.hcs.cloud.sap"
 
 
@@ -37,22 +25,13 @@ def _fixture_text(name: str) -> str:
 
 
 def _assets_payload_rewritten(base_url: str) -> str:
-    """Rewrite the assetRelationalMetadataUrl host in the assets fixture so the
-    connector hits the mock HTTP server instead of the hardcoded SAP tenant host.
-    """
     return _fixture_text("assets_lineage_test.json").replace(
         FIXTURE_TENANT_HOST, base_url
     )
 
 
 def _csn_for_technical_name(technical_name: str) -> dict:
-    """Mock CSN payload for the supported per-object-type endpoint.
-
-    Returns realistic CSN with ``columns[]`` so the column-lineage extractor has
-    work to do. Shape matches what
-    ``/dwaas-core/api/v1/spaces/X/views/<name>`` returns with
-    ``Accept: application/vnd.sap.datasphere.object.content+json``.
-    """
+    """CSN with columns[] so the column-lineage extractor has work; shaped like the per-object-type endpoint response."""
     if technical_name == "BASE_TABLE":
         return {"definitions": {"BASE_TABLE": {"kind": "entity"}}}
     if technical_name == "MID_VIEW":
@@ -88,7 +67,6 @@ def _csn_for_technical_name(technical_name: str) -> dict:
             }
         }
     if technical_name == "AM_REVENUE":
-        # Analytic model: query + a businessLayerDefinitions star schema.
         return {
             "definitions": {
                 "AM_REVENUE": {
@@ -129,14 +107,8 @@ def _csn_for_technical_name(technical_name: str) -> dict:
 
 @pytest.fixture
 def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
-    """Boot an in-process HTTP server with the SAP Datasphere API surface mocked.
-
-    Returns the base URL the connector should use (e.g. ``http://127.0.0.1:NNNN``).
-    All routes load their response bodies from the existing fixture files.
-    """
     base_url = httpserver.url_for("").rstrip("/")
 
-    # /api/v1/datasphere/consumption/catalog/spaces  →  list of spaces
     httpserver.expect_request(
         "/api/v1/datasphere/consumption/catalog/spaces",
         method="GET",
@@ -145,8 +117,7 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
-    # /api/v1/datasphere/consumption/catalog/spaces('LINEAGE_TEST')/assets  →  list of assets,
-    # with metadata URLs rewritten to point at the mock server.
+    # Metadata URLs are rewritten to point at the mock server.
     httpserver.expect_request(
         "/api/v1/datasphere/consumption/catalog/spaces('LINEAGE_TEST')/assets",
         method="GET",
@@ -155,7 +126,6 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
-    # /api/v1/datasphere/spaces/LINEAGE_TEST/connections
     httpserver.expect_request(
         "/api/v1/datasphere/spaces/LINEAGE_TEST/connections",
         method="GET",
@@ -164,7 +134,6 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
-    # /edmx/LINEAGE_TEST/BASE_TABLE/$metadata
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
         method="GET",
@@ -173,7 +142,6 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/xml",
     )
 
-    # /edmx/LINEAGE_TEST/MID_VIEW/$metadata
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/MID_VIEW/$metadata",
         method="GET",
@@ -182,7 +150,6 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/xml",
     )
 
-    # /edmx/LINEAGE_TEST/AM_REVENUE/$metadata
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/AM_REVENUE/$metadata",
         method="GET",
@@ -191,8 +158,7 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/xml",
     )
 
-    # /dwaas-core/api/v1/spaces/LINEAGE_TEST/views/<technical_name>
-    # The non-analytical assets in the fixture route to /views/.
+    # Non-analytical assets route to /views/.
     for technical_name in (
         "BASE_TABLE",
         "MID_VIEW",
@@ -208,8 +174,7 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
             content_type="application/json",
         )
 
-    # AM_REVENUE has supportsAnalyticalQueries=true, so it routes to the
-    # /analyticmodels/ sub-path.
+    # AM_REVENUE (supportsAnalyticalQueries=true) routes to /analyticmodels/.
     httpserver.expect_request(
         "/dwaas-core/api/v1/spaces/LINEAGE_TEST/analyticmodels/AM_REVENUE",
         method="GET",
@@ -229,11 +194,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
     tmp_path: Path,
     sap_mock_service: str,
 ) -> None:
-    """Drive the full ingestion pipeline through a real HTTP server.
-
-    Validates that the connector works end-to-end against a real-HTTP wire,
-    not just at the ``requests`` library mock level.
-    """
+    """Drive the pipeline through a real HTTP wire, not just the requests-mock level."""
     output_file = tmp_path / "sap_datasphere_mock_service_mces.json"
 
     pipeline_config = {
@@ -246,11 +207,10 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
                 "env": "PROD",
                 "platform_instance": "test_tenant",
                 "include_lineage": True,
-                # Exercise parallel asset processing through real HTTP
+                # Exercise parallel asset processing through real HTTP.
                 "max_workers_assets": 4,
-                # `_managed` is no longer routed via connection_to_platform_map —
-                # managed assets always resolve to `sap-datasphere` with the
-                # top-level `platform_instance`. This map only routes federated
+                # Managed assets always resolve to `sap-datasphere` with the
+                # top-level platform_instance; this map only routes federated
                 # (non-managed) connections.
                 "connection_to_platform_map": {},
                 "platform_type_defaults": {
@@ -274,7 +234,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
 
     events = json.loads(output_file.read_text())
 
-    # Structural assertions (not a golden file — that lives in the federated golden test)
+    # Structural assertions (the golden lives in the federated golden test).
     assert events, "Pipeline produced no events"
 
     dataset_events = [
@@ -282,10 +242,8 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
     ]
     assert dataset_events, "No dataset events emitted"
 
-    # Datasets land under sap-datasphere (managed assets — BASE_TABLE, MID_VIEW,
-    # and the FED_UNSUPPORTED asset which falls through to managed because the
-    # mock CSN doesn't expose its `@remote.source`) or Snowflake (the federated
-    # FED_SNOWFLAKE_CUST whose CSN exposes `@remote.source=SNOWFLAKE_PROD`).
+    # Datasets land under sap-datasphere (managed — incl. FED_UNSUPPORTED, whose
+    # mock CSN omits @remote.source) or snowflake (FED_SNOWFLAKE_CUST).
     for e in dataset_events:
         urn = e["entityUrn"]
         assert (
@@ -293,7 +251,6 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
             or "urn:li:dataPlatform:snowflake" in urn
         ), f"Dataset URN should be under sap-datasphere/snowflake platform, got: {urn}"
 
-    # At least one upstreamLineage aspect with fineGrainedLineages
     upstream_events = [e for e in events if e.get("aspectName") == "upstreamLineage"]
     assert upstream_events, "No upstreamLineage aspects emitted"
 
@@ -321,12 +278,9 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
     tmp_path: Path,
     httpserver: HTTPServer,
 ) -> None:
-    """When the spaces endpoint returns 401 once, the client refreshes the OAuth
-    bearer via the XSUAA token endpoint and retries. Drives through real HTTP.
-    """
+    """The client refreshes the OAuth bearer and retries when spaces returns 401 once."""
     base_url = httpserver.url_for("").rstrip("/")
 
-    # Track XSUAA POST calls and assert proper body
     xsuaa_calls = []
 
     def _xsuaa_handler(request: WerkzeugRequest) -> WerkzeugResponse:
@@ -348,7 +302,6 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
         method="POST",
     ).respond_with_handler(_xsuaa_handler)
 
-    # /api/v1/datasphere/consumption/catalog/spaces returns 401 on first call, 200 on second.
     call_count = {"n": 0}
 
     def _spaces_handler(request: WerkzeugRequest) -> WerkzeugResponse:
@@ -366,7 +319,7 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
         method="GET",
     ).respond_with_handler(_spaces_handler)
 
-    # Empty assets list — keeps the test focused on the 401 retry path.
+    # Empty assets list keeps the test focused on the 401 retry path.
     httpserver.expect_request(
         "/api/v1/datasphere/consumption/catalog/spaces('LINEAGE_TEST')/assets",
         method="GET",
@@ -403,19 +356,16 @@ def test_sap_datasphere_against_mock_service_handles_oauth_refresh_on_401(
     pipeline.run()
     pipeline.raise_from_status()
 
-    # XSUAA was called twice (initial + refresh after 401)
     assert len(xsuaa_calls) >= 2, (
         f"Expected >=2 XSUAA token calls (initial + refresh on 401), "
         f"got {len(xsuaa_calls)}"
     )
-    # First call's body had the refresh_token grant
     first_body = xsuaa_calls[0]
     assert first_body.get("grant_type") == ["refresh_token"], (
         f"First XSUAA call should be refresh_token grant, got: {first_body}"
     )
     assert first_body.get("refresh_token") == ["rt-xyz"]
     assert first_body.get("client_id") == ["cid"]
-    # Spaces endpoint was called twice (the 401 retry)
     assert call_count["n"] == 2, (
         f"Expected spaces endpoint called twice (401 retry), got {call_count['n']}"
     )

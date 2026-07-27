@@ -1,12 +1,3 @@
-"""Unit tests for the SAP Datasphere CSN element parser.
-
-The parser converts the ``elements`` map of a CSN entity definition (as
-returned by ``/dwaas-core/api/v1/spaces/{space}/localtables/{name}``) into a
-list of DataHub ``SchemaFieldClass`` so that Local Table stubs carry column
-metadata. With schema fields on both the View side and the Local Table side,
-the DataHub UI can render column-level lineage edges.
-"""
-
 from typing import Dict, cast
 
 from datahub.ingestion.source.sap_datasphere.csn_parser import (
@@ -33,7 +24,7 @@ def test_parses_string_type():
     assert f.fieldPath == "MONTH"
     assert isinstance(f.type.type, StringTypeClass)
     assert "Month" in (f.description or "")
-    assert "2" in f.nativeDataType  # surfaces the length
+    assert "2" in f.nativeDataType
 
 
 def test_parses_hana_tinyint_as_number():
@@ -50,9 +41,7 @@ def test_parses_date_type():
 
 
 def test_parses_unknown_cds_type_as_string_with_warning_path():
-    """Unknown cds.foo types fall back to StringTypeClass with the raw native
-    type preserved so the human can see what it actually was, and the type is
-    returned in the unknown-types list so the caller can report it."""
+    """Unknown cds.* types fall back to StringType (native preserved) and are returned in unknown_types for reporting."""
     elements = {"WEIRD": {"type": "cds.SomethingNew"}}
     result = parse_csn_elements_to_schema_fields(elements)
     assert isinstance(result.fields[0].type.type, StringTypeClass)
@@ -63,9 +52,7 @@ def test_parses_unknown_cds_type_as_string_with_warning_path():
 
 
 def test_missing_type_key_is_tracked_separately_from_unknown():
-    """A column with no (or empty) ``type`` key is a structural gap, not an
-    unknown type: it must not pollute the unknown-types list, but it IS tracked
-    in ``columns_missing_type`` so the caller can surface it (finding #4)."""
+    """A column with no type key is a structural gap, not an unknown type, so it lands in columns_missing_type not unknown_types."""
     elements = {
         "NO_TYPE": {"@EndUserText.label": "n/a"},
         "EMPTY_TYPE": {"type": ""},
@@ -77,10 +64,7 @@ def test_missing_type_key_is_tracked_separately_from_unknown():
 
 
 def test_association_and_composition_elements_are_skipped_not_columns():
-    """Associations/compositions are navigations, not scalar columns: they must
-    be dropped from the schema (no phantom StringType field) and must NOT be
-    reported as unknown CDS types (the source of the spurious cds.Association
-    warnings)."""
+    """Associations/compositions are navigations, not scalar columns, so they're dropped and not reported as unknown CDS types."""
     elements = {
         "COL": {"type": "cds.String"},
         "_ASSOC": {"type": "cds.Association", "target": "OTHER"},
@@ -93,9 +77,7 @@ def test_association_and_composition_elements_are_skipped_not_columns():
 
 
 def test_non_dict_element_is_skipped_not_fatal():
-    """A malformed CSN where an element value is not a dict (str/None/list) must
-    be skipped rather than raising AttributeError and aborting the whole schema
-    parse — only the well-formed sibling becomes a field."""
+    """A non-dict element value must be skipped, not raise and abort the whole schema parse."""
     elements: Dict[str, object] = {
         "BAD_STR": "not-an-object",
         "BAD_NONE": None,
@@ -126,17 +108,14 @@ def test_decimal_precision_in_native_type():
 
 
 def test_decimal_precision_only_omits_scale():
-    """A DECIMAL with precision but no scale renders ``DECIMAL(p)`` — the
-    precision-only branch of the native-type formatter, distinct from the
-    precision+scale case above."""
+    """Precision but no scale exercises the DECIMAL(p) branch, distinct from the precision+scale case above."""
     elements = {"AMOUNT": {"type": "cds.Decimal", "precision": 12}}
     fields = parse_csn_elements_to_schema_fields(elements).fields
     assert fields[0].nativeDataType == "DECIMAL(12)"
 
 
 def test_missing_type_native_is_unknown():
-    """A column with no ``type`` key falls back to the UNKNOWN native display so
-    the operator can distinguish it from a real string column."""
+    """A column with no type falls back to the UNKNOWN native display so it's distinguishable from a real string column."""
     elements = {"NO_TYPE": {"@EndUserText.label": "n/a"}}
     fields = parse_csn_elements_to_schema_fields(elements).fields
     assert fields[0].nativeDataType == "UNKNOWN"

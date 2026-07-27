@@ -29,8 +29,7 @@ def test_builtin_platform_type_defaults_cover_observed_typeids():
         "BIGQUERY",
     }
     assert expected.issubset(set(_BUILTIN_PLATFORM_TYPE_DEFAULTS.keys()))
-    # BigQuery must stitch to DataHub's `bigquery` platform (the typeId token is
-    # confirmed from a live tenant's "Unknown ... typeId 'BIGQUERY'" warning).
+    # BigQuery must stitch to DataHub's `bigquery` platform (typeId token confirmed from a live tenant warning).
     assert _BUILTIN_PLATFORM_TYPE_DEFAULTS["BIGQUERY"].platform == "bigquery"
 
 
@@ -65,9 +64,7 @@ def test_config_accepts_custom_platform_type_defaults_override():
             },
         }
     )
-    # Built-in defaults preserved for typeIds not overridden
     assert cfg.platform_type_defaults["HANA"].platform == "hana"
-    # User overrides win
     assert cfg.platform_type_defaults["S3"].enabled is False
     assert cfg.platform_type_defaults["SNOWFLAKE"].platform_instance == "acct"
 
@@ -87,8 +84,7 @@ def _config_with(map_overrides=None, type_defaults_overrides=None):
 
 
 def test_resolver_managed_default_returns_sap_datasphere():
-    """The synthetic `_managed` key always resolves to the sap-datasphere
-    platform — managed assets are Datasphere assets, not HANA assets."""
+    """The synthetic _managed key always resolves to sap-datasphere — managed assets are Datasphere assets, not HANA."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     result = resolver.resolve("_managed")
@@ -100,8 +96,6 @@ def test_resolver_managed_default_returns_sap_datasphere():
 
 
 def test_resolver_explicit_map_overrides_typeid_default():
-    """Per-connection entries in connection_to_platform_map override typeId
-    defaults for federated connections."""
     cfg = _config_with(
         map_overrides={
             "SF_PROD": {"platform": "snowflake", "platform_instance": "custom"},
@@ -129,7 +123,6 @@ def test_resolver_named_connection_falls_back_to_typeid_default():
 
 
 def test_resolver_disabled_returns_none():
-    """A federated connection marked enabled=False resolves to DISABLED skip."""
     cfg = _config_with(
         map_overrides={"SF_PROD": {"platform": "snowflake", "enabled": False}}
     )
@@ -160,7 +153,7 @@ def test_resolver_unknown_typeid_returns_none_and_records_warning():
 
 def test_resolver_unknown_connection_name_returns_unknown_connection_reason():
     cfg = _config_with()
-    # Empty connections list — the asset references "MYSTERY" which the API never reported.
+    # Empty connections list — the asset references a connection the API never reported.
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     result = resolver.resolve("MYSTERY")
     resolved = result.platform
@@ -184,8 +177,6 @@ def test_resolver_env_falls_back_to_connector_env():
 
 
 def test_resolver_env_explicit_in_map_wins_over_connector_env():
-    """An explicit `env` in a federated connection_to_platform_map entry
-    overrides the connector-level env."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -234,9 +225,7 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     report = SapDatasphereReport()
-    # Mixed casing of the SAME unknown typeId: the dedup key is case-folded, so a
-    # tenant reporting "KAFKA" and "kafka" for the same type must still warn once.
-    # (Feeding only identical casing would pass even if .upper() were dropped.)
+    # Mixed casing of the same typeId — the dedup key is case-folded, so KAFKA/kafka must still warn once.
     connections: Dict[str, ConnectionRecord] = {
         "X1": {"name": "X1", "typeId": "KAFKA"},
         "X2": {"name": "X2", "typeId": "kafka"},
@@ -245,13 +234,10 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
     resolver = PlatformMappingResolver(
         cfg, connections_by_name=connections, report=report
     )
-    # All three resolve calls must return the UNKNOWN_TYPEID skip reason.
     for name in ("X1", "X2", "X3"):
         result = resolver.resolve(name)
         assert result.platform is None
         assert result.skip_reason == ResolveSkipReason.UNKNOWN_TYPEID
-    # Only ONE report warning for the unmapped typeId despite 3 differently-cased
-    # calls, and only one case-folded key retained.
     kafka_warnings = [w for w in report.warnings if "kafka" in w.message.lower()]
     assert len(kafka_warnings) == 1, (
         f"Expected exactly 1 deduplicated warning; got {len(kafka_warnings)}"
@@ -260,11 +246,7 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
 
 
 def test_builtin_typeid_default_resolves_with_builtin_casing():
-    """Cross-connector URN stitching depends on the per-platform casing that a
-    federated builtin resolves with, not just the explicit per-connection
-    override that the other tests exercise. Assert the concrete default for
-    BIGQUERY (convert_urns_to_lowercase=True) so a regression in the builtin
-    table — or in resolve_external threading it through — is caught."""
+    """Cross-connector URN stitching depends on the casing a federated builtin resolves with; guard BIGQUERY's convert_urns_to_lowercase default."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     resolved = resolver.resolve_external("NOT_IN_LIST", "BIGQUERY").platform
@@ -275,10 +257,7 @@ def test_builtin_typeid_default_resolves_with_builtin_casing():
 
 
 def test_managed_connection_resolves_to_sap_datasphere_regardless_of_config():
-    """The synthetic `_managed` key always emits on the Datasphere platform.
-    A user-provided `_managed: hana` override is ignored — managed assets are
-    Datasphere assets, not HANA assets.
-    """
+    """The synthetic _managed key always emits on Datasphere; a user _managed: hana override is ignored."""
     config = SapDatasphereConfig(
         base_url="https://example.com",
         token="t",
@@ -301,8 +280,7 @@ def test_managed_connection_resolves_to_sap_datasphere_regardless_of_config():
 
 
 def test_managed_connection_inherits_top_level_platform_instance():
-    """Managed assets' platform_instance comes from top-level config.platform_instance,
-    not from any `_managed` entry."""
+    """Managed assets' platform_instance comes from top-level config, not any _managed entry."""
     config = SapDatasphereConfig(
         base_url="https://example.com",
         token="t",
@@ -316,8 +294,7 @@ def test_managed_connection_inherits_top_level_platform_instance():
 
 
 def test_managed_can_be_disabled_via_explicit_override():
-    """Users who want to skip Datasphere's managed assets entirely can set
-    `_managed: {enabled: false}` — the only field still honored on `_managed`."""
+    """enabled=false is the only field still honored on _managed, letting users skip managed assets entirely."""
     config = SapDatasphereConfig(
         base_url="https://example.com",
         token="t",
@@ -336,8 +313,7 @@ def test_managed_can_be_disabled_via_explicit_override():
 
 
 def test_federated_connection_unchanged():
-    """Federated connections still route via connection_to_platform_map —
-    only `_managed` short-circuits to sap-datasphere."""
+    """Federated connections still route via connection_to_platform_map — only _managed short-circuits."""
     config = SapDatasphereConfig(
         base_url="https://example.com",
         token="t",
@@ -364,8 +340,7 @@ def test_federated_connection_unchanged():
 
 
 def test_resolve_external_uses_connection_type_when_name_absent():
-    """A replication-flow endpoint names a connectionId not in the connections
-    list; the endpoint's own connectionType resolves it via type defaults."""
+    """An endpoint names a connectionId absent from the connections list; its connectionType resolves it via type defaults."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     result = resolver.resolve_external("NOT_IN_LIST", "S3")
@@ -389,10 +364,7 @@ def test_resolve_external_prefers_explicit_name_map_over_type():
 
 
 def test_resolve_external_propagates_database_and_lowercase_override():
-    """A per-connection map entry can carry both a per-platform lowercase
-    override and an explicit `database` (e.g. the BigQuery GCP project the API
-    omits); both must reach the ResolvedPlatform so URNs stitch to the sibling
-    connector."""
+    """A per-connection entry can carry both a lowercase override and an explicit database (e.g. the BigQuery project); both must reach ResolvedPlatform for stitching."""
     cfg = _config_with(
         map_overrides={
             "BQ_CONN": {
@@ -426,17 +398,13 @@ def test_resolve_external_disabled_type_default_returns_none():
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     result = resolver.resolve_external(None, "S3")
-    # A disabled type default is not usable; with no name to fall back on the
-    # endpoint is unresolved, and the reason must be the explicit DISABLED (not
-    # UNKNOWN_CONNECTION).
+    # A disabled type default with no name to fall back on is unresolved with reason DISABLED, not UNKNOWN_CONNECTION.
     assert result.platform is None
     assert result.skip_reason == ResolveSkipReason.DISABLED
 
 
 def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
-    """Regression: a disabled type default with a connection name that isn't in
-    the connections list must report DISABLED, not fall through to resolve() and
-    mis-report UNKNOWN_CONNECTION."""
+    """Regression: a disabled type default with an unknown connection name must report DISABLED, not fall through to UNKNOWN_CONNECTION."""
     cfg = _config_with(
         type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
     )
@@ -452,8 +420,7 @@ def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
 
 
 def test_resolve_external_connection_type_is_case_insensitive():
-    """A flow endpoint may report connectionType in any case; it must still match
-    the canonical (uppercase) platform_type_defaults key."""
+    """A flow endpoint may report connectionType in any case; it must still match the uppercase platform_type_defaults key."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     for connection_type in ("bigquery", "BigQuery", "BIGQUERY"):
@@ -463,8 +430,7 @@ def test_resolve_external_connection_type_is_case_insensitive():
 
 
 def test_typeid_default_matches_regardless_of_typeid_case():
-    """The connections-list typeId can arrive lowercased; the resolver must fold
-    case before matching type defaults so the connection isn't skipped."""
+    """The connections-list typeId can arrive lowercased; the resolver folds case before matching type defaults."""
     cfg = _config_with()
     connections = {
         "GBQ": ConnectionRecord(name="GBQ", typeId="bigquery"),
@@ -477,8 +443,7 @@ def test_typeid_default_matches_regardless_of_typeid_case():
 
 
 def test_user_supplied_lowercase_type_default_key_matches_uppercase_typeid():
-    """A user who adds a lowercased key under platform_type_defaults must still
-    match SAP's canonical uppercase typeId."""
+    """A user-supplied lowercased platform_type_defaults key must still match SAP's canonical uppercase typeId."""
     cfg = _config_with(type_defaults_overrides={"snowflake": {"platform": "snowflake"}})
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
     resolved = resolver.resolve_external("NOT_IN_LIST", "SNOWFLAKE").platform

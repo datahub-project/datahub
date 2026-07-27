@@ -23,11 +23,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 
 class ConnectionPlatformConfig(ConfigModel):
-    """How to project a SAP Datasphere source connection (or the Datasphere tenant's own
-    managed storage) onto a DataHub platform.
-
-    One of these is resolved per asset, then used to construct the asset's DatasetUrn.
-    """
+    """How to project a SAP Datasphere connection (or the tenant's own managed storage)
+    onto a DataHub platform; one is resolved per asset to build its DatasetUrn."""
 
     platform: str = Field(
         description="The DataHub platform name (e.g. 'hana', 'snowflake', 's3'). Required.",

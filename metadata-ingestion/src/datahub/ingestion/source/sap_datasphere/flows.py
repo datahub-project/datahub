@@ -111,7 +111,6 @@ def _process_endpoint(config: JsonDict) -> Optional[FlowEndpoint]:
 
 
 def _attribute_mappings(config: JsonDict) -> List[AttrMapping]:
-    # (downstream_col, upstream_col) pairs for bare column expressions.
     mappings = config.get(FLOW_CONFIG_ATTR_MAPPINGS)
     if not isinstance(mappings, list):
         return []
@@ -210,8 +209,8 @@ def _parse_process_flow(
 def _parse_replication_flow(
     payload: JsonDict, technical_name: str
 ) -> Optional[ParsedFlow]:
-    """Parse a replication flow: one or more (sourceObject -> targetObject) tasks
-    piping data between two external systems, with per-task column mappings."""
+    """One or more (sourceObject -> targetObject) tasks piping data between two
+    external systems, with per-task column mappings."""
     body = _flow_body(payload, OBJECT_TYPE_REPLICATION_FLOWS, technical_name)
     if body is None:
         return None
@@ -327,9 +326,7 @@ def _parse_task_chain(payload: JsonDict, technical_name: str) -> Optional[Parsed
 def parse_flow(
     payload: JsonDict, object_type: str, technical_name: str
 ) -> Optional[ParsedFlow]:
-    """Reduce a flow definition to its IO datasets + column mappings.
-
-    ``transformationflows`` and ``taskchains`` are EXPERIMENTAL: no live payload
+    """``transformationflows`` and ``taskchains`` are EXPERIMENTAL: no live payload
     was available to verify their grammar. Transformation flows are parsed with
     the data-flow process-graph reader (they share the ``sap.dis`` process
     model); task chains are surfaced as IO-less jobs.

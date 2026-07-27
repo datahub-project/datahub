@@ -11,26 +11,13 @@ _DATASET_ENTITY_TYPE = "dataset"
 
 
 class ExternalUrnGraphResolver:
-    """Reconcile a candidate external dataset name against the real physical URN
-    a sibling connector already emitted, using the DataHub graph.
-
-    SAP Datasphere's flow API reports source/target names in a *logical* form
+    """SAP Datasphere's flow API reports source/target names in a *logical* form
     that need not match the physical warehouse table: the leaf is lower-cased,
     while BigQuery preserves source case, and a replication target can carry a
     source-added prefix (e.g. ``w01_cds_<table>``). Left unresolved those edges
-    dangle. This looks the candidate up by its (case-insensitive) leaf within
-    the same ``platform`` + ``platform_instance`` + ``env`` + parent path and,
-    on an unambiguous hit, returns the real name so the lineage stitches.
-
-    Matching is deliberately conservative — a candidate resolves only to a
-    single real table:
-
-    1. exactly one real table whose leaf equals the candidate leaf
-       (case-insensitive), else
-    2. exactly one real table whose leaf ends with ``_<candidate leaf>``
-       (case-insensitive) — covers a source-added prefix.
-
-    Anything ambiguous or absent is left to the caller's original candidate.
+    dangle. Matching is deliberately conservative — a candidate resolves only to
+    a single unambiguous real table; anything ambiguous or absent is left to the
+    caller's original candidate.
     """
 
     def __init__(self, graph: DataHubGraph, report: SapDatasphereReport) -> None:
