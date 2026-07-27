@@ -22,13 +22,13 @@ Same layout and env contract; only the image name changes. **Full** and **slim**
 
 Used by **`build_bundled_venvs_unified.sh`** / **`.py`**. Published **`datahub-actions`** images also set matching **`ENV`** values (path, plugin lists, **`BUNDLED_CLI_VERSION`**, **`BUNDLED_VENV_SLIM_MODE`**) so **`FROM`** inherits them.
 
-| Variable                            | Meaning                                                                                                                                                                           |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`BUNDLED_VENV_PLUGINS`**          | Every plugin that gets a **`{plugin}-bundled`** path (comma-separated).                                                                                                           |
-| **`BUNDLED_VENV_PLUGINS_<suffix>`** | Plugins sharing one install → **`{suffix_lower}-venv`** (e.g. **`COMMON`** → **`common-venv`**).                                                                                  |
+| Variable                            | Meaning                                                                                                                                                                                        |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`BUNDLED_VENV_PLUGINS`**          | Every plugin that gets a **`{plugin}-bundled`** path (comma-separated).                                                                                                                        |
+| **`BUNDLED_VENV_PLUGINS_<suffix>`** | Plugins sharing one install → **`{suffix_lower}-venv`** (e.g. **`COMMON`** → **`common-venv`**).                                                                                               |
 | **`BUNDLED_CLI_VERSION`**           | PyPI pin for **`acryl-datahub`**. Published images set this as **`ENV`** so extenders inherit it. If unset, the shell wrapper falls back to the installed **`acryl-datahub`** package version. |
-| **`BUNDLED_VENV_SLIM_MODE`**        | **`true`** uses **`-slim`** extras where applicable and checks PySpark is absent in slim builds.                                                                                  |
-| **`DATAHUB_BUNDLED_VENV_PATH`**     | Root for venvs (default **`/opt/datahub/venvs`**).                                                                                                                                |
+| **`BUNDLED_VENV_SLIM_MODE`**        | **`true`** uses **`-slim`** extras where applicable and checks PySpark is absent in slim builds.                                                                                               |
+| **`DATAHUB_BUNDLED_VENV_PATH`**     | Root for venvs (default **`/opt/datahub/venvs`**).                                                                                                                                             |
 
 Each plugin appears **once** across groups or as a singleton; group lists ⊆ **`BUNDLED_VENV_PLUGINS`**. More detail lives in the repo at **`docker/snippets/ingestion/README.md`** (bundled venv builder configuration).
 
