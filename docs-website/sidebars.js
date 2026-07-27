@@ -401,8 +401,31 @@ module.exports = {
         },
         {
           label: "Context Documents",
-          type: "doc",
-          id: "docs/features/feature-guides/context/context-documents",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/context/context-documents",
+          },
+          items: [
+            {
+              label: "Import from Notion",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-notion",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from Confluence",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-confluence",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from GitHub",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-github",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Asset Summaries",
