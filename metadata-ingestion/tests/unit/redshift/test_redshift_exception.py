@@ -66,3 +66,32 @@ def test_handle_redshift_exceptions_do_not_swallow_other_errors() -> None:
     with pytest.raises(ValueError):
         list(handle_redshift_exceptions_yield(report, lambda: (_ for _ in [boom()])))
     assert not report.failures
+
+
+def _programming_error(message: str) -> redshift_connector.error.ProgrammingError:
+    # redshift_connector wraps the server response in a dict keyed by the
+    # single-letter Postgres protocol field codes; "M" is the human-readable
+    # message, matching the shape seen in real driver exceptions.
+    return redshift_connector.error.ProgrammingError(
+        {"S": "ERROR", "C": "XX000", "M": message}
+    )
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "could not open relation with OID 12345",
+        "Could Not Open Relation With OID 999",
+    ],
+)
+def test_could_not_open_relation_with_oid_reported_as_warning(message: str) -> None:
+    """A concurrent catalog change (e.g. an ETL job dropping/recreating a table
+    mid-extraction) surfaces as 'could not open relation with OID <n>'. This is
+    a transient catalog-race condition, not a hard failure like a permissions
+    or connectivity problem, so it must land in warnings, not failures."""
+    report = RedshiftReport()
+
+    report_redshift_failure(report, _programming_error(message))
+
+    assert [w.title for w in report.warnings] == ["Transient catalog error"]
+    assert not report.failures
