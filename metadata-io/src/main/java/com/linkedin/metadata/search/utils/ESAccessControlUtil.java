@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
-import static com.datahub.authorization.AuthUtil.VIEW_RESTRICTED_ENTITY_TYPES;
+import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
 import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 
 import com.datahub.authorization.AuthUtil;
@@ -47,7 +47,9 @@ public class ESAccessControlUtil {
           final com.linkedin.metadata.models.EntitySpec entitySpec =
               entityRegistry.getEntitySpec(entityType);
 
-          if (VIEW_RESTRICTED_ENTITY_TYPES.contains(entityType)
+          if (isViewRestrictedEntityType(
+                  opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
+                  entityType)
               && !canViewEntity(opContext, searchEntity.getEntity())) {
 
             // Not authorized && restricted response requested
