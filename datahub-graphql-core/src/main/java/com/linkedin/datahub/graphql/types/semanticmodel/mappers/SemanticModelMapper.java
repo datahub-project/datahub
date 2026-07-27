@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SemanticModel;
 import com.linkedin.datahub.graphql.generated.SemanticModelInfo;
 import com.linkedin.datahub.graphql.generated.SemanticModelRelationship;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
@@ -178,6 +179,13 @@ public class SemanticModelMapper {
               context, new Documentation(envelopedDocumentation.getValue().data())));
     }
 
+    final EnvelopedAspect envelopedAiContext = aspects.get(Constants.AI_CONTEXT_ASPECT_NAME);
+    if (envelopedAiContext != null) {
+      result.setAiContext(
+          AiContextMapper.map(
+              new com.linkedin.common.AiContext(envelopedAiContext.getValue().data())));
+    }
+
     final EnvelopedAspect envelopedBrowsePathsV2 =
         aspects.get(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     if (envelopedBrowsePathsV2 != null) {
@@ -209,11 +217,6 @@ public class SemanticModelMapper {
     }
     if (pdl.hasNativeDefinition() && pdl.getNativeDefinition() != null) {
       result.setNativeDefinition(pdl.getNativeDefinition());
-    }
-    if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(
-          com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper.map(
-              pdl.getAiContext()));
     }
 
     final List<Dataset> datasets;
@@ -262,9 +265,7 @@ public class SemanticModelMapper {
     }
 
     if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(
-          com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper.map(
-              pdl.getAiContext()));
+      result.setAiContext(AiContextMapper.map(pdl.getAiContext()));
     }
 
     return result;

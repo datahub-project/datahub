@@ -4,7 +4,6 @@ import com.linkedin.datahub.graphql.generated.Dimension;
 import com.linkedin.datahub.graphql.generated.SemanticFieldAnnotation;
 import com.linkedin.datahub.graphql.generated.SemanticFieldType;
 import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
-import com.linkedin.datahub.graphql.types.metric.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.metric.mappers.MetricExpressionMapper;
 import javax.annotation.Nonnull;
 
@@ -37,10 +36,6 @@ public class SemanticFieldAnnotationMapper {
 
     if (pdl.hasDimension() && pdl.getDimension() != null) {
       result.setDimension(mapDimension(pdl.getDimension()));
-    }
-
-    if (pdl.hasAiContext() && pdl.getAiContext() != null) {
-      result.setAiContext(AiContextMapper.map(pdl.getAiContext()));
     }
 
     return result;

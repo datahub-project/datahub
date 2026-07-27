@@ -232,6 +232,29 @@ public class SemanticModelMapperTest {
     }
   }
 
+  @Test
+  public void testMapTopLevelAiContextAspect() {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    com.linkedin.common.AiContext aiContext =
+        new com.linkedin.common.AiContext()
+            .setInstructions("Prefer this model for order analytics.")
+            .setExamples(new com.linkedin.data.template.StringArray("orders by region"));
+    addAspect(entityResponse, AI_CONTEXT_ASPECT_NAME, aiContext);
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(semanticModelUrn))).thenReturn(true);
+
+      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getAiContext());
+      assertEquals(
+          result.getAiContext().getInstructions(), "Prefer this model for order analytics.");
+      assertEquals(result.getAiContext().getExamples().size(), 1);
+      assertEquals(result.getAiContext().getExamples().get(0), "orders by region");
+    }
+  }
+
   private EntityResponse createBaseEntityResponse() {
     EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(semanticModelUrn);

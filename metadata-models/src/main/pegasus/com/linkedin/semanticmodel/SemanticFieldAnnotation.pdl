@@ -1,6 +1,5 @@
 namespace com.linkedin.semanticmodel
 
-import com.linkedin.metric.AiContext
 import com.linkedin.metric.MetricExpression
 
 /**
@@ -11,7 +10,8 @@ import com.linkedin.metric.MetricExpression
  * (tags, glossary terms), which live on the `schemaField` entity itself.
  */
 @Aspect = {
-  "name": "semanticFieldAnnotation"
+  "name": "semanticFieldAnnotation",
+  "schemaVersion": 2
 }
 record SemanticFieldAnnotation {
 
@@ -37,10 +37,5 @@ record SemanticFieldAnnotation {
    * Dimension-specific metadata. Populated when `type == DIMENSION`; ignored otherwise.
    */
   dimension: optional Dimension
-
-  /**
-   * AI-specific context for improved disambiguation and retrieval.
-   */
-  aiContext: optional AiContext
 
 }

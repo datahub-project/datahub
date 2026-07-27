@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AiContextMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -95,6 +96,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         (schemaField, dataMap) ->
             schemaField.setSemanticFieldAnnotation(
                 SemanticFieldAnnotationMapper.map(new SemanticFieldAnnotation(dataMap))));
+    mappingHelper.mapToResult(
+        AI_CONTEXT_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setAiContext(
+                AiContextMapper.map(new com.linkedin.common.AiContext(dataMap))));
 
     return result;
   }

@@ -39,10 +39,14 @@ Core metadata is stored in the `semanticModelInfo` aspect:
   [Logical Datasets as Dataset Entities](#logical-datasets-as-dataset-entities) below.
 - **`relationships`** — optional array of `SemanticModelRelationship` records describing join
   paths between the logical datasets in this model (from-alias, to-alias, join columns, optional
-  name, optional cardinality reusing `ERModelRelationshipCardinality`, and AI context). The
-  from/to aliases refer to each logical dataset's `semanticModelProperties.alias`.
-- **`aiContext`** — optional hints for AI/LLM consumers: synonyms, natural-language instructions,
-  few-shot examples, and custom instructions.
+  name, optional cardinality reusing `ERModelRelationshipCardinality`, and optional per-relationship
+  AI context). The from/to aliases refer to each logical dataset's `semanticModelProperties.alias`.
+
+### AI Context
+
+Optional AI/LLM hints for the semantic model itself are stored in the first-class `aiContext`
+aspect (synonyms, natural-language instructions, few-shot examples, and custom instructions).
+Per-relationship AI context on `SemanticModelRelationship` remains inlined.
 
 ### Logical Datasets as Dataset Entities
 
@@ -93,7 +97,8 @@ for that column:
   `AVG`) applied when `type == MEASURE`.
 - **`dimension`** — optional `Dimension` record; populated only when `type == DIMENSION`. Currently
   exposes `isTime: boolean` to flag time dimensions used for date-range filtering.
-- **`aiContext`** — AI hints specific to this field.
+
+Field-level AI/LLM hints live on the `schemaField` entity's first-class `aiContext` aspect.
 
 ### Inline Query Sources
 
@@ -131,7 +136,7 @@ using `schemaField` URNs on both sides — no semantic-model-specific column lin
 The semantic model entity reuses these standard governance aspects: `ownership`, `domains`,
 `globalTags`, `glossaryTerms`, `institutionalMemory`, `structuredProperties`, `status`,
 `deprecation`, `dataPlatformInstance`, `subTypes`, `documentation`, `browsePathsV2`,
-`applications`.
+`applications`, `aiContext`.
 
 Its logical dataset entities (and their `schemaField`s) inherit the full standard Dataset/SchemaField
 governance surface automatically — tags, glossary terms, ownership, descriptions, structured

@@ -1,7 +1,7 @@
 namespace com.linkedin.semanticmodel
 
+import com.linkedin.common.AiContext
 import com.linkedin.ermodelrelation.ERModelRelationshipCardinality
-import com.linkedin.metric.AiContext
 
 /**
  * A join relationship between two logical datasets defined within a SemanticModel.

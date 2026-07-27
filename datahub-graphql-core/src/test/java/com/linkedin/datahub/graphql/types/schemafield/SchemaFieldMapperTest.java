@@ -175,4 +175,30 @@ public class SchemaFieldMapperTest {
     assertEquals(result.getSemanticFieldAnnotation().getAggregationFunction(), "SUM");
     assertEquals(result.getSemanticFieldAnnotation().getExpression().getDialects().size(), 1);
   }
+
+  @Test
+  public void testSchemaFieldMapperWithAiContextAspect() throws Exception {
+    Urn schemaFieldUrn = Urn.createFromString(TEST_SCHEMA_FIELD_URN);
+
+    com.linkedin.common.AiContext aiContext =
+        new com.linkedin.common.AiContext()
+            .setInstructions("Treat this field as gross revenue.")
+            .setSynonyms(new com.linkedin.data.template.StringArray("gross_rev"));
+
+    Map<String, EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.AI_CONTEXT_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(aiContext.data())));
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(schemaFieldUrn);
+    entityResponse.setAspects(new EnvelopedAspectMap(aspects));
+
+    SchemaFieldEntity result = SchemaFieldMapper.map(null, entityResponse);
+
+    assertNotNull(result.getAiContext());
+    assertEquals(result.getAiContext().getInstructions(), "Treat this field as gross revenue.");
+    assertEquals(result.getAiContext().getSynonyms().size(), 1);
+    assertEquals(result.getAiContext().getSynonyms().get(0), "gross_rev");
+  }
 }

@@ -175,6 +175,11 @@ type Metric implements EntityWithRelationships & Entity {
   documentation: Documentation
 
   """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
+
+  """
   Applications associated with this Metric.
   """
   applications: EntityRelationshipsResult
@@ -311,6 +316,11 @@ type SemanticModel implements EntityWithRelationships & Entity {
   documentation: Documentation
 
   """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
+
+  """
   Applications associated with this SemanticModel.
   """
   applications: EntityRelationshipsResult
@@ -345,7 +355,6 @@ type MetricInfo {
   created: ResolvedAuditStamp
   lastModified: ResolvedAuditStamp
   expression: MetricExpression
-  aiContext: AiContext
   """
   URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
   """
@@ -394,7 +403,6 @@ type SemanticModelInfo {
   The native definition of the semantic model (e.g., YAML config, SQL DDL).
   """
   nativeDefinition: String
-  aiContext: AiContext
   """
   The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
   right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
@@ -435,7 +443,6 @@ type SemanticFieldAnnotation {
   expression: MetricExpression!
   aggregationFunction: String
   dimension: Dimension
-  aiContext: AiContext
 }
 
 """
@@ -500,8 +507,8 @@ enum Dialect {
 }
 
 """
-AI/LLM context attached to a Metric, SemanticFieldAnnotation, or SemanticModelRelationship
-to improve natural-language understanding and query generation.
+AI/LLM context attached to a Metric, SemanticModel, SchemaFieldEntity, or
+SemanticModelRelationship to improve natural-language understanding and query generation.
 """
 type AiContext {
   synonyms: [String!]
@@ -524,4 +531,9 @@ extend type SchemaFieldEntity {
   field's role (dimension/measure/filter) and carries its computing expression.
   """
   semanticFieldAnnotation: SemanticFieldAnnotation
+
+  """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext
 }
