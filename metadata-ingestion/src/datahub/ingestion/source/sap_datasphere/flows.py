@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Set, Tuple
 
-from datahub.ingestion.source.common.subtypes import DataJobSubTypes
+from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 from datahub.ingestion.source.sap_datasphere.constants import (
     FLOW_ATTR_MAP_EXPRESSION,
     FLOW_ATTR_MAP_TARGET,
@@ -44,11 +44,13 @@ from datahub.ingestion.source.sap_datasphere.models import (
     SystemIdentity,
 )
 
+# ParsedFlow.subtype is the flow's *pipeline* type (the DataFlow subtype). The
+# source layer maps it to the per-task DataJob subtype when emitting jobs.
 _SUBTYPE_BY_OBJECT_TYPE: Dict[str, str] = {
-    OBJECT_TYPE_DATA_FLOWS: DataJobSubTypes.SAP_DATA_FLOW,
-    OBJECT_TYPE_REPLICATION_FLOWS: DataJobSubTypes.SAP_REPLICATION_FLOW,
-    OBJECT_TYPE_TRANSFORMATION_FLOWS: DataJobSubTypes.SAP_TRANSFORMATION_FLOW,
-    OBJECT_TYPE_TASK_CHAINS: DataJobSubTypes.SAP_TASK_CHAIN,
+    OBJECT_TYPE_DATA_FLOWS: DataFlowSubTypes.SAP_DATA_FLOW,
+    OBJECT_TYPE_REPLICATION_FLOWS: DataFlowSubTypes.SAP_REPLICATION_FLOW,
+    OBJECT_TYPE_TRANSFORMATION_FLOWS: DataFlowSubTypes.SAP_TRANSFORMATION_FLOW,
+    OBJECT_TYPE_TASK_CHAINS: DataFlowSubTypes.SAP_TASK_CHAIN,
 }
 
 
@@ -253,7 +255,7 @@ def _parse_replication_flow(
         return None
     return ParsedFlow(
         technical_name=technical_name,
-        subtype=DataJobSubTypes.SAP_REPLICATION_FLOW,
+        subtype=DataFlowSubTypes.SAP_REPLICATION_FLOW,
         inputs=inputs_t,
         outputs=outputs_t,
         column_mappings=column_mappings,
@@ -307,7 +309,7 @@ def _parse_task_chain(payload: JsonDict, technical_name: str) -> Optional[Parsed
         return None
     return ParsedFlow(
         technical_name=technical_name,
-        subtype=DataJobSubTypes.SAP_TASK_CHAIN,
+        subtype=DataFlowSubTypes.SAP_TASK_CHAIN,
     )
 
 

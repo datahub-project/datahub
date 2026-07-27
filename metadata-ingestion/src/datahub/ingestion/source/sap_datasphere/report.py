@@ -78,6 +78,10 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # Flows where producer column mappings were dropped to table-level because the
     # flow has multiple inputs (column attribution would be ambiguous).
     flow_column_lineage_suppressed_multi_input: int = 0
+    # Flow targets on the Datasphere platform that were never scanned this run, so
+    # their dataset-level UpstreamLineage was skipped to avoid materializing a bare
+    # phantom dataset under the space (the DataJob IO still carries the lineage).
+    flow_targets_skipped_unscanned: LossyList[str] = field(default_factory=LossyList)
 
     # Federated Remote Tables and their external upstream lineage.
     remote_tables_scanned: int = 0

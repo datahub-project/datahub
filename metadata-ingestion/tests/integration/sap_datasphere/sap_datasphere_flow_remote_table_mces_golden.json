@@ -547,7 +547,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -564,7 +564,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -573,7 +573,7 @@
                 "sap_datasphere_space": "FED_TEST",
                 "sap_datasphere_asset": "DF_ENRICH_CUSTOMER"
             },
-            "name": "DF_ENRICH_CUSTOMER",
+            "name": "ENRICHED_CUSTOMER",
             "type": {
                 "string": "COMMAND"
             },
@@ -589,13 +589,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
         "json": {
             "typeNames": [
-                "Data Flow"
+                "Data Flow Task"
             ]
         }
     },
@@ -648,7 +648,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -682,7 +682,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -724,44 +724,6 @@
                 {
                     "id": "urn:li:container:e73f5f043693ad9854a085a2326bf3be",
                     "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-federation-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,test_tenant.fed_test.enriched_customer,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,test_tenant.fed_test.src_customer,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,test_tenant.fed_test.src_customer,PROD),NAME)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,test_tenant.fed_test.enriched_customer,PROD),CUSTOMER_NAME)"
-                    ],
-                    "confidenceScore": 1.0
                 }
             ]
         }
@@ -874,6 +836,66 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sap_datasphere_space": "FED_TEST",
+                "sap_datasphere_asset": "RF_CUSTOMER_TO_BQ"
+            },
+            "name": "CUSTOMER",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Replication Task"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:Measure",
     "changeType": "UPSERT",
@@ -897,6 +919,56 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:abap,cds.customer,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.CUSTOMER,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
+                },
+                {
+                    "id": "urn:li:container:e73f5f043693ad9854a085a2326bf3be",
+                    "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
+                },
+                {
+                    "id": "test_tenant.fed_test.rf_customer_to_bq",
+                    "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -963,13 +1035,14 @@
     }
 },
 {
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:sap:calendar:week",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:sap-datasphere",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
         }
     },
     "systemMetadata": {
@@ -980,7 +1053,50 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),df_enrich_customer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sap_datasphere_space": "FED_TEST",
+                "sap_datasphere_asset": "RF_CUSTOMER_TO_BQ"
+            },
+            "name": "SALES_ORDER",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Replication Task"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:sap:calendar:week",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1002,6 +1118,72 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:abap,cds.sales_order,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.SALES_ORDER,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD),enriched_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "sap-datasphere-federation-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
+                },
+                {
+                    "id": "urn:li:container:e73f5f043693ad9854a085a2326bf3be",
+                    "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
+                },
+                {
+                    "id": "test_tenant.fed_test.rf_customer_to_bq",
+                    "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1075,89 +1257,6 @@
     }
 },
 {
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sap-datasphere",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-federation-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "sap_datasphere_space": "FED_TEST",
-                "sap_datasphere_asset": "RF_CUSTOMER_TO_BQ"
-            },
-            "name": "RF_CUSTOMER_TO_BQ",
-            "type": {
-                "string": "COMMAND"
-            },
-            "flowUrn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-federation-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Replication Flow"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-federation-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:abap,cds.customer,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:abap,cds.sales_order,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.CUSTOMER,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-gcp-project.staging.SALES_ORDER,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-federation-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.df_enrich_customer,PROD)",
     "changeType": "UPSERT",
@@ -1175,25 +1274,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),customer)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,test_tenant)"
-                },
-                {
-                    "id": "urn:li:container:e73f5f043693ad9854a085a2326bf3be",
-                    "urn": "urn:li:container:e73f5f043693ad9854a085a2326bf3be"
-                },
-                {
-                    "id": "test_tenant.fed_test.rf_customer_to_bq",
-                    "urn": "urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD)"
-                }
-            ]
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -1204,7 +1290,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),rf_customer_to_bq)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sap-datasphere,test_tenant.fed_test.rf_customer_to_bq,PROD),sales_order)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

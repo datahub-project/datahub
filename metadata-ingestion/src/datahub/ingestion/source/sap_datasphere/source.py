@@ -1,11 +1,12 @@
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Type, Union
+from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Set, Type, Union
 
 import requests
 
 from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
@@ -32,6 +33,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessor
 from datahub.ingestion.source.common.subtypes import (
     DataFlowSubTypes,
+    DataJobSubTypes,
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
@@ -102,6 +104,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     EdmxParseResult,
     FlowColumnMapping,
     FlowEndpoint,
+    FlowTask,
     JsonDict,
     ParsedFlow,
     ResolvedPlatform,
@@ -176,6 +179,17 @@ def _chunked(iterable: Iterable[Dict], size: int) -> Iterator[List[Dict]]:
         yield chunk
 
 
+# A flow's pipeline type (on the DataFlow) -> the task-role subtype carried by
+# each DataJob it produces. Keeps the DataFlow and its tasks from sharing one
+# label (a "Replication Flow" pipeline holds "Replication Task" jobs).
+_JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
+    DataFlowSubTypes.SAP_DATA_FLOW: DataJobSubTypes.SAP_DATA_FLOW_TASK,
+    DataFlowSubTypes.SAP_REPLICATION_FLOW: DataJobSubTypes.SAP_REPLICATION_TASK,
+    DataFlowSubTypes.SAP_TRANSFORMATION_FLOW: DataJobSubTypes.SAP_TRANSFORMATION_TASK,
+    DataFlowSubTypes.SAP_TASK_CHAIN: DataJobSubTypes.SAP_TASK_CHAIN_STEP,
+}
+
+
 @platform_name("SAP Datasphere")
 @config_class(SapDatasphereConfig)
 @support_status(SupportStatus.TESTING)
@@ -244,6 +258,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # last write would win and drop the earlier flow's edges. Emitted once
         # per target at the end of the run (see _emit_flow_downstream_lineage).
         self._flow_downstream_lineage: Dict[str, UpstreamLineageClass] = {}
+        # URNs of the real Datasphere datasets we actually scanned and emitted
+        # (Views, Analytic Models, Local/Remote Tables). Used at flush time to
+        # decide whether a flow target deserves a dataset-level UpstreamLineage:
+        # writing that aspect *materializes* the target, so a Datasphere target we
+        # never scanned would appear as a bare phantom under its space. Bounded by
+        # the scanned-dataset count (a set of URN strings) — fine at tenant scale.
+        self._emitted_dataset_urns: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -503,6 +524,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             },
             schema=schema_fields,
         )
+        self._emitted_dataset_urns.add(self._dataset_urn(resolved, dataset_name))
         yield from dataset.as_workunits()
         self.report.local_tables_emitted += 1
 
@@ -520,10 +542,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_flows_for_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
         """Emit each enabled flow object (data / replication / transformation flow,
-        task chain) as its own DataFlow (pipeline) with a single DataJob that
-        carries its IO objects as inlets/outlets and its column mappings as
-        fine-grained lineage. Each flow's DataFlow is parented under the space
-        container, so the space's flows sit directly beside its datasets.
+        task chain) as its own DataFlow (pipeline) parented under the space
+        container, plus one DataJob per target the flow produces. A replication
+        flow's N source->target pairs become N tasks; a single-target data or
+        transformation flow becomes one task named after its target. Each task
+        carries its own inlets/outlets and the column mappings landing on it.
         """
         flow_types = self._enabled_flow_types()
         if not flow_types:
@@ -561,7 +584,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 yield from dataflow.as_workunits()
                 yield from self._isolate(
                     f"{space_name}.{object_type}.{technical_name}",
-                    self._emit_flow_job(space_name, dataflow, parsed),
+                    self._emit_flow_jobs(space_name, dataflow, parsed),
                 )
                 self._bump_report(_FLOW_EMITTED_ATTR[object_type])
 
@@ -605,9 +628,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _build_flow_dataflow(self, space_name: str, parsed: ParsedFlow) -> DataFlow:
         # One DataFlow per flow (pipeline), named <space>.<flow> for cross-space
-        # uniqueness and parented under the space container. parsed.subtype holds
-        # the flow-type label (e.g. "Data Flow"), which is a valid DataFlowSubTypes
-        # value, so it doubles as the pipeline's subtype.
+        # uniqueness and parented under the space container. parsed.subtype is the
+        # flow's pipeline type (a DataFlowSubTypes value); its tasks take the
+        # matching DataJob task-role subtype via _JOB_SUBTYPE_BY_FLOW.
         return DataFlow(
             platform=PLATFORM,
             name=self._maybe_lower(f"{space_name}.{parsed.technical_name}"),
@@ -618,7 +641,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             parent_container=self._space_key(space_name),
         )
 
-    def _emit_flow_job(
+    def _emit_flow_jobs(
         self, space_name: str, dataflow: DataFlow, parsed: ParsedFlow
     ) -> Iterable[MetadataWorkUnit]:
         # Keyed separately by side: a replication task usually replicates an
@@ -628,7 +651,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         input_urn_by_object: Dict[str, str] = {}
         output_urn_by_object: Dict[str, str] = {}
         inlets: List[Union[str, DatasetUrn]] = []
-        outlets: List[Union[str, DatasetUrn]] = []
         for endpoint in parsed.inputs:
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
@@ -638,38 +660,48 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             urn = self._resolve_flow_endpoint_urn(space_name, endpoint)
             if urn is not None:
                 output_urn_by_object[endpoint.object_name] = urn
-                outlets.append(urn)
 
-        fine_grained = self._build_flow_fine_grained(
-            parsed, input_urn_by_object, output_urn_by_object
-        )
-        job = DataJob(
-            # The flow's DataFlow URN already carries <space>.<flow>, so the job
-            # id is just the flow's technical name.
-            name=self._maybe_lower(parsed.technical_name),
-            flow=dataflow,
-            display_name=parsed.technical_name,
-            subtype=parsed.subtype,
-            custom_properties={
-                PROP_SAP_DATASPHERE_SPACE: space_name,
-                PROP_SAP_DATASPHERE_ASSET: parsed.technical_name,
-            },
-            inlets=inlets or None,
-            outlets=outlets or None,
-            fine_grained_lineages=fine_grained or None,
-        )
-        yield from job.as_workunits()
-
-        # Also surface the flow's lineage as a dataset-to-dataset edge on each
-        # target, so it shows on the downstream's Lineage tab (the DataJob IO
-        # aspect alone only drives the job's own lineage view). Accumulate rather
-        # than emit inline: several flows can share a target, and each edge is a
-        # *full* UpstreamLineage aspect, so we merge them and emit once per target
-        # at the end of the run (see _emit_flow_downstream_lineage).
-        for downstream_urn, lineage in self._build_flow_downstream_lineage(
+        for task in self._build_flow_tasks(
             parsed, input_urn_by_object, output_urn_by_object, inlets
-        ).items():
-            self._merge_flow_downstream_lineage(downstream_urn, lineage)
+        ):
+            job = DataJob(
+                # Named after the target it produces (unique within the flow's
+                # DataFlow), so the task reads as "<flow> produces <target>"
+                # rather than duplicating the flow's own name.
+                name=self._maybe_lower(task.target_object),
+                flow=dataflow,
+                display_name=task.target_object,
+                subtype=_JOB_SUBTYPE_BY_FLOW[DataFlowSubTypes(parsed.subtype)],
+                custom_properties={
+                    PROP_SAP_DATASPHERE_SPACE: space_name,
+                    PROP_SAP_DATASPHERE_ASSET: parsed.technical_name,
+                },
+                inlets=list(task.upstream_urns) or None,
+                outlets=[task.target_urn],
+                fine_grained_lineages=task.fine_grained or None,
+            )
+            yield from job.as_workunits()
+
+            # Also surface the task's lineage as a dataset-to-dataset edge on the
+            # target, so it shows on the downstream's Lineage tab (the DataJob IO
+            # aspect alone only drives the job's own lineage view). Accumulate
+            # rather than emit inline: several flows can share a target, and each
+            # edge is a *full* UpstreamLineage aspect, so we merge them and emit
+            # once per target at the end of the run (_emit_flow_downstream_lineage).
+            if task.upstream_urns:
+                self._merge_flow_downstream_lineage(
+                    task.target_urn,
+                    UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=upstream_urn,
+                                type=DatasetLineageTypeClass.TRANSFORMED,
+                            )
+                            for upstream_urn in task.upstream_urns
+                        ],
+                        fineGrainedLineages=task.fine_grained or None,
+                    ),
+                )
 
     def _merge_flow_downstream_lineage(
         self, downstream_urn: str, lineage: UpstreamLineageClass
@@ -705,17 +737,41 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_flow_downstream_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Emit the merged flow lineage once per target after all flows are seen.
 
-        is_primary_source=False keeps AutoStatusAspectProcessor from synthesizing
-        a Status(removed=false) for the target: a flow target is typically a
-        Local/Remote table owned by another platform (or not ingested here), and
-        materializing a phantom entity would pollute search and stale-entity
-        state. This mirrors the airbyte connector's downstream lineage emission.
+        Writing an UpstreamLineage aspect keyed on the target *materializes* the
+        target as an entity (is_primary_source=False only suppresses the synthetic
+        Status and stale-entity tracking — it does NOT stop creation or search
+        visibility). So we only attach dataset-level lineage to a target that is a
+        real catalog entity:
+
+        - an external / federated target (owned by its own platform's connector,
+          the same case airbyte adds lineage to a warehouse destination), or
+        - a Datasphere dataset we actually scanned this run.
+
+        A Datasphere-platform target we never scanned (e.g. a flow-internal output
+        table in a space we don't enumerate) is skipped, so it doesn't surface as a
+        bare phantom dataset under that space — the DataJob inlets/outlets still
+        carry the source->job->target pipeline lineage. is_primary_source=False is
+        still used for the ones we do emit, so we never claim ownership of a target
+        owned elsewhere.
         """
         for downstream_urn, lineage in self._flow_downstream_lineage.items():
+            if self._is_unscanned_datasphere_target(downstream_urn):
+                self.report.flow_targets_skipped_unscanned.append(downstream_urn)
+                continue
             yield MetadataChangeProposalWrapper(
                 entityUrn=downstream_urn, aspect=lineage
             ).as_workunit(is_primary_source=False)
         self._flow_downstream_lineage.clear()
+
+    def _is_unscanned_datasphere_target(self, downstream_urn: str) -> bool:
+        # Only a Datasphere-platform target we never emitted this run would be
+        # materialized into a phantom; external targets belong to another platform
+        # and are handled like airbyte's warehouse destination.
+        return (
+            DatasetUrn.from_string(downstream_urn).platform
+            == make_data_platform_urn(PLATFORM)
+            and downstream_urn not in self._emitted_dataset_urns
+        )
 
     def _resolve_flow_endpoint_urn(
         self, space_name: str, endpoint: FlowEndpoint
@@ -754,41 +810,21 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return self._dataset_urn(resolved, name)
 
-    def _build_flow_fine_grained(
-        self,
-        parsed: ParsedFlow,
-        input_urn_by_object: Dict[str, str],
-        output_urn_by_object: Dict[str, str],
-    ) -> List[FineGrainedLineageClass]:
-        fine_grained: List[FineGrainedLineageClass] = []
-        for mapping in parsed.column_mappings:
-            upstream_dataset_urn = input_urn_by_object.get(mapping.upstream_object)
-            downstream_dataset_urn = output_urn_by_object.get(mapping.downstream_object)
-            if upstream_dataset_urn is None or downstream_dataset_urn is None:
-                continue
-            fine_grained.append(
-                self._field_edge(
-                    upstream_dataset_urn,
-                    mapping.upstream_col,
-                    downstream_dataset_urn,
-                    mapping.downstream_col,
-                )
-            )
-        return fine_grained
-
-    def _build_flow_downstream_lineage(
+    def _build_flow_tasks(
         self,
         parsed: ParsedFlow,
         input_urn_by_object: Dict[str, str],
         output_urn_by_object: Dict[str, str],
         inlets: List[Union[str, DatasetUrn]],
-    ) -> Dict[str, UpstreamLineageClass]:
-        """Build one UpstreamLineage per flow target (keyed by its dataset URN).
+    ) -> List[FlowTask]:
+        """Split a flow into one target-anchored task per output object.
 
-        Column edges are attributed to the specific target they land on. A target
-        with no attributable column mapping falls back to a table-level edge: for a
-        replication flow (independent 1:1 tasks) that is only the target's paired
-        sources; for a connected-graph data flow it is every resolved input.
+        Each task's upstreams are attributed to the specific target they land on:
+        column-mapping-derived sources first, then a fallback table-level edge for
+        a target with no attributable column mapping — for a replication flow
+        (independent 1:1 tasks) that is only the target's paired source; for a
+        connected-graph data/transformation flow it is every resolved input. The
+        task's fine-grained edges are the column mappings landing on it.
         """
         mappings_by_downstream: Dict[str, List[FlowColumnMapping]] = {}
         for mapping in parsed.column_mappings:
@@ -812,7 +848,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if upstream_urn not in bucket:
                 bucket.append(upstream_urn)
 
-        result: Dict[str, UpstreamLineageClass] = {}
+        tasks: List[FlowTask] = []
         for object_name, downstream_urn in output_urn_by_object.items():
             upstream_urns: List[str] = []
             fine_grained: List[FineGrainedLineageClass] = []
@@ -839,19 +875,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_urns = [str(urn) for urn in inlets]
             # Guard against a target that also appears as its own input.
             upstream_urns = [urn for urn in upstream_urns if urn != downstream_urn]
-            if not upstream_urns:
-                continue
-            result[downstream_urn] = UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=upstream_urn,
-                        type=DatasetLineageTypeClass.TRANSFORMED,
-                    )
-                    for upstream_urn in upstream_urns
-                ],
-                fineGrainedLineages=fine_grained or None,
+            tasks.append(
+                FlowTask(
+                    target_object=object_name,
+                    target_urn=downstream_urn,
+                    upstream_urns=upstream_urns,
+                    fine_grained=fine_grained,
+                )
             )
-        return result
+        return tasks
 
     def _emit_remote_tables_for_space(
         self, space_name: str
@@ -964,6 +996,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             schema=schema_fields,
             upstreams=upstreams_aspect,
         )
+        self._emitted_dataset_urns.add(downstream_urn)
         yield from dataset.as_workunits()
         self.report.remote_tables_emitted += 1
 
@@ -1369,11 +1402,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             tags=dataset_tags or None,
             upstreams=upstreams_aspect,
         )
+        dataset_urn = self._dataset_urn(resolved, dataset_name)
+        self._emitted_dataset_urns.add(dataset_urn)
         yield from dataset.as_workunits()
         if view_properties is not None:
-            view_dataset_urn = self._dataset_urn(resolved, dataset_name)
             yield MetadataChangeProposalWrapper(
-                entityUrn=view_dataset_urn,
+                entityUrn=dataset_urn,
                 aspect=view_properties,
             ).as_workunit()
         # State is added by the workunit_processor (see _emit_space). The counter

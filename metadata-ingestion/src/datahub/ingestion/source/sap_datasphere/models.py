@@ -19,7 +19,10 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     REMOTE_NULL_SEGMENT,
     UNNAMED_COL_SENTINEL,
 )
-from datahub.metadata.schema_classes import SchemaFieldClass
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    SchemaFieldClass,
+)
 from datahub.utilities.str_enum import StrEnum
 
 _T = TypeVar("_T")
@@ -384,6 +387,21 @@ class ParsedFlow(BaseModel):
     # multiple inputs (column attribution would be ambiguous); surfaced as a
     # report counter so operators see the coarsening.
     cll_suppressed_multi_input: bool = False
+
+
+class FlowTask(BaseModel):
+    # One target-anchored task of a flow: the DataJob is named after the target
+    # it produces (unique within the flow), its inlets are the sources feeding
+    # that target, and its fine-grained edges are the column mappings landing on
+    # it. Splitting a flow into per-target tasks keeps a replication flow's N
+    # source->target pairs as N distinct jobs and stops a single-target flow's
+    # job from duplicating the flow's own name.
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    target_object: str
+    target_urn: str
+    upstream_urns: List[str] = Field(default_factory=list)
+    fine_grained: List[FineGrainedLineageClass] = Field(default_factory=list)
 
 
 class RemoteTableSource(BaseModel):

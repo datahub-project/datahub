@@ -4608,14 +4608,15 @@ def test_schema_fields_from_csn_applies_column_pattern():
     assert src.report.columns_filtered == 1
 
 
-def test_data_flow_emits_downstream_lineage_without_status_materialization(
+def test_data_flow_skips_lineage_on_unscanned_datasphere_target(
     requests_mock,
 ):
-    """A Data Flow must (1) emit a DataJob and (2) surface a dataset-to-dataset
-    UpstreamLineage on its target as a *secondary* edge (is_primary_source=False)
-    so AutoStatusAspectProcessor never synthesizes a Status(removed=false) for
-    the target — the target table is owned by another platform / not ingested
-    here, so materializing it would create a phantom entity."""
+    """A Data Flow whose target is a Datasphere-platform object we never scanned
+    must NOT get a dataset-level UpstreamLineage: writing that aspect keyed on the
+    target *materializes* it (is_primary_source=False only suppresses Status, not
+    creation/search-visibility), leaving a bare phantom dataset under the space.
+    The DataJob IO still carries the source->job->target lineage, and the skip is
+    recorded in the report."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -4684,15 +4685,84 @@ def test_data_flow_emits_downstream_lineage_without_status_materialization(
     workunits = list(source.get_workunits())
 
     tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
-    src_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_table,PROD)"
 
-    # (1) The flow itself is emitted as a DataJob with its IO.
+    # (1) The flow itself is still emitted as a DataJob with its IO — the
+    # pipeline lineage source->job->target is preserved via the job's inlets/
+    # outlets, which reference the target without materializing it.
     assert any(
         aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
         for wu in workunits
     ), "Expected a DataJobInputOutput aspect for the data flow"
 
-    # (2) A dataset-to-dataset UpstreamLineage lands on the flow target.
+    # (2) No dataset-level aspect (UpstreamLineage or Status) is written onto the
+    # unscanned Datasphere target, so it is never materialized as a phantom.
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == tgt_urn
+        and aspect_of(wu).__class__.__name__ in ("UpstreamLineageClass", "StatusClass")
+    ], "Unscanned Datasphere flow target must not be materialized"
+
+    # (3) The skip is surfaced in the report for operator visibility.
+    assert tgt_urn in list(source.report.flow_targets_skipped_unscanned)
+
+
+def test_data_flow_emits_downstream_lineage_for_scanned_target(requests_mock):
+    """The mirror of the skip case: when the flow target *is* a Datasphere object
+    we scan this run (a Local Table here), it is a real catalog entity, so its
+    dataset-level UpstreamLineage is emitted — as a secondary edge so we don't
+    re-own an entity the Local-Table path already owns."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_data_flows": True,
+            "include_local_tables": True,
+        }
+    )
+    ctx = PipelineContext(run_id="test-flow-scanned-target")
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "Space 1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    # The flow target TGT_TABLE is also discovered + emitted as a Local Table,
+    # so it becomes a scanned, first-class dataset the flow lineage can land on.
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "TGT_TABLE"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables/TGT_TABLE",
+        json={
+            "definitions": {
+                "TGT_TABLE": {
+                    "kind": "entity",
+                    "elements": {"OUT_COL": {"type": "cds.String", "length": 10}},
+                }
+            }
+        },
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
+        json=[{"technicalName": "MY_DATA_FLOW"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/dataflows/MY_DATA_FLOW",
+        json=_data_flow_payload("MY_DATA_FLOW", "SRC_TABLE"),
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    tgt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.tgt_table,PROD)"
+    src_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.src_table,PROD)"
+
     downstream_wus = [
         wu
         for wu in workunits
@@ -4700,23 +4770,14 @@ def test_data_flow_emits_downstream_lineage_without_status_materialization(
         and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
     ]
     assert len(downstream_wus) == 1, (
-        f"Expected exactly one UpstreamLineage on the flow target; "
+        "A scanned flow target must get its dataset-level UpstreamLineage; "
         f"got {len(downstream_wus)}"
     )
     lineage = aspect_as(downstream_wus[0], UpstreamLineageClass)
     assert [u.dataset for u in lineage.upstreams] == [src_urn]
-    assert lineage.fineGrainedLineages, "Expected column-level lineage on the target"
-
-    # It must be a secondary edge, or auto-Status would materialize the target.
+    # Secondary, so the Local-Table path stays the owner of the target entity.
     assert downstream_wus[0].is_primary_source is False
-
-    # (3) No Status(removed=false) may be synthesized for the referenced target.
-    assert not [
-        wu
-        for wu in workunits
-        if entity_urn_of(wu) == tgt_urn
-        and aspect_of(wu).__class__.__name__ == "StatusClass"
-    ], "Flow target must not be materialized with a Status aspect"
+    assert tgt_urn not in list(source.report.flow_targets_skipped_unscanned)
 
 
 def _data_flow_payload(name: str, src_object: str) -> dict:
@@ -4763,12 +4824,15 @@ def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
     Each flow emits a *full* UpstreamLineage on the shared target, so without
     aggregation the second flow's aspect would overwrite the first and drop its
     edges. The source merges them into a single aspect carrying both upstreams.
+    The shared target is scanned as a Local Table so the merged lineage is
+    actually emitted (an unscanned target would be skipped entirely).
     """
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
             "token": "tok",
             "include_data_flows": True,
+            "include_local_tables": True,
         }
     )
     ctx = PipelineContext(run_id="test-flow-merge")
@@ -4785,6 +4849,21 @@ def test_multiple_flows_to_same_target_merge_into_one_lineage(requests_mock):
     requests_mock.get(
         f"{base}/api/v1/datasphere/spaces/S1/connections",
         json=[],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables",
+        json=[{"technicalName": "TGT_TABLE"}],
+    )
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/localtables/TGT_TABLE",
+        json={
+            "definitions": {
+                "TGT_TABLE": {
+                    "kind": "entity",
+                    "elements": {"OUT_COL": {"type": "cds.String", "length": 10}},
+                }
+            }
+        },
     )
     requests_mock.get(
         f"{base}/dwaas-core/api/v1/spaces/S1/dataflows",
@@ -5038,6 +5117,27 @@ def test_replication_flow_pairs_targets_and_qualifies_external_urns(requests_moc
         aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
         for wu in workunits
     )
+
+    # Per-task split: each replication task becomes its own DataJob named after
+    # the target it produces (never after the flow), so the flow's DataFlow node
+    # holds one task per pair instead of a single job duplicating the flow name.
+    flow_urn = "urn:li:dataFlow:(sap-datasphere,s1.my_repl,PROD)"
+    job_urns = {
+        entity_urn_of(wu)
+        for wu in workunits
+        if aspect_of(wu).__class__.__name__ == "DataJobInputOutputClass"
+    }
+    assert job_urns == {
+        f"urn:li:dataJob:({flow_urn},tgt1)",
+        f"urn:li:dataJob:({flow_urn},tgt2)",
+    }
+    assert f"urn:li:dataJob:({flow_urn},my_repl)" not in job_urns
+    # Each task carries only its own paired target as its single outlet.
+    for wu in workunits:
+        if aspect_of(wu).__class__.__name__ != "DataJobInputOutputClass":
+            continue
+        io = aspect_of(wu)
+        assert len(io.outputDatasets) == 1  # type: ignore[attr-defined]
 
 
 def _same_name_replication_flow_definition() -> Dict:

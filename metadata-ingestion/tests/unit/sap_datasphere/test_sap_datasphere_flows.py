@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from datahub.ingestion.source.common.subtypes import DataJobSubTypes
+from datahub.ingestion.source.common.subtypes import DataFlowSubTypes
 from datahub.ingestion.source.sap_datasphere.constants import (
     OBJECT_TYPE_DATA_FLOWS,
     OBJECT_TYPE_REPLICATION_FLOWS,
@@ -58,7 +58,7 @@ def _data_flow_payload(
 def test_parse_data_flow_table_and_column_lineage():
     parsed = parse_flow(_data_flow_payload(), OBJECT_TYPE_DATA_FLOWS, "MY_DATA_FLOW")
     assert parsed is not None
-    assert parsed.subtype == DataJobSubTypes.SAP_DATA_FLOW
+    assert parsed.subtype == DataFlowSubTypes.SAP_DATA_FLOW
     assert [e.object_name for e in parsed.inputs] == ["SRC_TABLE"]
     assert [e.object_name for e in parsed.outputs] == ["TGT_TABLE"]
     assert parsed.inputs[0].is_local is True
@@ -116,7 +116,7 @@ def test_parse_transformation_flow_uses_process_reader():
     payload[OBJECT_TYPE_TRANSFORMATION_FLOWS] = payload.pop(OBJECT_TYPE_DATA_FLOWS)
     parsed = parse_flow(payload, OBJECT_TYPE_TRANSFORMATION_FLOWS, "MY_TF")
     assert parsed is not None
-    assert parsed.subtype == DataJobSubTypes.SAP_TRANSFORMATION_FLOW
+    assert parsed.subtype == DataFlowSubTypes.SAP_TRANSFORMATION_FLOW
     assert [e.object_name for e in parsed.outputs] == ["TGT_TABLE"]
 
 
@@ -161,7 +161,7 @@ def test_parse_replication_flow_endpoints_and_column_lineage():
         _replication_flow_payload(), OBJECT_TYPE_REPLICATION_FLOWS, "MY_REPL_FLOW"
     )
     assert parsed is not None
-    assert parsed.subtype == DataJobSubTypes.SAP_REPLICATION_FLOW
+    assert parsed.subtype == DataFlowSubTypes.SAP_REPLICATION_FLOW
     src = parsed.inputs[0]
     tgt = parsed.outputs[0]
     assert (src.object_name, src.connection, src.connection_type) == (
@@ -300,7 +300,7 @@ def test_parse_task_chain_is_io_less_job():
     payload = {OBJECT_TYPE_TASK_CHAINS: {"MY_CHAIN": {"kind": "sap.dis.taskchain"}}}
     parsed = parse_flow(payload, OBJECT_TYPE_TASK_CHAINS, "MY_CHAIN")
     assert parsed is not None
-    assert parsed.subtype == DataJobSubTypes.SAP_TASK_CHAIN
+    assert parsed.subtype == DataFlowSubTypes.SAP_TASK_CHAIN
     assert parsed.inputs == []
     assert parsed.outputs == []
     assert parsed.column_mappings == []
