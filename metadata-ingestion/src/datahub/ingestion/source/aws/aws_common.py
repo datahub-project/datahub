@@ -11,6 +11,7 @@ from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -32,6 +33,8 @@ from datahub.configuration.env_vars import (
 from datahub.configuration.source_common import EnvConfigMixin
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_MAX_POOL_CONNECTIONS = 25
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
@@ -271,6 +274,9 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # Only clients are cached, keyed by verify_ssl: boto3 clients are thread-safe but
+    # resources are not, so get_s3_resource intentionally stays uncached.
+    _s3_clients: Dict[Any, Any] = PrivateAttr(default_factory=dict)
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -448,6 +454,9 @@ class AwsConnectionConfig(ConfigModel):
         return {}
 
     def _aws_config(self) -> Config:
+        advanced_config = dict(self.aws_advanced_config)
+        # User-supplied aws_advanced_config wins if it sets max_pool_connections.
+        advanced_config.setdefault("max_pool_connections", DEFAULT_MAX_POOL_CONNECTIONS)
         return Config(
             proxies=self.aws_proxy,
             read_timeout=self.read_timeout,
@@ -455,18 +464,27 @@ class AwsConnectionConfig(ConfigModel):
                 "max_attempts": self.aws_retry_num,
                 "mode": self.aws_retry_mode,
             },
-            **self.aws_advanced_config,
+            **advanced_config,
         )
+
+    def _should_invalidate_client_cache(self) -> bool:
+        # A cached client bakes in credentials, so drop it when assumed-role creds are
+        # due for refresh. Static credentials and profiles never rotate.
+        return self.allowed_cred_refresh() and self._should_refresh_credentials()
 
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
-        return self.get_session().client(
-            "s3",
-            endpoint_url=self.aws_endpoint_url,
-            config=self._aws_config(),
-            verify=verify_ssl,
-        )
+        if self._should_invalidate_client_cache():
+            self._s3_clients.clear()
+        if verify_ssl not in self._s3_clients:
+            self._s3_clients[verify_ssl] = self.get_session().client(
+                "s3",
+                endpoint_url=self.aws_endpoint_url,
+                config=self._aws_config(),
+                verify=verify_ssl,
+            )
+        return self._s3_clients[verify_ssl]
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
