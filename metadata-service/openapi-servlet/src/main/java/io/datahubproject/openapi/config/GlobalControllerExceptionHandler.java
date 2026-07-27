@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.config;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -133,6 +134,17 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
             "error", "Request timed out. The operation may still be completing in the background."),
         headers,
         HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @ExceptionHandler(DatabaseTransactionConflictException.class)
+  public ResponseEntity<Map<String, Object>> handleDatabaseTransactionConflict(
+      DatabaseTransactionConflictException e) {
+    log.warn("Database transaction conflict: {}", e.getMessage());
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("error", sanitizeExceptionMessage(e.getMessage()));
+    body.put("code", e.getCode());
+    body.put("retryable", e.isRetryable());
+    return new ResponseEntity<>(body, HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

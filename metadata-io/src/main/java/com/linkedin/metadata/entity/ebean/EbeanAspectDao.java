@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.google.common.annotations.VisibleForTesting;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.aspect.SystemAspectValidator;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.TransactionRetryConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -49,6 +51,7 @@ import io.ebean.annotation.TxIsolation;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Table;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -95,6 +98,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nullable private final MetricUtils metricUtils;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
+  @Nonnull private final TransactionRetryPolicy transactionRetryPolicy;
 
   public EbeanAspectDao(
       @Nonnull final PrimaryStorageResolver primaryStorageResolver,
@@ -115,6 +119,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     this.metricUtils = metricUtils;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
+    TransactionRetryConfiguration retryConfig = ebeanConfiguration.getTransactionRetry();
+    this.transactionRetryPolicy =
+        new TransactionRetryPolicy(
+            retryConfig != null ? retryConfig : new TransactionRetryConfiguration());
   }
 
   @Override
@@ -975,20 +983,66 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
         if (metricUtils != null)
           metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
-        log.warn("Retryable PersistenceException: {}", exception.getMessage());
+
+        boolean backoff = transactionRetryPolicy.shouldBackoff(exception);
+        SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(exception);
         transactionContext.addException(exception);
+        // Sleep only when another attempt will run — skip delay before exhaustion throw.
+        if (backoff && transactionContext.shouldAttemptRetry()) {
+          if (metricUtils != null) {
+            metricUtils.increment(MetricRegistry.name(this.getClass(), "txTransientBackoff"), 1);
+          }
+          log.warn(
+              "Retryable PersistenceException with backoff: sqlState={}, vendorCode={}, message={}",
+              matchedSql != null ? matchedSql.getSQLState() : null,
+              matchedSql != null ? matchedSql.getErrorCode() : null,
+              exception.getMessage());
+          sleepBeforeRetry(
+              transactionRetryPolicy.backoffMillis(transactionContext.exceptions().size() - 1));
+        } else if (backoff) {
+          if (metricUtils != null) {
+            metricUtils.increment(MetricRegistry.name(this.getClass(), "txTransientBackoff"), 1);
+          }
+          log.warn(
+              "Retryable PersistenceException with backoff (retries exhausted): sqlState={}, vendorCode={}, message={}",
+              matchedSql != null ? matchedSql.getSQLState() : null,
+              matchedSql != null ? matchedSql.getErrorCode() : null,
+              exception.getMessage());
+        } else {
+          log.warn("Retryable PersistenceException: {}", exception.getMessage());
+        }
       }
     } while (transactionContext.shouldAttemptRetry());
 
     if (transactionContext.lastException() != null) {
       if (metricUtils != null)
         metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailedAfterRetries"), 1);
+      RuntimeException last = transactionContext.lastException();
+      if (transactionRetryPolicy.shouldBackoff(last)) {
+        SQLException matchedSql = transactionRetryPolicy.findMatchingSqlError(last);
+        String sqlState = matchedSql != null ? matchedSql.getSQLState() : null;
+        throw new DatabaseTransactionConflictException(
+            "Failed to add after " + maxTransactionRetry + " retries due to transaction conflict",
+            sqlState,
+            last);
+      }
       throw new RetryLimitReached(
-          "Failed to add after " + maxTransactionRetry + " retries",
-          transactionContext.lastException());
+          "Failed to add after " + maxTransactionRetry + " retries", last);
     }
 
     return result;
+  }
+
+  @VisibleForTesting
+  protected void sleepBeforeRetry(long backoffMs) {
+    if (backoffMs <= 0) {
+      return;
+    }
+    try {
+      Thread.sleep(backoffMs);
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Override

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.restli;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.restli.NonExceptionHttpErrorResponse;
@@ -44,6 +45,14 @@ public class RestliUtils {
           finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException apiThrottleException) {
         finalException = apiThrottled(apiThrottleException);
+      } else if (throwable instanceof DatabaseTransactionConflictException
+          || throwable.getCause() instanceof DatabaseTransactionConflictException) {
+        Throwable conflict =
+            throwable instanceof DatabaseTransactionConflictException
+                ? throwable
+                : throwable.getCause();
+        finalException =
+            new RestLiServiceException(HttpStatus.S_503_SERVICE_UNAVAILABLE, conflict);
       } else if (throwable instanceof RestLiServiceException) {
         finalException = (RestLiServiceException) throwable;
       } else {

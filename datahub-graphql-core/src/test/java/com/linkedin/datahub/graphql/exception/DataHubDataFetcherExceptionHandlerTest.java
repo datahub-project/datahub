@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.exception;
 
 import static org.testng.Assert.*;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
+import java.sql.SQLException;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
@@ -502,5 +504,42 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertTrue(error.getMessage().contains("Field 'email' is required"));
     assertTrue(error.getMessage().contains("Root cause"));
     assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflictException()
+      throws ExecutionException, InterruptedException {
+    SQLException sql = new SQLException("Deadlock found when trying to get lock", "40001", 1213);
+    DatabaseTransactionConflictException exception =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", sql);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
+    assertFalse(error.getMessage().contains("Deadlock"));
+    assertEquals(error.getErrorCode(), 409);
+  }
+
+  @Test
+  public void testHandleNestedDatabaseTransactionConflictException()
+      throws ExecutionException, InterruptedException {
+    DatabaseTransactionConflictException cause =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40P01");
+    RuntimeException wrapper = new RuntimeException("Wrapper", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Failed to add after 3 retries due to transaction conflict");
+    assertEquals(error.getErrorCode(), 409);
   }
 }

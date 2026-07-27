@@ -31,5 +31,8 @@ public class EbeanConfiguration {
 
   private ReadPoolConfiguration readPool;
 
+  @Builder.Default
+  private TransactionRetryConfiguration transactionRetry = new TransactionRetryConfiguration();
+
   public static final EbeanConfiguration testDefault = EbeanConfiguration.builder().build();
 }

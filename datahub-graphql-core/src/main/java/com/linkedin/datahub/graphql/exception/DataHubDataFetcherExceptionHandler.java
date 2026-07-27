@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.exception;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
@@ -49,6 +50,16 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = extractErrorMessage(validationException);
     }
 
+    DatabaseTransactionConflictException conflictException =
+        findFirstThrowableCauseOfClass(exception, DatabaseTransactionConflictException.class);
+    if (conflictException != null) {
+      log.error("Failed to execute", conflictException);
+      errorCode = DataHubGraphQLErrorCode.CONFLICT;
+      // Do not append nested SQL / vendor deadlock details for this stable client-facing error.
+      String top = conflictException.getMessage();
+      message = (top != null && !top.isEmpty()) ? top : DEFAULT_ERROR_MESSAGE;
+    }
+
     IllegalStateException illegalStateException =
         findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
     if (message.equals(DEFAULT_ERROR_MESSAGE) && illegalStateException != null) {
@@ -68,6 +79,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
     if (illException == null
         && graphQLException == null
         && validationException == null
+        && conflictException == null
         && illegalStateException == null
         && runtimeException == null) {
       log.error("Failed to execute", exception);
