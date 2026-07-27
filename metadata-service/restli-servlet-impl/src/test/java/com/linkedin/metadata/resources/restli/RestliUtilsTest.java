@@ -1,15 +1,8 @@
 package com.linkedin.metadata.resources.restli;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.expectThrows;
-
-import com.datahub.util.exception.DatabaseTransactionConflictException;
-import com.linkedin.restli.common.HttpStatus;
-import com.linkedin.restli.server.RestLiServiceException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.expectThrows;
@@ -18,6 +11,7 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,11 +48,42 @@ public class RestliUtilsTest {
         new DatabaseTransactionConflictException(
             "Failed to add after 3 retries due to transaction conflict", "40P01");
 
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw new RuntimeException("wrapper", conflict);
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
+    assertEquals(thrown.getCause(), conflict);
+  }
+
+  @Test
+  public void testToTask_GenericRuntime_Returns500() {
+    RuntimeException boom = new RuntimeException("boom");
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw boom;
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_500_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
   public void testAsSessionMapsActorAccessExceptionToForbidden() {
     OperationContext systemOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Authentication auth = new Authentication(new Actor(ActorType.USER, "test"), "credentials");
     RequestContext.RequestContextBuilder requestContext =
-        RequestContext.builder().buildRestli("urn:li:corpuser:test", null, "test", java.util.List.of());
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:test", null, "test", java.util.List.of());
 
     try (MockedStatic<OperationContext> mocked = mockStatic(OperationContext.class)) {
       mocked
@@ -92,27 +117,6 @@ public class RestliUtilsTest {
             () ->
                 RestliUtils.toTask(
                     () -> {
-                      throw new RuntimeException("wrapper", conflict);
-                    }));
-
-    assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
-    assertEquals(thrown.getCause(), conflict);
-  }
-
-  @Test
-  public void testToTask_GenericRuntime_Returns500() {
-    RuntimeException boom = new RuntimeException("boom");
-
-    RestLiServiceException thrown =
-        expectThrows(
-            RestLiServiceException.class,
-            () ->
-                RestliUtils.toTask(
-                    () -> {
-                      throw boom;
-                    }));
-
-    assertEquals(thrown.getStatus(), HttpStatus.S_500_INTERNAL_SERVER_ERROR);
                       throw new ActorAccessException("direct deny");
                     }));
 

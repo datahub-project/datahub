@@ -4,10 +4,10 @@ import static org.testng.Assert.*;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
-import java.sql.SQLException;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;

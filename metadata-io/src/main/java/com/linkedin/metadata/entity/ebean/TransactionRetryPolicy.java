@@ -91,8 +91,7 @@ public class TransactionRetryPolicy {
       try {
         codes.add(Integer.parseInt(trimmed));
       } catch (NumberFormatException e) {
-        log.warn(
-            "Ignoring invalid ebean.transactionRetry.backoffVendorCodes entry '{}'", trimmed);
+        log.warn("Ignoring invalid ebean.transactionRetry.backoffVendorCodes entry '{}'", trimmed);
       }
     }
     return Collections.unmodifiableSet(codes);

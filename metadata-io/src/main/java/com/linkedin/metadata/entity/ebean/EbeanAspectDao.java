@@ -1026,8 +1026,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             sqlState,
             last);
       }
-      throw new RetryLimitReached(
-          "Failed to add after " + maxTransactionRetry + " retries", last);
+      throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", last);
     }
 
     return result;
