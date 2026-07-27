@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -16,6 +16,11 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    TestableSource,
+    TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
@@ -84,7 +89,7 @@ class _PendingView:
     "Column-level view lineage",
     subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
-class InformixSource(StatefulIngestionSourceBase):
+class InformixSource(StatefulIngestionSourceBase, TestableSource):
     config: InformixSourceConfig
     report: InformixSourceReport
 
@@ -109,6 +114,27 @@ class InformixSource(StatefulIngestionSourceBase):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "InformixSource":
         config = InformixSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
+
+    @staticmethod
+    def test_connection(config_dict: Dict[str, object]) -> TestConnectionReport:
+        test_report = TestConnectionReport()
+        client: Optional[InformixClient] = None
+        try:
+            config = InformixSourceConfig.parse_obj_allow_extras(config_dict)
+            # Constructing the client resolves the JDBC driver, starts the JVM and
+            # opens the connection, so a successful get_tables() exercises every
+            # step the real run depends on.
+            client = InformixClient(config)
+            client.get_tables()
+            test_report.basic_connectivity = CapabilityReport(capable=True)
+        except Exception as error:
+            test_report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=str(error)
+            )
+        finally:
+            if client is not None:
+                client.close()
+        return test_report
 
     def _get_client(self) -> InformixClientProtocol:
         if self._client is None:
@@ -168,25 +194,28 @@ class InformixSource(StatefulIngestionSourceBase):
 
             seen_owners = set()
             for table in client.get_tables():
+                name = make_table_identifier(
+                    self.config.database,
+                    table.owner,
+                    table.name,
+                    self.config.convert_urns_to_lowercase,
+                )
                 if not self.config.schema_pattern.allowed(table.owner):
-                    self.report.filtered += 1
+                    self.report.report_dropped(name)
                     continue
                 if table.is_view and not self.config.include_views:
-                    self.report.filtered += 1
+                    self.report.report_dropped(name)
                     continue
                 if not table.is_view and not self.config.include_tables:
-                    self.report.filtered += 1
+                    self.report.report_dropped(name)
                     continue
-                name = make_table_identifier(
-                    self.config.database, table.owner, table.name
-                )
                 pattern = (
                     self.config.view_pattern
                     if table.is_view
                     else self.config.table_pattern
                 )
                 if not pattern.allowed(name):
-                    self.report.filtered += 1
+                    self.report.report_dropped(name)
                     continue
 
                 if table.owner not in seen_owners:
@@ -234,6 +263,7 @@ class InformixSource(StatefulIngestionSourceBase):
                                 self.config.database,
                                 self.config.env,
                                 self.config.platform_instance,
+                                self.config.convert_urns_to_lowercase,
                             )
                             schema = SchemaMetadataClass(
                                 schemaName="",
@@ -294,6 +324,10 @@ class InformixSource(StatefulIngestionSourceBase):
                     try:
                         sql = client.get_view_definition(pending.table)
                         if not sql:
+                            # sysviews.viewtext is empty when the view text is
+                            # unreadable (permissions) or was never stored. Count it
+                            # so it is distinguishable from "parsed, no upstreams".
+                            self.report.views_without_definition += 1
                             continue
                         upstream_lineage = build_view_upstream_lineage(
                             pending.urn,
@@ -301,6 +335,7 @@ class InformixSource(StatefulIngestionSourceBase):
                             resolver,
                             self.config.database,
                             pending.table.owner,
+                            self.report,
                             pending.columns,
                         )
                         if upstream_lineage is not None:

@@ -10,6 +10,18 @@ This module does not support:
 - **Stored procedures** — SPL routines are not ingested as DataJobs.
 - **Usage / query-log lineage** — view lineage is derived only from parsing view SQL definitions, not from query logs or runtime usage.
 
+#### View lineage and Informix-specific SQL
+
+View lineage is produced by parsing `sysviews.viewtext` with sqlglot. sqlglot has no
+Informix dialect, so the `postgres` dialect is used: Informix normalizes stored view
+text into a qualified, aliased, comma-join form that `postgres` parses correctly for
+the common case.
+
+Views whose stored text retains Informix-specific syntax — `MATCHES` / `NOT MATCHES`,
+`FIRST` / `SKIP`, native `OUTER` joins, or `DATETIME ... YEAR TO DAY` — will not parse
+and get no lineage. This is per-view and non-fatal: the rest of the run is unaffected,
+and each failure is counted as `view_lineage_failures` in the ingestion report.
+
 #### Extended type mapping
 
 Informix extended types (`JSON`, `BSON`, time series, and spatial types such as `ST_Geometry`) are not in the base `syscolumns.coltype` map and fall back to an unknown/null DataHub type. The native type name is still preserved for display.

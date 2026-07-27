@@ -1,6 +1,23 @@
+from dataclasses import dataclass
 from typing import List, Optional
 
 from pydantic import BaseModel
+
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+
+
+@dataclass(frozen=True)
+class InformixType:
+    # A syscolumns.coltype base code's DataHub type class and canonical native name.
+    datahub_type: type
+    native_name: str
+
+
+@dataclass(frozen=True)
+class MappedColumn:
+    data_type: SchemaFieldDataTypeClass
+    nullable: bool
+    native: str
 
 
 class InformixColumn(BaseModel):

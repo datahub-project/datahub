@@ -2,13 +2,19 @@ import logging
 import os
 from typing import Dict, List, Optional, Protocol
 
+import jpype  # type: ignore[import-untyped]
+from jdk4py import JAVA_HOME
+
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import (
+    DRIVER_CLASS,
     SQL_COLUMNS,
     SQL_FK,
     SQL_PK,
     SQL_TABLES,
     SQL_VIEW_DEF,
+    TABTYPE_VIEW,
 )
 from datahub.ingestion.source.informix.driver import resolve_driver_jars
 from datahub.ingestion.source.informix.mapping import build_jdbc_url
@@ -19,8 +25,6 @@ from datahub.ingestion.source.informix.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-_DRIVER_CLASS = "com.informix.jdbc.IfxDriver"
 
 
 class InformixClientProtocol(Protocol):
@@ -46,10 +50,7 @@ class InformixClient:
     def __init__(self, config: InformixSourceConfig) -> None:
         jars = resolve_driver_jars(config)
 
-        from jdk4py import JAVA_HOME
-
         os.environ.setdefault("JAVA_HOME", str(JAVA_HOME))
-        import jpype  # type: ignore[import-untyped]
 
         if not jpype.isJVMStarted():
             jpype.startJVM(classpath=jars)
@@ -58,7 +59,7 @@ class InformixClient:
                 jpype.addClassPath(jar)
 
         driver_manager = jpype.JClass("java.sql.DriverManager")
-        jpype.JClass(_DRIVER_CLASS)  # force-load the Informix driver
+        jpype.JClass(DRIVER_CLASS)  # force-load the Informix driver
         try:
             self._conn = driver_manager.getConnection(build_jdbc_url(config))
         except Exception as e:
@@ -71,7 +72,7 @@ class InformixClient:
                 detail = f" (SQLSTATE={e.getSQLState()}, code={e.getErrorCode()})"  # type: ignore[attr-defined]
             except Exception:
                 pass
-            raise RuntimeError(
+            raise ConfigurationError(
                 f"Failed to connect to Informix server '{config.server}' at "
                 f"{config.host_port}, database '{config.database}'.{detail}"
             ) from None
@@ -112,7 +113,7 @@ class InformixClient:
                         InformixTable(
                             name=str(rs.getString(1)).strip(),
                             owner=str(rs.getString(2)).strip(),
-                            is_view=str(rs.getString(3)).strip() == "V",
+                            is_view=str(rs.getString(3)).strip() == TABTYPE_VIEW,
                             nrows=parsed_nrows if parsed_nrows > 0 else None,
                         )
                     )

@@ -301,7 +301,7 @@ def test_source_applies_table_pattern_deny():
     datasets = [e for e in entities if isinstance(e, Dataset)]
     names = sorted(d.urn.name for d in datasets)
     assert names == ["testdb.informix.customers"]
-    assert source.report.filtered == 1
+    assert list(source.report.filtered) == ["testdb.informix.orders"]
 
 
 def test_source_attaches_foreign_keys_to_schema():
@@ -375,7 +375,7 @@ def test_source_applies_schema_pattern_deny():
     entities = list(source.get_workunits_internal())
 
     assert not [e for e in entities if isinstance(e, Dataset)]
-    assert source.report.filtered == 2
+    assert len(source.report.filtered) == 2
 
 
 def test_source_applies_view_pattern_deny():
@@ -393,7 +393,7 @@ def test_source_applies_view_pattern_deny():
 
     names = sorted(d.urn.name for d in entities if isinstance(d, Dataset))
     assert names == ["testdb.informix.customers"]
-    assert source.report.filtered == 1
+    assert list(source.report.filtered) == ["testdb.informix.active"]
 
 
 def test_source_respects_include_tables_false():

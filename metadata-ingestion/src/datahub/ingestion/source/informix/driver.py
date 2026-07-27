@@ -15,9 +15,20 @@ _LICENSE_URL = (
     "http://www-03.ibm.com/software/sla/sladb.nsf/doclookup/"
     "CA4476C0AF8346EC852579290012D218?OpenDocument"
 )
+# Maven Central only publishes .sha1 and .md5 for these two artifacts (.sha256 and
+# .sha512 both 404), so SHA-1 is the strongest checksum actually on offer. It is
+# not the trust anchor: the jar and its checksum come from the same origin, so
+# anyone able to swap one can swap the other. Integrity rests on TLS to
+# repo1.maven.org (enforced in _download); the checksum catches truncation and
+# corruption, and detects a stale or partially-written cache entry.
+_CHECKSUM_EXT = ".sha1"
 
 
 def _download(url: str) -> bytes:
+    # urlopen honours whatever scheme it is handed, including file:// and ftp://.
+    # Every caller composes URLs from _MAVEN, but assert it rather than assume it.
+    if not url.startswith("https://"):
+        raise ConfigurationError(f"Refusing to download over a non-HTTPS URL: {url}")
     try:
         with urlopen(url, timeout=30) as resp:
             return resp.read()
@@ -29,24 +40,28 @@ def _download(url: str) -> bytes:
         ) from e
 
 
+def _digest(data: bytes) -> str:
+    return hashlib.sha1(data).hexdigest()
+
+
 def _fetch_verified(base_url: str, filename: str, cache: Path) -> str:
     jar_path = cache / filename
-    sha_path = cache / (filename + ".sha1")
+    sha_path = cache / (filename + _CHECKSUM_EXT)
     if jar_path.exists() and sha_path.exists():
         sha_text = sha_path.read_text().strip().split()
         if not sha_text:
-            raise ConfigurationError(f"Malformed .sha1 file for {filename}")
+            raise ConfigurationError(f"Malformed {_CHECKSUM_EXT} file for {filename}")
         expected = sha_text[0]
-        if hashlib.sha1(jar_path.read_bytes()).hexdigest() == expected:
+        if _digest(jar_path.read_bytes()) == expected:
             return str(jar_path)
         logger.warning("Cached %s failed checksum; re-downloading.", filename)
 
-    sha_text = _download(base_url + ".sha1").decode().strip().split()
+    sha_text = _download(base_url + _CHECKSUM_EXT).decode().strip().split()
     if not sha_text:
-        raise ConfigurationError(f"Malformed .sha1 payload for {filename}")
+        raise ConfigurationError(f"Malformed {_CHECKSUM_EXT} payload for {filename}")
     expected = sha_text[0]
     data = _download(base_url)
-    actual = hashlib.sha1(data).hexdigest()
+    actual = _digest(data)
     if actual != expected:
         raise ConfigurationError(
             f"Checksum mismatch for {filename}: expected {expected}, got {actual}"

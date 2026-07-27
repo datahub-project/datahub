@@ -3,6 +3,7 @@ from sqlglot.errors import SqlglotError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.informix.lineage import build_view_upstream_lineage
+from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 
@@ -29,15 +30,18 @@ def test_view_lineage_join_table_and_column_level() -> None:
         '("informix".customers x0 join "informix".orders x1 on (x0.id = x1.customer_id ) )'
     )
     view_urn = make_dataset_urn("informix", "testdb.informix.customer_orders", "PROD")
+    report = InformixSourceReport()
     up = build_view_upstream_lineage(
         view_urn,
         sql,
         _resolver(),
         "testdb",
         "informix",
+        report,
         ["customer_id", "customer_name", "order_id", "amount"],
     )
     assert up is not None
+    assert report.view_column_remap_mismatches == 0
     upstream_names = sorted(u.dataset.split(",")[-2] for u in up.upstreams)
     assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
     assert up.fineGrainedLineages
@@ -63,5 +67,26 @@ def test_view_lineage_raises_on_unparseable_sql() -> None:
     view_urn = make_dataset_urn("informix", "testdb.informix.bad", "PROD")
     with pytest.raises(SqlglotError):
         build_view_upstream_lineage(
-            view_urn, "not valid sql at all ((", _resolver(), "testdb", "informix"
+            view_urn,
+            "not valid sql at all ((",
+            _resolver(),
+            "testdb",
+            "informix",
+            InformixSourceReport(),
         )
+
+
+def test_view_lineage_counts_declared_column_count_mismatch() -> None:
+    # Fewer declared columns than parsed projections means the positional remap is
+    # unsafe; lineage still emits, but the mismatch must be visible in the report.
+    sql = (
+        'create view "informix".partial (only_one) as '
+        'select x0.id ,x0.name from "informix".customers x0'
+    )
+    view_urn = make_dataset_urn("informix", "testdb.informix.partial", "PROD")
+    report = InformixSourceReport()
+    up = build_view_upstream_lineage(
+        view_urn, sql, _resolver(), "testdb", "informix", report, ["only_one"]
+    )
+    assert up is not None
+    assert report.view_column_remap_mismatches == 1

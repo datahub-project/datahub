@@ -1,10 +1,11 @@
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field, SecretStr, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -19,7 +20,10 @@ DEFAULT_BSON_VERSION = "4.11.1"
 
 
 class InformixSourceConfig(
-    PlatformInstanceConfigMixin, StatefulIngestionConfigBase, EnvConfigMixin
+    PlatformInstanceConfigMixin,
+    StatefulIngestionConfigBase,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     host_port: str = Field(
         default="localhost:9088", description="Informix host and port."
@@ -36,7 +40,6 @@ class InformixSourceConfig(
         "e.g. 'DB_LOCALE=en_US.utf8;CLIENT_LOCALE=en_US.utf8'.",
     )
 
-    # driver provisioning (see plan Task 2)
     driver_jar_paths: Optional[List[str]] = Field(
         default=None,
         description="Explicit paths to the Informix JDBC jar and org.mongodb bson "
@@ -112,8 +115,8 @@ class InformixSourceConfig(
     @model_validator(mode="before")
     @classmethod
     def view_pattern_is_table_pattern_unless_specified(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        cls, values: Dict[str, object]
+    ) -> Dict[str, object]:
         # Mirrors datahub.ingestion.source.sql.sql_config.SQLFilterConfig so view
         # filtering matches every other SQL source (can't import it directly: that
         # module pulls in sqlalchemy, which this dialect-less connector avoids).

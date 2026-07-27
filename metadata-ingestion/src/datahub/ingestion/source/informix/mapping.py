@@ -27,8 +27,11 @@ def build_jdbc_url(config: InformixSourceConfig) -> str:
     return url
 
 
-def make_table_identifier(database: str, owner: str, table: str) -> str:
-    return f"{database}.{owner}.{table}"
+def make_table_identifier(
+    database: str, owner: str, table: str, convert_to_lowercase: bool = False
+) -> str:
+    identifier = f"{database}.{owner}.{table}"
+    return identifier.lower() if convert_to_lowercase else identifier
 
 
 def columns_to_schema_fields(
@@ -36,7 +39,8 @@ def columns_to_schema_fields(
 ) -> List[SchemaFieldClass]:
     fields: List[SchemaFieldClass] = []
     for col in columns:
-        dh_type, nullable, native = map_coltype(col.coltype)
+        mapped = map_coltype(col.coltype)
+        native = mapped.native
         if native in _LENGTH_TYPES and col.length > 0:
             native = f"{native}({col.length})"
         if native.startswith("UNKNOWN"):
@@ -48,9 +52,9 @@ def columns_to_schema_fields(
         fields.append(
             SchemaFieldClass(
                 fieldPath=col.name,
-                type=dh_type,
+                type=mapped.data_type,
                 nativeDataType=native,
-                nullable=nullable,
+                nullable=mapped.nullable,
                 isPartOfKey=col.is_pk,
             )
         )
@@ -63,12 +67,15 @@ def build_foreign_key_constraints(
     database: str,
     env: str,
     platform_instance: Optional[str],
+    convert_to_lowercase: bool = False,
 ) -> List[ForeignKeyConstraintClass]:
     constraints: List[ForeignKeyConstraintClass] = []
     for fk in fks:
         parent_urn = make_dataset_urn_with_platform_instance(
             platform=PLATFORM,
-            name=make_table_identifier(database, fk.parent_owner, fk.parent_table),
+            name=make_table_identifier(
+                database, fk.parent_owner, fk.parent_table, convert_to_lowercase
+            ),
             platform_instance=platform_instance,
             env=env,
         )

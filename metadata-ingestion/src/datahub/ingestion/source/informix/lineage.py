@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
@@ -12,8 +13,12 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
-# sqlglot has no 'informix' dialect (get_dialect("informix") raises); Informix's
-# normalized sysviews.viewtext parses correctly under the postgres dialect.
+# sqlglot has no 'informix' dialect (get_dialect("informix") raises). Informix
+# normalizes sysviews.viewtext to a qualified, aliased, comma-join form, which the
+# postgres dialect parses correctly for the common case. Views that retain
+# Informix-specific syntax (MATCHES / NOT MATCHES, FIRST / SKIP, native OUTER
+# joins, DATETIME ... YEAR TO DAY) still fail to parse and fall through to the
+# per-view failure path; see the connector docs.
 _DIALECT = "postgres"
 
 
@@ -23,6 +28,7 @@ def build_view_upstream_lineage(
     schema_resolver: SchemaResolverInterface,
     database: str,
     owner: str,
+    report: InformixSourceReport,
     view_columns: Optional[List[str]] = None,
 ) -> Optional[UpstreamLineageClass]:
     result = sqlglot_lineage(
@@ -51,11 +57,22 @@ def build_view_upstream_lineage(
     # inner projection name (p_i), not the view's declared column (c_i), so an aliased
     # column like `c.id AS customer_id` surfaces downstream as `id`. Remap positionally to
     # the view's declared columns (colno order == projection order) when counts align.
-    remap_cols = (
-        view_columns
-        if view_columns is not None and len(view_columns) == len(col_lineages)
-        else None
-    )
+    remap_cols = view_columns
+    if view_columns is not None and len(view_columns) != len(col_lineages):
+        # Without the remap the downstream schemaField URN carries the inner
+        # projection name, which may not be a column the view actually exposes.
+        # Count it so a systematically-misparsed catalog is visible in the report
+        # rather than showing up as silently wrong column lineage.
+        remap_cols = None
+        report.view_column_remap_mismatches += 1
+        report.warning(
+            title="View column lineage may reference undeclared columns",
+            message="Parsed projection count does not match the view's declared "
+            "column count, so column lineage falls back to the inner projection "
+            "names.",
+            context=f"{view_urn} declared={len(view_columns)} "
+            f"parsed={len(col_lineages)}",
+        )
     fine_grained: List[FineGrainedLineageClass] = []
     for idx, cl in enumerate(col_lineages):
         up_fields = [make_schema_field_urn(u.table, u.column) for u in cl.upstreams]

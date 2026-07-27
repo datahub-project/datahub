@@ -1,4 +1,37 @@
+# These tests run against `icr.io/informix/informix-developer-database`, which is
+# anonymously pullable from IBM's public container registry (no login required).
+# The image is linux/amd64 only, so docker-compose.yml pins the platform; on Apple
+# Silicon it runs under emulation.
+#
+# The test seeds a `testdb` database via `dbaccess` against setup/setup.sql, then
+# runs the `informix` source and diffs the output against informix_mces_golden.json.
+#
+# Booting the image is the fragile part, and it fails in two distinct ways:
+#   1. `docker compose up --wait` (pytest-docker's default) blocks on the image's
+#      Docker HEALTHCHECK, which is start_period=60s/retries=1 and therefore flaps
+#      to "unhealthy" on a loaded runner long before boot finishes. We bring the
+#      container up with plain `up -d` and disable the healthcheck entirely.
+#   2. The image's own informix_init.sh gives first-boot disk initialization a
+#      hardcoded 60 iterations (~60s) to create the sysadmin database. Overrun it
+#      and the entrypoint prints _OFFLINE_BANNER, cleans up, and exits -- so the
+#      container is *gone*, not slow. setup/onconfig.mod shrinks the work to fit;
+#      _informix_ready() below detects the failure immediately and surfaces the
+#      server log rather than polling a dead container until the timeout.
+#
+# The Informix JDBC driver (com.ibm.informix:jdbc) and its org.mongodb:bson
+# dependency are proprietary and are not vendored here. `accept_ibm_jdbc_license`
+# makes the connector download and checksum-verify them from Maven Central on
+# first run (see source/informix/driver.py), caching under ~/.datahub/jars/informix.
+# That needs internet access; for air-gapped runs pre-provision the two jars and
+# pass `driver_jar_paths` instead.
+#
+# Unlike the db2 integration test, this one needs no x86_64-only skipif for the
+# Python side: jdk4py and JPype1 (the JVM bridge used to reach the JDBC driver)
+# are both multi-arch. Only the Docker image is amd64-only.
+
 import subprocess
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -7,22 +40,60 @@ from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
+
 INFORMIX_PORT = 9088
 INFORMIX_PASSWORD = "in4mix"
+CONTAINER = "testinformix"
+
+# Every way the image's startup scripts report that the server will not come up.
+# The first three are the `return 255` paths in informix_init.sh; the last is
+# informix_entry.sh giving up. Note that hitting one does NOT reliably stop the
+# container -- the entrypoint can hang in its cleanup and sit there "running" with
+# a dead server -- so matching the log is the only dependable signal.
+_INIT_FAILURE_MARKERS = (
+    "Informix is offline - Exit",
+    "Informix stopped",
+    "No sysadmin database detected",
+    "No licenses available",
+)
+_ONLINE_LOG = "/opt/ibm/data/logs/online.log"
+
+
+def _docker(*args: str) -> "subprocess.CompletedProcess[str]":
+    return subprocess.run(["docker", *args], capture_output=True, text=True)
+
+
+def _online_log(container: str) -> str:
+    # `docker cp` rather than `docker exec`, because by the time we want this the
+    # container has usually already exited.
+    with tempfile.TemporaryDirectory() as tmp:
+        dest = Path(tmp) / "online.log"
+        result = _docker("cp", f"{container}:{_ONLINE_LOG}", str(dest))
+        if result.returncode != 0 or not dest.exists():
+            return f"(unavailable: {result.stderr.strip()})"
+        return dest.read_text(errors="replace")
 
 
 def _informix_ready(container: str) -> bool:
-    # Probe the server directly with onstat rather than the image's Docker
-    # HEALTHCHECK: on slow CI runners the healthcheck flaps to "unhealthy"
-    # before the multi-minute first-boot init finishes, aborting the wait.
-    # `onstat -` prints "On-Line" once the server accepts connections. Mirrors
-    # the db2/mysql "run a readiness command in the container" pattern.
-    result = subprocess.run(
-        ["docker", "exec", "-u", "informix", container, "bash", "-lc", "onstat -"],
-        capture_output=True,
-        text=True,
-    )
-    return "On-Line" in result.stdout
+    logs = _docker("logs", container)
+    combined = logs.stdout + logs.stderr
+    state = _docker("inspect", "-f", "{{.State.Status}}", container).stdout.strip()
+    hit = next((m for m in _INIT_FAILURE_MARKERS if m in combined), None)
+    if hit is not None or state in ("exited", "dead"):
+        raise RuntimeError(
+            f"{container} failed to initialize "
+            f"(marker={hit!r}, state={state or 'unknown'}). The image gives "
+            "first-boot disk init a hardcoded 60s and its logical logs must fit "
+            "the root dbspace; see setup/onconfig.mod.\n"
+            f"--- docker logs (tail) ---\n{combined[-4000:]}\n"
+            f"--- {_ONLINE_LOG} (tail) ---\n{_online_log(container)[-4000:]}"
+        )
+    # `onstat -` prints "On-Line" once the server accepts connections. Probing the
+    # server directly mirrors the db2/mysql "run a readiness command in the
+    # container" pattern. The `bash -lc` wrapper is required: onstat only resolves
+    # once the informix user's login profile has set INFORMIXDIR/PATH.
+    probe = _docker("exec", "-u", "informix", container, "bash", "-lc", "onstat -")
+    return "On-Line" in probe.stdout
 
 
 @pytest.fixture(scope="module")
@@ -32,11 +103,6 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
-    # Bring the container up detached rather than with pytest-docker's default
-    # `up --build --wait`: `--wait` blocks on the container's healthcheck and
-    # aborts ("container testinformix is unhealthy") before our readiness probe
-    # runs. We disable the healthcheck (see docker-compose.yml) and gate on
-    # `_informix_ready` (onstat) below, which tolerates the slow first boot.
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml",
         "informix",
@@ -44,10 +110,10 @@ def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     ) as docker_services:
         wait_for_port(
             docker_services,
-            "testinformix",
+            CONTAINER,
             INFORMIX_PORT,
             timeout=600,
-            checker=lambda: _informix_ready("testinformix"),
+            checker=lambda: _informix_ready(CONTAINER),
         )
 
         subprocess.run(
@@ -56,7 +122,7 @@ def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
                 "exec",
                 "-u",
                 "root",
-                "testinformix",
+                CONTAINER,
                 "bash",
                 "-c",
                 f"echo 'informix:{INFORMIX_PASSWORD}' | chpasswd",
@@ -68,7 +134,7 @@ def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
                 "docker",
                 "cp",
                 str(test_resources_dir / "setup" / "setup.sql"),
-                "testinformix:/tmp/setup.sql",
+                f"{CONTAINER}:/tmp/setup.sql",
             ],
             check=True,
         )
@@ -78,7 +144,7 @@ def informix_runner(docker_compose_runner, pytestconfig, test_resources_dir):
                 "exec",
                 "-u",
                 "informix",
-                "testinformix",
+                CONTAINER,
                 "bash",
                 "-lc",
                 "dbaccess - /tmp/setup.sql",

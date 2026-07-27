@@ -1,5 +1,6 @@
-from typing import Dict, Tuple
+from typing import Dict
 
+from datahub.ingestion.source.informix.models import InformixType, MappedColumn
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -14,56 +15,66 @@ from datahub.metadata.schema_classes import (
 
 PLATFORM = "informix"
 
+DRIVER_CLASS = "com.informix.jdbc.IfxDriver"
+
+# systables.tabtype discriminates base tables from views.
+TABTYPE_TABLE = "T"
+TABTYPE_VIEW = "V"
+
 # Informix syscolumns.coltype: low byte (coltype & 0xFF) is the base type code;
 # bit 0x100 (256) is the NOT NULL flag. See IBM Informix SQL Reference (SYSCOLUMNS).
 _NOT_NULL_BIT = 0x100
 _BASE_TYPE_MASK = 0xFF
 
-# base type code -> (DataHub type class, canonical native name)
-INFORMIX_TYPE_MAP: Dict[int, Tuple[type, str]] = {
-    0: (StringTypeClass, "CHAR"),
-    1: (NumberTypeClass, "SMALLINT"),
-    2: (NumberTypeClass, "INTEGER"),
-    3: (NumberTypeClass, "FLOAT"),
-    4: (NumberTypeClass, "SMALLFLOAT"),
-    5: (NumberTypeClass, "DECIMAL"),
-    6: (NumberTypeClass, "SERIAL"),
-    7: (DateTypeClass, "DATE"),
-    8: (NumberTypeClass, "MONEY"),
-    10: (TimeTypeClass, "DATETIME"),
-    11: (BytesTypeClass, "BYTE"),
-    12: (StringTypeClass, "TEXT"),
-    13: (StringTypeClass, "VARCHAR"),
-    14: (TimeTypeClass, "INTERVAL"),
-    15: (StringTypeClass, "NCHAR"),
-    16: (StringTypeClass, "NVARCHAR"),
-    17: (NumberTypeClass, "INT8"),
-    18: (NumberTypeClass, "SERIAL8"),
-    19: (RecordTypeClass, "SET"),
-    20: (RecordTypeClass, "MULTISET"),
-    21: (RecordTypeClass, "LIST"),
+INFORMIX_TYPE_MAP: Dict[int, InformixType] = {
+    0: InformixType(StringTypeClass, "CHAR"),
+    1: InformixType(NumberTypeClass, "SMALLINT"),
+    2: InformixType(NumberTypeClass, "INTEGER"),
+    3: InformixType(NumberTypeClass, "FLOAT"),
+    4: InformixType(NumberTypeClass, "SMALLFLOAT"),
+    5: InformixType(NumberTypeClass, "DECIMAL"),
+    6: InformixType(NumberTypeClass, "SERIAL"),
+    7: InformixType(DateTypeClass, "DATE"),
+    8: InformixType(NumberTypeClass, "MONEY"),
+    10: InformixType(TimeTypeClass, "DATETIME"),
+    11: InformixType(BytesTypeClass, "BYTE"),
+    12: InformixType(StringTypeClass, "TEXT"),
+    13: InformixType(StringTypeClass, "VARCHAR"),
+    14: InformixType(TimeTypeClass, "INTERVAL"),
+    15: InformixType(StringTypeClass, "NCHAR"),
+    16: InformixType(StringTypeClass, "NVARCHAR"),
+    17: InformixType(NumberTypeClass, "INT8"),
+    18: InformixType(NumberTypeClass, "SERIAL8"),
+    19: InformixType(RecordTypeClass, "SET"),
+    20: InformixType(RecordTypeClass, "MULTISET"),
+    21: InformixType(RecordTypeClass, "LIST"),
     # 40 (variable-length opaque/UDT: JSON, BSON, spatial) is intentionally
     # excluded — it has no single canonical native type, so it falls back to
     # NullTypeClass + UNKNOWN(40) via map_coltype's .get() default.
-    43: (StringTypeClass, "LVARCHAR"),
-    45: (BooleanTypeClass, "BOOLEAN"),
-    52: (NumberTypeClass, "BIGINT"),
-    53: (NumberTypeClass, "BIGSERIAL"),
+    43: InformixType(StringTypeClass, "LVARCHAR"),
+    45: InformixType(BooleanTypeClass, "BOOLEAN"),
+    52: InformixType(NumberTypeClass, "BIGINT"),
+    53: InformixType(NumberTypeClass, "BIGSERIAL"),
 }
 
 
-def map_coltype(coltype: int) -> Tuple[SchemaFieldDataTypeClass, bool, str]:
+def map_coltype(coltype: int) -> MappedColumn:
     base = coltype & _BASE_TYPE_MASK
-    nullable = (coltype & _NOT_NULL_BIT) == 0
-    type_cls, native = INFORMIX_TYPE_MAP.get(base, (NullTypeClass, f"UNKNOWN({base})"))
-    return SchemaFieldDataTypeClass(type=type_cls()), nullable, native
+    mapped = INFORMIX_TYPE_MAP.get(
+        base, InformixType(NullTypeClass, f"UNKNOWN({base})")
+    )
+    return MappedColumn(
+        data_type=SchemaFieldDataTypeClass(type=mapped.datahub_type()),
+        nullable=(coltype & _NOT_NULL_BIT) == 0,
+        native=mapped.native_name,
+    )
 
 
 # tabid < 100 are reserved system-catalog objects; tabtype 'T' table, 'V' view.
 # nrows is an approximate, catalog-maintained row count (-1/0 means unknown).
 SQL_TABLES = (
     "SELECT TRIM(tabname) AS tabname, TRIM(owner) AS owner, tabtype, nrows "
-    "FROM systables WHERE tabid >= 100 AND tabtype IN ('T', 'V')"
+    f"FROM systables WHERE tabid >= 100 AND tabtype IN ('{TABTYPE_TABLE}', '{TABTYPE_VIEW}')"
 )
 SQL_COLUMNS = (
     "SELECT TRIM(c.colname) AS colname, c.coltype, c.collength, c.colno "
