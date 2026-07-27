@@ -239,24 +239,24 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     String lastUrn = EMPTY_KEYSET;
     String lastAspect = EMPTY_KEYSET;
     long pairsHandled = 0;
-    while (true) {
-      List<EbeanAspectV2> rows =
+    List<EbeanAspectV2> rows;
+    do {
+      rows =
           getPagedAspectsByKeyset(
               null, entityName, aspectName, lastUrn, lastAspect, _batchSize, null);
-      if (rows.isEmpty()) {
-        break;
+      if (!rows.isEmpty()) {
+        log.info(
+            "Applying retention to {} (urn, aspect) pairs with version > 0 after key ({}, {})",
+            rows.size(),
+            lastUrn.isEmpty() ? "<start>" : lastUrn,
+            lastAspect.isEmpty() ? "<start>" : lastAspect);
+        applyRetention(rows, retentionPolicyMap, null);
+        pairsHandled += rows.size();
+        EbeanAspectV2 last = rows.get(rows.size() - 1);
+        lastUrn = last.getUrn();
+        lastAspect = last.getAspect();
       }
-      log.info(
-          "Applying retention to {} (urn, aspect) pairs with version > 0 after key ({}, {})",
-          rows.size(),
-          lastUrn.isEmpty() ? "<start>" : lastUrn,
-          lastAspect.isEmpty() ? "<start>" : lastAspect);
-      applyRetention(rows, retentionPolicyMap, null);
-      pairsHandled += rows.size();
-      EbeanAspectV2 last = rows.get(rows.size() - 1);
-      lastUrn = last.getUrn();
-      lastAspect = last.getAspect();
-    }
+    } while (rows.size() == _batchSize);
 
     log.info(
         "Finished applying retention to {} (urn, aspect) pairs with version > 0", pairsHandled);
