@@ -492,9 +492,11 @@ class TestSnowflakeTasksExtractor:
         assert any("target_b" in d for d in io.outputDatasets)
         assert not report.warnings
 
-    def test_call_only_task_emits_warning_and_no_dataset_lineage(self) -> None:
-        """A CALL-only body has no DML statements to parse, so no lineage is
-        produced; a warning surfaces this so users know why."""
+    def test_call_only_task_resolves_to_procedure_job_edge(self) -> None:
+        """A CALL-only body has no DML statements to parse, but
+        parse_procedure_code resolves the call target to a dataJob->dataJob
+        edge (the same procedure-call resolution used by stored procedures),
+        with no dataset-level lineage and no warning."""
         task = _make_task(
             name="proc_task",
             definition="CALL my_proc('arg1', 'arg2')",
@@ -502,13 +504,14 @@ class TestSnowflakeTasksExtractor:
         wus, report = _collect_workunits([task])
 
         ios = _data_job_input_outputs(wus)
-        assert len(ios) == 0
-        titles = [w.title for w in report.warnings]
-        assert any("Task Lineage Extraction Failed" in t for t in titles), (
-            f"Expected a task-lineage-extraction warning; got: {titles}"
-        )
-        contexts = [str(w.context) for w in report.warnings]
-        assert any("proc_task" in c for c in contexts)
+        assert len(ios) == 1
+        io = ios[0]
+        assert not io.inputDatasets
+        assert not io.outputDatasets
+        assert io.inputDatajobs and len(io.inputDatajobs) == 1
+        assert "my_proc" in io.inputDatajobs[0]
+        assert "stored_procedures" in io.inputDatajobs[0]
+        assert not report.warnings
 
     def test_empty_definition_emits_no_dataset_lineage(self) -> None:
         task = _make_task(name="empty_task", definition="")
