@@ -263,6 +263,49 @@ class PgQueueEmitterConfig(ConfigModel):
         return v
 
 
+class PgQueueMclProducerConfig(ConfigModel):
+    """Produce MetadataChangeLog records into an arbitrary pgQueue topic.
+
+    Topic is supplied per ``produce()`` call — there is no ``topic_routes`` map.
+    """
+
+    queue: PgQueueConnectionConfig
+
+    schema_registry_url: str = Field(
+        default_factory=_get_schema_registry_url,
+        description="Schema Registry URL (same as Kafka / pgQueue emitter).",
+    )
+
+    schema_registry_config: Dict[str, object] = Field(
+        default_factory=dict,
+        description="Extra Schema Registry client options.",
+    )
+
+    content_type: str = Field(
+        default="application/avro",
+        description=(
+            "Logical payload MIME after decompression; resolved to message.content_type_id (or omitted "
+            "when equal to the topic default)."
+        ),
+    )
+
+    payload_compression: Literal["NONE", "SNAPPY"] = Field(
+        default="SNAPPY",
+        description=(
+            "Application-layer codec for serialized Avro bytes; stored in message.payload_compression. "
+            "Align with postgres.pgQueue.payloadCompression / DATAHUB_PGQUEUE_PAYLOAD_COMPRESSION when "
+            "emitting to GMS."
+        ),
+    )
+
+    default_priority: int = Field(
+        default=5,
+        ge=0,
+        le=9,
+        description="Enqueue priority (0 = highest, 9 = lowest, 5 = default/normal).",
+    )
+
+
 class PgQueueConsumerConfig(ConfigModel):
     """Consume pgQueue messages and deserialize Avro like DataHubKafkaReader."""
 
