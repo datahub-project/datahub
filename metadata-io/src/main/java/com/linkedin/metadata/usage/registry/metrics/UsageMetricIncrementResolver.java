@@ -66,6 +66,10 @@ public final class UsageMetricIncrementResolver {
       return isKnownRequestPhasePair(metric) ? 0 : -1;
     }
 
+    if (!metric.matchesRequestApi(requestContext.getRequestAPI())) {
+      return 0L;
+    }
+
     long usageQuantity = Math.max(1L, requestContext.getUsageQuantity());
     return switch (metric.emitWhen()) {
       case ALWAYS -> resolveAlwaysIncrement(
@@ -98,13 +102,14 @@ public final class UsageMetricIncrementResolver {
       return Optional.of(BILLED_BYTES_METRIC);
     }
     if (isReportDrivenMetric(metric)) {
-      // Do not share DATAHUB_REQUEST_COUNT with api_calls; export under the registry name.
+      // Do not share DATAHUB_REQUEST_COUNT with request-path counters.
       if (metric.valueUnit() == ValueUnit.COUNT) {
         return Optional.of("datahub.usage." + metric.metricName());
       }
       return Optional.empty();
     }
     return switch (metric.valueUnit()) {
+        // Combined request-path counter (api_calls).
       case COUNT -> Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT);
       case INPUT_BYTES -> Optional.of(INPUT_BYTES_METRIC);
       case OUTPUT_BYTES -> Optional.of(OUTPUT_BYTES_METRIC);

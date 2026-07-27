@@ -26,4 +26,8 @@ dependencies {
   annotationProcessor externalDependency.lombok
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
+  // Spring's MockHttpServletRequest — used in EnrichmentPropagationTest to stamp the
+  // REQUEST_ENRICHMENTS_ATTR attribute and drive buildOpenapi through the full read-back chain.
+  // Test-only; production code has no Spring dependency.
+  testImplementation externalDependency.springBootTest
 }

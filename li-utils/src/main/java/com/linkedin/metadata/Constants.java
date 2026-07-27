@@ -489,6 +489,9 @@ public class Constants {
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
 
+  /** Relationship from a physical asset to its logical model parent (via LogicalParent.parent) */
+  public static final String PHYSICAL_INSTANCE_OF_RELATIONSHIP_NAME = "PhysicalInstanceOf";
+
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";

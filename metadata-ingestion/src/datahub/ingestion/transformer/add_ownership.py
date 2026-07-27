@@ -6,7 +6,7 @@ variants in ``add_dataset_ownership.py`` delegate to these with
 """
 
 import logging
-from typing import Callable, Dict, List, Optional, Union, cast
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union, cast
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
@@ -165,11 +165,36 @@ class AddOwnership(OwnershipTransformer):
 
         for urn, owners in ownership_container_mapping.items():
             patch_builder = DashboardPatchBuilder(urn)
-            for owner in owners:
+            for owner in self._dedupe_owners(owners):
                 patch_builder.add_owner(owner)
             mcps.extend(list(patch_builder.build()))
 
         return mcps
+
+    @staticmethod
+    def _dedupe_owners(owners: List[OwnerClass]) -> List[OwnerClass]:
+        # Container rollup concatenates owners from every child. Without
+        # dedup, large folders emit one identical add_owner op per child
+        # and can exceed GMS's payload limit. Key matches HasOwnershipPatch.
+        seen: Set[Tuple[str, str, str, str]] = set()
+        deduped: List[OwnerClass] = []
+        for owner in owners:
+            source = (
+                owner.attribution.source
+                if (owner.attribution and owner.attribution.source)
+                else ""
+            )
+            key = (
+                owner.owner,
+                str(owner.type) if owner.type else "",
+                str(owner.typeUrn) if owner.typeUrn else "",
+                source,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(owner)
+        return deduped
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
