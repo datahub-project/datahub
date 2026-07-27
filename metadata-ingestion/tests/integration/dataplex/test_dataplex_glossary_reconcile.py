@@ -131,12 +131,13 @@ def _entity_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
 
 def _run_processor(
     repo: MagicMock,
-) -> Tuple[List[MetadataWorkUnit], List[MetadataWorkUnit]]:
+) -> Tuple[List[MetadataWorkUnit], List[MetadataWorkUnit], DataplexGlossaryReport]:
     ctx = _make_ctx()
+    report = DataplexGlossaryReport()
     processor = DataplexGlossaryProcessor(
         ctx=ctx,
         glossary_client=_make_glossary_client(),
-        report=DataplexGlossaryReport(),
+        report=report,
         source_report=Mock(),
         platform_resource_repository=repo,
     )
@@ -144,7 +145,7 @@ def _run_processor(
     assoc_workunits = list(
         processor.process_term_associations([PROJECT_ID], max_workers=1)
     )
-    return glossary_workunits, assoc_workunits
+    return glossary_workunits, assoc_workunits, report
 
 
 def _glossary_terms_aspect_urns(assoc_workunits: List[MetadataWorkUnit]) -> List[str]:
@@ -177,7 +178,7 @@ def test_managed_term_reconciles_to_datahub_urn_and_suppresses_native_entity() -
         field_key=MANAGED_DATAHUB_URN,
     )
 
-    glossary_workunits, assoc_workunits = _run_processor(repo)
+    glossary_workunits, assoc_workunits, report = _run_processor(repo)
 
     # The asset's glossaryTerms aspect carries the original DataHub URN, not the
     # native Dataplex one.
@@ -190,6 +191,7 @@ def test_managed_term_reconciles_to_datahub_urn_and_suppresses_native_entity() -
 
     # No new platform resource was written for an already-managed term.
     assert not any(wu.id.startswith("platform_resource-") for wu in assoc_workunits)
+    assert report.external_term_links_recorded == 0
 
 
 def test_external_term_keeps_native_urn_and_records_unmanaged_resource() -> None:
@@ -197,7 +199,7 @@ def test_external_term_keeps_native_urn_and_records_unmanaged_resource() -> None
     repo = MagicMock()
     repo.search_entity_by_urn.return_value = None
 
-    glossary_workunits, assoc_workunits = _run_processor(repo)
+    glossary_workunits, assoc_workunits, report = _run_processor(repo)
 
     # The asset's glossaryTerms aspect carries the native Dataplex URN.
     term_urns = _glossary_terms_aspect_urns(assoc_workunits)
@@ -206,5 +208,9 @@ def test_external_term_keeps_native_urn_and_records_unmanaged_resource() -> None
     # The native GlossaryTerm entity IS emitted.
     assert NATIVE_TERM_URN in _entity_urns(glossary_workunits)
 
-    # One unmanaged platform resource is recorded per linked asset.
+    # One unmanaged platform resource is recorded per linked asset, and counted.
     assert any(wu.id.startswith("platform_resource-") for wu in assoc_workunits)
+    assert report.external_term_links_recorded == 1
+    assert list(report.external_term_links_samples) == [
+        f"{ASSET_ENTRY_NAME} -> {NATIVE_TERM_URN}"
+    ]

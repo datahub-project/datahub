@@ -159,6 +159,11 @@ class DataplexGlossaryReport(Report):
     glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
     terms_reconciled: int = 0
+    # Externally-authored (managed_by_datahub=false) term links recorded so the
+    # sync-back guard won't overwrite them. Counts the opposite of terms_reconciled;
+    # high volume with no reconciliation is expected in the pre-sync-back-deploy window.
+    external_term_links_recorded: int = 0
+    external_term_links_samples: LossyList[str] = field(default_factory=LossyList)
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -192,6 +197,13 @@ class DataplexGlossaryReport(Report):
     def report_term_reconciled(self) -> None:
         with self._lock:
             self.terms_reconciled += 1
+
+    def report_external_term_link(self, entry_name: str, native_term_urn: str) -> None:
+        with self._lock:
+            self.external_term_links_recorded += 1
+            self.external_term_links_samples.append(
+                f"{entry_name} -> {native_term_urn}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +368,7 @@ class DataplexGlossaryProcessor:
                 exc=exc,
             )
             return
+        self._report.report_external_term_link(entry_name, native_term_urn)
         for mcp in mcps:
             yield MetadataWorkUnit(
                 id=f"platform_resource-{platform_resource.id}",

@@ -300,7 +300,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             self.platform_resource_repository = DataplexPlatformResourceRepository(
                 self.ctx.graph
             )
-        elif self.config.include_glossary_term_associations:
+        elif (
+            self.config.include_glossaries
+            or self.config.include_glossary_term_associations
+        ):
+            # Both the Phase-1 glossary-term suppression (under include_glossaries)
+            # and the Phase-2 association reconciliation (under
+            # include_glossary_term_associations) need the graph, so warn for either.
             self.report.warning(
                 title="Glossary term reconciliation disabled",
                 message="No DataHub graph connection is available, so synced-back "

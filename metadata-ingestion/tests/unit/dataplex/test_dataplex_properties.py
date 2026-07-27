@@ -387,11 +387,22 @@ def test_aspect_type_pattern_denies_datahub_authored_aspects():
         "my-project.global.business-metadata": _FakeAspectValue({"team": "growth"}),
     }
     props: dict[str, str] = {}
+    filtered: list[str] = []
+
+    class _Report:
+        def report_filtered_aspect(self, aspect_type: str) -> None:
+            filtered.append(aspect_type)
+
     extract_aspects_to_custom_properties(
-        aspects, props, aspect_type_pattern=AllowDenyPattern(deny=["datahub-.*"])
+        aspects,
+        props,
+        aspect_type_pattern=AllowDenyPattern(deny=["datahub-.*"]),
+        report=_Report(),
     )
     # DataHub-authored aspect is filtered out entirely...
     assert not any(k.startswith("dataplex_datahub-tags") for k in props)
     assert "dataplex_aspect_datahub-tags" not in props
     # ...but a genuine native aspect is still flattened (matched by bare type name).
     assert props["dataplex_business-metadata_team"] == "growth"
+    # ...and the dropped aspect type is surfaced to the report.
+    assert filtered == ["datahub-tags"]
