@@ -1,4 +1,7 @@
-from datahub.ingestion.source.sap_datasphere.analytic_model import parse_business_layer
+from datahub.ingestion.source.sap_datasphere.analytic_model import (
+    extract_projection_source_columns,
+    parse_business_layer,
+)
 
 
 def test_extracts_fact_and_dimension_source_keys():
@@ -94,3 +97,46 @@ def test_malformed_entries_skipped():
     assert (
         parse_business_layer(bld, "M").fact_source_keys == []
     )  # no key -> skipped; non-dict -> skipped
+
+
+def test_projection_source_columns_maps_alias_to_source():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.v_source"]},
+                "columns": [
+                    # aliased projection -> keyed by alias, points at source col
+                    {"ref": ["SPACE.v_source", "col_a"], "as": "renamed_a"},
+                    # no alias -> keyed by the source column name
+                    {"ref": ["SPACE.v_source", "col_b"]},
+                ],
+            }
+        }
+    }
+    result = extract_projection_source_columns(csn_def)
+    assert result["renamed_a"].source_object == "SPACE.v_source"
+    assert result["renamed_a"].column == "col_a"
+    assert result["col_b"].column == "col_b"
+
+
+def test_projection_source_columns_skips_derived_columns():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "columns": [
+                    {"ref": ["SPACE.v_source", "col_a"], "as": "col_a"},
+                    # a $projection self-reference (calculated) has no external source
+                    {"ref": ["$projection", "col_a"], "as": "cc_derived"},
+                    # a pure expression column carries no ref at all
+                    {"xpr": [{"val": 1}], "as": "cc_const"},
+                ]
+            }
+        }
+    }
+    result = extract_projection_source_columns(csn_def)
+    assert set(result) == {"col_a"}
+
+
+def test_projection_source_columns_no_query_is_empty():
+    assert extract_projection_source_columns({}) == {}
+    assert extract_projection_source_columns({"query": {"SELECT": {}}}) == {}

@@ -38,6 +38,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sap_datasphere.analytic_model import (
+    extract_projection_source_columns,
     parse_business_layer,
 )
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
@@ -51,6 +52,8 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CATALOG_FIELD_METADATA_URL,
     CATALOG_FIELD_NAME,
     CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES,
+    CSN_ANN_AGGREGATION_DEFAULT,
+    CSN_ANN_MEASURE_TYPE,
     CSN_KEY_BUSINESS_LAYER,
     CSN_KEY_DEFINITIONS,
     CSN_KEY_ELEMENTS,
@@ -114,6 +117,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
+    SourceColumnRef,
     TransformOp,
     UnknownColumnType,
     UpstreamRef,
@@ -144,7 +148,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    NumberTypeClass,
     SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -267,6 +273,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # resolution; stays None when the feature is off or no graph is available.
         self._graph_resolver: Optional[ExternalUrnGraphResolver] = None
         self._graph_resolver_unavailable_warned = False
+        # Source object (space-qualified name) -> {column: typed SchemaField}, used
+        # to copy scalar types into analytic-model elements (which carry none). One
+        # CSN fetch per distinct source object, reused across analytic models.
+        self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -701,7 +711,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _merge_flow_downstream_lineage(
         self, downstream_urn: str, lineage: UpstreamLineageClass
     ) -> None:
-        """Union a flow's lineage into the per-target accumulator, deduping upstreams by URN and fine-grained edges by identity."""
         existing = self._flow_downstream_lineage.get(downstream_urn)
         if existing is None:
             self._flow_downstream_lineage[downstream_urn] = lineage
@@ -889,7 +898,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_remote_tables_for_space(
         self, space_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit federated Remote Tables with upstream lineage parsed from CSN ``@DataWarehouse.remote.*`` annotations."""
         entries = self._safe_list_objects(
             space_name,
             OBJECT_TYPE_REMOTE_TABLES,
@@ -1863,20 +1871,120 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # Surface both parse concerns: columns with an unmapped CDS type, and
         # columns the API emitted with no type at all.
         self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
-        if csn_schema.columns_missing_type:
-            self.report.warning(
-                title="CSN column(s) missing a type",
-                message=(
-                    f"{len(csn_schema.columns_missing_type)} column(s) on "
-                    f"{space_name}.{asset_name} had no type in the CSN elements "
-                    f"map; they degrade to StringType/UNKNOWN. This is a source "
-                    f"data concern, not an unmapped type."
-                ),
-                context=", ".join(csn_schema.columns_missing_type),
+        self._report_missing_cds_types(
+            space_name, asset_name, csn_schema.columns_missing_type
+        )
+
+    def _report_missing_cds_types(
+        self, space_name: str, asset_name: str, missing: List[str]
+    ) -> None:
+        if not missing:
+            return
+        self.report.warning(
+            title="CSN column(s) missing a type",
+            message=(
+                f"{len(missing)} column(s) on {space_name}.{asset_name} had no "
+                f"type in the CSN and could not be resolved from a source object "
+                f"or inferred as a measure; they degrade to StringType/UNKNOWN. "
+                f"Expected for calculated/derived analytic-model columns."
+            ),
+            context=", ".join(missing),
+        )
+        self.report.assets_with_missing_cds_types.append(f"{space_name}.{asset_name}")
+
+    def _resolve_missing_element_types(
+        self,
+        space_name: str,
+        asset_name: str,
+        csn_def: JsonDict,
+        fields: List[SchemaFieldClass],
+        missing: List[str],
+    ) -> List[str]:
+        # Analytic-model elements carry no inline type. Recover each typeless
+        # column's type by following the projection to its source object's column
+        # (accurate), then fall back to a numeric guess for derived measures that
+        # have no single source column. Returns the columns still unresolved.
+        try:
+            source_columns = extract_projection_source_columns(csn_def)
+        except Exception as e:
+            logger.debug(
+                "Could not map %s.%s projection: %s", space_name, asset_name, e
             )
-            self.report.assets_with_missing_cds_types.append(
-                f"{space_name}.{asset_name}"
-            )
+            return missing
+        elements = csn_def.get(CSN_KEY_ELEMENTS)
+        elements = elements if isinstance(elements, dict) else {}
+        field_by_path = {f.fieldPath: f for f in fields}
+        still_missing: List[str] = []
+        for column in missing:
+            field = field_by_path.get(column)
+            if field is None:
+                continue
+            if self._type_from_source(space_name, column, source_columns, field):
+                self.report.analytic_model_columns_typed_from_source += 1
+            elif self._infer_measure_type(elements.get(column), field):
+                self.report.analytic_model_columns_typed_by_measure_heuristic += 1
+            else:
+                still_missing.append(column)
+        return still_missing
+
+    def _type_from_source(
+        self,
+        space_name: str,
+        column: str,
+        source_columns: Dict[str, SourceColumnRef],
+        field: SchemaFieldClass,
+    ) -> bool:
+        ref = source_columns.get(column)
+        if ref is None:
+            return False
+        type_map = self._source_object_field_types(space_name, ref.source_object)
+        source_field = type_map.get(ref.column)
+        if source_field is None:
+            return False
+        field.type = source_field.type
+        field.nativeDataType = source_field.nativeDataType
+        return True
+
+    @staticmethod
+    def _infer_measure_type(element: object, field: SchemaFieldClass) -> bool:
+        if not isinstance(element, dict):
+            return False
+        if (
+            CSN_ANN_MEASURE_TYPE not in element
+            and CSN_ANN_AGGREGATION_DEFAULT not in element
+        ):
+            return False
+        field.type = SchemaFieldDataTypeClass(type=NumberTypeClass())
+        field.nativeDataType = "DECIMAL"
+        return True
+
+    def _source_object_field_types(
+        self, default_space: str, source_object: str
+    ) -> Dict[str, SchemaFieldClass]:
+        cached = self._source_field_type_cache.get(source_object)
+        if cached is not None:
+            return cached
+        # A projection ref is space-qualified (``SPACE.name``); a bare name is a
+        # same-space source. ponytail: only VIEWS is probed (its 404 retry also
+        # covers analytic models) — a local/remote-table source is not resolved and
+        # its columns fall back to the measure heuristic or stay StringType.
+        space, _, name = source_object.partition(".")
+        if not name:
+            space, name = default_space, source_object
+        field_map: Dict[str, SchemaFieldClass] = {}
+        csn_obj = self._client.fetch_object_definition(space, OBJECT_TYPE_VIEWS, name)
+        definition = self._csn_definition(csn_obj, name)
+        elements = definition.get(CSN_KEY_ELEMENTS) if definition is not None else None
+        if isinstance(elements, dict):
+            result = parse_csn_elements_to_schema_fields(elements)
+            # Only propagate types we actually know: a typeless source column (e.g.
+            # a nested analytic model) must not overwrite with a bogus StringType.
+            typeless = set(result.columns_missing_type)
+            field_map = {
+                f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
+            }
+        self._source_field_type_cache[source_object] = field_map
+        return field_map
 
     def _apply_column_pattern(
         self, fields: List[SchemaFieldClass]
@@ -1901,7 +2009,16 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not isinstance(elements, dict) or not elements:
             return None
         csn_schema = parse_csn_elements_to_schema_fields(elements)
-        self._report_csn_parse_concerns(space_name, asset_name, csn_schema)
+        self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
+        # Analytic-model elements have no inline type; recover it from the
+        # projection's source columns (or a measure guess) before warning, so the
+        # warning fires only on the genuinely unresolvable remainder.
+        missing = csn_schema.columns_missing_type
+        if missing:
+            missing = self._resolve_missing_element_types(
+                space_name, asset_name, csn_def, csn_schema.fields, missing
+            )
+        self._report_missing_cds_types(space_name, asset_name, missing)
         filtered = self._apply_column_pattern(csn_schema.fields)
         if not filtered:
             return None

@@ -173,6 +173,11 @@ CSN_SET: Final[str] = "SET"
 CSN_REMOTE_SOURCE: Final[str] = "@remote.source"
 # SQL views store the modeler's raw SQL here; graphical views emit a CSN tree.
 CSN_KEY_SQL_EDITOR_QUERY: Final[str] = "@DataWarehouse.sqlEditor.query"
+# Annotations that mark an analytic-model element as a measure. Analytic-model
+# elements carry no inline type; a derived measure that can't be resolved from a
+# source column is inferred numeric from either of these.
+CSN_ANN_MEASURE_TYPE: Final[str] = "@AnalyticsDetails.measureType"
+CSN_ANN_AGGREGATION_DEFAULT: Final[str] = "@Aggregation.default"
 
 # ViewProperties.viewLanguage values emitted for the two view shapes above.
 VIEW_LANGUAGE_SQL: Final[str] = "SQL"

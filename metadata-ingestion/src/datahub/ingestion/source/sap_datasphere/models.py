@@ -261,6 +261,16 @@ class UpstreamColRef(BaseModel):
     qualified: bool = False
 
 
+class SourceColumnRef(BaseModel):
+    # Where an analytic-model element gets its scalar type: the source object it
+    # projects from and the column within it. Analytic-model elements carry no
+    # inline CSN type, so the type is copied from this source column's schema.
+    model_config = ConfigDict(frozen=True)
+
+    source_object: str
+    column: str
+
+
 # Transform-operation labels DataHub's UI recognises for its transformation badge.
 TransformOp = Literal["IDENTITY", "RENAME", "AGGREGATE", "TRANSFORMATION", "EXPRESSION"]
 

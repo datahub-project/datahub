@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_ATTRIBUTES,
@@ -9,9 +9,16 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_MEASURES,
     BLD_SOURCE_MODEL,
     BLD_VARIABLES,
+    CSN_AS,
+    CSN_COLUMNS,
+    CSN_KEY_QUERY,
+    CSN_REF,
+    CSN_SELECT,
+    PROJECTION_ALIAS,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     BusinessLayer,
+    SourceColumnRef,
     dedup_preserving_order,
 )
 
@@ -48,3 +55,36 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
         attribute_names=_names(model.get(BLD_ATTRIBUTES)),
         variable_names=_names(model.get(BLD_VARIABLES)),
     )
+
+
+def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRef]:
+    # Map each projected element (keyed by its `as` alias, else the source column
+    # name) to the source object + column it reads from, via query.SELECT.columns.
+    # Analytic-model elements carry no inline type, so this is how we find the
+    # source column whose type to copy. Calculated columns (an expression, or a
+    # `$projection` self-reference) have no single source and are skipped.
+    query = csn_def.get(CSN_KEY_QUERY)
+    if not isinstance(query, dict):
+        return {}
+    select = query.get(CSN_SELECT)
+    if not isinstance(select, dict):
+        return {}
+    columns = select.get(CSN_COLUMNS)
+    if not isinstance(columns, list):
+        return {}
+    out: Dict[str, SourceColumnRef] = {}
+    for col in columns:
+        if not isinstance(col, dict):
+            continue
+        ref = col.get(CSN_REF)
+        if not (isinstance(ref, list) and len(ref) >= 2):
+            continue
+        source_object, column = ref[0], ref[-1]
+        if not (isinstance(source_object, str) and isinstance(column, str)):
+            continue
+        if source_object == PROJECTION_ALIAS:
+            continue
+        alias = col.get(CSN_AS)
+        element = alias if isinstance(alias, str) and alias else column
+        out[element] = SourceColumnRef(source_object=source_object, column=column)
+    return out

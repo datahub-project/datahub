@@ -5862,3 +5862,85 @@ def test_source_does_not_override_get_workunits():
         cls for cls in SapDatasphereSource.__mro__ if "get_workunits" in cls.__dict__
     )
     assert defining_class is not SapDatasphereSource
+
+
+def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
+    # Analytic-model elements carry no inline type: an attribute and a measure are
+    # recovered from the projection's source view, a derived measure is inferred
+    # numeric, and a non-measure with no source column stays String + is reported.
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-am-types"), cfg)
+
+    source_view_csn = {
+        "definitions": {
+            "v_src": {
+                "elements": {
+                    "dim_a": {"type": "cds.String", "length": 10},
+                    "meas_x": {"type": "cds.Decimal", "precision": 10, "scale": 2},
+                }
+            }
+        }
+    }
+
+    def _fetch(space, object_type, technical_name, **kwargs):
+        return source_view_csn if technical_name == "v_src" else None
+
+    source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
+
+    am_csn_def = {
+        "elements": {
+            "dim_a": {"@EndUserText.label": "A"},
+            "meas_x": {"@AnalyticsDetails.measureType": {"#": "BASE"}},
+            "cc_derived": {"@Aggregation.default": {"#": "SUM"}},
+            "mystery": {"@EndUserText.label": "M"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SRCSPACE.v_src"]},
+                "columns": [
+                    {"ref": ["SRCSPACE.v_src", "dim_a"], "as": "dim_a"},
+                    {"ref": ["SRCSPACE.v_src", "meas_x"], "as": "meas_x"},
+                    {"xpr": [{"val": 1}], "as": "cc_derived"},
+                    {"xpr": [{"val": 2}], "as": "mystery"},
+                ],
+            }
+        },
+    }
+
+    fields = source._schema_fields_from_csn("AMSPACE", "am_x", am_csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: type(f.type.type).__name__ for f in fields}
+
+    assert by_path["dim_a"] == "StringTypeClass"  # from source cds.String
+    assert by_path["meas_x"] == "NumberTypeClass"  # from source cds.Decimal
+    assert by_path["cc_derived"] == "NumberTypeClass"  # measure heuristic
+    assert by_path["mystery"] == "StringTypeClass"  # unresolved, stays String
+
+    assert source.report.analytic_model_columns_typed_from_source == 2
+    assert source.report.analytic_model_columns_typed_by_measure_heuristic == 1
+    # only the genuinely unresolvable column is reported as missing
+    assert "AMSPACE.am_x" in list(source.report.assets_with_missing_cds_types)
+
+
+def test_analytic_model_source_field_types_cached_across_lookups():
+    # The source object's CSN is fetched once and reused, so multiple analytic
+    # models sharing a fact source don't refetch it.
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-am-cache"), cfg)
+
+    calls: List[str] = []
+
+    def _fetch(space, object_type, technical_name, **kwargs):
+        calls.append(technical_name)
+        return {"definitions": {"v_src": {"elements": {"c": {"type": "cds.String"}}}}}
+
+    source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
+
+    first = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
+    second = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
+    assert "c" in first and first is second
+    assert calls == ["v_src"]
