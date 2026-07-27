@@ -20,7 +20,8 @@ Files:
 
 - `main.py` — FastAPI server, SSE endpoint, config endpoints
 - `agent.py` — model-agnostic agent loop (tool-use cycle)
-- `datahub_tools.py` — tool definitions + GraphQL executors
+- `mcp_tools.py` — MCP client: connects to DataHub's MCP server via stdio (`uvx`) or HTTP
+- `datahub_tools.py` — fallback GraphQL tool definitions (used before MCP integration)
 
 ## Run locally
 
@@ -39,7 +40,8 @@ export DATAHUB_GMS_URL="http://localhost:8080"      # your DataHub GMS (local or
 export DATAHUB_GMS_TOKEN="<pat>"                    # optional (if GMS auth is on)
 
 
-uvicorn main:app --port 8000 --reload
+# Use the venv's uvicorn directly to avoid conflicts with system-installed versions
+.venv/bin/uvicorn main:app --port 8000 --reload
 ```
 
 Test:
