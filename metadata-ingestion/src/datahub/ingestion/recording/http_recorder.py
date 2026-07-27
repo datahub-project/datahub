@@ -1,5 +1,6 @@
 """HTTP recording and replay using VCR.py."""
 
+import functools
 import json
 import logging
 import threading
@@ -8,6 +9,38 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _play_response_in_order(cassette: Any, request: Any) -> Any:
+    """Play matching recordings in order, then repeat the last one.
+
+    Replaces Cassette.play_response, which returns the *first* match on every
+    call once allow_playback_repeats is on. That breaks any client polling one
+    endpoint until its state changes: the Databricks SDK waiting for a SQL
+    warehouse to leave STARTING replays STARTING forever and never terminates,
+    so whether replay works depends on whether the warehouse happened to be warm
+    when the cassette was recorded.
+
+    Handing out each recording once, in recorded order, lets a polled state
+    advance. Falling back to the last recording once they are exhausted keeps
+    the repeat behaviour that out-of-order and parallel requests rely on, and
+    makes the terminal state the one that repeats.
+    """
+    import vcr.errors
+
+    matches = list(cassette._responses(request))
+    if not matches:
+        raise vcr.errors.UnhandledHTTPRequestError(
+            f"The cassette ({cassette._path!r}) doesn't contain the request ({request!r}) asked for",
+        )
+
+    index, response = next(
+        ((i, r) for i, r in matches if cassette.play_counts[i] == 0),
+        matches[-1],
+    )
+    cassette.play_counts[index] += 1
+    cassette._played_interactions.append((cassette.data[index][0], response))
+    return response
 
 
 def _normalize_json_body(body: Any) -> Any:
@@ -453,6 +486,11 @@ class HTTPRecorder:
             # and the order can differ between recording and replay
             allow_playback_repeats=True,
         ) as cassette:
+            # Consume repeated recordings of the same request in order before
+            # repeating, so polled state transitions can complete.
+            cassette.play_response = functools.partial(
+                _play_response_in_order, cassette
+            )
             self._cassette = cassette
             try:
                 yield self
