@@ -4,11 +4,14 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.ContainerEntitiesInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -20,16 +23,21 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.DataFetchingFieldSelectionSet;
+import graphql.schema.SelectedField;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
 
 /** Retrieves a list of historical executions for a particular source. */
 @Slf4j
 public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<SearchResults>> {
 
-  static final List<String> CONTAINABLE_ENTITY_NAMES =
+  public static final List<String> CONTAINABLE_ENTITY_NAMES =
       ImmutableList.of(
           Constants.DATASET_ENTITY_NAME,
           Constants.CHART_ENTITY_NAME,
@@ -41,6 +49,11 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final ContainerEntitiesInput DEFAULT_ENTITIES_INPUT = new ContainerEntitiesInput();
+
+  // Selections answerable from an aggregation alone. Deliberately excludes start/count: those are
+  // echoed from the request rather than reported by the search layer on this path, so we only take
+  // it when the caller cannot observe the difference.
+  private static final Set<String> COUNT_ONLY_FIELDS = ImmutableSet.of("total", "__typename");
 
   static {
     DEFAULT_ENTITIES_INPUT.setQuery(DEFAULT_QUERY);
@@ -66,10 +79,78 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
             ? bindArgument(environment.getArgument(INPUT_ARG_NAME), ContainerEntitiesInput.class)
             : DEFAULT_ENTITIES_INPUT;
 
-    final String query = input.getQuery() != null ? input.getQuery() : "*";
-    final int start = input.getStart() != null ? input.getStart() : 0;
-    final int count = input.getCount() != null ? input.getCount() : 20;
+    final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
+    final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
+    final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
 
+    // Fast path: every UI call site selects only `total`, so the hits the search would return are
+    // discarded. Serve those from a batched, request-scoped aggregation instead, so a page of N
+    // containers costs a fixed number of searches rather than N searches plus N primary-store
+    // existence checks. See ContainerEntityCountsBatchLoader.
+    if (canServeFromCounts(environment, query, input.getFilters())) {
+      return resolveCountFromLoader(environment, urn, start, count);
+    }
+
+    return resolveDirect(context, urn, input, query, start, count);
+  }
+
+  private static boolean canServeFromCounts(
+      final DataFetchingEnvironment environment,
+      final String query,
+      @Nullable final List<FacetFilterInput> filters) {
+    // The batched loader forces query "*" and applies no facet filters, so anything relying on a
+    // real query or filters must take the direct path to preserve exact behavior. `count` is not
+    // consulted: the gate below already establishes that no hits are read, and `total` is
+    // independent of paging.
+    if (!DEFAULT_QUERY.equals(query) || (filters != null && !filters.isEmpty())) {
+      return false;
+    }
+    return isCountOnlySelection(environment);
+  }
+
+  /**
+   * True when the caller reads nothing but the total. Uses the flattened selection set so fragment
+   * spreads are resolved, and treats an empty selection as ineligible rather than as trivially
+   * count-only.
+   */
+  private static boolean isCountOnlySelection(final DataFetchingEnvironment environment) {
+    final DataFetchingFieldSelectionSet selectionSet = environment.getSelectionSet();
+    if (selectionSet == null) {
+      return false;
+    }
+    final List<SelectedField> fields = selectionSet.getImmediateFields();
+    return !fields.isEmpty()
+        && fields.stream().allMatch(field -> COUNT_ONLY_FIELDS.contains(field.getName()));
+  }
+
+  private CompletableFuture<SearchResults> resolveCountFromLoader(
+      final DataFetchingEnvironment environment,
+      final String containerUrn,
+      final int start,
+      final int count) {
+    final DataLoader<String, Long> loader =
+        environment.getDataLoader(ContainerEntityCountsBatchLoader.LOADER_NAME);
+    return loader.load(containerUrn).thenApply(total -> toCountOnlyResults(total, start, count));
+  }
+
+  private static SearchResults toCountOnlyResults(
+      final Long total, final int start, final int count) {
+    final SearchResults results = new SearchResults();
+    results.setStart(start);
+    results.setCount(count);
+    results.setTotal(total != null ? total.intValue() : 0);
+    results.setSearchResults(Collections.emptyList());
+    return results;
+  }
+
+  /** The original, unbatched behavior: one search per invocation. */
+  private CompletableFuture<SearchResults> resolveDirect(
+      final QueryContext context,
+      final String urn,
+      final ContainerEntitiesInput input,
+      final String query,
+      final int start,
+      final int count) {
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
