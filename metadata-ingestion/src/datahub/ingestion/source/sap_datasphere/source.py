@@ -301,7 +301,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         try:
             yield from self._client.list_spaces()
         except requests.RequestException as e:
-            self.report.warning(
+            # This is the root enumeration: if it fails after retries, zero
+            # spaces/assets are emitted for the whole run. Record a failure (not
+            # a warning) so the run is marked failed rather than a silent
+            # success-with-nothing-ingested. Per-space outages stay warnings.
+            self.report.failure(
                 title="Failed to list spaces",
                 message=(
                     "Could not enumerate SAP Datasphere spaces; "
@@ -1977,6 +1981,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
         decorated: List[SchemaFieldClass] = []
+        # Reuse the shared column_pattern filter/counter so the EDMX path can't
+        # drift from the other schema paths.
         for f in self._apply_column_pattern(result.fields):
             field_props = result.field_custom_props.get(f.fieldPath, {})
             # SAP CDS annotations are surfaced as field tags only; the field

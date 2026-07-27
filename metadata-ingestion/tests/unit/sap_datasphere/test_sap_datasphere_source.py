@@ -347,7 +347,7 @@ def test_assets_endpoint_failure_continues_to_next_space(requests_mock):
     )
 
 
-def test_spaces_endpoint_failure_emits_warning(requests_mock):
+def test_spaces_endpoint_failure_emits_failure(requests_mock):
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -361,11 +361,13 @@ def test_spaces_endpoint_failure_emits_warning(requests_mock):
     source = SapDatasphereSource(ctx, cfg)
     list(source.get_workunits())  # should NOT raise
 
-    # The point is: even with the spaces endpoint failing, we exit gracefully
-    # without crashing — and emit a warning. We don't need to assert what
-    # workunits are produced (with SDK V2 + no spaces, there may be none).
-    warning_messages = [w.message for w in source.report.warnings]
-    assert any("space" in m.lower() for m in warning_messages)
+    # The point is: even with the root spaces endpoint failing, we exit
+    # gracefully without crashing — and record a failure (not a warning) so the
+    # run is marked failed rather than a silent empty success. We don't need to
+    # assert what workunits are produced (with SDK V2 + no spaces, there may be
+    # none).
+    failure_messages = [f.message for f in source.report.failures]
+    assert any("space" in m.lower() for m in failure_messages)
 
 
 def test_paginate_concatenates_pages(requests_mock):
@@ -1824,7 +1826,7 @@ def test_lowercase_urn_lowercases_emitted_dataset_name(requests_mock):
                 "SNOWFLAKE_PROD": {
                     "platform": "snowflake",
                     "platform_instance": "acct_xyz",
-                    "lowercase_urn": True,
+                    "convert_urns_to_lowercase": True,
                 },
             },
         }
@@ -1897,7 +1899,7 @@ def test_federated_asset_routes_to_remote_source_platform(requests_mock):
             "platform_type_defaults": {
                 "SNOWFLAKE": {
                     "platform": "snowflake",
-                    "lowercase_urn": True,
+                    "convert_urns_to_lowercase": True,
                 },
             },
         }
@@ -5787,9 +5789,10 @@ def test_asset_pattern_filters_flows_and_remote_tables(requests_mock):
 
 
 def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_mock):
-    """A transport error enumerating spaces must be softened to a warning and
-    yield zero spaces — never a silent empty 'success', which would let stateful
-    ingestion soft-delete every prior entity."""
+    """A transport error enumerating spaces (the root listing) must be recorded
+    as a failure and yield zero spaces — never a silent empty 'success' that
+    would both mask a broken run and let stateful ingestion soft-delete every
+    prior entity."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -5802,7 +5805,7 @@ def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_
     source = SapDatasphereSource(PipelineContext(run_id="spaces-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
+    titles = [f.title or "" for f in source.report.failures]
     assert "Failed to list spaces" in titles
     assert source.report.spaces_scanned == 0
 

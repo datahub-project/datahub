@@ -66,8 +66,15 @@ def test_space_container_key_different_spaces_differ():
 
 
 def test_connection_platform_config_rejects_invalid_env():
-    with pytest.raises(ValueError, match="FabricType"):
+    with pytest.raises(ValueError, match="env must be one of"):
         ConnectionPlatformConfig(platform="hana", env="banana")
+
+
+def test_connection_platform_config_normalizes_env_case():
+    # Mirrors EnvConfigMixin: a lowercase env must be accepted and upper-cased,
+    # so a per-connection `env` behaves the same as the top-level `env`.
+    cfg = ConnectionPlatformConfig(platform="hana", env="prod")
+    assert cfg.env == "PROD"
 
 
 def test_platform_rejects_uppercase():
