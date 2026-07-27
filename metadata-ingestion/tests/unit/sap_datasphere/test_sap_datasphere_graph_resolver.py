@@ -1,5 +1,6 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sap_datasphere.graph_resolver import (
     ExternalUrnGraphResolver,
 )
@@ -26,7 +27,9 @@ def _bq(name: str) -> str:
 
 
 def _resolver(urns: List[str]) -> ExternalUrnGraphResolver:
-    return ExternalUrnGraphResolver(_FakeGraph(urns), SapDatasphereReport())
+    return ExternalUrnGraphResolver(
+        cast(DataHubGraph, _FakeGraph(urns)), SapDatasphereReport()
+    )
 
 
 def _resolve(resolver: ExternalUrnGraphResolver, name: str) -> Optional[str]:
@@ -87,14 +90,16 @@ def test_bare_name_without_parent_is_skipped() -> None:
 
 def test_graph_lookup_failure_is_soft_and_reported() -> None:
     report = SapDatasphereReport()
-    resolver = ExternalUrnGraphResolver(_BoomGraph(), report)
+    resolver = ExternalUrnGraphResolver(cast(DataHubGraph, _BoomGraph()), report)
     assert resolver.resolve_name("bigquery", None, "PROD", "proj.staging.x") is None
     assert "proj.staging" in list(report.external_lineage_graph_lookup_failed)
 
 
 def test_index_is_cached_per_parent_path() -> None:
     graph = _FakeGraph([_bq("proj.staging.X")])
-    resolver = ExternalUrnGraphResolver(graph, SapDatasphereReport())
+    resolver = ExternalUrnGraphResolver(
+        cast(DataHubGraph, graph), SapDatasphereReport()
+    )
     resolver.resolve_name("bigquery", None, "PROD", "proj.staging.x")
     resolver.resolve_name("bigquery", None, "PROD", "proj.staging.y")
     # Same platform/instance/env/parent -> a single scoped fetch is reused.
