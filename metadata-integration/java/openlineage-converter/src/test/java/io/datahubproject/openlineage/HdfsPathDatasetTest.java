@@ -72,11 +72,12 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), config);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,tests/bar.avro,PROD)", dataset.urn().toString());
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
+        dataset.urn().toString());
   }
 
   @Test
-  public void testPathSpecListCapturesMultiSegmentTablePath()
+  public void testTablePathMarkerCapturesMultiSegmentRelativePath()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder()
@@ -89,12 +90,12 @@ public class HdfsPathDatasetTest {
                             PathSpec.builder()
                                 .env(Optional.of("PROD"))
                                 .platform("s3")
-                                .platformInstance(Optional.of("dataplatform-prod"))
+                                .platformInstance(Optional.of("warehouse-prod"))
                                 .pathSpecList(
                                     new LinkedList<>(
                                         Arrays.asList(
-                                            "s3://rnd-dataplatform-production/deltalake/data/{table}",
-                                            "s3a://rnd-dataplatform-production/deltalake/data/{table}")))
+                                            "s3://example-bucket/lake/data/{table_path}",
+                                            "s3a://example-bucket/lake/data/{table_path}")))
                                 .build()));
                   }
                 })
@@ -103,20 +104,16 @@ public class HdfsPathDatasetTest {
 
     SparkDataset entitiesDataset =
         HdfsPathDataset.create(
-            new URI(
-                "s3a://rnd-dataplatform-production/deltalake/data/entities/balance_transactions"),
-            config);
+            new URI("s3a://example-bucket/lake/data/finance/transactions"), config);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,dataplatform-prod.entities/balance_transactions,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-prod.finance/transactions,PROD)",
         entitiesDataset.urn().toString());
 
     SparkDataset reportsDataset =
         HdfsPathDataset.create(
-            new URI(
-                "s3://rnd-dataplatform-production/deltalake/data/reports/lost/balance_transactions"),
-            config);
+            new URI("s3://example-bucket/lake/data/analytics/daily/transactions"), config);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,dataplatform-prod.reports/lost/balance_transactions,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:s3,warehouse-prod.analytics/daily/transactions,PROD)",
         reportsDataset.urn().toString());
   }
 
@@ -195,7 +192,8 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,tests/bar.avro,PROD)", dataset.urn().toString());
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
+        dataset.urn().toString());
   }
 
   @Test
@@ -228,7 +226,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,s3Instance.tests/bar.avro,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:s3,s3Instance.my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }
 
@@ -258,8 +256,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("s3a://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,foo/tests/bar.avro,PROD)",
-        dataset.urn().toString());
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo,PROD)", dataset.urn().toString());
   }
 
   // ====================================================================
@@ -323,6 +320,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(new URI("gs://my-bucket/foo/tests/bar.avro"), datahubConfig);
     Assert.assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:gcs,tests/bar.avro,PROD)", dataset.urn().toString());
+        "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests,PROD)",
+        dataset.urn().toString());
   }
 }
