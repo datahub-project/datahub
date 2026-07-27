@@ -21,7 +21,7 @@ from botocore.exceptions import ClientError
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration
 
 test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"

@@ -262,3 +262,45 @@ def test_abs_source_wires_file_profiler_when_profiling_enabled(mock_blob_client)
     assert source.source_config.is_profiling_enabled()
     assert isinstance(source.profiler, FileProfiler)
     assert source.profiler.azure_config is azure_config
+
+
+@patch("datahub.ingestion.source.azure.azure_common.BlobServiceClient")
+def test_get_abs_tags_emits_blob_tags(mock_blob_service_client_class):
+    """get_abs_tags maps blob tags to a GlobalTags aspect when use_abs_blob_tags=True.
+
+    This is the only coverage of the use_abs_blob_tags / get_abs_tags path — the ABS
+    integration test skips it because floci-az's get_blob_tags response can't be
+    decoded by the Azure SDK.
+    """
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
+
+    mock_blob_client = Mock()
+    mock_blob_client.get_blob_tags.return_value = {"env": "prod", "team": "data"}
+    mock_container_client = Mock()
+    mock_container_client.get_blob_client.return_value = mock_blob_client
+    mock_service_client = Mock()
+    mock_service_client.get_container_client.return_value = mock_container_client
+    mock_blob_service_client_class.return_value = mock_service_client
+
+    azure_config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        account_key="test-account-key",
+    )
+
+    tags = get_abs_tags(
+        container_name="testcontainer",
+        key_name="folder/data.csv",
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:abs,testcontainer/folder/data.csv,PROD)",
+        azure_config=azure_config,
+        ctx=PipelineContext(run_id="test-abs-tags"),
+        use_abs_blob_tags=True,
+    )
+
+    assert tags is not None
+    assert {t.tag for t in tags.tags} == {
+        "urn:li:tag:env:prod",
+        "urn:li:tag:team:data",
+    }
+    mock_blob_client.get_blob_tags.assert_called_once()

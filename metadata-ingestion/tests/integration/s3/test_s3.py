@@ -34,13 +34,66 @@ import pytest
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration
 
 test_resources_dir = pathlib.Path(__file__).parent
 ENDPOINT_URL = "http://localhost:14566"
 REGION = "us-east-1"
-BUCKET_NAMES = ["my-test-bucket", "my-test-bucket-2"]
+# Both buckets get the full tree: besides multiple_specs_of_different_buckets
+# (which reads one explicit file from the secondary bucket), the bucket_wildcard_*
+# recipes match BOTH buckets via `my-test-bucket*` / `*` and expect the same tree
+# in each.
+PRIMARY_BUCKET = "my-test-bucket"
+SECONDARY_BUCKET = "my-test-bucket-2"
 FROZEN_TIME = "2020-04-14 07:00:00"
+
+# Canary: the exact set of objects the primary bucket must contain after seeding.
+# Catches drift in the test_data/local_system tree directly, rather than letting a
+# stray added/removed file surface only as a confusing golden diff.
+EXPECTED_PRIMARY_KEYS = [
+    "folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+    "folder_a/folder_aa/folder_aaa/countries_json.json",
+    "folder_a/folder_aa/folder_aaa/food_parquet.parquet",
+    "folder_a/folder_aa/folder_aaa/small.csv",
+    "folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/food_csv/part1.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+    "folder_a/folder_aa/folder_aaa/no_extension/small",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2019/month=jan/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=feb/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2020/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=april/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part1.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2021/month=march/part2.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
+    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/_temporary/dummy.json",
+    "folders_only_media/audio/podcast.mp3",
+    "folders_only_media/videos/2023/clip.mp4",
+    "folders_only_media/videos/2024/clip.mp4",
+]
 
 # Object time fields that the emulator sets to real upload time (moto poked these
 # to deterministic values via its internal backend, which a real emulator can't
@@ -65,7 +118,7 @@ def _client(service: Literal["s3"]) -> Any:
     )
 
 
-def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> None:
+def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> List[str]:
     s3.create_bucket(Bucket=bucket)
     s3.put_bucket_tagging(
         Bucket=bucket, Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]}
@@ -77,6 +130,7 @@ def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> None:
     # object per second gives each a distinct, strictly-increasing timestamp ->
     # deterministic selection. The sorted-walk order is an arbitrary-but-stable
     # choice that also keeps the existing goldens valid (a convenience, not a goal).
+    uploaded: List[str] = []
     for root, dirs, files in os.walk(data_dir):
         dirs.sort()
         for file in sorted(files):
@@ -89,7 +143,9 @@ def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> None:
                 Key=rel_path,
                 Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
             )
+            uploaded.append(rel_path)
             time.sleep(1.1)  # strictly increasing, tie-free second-resolution times
+    return uploaded
 
 
 def _source_files() -> List[Tuple[str, str]]:
@@ -114,13 +170,19 @@ def s3_emulator(docker_compose_runner):
     ):
         data_dir = test_resources_dir / "test_data/local_system"
         s3 = _client("s3")
-        for bucket in BUCKET_NAMES:
-            _seed_bucket(s3, bucket, data_dir)
+        uploaded = _seed_bucket(s3, PRIMARY_BUCKET, data_dir)
+        assert sorted(uploaded) == sorted(EXPECTED_PRIMARY_KEYS), (
+            "test_data/local_system tree drifted from EXPECTED_PRIMARY_KEYS"
+        )
+        # Seeded after the primary bucket so its objects get later wall-clock
+        # timestamps — bucket_wildcard_* recipes span both buckets and the goldens
+        # were generated with that ordering.
+        _seed_bucket(s3, SECONDARY_BUCKET, data_dir)
         # High-cardinality numeric dataset for the profiler, under a prefix no
         # other recipe matches so it doesn't affect their goldens.
         s3.upload_file(
             str(test_resources_dir / "test_data/profiling/measurements.csv"),
-            "my-test-bucket",
+            PRIMARY_BUCKET,
             "profiling_input/measurements.csv",
         )
         yield

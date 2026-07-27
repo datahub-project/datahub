@@ -17,17 +17,17 @@ import time
 from typing import Any, Dict
 
 import pytest
+from azure.core.exceptions import ResourceExistsError
 from azure.storage.blob import BlobServiceClient
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration
 
 test_resources_dir = pathlib.Path(__file__).parent
 # S3 suite's data tree is reused so ABS structure mirrors the other object stores.
 s3_data_dir = test_resources_dir.parent / "s3/test_data/local_system"
-FROZEN_TIME = "2023-08-30 12:00:00"
 
 ACCOUNT = "devstoreaccount1"
 CONTAINER = "test-container"
@@ -84,7 +84,7 @@ def _seed() -> None:
     cc = _svc().get_container_client(CONTAINER)
     try:
         cc.create_container()
-    except Exception:
+    except ResourceExistsError:
         pass  # already exists on a reused emulator
 
     def upload(name: str, src_rel: str) -> None:
@@ -215,7 +215,8 @@ def test_abs_blob_properties(abs_emulator, pytestconfig, tmp_path, mock_time):
 
     use_abs_blob_tags is intentionally NOT set: floci-az's get_blob_tags API
     returns a response the Azure SDK fails to decode (emulator fidelity gap); the
-    blob-tags path stays covered by the ABS unit tests.
+    blob-tags path is covered by the unit test
+    tests/unit/abs/test_abs_source.py::test_get_abs_tags_emits_blob_tags.
     """
     config = {
         "path_specs": [{"include": f"{BLOB_BASE}/data/*.*"}],
