@@ -26,8 +26,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.dataloader.DataLoader;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -183,6 +186,77 @@ public class GlossaryNodeChildrenCountBatchLoaderTest {
         expectThrows(
             RuntimeException.class, () -> loader.batchLoad(List.of(NODE_A, NODE_B), context));
     assertEquals(thrown.getCause(), cause);
+  }
+
+  @Test
+  public void testBatchLoadIgnoresThePerParentTotalsThatAccompanyANestedFacet() throws Exception {
+    // A real parentNode␞_entityType aggregation reports each parent's overall doc count as a
+    // single-token value alongside the (parent, entity type) pairs. Counting those would double
+    // every parent's children.
+    Mockito.when(
+            entityClient.searchAcrossEntities(
+                any(), any(), eq("*"), any(Filter.class), eq(0), eq(0), any(), any()))
+        .thenReturn(
+            searchResult(
+                10L,
+                Map.of(
+                    nestedKey(NODE_A, "glossaryterm"),
+                    5L,
+                    nestedKey(NODE_A, "glossarynode"),
+                    3L,
+                    NODE_A,
+                    8L,
+                    nestedKey(NODE_B, "glossaryterm"),
+                    2L,
+                    NODE_B,
+                    2L)));
+
+    final List<GlossaryNodeChildrenCount> results =
+        loader.batchLoad(List.of(NODE_A, NODE_B), context);
+
+    assertCount(results.get(0), 5, 3);
+    assertCount(results.get(1), 2, 0);
+  }
+
+  @Test
+  public void testBatchLoadReturnsZeroCountsWhenTheResponseCarriesNoAggregations()
+      throws Exception {
+    Mockito.when(
+            entityClient.searchAcrossEntities(
+                any(), any(), eq("*"), any(Filter.class), eq(0), eq(0), any(), any()))
+        .thenReturn(new SearchResult().setNumEntities(0));
+
+    final List<GlossaryNodeChildrenCount> results =
+        loader.batchLoad(List.of(NODE_A, NODE_B), context);
+
+    assertCount(results.get(0), 0, 0);
+    assertCount(results.get(1), 0, 0);
+  }
+
+  @Test
+  public void testCreateDataLoaderResolvesEveryKeyFromOneBatch() throws Exception {
+    Mockito.when(
+            entityClient.searchAcrossEntities(
+                any(), any(), eq("*"), any(Filter.class), eq(0), eq(0), any(), any()))
+        .thenReturn(
+            searchResult(
+                3L,
+                Map.of(
+                    nestedKey(NODE_A, "glossaryterm"), 2L,
+                    nestedKey(NODE_B, "glossarynode"), 1L)));
+
+    final DataLoader<String, GlossaryNodeChildrenCount> dataLoader =
+        GlossaryNodeChildrenCountBatchLoader.createDataLoader(entityClient, context);
+    final CompletableFuture<GlossaryNodeChildrenCount> a = dataLoader.load(NODE_A);
+    final CompletableFuture<GlossaryNodeChildrenCount> b = dataLoader.load(NODE_B);
+    dataLoader.dispatch();
+
+    // Resolving at all proves the batch function received the QueryContext from the loader's
+    // context provider -- without it the search call would fail on a null operation context.
+    assertCount(a.get(30, TimeUnit.SECONDS), 2, 0);
+    assertCount(b.get(30, TimeUnit.SECONDS), 0, 1);
+    Mockito.verify(entityClient, Mockito.times(1))
+        .searchAcrossEntities(any(), any(), eq("*"), any(Filter.class), eq(0), eq(0), any(), any());
   }
 
   private static void assertCount(
