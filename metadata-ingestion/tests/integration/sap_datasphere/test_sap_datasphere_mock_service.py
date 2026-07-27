@@ -197,7 +197,7 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         "BASE_TABLE",
         "MID_VIEW",
         "FED_SNOWFLAKE_CUST",
-        "FED_BIGQUERY_BAD",
+        "FED_UNSUPPORTED",
     ):
         httpserver.expect_request(
             f"/dwaas-core/api/v1/spaces/LINEAGE_TEST/views/{technical_name}",
@@ -283,7 +283,7 @@ def test_sap_datasphere_against_mock_service_emits_column_lineage(
     assert dataset_events, "No dataset events emitted"
 
     # Datasets land under sap-datasphere (managed assets — BASE_TABLE, MID_VIEW,
-    # and the FED_BIGQUERY_BAD asset which falls through to managed because the
+    # and the FED_UNSUPPORTED asset which falls through to managed because the
     # mock CSN doesn't expose its `@remote.source`) or Snowflake (the federated
     # FED_SNOWFLAKE_CUST whose CSN exposes `@remote.source=SNOWFLAKE_PROD`).
     for e in dataset_events:

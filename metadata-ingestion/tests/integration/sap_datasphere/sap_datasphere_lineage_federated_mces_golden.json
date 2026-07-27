@@ -181,8 +181,7 @@
                 "instance": "test_tenant",
                 "space": "lineage_test"
             },
-            "name": "Lineage Test Space",
-            "description": "SAP Datasphere Space: LINEAGE_TEST"
+            "name": "Lineage Test Space"
         }
     },
     "systemMetadata": {
@@ -415,7 +414,6 @@
                 {
                     "fieldPath": "AMOUNT",
                     "nullable": true,
-                    "description": "[sap_semantic=currency]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}

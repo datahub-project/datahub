@@ -78,6 +78,17 @@ source:
       #   platform: s3
       #   enabled: false
 
+      # Example: federated BigQuery. The GCP project never appears in the
+      # Datasphere connection/flow payloads, so supply it via `database`, and
+      # keep source case so the URN stitches to the BigQuery connector
+      # (project.dataset.MyTable). `convert_urns_to_lowercase` here is
+      # per-connection and independent of the top-level flag below.
+      # BIGQUERY_PROD:
+      #   platform: bigquery
+      #   database: my-gcp-project
+      #   convert_urns_to_lowercase: false
+      #   enabled: true
+
     # Override platform defaults for typeIds not in the built-in table:
     # platform_type_defaults:
     #   SNOWFLAKE:

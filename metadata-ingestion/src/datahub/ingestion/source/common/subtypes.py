@@ -48,6 +48,7 @@ class DatasetSubTypes(StrEnum):
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     SAP_ANALYTICAL_MODEL = "Analytic Model"
     SAP_LOCAL_TABLE = "Local Table"
+    SAP_REMOTE_TABLE = "Remote Table"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
@@ -204,9 +205,24 @@ class MLAssetSubTypes(StrEnum):
 class DataFlowSubTypes(StrEnum):
     # dlt
     DLT_PIPELINE = "dlt Pipeline"
+    # SAP Datasphere flow objects — each flow is modelled as its own DataFlow
+    # (pipeline) with one DataJob per target it produces (a replication flow's
+    # N source->target pairs become N tasks) carrying that target's lineage.
+    SAP_DATA_FLOW = "Data Flow"
+    SAP_REPLICATION_FLOW = "Replication Flow"
+    SAP_TRANSFORMATION_FLOW = "Transformation Flow"
+    SAP_TASK_CHAIN = "Task Chain"
 
 
 class DataJobSubTypes(StrEnum):
+    # SAP Datasphere flow tasks. The parent DataFlow already carries the flow
+    # *type* (Data Flow / Replication Flow / ...); a DataJob is one task within
+    # that flow (a replication flow's N source->target pairs are N tasks), so it
+    # takes a task-role label rather than repeating the flow type.
+    SAP_DATA_FLOW_TASK = "Data Flow Task"
+    SAP_REPLICATION_TASK = "Replication Task"
+    SAP_TRANSFORMATION_TASK = "Transformation Task"
+    SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

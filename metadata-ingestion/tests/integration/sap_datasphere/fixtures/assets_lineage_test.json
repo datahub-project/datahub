@@ -24,8 +24,8 @@
     "hasParameters": false
   },
   {
-    "name": "FED_BIGQUERY_BAD",
-    "label": "Federated BigQuery (unmapped)",
+    "name": "FED_UNSUPPORTED",
+    "label": "Federated (unsupported connection type)",
     "spaceName": "LINEAGE_TEST",
     "assetRelationalMetadataUrl": null,
     "supportsAnalyticalQueries": false,

@@ -2,15 +2,17 @@ from typing import Dict
 
 from datahub.ingestion.source.sap_datasphere.config import (
     _BUILTIN_PLATFORM_TYPE_DEFAULTS,
-    MANAGED_CONNECTION_KEY,
     ConnectionPlatformConfig,
     SapDatasphereConfig,
 )
-from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+from datahub.ingestion.source.sap_datasphere.constants import MANAGED_CONNECTION_KEY
+from datahub.ingestion.source.sap_datasphere.models import (
     ConnectionRecord,
-    PlatformMappingResolver,
     ResolvedPlatform,  # noqa: F401 – exported symbol, useful for type hints in call sites
     ResolveSkipReason,
+)
+from datahub.ingestion.source.sap_datasphere.platform_mapping import (
+    PlatformMappingResolver,
 )
 from datahub.ingestion.source.sap_datasphere.report import SapDatasphereReport
 
@@ -24,8 +26,12 @@ def test_builtin_platform_type_defaults_cover_observed_typeids():
         "ABAP",
         "SAPS4HANACLOUD",
         "SAPBWMODELTRANSFER",
+        "BIGQUERY",
     }
     assert expected.issubset(set(_BUILTIN_PLATFORM_TYPE_DEFAULTS.keys()))
+    # BigQuery must stitch to DataHub's `bigquery` platform (the typeId token is
+    # confirmed from a live tenant's "Unknown ... typeId 'BIGQUERY'" warning).
+    assert _BUILTIN_PLATFORM_TYPE_DEFAULTS["BIGQUERY"].platform == "bigquery"
 
 
 def test_config_accepts_custom_per_connection_map():
@@ -85,7 +91,9 @@ def test_resolver_managed_default_returns_sap_datasphere():
     platform — managed assets are Datasphere assets, not HANA assets."""
     cfg = _config_with()
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve("_managed")
+    result = resolver.resolve("_managed")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is not None
     assert reason is None
     assert resolved.platform == "sap-datasphere"
@@ -103,7 +111,7 @@ def test_resolver_explicit_map_overrides_typeid_default():
         "SF_PROD": {"name": "SF_PROD", "typeId": "HANA"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "custom"
@@ -115,7 +123,7 @@ def test_resolver_named_connection_falls_back_to_typeid_default():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.platform == "s3"
 
@@ -129,7 +137,9 @@ def test_resolver_disabled_returns_none():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, reason = resolver.resolve("SF_PROD")
+    result = resolver.resolve("SF_PROD")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.DISABLED
 
@@ -140,7 +150,9 @@ def test_resolver_unknown_typeid_returns_none_and_records_warning():
         "X": {"name": "X", "typeId": "SNOWFLAKE"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, reason = resolver.resolve("X")
+    result = resolver.resolve("X")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_TYPEID
     assert "SNOWFLAKE" in "\n".join(resolver.unknown_typeids_seen)
@@ -150,7 +162,9 @@ def test_resolver_unknown_connection_name_returns_unknown_connection_reason():
     cfg = _config_with()
     # Empty connections list — the asset references "MYSTERY" which the API never reported.
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, reason = resolver.resolve("MYSTERY")
+    result = resolver.resolve("MYSTERY")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_CONNECTION
 
@@ -164,7 +178,7 @@ def test_resolver_env_falls_back_to_connector_env():
         }
     )
     resolver = PlatformMappingResolver(cfg, connections_by_name={})
-    resolved, _ = resolver.resolve("_managed")
+    resolved = resolver.resolve("_managed").platform
     assert resolved is not None
     assert resolved.env == "DEV"
 
@@ -186,7 +200,7 @@ def test_resolver_env_explicit_in_map_wins_over_connector_env():
         "SF_PROD": {"name": "SF_PROD", "typeId": "S3"}
     }
     resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
-    resolved, _ = resolver.resolve("SF_PROD")
+    resolved = resolver.resolve("SF_PROD").platform
     assert resolved is not None
     assert resolved.env == "PROD"
 
@@ -203,7 +217,9 @@ def test_resolver_unknown_typeid_emits_report_warning():
         cfg, connections_by_name=connections, report=report
     )
 
-    resolved, reason = resolver.resolve("X")
+    result = resolver.resolve("X")
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.UNKNOWN_TYPEID
     # report.warnings is a list of StructuredLogEntry; each has a `.message` attribute.
@@ -219,22 +235,22 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
     )
     report = SapDatasphereReport()
     connections: Dict[str, ConnectionRecord] = {
-        "X1": {"name": "X1", "typeId": "BIGQUERY"},
-        "X2": {"name": "X2", "typeId": "BIGQUERY"},
-        "X3": {"name": "X3", "typeId": "BIGQUERY"},
+        "X1": {"name": "X1", "typeId": "KAFKA"},
+        "X2": {"name": "X2", "typeId": "KAFKA"},
+        "X3": {"name": "X3", "typeId": "KAFKA"},
     }
     resolver = PlatformMappingResolver(
         cfg, connections_by_name=connections, report=report
     )
     # All three resolve calls must return the UNKNOWN_TYPEID skip reason.
     for name in ("X1", "X2", "X3"):
-        resolved, reason = resolver.resolve(name)
-        assert resolved is None
-        assert reason == ResolveSkipReason.UNKNOWN_TYPEID
-    # Only ONE report warning for BIGQUERY despite 3 calls
-    bigquery_warnings = [w for w in report.warnings if "BIGQUERY" in w.message]
-    assert len(bigquery_warnings) == 1, (
-        f"Expected exactly 1 deduplicated warning; got {len(bigquery_warnings)}"
+        result = resolver.resolve(name)
+        assert result.platform is None
+        assert result.skip_reason == ResolveSkipReason.UNKNOWN_TYPEID
+    # Only ONE report warning for the unmapped typeId despite 3 calls.
+    kafka_warnings = [w for w in report.warnings if "KAFKA" in w.message]
+    assert len(kafka_warnings) == 1, (
+        f"Expected exactly 1 deduplicated warning; got {len(kafka_warnings)}"
     )
 
 
@@ -254,7 +270,9 @@ def test_managed_connection_resolves_to_sap_datasphere_regardless_of_config():
         },
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+    result = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = result.platform
+    reason = result.skip_reason
     assert reason is None
     assert resolved is not None
     assert resolved.platform == "sap-datasphere"
@@ -272,7 +290,7 @@ def test_managed_connection_inherits_top_level_platform_instance():
         connection_to_platform_map={},
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, _ = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = resolver.resolve(MANAGED_CONNECTION_KEY).platform
     assert resolved is not None
     assert resolved.platform_instance == "tenant_eu_prod"
 
@@ -290,7 +308,9 @@ def test_managed_can_be_disabled_via_explicit_override():
         },
     )
     resolver = PlatformMappingResolver(config, connections_by_name={})
-    resolved, reason = resolver.resolve(MANAGED_CONNECTION_KEY)
+    result = resolver.resolve(MANAGED_CONNECTION_KEY)
+    resolved = result.platform
+    reason = result.skip_reason
     assert resolved is None
     assert reason == ResolveSkipReason.DISABLED
 
@@ -311,7 +331,136 @@ def test_federated_connection_unchanged():
         config,
         connections_by_name={"MY_SF": {"name": "MY_SF", "typeId": "SNOWFLAKE"}},
     )
-    resolved, _ = resolver.resolve("MY_SF")
+    resolved = resolver.resolve("MY_SF").platform
     assert resolved is not None
     assert resolved.platform == "snowflake"
     assert resolved.platform_instance == "acct_xyz"
+
+
+# ---------------------------------------------------------------------------
+# resolve_external — flow / replication-flow endpoints carrying an explicit
+# connectionType that may not appear in the space's connections list.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_external_uses_connection_type_when_name_absent():
+    """A replication-flow endpoint names a connectionId not in the connections
+    list; the endpoint's own connectionType resolves it via type defaults."""
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    result = resolver.resolve_external("NOT_IN_LIST", "S3")
+    resolved = result.platform
+    reason = result.skip_reason
+    assert resolved is not None
+    assert reason is None
+    assert resolved.platform == "s3"
+
+
+def test_resolve_external_prefers_explicit_name_map_over_type():
+    cfg = _config_with(
+        map_overrides={"SRC_CONN": {"platform": "snowflake", "platform_instance": "a"}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    # connectionType would map to S3, but the explicit name mapping wins.
+    resolved = resolver.resolve_external("SRC_CONN", "S3").platform
+    assert resolved is not None
+    assert resolved.platform == "snowflake"
+    assert resolved.platform_instance == "a"
+
+
+def test_resolve_external_propagates_database_and_lowercase_override():
+    """A per-connection map entry can carry both a per-platform lowercase
+    override and an explicit `database` (e.g. the BigQuery GCP project the API
+    omits); both must reach the ResolvedPlatform so URNs stitch to the sibling
+    connector."""
+    cfg = _config_with(
+        map_overrides={
+            "BQ_CONN": {
+                "platform": "bigquery",
+                "convert_urns_to_lowercase": False,
+                "database": "my-gcp-project",
+            }
+        }
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved = resolver.resolve_external("BQ_CONN", "BIGQUERY").platform
+    assert resolved is not None
+    assert resolved.platform == "bigquery"
+    assert resolved.database == "my-gcp-project"
+    assert resolved.convert_urns_to_lowercase is False
+
+
+def test_resolve_external_unknown_type_and_name_returns_none():
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    result = resolver.resolve_external("MYSTERY", "SNOWFLAKE")
+    resolved = result.platform
+    reason = result.skip_reason
+    assert resolved is None
+    assert reason == ResolveSkipReason.UNKNOWN_CONNECTION
+
+
+def test_resolve_external_disabled_type_default_returns_none():
+    cfg = _config_with(
+        type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    result = resolver.resolve_external(None, "S3")
+    # A disabled type default is not usable; with no name to fall back on the
+    # endpoint is unresolved, and the reason must be the explicit DISABLED (not
+    # UNKNOWN_CONNECTION).
+    assert result.platform is None
+    assert result.skip_reason == ResolveSkipReason.DISABLED
+
+
+def test_resolve_external_disabled_type_default_reports_disabled_not_unknown():
+    """Regression: a disabled type default with a connection name that isn't in
+    the connections list must report DISABLED, not fall through to resolve() and
+    mis-report UNKNOWN_CONNECTION."""
+    cfg = _config_with(
+        type_defaults_overrides={"S3": {"platform": "s3", "enabled": False}}
+    )
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    result = resolver.resolve_external("NOT_IN_LIST", "S3")
+    assert result.platform is None
+    assert result.skip_reason == ResolveSkipReason.DISABLED
+
+
+# ---------------------------------------------------------------------------
+# typeId / connectionType matching is case-insensitive
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_external_connection_type_is_case_insensitive():
+    """A flow endpoint may report connectionType in any case; it must still match
+    the canonical (uppercase) platform_type_defaults key."""
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    for connection_type in ("bigquery", "BigQuery", "BIGQUERY"):
+        resolved = resolver.resolve_external("NOT_IN_LIST", connection_type).platform
+        assert resolved is not None, connection_type
+        assert resolved.platform == "bigquery"
+
+
+def test_typeid_default_matches_regardless_of_typeid_case():
+    """The connections-list typeId can arrive lowercased; the resolver must fold
+    case before matching type defaults so the connection isn't skipped."""
+    cfg = _config_with()
+    connections = {
+        "GBQ": ConnectionRecord(name="GBQ", typeId="bigquery"),
+    }
+    resolver = PlatformMappingResolver(cfg, connections_by_name=connections)
+    result = resolver.resolve("GBQ")
+    assert result.platform is not None
+    assert result.platform.platform == "bigquery"
+    assert not resolver.unknown_typeids_seen
+
+
+def test_user_supplied_lowercase_type_default_key_matches_uppercase_typeid():
+    """A user who adds a lowercased key under platform_type_defaults must still
+    match SAP's canonical uppercase typeId."""
+    cfg = _config_with(type_defaults_overrides={"snowflake": {"platform": "snowflake"}})
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved = resolver.resolve_external("NOT_IN_LIST", "SNOWFLAKE").platform
+    assert resolved is not None
+    assert resolved.platform == "snowflake"

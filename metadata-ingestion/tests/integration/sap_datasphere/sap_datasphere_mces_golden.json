@@ -181,8 +181,7 @@
                 "instance": "test_tenant",
                 "space": "s1"
             },
-            "name": "Finance Space",
-            "description": "SAP Datasphere Space: S1"
+            "name": "Finance Space"
         }
     },
     "systemMetadata": {
@@ -477,7 +476,7 @@
                 {
                     "fieldPath": "AMOUNT_USD",
                     "nullable": true,
-                    "description": "Amount in USD [sap_semantic=currency]",
+                    "description": "Amount in USD",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -497,7 +496,6 @@
                 {
                     "fieldPath": "CURRENCY_CODE",
                     "nullable": true,
-                    "description": "[sap_semantic=unit]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -861,7 +859,6 @@
                 "local_table": "true"
             },
             "name": "SAP.TIME.M_TIME_DIMENSION",
-            "description": "Local Table from SAP Datasphere space S1.",
             "tags": []
         }
     },
@@ -973,7 +970,7 @@
                 {
                     "fieldPath": "DATE_SQL",
                     "nullable": false,
-                    "description": "Calendar Date [sap_calendar_type=date]",
+                    "description": "Calendar Date",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -993,7 +990,6 @@
                 {
                     "fieldPath": "YEAR_VAL",
                     "nullable": true,
-                    "description": "[sap_calendar_type=year]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1013,7 +1009,6 @@
                 {
                     "fieldPath": "QUARTER_VAL",
                     "nullable": true,
-                    "description": "[sap_calendar_type=quarter]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1033,7 +1028,6 @@
                 {
                     "fieldPath": "MONTH_VAL",
                     "nullable": true,
-                    "description": "[sap_calendar_type=month]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1065,7 +1059,6 @@
                 {
                     "fieldPath": "WEEK_VAL",
                     "nullable": true,
-                    "description": "[sap_calendar_type=week]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1227,8 +1220,7 @@
                 "instance": "test_tenant",
                 "space": "s2"
             },
-            "name": "Sales Space",
-            "description": "SAP Datasphere Space: S2"
+            "name": "Sales Space"
         }
     },
     "systemMetadata": {
@@ -1489,7 +1481,6 @@
                 {
                     "fieldPath": "YEAR_MONTH",
                     "nullable": false,
-                    "description": "[sap_calendar_type=yearmonth]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -1533,7 +1524,7 @@
                 {
                     "fieldPath": "TOTAL_REVENUE",
                     "nullable": true,
-                    "description": "Total Revenue [sap_semantic=currency]",
+                    "description": "Total Revenue",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1565,7 +1556,6 @@
                 {
                     "fieldPath": "AVG_PRICE",
                     "nullable": true,
-                    "description": "[sap_semantic=currency]",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}
@@ -1701,7 +1691,6 @@
                 "local_table": "true"
             },
             "name": "BASE_FACTS",
-            "description": "Local Table from SAP Datasphere space S1.",
             "tags": []
         }
     },
