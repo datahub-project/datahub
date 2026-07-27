@@ -178,6 +178,13 @@ Requirements:
 
 - **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Requires both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` / `structuredProperties.typeMismatchReindexEnabled` (default `true`).
 
+- **(GMS / View Authorization)** When `schemaField` is view-restricted (for example via
+  `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField`), **View Entity Page** checks inherit from the
+  parent dataset encoded in the schemaField URN
+  (`urn:li:schemaField:(<datasetUrn>,<fieldPath>)`), then fall back to a direct grant on the column
+  URN. This matches the existing logical-parent write candidate order. Query-time search filtering
+  (SBAC) remains DataHub Cloud–only; OSS still includes `schemaField` in default search.
+
 - **(GMS / search defaults)** Default entity-type lists for GraphQL search, autocomplete, browse V2, and quick-filter priority are now configurable via `elasticsearch.search.*EntityTypes` (`value` / `add` / `remove`) and the matching `SEARCH_*_ENTITY_TYPES{,_ADD,_REMOVE}` environment variables. Stock YAML defaults match the former hardcoded GraphQL lists. An explicitly empty resolved list means GraphQL searches **no** entity types (it does not expand to all indices). Unknown registry names in these lists are soft-dropped with a warn at startup. See [Environment Variables](../deploy/environment-vars.md) and [Customizing Search](search.md#default-search-entity-types).
 
 - **(Metadata Model / Semantic Model)** Logical datasets exposed by a `semanticModel` are now first-class `dataset` entities (with the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect) rather than an embedded `ModelDataset`/`SemanticField` record; per-field semantic metadata lives on `semanticFieldAnnotation`. The `Contains` relationship on `semanticModelInfo.datasets` is a lineage edge, so semantic-model-backed metrics follow `Metric → SemanticModel → Logical Dataset → Physical Dataset`. Populate `metricUpstreams` only for metrics without a semantic model. No external release has shipped this model yet.

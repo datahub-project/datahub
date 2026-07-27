@@ -218,7 +218,9 @@ When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATIO
 `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
 [Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` covers the previous
 unrestricted set minus registry-flagged types; trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example
-`schemaField,document`) when you want those types under view policy. **Search Access Controls** (query-time search
+`schemaField,document`) when you want those types under view policy. Once `schemaField` is restricted,
+**View Entity Page** inherits from the parent dataset encoded in the schemaField URN (then a direct
+column grant). **Search Access Controls** (query-time search
 filtering) remain **DataHub Cloud–only**; on OSS the unrestricted list only affects entity-page / masking behavior.
 Cloud operators: see also
 [Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
@@ -483,6 +485,12 @@ Domain URNs are read from the product's `domains` aspect, preferring `domainAsso
 | Read Query metadata (GraphQL, Rest.li, search when view auth is on) | **View Entity Page** **or** **Edit Dataset Queries** | **Every** subject dataset in `querySubjects` |
 
 Query entities with **no subjects** are not readable when view authorization is enabled (fail-closed). Schema field subjects are resolved to their parent dataset for authorization. **Edit Entity** on a subject dataset also grants read access (same disjunction as write).
+
+#### Schema field entities (view)
+
+When `schemaField` is view-restricted, **View Entity Page** on a schema field succeeds if the actor
+can view the containing parent URN in the schemaField key (typically a dataset) **or** has a direct
+grant on the schemaField URN. This uses the same parent-candidate order as logical-parent writes.
 
 View authorization is controlled by `VIEW_AUTHORIZATION_ENABLED` (see [Environment Variables](../deploy/environment-vars.md)).
 
