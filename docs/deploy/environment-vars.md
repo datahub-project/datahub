@@ -250,6 +250,10 @@ See [MCP/MCL Events - Aspect Size Validation](../advanced/mcp-mcl.md#aspect-size
 | `EBEAN_BATCH_GET_METHOD`          | `IN`                                  | Batch get method (IN or UNION)                  | GMS, MCE Consumer, System Update |
 | `EBEAN_URL`                       | _same as EBEAN_DATASOURCE_URL_        | Alternative property for database URL           | System Update                    |
 | `EBEAN_MAX_TRANSACTION_RETRY`     | `null`                                | Maximum transaction retries for Ebean           | System Update                    |
+| `EBEAN_RETRY_BACKOFF_SQL_STATES`  | `40001,40P01`                         | SQLStates that get exponential backoff between retries | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_BACKOFF_VENDOR_CODES`| `1213`                                | Vendor error codes that get exponential backoff between retries | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_INITIAL_BACKOFF_MS`  | `50`                                  | Initial backoff delay (ms) for deadlock/serialization retries | GMS, MCE Consumer, System Update |
+| `EBEAN_RETRY_MAX_BACKOFF_MS`      | `1000`                                | Maximum backoff delay (ms) for deadlock/serialization retries | GMS, MCE Consumer, System Update |
 
 #### EBean read pool (optional)
 
