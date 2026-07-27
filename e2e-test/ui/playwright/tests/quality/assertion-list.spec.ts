@@ -61,13 +61,32 @@ test('renders and searches the paginated Quality assertion list', async ({ page,
   );
 
   try {
-    await executeGraphQL(
-      page,
-      `mutation ReportBrowserAssertion($urn: String!) {
-        reportAssertionResult(urn: $urn, result: { type: SUCCESS })
-      }`,
-      { urn: created.upsertCustomAssertion.urn },
-    );
+    await expect
+      .poll(
+        async () => {
+          try {
+            const result = await executeGraphQL<{ reportAssertionResult: boolean }>(
+              page,
+              `mutation ReportBrowserAssertion($urn: String!) {
+                reportAssertionResult(urn: $urn, result: { type: SUCCESS })
+              }`,
+              { urn: created.upsertCustomAssertion.urn },
+            );
+            return result.reportAssertionResult;
+          } catch (error) {
+            if (error instanceof Error && error.message.includes('does not exist or is not associated')) {
+              return false;
+            }
+            throw error;
+          }
+        },
+        {
+          message: 'created assertion should accept a run result',
+          timeout: 30_000,
+          intervals: [500, 1000, 2000],
+        },
+      )
+      .toBe(true);
 
     await expect
       .poll(
