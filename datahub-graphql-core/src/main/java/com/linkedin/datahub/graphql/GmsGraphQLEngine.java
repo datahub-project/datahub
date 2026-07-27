@@ -154,6 +154,7 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
@@ -954,6 +955,9 @@ public class GmsGraphQLEngine {
             TimeseriesAspectBatchLoader.LOADER_NAME,
             context ->
                 TimeseriesAspectBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            GlossaryNodeChildrenCountBatchLoader.LOADER_NAME,
+            context -> GlossaryNodeChildrenCountBatchLoader.createDataLoader(entityClient, context))
         .addDataLoader(
             DashboardStatsSummaryBatchLoader.LOADER_NAME,
             context ->
@@ -2181,7 +2185,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
-                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver(entityClient))
+                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver())
                 .dataFetcher(
                     "glossaryChildrenSearch",
                     new GlossaryChildrenSearchResolver(this.entityClient, this.viewService))
