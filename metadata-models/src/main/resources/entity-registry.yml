@@ -726,7 +726,6 @@ entities:
       - documentation
       - browsePathsV2
       - applications
-      - semanticContent
       - aiContext
   - name: metric
     category: core
@@ -749,7 +748,6 @@ entities:
       - documentation
       - browsePathsV2
       - applications
-      - semanticContent
       - aiContext
   - name: ownershipType
     viewUnrestricted: true
