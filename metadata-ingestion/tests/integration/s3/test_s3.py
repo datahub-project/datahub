@@ -11,12 +11,14 @@ elsewhere: config validation and the S3 API call-pattern test are unit tests in
 ``tests/unit/s3``; the GCS connector test is in ``tests/integration/gcs``.
 
 Determinism note: the S3 source selects a table's schema-representative file and
-its min/max partition by object ``last_modified``. Unlike moto, the emulator's
-``last_modified`` cannot be poked directly and is second-resolution, so files are
-uploaded one-per-second in sorted-walk order — this reproduces moto's ordering
-(the max-``last_modified`` file in any folder is its last-sorted-key file),
-keeping schema/partition selection deterministic. The timestamp *values*
-themselves are non-reproducible and are masked via ``ignore_paths``.
+its min/max partition by object ``last_modified``. The emulator stamps
+``last_modified`` at second resolution and offers no API to set it, so uploading
+fast would tie many objects and make that selection vary run-to-run. Seeding one
+object per second gives each a distinct, strictly-increasing timestamp, which is
+what makes the selection deterministic. Any stable order would do; sorted-walk
+order is used because it also keeps the pre-existing goldens valid (a convenience,
+not a requirement). The timestamp *values* are non-reproducible and are masked
+via ``ignore_paths``.
 """
 
 import json
@@ -69,13 +71,12 @@ def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> None:
         Bucket=bucket, Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]}
     )
     # The source selects a table's schema-representative file and its min/max
-    # partition by object last_modified (source.py). moto let the original test
-    # poke synthetic, strictly-increasing per-object timestamps; a real emulator
-    # stamps last_modified at SECOND resolution, so rapid uploads tie and those
-    # selections become arbitrary (flaky, and diverging from the moto goldens).
-    # Uploading one file per second in sorted-walk order reproduces moto's
-    # ordering exactly: the max-last_modified file in any folder is its
-    # last-sorted-key file, making schema/partition selection deterministic.
+    # partition by object last_modified (source.py). The emulator stamps
+    # last_modified at SECOND resolution with no API to set it, so uploading fast
+    # would tie many objects and make that selection nondeterministic. Seeding one
+    # object per second gives each a distinct, strictly-increasing timestamp ->
+    # deterministic selection. The sorted-walk order is an arbitrary-but-stable
+    # choice that also keeps the existing goldens valid (a convenience, not a goal).
     for root, dirs, files in os.walk(data_dir):
         dirs.sort()
         for file in sorted(files):
