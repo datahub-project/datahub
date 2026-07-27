@@ -15,6 +15,7 @@ import io.datahubproject.metadata.services.RestrictedService;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +43,7 @@ public class ESAccessControlUtil {
           Objects.requireNonNull(opContext.getServicesRegistryContext()).getRestrictedService();
 
       if (opContext.getSearchContext().isRestrictedSearch()) {
+        prefetchOwnership(opContext, searchEntities);
         for (SearchEntity searchEntity : searchEntities) {
           final String entityType = searchEntity.getEntity().getEntityType();
           final com.linkedin.metadata.models.EntitySpec entitySpec =
@@ -72,6 +74,20 @@ public class ESAccessControlUtil {
       return !canViewEntity(opContext, urn);
     }
     return false;
+  }
+
+  /**
+   * When ownership-based view policies are in play, batch-warm ownership for all restricted results
+   * up front so the per-result {@link #canViewEntity} checks hit the request-scoped cache instead
+   * of fetching ownership one result at a time. Gated behind the {@code ownershipPrefetchEnabled}
+   * feature flag and the presence of an owner-scoped policy; best-effort, falling back to lazy
+   * per-result resolution on any failure.
+   */
+  private static void prefetchOwnership(
+      @Nonnull OperationContext opContext, @Nonnull Collection<SearchEntity> searchEntities) {
+    OwnershipPrefetchUtil.prefetchOwnershipForUrns(
+        opContext,
+        searchEntities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()));
   }
 
   private static boolean canViewEntity(@Nonnull OperationContext opContext, @Nonnull Urn urn) {

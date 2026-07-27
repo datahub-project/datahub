@@ -277,6 +277,11 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
+    com.linkedin.metadata.search.utils.OwnershipPrefetchUtil.prefetchOwnershipForUrns(
+        opContext,
+        result.getEntities().stream()
+            .map(com.linkedin.metadata.search.SearchEntity::getEntity)
+            .collect(java.util.stream.Collectors.toList()));
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");

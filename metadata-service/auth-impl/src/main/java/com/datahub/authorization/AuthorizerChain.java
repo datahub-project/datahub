@@ -336,4 +336,21 @@ public class AuthorizerChain
         .distinct()
         .collect(Collectors.toList());
   }
+
+  @Override
+  public boolean hasResourceOwnerPolicy() {
+    return authorizers.stream()
+        .filter(authorizer -> authorizer instanceof OperationContextAuthorizer)
+        .anyMatch(authorizer -> ((OperationContextAuthorizer) authorizer).hasResourceOwnerPolicy());
+  }
+
+  @Override
+  public void prefetchOwners(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> resourceUrns) {
+    authorizers.stream()
+        .filter(authorizer -> authorizer instanceof OperationContextAuthorizer)
+        .forEach(
+            authorizer ->
+                ((OperationContextAuthorizer) authorizer).prefetchOwners(opContext, resourceUrns));
+  }
 }

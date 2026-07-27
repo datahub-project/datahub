@@ -38,4 +38,20 @@ public interface OperationContextAuthorizer {
       @Nullable Collection<Urn> preloadedGroups,
       @Nullable Set<Urn> preloadedDirectRoles,
       @Nonnull OperationContext opContext);
+
+  /**
+   * Returns true if any active policy is owner-scoped (resource-owner actors). Cheap gate used to
+   * decide whether ownership must be resolved. Defaults to false for authorizers without policies.
+   */
+  default boolean hasResourceOwnerPolicy() {
+    return false;
+  }
+
+  /**
+   * Best-effort batch-warm of resource ownership into the per-request cache, so subsequent
+   * ownership checks for these resources hit the cache instead of fetching one-by-one. No-op by
+   * default.
+   */
+  default void prefetchOwners(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> resourceUrns) {}
 }

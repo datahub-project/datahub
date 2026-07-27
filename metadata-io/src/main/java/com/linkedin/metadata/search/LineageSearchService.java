@@ -674,6 +674,19 @@ public class LineageSearchService {
       Map<Urn, LineageRelationship> urnToRelationship) {
     AggregationMetadataArray aggregations =
         new AggregationMetadataArray(searchResult.getMetadata().getAggregations());
+    // Batch-warm ownership for every URN the per-path canViewEntity checks below will touch, so
+    // deep
+    // lineage graphs don't fire an ownership fetch per path URN.
+    com.linkedin.metadata.search.utils.OwnershipPrefetchUtil.prefetchOwnershipForUrns(
+        opContext,
+        searchResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .map(urnToRelationship::get)
+            .filter(java.util.Objects::nonNull)
+            .filter(rel -> rel.getPaths() != null)
+            .flatMap(rel -> rel.getPaths().stream())
+            .flatMap(com.linkedin.common.UrnArray::stream)
+            .collect(Collectors.toList()));
     return new LineageSearchResult()
         .setEntities(
             new LineageSearchEntityArray(

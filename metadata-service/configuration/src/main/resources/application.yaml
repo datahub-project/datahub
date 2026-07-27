@@ -94,6 +94,8 @@ authorization:
   view:
     # Controls whether entity pages can limit access based on policies. If disabled, all entity pages are visible. Does not control if entities show up in search or browse.
     enabled: ${VIEW_AUTHORIZATION_ENABLED:false}
+    # When enabled, search-result view authorization batch-prefetches ownership for restricted results to avoid an N+1 ownership fetch. No effect unless view authorization is enabled.
+    ownershipPrefetchEnabled: ${VIEW_AUTHORIZATION_OWNERSHIP_PREFETCH_ENABLED:true}
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
