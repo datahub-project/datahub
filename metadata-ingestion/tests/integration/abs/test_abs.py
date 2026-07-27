@@ -147,7 +147,7 @@ def abs_emulator(docker_compose_runner):
 
 @pytest.mark.integration
 def test_abs_folder(abs_emulator, pytestconfig, tmp_path, mock_time):
-    # Multi-format schema inference (csv/json/parquet/avro) over a folder.
+    """Multi-format schema inference (csv/json/parquet/avro) over a blob folder."""
     config = {
         "path_specs": [{"include": f"{BLOB_BASE}/data/*.*"}],
         "azure_config": _azure_config(),
@@ -161,6 +161,7 @@ def test_abs_folder(abs_emulator, pytestconfig, tmp_path, mock_time):
 
 @pytest.mark.integration
 def test_abs_single_file(abs_emulator, pytestconfig, tmp_path, mock_time):
+    """Ingest a single explicitly-addressed blob as one dataset."""
     config = {
         "path_specs": [{"include": f"{BLOB_BASE}/data/small.csv"}],
         "azure_config": _azure_config(),
@@ -174,6 +175,7 @@ def test_abs_single_file(abs_emulator, pytestconfig, tmp_path, mock_time):
 
 @pytest.mark.integration
 def test_abs_partitioned(abs_emulator, pytestconfig, tmp_path, mock_time):
+    """Partitioned folder → one table with {partition} templating from blob paths."""
     config = {
         "env": "UAT",
         "path_specs": [
@@ -193,6 +195,7 @@ def test_abs_partitioned(abs_emulator, pytestconfig, tmp_path, mock_time):
 
 @pytest.mark.integration
 def test_abs_folders_only(abs_emulator, pytestconfig, tmp_path, mock_time):
+    """emit_folders_only → container/folder entities without file datasets."""
     config = {
         "path_specs": [
             {"include": f"{BLOB_BASE}/media/*/*/", "emit_folders_only": True}
@@ -208,10 +211,12 @@ def test_abs_folders_only(abs_emulator, pytestconfig, tmp_path, mock_time):
 
 @pytest.mark.integration
 def test_abs_blob_properties(abs_emulator, pytestconfig, tmp_path, mock_time):
-    # Container + blob properties surfaced as DataHub tags/properties.
-    # use_abs_blob_tags is intentionally NOT set: floci-az's get_blob_tags API
-    # returns a response the Azure SDK fails to decode (emulator fidelity gap);
-    # the blob-tags path stays covered by the ABS unit tests.
+    """Surface container + blob properties as DataHub properties.
+
+    use_abs_blob_tags is intentionally NOT set: floci-az's get_blob_tags API
+    returns a response the Azure SDK fails to decode (emulator fidelity gap); the
+    blob-tags path stays covered by the ABS unit tests.
+    """
     config = {
         "path_specs": [{"include": f"{BLOB_BASE}/data/*.*"}],
         "azure_config": _azure_config(),
@@ -227,10 +232,12 @@ def test_abs_blob_properties(abs_emulator, pytestconfig, tmp_path, mock_time):
 
 @pytest.mark.integration
 def test_abs_profiling(abs_emulator, pytestconfig, tmp_path, mock_time):
-    # Exercises the (pure-Python, pyarrow-backed) data-lake profiler reading a
-    # blob through the injected BlobServiceClient against the emulator — column
-    # null/min/max/mean/median/stddev/distinct/sample stats end up in a
-    # datasetProfile aspect.
+    """Profile a blob read through the injected BlobServiceClient against the emulator.
+
+    Exercises the pure-Python (pyarrow) data-lake profiler: numeric columns emit
+    min/max/mean/median/stdev, the low-cardinality categorical column emits
+    distinct-value frequencies, all in a datasetProfile aspect.
+    """
     config = {
         "path_specs": [{"include": f"{BLOB_BASE}/{PROFILE_BLOB}"}],
         "azure_config": _azure_config(),

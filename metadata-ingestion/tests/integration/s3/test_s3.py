@@ -126,6 +126,12 @@ def s3_emulator(docker_compose_runner):
 def test_data_lake_s3_ingest(
     s3_emulator, pytestconfig, source_file_tuple, tmp_path, mock_time
 ):
+    """Ingest each shared/s3 recipe against the emulator and compare to its golden.
+
+    Covers the S3 source feature matrix (schema inference, path specs, partition
+    detection/traversal, tags, content-type, folders) — one parametrized case per
+    recipe under ``sources/{shared,s3}``.
+    """
     source_dir, source_file = source_file_tuple
     with open(os.path.join(source_dir, source_file)) as f:
         source = json.load(f)
@@ -152,9 +158,12 @@ def test_data_lake_s3_ingest(
 
 
 def test_data_lake_s3_profiling(s3_emulator, pytestconfig, tmp_path, mock_time):
-    # Exercises the (pure-Python, pyarrow-backed) data-lake profiler reading a
-    # file through the S3 boto3 client against the emulator — column null/min/max/
-    # mean/median/stddev/distinct/sample stats end up in a datasetProfile aspect.
+    """Profile a file read through the S3 client against the emulator.
+
+    Exercises the pure-Python (pyarrow) data-lake profiler end-to-end: numeric
+    columns emit min/max/mean/median/stdev, the low-cardinality categorical column
+    emits distinct-value frequencies, all in a datasetProfile aspect.
+    """
     source = {
         "type": "s3",
         "config": {

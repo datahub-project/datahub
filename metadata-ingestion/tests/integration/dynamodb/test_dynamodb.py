@@ -152,6 +152,7 @@ def dynamodb(docker_compose_runner, pytestconfig):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dynamodb_default(dynamodb, pytestconfig, tmp_path):
+    """Ingest the us-west-2 table with defaults; schema inference incl. nested types."""
     output = _run(
         _base_config(), tmp_path, "dynamodb_default_platform_instance_mces.json"
     )
@@ -166,6 +167,7 @@ def test_dynamodb_default(dynamodb, pytestconfig, tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dynamodb_platform_instance(dynamodb, pytestconfig, tmp_path):
+    """Ingest with an explicit platform_instance stamped onto the dataset URN."""
     config = {**_base_config(), "platform_instance": "dynamodb_test"}
     output = _run(config, tmp_path, "dynamodb_platform_instance_mces.json")
     mce_helpers.check_golden_file(
@@ -178,6 +180,7 @@ def test_dynamodb_platform_instance(dynamodb, pytestconfig, tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dynamodb_with_tags(dynamodb, pytestconfig, tmp_path):
+    """Extract real table tags via list_tags_of_resource (no moto patch needed)."""
     config = {**_base_config(), "extract_table_tags": True}
     output = _run(config, tmp_path, "dynamodb_with_tags_mces.json")
     mce_helpers.check_golden_file(
@@ -190,8 +193,10 @@ def test_dynamodb_with_tags(dynamodb, pytestconfig, tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dynamodb_table_pattern(dynamodb, pytestconfig, tmp_path):
-    # us-east-1 holds Products + Orders; the pattern keeps only Products,
-    # proving region.table filtering with multiple candidate tables present.
+    """Filter tables by region.table pattern with multiple candidates present.
+
+    us-east-1 holds Products + Orders; the pattern keeps only Products.
+    """
     config = {
         **_base_config(EAST),
         "table_pattern": {"allow": ["us-east-1.Products"]},
@@ -207,8 +212,10 @@ def test_dynamodb_table_pattern(dynamodb, pytestconfig, tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_dynamodb_us_east_region(dynamodb, pytestconfig, tmp_path):
-    # Ingest a different region end-to-end (region is single-per-run in the
-    # source) — both us-east-1 tables surface with the region in their names.
+    """Ingest a non-default region end-to-end (region is single-per-run).
+
+    Both us-east-1 tables surface with the region embedded in their dataset names.
+    """
     output = _run(_base_config(EAST), tmp_path, "dynamodb_us_east_region_mces.json")
     mce_helpers.check_golden_file(
         pytestconfig,

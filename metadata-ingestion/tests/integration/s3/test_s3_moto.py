@@ -1,16 +1,17 @@
-"""Moto-backed data-lake tests.
+"""Moto-backed S3 source tests.
 
-Hosts the tests that still run against the in-process ``moto`` mock (and the
-shared fixtures that seed it):
+Hosts the S3-source tests that don't run against the Floci emulator (and the
+shared ``moto`` fixtures that seed them):
 
-- ``test_data_lake_gcs_ingest`` — the GCS source, which is out of scope for the
-  Floci migration (``floci-gcp`` exposes no S3-compatible API, and the connector
-  speaks only boto3-S3).
-- ``test_data_lake_local_ingest`` — the local-filesystem path of the S3 source.
+- ``test_data_lake_local_ingest`` — the local-filesystem path of the S3 source
+  (with profiling enabled).
+- ``test_data_lake_incorrect_config_raises_error`` — path-spec config validation.
 - ``test_data_lake_s3_calls`` — asserts the S3 API call pattern via a mock.
 
-The Floci-emulator S3 ingest lives in ``test_s3.py``; it must be a separate
-module because ``moto``'s ``mock_aws`` patches botocore process-wide.
+The emulator-backed S3 ingest lives in ``test_s3.py``; it must be a separate
+module because ``moto``'s ``mock_aws`` patches botocore process-wide (it would
+otherwise intercept the boto3 calls meant for the real container). The GCS
+connector test lives in ``tests/integration/gcs``.
 """
 
 import json
@@ -195,66 +196,17 @@ s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "source_file_tuple", shared_source_files + s3_source_files, ids=get_descriptive_id
-)
-def test_data_lake_gcs_ingest(
-    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
-):
-    source_dir, source_file = source_file_tuple
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-
-    f = open(os.path.join(source_dir, source_file))
-    source = json.load(f)
-
-    config_dict = {}
-
-    source["type"] = "gcs"
-    source["config"]["credential"] = {
-        "hmac_access_id": source["config"]["aws_config"]["aws_access_key_id"],
-        "hmac_access_secret": source["config"]["aws_config"]["aws_secret_access_key"],
-    }
-    for path_spec in source["config"]["path_specs"]:
-        path_spec["include"] = path_spec["include"].replace("s3://", "gs://")
-    source["config"].pop("aws_config")
-    source["config"].pop("profiling", None)
-    source["config"].pop("sort_schema_fields", None)
-    source["config"].pop("use_s3_bucket_tags", None)
-    source["config"].pop("use_s3_content_type", None)
-    source["config"].pop("use_s3_object_tags", None)
-
-    config_dict["source"] = source
-    config_dict["sink"] = {
-        "type": "file",
-        "config": {
-            "filename": f"{tmp_path}/{source_file}",
-        },
-    }
-
-    config_dict["run_id"] = source_file
-
-    with patch("datahub.ingestion.source.gcs.gcs_source.GCS_ENDPOINT_URL", None):
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
-    pipeline.raise_from_status()
-
-    # Verify the output.
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=f"{tmp_path}/{source_file}",
-        golden_path=f"{test_resources_dir}/golden-files/gcs/golden_mces_{source_file}",
-        ignore_paths=[
-            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
-        ],
-    )
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize(
     "source_file_tuple", shared_source_files, ids=get_descriptive_id
 )
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
+    """Ingest each shared recipe from the local filesystem (profiling enabled).
+
+    Rewrites the ``s3://`` path specs to the local ``test_data`` tree and compares
+    the emitted metadata — including datasetProfile aspects — to
+    ``golden-files/local``.
+    """
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
     f = open(os.path.join(source_dir, source_file))
@@ -310,6 +262,7 @@ def test_data_lake_local_ingest(
 
 
 def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
+    """Reject invalid path specs at config time (bad table var, ``**``, etc.)."""
     ctx = PipelineContext(run_id="test-s3")
 
     # Baseline: valid config
@@ -466,6 +419,11 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     ids=lambda calls_test_tuple: calls_test_tuple[0],
 )
 def test_data_lake_s3_calls(s3_populate, calls_test_tuple):
+    """Assert the source issues the minimum S3 list/recursive calls per path spec.
+
+    Guards against regressions that would over-scan the bucket (extra list calls)
+    for partitioned/filtered path specs.
+    """
     _, path_spec, expected_calls = calls_test_tuple
 
     ctx = PipelineContext(run_id="test-s3")
