@@ -5,6 +5,7 @@ from xml.etree.ElementTree import (
 )
 
 import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     CALENDAR_DATE,
@@ -80,13 +81,19 @@ class EdmxParser:
     def parse(xml_text: str) -> EdmxParseResult:
         try:
             root = ET.fromstring(xml_text)
-        except ET.ParseError as e:
+        except (ET.ParseError, DefusedXmlException) as e:
+            # defusedxml raises DTDForbidden / EntitiesForbidden /
+            # ExternalReferenceForbidden (all DefusedXmlException subclasses, not
+            # ParseError) on a hostile or proxy/error-page payload. Catch them here
+            # so they flow through the structured error path (assets_schema_failed)
+            # instead of escaping to the generic per-asset isolation handler and
+            # being miscounted.
             return EdmxParseResult(
                 fields=[],
                 field_custom_props={},
                 entity_label=None,
                 entity_custom_props={},
-                error=f"Malformed EDMX XML: {e}",
+                error=f"Malformed or unsafe EDMX XML: {e}",
             )
 
         entity_type = root.find(".//edm:EntityType", _NS)

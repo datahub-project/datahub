@@ -186,6 +186,10 @@ def test_expose_for_consumption_only_skips_null_url(requests_mock):
             ]
         },
     )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
 
     source = SapDatasphereSource(ctx, cfg)
     workunits = list(source.get_workunits())
@@ -317,6 +321,14 @@ def test_assets_endpoint_failure_continues_to_next_space(requests_mock):
     requests_mock.get(
         "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('BAD')/assets",
         status_code=500,
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/GOOD/connections",
+        json=[],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/BAD/connections",
+        json=[],
     )
 
     source = SapDatasphereSource(ctx, cfg)
@@ -1045,6 +1057,128 @@ def test_subtype_is_analytical_model_when_supportsanalyticalqueries(requests_moc
     view_urn = next(u for u in subtypes_per_urn if "s1.view1" in u)
     assert "Analytic Model" in subtypes_per_urn[am_urn]
     assert "View" in subtypes_per_urn[view_urn]
+
+
+def test_analytic_model_csn_200_but_unparseable_is_reported(requests_mock):
+    """HTTP 200 whose CSN ``definitions`` map has no entry for the asset (key
+    mismatch / empty / non-dict) must be recorded in ``assets_csn_unparseable``
+    with a warning — not emitted as a silent schema-less, lineage-less stub that
+    an operator can't distinguish from a healthy run (finding #1)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    ctx = PipelineContext(run_id="test-csn-unparseable")
+
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "AM",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": True,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    # 200 OK, but the definitions map is for a different object than "AM".
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/AM",
+        json={"definitions": {"SOMETHING_ELSE": {"kind": "entity"}}},
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    workunits = list(source.get_workunits())
+
+    assert "S1.AM" in list(source.report.assets_csn_unparseable)
+    assert any(w.title == "Unparseable asset CSN" for w in source.report.warnings)
+    # The dataset is still emitted (a stub), just without CSN schema/lineage.
+    assert any(
+        aspect_of(wu).__class__.__name__ == "DatasetPropertiesClass" for wu in workunits
+    )
+
+
+def test_analytic_model_csn_200_non_dict_definitions_does_not_crash(requests_mock):
+    """A 200 whose ``definitions`` is explicitly null/non-dict must route to the
+    unparseable report path, not raise AttributeError (finding #6)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    ctx = PipelineContext(run_id="test-csn-nondict-defs")
+
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={
+            "value": [
+                {
+                    "name": "AM",
+                    "spaceName": "S1",
+                    "assetRelationalMetadataUrl": None,
+                    "supportsAnalyticalQueries": True,
+                    "hasParameters": False,
+                }
+            ]
+        },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/spaces/S1/connections",
+        json=[],
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/analyticmodels/AM",
+        json={"definitions": None},
+    )
+
+    source = SapDatasphereSource(ctx, cfg)
+    list(source.get_workunits())  # must not raise AttributeError
+
+    assert "S1.AM" in list(source.report.assets_csn_unparseable)
+
+
+def test_get_resolver_softens_transport_error_but_propagates_auth(monkeypatch):
+    """_get_resolver softens a transport error (RequestException) to a per-space
+    warning and an empty resolver, but lets a credentials-rejected ValueError
+    propagate so a total auth outage aborts rather than silently resolving every
+    asset to unknown_connection (finding #2, mirroring _safe_list_spaces)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+
+    transport_source = SapDatasphereSource(PipelineContext(run_id="t-transport"), cfg)
+
+    def _raise_transport(space: str) -> None:
+        raise requests.ConnectionError("network down")
+
+    monkeypatch.setattr(transport_source._client, "list_connections", _raise_transport)
+    resolver = transport_source._get_resolver("S1")  # must NOT raise
+    assert resolver is not None
+    assert any(
+        "connections" in f"{w.title} {w.message}".lower()
+        for w in transport_source.report.warnings
+    )
+
+    auth_source = SapDatasphereSource(PipelineContext(run_id="t-auth"), cfg)
+
+    def _raise_auth(space: str) -> None:
+        raise ValueError("the credentials appear invalid")
+
+    monkeypatch.setattr(auth_source._client, "list_connections", _raise_auth)
+    with pytest.raises(ValueError):
+        auth_source._get_resolver("S1")
 
 
 def test_business_layer_failure_degrades_to_no_lineage_not_dropped(

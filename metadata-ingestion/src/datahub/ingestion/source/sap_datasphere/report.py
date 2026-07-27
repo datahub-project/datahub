@@ -47,6 +47,11 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     assets_skipped_disabled: LossyList[str] = field(default_factory=LossyList)
     assets_with_unknown_edm_types: LossyList[str] = field(default_factory=LossyList)
     assets_with_unknown_cds_types: LossyList[str] = field(default_factory=LossyList)
+    # CSN columns emitted with no (or an empty) type key — structurally broken, so
+    # they degrade to StringType/"UNKNOWN". Distinct from unknown-but-present CDS
+    # types above so an operator can tell a genuine string column from one whose
+    # type the API failed to emit.
+    assets_with_missing_cds_types: LossyList[str] = field(default_factory=LossyList)
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
     # Non-empty means the supportsAnalyticalQueries routing heuristic was wrong
     # for those assets but the sibling-type fallback recovered them.

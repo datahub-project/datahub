@@ -60,13 +60,18 @@ def test_parses_unknown_cds_type_as_string_with_warning_path():
     ]
 
 
-def test_missing_type_key_is_not_reported_as_unknown():
-    """A column with no ``type`` key is a structural gap, not an unknown type —
-    it should not pollute the unknown-types report list."""
-    elements = {"NO_TYPE": {"@EndUserText.label": "n/a"}}
+def test_missing_type_key_is_tracked_separately_from_unknown():
+    """A column with no (or empty) ``type`` key is a structural gap, not an
+    unknown type: it must not pollute the unknown-types list, but it IS tracked
+    in ``columns_missing_type`` so the caller can surface it (finding #4)."""
+    elements = {
+        "NO_TYPE": {"@EndUserText.label": "n/a"},
+        "EMPTY_TYPE": {"type": ""},
+    }
     result = parse_csn_elements_to_schema_fields(elements)
-    assert isinstance(result.fields[0].type.type, StringTypeClass)
+    assert all(isinstance(f.type.type, StringTypeClass) for f in result.fields)
     assert result.unknown_types == []
+    assert set(result.columns_missing_type) == {"NO_TYPE", "EMPTY_TYPE"}
 
 
 def test_association_and_composition_elements_are_skipped_not_columns():

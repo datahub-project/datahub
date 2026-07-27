@@ -98,6 +98,7 @@ def parse_csn_elements_to_schema_fields(
     fields: List[SchemaFieldClass] = []
     unknown_types: List[UnknownColumnType] = []
     navigation_elements: List[str] = []
+    columns_missing_type: List[str] = []
     for col_name, element in elements.items():
         if not isinstance(element, dict):
             continue
@@ -108,8 +109,12 @@ def parse_csn_elements_to_schema_fields(
         if cds_type in _NAVIGATION_TYPES:
             navigation_elements.append(col_name)
             continue
-        # A missing type key is a structural concern, not an unknown type.
-        if cds_type and cds_type not in _TYPE_MAP:
+        if not cds_type:
+            # A missing type key is a structural concern, not an unknown type: the
+            # column still emits as StringType/"UNKNOWN" below, but it is tracked
+            # separately so it isn't mistaken for a healthy string column.
+            columns_missing_type.append(col_name)
+        elif cds_type not in _TYPE_MAP:
             unknown_types.append(UnknownColumnType(type=cds_type, column=col_name))
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (StringTypeClass, cds_type or "UNKNOWN")
@@ -129,4 +134,5 @@ def parse_csn_elements_to_schema_fields(
         fields=fields,
         unknown_types=unknown_types,
         navigation_elements=navigation_elements,
+        columns_missing_type=columns_missing_type,
     )

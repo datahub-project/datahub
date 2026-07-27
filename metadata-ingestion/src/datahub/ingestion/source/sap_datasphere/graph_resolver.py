@@ -97,21 +97,34 @@ class ExternalUrnGraphResolver:
                 # prefix check below discards any loosely-matched noise.
                 query=parent_path,
             )
-            for urn in urns:
-                name = DatasetUrn.from_string(urn).name
-                if not name.lower().startswith(prefix):
-                    continue
-                real_leaf = name.rpartition(".")[2]
-                index.setdefault(real_leaf.lower(), []).append(name)
         except Exception as e:
-            # Best-effort: a graph query failure must not abort ingestion, it
-            # just falls back to the unresolved candidate name.
-            logger.debug(
+            # Best-effort enrichment: a graph query failure must not abort
+            # ingestion, it just falls back to the unresolved candidate name.
+            # Log at warning (not debug) and carry the exception type in the
+            # report entry so the cause isn't invisible at normal log levels.
+            logger.warning(
                 f"Graph lookup for external lineage under {parent_path!r} "
-                f"(platform={platform}) failed; leaving names unresolved",
-                exc_info=e,
+                f"(platform={platform}) failed; leaving names unresolved: "
+                f"{type(e).__name__}: {e}"
             )
-            self._report.external_lineage_graph_lookup_failed.append(parent_path)
+            self._report.external_lineage_graph_lookup_failed.append(
+                f"{parent_path}: {type(e).__name__}: {e}"
+            )
+            self._index_cache[key] = index
+            return index
+
+        for urn in urns:
+            try:
+                name = DatasetUrn.from_string(urn).name
+            except Exception as e:
+                # A single malformed URN from the graph must not sink the whole
+                # index, nor be misreported as a graph-lookup failure; skip it.
+                logger.debug(f"Skipping unparseable dataset URN {urn!r}: {e}")
+                continue
+            if not name.lower().startswith(prefix):
+                continue
+            real_leaf = name.rpartition(".")[2]
+            index.setdefault(real_leaf.lower(), []).append(name)
 
         self._index_cache[key] = index
         return index

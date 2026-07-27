@@ -92,7 +92,12 @@ def test_graph_lookup_failure_is_soft_and_reported() -> None:
     report = SapDatasphereReport()
     resolver = ExternalUrnGraphResolver(cast(DataHubGraph, _BoomGraph()), report)
     assert resolver.resolve_name("bigquery", None, "PROD", "proj.staging.x") is None
-    assert "proj.staging" in list(report.external_lineage_graph_lookup_failed)
+    # The report entry carries the exception type/message so the cause isn't
+    # buried at debug level (finding #5).
+    failures = list(report.external_lineage_graph_lookup_failed)
+    assert len(failures) == 1
+    assert failures[0].startswith("proj.staging")
+    assert "RuntimeError" in failures[0]
 
 
 def test_index_is_cached_per_parent_path() -> None:

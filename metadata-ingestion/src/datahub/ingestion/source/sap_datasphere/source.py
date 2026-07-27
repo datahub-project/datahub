@@ -103,6 +103,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    CsnSchemaResult,
     EdmxFetchReason,
     EdmxParseResult,
     FlowColumnMapping,
@@ -481,7 +482,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             space_name, OBJECT_TYPE_LOCAL_TABLES, technical_name
         )
         if csn_obj is not None:
-            definition = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
+            defs = csn_obj.get(CSN_KEY_DEFINITIONS)
+            definition = defs.get(technical_name) if isinstance(defs, dict) else None
             elements = (
                 definition.get(CSN_KEY_ELEMENTS)
                 if isinstance(definition, dict)
@@ -489,9 +491,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             if isinstance(elements, dict):
                 csn_schema = parse_csn_elements_to_schema_fields(elements)
-                self._report_unknown_cds_types(
-                    space_name, technical_name, csn_schema.unknown_types
-                )
+                self._report_csn_parse_concerns(space_name, technical_name, csn_schema)
                 # Honor column_pattern here too, so a Local Table's columns are
                 # filtered consistently with views / remote tables rather than
                 # being the one schema path that ignores the pattern.
@@ -1006,11 +1006,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         csn_obj = self._client.fetch_object_definition(
             space_name, OBJECT_TYPE_REMOTE_TABLES, technical_name
         )
-        definition = (
-            csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(technical_name)
-            if isinstance(csn_obj, dict)
-            else None
-        )
+        defs = csn_obj.get(CSN_KEY_DEFINITIONS) if isinstance(csn_obj, dict) else None
+        definition = defs.get(technical_name) if isinstance(defs, dict) else None
 
         schema_fields = None
         upstreams_aspect: Optional[UpstreamLineageClass] = None
@@ -1077,9 +1074,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not isinstance(elements, dict) or not elements:
             return None
         csn_schema = parse_csn_elements_to_schema_fields(elements)
-        self._report_unknown_cds_types(
-            space_name, technical_name, csn_schema.unknown_types
-        )
+        self._report_csn_parse_concerns(space_name, technical_name, csn_schema)
         return self._apply_column_pattern(csn_schema.fields) or None
 
     def _remote_table_upstream(
@@ -1238,7 +1233,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if space not in self._resolvers:
             try:
                 connections = self._client.list_connections(space)
-            except Exception as e:
+            except requests.RequestException as e:
+                # Soften only transport errors, mirroring _safe_list_spaces. An
+                # auth/config failure raises ValueError (a 401 surviving a token
+                # refresh, or a token-endpoint failure) and must propagate to abort
+                # the run: swallowing it here would resolve every asset in the space
+                # to unknown_connection and let stateful ingestion soft-delete prior
+                # entities on a pure auth outage. list_connections already softens
+                # its own non-JSON/shape issues to an empty list.
                 self.report.warning(
                     title="Failed to fetch Datasphere connections",
                     message=(
@@ -1361,7 +1363,29 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 space_name, object_type, asset_name
             )
             if csn_obj is not None:
-                csn_def = csn_obj.get(CSN_KEY_DEFINITIONS, {}).get(asset_name)
+                defs = csn_obj.get(CSN_KEY_DEFINITIONS)
+                csn_def = defs.get(asset_name) if isinstance(defs, dict) else None
+                if not isinstance(csn_def, dict):
+                    # 200 OK but no parseable definition for this asset (key
+                    # mismatch, empty definitions, or a null/non-dict value). An
+                    # analytic model has no OData $metadata fallback, so this is the
+                    # difference between a real emit and a schema-less, lineage-less
+                    # stub — record it rather than letting a healthy
+                    # scanned==emitted count hide the miss (mirrors the local- and
+                    # remote-table CSN-unparseable branches).
+                    self.report.assets_csn_unparseable.append(
+                        f"{space_name}.{asset_name}"
+                    )
+                    self.report.warning(
+                        title="Unparseable asset CSN",
+                        message=(
+                            "Fetched the object definition but it contained no "
+                            "parseable definition for this asset; emitting without "
+                            "CSN-derived schema or lineage."
+                        ),
+                        context=f"{space_name}.{asset_name}",
+                    )
+                    csn_def = None
 
         # Default to the managed HANA connection; override if CSN declares a
         # federated remote source.
@@ -1894,6 +1918,31 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
         self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
 
+    def _report_csn_parse_concerns(
+        self,
+        space_name: str,
+        asset_name: str,
+        csn_schema: CsnSchemaResult,
+    ) -> None:
+        # Surface both CSN-elements parse concerns for an asset: columns with an
+        # unmapped-but-present CDS type, and columns the API emitted with no type
+        # at all (structurally broken, degraded to StringType/"UNKNOWN").
+        self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
+        if csn_schema.columns_missing_type:
+            self.report.warning(
+                title="CSN column(s) missing a type",
+                message=(
+                    f"{len(csn_schema.columns_missing_type)} column(s) on "
+                    f"{space_name}.{asset_name} had no type in the CSN elements "
+                    f"map; they degrade to StringType/UNKNOWN. This is a source "
+                    f"data concern, not an unmapped type."
+                ),
+                context=", ".join(csn_schema.columns_missing_type),
+            )
+            self.report.assets_with_missing_cds_types.append(
+                f"{space_name}.{asset_name}"
+            )
+
     def _apply_column_pattern(
         self, fields: List[SchemaFieldClass]
     ) -> List[SchemaFieldClass]:
@@ -1919,7 +1968,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if not isinstance(elements, dict) or not elements:
             return None
         csn_schema = parse_csn_elements_to_schema_fields(elements)
-        self._report_unknown_cds_types(space_name, asset_name, csn_schema.unknown_types)
+        self._report_csn_parse_concerns(space_name, asset_name, csn_schema)
         filtered = self._apply_column_pattern(csn_schema.fields)
         if not filtered:
             return None

@@ -95,6 +95,24 @@ def test_parser_returns_empty_result_on_malformed_xml():
     assert "Malformed EDMX" in result.error or "XML" in result.error
 
 
+def test_parser_returns_structured_error_on_unsafe_dtd_payload():
+    """A payload with a DTD (e.g. a hostile response or proxy/error page) makes
+    defusedxml raise a DefusedXmlException (a ValueError subclass, not
+    ParseError). The parser must catch it and return a structured error result
+    so the source records assets_schema_failed, rather than letting it escape to
+    the generic per-asset handler (finding #3)."""
+    xml = """<?xml version="1.0"?>
+<!DOCTYPE edmx:Edmx [ <!ENTITY x "expanded"> ]>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+            xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices><Schema Namespace="ns"/></edmx:DataServices>
+</edmx:Edmx>"""
+    result = EdmxParser.parse(xml)
+    assert result.fields == []
+    assert result.error is not None
+    assert "unsafe" in result.error.lower() or "XML" in result.error
+
+
 def test_parser_returns_empty_result_when_no_entity_type():
     xml = """<?xml version="1.0"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
