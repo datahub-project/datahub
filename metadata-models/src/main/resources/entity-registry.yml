@@ -358,6 +358,7 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - semanticText
       - institutionalMemory
       - documentation
       - documentUsageStatistics

@@ -531,6 +531,8 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  // Curated embedding-source text. A common aspect so any entity type can register it.
+  public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
