@@ -142,16 +142,22 @@ def _parse_process_flow(
     inputs: List[FlowEndpoint] = []
     outputs: List[FlowEndpoint] = []
     producer_mappings: List[ProducerColumns] = []
+    dropped = 0
     for process in processes.values():
         if not isinstance(process, dict):
+            dropped += 1
             continue
         component = process.get(FLOW_KEY_COMPONENT)
         metadata = process.get(FLOW_KEY_METADATA)
         config = metadata.get(FLOW_KEY_CONFIG) if isinstance(metadata, dict) else None
         if not isinstance(component, str) or not isinstance(config, dict):
+            dropped += 1
             continue
         endpoint = _process_endpoint(config)
         if endpoint is None:
+            # Only IO consumer/producer nodes carry an endpoint; a non-IO
+            # process (join, filter, ...) legitimately has none, so it isn't a
+            # dropped edge.
             continue
         if component.endswith(FLOW_COMPONENT_CONSUMER_SUFFIX):
             inputs.append(endpoint)
@@ -197,6 +203,7 @@ def _parse_process_flow(
         outputs=outputs_t,
         column_mappings=column_mappings,
         cll_suppressed_multi_input=cll_suppressed,
+        dropped_node_count=dropped,
     )
 
 
@@ -222,12 +229,15 @@ def _parse_replication_flow(
     outputs: List[FlowEndpoint] = []
     column_mappings: List[FlowColumnMapping] = []
     table_mappings: List[FlowTableMapping] = []
+    dropped = 0
     for task in tasks:
         if not isinstance(task, dict):
+            dropped += 1
             continue
         source_name = _object_name(task.get(RF_TASK_SOURCE_OBJECT))
         target_name = _object_name(task.get(RF_TASK_TARGET_OBJECT))
         if not source_name or not target_name:
+            dropped += 1
             continue
         inputs.append(_replication_endpoint(source_name, source_system))
         outputs.append(_replication_endpoint(target_name, target_system))
@@ -260,6 +270,7 @@ def _parse_replication_flow(
         outputs=outputs_t,
         column_mappings=column_mappings,
         table_mappings=table_mappings,
+        dropped_node_count=dropped,
     )
 
 

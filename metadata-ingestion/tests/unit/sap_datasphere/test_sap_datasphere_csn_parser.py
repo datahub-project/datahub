@@ -7,6 +7,8 @@ metadata. With schema fields on both the View side and the Local Table side,
 the DataHub UI can render column-level lineage edges.
 """
 
+from typing import Dict, cast
+
 from datahub.ingestion.source.sap_datasphere.csn_parser import (
     parse_csn_elements_to_schema_fields,
 )
@@ -90,6 +92,22 @@ def test_association_and_composition_elements_are_skipped_not_columns():
     assert set(result.navigation_elements) == {"_ASSOC", "_CHILD"}
 
 
+def test_non_dict_element_is_skipped_not_fatal():
+    """A malformed CSN where an element value is not a dict (str/None/list) must
+    be skipped rather than raising AttributeError and aborting the whole schema
+    parse — only the well-formed sibling becomes a field."""
+    elements: Dict[str, object] = {
+        "BAD_STR": "not-an-object",
+        "BAD_NONE": None,
+        "BAD_LIST": [1, 2, 3],
+        "GOOD": {"type": "cds.String"},
+    }
+    result = parse_csn_elements_to_schema_fields(cast(Dict[str, Dict], elements))
+    assert [f.fieldPath for f in result.fields] == ["GOOD"]
+    assert result.unknown_types == []
+    assert result.columns_missing_type == []
+
+
 def test_preserves_order():
     elements = {
         "C": {"type": "cds.String"},
@@ -107,14 +125,21 @@ def test_decimal_precision_in_native_type():
     assert "10" in fields[0].nativeDataType and "2" in fields[0].nativeDataType
 
 
-def test_nullable_default_true():
-    """CSN does not have a ``nullable: false`` flag at the element level by
-    default (key columns get inferred elsewhere). Default ``nullable=True``
-    is fine for Local Tables since exact nullability isn't critical for
-    lineage UI."""
-    elements = {"M": {"type": "cds.String"}}
+def test_decimal_precision_only_omits_scale():
+    """A DECIMAL with precision but no scale renders ``DECIMAL(p)`` — the
+    precision-only branch of the native-type formatter, distinct from the
+    precision+scale case above."""
+    elements = {"AMOUNT": {"type": "cds.Decimal", "precision": 12}}
     fields = parse_csn_elements_to_schema_fields(elements).fields
-    assert fields[0].nullable is True
+    assert fields[0].nativeDataType == "DECIMAL(12)"
+
+
+def test_missing_type_native_is_unknown():
+    """A column with no ``type`` key falls back to the UNKNOWN native display so
+    the operator can distinguish it from a real string column."""
+    elements = {"NO_TYPE": {"@EndUserText.label": "n/a"}}
+    fields = parse_csn_elements_to_schema_fields(elements).fields
+    assert fields[0].nativeDataType == "UNKNOWN"
 
 
 def test_boolean_type():

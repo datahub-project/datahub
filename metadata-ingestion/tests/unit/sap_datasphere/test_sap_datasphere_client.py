@@ -76,10 +76,10 @@ def test_list_spaces_handles_bare_array_response(requests_mock):
     assert spaces == [{"name": "DEMO_SPACE", "label": "DEMO_SPACE"}]
 
 
-def test_list_spaces_non_json_response_warns_and_yields_nothing(requests_mock):
-    """A proxy/login redirect can return HTTP 200 with an HTML body. The list
-    must come back empty AND a report.warning must be recorded so the operator
-    can distinguish this from a genuinely empty tenant."""
+def test_list_spaces_non_json_response_raises(requests_mock):
+    """A proxy/login redirect can return HTTP 200 with an HTML body. A top-level
+    listing (spaces) drives stale-entity soft-deletes, so this must hard-fail the
+    run rather than silently degrade to zero spaces and mark the run green."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces"
     requests_mock.get(
@@ -87,15 +87,10 @@ def test_list_spaces_non_json_response_warns_and_yields_nothing(requests_mock):
         text="<html><body>Please sign in</body></html>",
         headers={"Content-Type": "text/html"},
     )
-    report = SapDatasphereReport()
-    client = SapDatasphereClient(cfg, report=report)
-    spaces = list(client.list_spaces())
-    assert spaces == []
-    assert any("spaces" in " ".join(w.context or []) for w in report.warnings)
-    assert any(
-        "JSON array" in w.message or "non-JSON" in w.message.lower()
-        for w in report.warnings
-    )
+    client = SapDatasphereClient(cfg)
+    with pytest.raises(ValueError) as exc_info:
+        list(client.list_spaces())
+    assert "non-JSON" in str(exc_info.value)
 
 
 def test_list_spaces_wrong_shape_json_warns_and_yields_nothing(requests_mock):
@@ -112,17 +107,16 @@ def test_list_spaces_wrong_shape_json_warns_and_yields_nothing(requests_mock):
     assert spaces == []
 
 
-def test_list_spaces_non_dict_non_list_json_warns(requests_mock):
-    """A 200 returning a bare JSON scalar (neither dict nor list) hits the
-    unexpected-shape branch and must surface a report.warning."""
+def test_list_spaces_non_dict_non_list_json_raises(requests_mock):
+    """A 200 returning a bare JSON scalar (neither dict nor list) is a wrong-shape
+    top-level listing and must hard-fail rather than degrade to empty."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/api/v1/datasphere/consumption/catalog/spaces"
     requests_mock.get(url, json="not-a-collection")
-    report = SapDatasphereReport()
-    client = SapDatasphereClient(cfg, report=report)
-    spaces = list(client.list_spaces())
-    assert spaces == []
-    assert any("spaces" in " ".join(w.context or []) for w in report.warnings)
+    client = SapDatasphereClient(cfg)
+    with pytest.raises(ValueError) as exc_info:
+        list(client.list_spaces())
+    assert "unexpected" in str(exc_info.value).lower()
 
 
 def test_list_spaces_paginates(requests_mock):
@@ -818,11 +812,14 @@ def test_list_connections_non_json_surfaces_warning_and_skips(requests_mock):
     )
     client = SapDatasphereClient(cfg, report=report)
     assert client.list_connections("S1") == []
+    # Per-space degrade: the warning names the space and the federated-skip impact
+    # (routed through the shared list-response warning helper).
     assert any(
-        "connections API" in (w.title or "").lower()
-        or "connections api" in w.message.lower()
+        "S1" in " ".join(w.context or []) and "federated assets" in w.message.lower()
         for w in report.warnings
-    ), f"Expected a connections-API warning; got: {[w.title for w in report.warnings]}"
+    ), (
+        f"Expected a per-space federated-skip warning; got: {[w.message for w in report.warnings]}"
+    )
 
 
 def test_list_connections_unexpected_shape_surfaces_report_warning(requests_mock):
@@ -838,10 +835,10 @@ def test_list_connections_unexpected_shape_surfaces_report_warning(requests_mock
     )
     client = SapDatasphereClient(cfg, report=report)
     assert client.list_connections("S1") == []
-    warning_titles = [w.title or "" for w in report.warnings]
-    assert any("Unexpected response shape" in t for t in warning_titles), (
-        f"Expected unexpected-shape warning; got: {warning_titles}"
-    )
+    assert any(
+        "dict instead of a list" in w.message and "federated assets" in w.message
+        for w in report.warnings
+    ), f"Expected unexpected-shape warning; got: {[w.message for w in report.warnings]}"
 
 
 def test_oauth_401_triggers_refresh_and_retry(requests_mock):

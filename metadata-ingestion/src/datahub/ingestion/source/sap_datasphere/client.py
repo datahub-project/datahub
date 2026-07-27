@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import contextmanager
 from typing import (
@@ -288,41 +289,28 @@ class SapDatasphereClient:
                     params={ODATA_PARAM_TOP: page_size, ODATA_PARAM_SKIP: skip},
                     operation="catalog_list",
                 )
+            # A top-level listing (spaces) drives stale-entity soft-deletes, so a
+            # proxy/SSO HTML page or wrong-shape body here must abort the run
+            # rather than silently degrade to "zero items" and mark it green
+            # (mirrors the surviving-401 hard-fail in _get_inner). Per-space
+            # listings that raise are isolated by the caller's per-space guard.
             try:
                 body = resp.json()
-            except ValueError:
-                logger.warning("Non-JSON response from %s", url)
-                if self._report is not None:
-                    self._report.warning(
-                        title="Unexpected response from SAP Datasphere list endpoint",
-                        message=(
-                            "Expected a JSON array but got a non-JSON response "
-                            "(possibly a proxy/login HTML page); this list will be "
-                            "treated as empty."
-                        ),
-                        context=url,
-                    )
-                return
+            except ValueError as e:
+                raise ValueError(
+                    f"SAP Datasphere list endpoint returned a non-JSON response "
+                    f"(possibly a proxy/login HTML page); refusing to treat it as "
+                    f"an empty list. URL: {url}"
+                ) from e
             if isinstance(body, list):
                 yield from body
                 return
             if not isinstance(body, dict):
-                logger.warning(
-                    "Unexpected response shape from %s: got %s, expected dict or list",
-                    url,
-                    type(body).__name__,
+                raise ValueError(
+                    f"SAP Datasphere list endpoint returned an unexpected "
+                    f"{type(body).__name__} (expected a JSON list or OData object); "
+                    f"refusing to treat it as an empty list. URL: {url}"
                 )
-                if self._report is not None:
-                    self._report.warning(
-                        title="Unexpected response from SAP Datasphere list endpoint",
-                        message=(
-                            "Expected a JSON array but got a wrong-shape response "
-                            "(neither dict nor list); this list will be treated as "
-                            "empty."
-                        ),
-                        context=url,
-                    )
-                return
             items = body.get(ODATA_VALUE_KEY, []) or []
             if not items:
                 return
@@ -395,22 +383,19 @@ class SapDatasphereClient:
                 f"{quote(space, safe='')}/connections"
             )
             resp = self._get(url, operation="connections")
+            federated_impact = f"federated assets in space {space} will be skipped"
             try:
                 data = resp.json()
             except ValueError:
                 # A proxy/SSO redirect can return HTTP 200 with an HTML login page.
-                logger.warning("Non-JSON response from %s", url)
-                if self._report is not None:
-                    self._report.warning(
-                        title="Unexpected response shape from SAP Datasphere connections API",
-                        message=(
-                            f"Connections API for space {space} returned a "
-                            f"non-JSON response (possibly a proxy/login HTML "
-                            f"page). Federated assets in this space will be "
-                            f"skipped."
-                        ),
-                        context=space,
-                    )
+                # Connections are per-space, so this degrades (skips federation for
+                # this space) rather than aborting the whole run.
+                self._warn_unexpected_list_response(
+                    url,
+                    "got a non-JSON response (possibly a proxy/login HTML page)",
+                    context=space,
+                    impact=federated_impact,
+                )
                 self._connections_cache[space] = []
                 return self._connections_cache[space]
             if isinstance(data, list):
@@ -433,22 +418,12 @@ class SapDatasphereClient:
                 # reads name + typeId.
                 self._connections_cache[space] = cast(List[ConnectionRecord], data)
             else:
-                logger.warning(
-                    "Unexpected shape from connections API for space %s: got %s, "
-                    "expected list. Federated assets in this space will be skipped.",
-                    space,
-                    type(data).__name__,
+                self._warn_unexpected_list_response(
+                    url,
+                    f"got a {type(data).__name__} instead of a list",
+                    context=space,
+                    impact=federated_impact,
                 )
-                if self._report is not None:
-                    self._report.warning(
-                        title="Unexpected response shape from SAP Datasphere connections API",
-                        message=(
-                            f"Connections API for space {space} returned a "
-                            f"{type(data).__name__} instead of a JSON array. "
-                            f"Federated assets in this space will be skipped."
-                        ),
-                        context=space,
-                    )
                 self._connections_cache[space] = []
         return self._connections_cache[space]
 
@@ -462,18 +437,27 @@ class SapDatasphereClient:
             url = f"{url}/{quote(technical_name, safe='')}"
         return url
 
-    def _warn_unexpected_list_response(self, url: str, detail: str) -> None:
-        # Shared reporting for the dwaas-core list endpoints, which must degrade
-        # to "empty list" (never abort the space) on any non-array body.
+    def _warn_unexpected_list_response(
+        self,
+        url: str,
+        detail: str,
+        *,
+        context: Optional[str] = None,
+        impact: str = "this list will be treated as empty",
+    ) -> None:
+        # Shared reporting for the per-space list endpoints (dwaas-core objects,
+        # connections), which must degrade to "empty list" (never abort the
+        # space) on any non-array body. Top-level listings hard-fail in
+        # _paginate instead and do not route here.
         logger.warning("Unexpected response from %s: %s", url, detail)
         if self._report is not None:
             self._report.warning(
                 title="Unexpected response from SAP Datasphere list endpoint",
                 message=(
                     f"Expected a JSON array from the SAP Datasphere list endpoint "
-                    f"but {detail}; this list will be treated as empty."
+                    f"but {detail}; {impact}."
                 ),
-                context=url,
+                context=context or url,
             )
 
     def _list_dwaas_objects(
@@ -531,6 +515,18 @@ class SapDatasphereClient:
         # not-a-member warning by _list_dwaas_objects.
         yield from self._list_dwaas_objects(space, object_type)
 
+    def _fetch_csn(self, url: str, operation: str) -> JsonDict:
+        # Shared CSN request scaffold for flow/object design-time fetches: GET the
+        # dwaas-core per-type endpoint with the CSN content type (transparently
+        # refreshing a 401), then decode. Raises on HTTP error / non-JSON so each
+        # caller applies its own 403/404 and reporting policy.
+        with self._timed_api(operation, url):
+            resp = self._get_with_refresh(
+                url, headers={HEADER_ACCEPT: CSN_CONTENT_TYPE}
+            )
+        resp.raise_for_status()
+        return resp.json()
+
     def fetch_flow_definition(
         self, space: str, object_type: str, technical_name: str
     ) -> Optional[JsonDict]:
@@ -540,19 +536,17 @@ class SapDatasphereClient:
         scoped failure reporting. Returns the parsed body or None on any error."""
         url = self._dwaas_object_url(space, object_type, technical_name)
         try:
-            with self._timed_api("flow_fetch", url):
-                resp = self._get_with_refresh(
-                    url, headers={HEADER_ACCEPT: CSN_CONTENT_TYPE}
-                )
-            resp.raise_for_status()
-            return resp.json()
+            return self._fetch_csn(url, "flow_fetch")
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
             if status == 403:
                 self._warn_not_a_member(space, object_type)
             self._report_flow_fetch_failed(space, object_type, technical_name)
             return None
-        except (requests.RequestException, ValueError):
+        except (requests.RequestException, json.JSONDecodeError):
+            # A token-refresh/auth ValueError deliberately propagates (aborts the
+            # run); only transport failures and a non-JSON body degrade to a
+            # per-flow miss here.
             self._report_flow_fetch_failed(space, object_type, technical_name)
             return None
 
@@ -583,12 +577,7 @@ class SapDatasphereClient:
         """
         url = self._dwaas_object_url(space, object_type, technical_name)
         try:
-            with self._timed_api("csn_fetch", url):
-                resp = self._get_with_refresh(
-                    url, headers={HEADER_ACCEPT: CSN_CONTENT_TYPE}
-                )
-            resp.raise_for_status()
-            return resp.json()
+            return self._fetch_csn(url, "csn_fetch")
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
             # A fallback probe stays silent — the primary call owns all reporting
@@ -634,7 +623,10 @@ class SapDatasphereClient:
             )
             self._warn_csn_fetch_failed(space, object_type, technical_name, e, extra)
             return None
-        except (requests.RequestException, ValueError) as e:
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            # A token-refresh/auth ValueError deliberately propagates (aborts the
+            # run) instead of being mislabeled as a per-asset fetch miss; only
+            # transport failures and a non-JSON body degrade here.
             if not _try_alternate:
                 return None
             self._warn_csn_fetch_failed(space, object_type, technical_name, e, "")

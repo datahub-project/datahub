@@ -83,6 +83,10 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # Flows where producer column mappings were dropped to table-level because the
     # flow has multiple inputs (column attribution would be ambiguous).
     flow_column_lineage_suppressed_multi_input: int = 0
+    # Malformed process nodes / replication tasks skipped during flow parsing
+    # (wrong shape, missing component/config, unresolvable endpoint). A non-zero
+    # count means some flow lineage edges were dropped from a partial parse.
+    flow_nodes_dropped: int = 0
     # Flow targets on the Datasphere platform that were never scanned this run, so
     # their dataset-level UpstreamLineage was skipped to avoid materializing a bare
     # phantom dataset under the space (the DataJob IO still carries the lineage).
@@ -98,12 +102,26 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     external_lineage_graph_lookup_failed: LossyList[str] = field(
         default_factory=LossyList
     )
+    # A single dataset URN returned by the graph that could not be parsed; skipped
+    # from the resolution index (kept visible rather than debug-only so a systemic
+    # parse issue isn't invisible at normal log levels).
+    external_lineage_graph_urn_unparseable: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Federated Remote Tables and their external upstream lineage.
     remote_tables_scanned: int = 0
     remote_tables_emitted: int = 0
     # A remote table whose @DataWarehouse.remote connection could not be mapped.
     remote_table_source_unresolved: LossyList[str] = field(default_factory=LossyList)
+    # A remote table whose CSN parsed but carried no @DataWarehouse.remote.*
+    # annotations, so no federated upstream could be derived. Federation is the
+    # whole point of a remote table, so a silent absence here is indistinguishable
+    # from a healthy run — track it distinctly from the unresolvable-connection and
+    # unparseable-CSN cases.
+    remote_tables_missing_remote_annotation: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # HTTP 200 but the CSN carried no parseable definition for the table, so it
     # emitted as a bare stub with neither schema nor federated upstream lineage
     # (mirrors assets_csn_unparseable for the local-table path).

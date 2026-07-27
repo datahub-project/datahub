@@ -234,10 +234,13 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     report = SapDatasphereReport()
+    # Mixed casing of the SAME unknown typeId: the dedup key is case-folded, so a
+    # tenant reporting "KAFKA" and "kafka" for the same type must still warn once.
+    # (Feeding only identical casing would pass even if .upper() were dropped.)
     connections: Dict[str, ConnectionRecord] = {
         "X1": {"name": "X1", "typeId": "KAFKA"},
-        "X2": {"name": "X2", "typeId": "KAFKA"},
-        "X3": {"name": "X3", "typeId": "KAFKA"},
+        "X2": {"name": "X2", "typeId": "kafka"},
+        "X3": {"name": "X3", "typeId": "Kafka"},
     }
     resolver = PlatformMappingResolver(
         cfg, connections_by_name=connections, report=report
@@ -247,11 +250,28 @@ def test_resolver_unknown_typeid_warning_deduplicated_in_report():
         result = resolver.resolve(name)
         assert result.platform is None
         assert result.skip_reason == ResolveSkipReason.UNKNOWN_TYPEID
-    # Only ONE report warning for the unmapped typeId despite 3 calls.
-    kafka_warnings = [w for w in report.warnings if "KAFKA" in w.message]
+    # Only ONE report warning for the unmapped typeId despite 3 differently-cased
+    # calls, and only one case-folded key retained.
+    kafka_warnings = [w for w in report.warnings if "kafka" in w.message.lower()]
     assert len(kafka_warnings) == 1, (
         f"Expected exactly 1 deduplicated warning; got {len(kafka_warnings)}"
     )
+    assert resolver.unknown_typeids_seen == {"KAFKA"}
+
+
+def test_builtin_typeid_default_resolves_with_builtin_casing():
+    """Cross-connector URN stitching depends on the per-platform casing that a
+    federated builtin resolves with, not just the explicit per-connection
+    override that the other tests exercise. Assert the concrete default for
+    BIGQUERY (convert_urns_to_lowercase=True) so a regression in the builtin
+    table — or in resolve_external threading it through — is caught."""
+    cfg = _config_with()
+    resolver = PlatformMappingResolver(cfg, connections_by_name={})
+    resolved = resolver.resolve_external("NOT_IN_LIST", "BIGQUERY").platform
+    assert resolved is not None
+    assert resolved.platform == "bigquery"
+    assert resolved.convert_urns_to_lowercase is True
+    assert _BUILTIN_PLATFORM_TYPE_DEFAULTS["BIGQUERY"].convert_urns_to_lowercase is True
 
 
 def test_managed_connection_resolves_to_sap_datasphere_regardless_of_config():

@@ -430,10 +430,10 @@ class SapDatasphereConfig(
 
     @field_validator("base_url")
     @classmethod
-    def strip_trailing_slash(cls, v: str) -> str:
-        # A missing scheme silently produces broken request URLs and an unmatched
-        # xsuaa_url, surfacing far downstream as a confusing OAuth error; validate
-        # here where the message is actionable.
+    def validate_and_normalize_base_url(cls, v: str) -> str:
+        # Enforces the scheme (a missing one silently produces broken request URLs
+        # and an unmatched xsuaa_url, surfacing far downstream as a confusing OAuth
+        # error) AND strips the trailing slash so the base is safe to concatenate.
         if not v.startswith(("http://", "https://")):
             raise ValueError(
                 f"base_url must start with 'https://' (or 'http://'), "

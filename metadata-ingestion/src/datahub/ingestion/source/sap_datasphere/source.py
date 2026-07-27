@@ -101,6 +101,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
     parse_remote_table_source,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
+    AssetCsn,
     ColumnLineageContext,
     ColumnLineagePair,
     CsnSchemaResult,
@@ -154,6 +155,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
@@ -292,6 +294,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # AutoLowercaseUrnsProcessor would re-lowercase every dataset URN
         # unconditionally and silently defeat that per-platform override, so it is
         # excluded here.
+        #
+        # Everything else in the default processor list is intentionally kept. In
+        # particular AutoIncrementalLineageProcessor stays enabled so the
+        # incremental_lineage config knob (from IncrementalLineageConfigMixin) is
+        # honored: when set, our full UpstreamLineageClass MCPs are converted to
+        # patch MCPs that merge with — rather than overwrite — lineage a sibling
+        # connector emitted for the same (e.g. BigQuery) URN. This works because we
+        # override get_workunits_internal, not get_workunits, so emissions are
+        # threaded through get_workunit_processors().
         return [AutoLowercaseUrnsProcessor]
 
     def _safe_list_spaces(self) -> Iterator[Dict]:
@@ -499,34 +510,30 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             space_name, OBJECT_TYPE_LOCAL_TABLES, technical_name
         )
         if csn_obj is not None:
-            defs = csn_obj.get(CSN_KEY_DEFINITIONS)
-            definition = defs.get(technical_name) if isinstance(defs, dict) else None
+            definition = self._csn_definition(csn_obj, technical_name)
             elements = (
-                definition.get(CSN_KEY_ELEMENTS)
-                if isinstance(definition, dict)
-                else None
+                definition.get(CSN_KEY_ELEMENTS) if definition is not None else None
             )
             if isinstance(elements, dict):
-                csn_schema = parse_csn_elements_to_schema_fields(elements)
-                self._report_csn_parse_concerns(space_name, technical_name, csn_schema)
                 # Honor column_pattern here too, so a Local Table's columns are
                 # filtered consistently with views / remote tables rather than
                 # being the one schema path that ignores the pattern.
-                schema_fields = self._apply_column_pattern(csn_schema.fields) or None
+                schema_fields = self._schema_from_elements(
+                    space_name, technical_name, elements
+                )
             else:
                 # 200 OK but not a parseable CSN shape — record it so a parse
                 # miss isn't mistaken for a genuine no-schema base table.
-                self.report.assets_csn_unparseable.append(
-                    f"{space_name}.{technical_name}"
-                )
-                self.report.warning(
+                self._report_csn_unparseable(
+                    self.report.assets_csn_unparseable,
+                    space_name,
+                    technical_name,
                     title="Unparseable Local Table CSN",
                     message=(
                         "Fetched the Local Table definition but it did not "
                         "contain a parseable elements map; emitting the table "
                         "without column schema."
                     ),
-                    context=f"{space_name}.{technical_name}",
                 )
 
         # Local Tables are base tables not exposed via the OData Consumption API,
@@ -602,6 +609,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 if parsed.cll_suppressed_multi_input:
                     self.report.flow_column_lineage_suppressed_multi_input += 1
+                if parsed.dropped_node_count:
+                    self.report.flow_nodes_dropped += parsed.dropped_node_count
                 dataflow = self._build_flow_dataflow(space_name, parsed)
                 yield from dataflow.as_workunits()
                 yield from self._isolate(
@@ -1010,15 +1019,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         csn_obj = self._client.fetch_object_definition(
             space_name, OBJECT_TYPE_REMOTE_TABLES, technical_name
         )
-        defs = csn_obj.get(CSN_KEY_DEFINITIONS) if isinstance(csn_obj, dict) else None
-        definition = defs.get(technical_name) if isinstance(defs, dict) else None
+        definition = self._csn_definition(csn_obj, technical_name)
 
         schema_fields = None
         upstreams_aspect: Optional[UpstreamLineageClass] = None
         downstream_urn = self._dataset_urn(
             local_resolved, self._build_dataset_name(space_name, technical_name)
         )
-        if isinstance(definition, dict):
+        if definition is not None:
             schema_fields = self._remote_table_schema(
                 space_name, technical_name, definition
             )
@@ -1037,10 +1045,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             # run, so record it (mirrors the local-table assets_csn_unparseable
             # branch). csn_obj is None means the fetch itself failed and is
             # already tracked via assets_csn_fetch_failed.
-            self.report.remote_tables_csn_unparseable.append(
-                f"{space_name}.{technical_name}"
-            )
-            self.report.warning(
+            self._report_csn_unparseable(
+                self.report.remote_tables_csn_unparseable,
+                space_name,
+                technical_name,
                 title="Remote Table emitted without schema or lineage",
                 message=(
                     "Fetched the Remote Table definition but it contained no "
@@ -1048,7 +1056,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     "stub with neither column schema nor federated upstream "
                     "lineage."
                 ),
-                context=f"{space_name}.{technical_name}",
             )
 
         dataset = Dataset(
@@ -1071,15 +1078,51 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         yield from dataset.as_workunits()
         self.report.remote_tables_emitted += 1
 
+    def _csn_definition(
+        self, csn_obj: Optional[JsonDict], name: str
+    ) -> Optional[JsonDict]:
+        # Navigate a fetched CSN body to definitions[name], returning it only when
+        # it is a usable dict. Shared by the local-table / remote-table / view+AM
+        # emit paths, which all reach for the same definitions[name] node.
+        if not isinstance(csn_obj, dict):
+            return None
+        defs = csn_obj.get(CSN_KEY_DEFINITIONS)
+        definition = defs.get(name) if isinstance(defs, dict) else None
+        return definition if isinstance(definition, dict) else None
+
+    def _schema_from_elements(
+        self, space_name: str, technical_name: str, elements: JsonDict
+    ) -> Optional[List[SchemaFieldClass]]:
+        # Parse a CSN elements map to schema fields, report any type concerns, and
+        # apply column_pattern. Shared by every CSN-derived schema path.
+        csn_schema = parse_csn_elements_to_schema_fields(elements)
+        self._report_csn_parse_concerns(space_name, technical_name, csn_schema)
+        return self._apply_column_pattern(csn_schema.fields) or None
+
+    def _report_csn_unparseable(
+        self,
+        bucket: LossyList[str],
+        space_name: str,
+        name: str,
+        *,
+        title: str,
+        message: str,
+    ) -> None:
+        # A 200 that carried no parseable CSN definition/elements: record it in the
+        # given bucket and warn, so a parse miss isn't mistaken for a genuine
+        # no-schema/no-lineage asset.
+        bucket.append(f"{space_name}.{name}")
+        self.report.warning(
+            title=title, message=message, context=f"{space_name}.{name}"
+        )
+
     def _remote_table_schema(
         self, space_name: str, technical_name: str, definition: JsonDict
     ) -> Optional[List[SchemaFieldClass]]:
         elements = definition.get(CSN_KEY_ELEMENTS)
         if not isinstance(elements, dict) or not elements:
             return None
-        csn_schema = parse_csn_elements_to_schema_fields(elements)
-        self._report_csn_parse_concerns(space_name, technical_name, csn_schema)
-        return self._apply_column_pattern(csn_schema.fields) or None
+        return self._schema_from_elements(space_name, technical_name, elements)
 
     def _remote_table_upstream(
         self,
@@ -1092,6 +1135,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[UpstreamLineageClass]:
         remote = parse_remote_table_source(definition)
         if remote is None:
+            # CSN parsed but carried no @DataWarehouse.remote.* annotations, so no
+            # federated origin can be derived. Federation is the whole point of a
+            # remote table, so record it rather than silently emitting a
+            # lineage-less stub (mirrors remote_tables_csn_unparseable one branch
+            # over).
+            self.report.remote_tables_missing_remote_annotation.append(
+                f"{space_name}.{technical_name}"
+            )
+            self.report.warning(
+                title="Remote Table has no federated source annotation",
+                message=(
+                    "The Remote Table CSN parsed but carried no "
+                    "@DataWarehouse.remote.* annotations, so no federated upstream "
+                    "lineage could be derived; emitting without upstream lineage."
+                ),
+                context=f"{space_name}.{technical_name}",
+            )
             return None
         resolved = resolver.resolve_external(remote.connection, None).platform
         if resolved is None:
@@ -1327,6 +1387,70 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return self._schema_fields_from_csn(space_name, asset_name, csn_def)
         return None
 
+    def _fetch_asset_csn(
+        self, space_name: str, asset: JsonDict, asset_name: str
+    ) -> AssetCsn:
+        # Fetch the View / Analytic Model CSN (for lineage, view definitions, or
+        # @remote.source detection), navigate to its definition, and resolve the
+        # routing connection. Extracted from _emit_asset to keep that method
+        # focused on assembling and emitting the dataset.
+        csn_obj: Optional[JsonDict] = None
+        csn_def: Optional[JsonDict] = None
+        if self.config.include_lineage or self.config.include_view_definitions:
+            object_type = (
+                OBJECT_TYPE_ANALYTIC_MODELS
+                if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
+                else OBJECT_TYPE_VIEWS
+            )
+            csn_obj = self._client.fetch_object_definition(
+                space_name, object_type, asset_name
+            )
+            if csn_obj is not None:
+                csn_def = self._csn_definition(csn_obj, asset_name)
+                if csn_def is None:
+                    # 200 OK but no parseable definition for this asset (key
+                    # mismatch, empty definitions, or a null/non-dict value). An
+                    # analytic model has no OData $metadata fallback, so this is the
+                    # difference between a real emit and a schema-less, lineage-less
+                    # stub — record it rather than letting a healthy
+                    # scanned==emitted count hide the miss (mirrors the local- and
+                    # remote-table CSN-unparseable branches).
+                    self._report_csn_unparseable(
+                        self.report.assets_csn_unparseable,
+                        space_name,
+                        asset_name,
+                        title="Unparseable asset CSN",
+                        message=(
+                            "Fetched the object definition but it contained no "
+                            "parseable definition for this asset; emitting without "
+                            "CSN-derived schema or lineage."
+                        ),
+                    )
+
+        # Default to the managed HANA connection; override if CSN declares a
+        # federated remote source.
+        connection_name = MANAGED_CONNECTION_KEY
+        if csn_def is not None:
+            try:
+                remote = self._lineage_extractor.remote_source(csn_def)
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to read CSN @remote.source",
+                    message=(
+                        f"Could not determine remote source from CSN for "
+                        f"{space_name}.{asset_name}; defaulting to the managed HANA "
+                        f"connection. Federated routing for this asset may be wrong."
+                    ),
+                    context=f"{type(e).__name__}: {e}",
+                )
+                remote = None
+            if remote:
+                connection_name = remote
+
+        return AssetCsn(
+            connection_name=connection_name, csn_obj=csn_obj, csn_def=csn_def
+        )
+
     def _emit_asset(
         self, space_name: str, asset: JsonDict
     ) -> Iterable[MetadataWorkUnit]:
@@ -1354,62 +1478,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_filtered += 1
             return
 
-        # Fetch CSN for lineage, view definitions, or @remote.source detection.
-        csn_def: Optional[JsonDict] = None
-        csn_obj: Optional[JsonDict] = None
-        if self.config.include_lineage or self.config.include_view_definitions:
-            object_type = (
-                OBJECT_TYPE_ANALYTIC_MODELS
-                if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
-                else OBJECT_TYPE_VIEWS
-            )
-            csn_obj = self._client.fetch_object_definition(
-                space_name, object_type, asset_name
-            )
-            if csn_obj is not None:
-                defs = csn_obj.get(CSN_KEY_DEFINITIONS)
-                csn_def = defs.get(asset_name) if isinstance(defs, dict) else None
-                if not isinstance(csn_def, dict):
-                    # 200 OK but no parseable definition for this asset (key
-                    # mismatch, empty definitions, or a null/non-dict value). An
-                    # analytic model has no OData $metadata fallback, so this is the
-                    # difference between a real emit and a schema-less, lineage-less
-                    # stub — record it rather than letting a healthy
-                    # scanned==emitted count hide the miss (mirrors the local- and
-                    # remote-table CSN-unparseable branches).
-                    self.report.assets_csn_unparseable.append(
-                        f"{space_name}.{asset_name}"
-                    )
-                    self.report.warning(
-                        title="Unparseable asset CSN",
-                        message=(
-                            "Fetched the object definition but it contained no "
-                            "parseable definition for this asset; emitting without "
-                            "CSN-derived schema or lineage."
-                        ),
-                        context=f"{space_name}.{asset_name}",
-                    )
-                    csn_def = None
-
-        # Default to the managed HANA connection; override if CSN declares a
-        # federated remote source.
-        connection_name = MANAGED_CONNECTION_KEY
-        if csn_def is not None:
-            try:
-                remote = self._lineage_extractor.remote_source(csn_def)
-            except Exception as e:
-                self.report.warning(
-                    title="Failed to read CSN @remote.source",
-                    message=(
-                        f"Could not determine remote source from CSN for "
-                        f"{space_name}.{asset_name}; defaulting to the managed HANA "
-                        f"connection. Federated routing for this asset may be wrong."
-                    ),
-                    context=f"{type(e).__name__}: {e}",
-                )
-                remote = None
-            if remote:
-                connection_name = remote
+        asset_csn = self._fetch_asset_csn(space_name, asset, asset_name)
+        csn_obj = asset_csn.csn_obj
+        csn_def = asset_csn.csn_def
+        connection_name = asset_csn.connection_name
 
         resolver = self._get_resolver(space_name)
         result = resolver.resolve(connection_name)

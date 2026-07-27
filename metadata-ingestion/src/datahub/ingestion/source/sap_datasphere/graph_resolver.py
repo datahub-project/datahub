@@ -118,8 +118,13 @@ class ExternalUrnGraphResolver:
                 name = DatasetUrn.from_string(urn).name
             except Exception as e:
                 # A single malformed URN from the graph must not sink the whole
-                # index, nor be misreported as a graph-lookup failure; skip it.
+                # index, nor be misreported as a graph-lookup failure; skip it but
+                # keep it visible in the report so a systemic parse issue isn't
+                # hidden at normal log levels.
                 logger.debug(f"Skipping unparseable dataset URN {urn!r}: {e}")
+                self._report.external_lineage_graph_urn_unparseable.append(
+                    f"{urn}: {type(e).__name__}: {e}"
+                )
                 continue
             if not name.lower().startswith(prefix):
                 continue

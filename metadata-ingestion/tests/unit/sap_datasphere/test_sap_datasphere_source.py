@@ -13,6 +13,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -36,6 +37,7 @@ from datahub.ingestion.source.sap_datasphere.report import (
 )
 from datahub.ingestion.source.sap_datasphere.source import SapDatasphereSource, _chunked
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     ContainerClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
@@ -46,6 +48,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    MetadataChangeProposalClass,
     SchemaMetadataClass,
     SubTypesClass,
     UpstreamClass,
@@ -5900,3 +5903,109 @@ def test_remote_table_200_without_definition_is_reported_not_silent(requests_moc
         if entity_urn_of(wu) == rt_urn
         and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
     ]
+
+
+def test_remote_table_parseable_csn_no_remote_annotation_is_reported(requests_mock):
+    """A Remote Table whose CSN parses into a definition but carries no
+    @DataWarehouse.remote.* annotations must be recorded on the
+    remote_tables_missing_remote_annotation counter + a warning — not silently
+    emit a lineage-less stub. Federation is the whole point of a remote table, so
+    a missing source annotation is indistinguishable from a healthy run without
+    this signal (mirrors remote_tables_csn_unparseable, one branch over)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+        }
+    )
+    base = _mock_flow_space_base(requests_mock)
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables",
+        json=[{"technicalName": "RT1"}],
+    )
+    # 200 OK, definition present with columns, but NO @DataWarehouse.remote.*
+    # annotations — so parse_remote_table_source yields no federated origin.
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/remotetables/RT1",
+        json={
+            "definitions": {
+                "RT1": {
+                    "kind": "entity",
+                    "elements": {"COL_A": {"type": "cds.String", "length": 10}},
+                }
+            }
+        },
+    )
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-no-annotation"), cfg)
+    workunits = list(source.get_workunits())
+
+    assert "S1.RT1" in list(source.report.remote_tables_missing_remote_annotation)
+    titles = [w.title or "" for w in source.report.warnings]
+    assert "Remote Table has no federated source annotation" in titles
+    assert source.report.remote_tables_emitted == 1
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    assert not [
+        wu
+        for wu in workunits
+        if entity_urn_of(wu) == rt_urn
+        and aspect_of(wu).__class__.__name__ == "UpstreamLineageClass"
+    ]
+
+
+def test_incremental_lineage_emits_upstream_as_patch(requests_mock):
+    """With incremental_lineage=True the connector's full UpstreamLineageClass
+    MCP must be converted to a PATCH so it merges with — rather than overwrites —
+    lineage a sibling connector emitted for the same external URN. This is wired
+    purely via the base get_workunit_processors() (AutoIncrementalLineageProcessor
+    reads config.incremental_lineage); the connector must not override
+    get_workunits, or the processor would silently no-op."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_remote_tables": True,
+            "incremental_lineage": True,
+            "connection_to_platform_map": {
+                "HANA_CONN": {"platform": "hana", "convert_urns_to_lowercase": False},
+            },
+        }
+    )
+    _mock_remote_table_space(requests_mock, connection="HANA_CONN")
+
+    source = SapDatasphereSource(PipelineContext(run_id="rt-incremental"), cfg)
+    workunits = list(source.get_workunits())
+
+    rt_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,s1.rt1,PROD)"
+    patch_wus = [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.entityUrn == rt_urn
+        and wu.metadata.aspectName == "upstreamLineage"
+        and wu.metadata.changeType == ChangeTypeClass.PATCH
+    ]
+    assert patch_wus, (
+        "Expected upstreamLineage emitted as a PATCH when incremental_lineage=True"
+    )
+    # And it must NOT also emit a full (overwriting) UpstreamLineageClass MCPW.
+    assert not [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == rt_urn
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    ]
+
+
+def test_source_does_not_override_get_workunits():
+    """Regression guard for the incremental_lineage wiring: the connector must
+    emit via get_workunits_internal so the base get_workunits threads emissions
+    through get_workunit_processors() (auto_incremental_lineage, stale-entity
+    removal). Overriding get_workunits directly would silently disable them."""
+    defining_class = next(
+        cls for cls in SapDatasphereSource.__mro__ if "get_workunits" in cls.__dict__
+    )
+    assert defining_class is not SapDatasphereSource

@@ -44,6 +44,18 @@ def dedup_preserving_order(items: Iterable[_T]) -> List[_T]:
     return out
 
 
+def _require_exactly_one(
+    model: str, primary_field: str, primary: object, alt_field: str, alt: object
+) -> None:
+    # Shared "exactly one of two mutually-exclusive fields is set" invariant used
+    # by the success/skip result models below.
+    if (primary is None) == (alt is None):
+        raise ValueError(
+            f"{model} must carry exactly one of {primary_field}/{alt_field} "
+            f"({primary_field}_is_none={primary is None}, {alt_field}={alt!r})"
+        )
+
+
 class TagDefinition(BaseModel):
     """Display name + description for a predefined tag URN."""
 
@@ -106,12 +118,9 @@ class ResolveResult(BaseModel):
 
     @model_validator(mode="after")
     def _check_invariant(self) -> "ResolveResult":
-        if (self.platform is None) == (self.skip_reason is None):
-            raise ValueError(
-                "ResolveResult must carry exactly one of platform/skip_reason "
-                f"(platform_is_none={self.platform is None}, "
-                f"skip_reason={self.skip_reason})"
-            )
+        _require_exactly_one(
+            "ResolveResult", "platform", self.platform, "skip_reason", self.skip_reason
+        )
         return self
 
 
@@ -125,13 +134,23 @@ class TypeIdDefault(BaseModel):
 
     @model_validator(mode="after")
     def _check_invariant(self) -> "TypeIdDefault":
-        if (self.config is None) == (self.skip_reason is None):
-            raise ValueError(
-                "TypeIdDefault must carry exactly one of config/skip_reason "
-                f"(config_is_none={self.config is None}, "
-                f"skip_reason={self.skip_reason})"
-            )
+        _require_exactly_one(
+            "TypeIdDefault", "config", self.config, "skip_reason", self.skip_reason
+        )
         return self
+
+
+class AssetCsn(BaseModel):
+    # The design-time CSN of a View / Analytic Model asset, resolved once so the
+    # emit path doesn't re-fetch or re-navigate: ``csn_obj`` is the raw fetched
+    # body, ``csn_def`` its definitions[name] node (None when absent/unparseable),
+    # and ``connection_name`` the routing connection (the managed HANA key unless
+    # the CSN declared a federated @remote.source).
+    model_config = ConfigDict(frozen=True)
+
+    connection_name: str
+    csn_obj: Optional[JsonDict] = None
+    csn_def: Optional[JsonDict] = None
 
 
 class EdmxFetchReason(StrEnum):
@@ -411,6 +430,11 @@ class ParsedFlow(BaseModel):
     # multiple inputs (column attribution would be ambiguous); surfaced as a
     # report counter so operators see the coarsening.
     cll_suppressed_multi_input: bool = False
+    # Count of malformed process nodes / replication tasks skipped during parse
+    # (wrong shape, missing component/config, or unresolvable endpoint). A
+    # partial parse can silently drop lineage edges, so the source surfaces this
+    # as a report counter rather than leaving it debug-only.
+    dropped_node_count: int = 0
 
 
 class FlowTask(BaseModel):
