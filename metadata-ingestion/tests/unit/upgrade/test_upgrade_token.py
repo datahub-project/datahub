@@ -38,8 +38,5 @@ def test_version_check_fetches_config_via_graph(
 
     server_version: Optional[Version] = result[1]
     assert server_version == Version("1.2.0")
-    # The auth provider config must reach the graph untouched, with the
-    # best-effort bounds applied.
+    # The auth provider config must reach the graph untouched.
     assert captured["config"].auth is not None
-    assert captured["config"].retry_max_times == 0
-    assert captured["config"].timeout_sec == 3

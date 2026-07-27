@@ -127,13 +127,10 @@ async def get_github_stats():
 
 
 def fetch_server_config_via_graph() -> RestServiceConfig:
-    """Fetch /config through DataHubGraph so auth resolution (static token or
-    auth= token provider) stays in one place. Requests-based (sync) — callers
-    on the event loop must run it in a thread."""
     client_config = load_client_config()
     client_config.client_mode = ClientMode.CLI
-    # The version check is best-effort with a ~2s asyncio budget; bound the
-    # underlying requests too so an abandoned worker thread exits promptly.
+    # Best-effort with a 0.7-3s asyncio budget (see check_upgrade_post); bound
+    # the underlying requests too so an abandoned worker thread exits promptly.
     client_config.timeout_sec = 3
     client_config.retry_max_times = 0
     return DataHubGraph(client_config).server_config

@@ -26,6 +26,7 @@ from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -271,12 +272,6 @@ def test_version_check_config_fetch_uses_env_auth(monkeypatch):
     # accepted the token — it gates that the version-check path itself
     # (env auth -> load_client_config -> DataHubGraph -> token mint -> /config)
     # works when auth= replaces a static token, instead of crashing or hanging.
-    upgrade = pytest.importorskip("datahub.upgrade.upgrade")
-    if not hasattr(upgrade, "fetch_server_config_via_graph"):
-        pytest.skip(
-            "installed acryl-datahub predates upgrade.fetch_server_config_via_graph"
-        )
-
     _set_env_auth(monkeypatch)
     server_config = upgrade.fetch_server_config_via_graph()
     assert server_config.service_version
