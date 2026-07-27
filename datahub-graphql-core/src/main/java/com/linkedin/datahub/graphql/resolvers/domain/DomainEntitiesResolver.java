@@ -9,7 +9,6 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -22,7 +21,6 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolves the entities in a particular Domain. */
@@ -85,9 +83,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
                 context,
                 _entityClient.searchAcrossEntities(
                     context.getOperationContext(),
-                    SEARCHABLE_ENTITY_TYPES.stream()
-                        .map(EntityTypeMapper::getName)
-                        .collect(Collectors.toList()),
+                    getSearchEntityNames(context.getOperationContext()),
                     query,
                     new Filter()
                         .setOr(

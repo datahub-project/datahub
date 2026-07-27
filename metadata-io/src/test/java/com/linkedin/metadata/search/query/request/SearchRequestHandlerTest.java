@@ -1,8 +1,9 @@
 package com.linkedin.metadata.search.query.request;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
@@ -833,13 +834,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .collect(Collectors.toSet()))
             .build();
 
-    for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
+    for (String entityName : parseCsv(DEFAULT_SEARCH_ENTITY_TYPES)) {
+      EntityType entityType = EntityTypeMapper.getType(entityName);
       Set<String> expectedEntityQueryByDefault =
           expectedQueryByDefault.getOrDefault(entityType, COMMON);
       assertFalse(expectedEntityQueryByDefault.isEmpty());
 
-      EntitySpec entitySpec =
-          operationContext.getEntityRegistry().getEntitySpec(EntityTypeMapper.getName(entityType));
+      EntitySpec entitySpec = operationContext.getEntityRegistry().getEntitySpec(entityName);
       SearchRequestHandler handler =
           SearchRequestHandler.getBuilder(
               operationContext,
