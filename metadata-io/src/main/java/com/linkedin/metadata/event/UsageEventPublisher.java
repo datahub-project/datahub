@@ -13,8 +13,8 @@ public interface UsageEventPublisher {
   /**
    * Publish a usage event to the given topic.
    *
-   * @param opContext operation context used for outbound header enrichment (may be a system /
-   *     async context without request enrichment)
+   * @param opContext operation context used for outbound header enrichment (may be a system / async
+   *     context without request enrichment)
    * @return a future completed when the broker acknowledges the send (Kafka), or completed
    *     immediately when dropped (e.g. read-only mode).
    */

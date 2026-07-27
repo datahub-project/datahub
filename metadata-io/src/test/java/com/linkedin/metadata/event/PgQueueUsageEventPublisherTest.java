@@ -42,7 +42,8 @@ public class PgQueueUsageEventPublisherTest {
 
   @Test
   public void testPublishHappyPath() throws Exception {
-    Future<?> result = publisher.publish(opContext, "DataHubUsageEvent_v1", "user123", "{\"event\":\"view\"}");
+    Future<?> result =
+        publisher.publish(opContext, "DataHubUsageEvent_v1", "user123", "{\"event\":\"view\"}");
 
     assertNotNull(result);
     assertFalse(result.isDone() && result.get() == null ? false : true);

@@ -19,8 +19,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.event.UsageEventPublisher;
-import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
+import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
@@ -81,7 +81,8 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher)
+        .publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     try {
       JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue());
@@ -116,7 +117,8 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher)
+        .publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     // Verify event payload
     try {
@@ -161,7 +163,8 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    verify(mockPublisher)
+        .publish(eq(mockOpContext), eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
 
     // Verify event payload
     try {

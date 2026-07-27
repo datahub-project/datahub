@@ -60,8 +60,7 @@ public class InboundMetadataEnvelopeTest {
 
   @Test
   public void testFromKafkaPgQueueFieldsAreNull() {
-    ConsumerRecord<String, String> record =
-        new ConsumerRecord<>("MCP_v1", 0, 100L, "key", "value");
+    ConsumerRecord<String, String> record = new ConsumerRecord<>("MCP_v1", 0, 100L, "key", "value");
 
     InboundMetadataEnvelope<String> envelope =
         InboundMetadataEnvelope.fromKafka(record, "mce-consumer");
@@ -105,7 +104,6 @@ public class InboundMetadataEnvelopeTest {
         InboundMetadataEnvelope.fromKafka(record, "mce-consumer");
 
     assertEquals(
-        envelope.getHeaders(),
-        Map.of("x-request-id", "second", "x-custom-header", "other-value"));
+        envelope.getHeaders(), Map.of("x-request-id", "second", "x-custom-header", "other-value"));
   }
 }
