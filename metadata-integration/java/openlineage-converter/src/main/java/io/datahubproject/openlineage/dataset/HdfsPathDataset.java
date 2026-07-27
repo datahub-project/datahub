@@ -167,9 +167,15 @@ public class HdfsPathDataset extends SparkDataset {
           if (specFolderList[i].equals(pathFolderList[i]) || specFolderList[i].equals("*")) {
             uri.append(pathFolderList[i]).append("/");
           } else if (specFolderList[i].equals(TABLE)) {
-            uri.append(pathFolderList[i]);
-            log.debug("Actual path [" + pathUri + "] matched with path_spec [" + pathSpec + "]");
-            return uri.toString();
+            String tablePath =
+                String.join("/", Arrays.copyOfRange(pathFolderList, i, pathFolderList.length));
+            String matchedUri = getSplitUri(pathUri)[0] + URI_SPLITTER + tablePath;
+            log.debug(
+                "Actual path [{}] matched with path_spec [{}], table-relative path [{}]",
+                pathUri,
+                pathSpec,
+                tablePath);
+            return matchedUri;
           } else {
             break;
           }
