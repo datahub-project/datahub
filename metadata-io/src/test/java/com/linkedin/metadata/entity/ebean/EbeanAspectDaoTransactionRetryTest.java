@@ -98,17 +98,17 @@ public class EbeanAspectDaoTransactionRetryTest {
         DatabaseTransactionConflictException.class,
         () -> dao.runInTransactionWithRetryUnlocked(opContext, block, null, MAX_RETRIES));
 
+    // Dropwizard names use this.getClass() — TestableEbeanAspectDao in this suite.
+    String txFailed =
+        com.codahale.metrics.MetricRegistry.name(TestableEbeanAspectDao.class, "txFailed");
+    String txFailedAfterRetries =
+        com.codahale.metrics.MetricRegistry.name(
+            TestableEbeanAspectDao.class, "txFailedAfterRetries");
+
     verify(metricUtils, times(3)).incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0));
     verify(metricUtils, times(1)).incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0));
-    verify(metricUtils, times(4))
-        .increment(
-            eq(com.codahale.metrics.MetricRegistry.name(EbeanAspectDao.class, "txFailed")), eq(1));
-    verify(metricUtils, times(1))
-        .increment(
-            eq(
-                com.codahale.metrics.MetricRegistry.name(
-                    EbeanAspectDao.class, "txFailedAfterRetries")),
-            eq(1));
+    verify(metricUtils, times(4)).increment(eq(txFailed), eq(1.0));
+    verify(metricUtils, times(1)).increment(eq(txFailedAfterRetries), eq(1.0));
   }
 
   @Test
@@ -142,15 +142,15 @@ public class EbeanAspectDaoTransactionRetryTest {
     assertTrue(!(thrown instanceof DatabaseTransactionConflictException));
     verify(mockServer, times(4)).beginTransaction(any(TxScope.class));
     assertEquals(dao.getSleepCallCount(), 0);
-    verify(metricUtils, times(4))
-        .increment(
-            eq(com.codahale.metrics.MetricRegistry.name(EbeanAspectDao.class, "txFailed")), eq(1));
-    verify(metricUtils, times(1))
-        .increment(
-            eq(
-                com.codahale.metrics.MetricRegistry.name(
-                    EbeanAspectDao.class, "txFailedAfterRetries")),
-            eq(1));
+
+    String txFailed =
+        com.codahale.metrics.MetricRegistry.name(TestableEbeanAspectDao.class, "txFailed");
+    String txFailedAfterRetries =
+        com.codahale.metrics.MetricRegistry.name(
+            TestableEbeanAspectDao.class, "txFailedAfterRetries");
+
+    verify(metricUtils, times(4)).increment(eq(txFailed), eq(1.0));
+    verify(metricUtils, times(1)).increment(eq(txFailedAfterRetries), eq(1.0));
     verify(metricUtils, times(0)).incrementMicrometer(eq("ebean.tx.transient_backoff"), eq(1.0));
     verify(metricUtils, times(0)).incrementMicrometer(eq("ebean.tx.transient_exhausted"), eq(1.0));
   }
