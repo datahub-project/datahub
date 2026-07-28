@@ -1330,6 +1330,7 @@ module.exports = {
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
         "docs/api/tutorials/applications",
+        "docs/api/tutorials/agent-registry",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

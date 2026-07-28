@@ -50,7 +50,9 @@ repository ─▶ service (MCP) ─▶ api (tool) ◀─invokes─ aiAgent ─ad
 ## Setup, Prerequisites, and Permissions
 
 AI agents, skills, and tools are populated through ingestion or emitted directly via the SDK/API,
-like any other asset. To browse and manage them, a user needs standard entity privileges:
+like any other asset — see the [API tutorial](../../api/tutorials/agent-registry.md) for the SDK, the
+CLI, and automatic registration from LangChain and Google ADK. To browse and manage them, a user
+needs standard entity privileges:
 
 - **View Entity Page** to discover and open agent, skill, and tool profiles.
 - **Edit Entity** (and the relevant sub-privileges) to enrich them with ownership, tags, glossary
@@ -113,6 +115,13 @@ the FX Risk Scoring Agent consumes that table, DataHub propagates the classifica
 which now carries the same **Highly Confidential** label, inherited through lineage. The agent's
 health turns red, and an [incident](/docs/incidents/incidents.md) is opened for review — so sensitive
 data reaching an AI system becomes visible the moment it happens.
+
+## Additional Resources
+
+### API Tutorials
+
+- [Registering AI Agents, Skills, and Tools](../../api/tutorials/agent-registry.md) — Python SDK, CLI,
+  and automatic registration from LangChain and Google ADK
 
 ## FAQ and Troubleshooting
 
