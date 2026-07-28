@@ -1268,10 +1268,10 @@
                     "description": "BW_ORDERVALUE",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1288,10 +1288,10 @@
                     "description": "BW_UNITSSOLD",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1308,10 +1308,10 @@
                     "description": "BW_NOCUSTOMERMEETINGS",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1328,10 +1328,10 @@
                     "description": "Athena_Planned_ORDERVALUE",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1348,10 +1348,10 @@
                     "description": "Sales_Amount",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1368,10 +1368,10 @@
                     "description": "Sales_ExpectedRevenue",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DECIMAL",
                     "recursive": false,
                     "globalTags": {
                         "tags": [

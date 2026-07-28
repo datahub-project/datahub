@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 
@@ -31,6 +32,12 @@ LOCAL_TABLE_NAMES = [
 # carry businessLayerDefinitions for star-schema lineage.
 ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
+]
+# Source objects an analytic model projects from. These are not catalog assets;
+# the connector probes them via the /views/ endpoint (by the projection's
+# source-object name) to recover the analytic model's typeless column types.
+SOURCE_OBJECT_VIEW_NAMES = [
+    "FINANCE_DATASALES_A",
 ]
 
 
@@ -124,6 +131,17 @@ def register_handlers(
             content_type="application/json",
         )
 
+    # Source objects projected by an analytic model, probed via /views/ to
+    # resolve the model's typeless (measure) columns.
+    for name in SOURCE_OBJECT_VIEW_NAMES:
+        httpserver.expect_request(
+            f"/dwaas-core/api/v1/spaces/{SPACE}/views/{name}",
+            method="GET",
+        ).respond_with_data(
+            _fixture_text(f"views/{name}.json"),
+            content_type="application/json",
+        )
+
     # Analytic models route to /analyticmodels/.
     for name in ANALYTIC_MODEL_NAMES:
         httpserver.expect_request(
@@ -150,6 +168,20 @@ def register_handlers(
             _fixture_text(f"localtables/{name}.json"),
             content_type="application/json",
         )
+
+    # Fallback 404 for source-object probes whose name is not a real catalog
+    # object — query aliases and association navigation names. When resolving an
+    # analytic model's typeless columns, the connector probes each projected
+    # source object (and, on a 404, retries as an analytic model); association
+    # refs get probed the same way. A real tenant returns 404 for a non-object
+    # name and the connector falls back to the measure heuristic, so mirror that
+    # rather than leaving the probe unhandled. Registered last: the specific
+    # handlers above win for real objects; this only catches the rest.
+    for kind in ("views", "analyticmodels"):
+        httpserver.expect_request(
+            re.compile(rf"^/dwaas-core/api/v1/spaces/{re.escape(SPACE)}/{kind}/.+$"),
+            method="GET",
+        ).respond_with_data("", status=404)
 
 
 def build_recipe(base_url: str, sink_url: Optional[str] = None) -> str:
