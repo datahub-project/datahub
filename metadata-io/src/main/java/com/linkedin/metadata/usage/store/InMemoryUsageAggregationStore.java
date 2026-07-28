@@ -62,7 +62,7 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
   @Nonnull private final Clock clock;
 
   // Record-time dimension contributors. Empty in OSS (dimension-neutral); populated by downstream
-  // distributions to make usage rows context-aware (e.g. per-tenant) without re-threading records.
+  // distributions to make usage rows context-aware without re-threading records.
   @Nonnull private volatile List<UsageDimensionResolver> dimensionResolvers = List.of();
 
   /** Protects active-window swap; concurrent recorders share the read lock. */
