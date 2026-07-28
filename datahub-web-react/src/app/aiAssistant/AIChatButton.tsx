@@ -251,6 +251,8 @@ export const AIChatButton: React.FC = () => {
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const [model, setModel] = useState(CHAT_MODELS[0].value);
+    // One UUID per browser tab — gives Claude memory within a session; resets on tab close
+    const [sessionId] = useState<string>(() => crypto.randomUUID());
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -275,6 +277,7 @@ export const AIChatButton: React.FC = () => {
                     message: text,
                     model,                        // model chosen in the chat header
                     context: getPageContext(),   // current page URL + entity type
+                    session_id: sessionId,        // persistent session for conversation memory
                 }),
             });
 

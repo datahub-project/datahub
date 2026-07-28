@@ -48,19 +48,24 @@ class LLMClient:
         )
 
 
-async def run_agent(user_message: str, context: dict | None) -> AsyncIterator[str]:
+async def run_agent(user_message: str, context: dict | None, history: list[dict] | None = None) -> AsyncIterator[str]:
     """
     Run the agentic loop. Yields text tokens as they arrive.
 
     Handles the tool-use cycle:
       user msg -> model -> (tool_use?) -> run tool -> feed result -> model -> ... -> final text
+
+    history: prior conversation turns as [{role, content}, ...] — gives Claude memory of prior turns.
     """
     client = LLMClient()
 
     ctx_note = ""
     if context:
         ctx_note = f"\n\n[Page context: {json.dumps(context)}]"
-    messages: list[dict] = [{"role": "user", "content": user_message + ctx_note}]
+
+    # Build messages: prior history first, then new user message
+    messages: list[dict] = list(history or [])
+    messages.append({"role": "user", "content": user_message + ctx_note})
 
     # Tools come from DataHub's MCP server for this request (the "MCP way"). The loop
     # below is unchanged from the GraphQL version — only the tool source differs.

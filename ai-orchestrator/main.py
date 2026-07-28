@@ -42,6 +42,7 @@ _CONFIG = {"model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")}
 class ChatRequest(BaseModel):
     message: str
     context: dict | None = None
+    session_id: Optional[str] = None
 
 
 class ConfigRequest(BaseModel):
@@ -56,14 +57,64 @@ async def health() -> dict:
 
 @app.post("/api/ai/chat")
 async def chat(req: ChatRequest) -> StreamingResponse:
-    async def event_stream():
+    # Load conversation history from MySQL if a session_id was provided
+    history: list[dict] = []
+    if req.session_id:
         try:
-            async for token in run_agent(req.message, req.context):
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                "SELECT role, content FROM messages WHERE session_id = %s ORDER BY created_at ASC",
+                (req.session_id,)
+            )
+            history = [{"role": r["role"], "content": r["content"]} for r in cursor.fetchall()]
+            cursor.close()
+            conn.close()
+        except Exception:
+            history = []  # graceful fallback — don't block chat if DB is down
+
+        # Save the user message before streaming
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT IGNORE INTO sessions (id, user_id) VALUES (%s, %s)",
+                (req.session_id, "datahub"),
+            )
+            cursor.execute(
+                "INSERT INTO messages (id, session_id, role, content) VALUES (%s, %s, %s, %s)",
+                (str(uuid.uuid4()), req.session_id, "user", req.message),
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass  # non-fatal
+
+    async def event_stream():
+        accumulated = ""
+        try:
+            async for token in run_agent(req.message, req.context, history=history):
+                accumulated += token
                 yield f"data: {json.dumps({'token': token})}\n\n"
         except Exception as exc:  # noqa: BLE001
             yield f"data: {json.dumps({'token': f'[error: {exc}]'})}\n\n"
         finally:
             yield "data: [DONE]\n\n"
+            # Save the assistant response after streaming completes
+            if req.session_id and accumulated:
+                try:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO messages (id, session_id, role, content) VALUES (%s, %s, %s, %s)",
+                        (str(uuid.uuid4()), req.session_id, "assistant", accumulated),
+                    )
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                except Exception:
+                    pass  # non-fatal
 
     return StreamingResponse(
         event_stream(),
