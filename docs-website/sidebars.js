@@ -415,6 +415,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/overview",
             },
@@ -616,6 +617,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/properties/overview",
             },

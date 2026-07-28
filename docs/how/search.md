@@ -1,5 +1,5 @@
 ---
-title: Search Overview
+title: Search
 description: "Use the DataHub search bar to find datasets, columns, dashboards, charts, and pipelines across your data ecosystem."
 ---
 
