@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -453,9 +453,9 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            KEYWORD_MAXLENGTH,
+            KEYWORD_IGNORE_ABOVE,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_IGNORE_ABOVE))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()
@@ -609,9 +609,9 @@ public class V2MappingsBuilderTest {
             "normalizer",
             "keyword_normalizer",
             "ignore_above",
-            KEYWORD_MAXLENGTH,
+            KEYWORD_IGNORE_ABOVE,
             "fields",
-            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_MAXLENGTH))));
+            Map.of("keyword", Map.of("type", "keyword", "ignore_above", KEYWORD_IGNORE_ABOVE))));
 
     StructuredPropertyDefinition propWithNumericType =
         new StructuredPropertyDefinition()

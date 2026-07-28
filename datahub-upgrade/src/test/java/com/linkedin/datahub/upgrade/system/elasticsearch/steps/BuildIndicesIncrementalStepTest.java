@@ -212,6 +212,8 @@ public class BuildIndicesIncrementalStepTest {
     DataHubUpgradeResult upgradeResult = mock(DataHubUpgradeResult.class);
     when(upgradeResult.getResult()).thenReturn(new StringMap(previousState));
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(upgradeResult));
+    // Resume path only polls when the next index still exists in Elasticsearch
+    when(indexBuilder.indexExists(NEXT_INDEX_NAME)).thenReturn(true);
 
     PollReindexResult pollResult = new PollReindexResult(true, Map.of(), Pair.of(100L, 100L));
     when(indexBuilder.pollReindexCompletion(

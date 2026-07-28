@@ -433,8 +433,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    // Add keyword subfield without lowercase filter
-    subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+    // Keyword subfield without lowercase filter; same byte-safe ignore_above as the parent so an
+    // oversized value is skipped from both keyword indexes instead of failing the document write.
+    subFields.put(
+        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }
