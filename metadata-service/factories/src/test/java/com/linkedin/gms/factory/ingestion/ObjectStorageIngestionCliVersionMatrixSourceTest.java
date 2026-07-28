@@ -8,9 +8,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.google.cloud.storage.StorageException;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrix;
+import com.linkedin.metadata.ingestion.MatrixRefreshFailure;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.NoSuchFileException;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
  * Unit tests for {@link ObjectStorageIngestionCliVersionMatrixSource}. The storage read is mocked
@@ -130,6 +135,58 @@ public class ObjectStorageIngestionCliVersionMatrixSourceTest {
             .getDefaultVersion(),
         "1.5.0.5",
         "matrix must be retained when a later document violates the schema");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Failure classification — decides which fix an operator is pointed at
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void classifiesAccessAndExistenceFailuresPerBackend() {
+    // The storage clients wrap provider exceptions in a RuntimeException, so classification has to
+    // walk the cause chain rather than inspect the top-level type.
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(S3Exception.builder().statusCode(403).message("Access Denied").build())),
+        MatrixRefreshFailure.PERMISSION,
+        "an S3 403 is an access problem, not a transient one");
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(S3Exception.builder().statusCode(404).message("NoSuchKey").build())),
+        MatrixRefreshFailure.NOT_FOUND);
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(new StorageException(403, "Forbidden"))),
+        MatrixRefreshFailure.PERMISSION,
+        "GCS reports authorization failures with the same status shape as S3");
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(new AccessDeniedException("/matrix.json"))),
+        MatrixRefreshFailure.PERMISSION,
+        "the local backend surfaces access failures as java.nio.file exceptions");
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(new NoSuchFileException("/matrix.json"))),
+        MatrixRefreshFailure.NOT_FOUND);
+  }
+
+  @Test
+  public void classifiesServerErrorsAndUnknownFailuresAsTransport() {
+    // A 5xx or an unrecognised error is retried on the next tick, so it must not be reported as
+    // something the operator has to go fix.
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            wrapped(S3Exception.builder().statusCode(503).message("SlowDown").build())),
+        MatrixRefreshFailure.TRANSPORT);
+    assertEquals(
+        ObjectStorageIngestionCliVersionMatrixSource.classify(
+            new RuntimeException("connection reset")),
+        MatrixRefreshFailure.TRANSPORT);
+  }
+
+  /** Mirrors how the storage clients surface provider errors: wrapped in a RuntimeException. */
+  private static Throwable wrapped(Throwable providerError) {
+    return new RuntimeException("Failed to read " + URI + ": " + providerError, providerError);
   }
 
   private static ObjectStorageIngestionCliVersionMatrixSource newSource(

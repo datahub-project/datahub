@@ -1,5 +1,6 @@
 package com.linkedin.metadata.ingestion;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
@@ -161,15 +162,28 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
           httpClient.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
 
       if (response.statusCode() / 100 != 2) {
+        // Classify the status so a 401/403 reads as "fix access" and a 404 as "fix the URL",
+        // rather than leaving an operator to interpret a bare status code.
+        MatrixRefreshFailure failure = MatrixRefreshFailure.forHttpStatus(response.statusCode());
         log.warn(
-            "Non-2xx response fetching ingestion version matrix from {}: HTTP {}. Retaining last known matrix.",
+            "[{}] Non-2xx response fetching ingestion version matrix from {}: HTTP {}. "
+                + "Retaining last known matrix; {}.",
+            failure.token(),
             url,
-            response.statusCode());
+            response.statusCode(),
+            failure.hint());
         return;
       }
 
       try (InputStream is = response.body()) {
-        JsonNode root = objectMapper.readTree(is);
+        JsonNode root;
+        try {
+          root = objectMapper.readTree(is);
+        } catch (JsonProcessingException notJson) {
+          // Fetched fine, but the body isn't JSON — a payload problem, not a transport one.
+          logPayloadRejection(notJson.getOriginalMessage());
+          return;
+        }
         IngestionCliVersionMatrix parsed;
         try {
           parsed = IngestionCliVersionMatrixParser.parseMatrix(root);
@@ -178,10 +192,7 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
           // — operator gets a fix-this-now WARN while in-flight resolutions continue to use the
           // last-known-good matrix. Per-entry violations are handled inside parseMatrix without
           // throwing; this branch is only for whole-file rejection.
-          log.warn(
-              "Refusing to swap matrix cache from {}: {}. Retaining last known matrix.",
-              url,
-              schemaError.getMessage());
+          logPayloadRejection(schemaError.getMessage());
           return;
         }
         cached.set(parsed);
@@ -196,13 +207,29 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       log.warn(
-          "Interrupted while refreshing ingestion version matrix from {}. Retaining last known matrix.",
+          "[{}] Interrupted while refreshing ingestion version matrix from {}. "
+              + "Retaining last known matrix.",
+          MatrixRefreshFailure.TRANSPORT.token(),
           url);
     } catch (Exception e) {
+      // Connect/read timeouts, DNS and TLS failures, and a malformed URL all land here. There is no
+      // status code to classify on, so this is transport by definition — an authorization failure
+      // would have come back as a 401/403 above.
       log.warn(
-          "Failed to refresh ingestion version matrix from {}. Retaining last known matrix.",
+          "[{}] Failed to refresh ingestion version matrix from {}. Retaining last known matrix; {}.",
+          MatrixRefreshFailure.TRANSPORT.token(),
           url,
+          MatrixRefreshFailure.TRANSPORT.hint(),
           e);
     }
+  }
+
+  private void logPayloadRejection(String detail) {
+    log.warn(
+        "[{}] Refusing to swap matrix cache from {}: {}. Retaining last known matrix; {}.",
+        MatrixRefreshFailure.PAYLOAD.token(),
+        url,
+        detail,
+        MatrixRefreshFailure.PAYLOAD.hint());
   }
 }

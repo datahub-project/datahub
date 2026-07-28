@@ -1,18 +1,24 @@
 package com.linkedin.gms.factory.ingestion;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.BaseServiceException;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrix;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixParser;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.MatrixRefreshFailure;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
 import jakarta.annotation.PreDestroy;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.NoSuchFileException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 
 /**
  * {@link IngestionCliVersionMatrixSource} backed by any {@link ObjectStorageClient} — S3, GCS, or
@@ -38,6 +44,9 @@ public class ObjectStorageIngestionCliVersionMatrixSource
 
   /** Seconds to wait for the refresh thread to drain on graceful shutdown. */
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
+
+  /** Bound on the cause-chain walk in {@link #classify}, so a cyclic chain cannot spin. */
+  private static final int MAX_CAUSE_DEPTH = 10;
 
   private final ObjectStorageClient client;
   private final String objectKey;
@@ -104,17 +113,22 @@ public class ObjectStorageIngestionCliVersionMatrixSource
   void refresh() {
     try {
       final String body = client.getObjectAsString(objectKey);
-      final JsonNode root = objectMapper.readTree(body);
+      final JsonNode root;
+      try {
+        root = objectMapper.readTree(body);
+      } catch (JsonProcessingException notJson) {
+        // Read fine, but the bytes aren't JSON — a payload problem, not an access or network one.
+        // Jackson's message carries the offending line/column, which is the actionable part.
+        logPayloadRejection(notJson.getOriginalMessage());
+        return;
+      }
       final IngestionCliVersionMatrix parsed;
       try {
         parsed = IngestionCliVersionMatrixParser.parseMatrix(root);
       } catch (IllegalArgumentException schemaError) {
         // File-level schema violation. Refuse to swap the cache; the last-known-good matrix keeps
         // serving resolutions while the operator gets a fix-this-now WARN.
-        log.warn(
-            "Refusing to swap matrix cache from {}: {}. Retaining last known matrix.",
-            displayUri,
-            schemaError.getMessage());
+        logPayloadRejection(schemaError.getMessage());
         return;
       }
       cached.set(parsed);
@@ -133,10 +147,55 @@ public class ObjectStorageIngestionCliVersionMatrixSource
       if (t instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
+      MatrixRefreshFailure failure = classify(t);
       log.warn(
-          "Failed to refresh ingestion version matrix from {}. Retaining last known matrix.",
+          "[{}] Failed to refresh ingestion version matrix from {}. Retaining last known matrix; {}.",
+          failure.token(),
           displayUri,
+          failure.hint(),
           t);
     }
+  }
+
+  private void logPayloadRejection(String detail) {
+    log.warn(
+        "[{}] Refusing to swap matrix cache from {}: {}. Retaining last known matrix; {}.",
+        MatrixRefreshFailure.PAYLOAD.token(),
+        displayUri,
+        detail,
+        MatrixRefreshFailure.PAYLOAD.hint());
+  }
+
+  /**
+   * Maps a storage failure onto an operator-actionable class. The clients wrap provider exceptions
+   * in a {@link RuntimeException}, so the cause chain is walked rather than the top-level type. AWS
+   * and GCS both expose an HTTP-shaped status code, which is what distinguishes "denied" from
+   * "missing"; the local backend surfaces the equivalent as {@code java.nio.file} exceptions.
+   *
+   * <p>Package-private for direct unit testing — classification drives what an operator is told to
+   * fix, so it is behaviour worth asserting rather than an implementation detail.
+   */
+  static MatrixRefreshFailure classify(Throwable t) {
+    // Bounded walk: a self-referential or cyclic cause chain must not spin here.
+    Throwable cause = t;
+    for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++) {
+      if (cause instanceof JsonProcessingException) {
+        return MatrixRefreshFailure.PAYLOAD;
+      }
+      if (cause instanceof AccessDeniedException) {
+        return MatrixRefreshFailure.PERMISSION;
+      }
+      if (cause instanceof NoSuchFileException) {
+        return MatrixRefreshFailure.NOT_FOUND;
+      }
+      if (cause instanceof SdkServiceException awsError) {
+        return MatrixRefreshFailure.forHttpStatus(awsError.statusCode());
+      }
+      if (cause instanceof BaseServiceException gcpError) {
+        return MatrixRefreshFailure.forHttpStatus(gcpError.getCode());
+      }
+      cause = cause.getCause();
+    }
+    return MatrixRefreshFailure.TRANSPORT;
   }
 }
