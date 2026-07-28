@@ -933,16 +933,17 @@ class TestExtractUrnsFromTaskInstanceOutletEvents:
 
 
 def _create_airflow_dataset(uri: str) -> Optional[Any]:
-    """Create an Airflow Dataset, or None if creation fails.
+    """Create a real Airflow Asset, or None if creation fails.
 
-    Airflow's Dataset class may fail to initialize in test environments
-    where the ProvidersManager cannot fully initialize. This helper
+    Uses the canonical airflow.sdk.Asset (the deprecated airflow.datasets.Dataset
+    is just an alias for it on Airflow 3). Asset may fail to initialize in test
+    environments where the ProvidersManager cannot fully initialize, so this helper
     catches those errors and returns None.
     """
     try:
-        from airflow.datasets import Dataset
+        from airflow.sdk import Asset
 
-        return Dataset(uri)
+        return Asset(uri)
     except Exception:
         return None
 

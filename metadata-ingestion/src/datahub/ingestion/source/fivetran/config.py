@@ -210,6 +210,11 @@ class MetadataExtractionPerfReport(Report):
 class FivetranSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     fivetran_rest_api_call_count: int = 0
+    # Lineage edges dropped because the destination URN could not be built.
+    num_lineage_edges_skipped: int = 0
+    # Duplicate (source_table, destination_table) rows whose column lineage was
+    # merged into the first-seen pair's DataJob rather than dropped.
+    num_duplicate_table_pairs_merged: int = 0
     filtered_connectors: LossyList[str] = dataclasses.field(default_factory=LossyList)
     metadata_extraction_perf: MetadataExtractionPerfReport = dataclasses.field(
         default_factory=MetadataExtractionPerfReport

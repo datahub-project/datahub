@@ -62,7 +62,9 @@ def build_with_callback_handler() -> None:
     try:
         from langchain_openai import ChatOpenAI
     except ImportError:
-        print("[pattern-1] langchain / langchain-openai not installed — skipping live demo")
+        print(
+            "[pattern-1] langchain / langchain-openai not installed — skipping live demo"
+        )
         return
 
     _llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -96,7 +98,9 @@ def build_with_register_function() -> None:
     try:
         from langchain_openai import ChatOpenAI  # noqa: F401
     except ImportError:
-        print("[pattern-2] langchain / langchain-openai not installed — skipping live demo")
+        print(
+            "[pattern-2] langchain / langchain-openai not installed — skipping live demo"
+        )
         return
 
     # Construct a minimal stub executor so the example is self-contained.

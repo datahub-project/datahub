@@ -157,7 +157,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     // Use any(Urn.class) to match any file URN since different tests may use different file IDs
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -378,7 +378,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWhenFileEntityDoesNotExist() throws Exception {
     // Override EntityService to return null
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -401,7 +401,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     entityResponse.setAspects(new com.linkedin.entity.EnvelopedAspectMap(new HashMap<>()));
 
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -419,7 +419,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithEntityServiceException() throws Exception {
     // Override EntityService to throw exception
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),
@@ -543,7 +543,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
       throws Exception {
     // Override EntityService to return null
     when(mockEntityService.getEntityV2(
-            eq(mockSystemOperationContext),
+            any(OperationContext.class),
             eq(Constants.DATAHUB_FILE_ENTITY_NAME),
             any(Urn.class),
             any(HashSet.class),

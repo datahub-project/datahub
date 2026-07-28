@@ -1,12 +1,8 @@
 import json
-import random
 
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     BrowsePaths,
-    Owner,
-    Ownership,
-    OwnershipType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
@@ -16,7 +12,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from locust import HttpUser, constant, task
-from threading import Lock, Thread
+from threading import Lock
 
 lock = Lock()
 num_ingested = 0

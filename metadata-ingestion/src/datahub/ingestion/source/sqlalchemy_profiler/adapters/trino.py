@@ -135,8 +135,8 @@ class TrinoAdapter(PlatformAdapter):
             )
             self.report.warning(
                 title="Failed to create Trino temporary view",
-                message=f"Profiling exception when running custom sql: {context.custom_sql}",
-                context=f"Asset: {context.pretty_name}",
+                message="Profiling exception when running custom sql",
+                context=f"asset={context.pretty_name}, custom_sql={context.custom_sql}",
                 exc=e,
             )
             if not self.config.catch_exceptions:

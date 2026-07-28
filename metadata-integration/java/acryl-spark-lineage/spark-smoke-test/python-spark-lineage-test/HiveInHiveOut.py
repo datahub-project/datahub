@@ -39,16 +39,16 @@ spark.sql(
         "create table " + tbl("foo5") + " as " + "(select v1.a, v1.b, v2.c, v2.d from v1 join v2 on v1.id = v2.id)")
 
 # CreateHiveTableAsSelectCommand
-spark.sql("create table " + tbl("hivetab") + " as " + "(select * from " + tbl("foo5") + ")");
+spark.sql("create table " + tbl("hivetab") + " as " + "(select * from " + tbl("foo5") + ")")
 
 # InsertIntoHiveTable
-spark.sql("insert into " + tbl("hivetab") + " (select * from " + tbl("foo5") + ")");
+spark.sql("insert into " + tbl("hivetab") + " (select * from " + tbl("foo5") + ")")
 
 
-df = spark.sql("select * from " + tbl("foo5"));
+df = spark.sql("select * from " + tbl("foo5"))
 
 # InsertIntoHiveTable
-df.write.insertInto(tbl("hivetab"));
+df.write.insertInto(tbl("hivetab"))
 
 spark.stop()
 

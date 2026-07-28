@@ -25,12 +25,12 @@ import {
     getIsRowCountChange,
     getParameterDescription,
     getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     AssertionInfo,
-    AssertionStdOperator,
     AssertionType,
     AssertionValueChangeType,
     CronSchedule,
@@ -74,20 +74,10 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
     const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
     const interpolation = getParameterInterpolation(parameterDescription);
 
-    const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
-        switch (op) {
-            case AssertionStdOperator.GreaterThanOrEqualTo:
-                return 'AtLeast';
-            case AssertionStdOperator.LessThanOrEqualTo:
-                return 'AtMost';
-            case AssertionStdOperator.Between:
-                return 'Between';
-            default:
-                throw new Error(`Unknown operator ${op}`);
-        }
-    };
-
-    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
+    if (!operatorKeyPart) {
+        return i18next.t('entity.profile.validations:volumeDescription.unknown');
+    }
 
     let key: string;
     if (isChange) {
@@ -142,10 +132,7 @@ const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionIn
     );
 };
 
-const getFreshnessAssertionPlainTextDescription = (
-    assertionInfo: FreshnessAssertionInfo,
-    monitorSchedule: CronSchedule,
-) => {
+const getFreshnessAssertionPlainTextDescription = (assertionInfo: FreshnessAssertionInfo) => {
     const scheduleType = assertionInfo.schedule?.type;
     const freshnessType = assertionInfo.type;
     const prefix = freshnessType === FreshnessAssertionType.DatasetChange ? 'datasetChange' : 'dataTask';
@@ -156,33 +143,23 @@ const getFreshnessAssertionPlainTextDescription = (
         return `${removeTimePrefix(cronToString(cronExpr).toLocaleLowerCase())} (${timezone})`;
     };
 
-    const cronLabel = monitorSchedule ? getCronLabel(monitorSchedule) : '';
-
     switch (scheduleType) {
         case FreshnessAssertionScheduleType.FixedInterval: {
             const fixedInterval = assertionInfo.schedule?.fixedInterval;
             if (!fixedInterval) {
                 return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.noInterval`);
             }
-            const values = {
+            return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.fixedInterval`, {
                 multiple: fixedInterval.multiple,
                 unit: `${fixedInterval.unit.toLocaleLowerCase()}s`,
-                schedule: cronLabel,
-            };
-            return monitorSchedule
-                ? i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.fixedIntervalWithCron`, values)
-                : i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.fixedInterval`, values);
+            });
         }
         case FreshnessAssertionScheduleType.Cron:
             return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.cron`, {
                 schedule: getCronLabel(assertionInfo.schedule?.cron as CronSchedule),
             });
         case FreshnessAssertionScheduleType.SinceTheLastCheck:
-            return monitorSchedule
-                ? i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.sinceLastCheckWithCron`, {
-                      schedule: cronLabel,
-                  })
-                : i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.sinceLastCheck`);
+            return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.sinceLastCheck`);
         default:
             return i18next.t(`entity.profile.validations:freshnessDescription.${prefix}.unknown`);
     }
@@ -194,12 +171,10 @@ const getFreshnessAssertionPlainTextDescription = (
  * Else it'll infer a description.
  * @IMPORTANT if you modify this, also modify {@link #getPlainTextDescriptionFromAssertion()} below
  * @param assertionInfo
- * @param monitorSchedule
  * @returns {JSX.Element}
  */
 export const useBuildAssertionPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
-    monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
 ): JSX.Element => {
     const { t } = useTranslation('entity.profile.validations');
@@ -219,7 +194,6 @@ export const useBuildAssertionPrimaryLabel = (
                 primaryLabel = (
                     <FreshnessAssertionDescription
                         assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
-                        monitorSchedule={monitorSchedule}
                     />
                 );
                 break;
@@ -341,7 +315,6 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
  */
 export const useBuildAssertionDescriptionLabels = (
     assertionInfo?: Maybe<AssertionInfo>,
-    monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
 ): {
     primaryLabel: JSX.Element;
@@ -349,7 +322,7 @@ export const useBuildAssertionDescriptionLabels = (
 } => {
     // ------- Primary label with assertion description ------ //
     // IMPORTANT: if you modify this, also modify {@link #getPlainTextDescriptionFromAssertion} below
-    const primaryLabel = useBuildAssertionPrimaryLabel(assertionInfo, monitorSchedule, options);
+    const primaryLabel = useBuildAssertionPrimaryLabel(assertionInfo, options);
 
     // ----------- Try displaying secondary label showing creator/updater context ------------ //
     const secondaryLabel = useBuildSecondaryLabel(assertionInfo);
@@ -364,10 +337,7 @@ export const useBuildAssertionDescriptionLabels = (
  * Similar to {@link #useBuildAssertionPrimaryLabel}, but returns plaintext instead of jsx.
  * Primarily used for building the search index!
  */
-export const getPlainTextDescriptionFromAssertion = (
-    assertionInfo?: AssertionInfo,
-    monitorSchedule?: CronSchedule,
-): string => {
+export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionInfo): string => {
     // if description is present don't generate dynamic description
     if (assertionInfo?.description) {
         return assertionInfo.description;
@@ -383,7 +353,6 @@ export const getPlainTextDescriptionFromAssertion = (
         case AssertionType.Freshness:
             primaryLabel = getFreshnessAssertionPlainTextDescription(
                 assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
-                monitorSchedule as CronSchedule,
             );
             break;
         case AssertionType.Volume:
