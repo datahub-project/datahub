@@ -1,10 +1,19 @@
 # This import verifies that the dependencies are available.
+import datetime
 import logging
 import re
 from collections import OrderedDict
 from contextlib import contextmanager
-from datetime import timezone
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional, Set
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+)
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
@@ -18,7 +27,11 @@ from sqlalchemy.pool import NullPool
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection, Engine
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    SupportedSources,
+)
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -33,6 +46,7 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
     register_custom_type,
@@ -129,6 +143,20 @@ _DML_LEADING_KEYWORDS = frozenset(
 # can't grow it without bound (LRU eviction in _fetch_general_log_queries).
 _MAX_TRACKED_SESSIONS = 10_000
 
+# One row per table in a schema. `table_rows` is an InnoDB *estimate* from gathered stats
+# (can be off substantially, only refreshed on ANALYZE TABLE) and `data_length` is in bytes.
+# Both are acceptable for a guardrail; neither must be presented as an accurate count.
+# `:table_row_limit` / `:table_size_limit` are passed NULL when unset, and the
+# `IS NULL OR ...` clauses make NULL limits pass through (no filtering on that axis).
+_PROFILE_CANDIDATES_QUERY = """
+SELECT table_name, table_rows, data_length
+FROM information_schema.tables
+WHERE table_schema = :schema
+  AND (:table_row_limit IS NULL OR table_rows IS NULL OR table_rows < :table_row_limit)
+  AND (:table_size_limit IS NULL OR data_length IS NULL
+       OR data_length / (1024 * 1024 * 1024) < :table_size_limit)
+"""
+
 
 def _parse_general_log_user(user_host: Optional[str]) -> Optional[str]:
     if not user_host:
@@ -192,7 +220,67 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     )
 
 
+class MySQLProfilingConfig(GEProfilingConfig):
+    # Per-source override, following the Athena (AthenaProfilingConfig.partition_profiling_enabled)
+    # and Dremio (ProfileConfig.include_field_median_value) precedent: override the shared default
+    # where the platform's behavior differs.
+    #
+    # profile_table_row_limit / profile_table_size_limit: the shared defaults (5M rows / 5GB) are
+    # tuned to Snowflake/BigQuery billing, not to "InnoDB will melt." A 10-50M row MySQL table
+    # profiles fine; the customer's pain starts around 500M-1B. Cutting at 5M would deny profiles
+    # to healthy tables to solve a problem ~100x higher up. Default None (opt-in): silently dropping
+    # profiles would quietly break the Volume/Column Metric assertions that are the customer's
+    # actual goal. The discoverability mechanism for opt-in is `report_expensive_tables` below.
+    #
+    # Redeclared with Annotated[...] (not plain Optional[int]) so the SupportedSources metadata
+    # is preserved on the subclass field — a plain redeclaration drops it (verified empirically),
+    # which would remove `mysql` from MySQL's config JSON schema / docs.
+    profile_table_row_limit: Annotated[Optional[int], SupportedSources(["mysql"])] = (
+        Field(
+            default=None,
+            description="MySQL: profile tables only if their estimated row count is less than this. "
+            "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. The "
+            "estimate comes from `information_schema.tables.table_rows` (InnoDB stats, can be stale).",
+        )
+    )
+    profile_table_size_limit: Annotated[Optional[int], SupportedSources(["mysql"])] = (
+        Field(
+            default=None,
+            description="MySQL: profile tables only if their size is less than specified GBs. "
+            "Defaults to `null` (no limit) — set explicitly to guardrail large InnoDB tables. "
+            "The size comes from `information_schema.tables.data_length`.",
+        )
+    )
+
+    # MySQL is a row store on a single primary: profiling throughput is bound by the same buffer
+    # pool and IO path regardless of session count, so concurrency past a handful mostly adds
+    # contention and multiplies peak memory (each session may hold multi-GB COUNT(DISTINCT)
+    # structures). The shared default (5 * cpu_count, ~40 on an 8-core box) is miscalibrated for
+    # MySQL. Proposed default of 5 — pending measurement in PR 5's validation alongside the
+    # flattening work, where a MySQL integration harness already exists.
+    max_workers: int = Field(
+        default=5,
+        description="Number of worker threads to use for profiling. MySQL defaults to 5 (vs the "
+        "shared 5*cpu_count) because MySQL is a single-primary row store: extra concurrency adds "
+        "contention and peak memory rather than throughput. Tune per your workload.",
+    )
+
+    # MySQL defaults to no row/size guardrail, so operators need a way to discover they should set
+    # one. This emits one post-run report.warning naming the few most expensive tables by observed
+    # profiling time, with the config to set. The warning lives in the profiler run path
+    # (independent of the generate_profile_candidates skip path) so it fires whether or not a
+    # limit is configured.
+    report_expensive_tables: bool = Field(
+        default=True,
+        description="Emit a post-run report.warning naming the few MySQL tables that took the "
+        "longest to profile, with a suggestion to set `profile_table_row_limit` / "
+        "`profile_table_size_limit` to skip large tables.",
+    )
+
+
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
+    profiling: MySQLProfilingConfig = MySQLProfilingConfig()
+
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
 
@@ -387,6 +475,37 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
                     f"{table_schema}.{table_name}"
                 ] = data_length
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        # MySQL does not support profile_if_updated_since_days (not in SupportedSources), so
+        # threshold_time is always None here; the row/size limits do the filtering.
+        # table_rows is an InnoDB *estimate* (can be stale until ANALYZE TABLE) and data_length
+        # is in bytes — acceptable for a guardrail, not an accurate count.
+        with inspector.engine.connect() as conn:
+            # Unpack positionally (case-independent), matching add_profile_metadata above.
+            rows = conn.execute(
+                text(_PROFILE_CANDIDATES_QUERY),
+                {
+                    "schema": schema,
+                    "table_row_limit": self.config.profiling.profile_table_row_limit,
+                    "table_size_limit": self.config.profiling.profile_table_size_limit,
+                },
+            )
+            # Build candidate identifiers via self.get_identifier — the SAME method
+            # sql_common.loop_profiler_requests uses to build dataset_name — so candidate
+            # strings match dataset_name character-for-character and the membership test at
+            # sql_common.py:1412 does not silently no-op on a mismatch.
+            return [
+                self.get_identifier(
+                    schema=schema, entity=table_name, inspector=inspector
+                )
+                for table_name, _table_rows, _data_length in rows
+            ]
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -585,7 +704,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 # Session is pinned to UTC, so a naive LAST_SEEN is already UTC.
                 timestamp = row.LAST_SEEN
                 if timestamp is not None and timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
 
                 yield ObservedQuery(
                     query=row.DIGEST_TEXT,
@@ -660,7 +779,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
                 timestamp = row.event_time
                 if timestamp is not None and timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+                    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
 
                 yield ObservedQuery(
                     query=argument,

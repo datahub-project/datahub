@@ -428,6 +428,11 @@ class SQLAlchemyProfiler:
     report: SQLSourceReport
     config: ProfilingConfig
     times_taken: List[float]
+    # Per-table (pretty_name, time_taken) pairs, accumulated across this profiler instance's
+    # generate_profiles() calls. Used to emit the post-run "most expensive tables" warning
+    # (see _report_expensive_tables). Kept separate from times_taken (List[float]) so the
+    # percentile calculation at the telemetry ping below is unchanged.
+    times_taken_per_table: List[Tuple[str, float]]
     total_row_count: int
 
     base_engine: Engine
@@ -445,6 +450,7 @@ class SQLAlchemyProfiler:
         self.report = report
         self.config = config
         self.times_taken = []
+        self.times_taken_per_table = []
         self.total_row_count = 0
 
         self.env = env
@@ -1141,6 +1147,38 @@ class SQLAlchemyProfiler:
         )
 
         self.report.report_from_query_combiner(query_combiner.report)
+
+        self._report_expensive_tables()
+
+    # How many tables to name in the post-run "most expensive tables" warning. Bounded so the
+    # warning stays one short, actionable line regardless of how many tables were profiled.
+    _EXPENSIVE_TABLES_TOP_N = 5
+
+    def _report_expensive_tables(self) -> None:
+        # Discoverability mechanism for sources that default to no row/size guardrail (e.g. MySQL):
+        # name the few tables that took the longest to profile so an operator can see the real
+        # cost and set profile_table_row_limit / profile_table_size_limit. Lives in the profiler
+        # run path (here), NOT in generate_profile_candidates — which is dead by default when the
+        # limits are None, so anything placed there would never fire for the users who need it.
+        # Gated on a config flag (default off; MySQL opts in) and independent of whether a limit
+        # is configured, so the warning and the skip counters behave independently.
+        if not self.config.report_expensive_tables:
+            return
+        if not self.times_taken_per_table:
+            return
+        top = sorted(
+            self.times_taken_per_table, key=lambda pair: pair[1], reverse=True
+        )[: self._EXPENSIVE_TABLES_TOP_N]
+        formatted = ", ".join(f"{name} ({t:.1f}s)" for name, t in top)
+        self.report.warning(
+            title="Profiling: expensive tables",
+            message=(
+                "These tables took the longest to profile. If this is too slow or risks "
+                "OOM, set `profiling.profile_table_row_limit` and/or "
+                "`profiling.profile_table_size_limit` to skip large tables: "
+                + formatted
+            ),
+        )
 
     def _generate_profile_from_request(
         self,
@@ -1867,6 +1905,7 @@ class SQLAlchemyProfiler:
                         f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                     )
                     self.times_taken.append(time_taken)
+                    self.times_taken_per_table.append((pretty_name, time_taken))
                     return profile
 
             except sa.exc.ArgumentError:
