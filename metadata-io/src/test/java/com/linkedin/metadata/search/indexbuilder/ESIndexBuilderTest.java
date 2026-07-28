@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
@@ -672,6 +673,68 @@ public class ESIndexBuilderTest {
     // Verify deletion was attempted
     verify(searchClient, atLeastOnce())
         .deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
+  void testCleanIndex_DoesNotDeleteSemanticSiblingIndex() throws Exception {
+    // The base entity config's clean pattern (e.g. datasetindex_v2_*) also matches the live
+    // semantic index (datasetindex_v2_semantic). The bare semantic index is alias-less and old, so
+    // it otherwise satisfies the orphan condition, but it must NOT be deleted as an orphan of the
+    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT the bare
+    // semantic name (they end in a timestamp), so a stale, alias-less one must still be deleted —
+    // the guard protects only names ending in "_semantic".
+    String baseName = "datasetindex_v2";
+    String semanticSibling = "datasetindex_v2_semantic";
+    String baseBackingOrphan = baseName + "_1700000000000";
+    String semanticBackingOrphan = semanticSibling + "_1700000000000";
+
+    ReindexConfig baseConfig = mock(ReindexConfig.class);
+    when(baseConfig.name()).thenReturn(baseName);
+    when(baseConfig.indexPattern()).thenReturn(baseName + "*");
+    when(baseConfig.indexCleanPattern()).thenReturn(baseName + "_*");
+
+    long tenDaysAgo = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000;
+
+    GetIndexResponse getIndexResponse = mock(GetIndexResponse.class);
+    when(getIndexResponse.getIndices())
+        .thenReturn(new String[] {baseBackingOrphan, semanticSibling, semanticBackingOrphan});
+    when(getIndexResponse.getSetting(anyString(), eq("index.creation_date")))
+        .thenReturn(String.valueOf(tenDaysAgo));
+    // All alias-less: the two backing indices are genuine orphans; the bare semantic index is live
+    // but addressed by physical name (no alias).
+    when(getIndexResponse.getAliases())
+        .thenReturn(
+            Map.of(
+                baseBackingOrphan,
+                List.of(),
+                semanticSibling,
+                List.of(),
+                semanticBackingOrphan,
+                List.of()));
+
+    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(getIndexResponse);
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
+    when(deleteResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(deleteResponse);
+
+    ESIndexBuilder.cleanOrphanedIndices(searchClient, elasticSearchConfiguration, baseConfig);
+
+    ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
+        ArgumentCaptor.forClass(DeleteIndexRequest.class);
+    verify(searchClient, times(2)).deleteIndex(deleteCaptor.capture(), any(RequestOptions.class));
+    Set<String> deleted = new HashSet<>();
+    for (DeleteIndexRequest request : deleteCaptor.getAllValues()) {
+      deleted.add(request.indices()[0]);
+    }
+    assertTrue(deleted.contains(baseBackingOrphan), "Base backing orphan should be deleted");
+    assertTrue(
+        deleted.contains(semanticBackingOrphan), "Stale semantic backing orphan should be deleted");
+    assertFalse(deleted.contains(semanticSibling), "Live bare semantic index must not be deleted");
   }
 
   @Test
@@ -1574,6 +1637,61 @@ public class ESIndexBuilderTest {
   }
 
   // --- Incremental reindex tests ---
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    // numRetries=0 leaves no retry budget and keeps getDocumentCounts' mismatch back-off short.
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .maxReindexHours(1)
+                .build());
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+
+    // Destination holds fewer docs than the source (900 of 1000) — the dropped-docs signature.
+    CountResponse countResponse = mock(CountResponse.class);
+    when(countResponse.getCount()).thenReturn(900L);
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(countResponse);
+    when(searchClient.refreshIndex(
+            any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+
+    // ES reports the reindex task itself has COMPLETED, even though the target is short.
+    GetTaskResponse completedTask = mock(GetTaskResponse.class);
+    when(completedTask.isCompleted()).thenReturn(true);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(completedTask));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(), "A completed-but-short reindex must be reported as not completed");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
+    // With no retry budget it must give up rather than re-submitting.
+    verify(searchClient, never())
+        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+  }
 
   @Test
   void testExtractTargetShards() {

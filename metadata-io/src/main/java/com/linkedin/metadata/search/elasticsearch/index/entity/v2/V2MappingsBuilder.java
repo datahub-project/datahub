@@ -261,7 +261,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
               LogicalValueType logicalType = getLogicalValueType(property.getValueType());
               switch (logicalType) {
                 case STRING:
-                  mappingForField = getMappingsForKeyword();
+                  mappingForField = getMappingsForKeywordWithIgnoreAbove();
                   break;
                 case RICH_TEXT:
                   mappingForField = getMappingsForSearchText(FieldType.TEXT_PARTIAL);
@@ -276,7 +276,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
                   break;
                 default:
-                  mappingForField = getMappingsForKeyword();
+                  mappingForField = getMappingsForKeywordWithIgnoreAbove();
                   break;
               }
               return Map.entry(
@@ -330,7 +330,8 @@ public class V2MappingsBuilder implements MappingsBuilder {
         subFields.put(
             NGRAM, getPartialNgramConfigWithOverrides(Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
       }
-      subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+      subFields.put(
+          KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
       mappingForField.put(FIELDS, subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put(TYPE, ESUtils.BOOLEAN_FIELD_TYPE);
@@ -379,10 +380,34 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return mappingForField;
   }
 
+  /**
+   * Same shape as {@link #getMappingsForKeyword()} (keyword parent + .keyword sub-field) but with
+   * an {@code ignore_above} guard: a value longer than the limit is skipped from the keyword index
+   * (it remains in _source) instead of failing the whole document write on Lucene's 32,766-byte
+   * per-term limit.
+   */
+  private static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
+    Map<String, Object> mappingForField = new HashMap<>();
+    mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
+    mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    // Byte-safe character threshold (see ESUtils.KEYWORD_IGNORE_ABOVE); #18533 revert had restored
+    // KEYWORD_MAXLENGTH here which can still trip Lucene's byte limit on multi-byte text.
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
+    // Outer KEYWORD is the sub-field name; the inner KEYWORD is the field type value (both
+    // "keyword").
+    // The sub-field carries the same ignore_above guard, so KEYWORD_TYPE_MAP cannot be reused here.
+    mappingForField.put(
+        FIELDS,
+        ImmutableMap.of(
+            KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE)));
+    return mappingForField;
+  }
+
   private Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
@@ -408,8 +433,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    // Add keyword subfield without lowercase filter
-    subFields.put(KEYWORD, KEYWORD_TYPE_MAP);
+    // Keyword subfield without lowercase filter; same byte-safe ignore_above as the parent so an
+    // oversized value is skipped from both keyword indexes instead of failing the document write.
+    subFields.put(
+        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }

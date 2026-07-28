@@ -3,6 +3,7 @@ import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
 import styled from 'styled-components';
 
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 
@@ -40,7 +41,9 @@ export default function useUsageStatsRenderer(
     const usageStatsRenderer = (fieldPath: string) => {
         const isFieldSelected = expandedDrawerFieldPath === fieldPath;
 
-        const fieldProfile = latestProfile?.fieldProfiles?.find((profile) => profile.fieldPath === fieldPath);
+        const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
+            pathMatchesInsensitiveToV2(profile.fieldPath, fieldPath),
+        );
 
         return (
             <IconsContainer>

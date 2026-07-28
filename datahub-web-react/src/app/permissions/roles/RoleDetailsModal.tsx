@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
+import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
@@ -37,10 +38,8 @@ const PillsContainer = styled.div`
 export default function RoleDetailsModal({ role, open, onClose }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const castedRole = role as any;
-
-    const users: CorpUser[] = castedRole?.users?.relationships?.map((r) => r.entity as CorpUser) || [];
-    const policies: DataHubPolicy[] = castedRole?.policies?.relationships?.map((r) => r.entity as DataHubPolicy) || [];
+    const users: CorpUser[] = getRoleUsers(role);
+    const policies: DataHubPolicy[] = getRolePolicies(role);
 
     const allAvatars: AvatarItemProps[] = users.map((user) => {
         const isGroup = user?.urn?.startsWith('urn:li:corpGroup');

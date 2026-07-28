@@ -118,6 +118,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -1327,6 +1328,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             if (txContext != null) {
                               try {
                                 txContext.commitAndContinue();
+                              } catch (RejectedExecutionException e) {
+                                log.warn(
+                                    "Post-commit cache notification failed (executor terminated),"
+                                        + " cache may serve stale data until TTL expiry",
+                                    e);
+                                opContext
+                                    .getMetricUtils()
+                                    .ifPresent(
+                                        metricUtils ->
+                                            metricUtils.increment(
+                                                EntityServiceImpl.class,
+                                                "post_commit_notify_rejected",
+                                                1));
                               } catch (EntityNotFoundException e) {
                                 if (e.getMessage() != null
                                     && e.getMessage().contains("No rows updated")) {
@@ -3001,8 +3015,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
                   Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
-                  long minVersion = Math.max(0, versionRange.getFirst());
-                  long maxVersion = Math.max(0, versionRange.getSecond());
+                  if (versionRange.getFirst() == null
+                      || versionRange.getSecond() == null
+                      || versionRange.getFirst() < 0
+                      || versionRange.getSecond() < 0) {
+                    log.debug(
+                        "Delete skipped due to empty version range. urn {} aspect {}",
+                        urn,
+                        aspectName);
+                    return TransactionResult.rollback();
+                  }
+                  long minVersion = versionRange.getFirst();
+                  long maxVersion = versionRange.getSecond();
 
                   EntityAspect.EntitySystemAspect survivingAspect = null;
 

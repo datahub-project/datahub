@@ -10,10 +10,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.util.Pair;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -140,6 +143,15 @@ public class ReindexConfig {
     }
 
     private ReindexConfigBuilder hasRemovedStructuredProperty(boolean ignored) {
+      return this;
+    }
+
+    @Nonnull
+    private IndexSettingsComparison settingsComparison = IndexSettingsComparison.Strict.INSTANCE;
+
+    public ReindexConfigBuilder settingsComparisonShim(
+        @Nonnull SearchClientShim<?> settingsComparisonShim) {
+      this.settingsComparison = settingsComparisonShim;
       return this;
     }
 
@@ -446,7 +458,7 @@ public class ReindexConfig {
       // Compare analysis section
       Map<String, Object> newAnalysis = (Map<String, Object>) indexSettings.get("analysis");
       Settings oldAnalysis = super.currentSettings.getByPrefix("index.analysis.");
-      return equalsGroup(newAnalysis, oldAnalysis);
+      return equalsGroup(newAnalysis, oldAnalysis, super.settingsComparison);
     }
 
     private boolean isSettingsEqual() {
@@ -504,7 +516,8 @@ public class ReindexConfig {
       return (indexSettings.containsKey("analysis")
           && !equalsGroup(
               (Map<String, Object>) indexSettings.get("analysis"),
-              super.currentSettings.getByPrefix("index.analysis.")));
+              super.currentSettings.getByPrefix("index.analysis."),
+              super.settingsComparison));
     }
 
     /**
@@ -690,8 +703,13 @@ public class ReindexConfig {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private static boolean equalsGroup(Map<String, Object> newSettings, Settings oldSettings) {
-    if (!newSettings.keySet().equals(oldSettings.names())) {
+  private static boolean equalsGroup(
+      Map<String, Object> newSettings,
+      Settings oldSettings,
+      IndexSettingsComparison settingsComparison) {
+    Set<String> oldNames =
+        settingsComparison.indexSettingNamesForComparison(newSettings, oldSettings);
+    if (!newSettings.keySet().equals(oldNames)) {
       return false;
     }
 
@@ -703,7 +721,9 @@ public class ReindexConfig {
       }
       if (newSettings.get(key) instanceof Map) {
         if (!equalsGroup(
-            (Map<String, Object>) newSettings.get(key), oldSettings.getByPrefix(key + "."))) {
+            (Map<String, Object>) newSettings.get(key),
+            oldSettings.getByPrefix(key + "."),
+            settingsComparison)) {
           return false;
         }
       } else if (newSettings.get(key) instanceof List) {
@@ -713,14 +733,7 @@ public class ReindexConfig {
       } else {
         String oldValue = oldSettings.get(key);
         Object newValue = newSettings.get(key);
-        // Handle null values properly
-        if (newValue == null && oldValue == null) {
-          continue;
-        }
-        if (newValue == null || oldValue == null) {
-          return false;
-        }
-        if (!newValue.toString().equals(oldValue)) {
+        if (!settingsComparison.indexSettingValuesEqual(newValue, oldValue)) {
           return false;
         }
       }

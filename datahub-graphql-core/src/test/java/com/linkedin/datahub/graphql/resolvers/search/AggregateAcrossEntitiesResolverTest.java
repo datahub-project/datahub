@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -22,6 +25,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -38,6 +42,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -270,6 +275,7 @@ public class AggregateAcrossEntitiesResolverTest {
   @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
+    // Since DOCUMENT is in SEARCHABLE_ENTITY_TYPES, document default filters are applied.
 
     FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
@@ -279,11 +285,13 @@ public class AggregateAcrossEntitiesResolverTest {
             .map(EntityTypeMapper::getName)
             .collect(Collectors.toList());
 
+    Filter expectedDocumentFilter = buildDocumentDefaultFilter();
+
     EntityClient mockClient =
         initMockEntityClient(
             searchEntityTypes,
             "",
-            null,
+            expectedDocumentFilter,
             0,
             0,
             null,
@@ -306,7 +314,7 @@ public class AggregateAcrossEntitiesResolverTest {
 
     resolver.get(mockEnv).get();
 
-    verifyMockEntityClient(mockClient, searchEntityTypes, "", null, 0, 0, null);
+    verifyMockEntityClient(mockClient, searchEntityTypes, "", expectedDocumentFilter, 0, 0, null);
   }
 
   @Test
@@ -338,6 +346,220 @@ public class AggregateAcrossEntitiesResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Assert.assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public static void testDocumentTypeAppliesDefaultFilters() throws Exception {
+    // When DOCUMENT is in the entity types, default document filters (lifecycleStage,
+    // showInGlobalContext) should be applied — this is the bug fix for bridge documents
+    // inflating sidebar counts.
+    FormService mockFormService = Mockito.mock(FormService.class);
+    ViewService mockService = Mockito.mock(ViewService.class);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.anyList(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final AggregateAcrossEntitiesResolver resolver =
+        new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+
+    final AggregateAcrossEntitiesInput testInput =
+        new AggregateAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DOCUMENT), "", null, null, null, null);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq(""),
+            filterCaptor.capture(),
+            eq(0),
+            eq(0),
+            eq(Collections.emptyList()),
+            Mockito.eq(null));
+    Filter appliedFilter = filterCaptor.getValue();
+    assertNotNull(appliedFilter);
+    assertTrue(filterContainsField(appliedFilter, "lifecycleStage"));
+    assertTrue(filterContainsField(appliedFilter, "showInGlobalContext"));
+  }
+
+  @Test
+  public static void testNonDocumentTypeDoesNotAddDefaultFilters() throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
+    ViewService mockService = Mockito.mock(ViewService.class);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.anyList(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final AggregateAcrossEntitiesResolver resolver =
+        new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+
+    final AggregateAcrossEntitiesInput testInput =
+        new AggregateAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DATASET), "", null, null, null, null);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
+            eq(""),
+            filterCaptor.capture(),
+            eq(0),
+            eq(0),
+            eq(Collections.emptyList()),
+            Mockito.eq(null));
+    assertNull(filterCaptor.getValue());
+  }
+
+  @Test
+  public static void testIncludeHiddenLifecycleStagesBypassesDocumentDefaultFilters()
+      throws Exception {
+    FormService mockFormService = Mockito.mock(FormService.class);
+    ViewService mockService = Mockito.mock(ViewService.class);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.anyList(),
+                Mockito.anyString(),
+                Mockito.any(),
+                Mockito.anyInt(),
+                Mockito.anyInt(),
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setNumEntities(0)
+                .setFrom(0)
+                .setPageSize(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    final AggregateAcrossEntitiesResolver resolver =
+        new AggregateAcrossEntitiesResolver(mockClient, mockService, mockFormService);
+
+    com.linkedin.datahub.graphql.generated.SearchFlags gqlFlags =
+        new com.linkedin.datahub.graphql.generated.SearchFlags();
+    gqlFlags.setIncludeHiddenLifecycleStages(true);
+
+    final AggregateAcrossEntitiesInput testInput =
+        new AggregateAcrossEntitiesInput(
+            ImmutableList.of(EntityType.DOCUMENT), "", null, null, null, gqlFlags);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockDenyContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(mockClient)
+        .searchAcrossEntities(
+            any(),
+            eq(Collections.singletonList(Constants.DOCUMENT_ENTITY_NAME)),
+            eq(""),
+            filterCaptor.capture(),
+            eq(0),
+            eq(0),
+            eq(Collections.emptyList()),
+            Mockito.eq(null));
+    assertNull(filterCaptor.getValue());
+  }
+
+  private static boolean filterContainsField(Filter filter, String fieldName) {
+    if (filter == null || !filter.hasOr()) return false;
+    return filter.getOr().stream()
+        .flatMap(clause -> clause.getAnd().stream())
+        .anyMatch(criterion -> fieldName.equals(criterion.getField()));
+  }
+
+  /**
+   * Builds the default document filter applied when DOCUMENT is in entity types. Since
+   * getMockAllowContext allows all privileges (canManageDocuments=true), the legacy clause omits
+   * the state != UNPUBLISHED filter.
+   */
+  private static Filter buildDocumentDefaultFilter() {
+    Criterion lifecycleCriterion = new Criterion();
+    lifecycleCriterion.setField("lifecycleStage");
+    lifecycleCriterion.setCondition(Condition.EQUAL);
+    lifecycleCriterion.setValues(
+        new com.linkedin.data.template.StringArray(
+            Collections.singletonList("urn:li:lifecycleStageType:PUBLISHED")));
+
+    ConjunctiveCriterion publishedClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(lifecycleCriterion, buildShowInGlobalContextCriterion())));
+
+    Criterion isNullCriterion = new Criterion();
+    isNullCriterion.setField("lifecycleStage");
+    isNullCriterion.setCondition(Condition.IS_NULL);
+
+    ConjunctiveCriterion legacyClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(isNullCriterion, buildShowInGlobalContextCriterion())));
+
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(ImmutableList.of(publishedClause, legacyClause)));
+  }
+
+  private static Criterion buildShowInGlobalContextCriterion() {
+    Criterion criterion = new Criterion();
+    criterion.setField("showInGlobalContext");
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
+    criterion.setNegated(true);
+    return criterion;
   }
 
   private static Filter createFilter(String field, String value) {

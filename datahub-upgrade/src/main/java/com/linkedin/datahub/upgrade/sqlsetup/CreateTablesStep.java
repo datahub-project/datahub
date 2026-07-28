@@ -86,6 +86,9 @@ public class CreateTablesStep implements UpgradeStep {
     try (Connection connection = server.dataSource().getConnection()) {
       dbOps.ensureAspectIndexes(connection);
     }
+    try (Connection connection = server.dataSource().getConnection()) {
+      dbOps.ensureAspectTableCollation(connection);
+    }
 
     if (args.createSchemaVersionIndex()) {
       try (Connection connection = server.dataSource().getConnection()) {

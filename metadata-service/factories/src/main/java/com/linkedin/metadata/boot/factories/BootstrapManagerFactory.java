@@ -81,6 +81,13 @@ public class BootstrapManagerFactory {
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
 
+  // Expensive one-shot restores; off by default (parity with master #18115 systemUpdate defaults).
+  @Value("${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}")
+  private boolean _restoreColumnLineageIndicesEnabled;
+
+  @Value("${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:false}")
+  private boolean _restoreDbtSiblingsIndicesEnabled;
+
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
@@ -95,12 +102,8 @@ public class BootstrapManagerFactory {
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService);
-    final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService);
     final RemoveClientIdAspectStep removeClientIdAspectStep =
         new RemoveClientIdAspectStep(_entityService);
-    final RestoreColumnLineageIndices restoreColumnLineageIndices =
-        new RestoreColumnLineageIndices(_entityService);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep =
         new IngestDefaultGlobalSettingsStep(_entityService);
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
@@ -118,10 +121,15 @@ public class BootstrapManagerFactory {
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
                 removeClientIdAspectStep,
-                restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
-                restoreColumnLineageIndices,
                 restoreFormInfoIndicesStep));
+
+    if (_restoreDbtSiblingsIndicesEnabled) {
+      finalSteps.add(new RestoreDbtSiblingsIndices(_entityService));
+    }
+    if (_restoreColumnLineageIndicesEnabled) {
+      finalSteps.add(new RestoreColumnLineageIndices(_entityService));
+    }
 
     if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
       finalSteps.add(migrateHomePageLinksStep);

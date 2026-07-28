@@ -86,6 +86,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -381,7 +382,8 @@ public class ESIndexBuilder {
                 structPropConfig.isEnabled()
                     && structPropConfig.isSystemUpdateEnabled()
                     && !copyStructuredPropertyMappings)
-            .version(gitVersion.getVersion());
+            .version(gitVersion.getVersion())
+            .settingsComparisonShim(searchClient);
 
     Map<String, Object> baseSettings = new HashMap<>(settings);
     baseSettings.put(NUMBER_OF_SHARDS, indexConfig.getNumShards());
@@ -900,6 +902,7 @@ public class ESIndexBuilder {
     Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
     int reindexCount = 1;
     int count = 0;
+    String activeTaskId = taskId;
     Pair<Long, Long> documentCounts = getDocumentCounts(expectedCountSupplier, destIndex);
     long documentCountsLastUpdated = System.currentTimeMillis();
     long previousDocCount = documentCounts.getSecond();
@@ -907,7 +910,10 @@ public class ESIndexBuilder {
 
     while (System.currentTimeMillis() < timeoutAt) {
       log.info(
-          "Task: {} - Reindexing from {} to {} in progress...", taskId, sourceIndex, destIndex);
+          "Task: {} - Reindexing from {} to {} in progress...",
+          activeTaskId,
+          sourceIndex,
+          destIndex);
 
       Pair<Long, Long> latestCounts = getDocumentCounts(expectedCountSupplier, destIndex);
 
@@ -940,22 +946,34 @@ public class ESIndexBuilder {
           documentCounts.getFirst() > 0
               ? (100 * (1.0f * documentCounts.getSecond())) / documentCounts.getFirst()
               : 0;
+
+      final Optional<GetTaskResponse> taskStatus = tryGetReindexTaskStatus(activeTaskId);
       log.warn(
-          "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes",
+          "Document counts do not match {} != {}. Complete: {}%. Estimated time remaining: {} minutes. Reindex task [{}]: {}",
           documentCounts.getFirst(),
           documentCounts.getSecond(),
           progressPercentage,
-          estimatedMinutesRemaining);
+          estimatedMinutesRemaining,
+          activeTaskId,
+          describeReindexTaskStatus(taskStatus));
 
-      // Stall detection: re-trigger reindex if no progress
+      final boolean completedButShort =
+          taskStatus.map(GetTaskResponse::isCompleted).orElse(false)
+              && documentCounts.getSecond() < documentCounts.getFirst();
+
       long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
       int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
-      if (lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
+      if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
         if (reindexCount <= indexConfig.getNumRetries()) {
           log.warn(
-              "No change in index count after {} minutes, re-triggering reindex #{}.",
-              noProgressRetryMinutes,
-              reindexCount);
+              "Re-triggering reindex #{} for {} ({}). Prior task [{}]: {}",
+              reindexCount,
+              sourceIndex,
+              completedButShort
+                  ? "task completed but destination is short"
+                  : String.format("no progress for %d minutes", noProgressRetryMinutes),
+              activeTaskId,
+              describeReindexTaskStatus(taskStatus));
           latestReindexInfo =
               submitReindex(
                   new String[] {sourceIndex},
@@ -964,10 +982,14 @@ public class ESIndexBuilder {
                   null,
                   null,
                   targetShards);
+          final Object resubmittedTaskId = latestReindexInfo.get("taskId");
+          if (resubmittedTaskId != null) {
+            activeTaskId = (String) resubmittedTaskId;
+          }
           reindexCount++;
           documentCountsLastUpdated = System.currentTimeMillis();
         } else {
-          log.warn("Reindex retry timeout for {}.", sourceIndex);
+          log.warn("Reindex retry limit reached for {}.", sourceIndex);
           break;
         }
       }
@@ -976,7 +998,14 @@ public class ESIndexBuilder {
       Thread.sleep(Math.min(finalCheckIntervalMilli, initialCheckIntervalMilli * count));
     }
 
-    log.warn("Reindex {} -> {} timed out or exhausted retries", sourceIndex, destIndex);
+    log.error(
+        "Reindex {} -> {} timed out or exhausted retries at {}/{} docs. Last reindex task [{}]: {}",
+        sourceIndex,
+        destIndex,
+        documentCounts.getSecond(),
+        documentCounts.getFirst(),
+        activeTaskId,
+        describeReindexTaskStatus(tryGetReindexTaskStatus(activeTaskId)));
     return new PollReindexResult(false, latestReindexInfo, documentCounts);
   }
 
@@ -1984,6 +2013,59 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
+  /**
+   * Best-effort fetch of the ES {@code _reindex} task status for diagnostics. Never throws: a
+   * blank/malformed task id (e.g. an empty id passed on resume) or any transport error yields
+   * {@link Optional#empty()}, so a status lookup can never break the polling loop it is meant to
+   * instrument.
+   */
+  private Optional<GetTaskResponse> tryGetReindexTaskStatus(@Nullable final String taskId) {
+    if (taskId == null || taskId.isBlank() || !taskId.contains(":")) {
+      return Optional.empty();
+    }
+    try {
+      return getTaskStatus(taskId);
+    } catch (Exception e) {
+      log.debug("Unable to fetch reindex task status for {}: {}", taskId, e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /** Renders an optional task status for logging, or {@code "status unavailable"} when absent. */
+  private static String describeReindexTaskStatus(Optional<GetTaskResponse> status) {
+    return status.map(ESIndexBuilder::describeReindexTaskStatus).orElse("status unavailable");
+  }
+
+  /**
+   * Renders the counters from a reindex task status response into a compact log string. {@code
+   * versionConflicts} together with {@code created} vs {@code total} are what reveal a reindex that
+   * finished (or stalled) while dropping documents — information the doc-count-only monitoring is
+   * blind to.
+   */
+  static String describeReindexTaskStatus(@Nonnull final GetTaskResponse response) {
+    final Object status =
+        response.getTaskInfo() != null ? response.getTaskInfo().getStatus() : null;
+    if (status == null) {
+      return String.format("completed=%s, status=<unavailable>", response.isCompleted());
+    }
+    if (status instanceof BulkByScrollTask.Status) {
+      final BulkByScrollTask.Status s = (BulkByScrollTask.Status) status;
+      return String.format(
+          "completed=%s, total=%d, created=%d, updated=%d, deleted=%d, versionConflicts=%d, noops=%d, batches=%d, bulkRetries=%d, searchRetries=%d",
+          response.isCompleted(),
+          s.getTotal(),
+          s.getCreated(),
+          s.getUpdated(),
+          s.getDeleted(),
+          s.getVersionConflicts(),
+          s.getNoops(),
+          s.getBatches(),
+          s.getBulkRetries(),
+          s.getSearchRetries());
+    }
+    return String.format("completed=%s, status=%s", response.isCompleted(), status);
+  }
+
   private Pair<Long, Long> getDocumentCounts(
       Callable<Long> expectedCountSupplier, String destinationIndex) throws Throwable {
     // Check whether reindex succeeded by comparing document count
@@ -2427,6 +2509,25 @@ public class ESIndexBuilder {
               new GetIndexRequest(indexState.indexCleanPattern()), requestOptions);
 
       for (String index : response.getIndices()) {
+        // The base entity clean pattern (e.g. "datasetindex_v2_*") also matches the semantic index
+        // "datasetindex_v2_semantic". That is the live semantic search index itself (where the
+        // embeddings live), addressed directly by its physical name - not an orphaned backing index
+        // of the base entity index. The original semantic index has no alias, so this orphan sweep
+        // (alias-less + past retention) would otherwise delete live data. The bare index is only
+        // meant to be removed when a reindex converts it to an alias - renameReindexedIndices
+        // deletes it and points the alias at the new "<base>_semantic_<ts>" backing; those backings
+        // are then cleaned normally (they end in a timestamp). So never delete the bare name here.
+        //
+        // v1.6 cleanOrphanedIndices is static and has no OperationContext/IndexConvention; match
+        // IndexConventionImpl.isSemanticEntityIndex (suffix *_index_v2_semantic) via endsWith.
+        if (index.endsWith("_semantic")) {
+          log.info(
+              "Skipping semantic index {} matched by base clean pattern {}",
+              index,
+              indexState.indexCleanPattern());
+          continue;
+        }
+
         var creationDateStr = response.getSetting(index, "index.creation_date");
         var creationDateEpoch = Long.parseLong(creationDateStr);
         var creationDate = new Date(creationDateEpoch);
