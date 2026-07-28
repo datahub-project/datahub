@@ -184,13 +184,10 @@ class PostgresAdapter(PlatformAdapter):
     # =========================================================================
 
     def profiling_isolation_level(self) -> Optional[str]:
-        # Postgres holds an implicit transaction across every query on a connection
-        # that does not set an isolation level, which for a large table means a
-        # long-lived transaction. PostgresAdapter creates no temp resources and does
-        # not override setup_profiling, so switching to AUTOCOMMIT is safe and removes
-        # the long transaction. The trade-off is that min/max/COUNT(*)/COUNT(col) come
-        # from different snapshots on a concurrently written table; the profiler
-        # already clamps derived counts (null_count via max(0, row_count -
-        # non_null_count), nullProportion/uniqueProportion via min(1, ...)) to
-        # tolerate that skew.
+        # psycopg2 begins a transaction on first use and SQLAlchemy never COMMITs the
+        # read-only profiling session, so the transaction stays open for the connection's
+        # life — Postgres sits idle-in-transaction, holding back the xmin horizon and
+        # blocking VACUUM. AUTOCOMMIT makes each statement self-contained. PostgresAdapter
+        # creates no temp resources (no setup_profiling/cleanup override), so this is safe.
+        # Cross-snapshot skew is accepted; see base_adapter.profiling_isolation_level.
         return "AUTOCOMMIT"

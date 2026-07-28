@@ -56,7 +56,13 @@ def get_adapter(
         )
 
         adapter_class = PostgresAdapter
-    elif platform_lower == "mysql":
+    elif platform_lower in ("mysql", "mariadb"):
+        # MariaDB is wire- and information_schema-compatible with MySQL (it shares
+        # information_schema.tables.table_rows and the InnoDB storage engine), and
+        # MariaDBSource extends MySQLSource so it inherits MySQLConfig and the PR 2
+        # guardrails. Routing it here makes the AUTOCOMMIT isolation-level fix apply
+        # to MariaDB too; without this it would resolve to GenericAdapter and keep
+        # holding the long profiling transaction.
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.mysql import (
             MySQLAdapter,
         )

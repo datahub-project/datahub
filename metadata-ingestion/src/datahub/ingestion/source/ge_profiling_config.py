@@ -182,6 +182,19 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
+    profiling_isolation_level: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override the profiling connection's isolation level. By default the source's adapter "
+            "chooses (MySQL/Postgres use AUTOCOMMIT to avoid holding a long-lived transaction "
+            "across profiling; other sources stay transactional). Set to a SQLAlchemy isolation "
+            "level name (e.g. `READ COMMITTED`) to force that level on every source. Set to the "
+            "sentinel `TRANSACTIONAL` to force transactional behavior on a source whose adapter "
+            "defaults to AUTOCOMMIT (e.g. MySQL behind a proxy that rejects the session setting). "
+            "An invalid level fails loudly at profiler construction, not per table."
+        ),
+    )
+
     partition_profiling_enabled: Annotated[
         bool, SupportedSources(["athena", "bigquery"])
     ] = Field(

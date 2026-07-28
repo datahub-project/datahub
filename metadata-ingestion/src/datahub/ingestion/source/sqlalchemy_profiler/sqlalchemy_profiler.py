@@ -472,6 +472,32 @@ class SQLAlchemyProfiler:
 
         self.platform = platform.lower()
 
+        # Resolve the profiling isolation level ONCE here, not per table. The level is
+        # adapter-constant and (via the escape hatch) config-constant, so resolving it per
+        # table was wasted work — and worse, it was resolved inside the per-table try at
+        # sqlalchemy_profiler.py:1601 whose handler (:1816) catches sa.exc.SQLAlchemyError.
+        # ArgumentError subclasses SQLAlchemyError, so a bad level was swallowed into one
+        # warning per table and returned None — zero profiles for the entire run, silently.
+        # Validating here fails loudly at construction instead. Keep the execution_options
+        # *call* itself inside the per-table connection scope (it must apply to each checked-out
+        # connection); only resolution and validation are hoisted.
+        adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+        level = adapter.profiling_isolation_level()
+        # Escape hatch (config overrides the adapter in both directions): force a level, or
+        # force transactional (None) via the "TRANSACTIONAL" sentinel — e.g. for MySQL behind a
+        # proxy that rejects the AUTOCOMMIT session setting.
+        override = self.config.profiling_isolation_level
+        if override is not None:
+            level = None if override == "TRANSACTIONAL" else override
+        if level is not None:
+            # execution_options(isolation_level=...) validates the name against the dialect
+            # eagerly (raises ArgumentError on an unknown name — verified on SQLAlchemy 1.4).
+            # One connect/apply/close here is the single eager validation; the per-table path
+            # only re-applies the already-validated level.
+            with self.base_engine.connect() as conn:
+                conn.execution_options(isolation_level=level)
+        self._profiling_isolation_level = level
+
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
         if not self.config.any_field_level_metrics_enabled():
@@ -1594,16 +1620,22 @@ class SQLAlchemyProfiler:
             row_count=row_count,
         )
 
-        # Get platform-specific adapter
+        # Get platform-specific adapter. The isolation LEVEL is resolved once at
+        # construction (see __init__); only the adapter object is fetched per table here.
         adapter = get_adapter(platform, self.config, self.report, self.base_engine)
 
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
-                isolation_level = adapter.profiling_isolation_level()
                 with self.base_engine.connect() as conn:
-                    if isolation_level is not None:
-                        conn = conn.execution_options(isolation_level=isolation_level)
+                    if self._profiling_isolation_level is not None:
+                        # Rebind is required: Connection.execution_options returns a branched
+                        # copy carrying the new option rather than mutating in place, so the
+                        # returned object is the one that must flow downstream into
+                        # adapter.setup_profiling(context, conn). Do NOT drop the rebind.
+                        conn = conn.execution_options(
+                            isolation_level=self._profiling_isolation_level
+                        )
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     try:

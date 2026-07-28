@@ -237,6 +237,14 @@ class TestAdapterFactory:
         adapter = get_adapter("mysql", config, report, mock_mysql_engine)
         assert isinstance(adapter, MySQLAdapter)
 
+    def test_get_adapter_mariadb(self, config, report, mock_mysql_engine):
+        """MariaDB is wire- and information_schema-compatible with MySQL and
+        MariaDBSource extends MySQLSource (inherits MySQLConfig + guardrails),
+        so it routes to MySQLAdapter -- otherwise it would fall through to
+        GenericAdapter and miss the AUTOCOMMIT isolation-level fix."""
+        adapter = get_adapter("mariadb", config, report, mock_mysql_engine)
+        assert isinstance(adapter, MySQLAdapter)
+
     def test_get_adapter_mssql(self, config, report, mock_mssql_engine):
         """Test factory returns MSSQL adapter for 'mssql' platform name."""
         adapter = get_adapter("mssql", config, report, mock_mssql_engine)
