@@ -37,6 +37,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sap_common.models import (
+    EdmxParseResult,
+    UnknownColumnType,
+)
 from datahub.ingestion.source.sap_datasphere.analytic_model import (
     extract_projection_source_columns,
     parse_business_layer,
@@ -109,7 +113,6 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineagePair,
     CsnSchemaResult,
     EdmxFetchReason,
-    EdmxParseResult,
     FlowColumnMapping,
     FlowEndpoint,
     FlowTask,
@@ -119,7 +122,6 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ResolveSkipReason,
     SourceColumnRef,
     TransformOp,
-    UnknownColumnType,
     UpstreamRef,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
