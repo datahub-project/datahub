@@ -1287,17 +1287,10 @@ public class FixEntityConsistencyStepTest {
     assertEquals(step.executable().apply(mockContext).result(), DataHubUpgradeState.SUCCEEDED);
 
     verify(mockEsSystemMetadataDAO, never())
-        .scroll(
-            any(OperationContext.class),
-            any(BoolQueryBuilder.class),
-            anyBoolean(),
-            any(),
-            any(),
-            anyString(),
-            anyInt());
+        .scroll(any(BoolQueryBuilder.class), anyBoolean(), any(), any(), anyString(), anyInt());
   }
 
-  /** Empty effective check IDs leave the list empty so checkBatch uses entity-type defaults. */
+  /** Empty check IDs leave the list empty so checkBatch uses entity-type defaults. */
   @Test
   public void testEmptyEffectiveCheckIdsPassedThroughToCheckBatch() throws Exception {
     ConsistencyService spyService = spy(consistencyService);
@@ -1305,19 +1298,10 @@ public class FixEntityConsistencyStepTest {
         CheckResult.builder().entitiesScanned(0).issuesFound(0).issues(List.of()).build();
     doReturn(emptyResult).when(spyService).checkBatch(any(), any(CheckBatchRequest.class), any());
 
+    // v1.6 has no per-check CheckRunConfig; empty checkIds is the release-line way to request
+    // entity-type defaults.
     EntityConsistencyConfiguration config =
-        createTestConfig(
-            true,
-            10,
-            0,
-            0,
-            false,
-            List.of(ASSERTION_ENTITY_NAME),
-            List.of("assertion-entity-not-found"));
-    EntityConsistencyConfiguration.CheckRunConfig disabled =
-        new EntityConsistencyConfiguration.CheckRunConfig();
-    disabled.setMode("disabled");
-    config.setChecks(Map.of("assertion-entity-not-found", disabled));
+        createTestConfig(true, 10, 0, 0, false, List.of(ASSERTION_ENTITY_NAME), List.of());
 
     FixEntityConsistencyStep step =
         new FixEntityConsistencyStep(mockOpContext, mockEntityService, spyService, config);
