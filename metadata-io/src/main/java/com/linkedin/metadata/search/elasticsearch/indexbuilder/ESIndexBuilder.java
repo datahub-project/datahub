@@ -1529,28 +1529,45 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
-   * alias to point to the new index.
+   * Validates that the new backing index holds exactly the documents the reindex set out to copy,
+   * then atomically swaps the alias to point to the new index.
+   *
+   * <p>The comparison is against {@code expectedSourceDocCount} — the source count snapshotted when
+   * the reindex was launched — and deliberately <b>not</b> against a live count read from the
+   * alias. Reading the alias here compares "what the source holds right now" against "what the copy
+   * captured a while ago"; on an index that keeps taking writes for the duration of the copy those
+   * two can never agree, which makes the swap permanently unsatisfiable. The incremental (ZDU) path
+   * does not block writes, and the writes landing during the copy window are replayed afterwards by
+   * the Phase 2 catch-up step, so that residual gap is expected by design rather than an error.
+   *
+   * <p>The check stays strict equality against that point-in-time snapshot: the destination is
+   * expected to reproduce the source exactly as it stood when the reindex started, no more and no
+   * less. Note that the reindex scroll opens slightly after the count is taken, so writes landing
+   * in that narrow window end up in the scroll snapshot and push the destination above it — this
+   * check then fails, loudly and recoverably, rather than swapping onto an index whose contents do
+   * not correspond to any known point in time.
    *
    * @param aliasName the alias to swap
    * @param newBackingIndex the physical index to point the alias to
-   * @return true if swapped, false if doc counts didn't match
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
+   * @return true if swapped, false if the destination doc count does not match
    * @throws Exception if the swap operation fails
    */
   public boolean validateAndSwapAlias(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
-      @Nonnull String newBackingIndex)
+      @Nonnull String newBackingIndex,
+      final long expectedSourceDocCount)
       throws Exception {
-    long currentCount = getCount(opContext, aliasName);
-    long nextCount = getCount(opContext, newBackingIndex);
+    final long nextCount = getCount(opContext, newBackingIndex);
 
-    if (currentCount != nextCount) {
+    if (nextCount != expectedSourceDocCount) {
       log.warn(
-          "Doc count mismatch for alias swap {} -> {}: current={}, next={}",
+          "Doc count mismatch for alias swap {} -> {}: expected={} (source count at reindex start),"
+              + " next={}",
           aliasName,
           newBackingIndex,
-          currentCount,
+          expectedSourceDocCount,
           nextCount);
       return false;
     }
@@ -1559,7 +1576,7 @@ public class ESIndexBuilder {
         "Doc counts match for {} -> {}: count={}. Swapping alias.",
         aliasName,
         newBackingIndex,
-        currentCount);
+        nextCount);
     renameReindexedIndices(
         searchClient, opContext, aliasName, null, newBackingIndex, false, requestOptionsLong);
     return true;

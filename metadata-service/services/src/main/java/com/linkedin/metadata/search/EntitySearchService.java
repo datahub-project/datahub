@@ -441,14 +441,16 @@ public interface EntitySearchService {
   }
 
   /**
-   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
-   * alias.
+   * Validates the new backing index's doc count against the source count snapshotted when the
+   * reindex was launched, then atomically swaps the alias.
    *
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
    * @return true if swapped, false if doc counts didn't match
    */
   boolean validateAndSwapAlias(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
-      @Nonnull String newBackingIndex)
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception;
 }

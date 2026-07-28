@@ -354,7 +354,8 @@ public class EntitySearchServiceTest {
     public boolean validateAndSwapAlias(
         @NonNull OperationContext opContext,
         @NonNull String aliasName,
-        @NonNull String newBackingIndex)
+        @NonNull String newBackingIndex,
+        long expectedSourceDocCount)
         throws Exception {
       return false;
     }

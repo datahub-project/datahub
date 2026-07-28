@@ -199,21 +199,22 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               indexBuilder.undoReindexOptimalSettings(
                   opContext, existingNextIndex.get(), config, pollResult.latestReindexInfo());
 
-              // Swap alias to next index so new code reads from the updated schema
-              boolean swapped =
-                  indexBuilder.validateAndSwapAlias(
-                      opContext, config.name(), existingNextIndex.get());
-              if (!swapped) {
-                log.error(
-                    "Alias swap failed for {} -> {} after resume: doc count mismatch",
-                    config.name(),
-                    existingNextIndex.get());
+              // Swap alias to next index so new code reads from the updated schema. The gate
+              // compares against the source count snapshotted when this index's reindex was
+              // launched, not a live alias count — see ESIndexBuilder#validateAndSwapAlias.
+              if (!swapAliasOrCleanUp(
+                  context,
+                  upgradeState,
+                  config,
+                  existingNextIndex.get(),
+                  persistedSourceDocCount,
+                  indexBuilder,
+                  "after resume")) {
                 return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
               }
-              log.info("Alias swapped: {} -> {}", config.name(), existingNextIndex.get());
               // Only now is Phase 1 truly complete: mark COMPLETED so subsequent runs skip it. A
-              // failed swap above returns before reaching here, leaving the index IN_PROGRESS for
-              // retry.
+              // failed swap above returns before reaching here, having escalated the index to
+              // FAILED so the next run rebuilds it.
               upgradeState =
                   IncrementalReindexState.setPhase1Completed(upgradeState, config.name());
               checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
@@ -253,13 +254,14 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
 
             // Still need to swap the alias so new code reads from the next index with correct
             // mappings, even though both indices have 0 docs.
-            boolean swapped =
-                indexBuilder.validateAndSwapAlias(opContext, config.name(), result.nextIndexName());
-            if (!swapped) {
-              log.error(
-                  "Alias swap failed for {} -> {} (empty index): doc count mismatch",
-                  config.name(),
-                  result.nextIndexName());
+            if (!swapAliasOrCleanUp(
+                context,
+                upgradeState,
+                config,
+                result.nextIndexName(),
+                result.sourceDocCount(),
+                indexBuilder,
+                "empty index")) {
               return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
             }
             log.info(
@@ -294,20 +296,22 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           indexBuilder.undoReindexOptimalSettings(
               opContext, result.nextIndexName(), config, pollResult.latestReindexInfo());
 
-          // Swap alias to next index so new code reads from the updated schema
-          boolean swapped =
-              indexBuilder.validateAndSwapAlias(opContext, config.name(), result.nextIndexName());
-          if (!swapped) {
-            log.error(
-                "Alias swap failed for {} -> {} after reindex: doc count mismatch",
-                config.name(),
-                result.nextIndexName());
+          // Swap alias to next index so new code reads from the updated schema. The gate compares
+          // against the source count snapshotted when the reindex was launched, not a live alias
+          // count — see ESIndexBuilder#validateAndSwapAlias.
+          if (!swapAliasOrCleanUp(
+              context,
+              upgradeState,
+              config,
+              result.nextIndexName(),
+              sourceDocCount,
+              indexBuilder,
+              "after reindex")) {
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
-          log.info("Alias swapped: {} -> {}", config.name(), result.nextIndexName());
           // Only now is Phase 1 truly complete: mark COMPLETED so subsequent runs skip it. A
-          // failed swap above returns before reaching here, leaving the index IN_PROGRESS for
-          // retry.
+          // failed swap above returns before reaching here, having escalated the index to FAILED
+          // so the next run rebuilds it.
           upgradeState = IncrementalReindexState.setPhase1Completed(upgradeState, config.name());
           checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
         }
@@ -365,21 +369,85 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       log.info("Incremental reindex completed for index: {}", indexName);
     } else {
       log.error("Incremental reindex timed out for index: {}", indexName);
-      upgradeState.put(
-          IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS),
-          IncrementalReindexState.Status.FAILED.name());
-      checkpoint(context, upgradeState, DataHubUpgradeState.FAILED);
-      try {
-        indexBuilder.deleteActionWithRetry(opContext, nextIndexName);
-        log.info("Cleaned up failed next index: {}", nextIndexName);
-      } catch (Exception e) {
-        log.warn(
-            "Failed to clean up next index {} (will be cleaned by retention): {}",
-            nextIndexName,
-            e.getMessage());
-      }
+      failAndCleanUp(context, upgradeState, indexName, nextIndexName, indexBuilder);
     }
     return upgradeState;
+  }
+
+  /**
+   * Swaps the alias onto the next index, escalating the index to {@link
+   * IncrementalReindexState.Status#FAILED} if the swap does not succeed.
+   *
+   * <p>Both failure kinds escalate — a doc-count mismatch and an exception thrown by the swap
+   * itself. Leaving the index IN_PROGRESS instead would strand it: a resumed run re-polls a target
+   * it already satisfies, so the poll returns immediately without copying anything, and the only
+   * action left is to re-attempt the identical swap against a destination that no longer receives
+   * writes. That retry can never make progress, and because nothing transitions the status, it
+   * repeats on every subsequent run. Escalating instead forces the next run down the fresh-start
+   * branch, which rebuilds the index and gives the swap a destination that can actually match.
+   *
+   * @param phase short description of the call site, for log correlation
+   * @return true if the alias was swapped; false if the index was escalated to FAILED
+   */
+  private boolean swapAliasOrCleanUp(
+      UpgradeContext context,
+      Map<String, String> upgradeState,
+      ReindexConfig config,
+      String nextIndexName,
+      final long expectedSourceDocCount,
+      ESIndexBuilder indexBuilder,
+      String phase) {
+    try {
+      if (indexBuilder.validateAndSwapAlias(
+          opContext, config.name(), nextIndexName, expectedSourceDocCount)) {
+        log.info("Alias swapped: {} -> {}", config.name(), nextIndexName);
+        return true;
+      }
+      log.error(
+          "Alias swap failed for {} -> {} ({}): doc count mismatch. Marking FAILED so the next run"
+              + " reindexes from scratch.",
+          config.name(),
+          nextIndexName,
+          phase);
+    } catch (Exception e) {
+      log.error(
+          "Alias swap failed for {} -> {} ({}). Marking FAILED so the next run reindexes from"
+              + " scratch.",
+          config.name(),
+          nextIndexName,
+          phase,
+          e);
+    }
+    failAndCleanUp(context, upgradeState, config.name(), nextIndexName, indexBuilder);
+    return false;
+  }
+
+  /**
+   * Marks an index FAILED, checkpoints, and deletes its next index.
+   *
+   * <p>FAILED is the state that guarantees recovery: it is neither skipped (only COMPLETED and
+   * DUAL_WRITE_DISABLED are) nor resumed (resumption requires IN_PROGRESS), so the following run
+   * takes the fresh-start branch and reindexes. Mutates {@code upgradeState} in place.
+   */
+  private void failAndCleanUp(
+      UpgradeContext context,
+      Map<String, String> upgradeState,
+      String indexName,
+      String nextIndexName,
+      ESIndexBuilder indexBuilder) {
+    upgradeState.put(
+        IncrementalReindexState.key(indexName, IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    checkpoint(context, upgradeState, DataHubUpgradeState.FAILED);
+    try {
+      indexBuilder.deleteActionWithRetry(opContext, nextIndexName);
+      log.info("Cleaned up failed next index: {}", nextIndexName);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to clean up next index {} (will be cleaned by retention): {}",
+          nextIndexName,
+          e.getMessage());
+    }
   }
 
   private void checkpoint(
