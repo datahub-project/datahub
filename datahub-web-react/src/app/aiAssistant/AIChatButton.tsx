@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import styled, { keyframes } from 'styled-components';
 
 // ─── Animations ────────────────────────────────────────────────────────────────
@@ -131,6 +133,47 @@ const Message = styled.div<{ $isUser: boolean }>`
     line-height: 1.5;
     align-self: ${({ $isUser }) => ($isUser ? 'flex-end' : 'flex-start')};
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+`;
+
+// Renders markdown from the assistant (bold, lists, tables, code, links) inside the chat bubble.
+const MarkdownContent = styled.div`
+    /* Tighten spacing so markdown fits the narrow chat panel */
+    & > *:first-child { margin-top: 0; }
+    & > *:last-child { margin-bottom: 0; }
+    p { margin: 0 0 8px; }
+    ul, ol { margin: 0 0 8px; padding-left: 20px; }
+    li { margin: 2px 0; }
+    h1, h2, h3, h4 { margin: 8px 0 4px; font-size: 14px; font-weight: 600; }
+    a { color: #7c6af7; text-decoration: underline; }
+    code {
+        background: #f0f0f5;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+    }
+    pre {
+        background: #f0f0f5;
+        padding: 10px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0 0 8px;
+    }
+    pre code { background: none; padding: 0; }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12px;
+        margin: 0 0 8px;
+    }
+    th, td { border: 1px solid #e0e0e8; padding: 4px 8px; text-align: left; }
+    th { background: #f7f7fb; font-weight: 600; }
+    blockquote {
+        border-left: 3px solid #d0d0dc;
+        margin: 0 0 8px;
+        padding-left: 10px;
+        color: #555;
+    }
 `;
 
 const TypingIndicator = styled.div`
@@ -358,7 +401,15 @@ export const AIChatButton: React.FC = () => {
                     <MessagesArea>
                         {messages.map((msg) => (
                             <Message key={msg.id} $isUser={msg.isUser}>
-                                {msg.text}
+                                {msg.isUser ? (
+                                    msg.text
+                                ) : (
+                                    <MarkdownContent>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {msg.text}
+                                        </ReactMarkdown>
+                                    </MarkdownContent>
+                                )}
                             </Message>
                         ))}
                         {isTyping && <TypingIndicator>···</TypingIndicator>}
