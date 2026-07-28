@@ -121,13 +121,10 @@ class MySQLAdapter(PlatformAdapter):
     # =========================================================================
 
     def profiling_isolation_level(self) -> Optional[str]:
-        # MySQL holds an implicit transaction across every query on a connection
-        # that does not set an isolation level, which for a large table means a
-        # multi-hour transaction and InnoDB undo log growth. MySQLAdapter creates
-        # no temp resources and does not override setup_profiling, so switching to
-        # AUTOCOMMIT is safe and removes the long transaction. The trade-off is that
-        # min/max/COUNT(*)/COUNT(col) come from different snapshots on a concurrently
-        # written table; the profiler already clamps derived counts (null_count via
-        # max(0, row_count - non_null_count), nullProportion/uniqueProportion via
-        # min(1, ...)) to tolerate that skew.
+        # pymysql disables autocommit on connect (`SET AUTOCOMMIT = 0`) and SQLAlchemy never
+        # COMMITs the read-only profiling session, so the transaction stays open for the
+        # connection's life — pinning an InnoDB REPEATABLE-READ read view and growing the
+        # history/undo list. AUTOCOMMIT makes each statement self-contained. MySQLAdapter
+        # creates no temp resources (no setup_profiling/cleanup override), so this is safe.
+        # Cross-snapshot skew is accepted; see base_adapter.profiling_isolation_level.
         return "AUTOCOMMIT"

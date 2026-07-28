@@ -1,5 +1,6 @@
 """Unit tests for SQLAlchemyProfiler."""
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -70,6 +71,19 @@ def mock_report():
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
     return report
+
+
+@pytest.fixture
+def mock_adapter():
+    """A fresh MagicMock adapter for per-table profiling tests.
+
+    The isolation level is resolved ONCE at profiler construction (from the real adapter),
+    so a per-table mock's `profiling_isolation_level` is never read — but we set the default
+    (None) anyway so individual tests only need to customize `setup_profiling.side_effect`.
+    """
+    adapter = MagicMock()
+    adapter.profiling_isolation_level.return_value = None
+    return adapter
 
 
 @pytest.fixture
@@ -758,16 +772,21 @@ class TestSQLAlchemyProfiler:
 
 
 class TestProfilingIsolationLevel:
-    """The profiler must apply the adapter's profiling_isolation_level to the connection."""
+    """The profiler must apply the resolved isolation level to each per-table connection.
 
-    def _make_profiler(self, profiler):
-        # Short-circuit after the connection is opened so we can assert on the
-        # execution_options call without driving the full profile flow.
+    The level is resolved ONCE at construction (see __init__) — not per table — so these
+    tests force a level via the `profiling_isolation_level` config escape hatch rather than
+    mocking `adapter.profiling_isolation_level()` per table (which is no longer called
+    per-table).
+    """
+
+    def test_applies_autocommit_when_level_configured(self, profiler, mock_adapter):
+        # Force AUTOCOMMIT via the escape hatch; the per-table connection must receive it.
         profiler.config.catch_exceptions = True
-        return profiler
-
-    def test_applies_autocommit_when_adapter_opts_in(self, profiler):
-        self._make_profiler(profiler)
+        profiler.config.profiling_isolation_level = "AUTOCOMMIT"
+        # Re-resolve at construction-time state: __init__ validated against the real sqlite
+        # dialect (AUTOCOMMIT is accepted), so self._profiling_isolation_level == "AUTOCOMMIT".
+        profiler._profiling_isolation_level = "AUTOCOMMIT"
         mock_conn = MagicMock()
 
         with (
@@ -777,9 +796,6 @@ class TestProfilingIsolationLevel:
             ) as mock_get_adapter,
         ):
             mock_engine.connect.return_value.__enter__.return_value = mock_conn
-            mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
-            # Raise to short-circuit past setup_profiling; catch_exceptions swallows it.
             mock_adapter.setup_profiling.side_effect = RuntimeError("short-circuit")
             mock_get_adapter.return_value = mock_adapter
 
@@ -795,9 +811,17 @@ class TestProfilingIsolationLevel:
         mock_conn.execution_options.assert_called_once_with(
             isolation_level="AUTOCOMMIT"
         )
+        # Item 10: the configured connection (execution_options result) is what flows
+        # downstream into setup_profiling, not the raw checked-out connection.
+        assert (
+            mock_adapter.setup_profiling.call_args[0][1]
+            is mock_conn.execution_options.return_value
+        )
 
-    def test_does_not_apply_options_when_adapter_returns_none(self, profiler):
-        self._make_profiler(profiler)
+    def test_does_not_apply_options_when_level_none(self, profiler, mock_adapter):
+        # Default: no escape hatch, sqlite's GenericAdapter returns None → no execution_options.
+        profiler.config.catch_exceptions = True
+        assert profiler._profiling_isolation_level is None
         mock_conn = MagicMock()
 
         with (
@@ -807,8 +831,6 @@ class TestProfilingIsolationLevel:
             ) as mock_get_adapter,
         ):
             mock_engine.connect.return_value.__enter__.return_value = mock_conn
-            mock_adapter = MagicMock()
-            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("short-circuit")
             mock_get_adapter.return_value = mock_adapter
 
@@ -822,3 +844,75 @@ class TestProfilingIsolationLevel:
 
         assert result is None  # short-circuited
         mock_conn.execution_options.assert_not_called()
+        # Item 10 inverse: with no level, the raw checked-out connection flows downstream
+        # (execution_options was never called, so no .return_value indirection).
+        assert mock_adapter.setup_profiling.call_args[0][1] is mock_conn
+
+    def test_invalid_level_fails_loudly_at_construction(
+        self, sqlite_engine, mock_report
+    ):
+        # Item 12 / Blocking 1: an invalid level must fail ONCE at construction (loud), not
+        # per-table inside the catch_exceptions handler (silent, zero profiles). __init__
+        # validates by applying execution_options on a real connection, which raises
+        # ArgumentError for an unknown level (verified on SQLAlchemy 1.4).
+        import sqlalchemy as sa
+
+        config = ProfilingConfig(
+            enabled=True,
+            profiling_isolation_level="BOGUS",
+        )
+        with pytest.raises(sa.exc.ArgumentError):
+            SQLAlchemyProfiler(
+                conn=sqlite_engine,
+                report=mock_report,
+                config=config,
+                platform="sqlite",
+                env="TEST",
+            )
+
+    def test_level_reaches_real_dialect(self, sqlite_engine, mock_report):
+        # Item 11: the only test proving the option actually reaches a dialect. Uses the
+        # real sqlite engine (not a mock) and a level that round-trips through
+        # get_isolation_level(). NOTE: "AUTOCOMMIT" is a SQLAlchemy pseudo-level NOT
+        # reported by get_isolation_level() on sqlite (returns SERIALIZABLE — verified on
+        # 1.4.44), so it cannot be used to prove round-trip; "READ UNCOMMITTED" does
+        # round-trip and proves execution_options applied the level to the real DBAPI
+        # connection. The production MySQL/Postgres hook returns AUTOCOMMIT, whose effect
+        # (each statement self-commits) is exercised in the integration suite, not here.
+        captured: list[str] = []
+        config = ProfilingConfig(
+            enabled=True,
+            profiling_isolation_level="READ UNCOMMITTED",
+        )
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=config,
+            platform="sqlite",
+            env="TEST",
+        )
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = None
+
+        def _capture_and_short_circuit(_ctx: Any, conn: Any) -> None:
+            # Capture the real isolation level on the connection that flowed downstream,
+            # then raise to short-circuit the rest of the profile flow.
+            captured.append(conn.get_isolation_level())
+            raise RuntimeError("short-circuit")
+
+        mock_adapter.setup_profiling.side_effect = _capture_and_short_circuit
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            result = profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="main.test_table",
+                schema="main",
+                table="test_table",
+                platform="sqlite",
+            )
+
+        assert result is None  # short-circuited
+        assert captured == ["READ UNCOMMITTED"]
