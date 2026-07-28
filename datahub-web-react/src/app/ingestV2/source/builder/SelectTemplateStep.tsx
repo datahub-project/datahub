@@ -259,8 +259,11 @@ export const SelectTemplateStep = ({
                 <PlatformListContainer data-testid="data-source-options">
                     {filteredSources.length > 0 ? (
                         filteredSources.map((source) => (
+                            // Key by name (unique), not urn: some built-ins share a platform urn
+                            // (e.g. dbt-cloud reuses urn:li:dataPlatform:dbt), which collides and
+                            // leaves stale cards when the support-status filter re-renders the list.
                             <SourceOption
-                                key={source.urn}
+                                key={source.name}
                                 source={source}
                                 supportStatus={supportStatusMap[source.name]}
                                 capabilities={getPluginCapabilities(source.name)?.capabilities}
