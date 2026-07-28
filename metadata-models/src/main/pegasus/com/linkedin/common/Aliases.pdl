@@ -12,10 +12,9 @@ namespace com.linkedin.common
 }
 record Aliases {
   /**
-   * System-computed. The entity's own URN with its casing lowered: platform and name are lowercased
-   * while the environment (FabricType) is preserved so the result stays a valid URN. Indexed as an
-   * exact-match keyword so that a reference in any casing can be resolved to the entity's real URN
-   * with a single batchable lookup.
+   * System-computed. The entity's own URN with the name lowercased in full, including any platform
+   * instance prefix; the platform and environment are unchanged. Indexed as an exact-match keyword,
+   * so a reference in any casing resolves to the entity's real URN in one batchable lookup.
    */
   @Searchable = {
     "fieldType": "KEYWORD",

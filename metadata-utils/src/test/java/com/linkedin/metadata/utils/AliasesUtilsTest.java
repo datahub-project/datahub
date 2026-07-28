@@ -3,7 +3,7 @@ package com.linkedin.metadata.utils;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
-import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.net.URISyntaxException;
@@ -12,13 +12,38 @@ import org.testng.annotations.Test;
 public class AliasesUtilsTest {
 
   @Test
-  public void testLowercasesPlatformAndNameKeepsEnv() throws URISyntaxException {
-    Urn mixed =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:Snowflake,DB.Schema.Table,DEV)");
-    DatasetUrn lowercased = AliasesUtils.lowercaseDatasetUrn(mixed);
+  public void testPreservesPlatformCasing() throws URISyntaxException {
+    Urn mixedPlatform =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:adlsGen2,Container/Folder,PROD)");
     assertEquals(
-        lowercased.toString(),
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,DEV)");
+        AliasesUtils.lowercaseDatasetUrn(mixedPlatform).toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:adlsGen2,container/folder,PROD)");
+  }
+
+  @Test
+  public void testLowercasesName() throws URISyntaxException {
+    Urn mixedName =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.Schema.Table,PROD)");
+    assertEquals(
+        AliasesUtils.lowercaseDatasetUrn(mixedName).toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+  }
+
+  @Test
+  public void testPreservesEnv() throws URISyntaxException {
+    Urn dev = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,DEV)");
+    assertEquals(AliasesUtils.lowercaseDatasetUrn(dev).getOriginEntity(), FabricType.DEV);
+    assertEquals(AliasesUtils.lowercaseDatasetUrn(dev).toString(), dev.toString());
+  }
+
+  @Test
+  public void testLowercasesEmbeddedPlatformInstanceAsPartOfName() throws URISyntaxException {
+    Urn withInstance =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,My_Instance.DB.Schema.Table,PROD)");
+    assertEquals(
+        AliasesUtils.lowercaseDatasetUrn(withInstance).toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.db.schema.table,PROD)");
   }
 
   @Test
