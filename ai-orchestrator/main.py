@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import os
 
+import anthropic
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
@@ -137,9 +139,11 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 all_messages = [{"role": r["role"], "content": r["content"]} for r in rows]
 
                 if len(all_messages) > SUMMARY_KEEP_RECENT:
-                    # Fetch existing summary from the sessions table
-                    cursor.execute("SELECT summary FROM sessions WHERE id = %s", (req.session_id,))
-                    session_row = cursor.fetchone()
+                    # Use a separate cursor to fetch session summary (avoid cursor reuse issues)
+                    cursor2 = conn.cursor(dictionary=True)
+                    cursor2.execute("SELECT summary FROM sessions WHERE id = %s", (req.session_id,))
+                    session_row = cursor2.fetchone()
+                    cursor2.close()
                     existing_summary = (session_row or {}).get("summary") or ""
 
                     # Summarize messages outside the keep-window
@@ -155,14 +159,13 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                     new_summary = await _summarize_messages(to_summarize)
 
                     # Persist the updated summary back to sessions table
-                    try:
-                        cursor.execute(
-                            "UPDATE sessions SET summary = %s WHERE id = %s",
-                            (new_summary, req.session_id),
-                        )
-                        conn.commit()
-                    except Exception:
-                        pass  # non-fatal
+                    cursor3 = conn.cursor()
+                    cursor3.execute(
+                        "UPDATE sessions SET summary = %s WHERE id = %s",
+                        (new_summary, req.session_id),
+                    )
+                    conn.commit()
+                    cursor3.close()
 
                     # Build history: summary as a synthetic user note + recent turns
                     history = [
@@ -174,7 +177,8 @@ async def chat(req: ChatRequest) -> StreamingResponse:
 
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
+            print(f"[history/summary] skipped due to error: {e}")
             history = []  # graceful fallback — don't block chat if DB is down
 
         # Save the user message before streaming
