@@ -34,6 +34,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +53,10 @@ public class GroupServiceTest {
   private static final String NATIVE_GROUP_URN_STRING = "urn:li:corpGroup:testGroupNative";
   private static final String EXTERNAL_GROUP_URN_STRING = "urn:li:corpGroup:testGroupExternal";
   private static final String EMAIL = "mock@email.com";
+  private static final String ACTOR_URN_STRING = "urn:li:corpuser:actor";
+  private static final int RESTORE_INDICES_BATCH_SIZE = 100;
   private static final Urn USER_URN = new CorpuserUrn(EMAIL);
+  private static final Urn OTHER_USER_URN = new CorpuserUrn("other@email.com");
   private static final List<Urn> USER_URN_LIST = new ArrayList<>(Collections.singleton(USER_URN));
   private static final Authentication SYSTEM_AUTHENTICATION =
       new Authentication(new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID), "");
@@ -162,8 +166,8 @@ public class GroupServiceTest {
 
   @Test
   public void testAddUserToNativeGroupPasses() throws Exception {
-    when(_entityService.exists(any(OperationContext.class), eq(USER_URN), eq(true)))
-        .thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
@@ -179,8 +183,8 @@ public class GroupServiceTest {
 
   @Test
   public void testAddUserToNativeGroupWhenAspectMissing() throws Exception {
-    when(_entityService.exists(any(OperationContext.class), eq(USER_URN), eq(true)))
-        .thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(Map.of());
@@ -190,6 +194,133 @@ public class GroupServiceTest {
     verify(_entityClient).ingestProposal(any(OperationContext.class), any());
     verify(_entityClient).batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
     verify(_entityClient, never()).batchGetV2(any(), eq(CORP_USER_ENTITY_NAME), any(), any());
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupIssuesOneReadPerBatch() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN, OTHER_USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN, OTHER_USER_URN), _groupUrn);
+
+    verify(_entityService, times(1)).exists(any(OperationContext.class), anyCollection(), eq(true));
+    verify(_entityClient, times(1))
+        .batchGetV2NoCache(any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any());
+    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupRejectsAbsentUserBeforeAnyWrite() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+
+    assertThrows(
+        () ->
+            _groupService.addUsersToNativeGroup(
+                opContext, List.of(USER_URN, OTHER_USER_URN), _groupUrn));
+
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupRepairsMissingEdge() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(responseWithNativeGroups(USER_URN, _groupUrn));
+    when(_graphClient.getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(relationshipsPage(0));
+
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN), _groupUrn);
+
+    // Already-members still get an ingestProposal: content is unchanged so the MCL is
+    // suppressed, but the write still refreshes actor/APP_SOURCE provenance on the row.
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    verify(_entityService)
+        .restoreIndices(
+            any(OperationContext.class),
+            eq(Set.of(USER_URN)),
+            eq(Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
+            eq(RESTORE_INDICES_BATCH_SIZE),
+            eq(false));
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupSkipsRepairWhenEdgeExists() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(responseWithNativeGroups(USER_URN, _groupUrn));
+    when(_graphClient.getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(relationshipsPage(1, USER_URN));
+
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN), _groupUrn);
+
+    verify(_entityService, never())
+        .restoreIndices(any(OperationContext.class), anySet(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupSkipsRepairForNewMember() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN), _groupUrn);
+
+    verify(_graphClient, never())
+        .getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any());
+    verify(_entityService, never())
+        .restoreIndices(any(OperationContext.class), anySet(), any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupTreatsGraphFailureAsDivergent() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(responseWithNativeGroups(USER_URN, _groupUrn));
+    when(_graphClient.getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenThrow(new RuntimeException("graph unavailable"));
+
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN), _groupUrn);
+
+    verify(_entityService)
+        .restoreIndices(
+            any(OperationContext.class),
+            eq(Set.of(USER_URN)),
+            eq(Set.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)),
+            eq(RESTORE_INDICES_BATCH_SIZE),
+            eq(false));
+  }
+
+  @Test
+  public void testAddUsersToNativeGroupDoesNotRethrowWhenRestoreIndicesFails() throws Exception {
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(responseWithNativeGroups(USER_URN, _groupUrn));
+    when(_graphClient.getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(relationshipsPage(0));
+    doThrow(new RuntimeException("index unavailable"))
+        .when(_entityService)
+        .restoreIndices(any(OperationContext.class), anySet(), any(), any(), anyBoolean());
+
+    // Must not throw: the nativeGroupMembership aspect above was already ingested successfully,
+    // so a restoreIndices failure here is a stale-index problem, not a failed add. Rethrowing
+    // would misreport a successful, already-committed membership write as an error to the
+    // caller. Pins the deliberate non-rethrow in repairMissingNativeGroupEdges's catch block —
+    // if that catch is ever removed, this test starts throwing.
+    _groupService.addUsersToNativeGroup(opContext, List.of(USER_URN), _groupUrn);
   }
 
   @Test
@@ -325,11 +456,66 @@ public class GroupServiceTest {
         .thenReturn(_entityRelationships);
     when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
-    when(_entityService.exists(any(), eq(USER_URN), eq(true))).thenReturn(true);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
 
     _groupService.migrateGroupMembershipToNativeGroupMembership(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
     verify(_entityClient, times(3)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testMigrateGroupMembershipToNativeGroupMembershipDropsStaleMember() throws Exception {
+    // The graph names two members, but OTHER_USER_URN no longer exists in SQL (e.g. a deleted
+    // corpuser whose IsMemberOfGroup edge is stale). addUsersToNativeGroup rejects the whole
+    // batch atomically if any requested URN is absent, so migration must filter stale URNs out
+    // itself rather than let one bad edge empty the group's membership entirely.
+    EntityRelationships relationshipsWithStaleMember =
+        new EntityRelationships()
+            .setStart(0)
+            .setCount(2)
+            .setTotal(2)
+            .setRelationships(
+                new EntityRelationshipArray(
+                    ImmutableList.of(
+                        new EntityRelationship()
+                            .setEntity(USER_URN)
+                            .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+                        new EntityRelationship()
+                            .setEntity(OTHER_USER_URN)
+                            .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))));
+    when(_graphClient.getRelatedEntities(
+            eq(EXTERNAL_GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(relationshipsWithStaleMember);
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
+
+    _groupService.migrateGroupMembershipToNativeGroupMembership(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
+
+    // Must not throw despite the stale OTHER_USER_URN edge, and must still migrate the member
+    // that does exist: one removeExistingGroupMembers proposal for USER_URN, one
+    // createNativeGroupOrigin proposal, and one addUsersToNativeGroup proposal for USER_URN.
+    ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(_entityClient, times(3))
+        .ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    assertTrue(
+        proposalCaptor.getAllValues().stream()
+            .anyMatch(
+                proposal ->
+                    USER_URN.equals(proposal.getEntityUrn())
+                        && NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME.equals(proposal.getAspectName())));
+    assertTrue(
+        proposalCaptor.getAllValues().stream()
+            .noneMatch(proposal -> OTHER_USER_URN.equals(proposal.getEntityUrn())));
   }
 
   @Test
@@ -515,5 +701,75 @@ public class GroupServiceTest {
 
     assertTrue(identity.getGroups().isEmpty());
     assertTrue(identity.getDirectRoles().isEmpty());
+  }
+
+  @Test
+  public void testGetNativeGroupMembersReturnsSinglePage() throws Exception {
+    Urn userA = Urn.createFromString("urn:li:corpuser:a");
+    when(_graphClient.getRelatedEntities(
+            eq(_groupUrn.toString()),
+            eq(ImmutableSet.of(IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            eq(ACTOR_URN_STRING)))
+        .thenReturn(relationshipsPage(1, userA));
+
+    assertEquals(_groupService.getNativeGroupMembers(_groupUrn, ACTOR_URN_STRING), List.of(userA));
+  }
+
+  @Test
+  public void testGetNativeGroupMembersFollowsPagination() throws Exception {
+    Urn userA = Urn.createFromString("urn:li:corpuser:a");
+    Urn userB = Urn.createFromString("urn:li:corpuser:b");
+    Urn userC = Urn.createFromString("urn:li:corpuser:c");
+    when(_graphClient.getRelatedEntities(
+            any(), any(), any(), anyInt(), anyInt(), eq(ACTOR_URN_STRING)))
+        .thenReturn(relationshipsPage(3, userA, userB), relationshipsPage(3, userC));
+
+    assertEquals(
+        _groupService.getNativeGroupMembers(_groupUrn, ACTOR_URN_STRING, 2),
+        List.of(userA, userB, userC));
+    verify(_graphClient, times(2))
+        .getRelatedEntities(any(), any(), any(), anyInt(), anyInt(), any());
+  }
+
+  @Test
+  public void testGetNativeGroupMembersHandlesNullResponse() {
+    when(_graphClient.getRelatedEntities(
+            any(), any(), any(), anyInt(), anyInt(), eq(ACTOR_URN_STRING)))
+        .thenReturn(null);
+
+    assertTrue(_groupService.getNativeGroupMembers(_groupUrn, ACTOR_URN_STRING).isEmpty());
+  }
+
+  private static Map<Urn, EntityResponse> responseWithNativeGroups(Urn userUrn, Urn... groups) {
+    NativeGroupMembership membership = new NativeGroupMembership();
+    membership.setNativeGroups(new UrnArray(Arrays.asList(groups)));
+    return ImmutableMap.of(
+        userUrn,
+        new EntityResponse()
+            .setEntityName(CORP_USER_ENTITY_NAME)
+            .setUrn(userUrn)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(membership.data()))))));
+  }
+
+  private static EntityRelationships relationshipsPage(int total, Urn... members) {
+    EntityRelationshipArray array = new EntityRelationshipArray();
+    for (Urn member : members) {
+      array.add(
+          new EntityRelationship()
+              .setEntity(member)
+              .setType(IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME));
+    }
+    return new EntityRelationships()
+        .setStart(0)
+        .setCount(members.length)
+        .setTotal(total)
+        .setRelationships(array);
   }
 }

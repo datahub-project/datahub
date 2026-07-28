@@ -64,7 +64,8 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
               throw new RuntimeException(
                   String.format(
                       "Failed to migrate group membership for group %s when adding group members",
-                      groupUrnStr));
+                      groupUrnStr),
+                  e);
             }
           } else if (groupOrigin.getType() == OriginType.EXTERNAL) {
             throw new RuntimeException(
@@ -77,14 +78,12 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
             // Add each user to the group
             final List<Urn> userUrnList =
                 input.getUserUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
-            userUrnList.forEach(
-                userUrn ->
-                    _groupService.addUserToNativeGroup(
-                        context.getOperationContext(), userUrn, groupUrn));
+            _groupService.addUsersToNativeGroup(
+                context.getOperationContext(), userUrnList, groupUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(
-                String.format("Failed to add group members to group %s", groupUrnStr));
+                String.format("Failed to add group members to group %s", groupUrnStr), e);
           }
         },
         this.getClass().getSimpleName(),
