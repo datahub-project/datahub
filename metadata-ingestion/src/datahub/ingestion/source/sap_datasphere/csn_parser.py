@@ -88,9 +88,8 @@ def parse_csn_elements_to_schema_fields(
 ) -> CsnSchemaResult:
     """Convert a CSN ``elements`` map to schema fields — the CSN path, so schemas
     are available even without an OData ``$metadata`` endpoint. Unmapped or absent
-    CDS types emit as ``NullTypeClass`` (DataHub's "unclassified" marker, matching
-    the SQL/Tableau connectors) with the raw CDS literal preserved in
-    ``nativeDataType``, and are surfaced in the report; column order is preserved.
+    CDS types emit as ``NullTypeClass`` (raw CDS literal kept in ``nativeDataType``)
+    and are surfaced in the report; column order is preserved.
     """
     fields: List[SchemaFieldClass] = []
     unknown_types: List[UnknownColumnType] = []
@@ -109,9 +108,8 @@ def parse_csn_elements_to_schema_fields(
             columns_missing_type.append(col_name)
         elif cds_type not in _TYPE_MAP:
             unknown_types.append(UnknownColumnType(type=cds_type, column=col_name))
-        # Unmapped/absent types fall back to NullTypeClass (not String): asserting
-        # a definite String for a type we couldn't classify is misleading, so we
-        # emit the "unclassified" marker and keep the raw CDS literal as native.
+        # Unclassified types map to NullType rather than asserting a String we
+        # can't confirm; the raw CDS literal is kept as the native type.
         type_ctor, native_root = _TYPE_MAP.get(
             cds_type, (NullTypeClass, cds_type or "UNKNOWN")
         )
