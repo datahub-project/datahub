@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id VARCHAR(255) NOT NULL,
     system_prompt TEXT,
     status ENUM('active', 'completed', 'failed', 'paused') DEFAULT 'active',
+    summary TEXT DEFAULT NULL,          -- rolling summary of messages older than the keep-window (6 msgs)
     metadata JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

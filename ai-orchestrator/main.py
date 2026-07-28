@@ -72,6 +72,29 @@ async def health() -> dict:
 # prior context is considered "dead" and the conversation starts fresh.
 # (Mohit's session design: ~10 min idle → session expires.)
 SESSION_IDLE_TIMEOUT_MINUTES = 10
+# Keep this many recent messages verbatim; summarize anything older.
+SUMMARY_KEEP_RECENT = 6
+# Model used for generating the running summary (cheap + fast).
+SUMMARY_MODEL = "claude-haiku-4-5"
+
+
+async def _summarize_messages(messages: list[dict]) -> str:
+    """Call Claude Haiku to produce a concise summary of old conversation turns."""
+    client = anthropic.AsyncAnthropic()
+    text_turns = "\n".join(
+        f"{m['role'].upper()}: {m['content']}" for m in messages
+    )
+    prompt = (
+        "You are summarizing earlier turns in a DataHub AI assistant conversation. "
+        "Be concise (3-5 sentences). Capture key entities, datasets, and facts mentioned.\n\n"
+        f"CONVERSATION TO SUMMARIZE:\n{text_turns}"
+    )
+    response = await client.messages.create(
+        model=SUMMARY_MODEL,
+        max_tokens=256,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return response.content[0].text
 
 
 @app.post("/api/ai/chat")
@@ -111,7 +134,44 @@ async def chat(req: ChatRequest) -> StreamingResponse:
                 )
                 conn.commit()
             else:
-                history = [{"role": r["role"], "content": r["content"]} for r in rows]
+                all_messages = [{"role": r["role"], "content": r["content"]} for r in rows]
+
+                if len(all_messages) > SUMMARY_KEEP_RECENT:
+                    # Fetch existing summary from the sessions table
+                    cursor.execute("SELECT summary FROM sessions WHERE id = %s", (req.session_id,))
+                    session_row = cursor.fetchone()
+                    existing_summary = (session_row or {}).get("summary") or ""
+
+                    # Summarize messages outside the keep-window
+                    old_messages = all_messages[:-SUMMARY_KEEP_RECENT]
+                    recent_messages = all_messages[-SUMMARY_KEEP_RECENT:]
+
+                    # Prepend existing summary context so it's cumulative
+                    to_summarize = (
+                        [{"role": "user", "content": f"[Prior summary]: {existing_summary}"}]
+                        if existing_summary else []
+                    ) + old_messages
+
+                    new_summary = await _summarize_messages(to_summarize)
+
+                    # Persist the updated summary back to sessions table
+                    try:
+                        cursor.execute(
+                            "UPDATE sessions SET summary = %s WHERE id = %s",
+                            (new_summary, req.session_id),
+                        )
+                        conn.commit()
+                    except Exception:
+                        pass  # non-fatal
+
+                    # Build history: summary as a synthetic user note + recent turns
+                    history = [
+                        {"role": "user", "content": f"[Conversation summary so far]: {new_summary}"},
+                        {"role": "assistant", "content": "Understood, I have the context from the summary."},
+                    ] + recent_messages
+                else:
+                    history = all_messages
+
             cursor.close()
             conn.close()
         except Exception:
