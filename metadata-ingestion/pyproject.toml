@@ -952,6 +952,7 @@ s3-slim = [
 
 sac = [
     "Authlib>=1.6.11,<2.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "requests<3.0.0",
 ]
 
