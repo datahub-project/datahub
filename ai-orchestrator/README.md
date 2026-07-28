@@ -83,6 +83,21 @@ curl -N -X POST http://localhost:8000/api/ai/chat \
 The UI (`AIChatButton.tsx`) points at `http://localhost:8000/api/ai/chat` and falls
 back to a mock if the orchestrator is not running.
 
+### Test in the browser
+
+1. Open the DataHub UI — `http://localhost:9002` (quickstart) or `http://localhost:3000` (Vite dev)
+2. Log in (`datahub` / `datahub`) and click the 🤖 button (bottom-right)
+3. Run a multi-turn conversation to verify memory:
+
+   | # | Ask | What it proves |
+   |---|-----|----------------|
+   | 1 | `What datasets are on Hive?` | tool call → real metadata |
+   | 2 | `How many of those did you just list?` | remembers Turn 1 |
+   | 3 | `Tell me more about the first one` | remembers list order |
+
+Responses should stream back in ~2–6s (containerised MCP). If the button shows a
+canned/mock reply, the orchestrator isn't reachable on port 8000.
+
 ## Testing the Session API
 
 Create a new session:
