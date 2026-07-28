@@ -830,7 +830,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 EntityType.DOCUMENT,
                 Stream.concat(
                         COMMON.stream(),
-                        Stream.of("parentDocument", "relatedAssets", "relatedDocuments", "text"))
+                        Stream.of(
+                            "parentDocument",
+                            "relatedAssets",
+                            "relatedDocuments",
+                            "text",
+                            "semanticText"))
                     .collect(Collectors.toSet()))
             .build();
 

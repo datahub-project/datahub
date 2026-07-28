@@ -38,6 +38,9 @@ REDACT_KEYS = {
     "secret",
     "options",
     "sqlalchemy_uri",
+    # A connection string embeds credentials (e.g. an Azure ``AccountKey=...`` /
+    # storage account master key) but matches none of the suffixes below.
+    "connection_string",
 }
 REDACT_SUFFIXES = {
     "_password",
@@ -50,6 +53,8 @@ REDACT_SUFFIXES = {
     "-key",
     "_key_id",
     "-key-id",
+    "_connection_string",
+    "-connection-string",
 }
 
 

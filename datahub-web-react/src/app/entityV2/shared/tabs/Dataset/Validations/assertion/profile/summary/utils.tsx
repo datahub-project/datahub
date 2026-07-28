@@ -25,12 +25,12 @@ import {
     getIsRowCountChange,
     getParameterDescription,
     getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     AssertionInfo,
-    AssertionStdOperator,
     AssertionType,
     AssertionValueChangeType,
     CronSchedule,
@@ -74,20 +74,10 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
     const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
     const interpolation = getParameterInterpolation(parameterDescription);
 
-    const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
-        switch (op) {
-            case AssertionStdOperator.GreaterThanOrEqualTo:
-                return 'AtLeast';
-            case AssertionStdOperator.LessThanOrEqualTo:
-                return 'AtMost';
-            case AssertionStdOperator.Between:
-                return 'Between';
-            default:
-                throw new Error(`Unknown operator ${op}`);
-        }
-    };
-
-    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
+    if (!operatorKeyPart) {
+        return i18next.t('entity.profile.validations:volumeDescription.unknown');
+    }
 
     let key: string;
     if (isChange) {

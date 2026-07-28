@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence
 
 from datahub.ingestion.graph.client import DataHubGraph
 
@@ -20,7 +20,8 @@ class DocumentEventConsumer:
 
     This consumer:
     1. Polls events from DataHub's /openapi/v1/events/poll endpoint
-    2. Filters for Document entity MCL events
+    2. Filters for Document entity MCL events on the configured aspects
+       (``documentInfo`` by default)
     3. Tracks offsets via stateful ingestion (if state_handler provided) or Platform Resources (fallback)
     4. Exits after idle timeout (incremental batch mode)
     """
@@ -36,6 +37,7 @@ class DocumentEventConsumer:
         poll_timeout_seconds: int = 2,
         poll_limit: int = 100,
         state_handler: Optional["DocumentChunkingStateHandler"] = None,
+        aspect_names: Sequence[str] = ("documentInfo",),
     ):
         self.graph = graph
         self.consumer_id = consumer_id
@@ -46,6 +48,7 @@ class DocumentEventConsumer:
         self.poll_timeout_seconds = poll_timeout_seconds
         self.poll_limit = poll_limit
         self.state_handler = state_handler
+        self.aspect_names = tuple(aspect_names)
 
         # Base URL for events API
         self.base_url = f"{graph.config.server}/openapi"
@@ -297,6 +300,7 @@ class DocumentEventConsumer:
                         continue
 
                     # Check if it's a documentInfo aspect change
+                    # Keep only the aspects this consumer was configured for.
                     # aspectName comes wrapped in a dict: {"string": "documentInfo"}
                     aspect_name_raw = mcl_dict.get("aspectName")
                     if not aspect_name_raw:
@@ -306,7 +310,7 @@ class DocumentEventConsumer:
                         if isinstance(aspect_name_raw, dict)
                         else aspect_name_raw
                     )
-                    if aspect_name != "documentInfo":
+                    if aspect_name not in self.aspect_names:
                         continue
 
                     # Reset idle timer only when yielding a document event
