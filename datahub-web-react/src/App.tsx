@@ -1,6 +1,5 @@
 import '@src/App.less';
 import '@src/AppV2.less';
-import { AIChatButton } from './app/aiAssistant/AIChatButton';
 
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
@@ -13,6 +12,7 @@ import { GlobalStyles } from '@components/components/GlobalStyles';
 import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
+import { AIChatButton } from '@app/aiAssistant/AIChatButton';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';

@@ -3,12 +3,25 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styled, { keyframes } from 'styled-components';
 
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
 // ─── Animations ────────────────────────────────────────────────────────────────
 
 const slideIn = keyframes`
     from { opacity: 0; transform: translateY(20px) scale(0.95); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
 `;
+
+const HEADER_TITLE = 'DataHub AI Assistant';
+const MODEL_SELECT_TITLE = 'Choose the model for this conversation';
+const CLOSE_BUTTON_LABEL = 'Close AI Assistant';
+const OPEN_BUTTON_LABEL = 'Open AI Assistant';
+const INPUT_PLACEHOLDER = 'Ask about datasets, schemas, PII...';
+const SEND_BUTTON_LABEL = 'Send message';
+const TYPING_INDICATOR = '...';
+const CHAT_OPEN_ICON = '🤖';
+const CHAT_CLOSE_ICON = '✕';
+const SEND_ICON = '➤';
 
 // ─── Floating Button ────────────────────────────────────────────────────────────
 
@@ -21,20 +34,24 @@ const FloatingButton = styled.button<{ $isOpen: boolean }>`
     height: 52px;
     border-radius: 50%;
     border: none;
-    background: ${({ $isOpen }) => ($isOpen ? '#5c4fcf' : '#7c6af7')};
-    color: white;
+    background: ${({ $isOpen, theme }) =>
+        $isOpen ? theme.colors.buttonSurfaceBrandHover : theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 22px;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(92, 79, 207, 0.45);
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    transition:
+        background 0.2s,
+        transform 0.2s,
+        box-shadow 0.2s;
 
     &:hover {
-        background: #5c4fcf;
+        background: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
         transform: scale(1.08);
-        box-shadow: 0 6px 20px rgba(92, 79, 207, 0.55);
+        box-shadow: ${(props) => props.theme.colors.shadowXl};
     }
 `;
 
@@ -47,9 +64,9 @@ const ChatPanel = styled.div`
     z-index: 9998;
     width: 380px;
     height: 520px;
-    background: #ffffff;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 16px;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+    box-shadow: ${(props) => props.theme.colors.shadowXl};
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -57,9 +74,9 @@ const ChatPanel = styled.div`
 `;
 
 const PanelHeader = styled.div`
-    background: linear-gradient(135deg, #7c6af7 0%, #5c4fcf 100%);
+    background: ${(props) => props.theme.colors.brandGradient};
     padding: 16px 18px;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -74,43 +91,54 @@ const HeaderTitle = styled.div`
     font-size: 15px;
 `;
 
-const HeaderSubtitle = styled.div`
-    font-size: 11px;
-    opacity: 0.8;
-    margin-top: 2px;
-`;
-
 const CloseBtn = styled.button`
     background: none;
     border: none;
-    color: white;
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 18px;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 4px;
     opacity: 0.8;
-    &:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+    &:hover {
+        opacity: 1;
+        background: ${(props) => props.theme.colors.overlayOnBrand};
+    }
 `;
 
 // Model picker lives in the chat panel (not settings) so it can be switched per-conversation.
 const ModelSelect = styled.select`
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: ${(props) => props.theme.colors.overlayOnBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
+    border: 1px solid ${(props) => props.theme.colors.borderBrandInverse};
     border-radius: 6px;
     font-size: 11px;
     padding: 3px 6px;
     margin-top: 4px;
     cursor: pointer;
-    &:focus { outline: none; }
-    option { color: #333; }
+    &:focus {
+        outline: none;
+    }
+    option {
+        color: ${(props) => props.theme.colors.text};
+        background: ${(props) => props.theme.colors.bg};
+    }
 `;
 
-// Available models the user can switch between in the chat. V1 = Claude family.
-const CHAT_MODELS: { value: string; label: string }[] = [
-    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+type ChatModelOption = {
+    value: string;
+    label: string;
+};
+
+const MODEL_OPTIONS_BY_ENUM: Record<string, ChatModelOption> = {
+    SONNET: { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+    OPUS: { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    GPT_5_5: { value: 'gpt-5-5', label: 'GPT 5.5' },
+};
+
+const FALLBACK_CHAT_MODELS: ChatModelOption[] = [
+    MODEL_OPTIONS_BY_ENUM.SONNET,
+    MODEL_OPTIONS_BY_ENUM.OPUS,
 ];
 
 const MessagesArea = styled.div`
@@ -120,19 +148,20 @@ const MessagesArea = styled.div`
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: #f8f7ff;
+    background: ${(props) => props.theme.colors.bgSurface};
 `;
 
 const Message = styled.div<{ $isUser: boolean }>`
     max-width: 85%;
     padding: 10px 14px;
     border-radius: ${({ $isUser }) => ($isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px')};
-    background: ${({ $isUser }) => ($isUser ? '#7c6af7' : '#ffffff')};
-    color: ${({ $isUser }) => ($isUser ? 'white' : '#1a1a2e')};
+    background: ${({ $isUser, theme }) =>
+        $isUser ? theme.colors.buttonFillBrand : theme.colors.bg};
+    color: ${({ $isUser, theme }) => ($isUser ? theme.colors.textOnFillBrand : theme.colors.text)};
     font-size: 13.5px;
     line-height: 1.5;
     align-self: ${({ $isUser }) => ($isUser ? 'flex-end' : 'flex-start')};
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 // Renders markdown from the assistant (bold, lists, tables, code, links) inside the chat bubble.
@@ -178,39 +207,42 @@ const MarkdownContent = styled.div`
 
 const TypingIndicator = styled.div`
     align-self: flex-start;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 16px 16px 16px 4px;
     padding: 10px 16px;
     font-size: 20px;
     letter-spacing: 2px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    color: ${(props) => props.theme.colors.text};
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 const InputArea = styled.div`
     padding: 12px 14px;
-    border-top: 1px solid #ece9ff;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     gap: 8px;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     flex-shrink: 0;
 `;
 
 const Input = styled.input`
     flex: 1;
-    border: 1.5px solid #ddd6ff;
+    border: 1.5px solid ${(props) => props.theme.colors.borderInput};
     border-radius: 22px;
     padding: 9px 16px;
     font-size: 13.5px;
     outline: none;
-    background: #faf9ff;
-    color: #1a1a2e;
+    background: ${(props) => props.theme.colors.bgInput};
+    color: ${(props) => props.theme.colors.text};
 
     &:focus {
-        border-color: #7c6af7;
-        background: white;
+        border-color: ${(props) => props.theme.colors.borderInputFocus};
+        background: ${(props) => props.theme.colors.bg};
     }
 
-    &::placeholder { color: #aaa; }
+    &::placeholder {
+        color: ${(props) => props.theme.colors.textPlaceholder};
+    }
 `;
 
 const SendBtn = styled.button`
@@ -218,8 +250,8 @@ const SendBtn = styled.button`
     height: 38px;
     border-radius: 50%;
     border: none;
-    background: #7c6af7;
-    color: white;
+    background: ${(props) => props.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 16px;
     cursor: pointer;
     display: flex;
@@ -228,8 +260,13 @@ const SendBtn = styled.button`
     flex-shrink: 0;
     transition: background 0.2s;
 
-    &:hover { background: #5c4fcf; }
-    &:disabled { background: #ccc; cursor: default; }
+    &:hover {
+        background: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
+    }
+    &:disabled {
+        background: ${(props) => props.theme.colors.bgDisabled};
+        cursor: default;
+    }
 `;
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -242,7 +279,7 @@ interface ChatMessage {
 
 const WELCOME: ChatMessage = {
     id: 0,
-    text: '👋 Hi! I\'m your DataHub AI Assistant. Ask me anything about datasets, schemas, lineage, or privacy risk.',
+    text: "👋 Hi! I'm your DataHub AI Assistant. Ask me anything about datasets, schemas, lineage, or privacy risk.",
     isUser: false,
 };
 
@@ -250,8 +287,8 @@ const WELCOME: ChatMessage = {
 
 interface PageContext {
     pageUrl: string;
-    pageType: string;        // e.g. "dataset", "dashboard", "domain", "policy", "home"
-    entityUrn?: string;      // e.g. "urn:li:dataset:(urn:li:dataPlatform:hive,users,PROD)"
+    pageType: string; // e.g. "dataset", "dashboard", "domain", "policy", "home"
+    entityUrn?: string; // e.g. "urn:li:dataset:(urn:li:dataPlatform:hive,users,PROD)"
 }
 
 const getPageContext = (): PageContext => {
@@ -286,6 +323,41 @@ const getMockResponse = () => {
     return response;
 };
 
+const applyTokenToMessage = (
+    aiMsgId: number,
+    tokenText: string,
+    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+) => {
+    setMessages((prev) =>
+        prev.map((message) => (message.id === aiMsgId ? { ...message, text: tokenText } : message)),
+    );
+};
+
+const processSseChunk = (chunk: string, onToken: (token: string) => void) => {
+    let receivedDone = false;
+
+    chunk.split('\n').forEach((line) => {
+        if (receivedDone || !line.startsWith('data: ')) {
+            return;
+        }
+
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') {
+            receivedDone = true;
+            return;
+        }
+
+        try {
+            const { token } = JSON.parse(payload) as { token: string };
+            onToken(token);
+        } catch {
+            // Skip malformed SSE lines.
+        }
+    });
+
+    return receivedDone;
+};
+
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export const AIChatButton: React.FC = () => {
@@ -293,21 +365,59 @@ export const AIChatButton: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const [model, setModel] = useState(CHAT_MODELS[0].value);
     // One UUID per browser tab — gives Claude memory within a session; resets on tab close
     const [sessionId] = useState<string>(() => crypto.randomUUID());
+    const [availableModels, setAvailableModels] =
+        useState<ChatModelOption[]>(FALLBACK_CHAT_MODELS);
+    const [model, setModel] = useState(FALLBACK_CHAT_MODELS[0].value);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
 
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadModels = async () => {
+            try {
+                const response = await fetch(resolveRuntimePath('/api/ai-config/models'));
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = (await response.json()) as { models?: string[] };
+                const nextModels =
+                    data.models
+                        ?.map((modelName) => MODEL_OPTIONS_BY_ENUM[modelName])
+                        .filter((option): option is ChatModelOption => Boolean(option)) || [];
+
+                if (!isMounted || nextModels.length === 0) {
+                    return;
+                }
+
+                setAvailableModels(nextModels);
+                setModel((currentModel) =>
+                    nextModels.some((option) => option.value === currentModel) ? currentModel : nextModels[0].value,
+                );
+            } catch {
+                // Keep fallback chat models if the backend request fails.
+            }
+        };
+
+        loadModels();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     const sendMessage = async () => {
         const text = inputText.trim();
         if (!text || isTyping) return;
 
         const userMsg: ChatMessage = { id: Date.now(), text, isUser: true };
-        setMessages((prev) => [...prev, userMsg]);
+            setMessages((prev) => [...prev, userMsg]);
         setInputText('');
         setIsTyping(true);
 
@@ -318,9 +428,9 @@ export const AIChatButton: React.FC = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    model,                        // model chosen in the chat header
-                    context: getPageContext(),   // current page URL + entity type
-                    session_id: sessionId,        // persistent session for conversation memory
+                    model, // model chosen in the chat header
+                    context: getPageContext(), // current page URL + entity type
+                    session_id: sessionId, // persistent session for conversation memory
                 }),
             });
 
@@ -338,28 +448,24 @@ export const AIChatButton: React.FC = () => {
             setMessages((prev) => [...prev, { id: aiMsgId, text: '', isUser: false }]);
             setIsTyping(false);
 
-            while (true) {
+            const readNextChunk = async (): Promise<void> => {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    return;
+                }
 
                 const chunk = decoder.decode(value, { stream: true });
-                // Parse SSE lines: "data: {"token": "hello"}\n"
-                for (const line of chunk.split('\n')) {
-                    if (!line.startsWith('data: ')) continue;
-                    const payload = line.slice(6).trim();
-                    if (payload === '[DONE]') break;
-                    try {
-                        const { token } = JSON.parse(payload) as { token: string };
-                        accumulated += token;
-                        // Update the message bubble live as each token arrives
-                        setMessages((prev) =>
-                            prev.map((m) => (m.id === aiMsgId ? { ...m, text: accumulated } : m)),
-                        );
-                    } catch {
-                        // skip malformed lines
-                    }
+                const isDone = processSseChunk(chunk, (token) => {
+                    accumulated += token;
+                    applyTokenToMessage(aiMsgId, accumulated, setMessages);
+                });
+
+                if (!isDone) {
+                    await readNextChunk();
                 }
-            }
+            };
+
+            await readNextChunk();
         } catch {
             // ── Fallback to mock if backend is unavailable ───────────────────
             setTimeout(() => {
@@ -382,20 +488,25 @@ export const AIChatButton: React.FC = () => {
                 <ChatPanel>
                     <PanelHeader>
                         <div>
-                            <HeaderTitle>🤖 DataHub AI Assistant</HeaderTitle>
+                            <HeaderTitle>
+                                <span>{CHAT_OPEN_ICON}</span>
+                                <span>{HEADER_TITLE}</span>
+                            </HeaderTitle>
                             <ModelSelect
                                 value={model}
                                 onChange={(e) => setModel(e.target.value)}
-                                title="Choose the model for this conversation"
+                                title={MODEL_SELECT_TITLE}
                             >
-                                {CHAT_MODELS.map((m) => (
+                                {availableModels.map((m) => (
                                     <option key={m.value} value={m.value}>
                                         {m.label}
                                     </option>
                                 ))}
                             </ModelSelect>
                         </div>
-                        <CloseBtn onClick={() => setIsOpen(false)}>✕</CloseBtn>
+                        <CloseBtn aria-label={CLOSE_BUTTON_LABEL} onClick={() => setIsOpen(false)}>
+                            {CHAT_CLOSE_ICON}
+                        </CloseBtn>
                     </PanelHeader>
 
                     <MessagesArea>
@@ -412,20 +523,24 @@ export const AIChatButton: React.FC = () => {
                                 )}
                             </Message>
                         ))}
-                        {isTyping && <TypingIndicator>···</TypingIndicator>}
+                        {isTyping && <TypingIndicator>{TYPING_INDICATOR}</TypingIndicator>}
                         <div ref={messagesEndRef} />
                     </MessagesArea>
 
                     <InputArea>
                         <Input
-                            placeholder="Ask about datasets, schemas, PII..."
+                            placeholder={INPUT_PLACEHOLDER}
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
                             autoFocus
                         />
-                        <SendBtn onClick={sendMessage} disabled={!inputText.trim() || isTyping}>
-                            ➤
+                        <SendBtn
+                            aria-label={SEND_BUTTON_LABEL}
+                            onClick={sendMessage}
+                            disabled={!inputText.trim() || isTyping}
+                        >
+                            {SEND_ICON}
                         </SendBtn>
                     </InputArea>
                 </ChatPanel>
@@ -434,9 +549,9 @@ export const AIChatButton: React.FC = () => {
             <FloatingButton
                 $isOpen={isOpen}
                 onClick={() => setIsOpen((prev) => !prev)}
-                title="Open AI Assistant"
+                title={OPEN_BUTTON_LABEL}
             >
-                {isOpen ? '✕' : '🤖'}
+                {isOpen ? CHAT_CLOSE_ICON : CHAT_OPEN_ICON}
             </FloatingButton>
         </>
     );

@@ -1,0 +1,31 @@
+plugins {
+  id 'java'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+  implementation project(':metadata-auth:auth-api')
+  implementation project(':metadata-service:services')
+  implementation project(':metadata-service:factories')
+
+  implementation externalDependency.springCore
+  implementation externalDependency.springWeb
+  implementation externalDependency.springWebMVC
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.slf4jApi
+  implementation externalDependency.servletApi
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.opentelemetryApi
+
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.jacksonCore
+  testImplementation externalDependency.jacksonDataBind
+  testImplementation externalDependency.springBootStarterWeb
+}
