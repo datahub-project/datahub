@@ -51,7 +51,7 @@ USER datahub
 
 Docker substitutes **`${BUNDLED_VENV_PLUGINS}`** from the parent image so you need not repeat the base list. **`docker build`** needs network for **`uv`**/**`pip`**.
 
-Match **`--platform`** (and the base image variant) to the CPU architecture of the nodes that run the executor — bundled venvs contain arch-specific wheels. Details: [CPU architecture](/docs/managed-datahub/remote-executor/bundling-additional-connectors.md#cpu-architecture).
+Match **`--platform`** (and the base image variant) to the CPU architecture of the nodes that run the executor — bundled venvs contain arch-specific wheels. Use a **single-platform** build when the fleet is uniform, or a **multi-arch** Buildx image when nodes are mixed. Details: [CPU architecture](/docs/managed-datahub/remote-executor/bundling-additional-connectors.md#cpu-architecture).
 
 **Locked** (**`*-locked`**) images remove **`uv`**/**`pip`**—do not use them as the base for this flow.
 

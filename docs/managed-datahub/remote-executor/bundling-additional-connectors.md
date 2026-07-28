@@ -22,7 +22,7 @@ docker build \
   -f Dockerfile.bundled .
 ```
 
-Set **`--platform`** to the CPU architecture of your Remote Executor deployment (the example uses `linux/amd64`, the common cloud default). See [CPU architecture](#cpu-architecture).
+Set **`--platform`** for a single-architecture image (the example uses `linux/amd64`, the common cloud default). For mixed amd64/arm64 fleets, see [multi-arch](#multi-arch-image) under [CPU architecture](#cpu-architecture).
 
 Build args:
 
@@ -34,19 +34,59 @@ Each connector you list gets its own bundled environment; a connector already pr
 
 ### CPU architecture
 
-Bundled venvs install architecture-specific Python wheels and native libraries. The **build platform** must match the **runtime architecture** of the nodes that run the Remote Executor (or `datahub-actions`).
+Bundled venvs install architecture-specific Python wheels and native libraries. The image you run must contain venvs built for the **same CPU architecture** as the nodes that run the Remote Executor (or `datahub-actions`). Mixing arm64-built venvs onto amd64 nodes (or the reverse) causes import or binary failures.
 
-- Pass **`--platform`** so the build matches deployment (for example `linux/amd64` or `linux/arm64`).
-- **`EXECUTOR_IMAGE`** must resolve to that same architecture (an arch-specific tag, or a multi-arch manifest that pulls the correct variant under `--platform`).
-- Common case: building on Apple Silicon for an amd64 ECS or Kubernetes cluster — use `--platform linux/amd64` as in the example above.
-- For arm64 runtimes, use `--platform linux/arm64` and an arm64-capable base image.
-- Do not deploy an arm64-built custom image onto amd64 nodes (or the reverse); bundled connectors will fail with import or binary errors.
+#### Single-platform image
 
-Verify the image architecture before deploying:
+Build one architecture that matches your deployment. Pass a single **`--platform`** and an **`EXECUTOR_IMAGE`** that resolves to that arch (an arch-specific tag, or a multi-arch base that pulls the matching variant under `--platform`).
 
 ```bash
-docker image inspect <image> --format '{{.Architecture}}'
+# amd64 cluster (common cloud default); also use this when building on Apple Silicon for amd64 nodes
+docker build \
+  --platform linux/amd64 \
+  --build-arg EXECUTOR_IMAGE=<registry>/datahub-executor:<tag>-slim \
+  --build-arg BUNDLED_VENV_PLUGINS=mysql,snowflake \
+  -f Dockerfile.bundled \
+  -t <registry>/datahub-executor-custom:<tag> \
+  .
+
+# arm64 cluster / arm64-only nodes
+docker build \
+  --platform linux/arm64 \
+  --build-arg EXECUTOR_IMAGE=<registry>/datahub-executor:<tag>-slim \
+  --build-arg BUNDLED_VENV_PLUGINS=mysql,snowflake \
+  -f Dockerfile.bundled \
+  -t <registry>/datahub-executor-custom:<tag> \
+  .
 ```
+
+Verify before deploying:
+
+```bash
+docker image inspect <registry>/datahub-executor-custom:<tag> --format '{{.Architecture}}'
+```
+
+#### Multi-arch image
+
+If you run the executor on a mix of amd64 and arm64 nodes (or want one tag that works on both), build and push a **multi-arch** image with Buildx. Each platform gets its own layer set and its own bundled venvs; the registry stores a manifest list that clients pull by node architecture.
+
+Requirements:
+
+- A base **`EXECUTOR_IMAGE`** that itself is multi-arch (or that you can resolve per platform).
+- Docker Buildx with QEMU/binfmt if you cross-build (for example building `linux/amd64` on Apple Silicon).
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg EXECUTOR_IMAGE=<registry>/datahub-executor:<tag>-slim \
+  --build-arg BUNDLED_VENV_PLUGINS=mysql,snowflake \
+  -f Dockerfile.bundled \
+  -t <registry>/datahub-executor-custom:<tag> \
+  --push \
+  .
+```
+
+`--push` is required for multi-platform manifests to land in the registry. Prefer a multi-arch tag when your fleet is mixed; use a single-platform build when every node shares one architecture (simpler and faster).
 
 ## Optional: lock the image
 
