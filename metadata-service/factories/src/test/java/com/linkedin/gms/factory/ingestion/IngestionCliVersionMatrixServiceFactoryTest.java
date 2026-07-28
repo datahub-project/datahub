@@ -4,8 +4,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.objectstorage.ObjectStorageClientFactory;
 import com.linkedin.metadata.config.CliVersionMatrixConfiguration;
-import com.linkedin.metadata.config.HttpMatrixSourceConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
@@ -13,14 +13,24 @@ import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.version.GitVersion;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ServiceClientConfiguration;
 
 /**
- * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. Covers the source
- * selection contract: explicit {@code source: "none"} is a kill-switch; otherwise the HTTP source
- * is wired when {@code http.url} is set and a no-op source is wired when the URL is empty.
+ * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. The contract under test is
+ * backend selection by URI scheme, plus the guarantee that every unusable configuration degrades to
+ * {@link NoOpIngestionCliVersionMatrixSource} instead of failing GMS startup.
+ *
+ * <p>{@code gs://} wiring is deliberately not covered: constructing the GCS client resolves ambient
+ * Application Default Credentials, which is environment-dependent and would make the test flaky.
+ * The read path it feeds is covered by {@link ObjectStorageIngestionCliVersionMatrixSourceTest}.
  */
 public class IngestionCliVersionMatrixServiceFactoryTest {
 
@@ -34,8 +44,9 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     factory = new IngestionCliVersionMatrixServiceFactory();
     configProvider = mock(ConfigurationProvider.class);
     ingestionConfig = new IngestionConfiguration();
-    ingestionConfig.setCliVersionMatrix(new CliVersionMatrixConfiguration());
-    ingestionConfig.getCliVersionMatrix().setHttp(new HttpMatrixSourceConfiguration());
+    CliVersionMatrixConfiguration matrixConfig = new CliVersionMatrixConfiguration();
+    matrixConfig.setRefreshSeconds(600);
+    ingestionConfig.setCliVersionMatrix(matrixConfig);
     gitVersion = mock(GitVersion.class);
 
     when(configProvider.getIngestion()).thenReturn(ingestionConfig);
@@ -48,81 +59,123 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
   }
 
   // ---------------------------------------------------------------------------
-  // URL controls HTTP vs NoOp when source is not "none"
+  // No URI configured
   // ---------------------------------------------------------------------------
 
   @Test
-  public void testMatrixSource_whenUrlIsNull_wiresNoOp() {
-    // Default state from setUp: url null. Factory wires a no-op source.
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
+  public void testMatrixSource_whenUriIsUnsetOrEmpty_wiresNoOp() {
+    // Default state from setUp: uri null.
     assertTrue(
-        source instanceof NoOpIngestionCliVersionMatrixSource,
-        "An unset URL must wire NoOpIngestionCliVersionMatrixSource");
-  }
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "An unset URI must wire NoOpIngestionCliVersionMatrixSource");
 
-  @Test
-  public void testMatrixSource_whenUrlIsEmpty_wiresNoOp() {
-    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("");
-
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
+    ingestionConfig.getCliVersionMatrix().setUri("");
     assertTrue(
-        source instanceof NoOpIngestionCliVersionMatrixSource,
-        "An empty URL is treated the same as unset — NoOp");
-  }
-
-  @Test
-  public void testMatrixSource_whenUrlIsSet_wiresHttpUrlSource() {
-    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
-    ingestionConfig.getCliVersionMatrix().getHttp().setRefreshSeconds(3600);
-
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
-    assertTrue(
-        source instanceof HttpUrlIngestionCliVersionMatrixSource,
-        "A non-empty URL wires HttpUrlIngestionCliVersionMatrixSource");
-  }
-
-  @Test
-  public void testMatrixSource_whenSourceIsExplicitHttp_wiresHttpUrlSource() {
-    ingestionConfig.getCliVersionMatrix().setSource("http");
-    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
-    ingestionConfig.getCliVersionMatrix().getHttp().setRefreshSeconds(3600);
-
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
-    assertTrue(
-        source instanceof HttpUrlIngestionCliVersionMatrixSource,
-        "Explicit source='http' with a URL wires HttpUrlIngestionCliVersionMatrixSource");
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "An empty URI is treated the same as unset — NoOp");
   }
 
   // ---------------------------------------------------------------------------
-  // Explicit source="none" is a kill-switch
+  // Scheme selects the backend
   // ---------------------------------------------------------------------------
 
   @Test
-  public void testMatrixSource_whenSourceIsNone_overridesUrlPresence() {
-    ingestionConfig.getCliVersionMatrix().setSource("none");
-    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+  public void testMatrixSource_whenUriIsHttpOrHttps_wiresHttpSource() {
+    // Both schemes must route to the HTTP source: HttpClient supports plain http, and matching only
+    // https would silently fall through to object-storage parsing and disable the matrix.
+    for (String uri :
+        new String[] {
+          "https://example.invalid/matrix.json", "http://example.invalid/matrix.json"
+        }) {
+      ingestionConfig.getCliVersionMatrix().setUri(uri);
 
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
-    assertTrue(
-        source instanceof NoOpIngestionCliVersionMatrixSource,
-        "source='none' is a kill-switch that wins over a configured URL");
+      IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+      try {
+        assertTrue(
+            source instanceof HttpUrlIngestionCliVersionMatrixSource,
+            uri + " must wire HttpUrlIngestionCliVersionMatrixSource");
+      } finally {
+        shutdown(source);
+      }
+    }
   }
 
   @Test
-  public void testMatrixSource_noneIsCaseInsensitive() {
-    ingestionConfig.getCliVersionMatrix().setSource("NONE");
-    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+  public void testMatrixSource_whenUriIsS3AndClientAvailable_wiresObjectStorageSource() {
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
+    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
 
     IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+    try {
+      assertTrue(
+          source instanceof ObjectStorageIngestionCliVersionMatrixSource,
+          "an s3:// URI with an available S3 client wires the object-storage source");
+    } finally {
+      shutdown(source);
+    }
+  }
+
+  @Test
+  public void testMatrixSource_whenUriIsFile_wiresObjectStorageSource() throws Exception {
+    Path dir = Files.createTempDirectory("cli-version-matrix");
+    ingestionConfig.getCliVersionMatrix().setUri("file://" + dir.resolve("matrix.json"));
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+    try {
+      assertTrue(
+          source instanceof ObjectStorageIngestionCliVersionMatrixSource,
+          "a file:// URI wires the object-storage source");
+    } finally {
+      shutdown(source);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Unusable configuration degrades to NoOp rather than failing startup
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testMatrixSource_whenS3ClientUnavailable_wiresNoOp() {
+    // s3:// but no S3 client (AWS not configured) → application default, not a startup failure.
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
+    setField(factory, "objectStorageClientFactory", mock(ObjectStorageClientFactory.class));
 
     assertTrue(
-        source instanceof NoOpIngestionCliVersionMatrixSource,
-        "Operators may set NONE or none — both must short-circuit to NoOp");
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "an s3:// URI with no S3 client wires a no-op source");
+  }
+
+  @Test
+  public void testMatrixSource_whenUriHasNoObjectKey_wiresNoOp() {
+    // A bucket root is not a readable document — the object key is required.
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix");
+    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
+
+    assertTrue(
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "a bucket-only URI must degrade to a no-op, not attempt a read with an empty key");
+  }
+
+  @Test
+  public void testMatrixSource_whenSchemeUnsupported_wiresNoOp() {
+    ingestionConfig.getCliVersionMatrix().setUri("ftp://example.invalid/matrix.json");
+
+    assertTrue(
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "an unsupported scheme must degrade to a no-op, not fail startup");
+  }
+
+  @Test
+  public void testMatrixSource_whenRefreshSecondsNotPositive_wiresNoOp() {
+    // A non-positive refresh interval would make scheduleAtFixedRate throw in the source
+    // constructor and fail GMS startup; the factory must degrade to a no-op instead.
+    ingestionConfig.getCliVersionMatrix().setUri("s3://cli-version-matrix/matrix.json");
+    ingestionConfig.getCliVersionMatrix().setRefreshSeconds(0);
+    setField(factory, "objectStorageClientFactory", factoryWithS3Client());
+
+    assertTrue(
+        factory.ingestionCliVersionMatrixSource() instanceof NoOpIngestionCliVersionMatrixSource,
+        "non-positive refreshSeconds must degrade to a no-op, not fail startup");
   }
 
   // ---------------------------------------------------------------------------
@@ -140,6 +193,33 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     assertNotNull(service);
     assertEquals(
         service.getServerVersion(), "1.5.0", "Service uses the version reported by GitVersion");
+  }
+
+  /**
+   * The matrix source only ever reads, but S3ObjectStorageClient's constructor eagerly derives a
+   * presigner from the client's resolved credentials and region — so the mock has to answer {@code
+   * serviceClientConfiguration()} even though no request is ever issued.
+   */
+  private static ObjectStorageClientFactory factoryWithS3Client() {
+    S3Client s3Client = mock(S3Client.class);
+    when(s3Client.serviceClientConfiguration())
+        .thenReturn(
+            S3ServiceClientConfiguration.builder()
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .region(Region.US_EAST_1)
+                .build());
+    ObjectStorageClientFactory clientFactory = mock(ObjectStorageClientFactory.class);
+    when(clientFactory.createS3Client()).thenReturn(s3Client);
+    return clientFactory;
+  }
+
+  /** Stops the background refresh thread a successfully-wired source starts in its constructor. */
+  private static void shutdown(IngestionCliVersionMatrixSource source) {
+    if (source instanceof ObjectStorageIngestionCliVersionMatrixSource s) {
+      s.shutdown();
+    } else if (source instanceof HttpUrlIngestionCliVersionMatrixSource s) {
+      s.shutdown();
+    }
   }
 
   /** Reflection helper — the factory's autowired fields are private, like every Spring bean. */

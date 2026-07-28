@@ -96,6 +96,17 @@ public class ObjectStorageClientFactory {
     }
   }
 
+  /**
+   * An S3 client built from {@code datahub.objectStorage}, exposed so factories needing to address
+   * a bucket other than the configured one reuse this credential resolution (role assumption,
+   * endpoint override, region) rather than standing up a second client of their own. Null when AWS
+   * is not configured.
+   */
+  @Nullable
+  public S3Client createS3Client() {
+    return createS3Client(configurationProvider.getDatahub().getObjectStorage());
+  }
+
   @Nullable
   private S3Client createS3Client(@Nullable ObjectStorageConfiguration objectStorageConfiguration) {
     String roleArn =
