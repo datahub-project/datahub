@@ -39,7 +39,9 @@ public class CleanIndices implements NonBlockingSystemUpgrade {
       final String revision) {
 
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
+    if (configurationProvider
+        .getStructuredProperties()
+        .shouldLoadStructuredPropertiesForSystemUpdate()) {
       structuredProperties =
           ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
     } else {

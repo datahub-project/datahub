@@ -62,6 +62,7 @@ public class ReindexConfig {
   private final boolean enableIndexMappingsReindex;
   private final boolean enableIndexSettingsReindex;
   private final boolean enableStructuredPropertiesReindex;
+  private final boolean enableStructuredPropertyTypeMismatchReindex;
   private final String version;
 
   /* Calculated */
@@ -364,7 +365,12 @@ public class ReindexConfig {
                 super.name);
           }
         } else if (super.hasRemovedStructuredProperty || super.hasStructuredPropertyTypeMismatch) {
-          if (super.enableIndexMappingsReindex && super.enableStructuredPropertiesReindex) {
+          boolean reindexForRemoval =
+              super.hasRemovedStructuredProperty && super.enableStructuredPropertiesReindex;
+          boolean reindexForTypeMismatch =
+              super.hasStructuredPropertyTypeMismatch
+                  && super.enableStructuredPropertyTypeMismatchReindex;
+          if (super.enableIndexMappingsReindex && (reindexForRemoval || reindexForTypeMismatch)) {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
@@ -373,20 +379,19 @@ public class ReindexConfig {
                   "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                   super.name);
             }
-            if (!super.enableStructuredPropertiesReindex) {
-              if (super.hasRemovedStructuredProperty) {
-                log.warn(
-                    "Index: {} - There's a removed Structured Property, however Structured Property"
-                        + " reindexing is DISABLED.",
-                    super.name);
-              }
-              if (super.hasStructuredPropertyTypeMismatch) {
-                log.warn(
-                    "Index: {} - Structured Property field type mismatch(es) detected ({}), however"
-                        + " Structured Property reindexing is DISABLED.",
-                    super.name,
-                    mismatchedStructuredPropertyFields);
-              }
+            if (super.hasRemovedStructuredProperty && !super.enableStructuredPropertiesReindex) {
+              log.warn(
+                  "Index: {} - There's a removed Structured Property, however Structured Property"
+                      + " reindexing is DISABLED.",
+                  super.name);
+            }
+            if (super.hasStructuredPropertyTypeMismatch
+                && !super.enableStructuredPropertyTypeMismatchReindex) {
+              log.warn(
+                  "Index: {} - Structured Property field type mismatch(es) detected ({}), however"
+                      + " Structured Property type-mismatch reindexing is DISABLED.",
+                  super.name,
+                  mismatchedStructuredPropertyFields);
             }
           }
         }

@@ -21,6 +21,13 @@ public class StructuredPropertiesConfiguration {
   private boolean systemUpdateEnabled;
 
   /**
+   * When true, system-update reindexes entity search indices whose structured-property field
+   * Elasticsearch types differ from the definition-driven target (e.g. dynamic {@code float}/{@code
+   * long} vs intended {@code double} for NUMBER). Independent of {@link #systemUpdateEnabled}.
+   */
+  private boolean typeMismatchReindexEnabled;
+
+  /**
    * When true, structured property writes drop assignments whose definition entity does not exist,
    * logging a warning per dropped value. The write fails if no valid assignments remain.
    */
@@ -33,4 +40,11 @@ public class StructuredPropertiesConfiguration {
    * application.yaml}.
    */
   private int keywordMaxLength;
+
+  /**
+   * Whether system-update should load active structured property definitions into index targets.
+   */
+  public boolean shouldLoadStructuredPropertiesForSystemUpdate() {
+    return systemUpdateEnabled || typeMismatchReindexEnabled;
+  }
 }

@@ -157,7 +157,7 @@ Requirements:
 
 ### Potential Downtime
 
-- **(GMS / Structured Properties / search indices)** With `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true`, system-update `BuildIndices` now reindexes entity search indices when an existing structured-property field's Elasticsearch type differs from the definition-driven target (for example `float` or `long` vs intended `double` for `urn:li:dataType:datahub.number`). Previously those mismatches were ignored because `structuredProperties` is `dynamic: true` and excluded from the normal mapping diff. **Action:** Expect longer system-update runtime / search reindex on the first upgrade if any NUMBER (or other) structured-property fields were dynamically mapped to the wrong type. Ensure mappings reindex flags remain enabled as for other BuildIndices reindexes.
+- **(GMS / Structured Properties / search indices)** With `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` (default), system-update `BuildIndices` reindexes entity search indices when an existing structured-property field's Elasticsearch type differs from the definition-driven target (for example `float` or `long` vs intended `double` for `urn:li:dataType:datahub.number`). Previously those mismatches were ignored because `structuredProperties` is `dynamic: true` and excluded from the normal mapping diff. This is independent of `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`. **Action:** Expect longer system-update runtime / search reindex on the first upgrade if any NUMBER (or other) structured-property fields were dynamically mapped to the wrong type. Set `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=false` to skip. Ensure mappings reindex flags remain enabled as for other BuildIndices reindexes.
 
 ### Deprecations
 
@@ -173,7 +173,7 @@ Requirements:
 
 ### Other Notable Changes
 
-- **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Requires `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` (same gate as other structured-property system-update mapping work).
+- **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Controlled by `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX` / `structuredProperties.typeMismatchReindexEnabled` (default `true`), independent of `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`.
 
 - **(GMS / search defaults)** Default entity-type lists for GraphQL search, autocomplete, browse V2, and quick-filter priority are now configurable via `elasticsearch.search.*EntityTypes` (`value` / `add` / `remove`) and the matching `SEARCH_*_ENTITY_TYPES{,_ADD,_REMOVE}` environment variables. Stock YAML defaults match the former hardcoded GraphQL lists. An explicitly empty resolved list means GraphQL searches **no** entity types (it does not expand to all indices). Unknown registry names in these lists are soft-dropped with a warn at startup. See [Environment Variables](../deploy/environment-vars.md) and [Customizing Search](search.md#default-search-entity-types).
 

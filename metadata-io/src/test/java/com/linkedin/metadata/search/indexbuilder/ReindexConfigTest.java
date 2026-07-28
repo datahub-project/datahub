@@ -1000,7 +1000,7 @@ public class ReindexConfigTest {
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
             .enableIndexMappingsReindex(true)
-            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
             .build();
 
     Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
@@ -1029,7 +1029,7 @@ public class ReindexConfigTest {
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
             .enableIndexMappingsReindex(true)
-            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
             .build();
 
     Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
@@ -1037,7 +1037,7 @@ public class ReindexConfigTest {
   }
 
   @Test
-  void testStructuredPropertyTypeMismatchDoesNotReindexWhenSpReindexDisabled() {
+  void testStructuredPropertyTypeMismatchDoesNotReindexWhenTypeMismatchFlagDisabled() {
     Map<String, Object> currentMappings =
         createMappingsWithDynamicStructuredProperties(
             ImmutableMap.of("prop1", ImmutableMap.of("type", "float")));
@@ -1054,7 +1054,8 @@ public class ReindexConfigTest {
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
             .enableIndexMappingsReindex(true)
-            .enableStructuredPropertiesReindex(false)
+            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(false)
             .build();
 
     Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
@@ -1079,7 +1080,7 @@ public class ReindexConfigTest {
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
             .enableIndexMappingsReindex(true)
-            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
             .build();
 
     Assert.assertFalse(config.hasStructuredPropertyTypeMismatch());
@@ -1106,7 +1107,7 @@ public class ReindexConfigTest {
             .currentSettings(Settings.EMPTY)
             .targetSettings(new HashMap<>())
             .enableIndexMappingsReindex(true)
-            .enableStructuredPropertiesReindex(true)
+            .enableStructuredPropertyTypeMismatchReindex(true)
             .build();
 
     Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());

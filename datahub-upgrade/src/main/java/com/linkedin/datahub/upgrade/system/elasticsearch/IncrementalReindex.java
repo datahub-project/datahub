@@ -43,7 +43,9 @@ public class IncrementalReindex implements NonBlockingSystemUpgrade {
       String upgradeVersion) {
 
     Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
+    if (configurationProvider
+        .getStructuredProperties()
+        .shouldLoadStructuredPropertiesForSystemUpdate()) {
       structuredProperties =
           ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
     } else {
