@@ -437,6 +437,10 @@ datalake_lineage_config:
   ignore_non_path_spec_path: true
 ```
 
+Give each storage location a single path spec. A stage URL is a directory prefix with no filename, so specs cannot be told apart by `file_types` the way they are when matching files — if two specs cover the same location but place `{table}` at different depths, the first one listed wins and the resulting URN may not be the one the lake source emits for that table.
+
+`exclude` and `tables_filter_pattern` are honoured: a stage location that a matching spec excludes or filters out emits no lineage at all, rather than falling back to the raw prefix.
+
 ##### Tasks (`include_tasks: true`)
 
 Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
