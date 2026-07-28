@@ -982,6 +982,138 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testStructuredPropertyNumberTypeMismatchFloatVsDoubleRequiresReindex() {
+    // Dynamic mapping can lock NUMBER fields as float; definition-driven target is double.
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("io_acryl_privacy_replicationSLA", ImmutableMap.of("type", "float")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("io_acryl_privacy_replicationSLA", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.isPureStructuredPropertyAddition());
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyNumberTypeMismatchLongVsDoubleRequiresReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("retentionTime", ImmutableMap.of("type", "long")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("retentionTime", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyTypeMismatchDoesNotReindexWhenSpReindexDisabled() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "float")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(false)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyMatchingNumberTypesDoNotRequireReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "double")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertFalse(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testVersionedStructuredPropertyTypeMismatchRequiresReindex() {
+    Map<String, Object> currentVersioned =
+        ImmutableMap.of(
+            "io_acryl_privacy_replicationSLA",
+            ImmutableMap.of("000", ImmutableMap.of("number", ImmutableMap.of("type", "float"))));
+    Map<String, Object> targetVersioned =
+        ImmutableMap.of(
+            "io_acryl_privacy_replicationSLA",
+            ImmutableMap.of("000", ImmutableMap.of("number", ImmutableMap.of("type", "double"))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(createMappingsWithVersionedStructuredProperties(currentVersioned))
+            .targetMappings(createMappingsWithVersionedStructuredProperties(targetVersioned))
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
   void testVersionedStructuredProperties() {
     // Arrange
     Map<String, Object> versionedProps = new HashMap<>();
