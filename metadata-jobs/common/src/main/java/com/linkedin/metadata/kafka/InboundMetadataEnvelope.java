@@ -112,10 +112,14 @@ public class InboundMetadataEnvelope<R> {
   }
 
   /**
-   * Copies Kafka headers into an immutable map. Duplicate keys last-win; null values are skipped.
+   * Copies Kafka headers into an immutable map. Duplicate keys last-win; null values are skipped. A
+   * null {@link Headers} (some consumer/test records carry none) yields an empty map.
    */
   @Nonnull
-  static Map<String, String> copyKafkaHeaders(@Nonnull Headers headers) {
+  static Map<String, String> copyKafkaHeaders(@Nullable Headers headers) {
+    if (headers == null) {
+      return Map.of();
+    }
     Map<String, String> copied = new LinkedHashMap<>();
     for (Header header : headers) {
       if (header.value() == null) {

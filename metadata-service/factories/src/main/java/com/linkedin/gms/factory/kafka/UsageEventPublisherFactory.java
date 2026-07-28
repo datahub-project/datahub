@@ -28,7 +28,7 @@ public class UsageEventPublisherFactory {
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider) {
     GenericProducerImpl<String> producer =
-        new GenericProducerImpl<>(usageProducer, kafkaHealthChecker, metricUtils);
+        new GenericProducerImpl<>(usageProducer, kafkaHealthChecker, metricUtils, "USAGE");
     if (configurationProvider.getDatahub().isReadOnly()) {
       producer.setWritable(false);
     }
