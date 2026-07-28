@@ -53,7 +53,7 @@ public class EntityServiceFactory {
             featureFlags.isPostCommitRetentionEnabled(),
             metricUtils);
 
-    // Absent (NO_OP) unless RetentionBufferFactory activated a Hazelcast-backed buffer.
+    // Absent (NO_OP) unless RetentionBufferFactory activated a coalesce-backed buffer.
     entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());
 
     if (throttleSensors != null

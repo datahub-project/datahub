@@ -18,9 +18,10 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Hazelcast-backed {@link CoalesceBuffer}: coalesces merges into a shared {@code IMap<K, V>}
- * ({@code name}), with a second {@code IMap<String, Boolean>} ({@code lockMapName}) used purely as
- * a distributed lock namespace for {@link #tryAcquireDrainLock}/{@link #releaseDrainLock}.
+ * Hazelcast-backed {@link CoalesceBuffer} with value type fixed to {@link Long}: coalesces merges
+ * into a shared {@code IMap<K, Long>} ({@code name}), with a second {@code IMap<String, Boolean>}
+ * ({@code lockMapName}) used purely as a distributed lock namespace for {@link
+ * #tryAcquireDrainLock}/{@link #releaseDrainLock}.
  *
  * <p><b>Merge policy constraint:</b> Hazelcast {@link EntryProcessor}s must be serialized to run on
  * the owning cluster member, so this class cannot ship an arbitrary {@link BinaryOperator} over the
@@ -37,9 +38,9 @@ import lombok.extern.slf4j.Slf4j;
  * maxPendingEntries} soft-cap enforced here.
  */
 @Slf4j
-public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
+public class HazelcastCoalesceBuffer<K> implements CoalesceBuffer<K, Long> {
 
-  private final IMap<K, V> pendingMap;
+  private final IMap<K, Long> pendingMap;
   private final IMap<String, Boolean> lockMap;
   private final int maxPendingEntries;
   private final String name;
@@ -59,7 +60,7 @@ public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   }
 
   @Override
-  public void merge(@Nonnull K key, @Nonnull V value, @Nonnull BinaryOperator<V> merge) {
+  public void merge(@Nonnull K key, @Nonnull Long value, @Nonnull BinaryOperator<Long> merge) {
     Objects.requireNonNull(key, "key must not be null");
     Objects.requireNonNull(value, "value must not be null");
     Objects.requireNonNull(merge, "merge must not be null");
@@ -82,15 +83,14 @@ public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
           key);
       return;
     }
-    long candidateMaxVersion = (Long) value;
-    pendingMap.executeOnKey(key, new KeepMaxLongProcessor<>(candidateMaxVersion));
+    pendingMap.executeOnKey(key, new KeepMaxLongProcessor<>(value));
   }
 
   @Override
   @Nonnull
-  public List<Map.Entry<K, V>> drain(int limit) {
-    List<Map.Entry<K, V>> batch = new ArrayList<>(Math.min(limit, 64));
-    for (Map.Entry<K, V> entry : pendingMap.entrySet()) {
+  public List<Map.Entry<K, Long>> drain(int limit) {
+    List<Map.Entry<K, Long>> batch = new ArrayList<>(Math.min(limit, 64));
+    for (Map.Entry<K, Long> entry : pendingMap.entrySet()) {
       if (batch.size() >= limit) {
         break;
       }
@@ -100,7 +100,7 @@ public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   }
 
   @Override
-  public boolean removeIfSame(@Nonnull K key, @Nonnull V expected) {
+  public boolean removeIfSame(@Nonnull K key, @Nonnull Long expected) {
     return pendingMap.remove(key, expected);
   }
 
@@ -126,13 +126,10 @@ public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
   }
 
   /**
-   * Keep-max coalescing {@link EntryProcessor} for a single key. Generic over the buffer's {@code
-   * K}/{@code V}, but only ever constructed when {@code V} is {@link Long} — guarded by the
-   * reference-identity check in {@link #merge}, since {@code V} itself is erased at runtime. {@code
-   * EntryProcessor} already extends {@link Serializable}; Hazelcast serializes this instance to run
-   * on the owning member.
+   * Keep-max coalescing {@link EntryProcessor} for a single key. {@code EntryProcessor} already
+   * extends {@link Serializable}; Hazelcast serializes this instance to run on the owning member.
    */
-  static final class KeepMaxLongProcessor<K, V> implements EntryProcessor<K, V, Void> {
+  static final class KeepMaxLongProcessor<K> implements EntryProcessor<K, Long, Void> {
     private static final long serialVersionUID = 1L;
 
     private final long candidateMaxVersion;
@@ -142,11 +139,10 @@ public class HazelcastCoalesceBuffer<K, V> implements CoalesceBuffer<K, V> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Void process(Map.Entry<K, V> entry) {
-      Long current = (Long) entry.getValue();
+    public Void process(Map.Entry<K, Long> entry) {
+      Long current = entry.getValue();
       if (current == null || candidateMaxVersion > current) {
-        entry.setValue((V) Long.valueOf(candidateMaxVersion));
+        entry.setValue(candidateMaxVersion);
       }
       return null;
     }

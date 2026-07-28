@@ -42,11 +42,16 @@ public class DefaultCoalesceBufferFactory implements CoalesceBufferFactory {
 
   @Override
   @Nonnull
+  @SuppressWarnings("unchecked")
   public <K, V> CoalesceBuffer<K, V> create(
       @Nonnull String name, @Nonnull String lockName, int maxPendingEntries) {
     if (implementation == BufferImplementation.HAZELCAST) {
-      return new HazelcastCoalesceBuffer<>(
-          hazelcastInstance, name, lockName, maxPendingEntries, metricUtils);
+      // Hazelcast backend is Long-valued only (KEEP_MAX_LONG EntryProcessor). Callers that need
+      // other V must use caffeine, or extend HazelcastCoalesceBuffer with new processors.
+      return (CoalesceBuffer<K, V>)
+          (CoalesceBuffer<?, ?>)
+              new HazelcastCoalesceBuffer<K>(
+                  hazelcastInstance, name, lockName, maxPendingEntries, metricUtils);
     }
     return new CaffeineCoalesceBuffer<>(name, maxPendingEntries, metricUtils);
   }

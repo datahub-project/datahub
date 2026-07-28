@@ -51,6 +51,7 @@ public class RetentionDrainer {
     this.metricUtils = metricUtils;
   }
 
+  // Interval from Spring env / YAML — not RetentionBufferProperties.drainIntervalMs field reads.
   @Scheduled(fixedDelayString = "${datahub.retention.buffer.drainIntervalMs:5000}")
   public void tick() {
     if (!enabled) {
