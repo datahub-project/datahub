@@ -26,7 +26,7 @@ import os
 import pathlib
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import boto3
 import pytest
@@ -39,10 +39,6 @@ pytestmark = pytest.mark.integration
 test_resources_dir = pathlib.Path(__file__).parent
 ENDPOINT_URL = "http://localhost:14566"
 REGION = "us-east-1"
-# Both buckets get the full tree: besides multiple_specs_of_different_buckets
-# (which reads one explicit file from the secondary bucket), the bucket_wildcard_*
-# recipes match BOTH buckets via `my-test-bucket*` / `*` and expect the same tree
-# in each.
 PRIMARY_BUCKET = "my-test-bucket"
 SECONDARY_BUCKET = "my-test-bucket-2"
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -95,6 +91,24 @@ EXPECTED_PRIMARY_KEYS = [
     "folders_only_media/videos/2024/clip.mp4",
 ]
 
+# Only these recipes read from the secondary bucket, and only this subtree:
+#   multiple_specs_of_different_buckets -> chord_progressions_csv.csv
+#   bucket_wildcard_single_file         -> chord_progressions_avro.avro
+#   bucket_wildcard_{allow,as}_table    -> food_csv/*.csv
+#   bucket_wildcard_with_nested_table   -> {table}/*.* i.e. food_csv, food_parquet, no_extension
+# Seeding just this subtree (instead of the full 42-file tree) keeps the goldens
+# identical while cutting ~34s of per-object seeding sleep from the fixture.
+SECONDARY_BUCKET_KEYS = [
+    "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part1.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+    "folder_a/folder_aa/folder_aaa/no_extension/small",
+]
+
 # Object time fields that the emulator sets to real upload time (moto poked these
 # to deterministic values via its internal backend, which a real emulator can't
 # do); masked so only their presence/structure is asserted. Covers the operation
@@ -118,7 +132,21 @@ def _client(service: Literal["s3"]) -> Any:
     )
 
 
-def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> List[str]:
+def _walk_keys(data_dir: pathlib.Path) -> List[str]:
+    keys: List[str] = []
+    for root, dirs, files in os.walk(data_dir):
+        dirs.sort()
+        for file in sorted(files):
+            keys.append(os.path.relpath(os.path.join(root, file), data_dir))
+    return keys
+
+
+def _seed_bucket(
+    s3: Any,
+    bucket: str,
+    data_dir: pathlib.Path,
+    keys: Optional[List[str]] = None,
+) -> List[str]:
     s3.create_bucket(Bucket=bucket)
     s3.put_bucket_tagging(
         Bucket=bucket, Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]}
@@ -128,23 +156,20 @@ def _seed_bucket(s3: Any, bucket: str, data_dir: pathlib.Path) -> List[str]:
     # last_modified at SECOND resolution with no API to set it, so uploading fast
     # would tie many objects and make that selection nondeterministic. Seeding one
     # object per second gives each a distinct, strictly-increasing timestamp ->
-    # deterministic selection. The sorted-walk order is an arbitrary-but-stable
-    # choice that also keeps the existing goldens valid (a convenience, not a goal).
-    uploaded: List[str] = []
-    for root, dirs, files in os.walk(data_dir):
-        dirs.sort()
-        for file in sorted(files):
-            full_path = os.path.join(root, file)
-            rel_path = os.path.relpath(full_path, data_dir)
-            extra = {"ContentType": "text/csv"} if "." not in rel_path else {}
-            s3.upload_file(full_path, bucket, rel_path, ExtraArgs=extra)
-            s3.put_object_tagging(
-                Bucket=bucket,
-                Key=rel_path,
-                Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
-            )
-            uploaded.append(rel_path)
-            time.sleep(1.1)  # strictly increasing, tie-free second-resolution times
+    # deterministic selection. Sorted order is an arbitrary-but-stable choice that
+    # also keeps the existing goldens valid (a convenience, not a goal). At ~1.1s
+    # per object, adding a file to a fully-seeded bucket costs ~1.1s of fixture
+    # setup — hence the secondary bucket only seeds the subtree its recipes read.
+    uploaded = _walk_keys(data_dir) if keys is None else keys
+    for rel_path in uploaded:
+        extra = {"ContentType": "text/csv"} if "." not in rel_path else {}
+        s3.upload_file(str(data_dir / rel_path), bucket, rel_path, ExtraArgs=extra)
+        s3.put_object_tagging(
+            Bucket=bucket,
+            Key=rel_path,
+            Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
+        )
+        time.sleep(1.1)  # strictly increasing, tie-free second-resolution times
     return uploaded
 
 
@@ -174,10 +199,10 @@ def s3_emulator(docker_compose_runner):
         assert sorted(uploaded) == sorted(EXPECTED_PRIMARY_KEYS), (
             "test_data/local_system tree drifted from EXPECTED_PRIMARY_KEYS"
         )
-        # Seeded after the primary bucket so its objects get later wall-clock
-        # timestamps — bucket_wildcard_* recipes span both buckets and the goldens
-        # were generated with that ordering.
-        _seed_bucket(s3, SECONDARY_BUCKET, data_dir)
+        # Secondary bucket: only the subtree its recipes read, seeded after the
+        # primary bucket so bucket_wildcard_* tables spanning both buckets keep the
+        # cross-bucket ordering the goldens were generated with.
+        _seed_bucket(s3, SECONDARY_BUCKET, data_dir, keys=SECONDARY_BUCKET_KEYS)
         # High-cardinality numeric dataset for the profiler, under a prefix no
         # other recipe matches so it doesn't affect their goldens.
         s3.upload_file(
