@@ -157,8 +157,7 @@ export class BusinessAttributePage extends BasePage {
 
     const response = await graphqlHelper.executeQuery(query);
     const data = response?.data as
-      | { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } }
-      | undefined;
+      { appConfig?: { featureFlags?: { businessAttributeEntityEnabled?: boolean } } } | undefined;
     const enabled = data?.appConfig?.featureFlags?.businessAttributeEntityEnabled ?? false;
 
     this.logger?.info('businessAttributeEntityEnabled', { enabled });
