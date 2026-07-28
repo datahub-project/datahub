@@ -1,11 +1,11 @@
-package com.linkedin.datahub.graphql.types.metric.mappers;
+package com.linkedin.datahub.graphql.types.common.mappers;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+import com.linkedin.common.AiContext;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metric.AiContext;
 import org.testng.annotations.Test;
 
 public class AiContextMapperTest {
