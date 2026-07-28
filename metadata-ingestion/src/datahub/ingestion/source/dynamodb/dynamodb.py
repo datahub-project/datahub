@@ -488,8 +488,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             # downsample the schema, using frequency as the sort key
             self.report.warning(
                 title="Schema Size Too Large",
-                message=f"Downsampling the table schema because `max_schema_size` threshold is {self.config.max_schema_size}",
-                context=f"Collection: {dataset_urn}",
+                message="Downsampling the table schema because max_schema_size threshold was exceeded",
+                context=f"collection={dataset_urn}, max_schema_size={self.config.max_schema_size}",
                 log=False,
             )
 
@@ -562,8 +562,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if type_string is None:
             self.report.warning(
                 title="Unable to Map Attribute Type",
-                message=f"Unable to map type {attribute_type} to native data type",
-                context=f"Collection: {table_name}",
+                message="Unable to map attribute type to native data type",
+                context=f"attribute_type={attribute_type}, collection={table_name}",
                 log=False,
             )
             return _attribute_type_to_native_type_mapping[attribute_type]
@@ -580,8 +580,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if type_class is None:
             self.report.warning(
                 title="Unable to Map Field Type",
-                message=f"Unable to map type {attribute_type} to metadata schema field type",
-                context=f"Collection: {table_name}",
+                message="Unable to map attribute type to metadata schema field type",
+                context=f"attribute_type={attribute_type}, collection={table_name}",
                 log=False,
             )
             type_class = NullTypeClass

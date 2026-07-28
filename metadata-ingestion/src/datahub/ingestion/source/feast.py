@@ -165,8 +165,8 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
 
         if ml_feature_data_type is None:
             self.report.warning(
-                "unable to map type",
-                f"unable to map type {field_type} to metadata schema to parent: {parent_name}",
+                message="Unable to map type to metadata schema",
+                context=f"field_type={field_type}, parent={parent_name}",
                 log=False,
             )
 

@@ -170,8 +170,8 @@ class RedshiftUsageExtractor:
         ):
             # Skip this run
             self.report.warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="usage-extraction",
                 log=False,
             )
             return False

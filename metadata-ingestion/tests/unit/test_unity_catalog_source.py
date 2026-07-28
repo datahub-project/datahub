@@ -1724,8 +1724,8 @@ class TestUnityCatalogMetricViews:
         spec = source._load_metric_view_spec(table)
         assert spec is None
         assert source.report.num_metric_views_yaml_shape_invalid == 1
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view YAML is not a mapping" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view YAML is not a mapping" in m for m in messages)
 
     @pytest.mark.parametrize(
         "yaml_body,expected_bump",
@@ -1855,7 +1855,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view joins skipped"
+            if "Metric view joins skipped" in w.message
             and any(table.ref.qualified_table_name in ctx for ctx in (w.context or []))
         ]
         assert len(warnings_for_view) == 1
@@ -1878,10 +1878,12 @@ class TestUnityCatalogMetricViews:
         assert spec is not None
         source._extract_metric_view_column_lineage(table, spec)
         assert source.report.num_metric_view_unresolved_qualifiers == 1
-        messages = [w.message for w in source.report.warnings]
-        assert (
-            messages.count("Metric view expression references unknown qualifier") == 1
-        )
+        matching = [
+            w
+            for w in source.report.warnings
+            if "Metric view expression references unknown qualifier" in w.message
+        ]
+        assert len(matching) == 1
 
     def test_skipped_dim_measure_entries_increment_counter_and_warn(self):
         """Malformed dimension/measure entries must not silently disappear."""
@@ -1907,7 +1909,7 @@ class TestUnityCatalogMetricViews:
         warnings_for_view = [
             w
             for w in source.report.warnings
-            if w.message == "Metric view dimension/measure entries skipped"
+            if "Metric view dimension/measure entries skipped" in w.message
         ]
         assert len(warnings_for_view) == 1
 
@@ -1929,7 +1931,7 @@ class TestUnityCatalogMetricViews:
         assert lineage is not None
         assert source.report.num_metric_view_unparseable_sources == 1
         messages = [w.message for w in source.report.warnings]
-        assert "Metric view source(s) skipped" in messages
+        assert any("Metric view source(s) skipped" in m for m in messages)
 
     def test_expr_empty_tree_increments_counter(self):
         """sqlglot returning None (empty/comment-only expr) must not silently produce empty CLL."""
@@ -1957,8 +1959,8 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None):
             list(source.process_table(table, schema))
-        messages = {w.message for w in source.report.warnings}
-        assert "Metric view has no upstream lineage" in messages
+        messages = [w.message for w in source.report.warnings]
+        assert any("Metric view has no upstream lineage" in m for m in messages)
 
     def test_dim_measure_description_override_from_yaml(self):
         """YAML `description` on a dim/measure surfaces as the schema field description."""

@@ -117,9 +117,10 @@ class ConfluentS3SinkConnector(BaseConnector):
             transformed_topics = transform_result.topics
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             if transform_result.fallback_used:
@@ -147,14 +148,14 @@ class ConfluentS3SinkConnector(BaseConnector):
             return lineages
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in S3 sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in S3 sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for S3 sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for S3 sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
 
@@ -485,14 +486,14 @@ class ClickHouseSinkConnector(BaseConnector):
             return lineages
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in ClickHouse sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in ClickHouse sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for ClickHouse sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for ClickHouse sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
 
@@ -572,8 +573,8 @@ class IcebergSinkConnector(BaseConnector):
             return lineages
         except Exception as e:
             self.report.warning(
-                f"Unexpected error resolving lineage for Iceberg sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Unexpected error resolving lineage for Iceberg sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
         return []
@@ -802,9 +803,10 @@ class BigQuerySinkConnector(BaseConnector):
         transformed_topics = transform_result.topics
 
         # Log any warnings from transform processing
-        for warning in transform_result.warnings:
+        for w in transform_result.warnings:
             self.report.warning(
-                f"Transform warning for {self.connector_manifest.name}: {warning}"
+                message="Transform warning",
+                context=f"{self.connector_manifest.name}: {w}",
             )
 
         if transform_result.fallback_used:
@@ -822,8 +824,8 @@ class BigQuerySinkConnector(BaseConnector):
             )
             if dataset_table is None:
                 self.report.warning(
-                    "Could not find target dataset for topic, please check your connector configuration"
-                    f"{self.connector_manifest.name} : {transformed_topic} ",
+                    message="Could not find target dataset for topic, please check your connector configuration",
+                    context=f"{self.connector_manifest.name} : {transformed_topic}",
                 )
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
@@ -1318,9 +1320,10 @@ class JdbcSinkConnector(BaseConnector):
             transformed_topics = transform_result.topics
 
             # Log any warnings from transform processing
-            for warning in transform_result.warnings:
+            for w in transform_result.warnings:
                 self.report.warning(
-                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                    message="Transform warning",
+                    context=f"{self.connector_manifest.name}: {w}",
                 )
 
             if transform_result.fallback_used:
@@ -1379,15 +1382,15 @@ class JdbcSinkConnector(BaseConnector):
 
         except ValueError as e:
             self.report.warning(
-                f"Configuration error in JDBC sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Configuration error in JDBC sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []
         except Exception as e:
             self.report.warning(
-                f"Failed to extract lineage for JDBC sink connector {self.connector_manifest.name}",
-                self.connector_manifest.name,
+                message="Failed to extract lineage for JDBC sink connector",
+                context=self.connector_manifest.name,
                 exc=e,
             )
             return []

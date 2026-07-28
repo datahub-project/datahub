@@ -244,7 +244,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_response.raise_for_status()
         except Exception as e:
             self.report.warning(
-                "Failed to get connector details", connector_name, exc=e
+                message="Failed to get connector details",
+                context=connector_name,
+                exc=e,
             )
             return None
         manifest = connector_response.json()

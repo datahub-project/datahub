@@ -2109,9 +2109,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             else:
                 self.report.warning(
                     title="Unexpected tag domain encountered",
-                    message=f"Tag '{snowflake_tag.name}' has domain '{domain}' which is not "
-                    "recognized. This tag will be skipped.",
-                    context=f"database={db_name}, object={object_name}",
+                    message="Tag has unrecognized domain and will be skipped",
+                    context=f"tag={snowflake_tag.name}, domain={domain}, database={db_name}, object={object_name}",
                 )
                 continue
 
@@ -2255,8 +2254,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
             )
         except Exception as e:
             self.report.warning(
-                "Failed to get dynamic table graph history",
-                db_name,
+                message="Failed to get dynamic table graph history",
+                context=db_name,
                 exc=e,
             )
 
@@ -2421,8 +2420,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
         except Exception as e:
             self.report.warning(
-                "Failed to get stages for schema",
-                f"{db_name}.{schema_name}",
+                message="Failed to get stages for schema",
+                context=f"{db_name}.{schema_name}",
                 exc=e,
             )
         return stages
@@ -2442,8 +2441,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         predecessors = json.loads(predecessors_raw)
                     except (ValueError, TypeError) as pred_err:
                         self.report.warning(
-                            "Failed to parse task predecessors",
-                            f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
+                            message="Failed to parse task predecessors",
+                            context=f"{db_name}.{schema_name}.{task.get('name')}: raw={predecessors_raw!r}",
                             exc=pred_err,
                         )
                         predecessors = []
@@ -2476,8 +2475,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
         except Exception as e:
             self.report.warning(
-                "Failed to get tasks for schema",
-                f"{db_name}.{schema_name}",
+                message="Failed to get tasks for schema",
+                context=f"{db_name}.{schema_name}",
                 exc=e,
             )
         return tasks
@@ -2508,8 +2507,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
         except Exception as e:
             self.report.warning(
-                "Failed to get pipes for schema",
-                f"{db_name}.{schema_name}",
+                message="Failed to get pipes for schema",
+                context=f"{db_name}.{schema_name}",
                 exc=e,
             )
         return pipes

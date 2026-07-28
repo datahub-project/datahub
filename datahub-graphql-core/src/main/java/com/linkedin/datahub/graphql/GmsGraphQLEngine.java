@@ -1185,7 +1185,8 @@ public class GmsGraphQLEngine {
                     "listExecutionRequests", new ListExecutionRequestsResolver(this.entityClient))
                 .dataFetcher("executionRequest", getResolver(executionRequestType))
                 .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
-                .dataFetcher("getTimeline", new GetTimelineResolver(this.timelineService))
+                .dataFetcher(
+                    "getTimeline", new GetTimelineResolver(this.timelineService, this.entityClient))
                 .dataFetcher(
                     "getSchemaVersionList", new GetSchemaVersionListResolver(this.timelineService))
                 .dataFetcher("test", getResolver(testType))
@@ -4152,11 +4153,29 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
     builder.type(
-        "ModelDataset",
+        "SemanticModelInfo",
         typeWiring ->
             typeWiring.dataFetcher(
-                "source",
-                new EntityTypeResolver(
-                    entityTypes, (env) -> ((ModelDataset) env.getSource()).getSource())));
+                "datasets",
+                new LoadableTypeBatchResolver<>(
+                    datasetType,
+                    env ->
+                        ((SemanticModelInfo) env.getSource())
+                            .getDatasets().stream()
+                                .map(Dataset::getUrn)
+                                .collect(Collectors.toList()))));
+    builder.type(
+        "SemanticModelProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "semanticModel",
+                new LoadableTypeResolver<>(
+                    semanticModelType,
+                    env -> {
+                      final SemanticModelProperties smp = env.getSource();
+                      return smp.getSemanticModel() != null
+                          ? smp.getSemanticModel().getUrn()
+                          : null;
+                    })));
   }
 }

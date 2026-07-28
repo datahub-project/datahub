@@ -467,15 +467,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config._forced_disable_tag_extraction:
             self.report.warning(
-                "Some features disabled because of configuration conflicts",
-                "Tag Extraction is disabled due to missing warehouse_id in config",
+                message="Tag Extraction is disabled due to missing warehouse_id in config",
+                context="configuration-conflicts",
                 log=False,
             )
 
         if self.config._forced_disable_hive_metastore_extraction:
             self.report.warning(
-                "Some features disabled because of configuration conflicts",
-                "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+                message="Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+                context="configuration-conflicts",
                 log=False,
             )
 
@@ -489,11 +489,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             except Exception:
                 _sdk_version = "unknown"
             self.report.warning(
-                "include_metric_views has no effect with installed databricks-sdk",
-                f"databricks-sdk {_sdk_version} does not expose TableType.METRIC_VIEW. "
+                message="databricks-sdk does not expose TableType.METRIC_VIEW. "
                 "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
                 "to >= 0.58.0 (the release that added this enum) to enable "
                 "metric-view ingestion.",
+                context=f"include_metric_views has no effect with databricks-sdk {_sdk_version}",
                 log=False,
             )
 
@@ -589,8 +589,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
                     if wait_on_warehouse is None:
                         self.report.failure(
-                            "initialization",
-                            f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                            message="SQL warehouse not found",
+                            context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
                         )
                         return
                     else:
@@ -638,8 +638,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
                 if wait_on_warehouse is None:
                     self.report.failure(
-                        "initialization",
-                        f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                        message="SQL warehouse not found",
+                        context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
                     )
                     return
                 else:
@@ -687,8 +687,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.service_principals[sp.application_id] = sp
         except Exception as e:
             self.report.warning(
-                "service-principals",
-                f"Unable to fetch service principals: {e}",
+                message="Unable to fetch service principals",
+                context="service-principals",
+                exc=e,
                 log=False,
             )
 
@@ -696,7 +697,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         try:
             self.groups += self.unity_catalog_api_proxy.groups()
         except Exception as e:
-            self.report.warning("groups", f"Unable to fetch groups: {e}", log=False)
+            self.report.warning(
+                message="Unable to fetch groups",
+                context="groups",
+                exc=e,
+                log=False,
+            )
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
@@ -767,7 +773,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_metastore:
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
             if not metastore:
-                self.report.failure("Metastore", "Not found")
+                self.report.failure(
+                    message="Metastore not found",
+                    context="Metastore",
+                )
                 return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
@@ -942,9 +951,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 lineage = self.ingest_lineage(table)
                 if lineage is None:
                     self.report.warning(
-                        "Metric view has no upstream lineage",
-                        f"{table.ref.qualified_table_name}: neither YAML parsing "
-                        "nor the table-lineage REST API produced any upstreams.",
+                        message="Metric view has no upstream lineage: neither YAML parsing "
+                        "nor the table-lineage REST API produced any upstreams",
+                        context=table.ref.qualified_table_name,
                         log=False,
                     )
         else:
@@ -2047,16 +2056,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
-        consequence = (
-            "Falling back to the REST table-lineage API; column-level lineage "
-            "and Dimension/Measure tags will be absent for this view."
-        )
         if not table.view_definition:
             self.report.num_metric_views_yaml_shape_invalid += 1
             self.report.warning(
-                "Metric view has no YAML body",
-                f"{table.ref.qualified_table_name}: view_definition is empty. "
-                f"{consequence}",
+                message="Metric view has no YAML body: view_definition is empty. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=table.ref.qualified_table_name,
                 log=False,
             )
             return None
@@ -2065,18 +2071,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
             self.report.num_metric_views_yaml_parse_failures += 1
             self.report.warning(
-                "Metric view YAML failed to parse",
-                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}. "
-                f"{consequence}",
+                message="Metric view YAML failed to parse. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=table.ref.qualified_table_name,
+                exc=e,
                 log=False,
             )
             return None
         if not isinstance(spec, dict):
             self.report.num_metric_views_yaml_shape_invalid += 1
             self.report.warning(
-                "Metric view YAML is not a mapping",
-                f"{table.ref.qualified_table_name}: top-level type is "
-                f"{type(spec).__name__!r}, expected dict. {consequence}",
+                message="Metric view YAML is not a mapping. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=f"{table.ref.qualified_table_name}: top-level type is "
+                f"{type(spec).__name__!r}, expected dict",
                 log=False,
             )
             return None
@@ -2117,9 +2127,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if shape_issues:
             self.report.num_metric_views_yaml_shape_invalid += 1
             self.report.warning(
-                "Metric view YAML has unexpected shape",
-                f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}. "
+                message="Metric view YAML has unexpected shape. "
                 "Affected entries are skipped; remaining YAML continues to be processed.",
+                context=f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}",
                 log=False,
             )
 
@@ -2148,11 +2158,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             # All-rejected case is reported below via num_metric_views_no_parseable_sources.
             self.report.num_metric_view_unparseable_sources += len(unparseable)
             self.report.warning(
-                "Metric view source(s) skipped",
-                f"{table.ref.qualified_table_name}: unparseable sources="
-                f"{unparseable!r}. Need 2-part (schema.table) or 3-part "
+                message="Metric view source(s) skipped: need 2-part (schema.table) or 3-part "
                 "(catalog.schema.table) identifiers; 1-part names and SQL "
-                "subqueries are not supported by the YAML lineage path.",
+                "subqueries are not supported by the YAML lineage path",
+                context=f"{table.ref.qualified_table_name}: unparseable sources="
+                f"{unparseable!r}",
                 log=False,
             )
 
@@ -2160,11 +2170,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if source_names:
                 self.report.num_metric_views_no_parseable_sources += 1
                 self.report.warning(
-                    "Metric view has no parseable upstream sources",
-                    f"{table.ref.qualified_table_name}: sources={source_names!r}. "
+                    message="Metric view has no parseable upstream sources. "
                     "Lineage extraction needs 2-part (schema.table) or 3-part "
                     "(catalog.schema.table) identifiers; 1-part names and SQL "
                     "subqueries fall back to the REST table-lineage API.",
+                    context=f"{table.ref.qualified_table_name}: sources={source_names!r}",
                     log=False,
                 )
             return None
@@ -2214,10 +2224,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if joins_skipped:
             self.report.num_metric_view_joins_skipped += joins_skipped
             self.report.warning(
-                "Metric view joins skipped",
-                f"{table.ref.qualified_table_name}: {joins_skipped} join "
-                "entry/entries skipped due to malformed shape or unparseable "
+                message="Metric view joins skipped due to malformed shape or unparseable "
                 "source. Column lineage for join-qualified columns will be absent.",
+                context=f"{table.ref.qualified_table_name}: {joins_skipped} join "
+                "entry/entries skipped",
                 log=False,
             )
 
@@ -2262,11 +2272,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if skipped_entries:
             self.report.num_metric_view_skipped_dim_measure_entries += skipped_entries
             self.report.warning(
-                "Metric view dimension/measure entries skipped",
-                f"{table.ref.qualified_table_name}: {skipped_entries} "
-                "dimension/measure entry/entries skipped due to malformed shape "
-                "(non-mapping entry, missing or non-string `name`/`expr`). Column "
+                message="Metric view dimension/measure entries skipped due to malformed shape "
+                "(non-mapping entry, missing or non-string name/expr). Column "
                 "lineage for affected columns will be absent.",
+                context=f"{table.ref.qualified_table_name}: {skipped_entries} "
+                "dimension/measure entry/entries skipped",
                 log=False,
             )
 
@@ -2275,10 +2285,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 unresolved_qualifiers
             )
             self.report.warning(
-                "Metric view expression references unknown qualifier",
-                f"{table.ref.qualified_table_name}: qualifiers="
-                f"{sorted(unresolved_qualifiers)!r} not found in `source`/`joins`. "
-                "Lineage rows for affected columns were skipped.",
+                message="Metric view expression references unknown qualifier not found in "
+                "source/joins. Lineage rows for affected columns were skipped.",
+                context=f"{table.ref.qualified_table_name}: qualifiers="
+                f"{sorted(unresolved_qualifiers)!r}",
                 log=False,
             )
 
@@ -2366,8 +2376,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ) as e:
             self.report.num_metric_views_expr_parse_failures += 1
             self.report.warning(
-                "Metric view expression failed to parse",
-                f"{context}: expr={expr!r}: {type(e).__name__}: {e}".lstrip(": "),
+                message="Metric view expression failed to parse",
+                context=f"{context}: expr={expr!r}",
+                exc=e,
                 log=False,
             )
             return [], set()

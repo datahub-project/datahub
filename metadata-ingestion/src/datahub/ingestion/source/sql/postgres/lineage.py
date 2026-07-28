@@ -192,8 +192,9 @@ class PostgresLineageExtractor:
                 # Expected database errors: connection issues, permission denied, invalid SQL, etc.
                 logger.error("Failed to extract query history: %s", e)
                 self.report.failure(
-                    message=str(e),
+                    message="Failed to extract query history",
                     context="query_history_extraction_failed",
+                    exc=e,
                 )
                 return []
 

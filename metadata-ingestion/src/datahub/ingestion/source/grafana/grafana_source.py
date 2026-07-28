@@ -153,7 +153,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 self.report.failure(
                     title="Dashboard Search Error",
                     message="Failed to fetch dashboards in basic mode",
-                    context=str(e),
                     exc=e,
                 )
                 return

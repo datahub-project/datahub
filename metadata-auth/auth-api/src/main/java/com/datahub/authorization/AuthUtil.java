@@ -1,22 +1,6 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATAHUB_VIEW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -28,7 +12,6 @@ import static com.linkedin.metadata.authorization.PoliciesConfig.API_PRIVILEGE_M
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.authorization.ApiGroup;
@@ -95,28 +78,32 @@ public class AuthUtil {
   }
 
   /**
-   * This should generally follow the policy creation UI with a few exceptions for users, groups,
-   * containers, etc so that the platform still functions as expected.
+   * Effective view-unrestricted entity types for a request. Resolved once onto {@link
+   * com.datahub.authorization.config.ViewAuthorizationConfiguration#getEffectiveUnrestrictedEntityTypes()}
+   * from {@code authorization.view.unrestrictedEntityTypes} (YAML/env). When unset, returns an
+   * empty set — with view authorization enabled, every entity type is restricted.
    */
-  public static final Set<String> VIEW_RESTRICTED_ENTITY_TYPES =
-      ImmutableSet.of(
-          DATASET_ENTITY_NAME,
-          DASHBOARD_ENTITY_NAME,
-          CHART_ENTITY_NAME,
-          ML_MODEL_ENTITY_NAME,
-          ML_FEATURE_ENTITY_NAME,
-          ML_MODEL_GROUP_ENTITY_NAME,
-          ML_FEATURE_TABLE_ENTITY_NAME,
-          ML_PRIMARY_KEY_ENTITY_NAME,
-          DATA_FLOW_ENTITY_NAME,
-          DATA_JOB_ENTITY_NAME,
-          GLOSSARY_TERM_ENTITY_NAME,
-          GLOSSARY_NODE_ENTITY_NAME,
-          DOMAIN_ENTITY_NAME,
-          DATA_PRODUCT_ENTITY_NAME,
-          NOTEBOOK_ENTITY_NAME,
-          DATAHUB_VIEW_ENTITY_NAME,
-          QUERY_ENTITY_NAME);
+  @Nonnull
+  public static Set<String> getViewUnrestrictedEntityTypes(
+      @Nullable com.datahub.authorization.config.ViewAuthorizationConfiguration config) {
+    if (config != null && config.getEffectiveUnrestrictedEntityTypes() != null) {
+      return config.getEffectiveUnrestrictedEntityTypes();
+    }
+    return Set.of();
+  }
+
+  /**
+   * Whether {@code entityType} is subject to view authorization checks. When view authorization is
+   * disabled this is unused by callers; when enabled, returns {@code true} unless the type is in
+   * the unrestricted set (case-insensitive).
+   */
+  public static boolean isViewRestrictedEntityType(
+      @Nullable com.datahub.authorization.config.ViewAuthorizationConfiguration config,
+      @Nonnull String entityType) {
+    final String needle = entityType.toLowerCase(java.util.Locale.ROOT);
+    return getViewUnrestrictedEntityTypes(config).stream()
+        .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).equals(needle));
+  }
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
