@@ -519,8 +519,19 @@ module.exports = {
         },
         {
           label: "MCP Server",
-          type: "doc",
-          id: "docs/features/feature-guides/mcp",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/mcp",
+          },
+          items: [
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Ownership",
