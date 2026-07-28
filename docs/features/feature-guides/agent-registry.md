@@ -9,14 +9,14 @@ import ProductTour from '@site/src/components/ProductTour';
 
 <FeatureAvailability saasOnly />
 
-Your board just asked: _how many AI agents are running, what data are they touching, who owns them,
-and can we trust them?_ Most teams can't answer today — their agents are shadow AI, invisible to
-governance. Introduced in DataHub Cloud v2.1, the **Agent Registry** closes that gap by cataloging
-AI agents, the skills they adopt, and the tools they invoke as **first-class, governed, versioned
-metadata entities**, sitting in the same lineage graph as the data they consume.
+Introduced in DataHub Cloud v2.1, the **Agent Registry** catalogs AI agents, the skills they adopt,
+and the tools they invoke as first-class, governed, versioned metadata entities, in the same lineage
+graph as the data they consume. This lets you answer questions like how many agents are running,
+what data each one touches, and who owns them — from the catalog you already use for your data.
 
 Because agents live in the graph alongside your datasets, the governance you already run on data —
-ownership, classification, lineage, incidents, change history — extends to your AI layer for free.
+ownership, classification, lineage, incidents, and change history — extends to your AI layer without
+extra configuration.
 
 :::note Agent Registry vs. Agents
 This guide is about **cataloging AI agents as metadata** — making them discoverable, owned, and
@@ -62,29 +62,28 @@ Reach out to your DataHub representative to enable the Agent Registry for your o
 
 ### The agent profile
 
-Open an agent — for example the **FX Risk Scoring Agent** — and its profile is a first-class entity
-page. It tells you what the agent does, the skill and tools it uses, the data it reads across
-BigQuery, Snowflake, and dbt, and how reliable it is (eval scores, invocation volume, latency). It's
-owned by a real team — the Quant Risk Team. This is the opposite of shadow AI: an agent you can find,
-attribute, and trust.
+Open an agent — for example the **FX Risk Scoring Agent** — to see its profile. It shows what the
+agent does, the skill and tools it uses, the data it reads across BigQuery, Snowflake, and dbt, and
+reliability signals such as eval scores, invocation volume, and latency. Ownership is attributed to
+a team — here, the Quant Risk Team — so every agent has an owner you can find and hold accountable.
 
 ### Dependencies
 
 An agent's dependencies are explicit and clickable — the **skill** it adopts, the **tools** it
-invokes, and the **model** it runs on. Because each is a first-class entity, a new team can discover
-and reuse them instead of rebuilding an agent from scratch.
+invokes, and the **model** it runs on. Because each is a catalog entity in its own right, a new team
+can discover and reuse them instead of rebuilding an agent from scratch.
 
 ### Skills
 
-Skills are first-class citizens too. Open a skill — the **FX Risk Scoring skill** — and you get its
+Skills are catalog entities too. Open a skill — the **FX Risk Scoring skill** — and you get its
 definition, a source-of-truth spec, and the exact tools it requires. A skill is one reusable, vetted
 capability that teams adopt rather than reimplement.
 
 ### Tools, signatures, and contracts
 
-Every tool an agent invokes is a first-class [API](service-catalog.md#apis-and-endpoints) entity with
-a **typed signature** — input parameters and an output shape — rendered with the same schema
-components your datasets use. The MCP servers that expose these tools are catalogued as
+Every tool an agent invokes is an [API](service-catalog.md#apis-and-endpoints) entity with a **typed
+signature** — input parameters and an output shape — rendered with the same schema components your
+datasets use. The MCP servers that expose these tools are catalogued as
 [Service](service-catalog.md#services) entities, and each server carries its full **contract** in the
 graph — the live tool list, with inputs and outputs in JSON Schema, versioned in place. (A REST API
 tool renders its OpenAPI spec the same way.) See the [Service Catalog](service-catalog.md) for the
@@ -92,10 +91,9 @@ full treatment of APIs, services, and contracts.
 
 ### Lineage to your data
 
-Here's the payoff: the agent sits in your lineage graph, **downstream of the very BigQuery,
-Snowflake, and dbt tables it consumes**. That means you can answer _"what AI touches my regulated
-data?"_ from the same [lineage](lineage.md) graph you already use for impact analysis — no separate
-tool, no separate inventory.
+An agent sits in the lineage graph downstream of the BigQuery, Snowflake, and dbt tables it consumes.
+This lets you trace which data an agent reads, and — running lineage in reverse — which agents read a
+given table, from the same [lineage](lineage.md) graph you use for data impact analysis.
 
 ### Versioning and change history
 
@@ -106,16 +104,15 @@ And every change is on the **timeline** — tag changes, ownership updates, eval
 documentation, and the version milestones themselves. It's a full, trustworthy audit trail for your
 AI — just like data quality history, but for agents.
 
-### Governance that rides on lineage
+### Governance across lineage
 
-The deepest payoff is that governance flows across this same lineage, automatically. Consider a
-[Glossary Term Propagation](/docs/automations/glossary-term-propagation.md) automation, switched on.
-Someone classifies a source table — `fx-positions` — as **Highly Confidential**. Because the FX Risk
-Scoring Agent consumes that table, DataHub propagates the classification straight onto the agent: it
-now carries the same **Highly Confidential** label, inherited through lineage. Its health turns red,
-and an [incident](/docs/incidents/incidents.md) is opened for review.
-
-So the moment sensitive data reaches an AI system, you see it — and you can act.
+Because agents are in the lineage graph, governance automations extend to them without extra setup.
+Consider a [Glossary Term Propagation](/docs/automations/glossary-term-propagation.md) automation,
+switched on. Someone classifies a source table — `fx-positions` — as **Highly Confidential**. Because
+the FX Risk Scoring Agent consumes that table, DataHub propagates the classification onto the agent,
+which now carries the same **Highly Confidential** label, inherited through lineage. The agent's
+health turns red, and an [incident](/docs/incidents/incidents.md) is opened for review — so sensitive
+data reaching an AI system becomes visible the moment it happens.
 
 ## FAQ and Troubleshooting
 

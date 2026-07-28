@@ -10,11 +10,10 @@ import ProductTour from '@site/src/components/ProductTour';
 <FeatureAvailability saasOnly />
 
 Introduced in DataHub Cloud v2.1, the **Service Catalog** brings the software layer of your stack
-into DataHub as first-class, typed, governed entities — right beside the data those systems produce. Repositories build
-services, services expose APIs, applications call those APIs, and APIs produce and consume
-datasets. Instead of a service showing up as a mislabeled, schemaless dataset, it shows up as
-exactly what it is — a REST, GraphQL, gRPC, or MCP service — owned, versioned, health-checked,
-and connected to everything downstream.
+into DataHub as typed, governed entities — right beside the data those systems produce. Repositories
+build services, services expose APIs, applications call those APIs, and APIs produce and consume
+datasets. A service is modeled as what it is — a REST, GraphQL, gRPC, or MCP service — owned,
+versioned, health-checked, and connected to everything downstream.
 
 This closes a long-standing gap: the engineering view of your systems and the business-and-data
 view now live in **one connected graph**, so you can trace an outage, a schema change, or a data
@@ -65,10 +64,9 @@ owned, and health-checked. Use search filters for **sub-type** (REST/GraphQL/gRP
 
 ### Services
 
-Open a service — for example an **Order Entry API** — and you land on a first-class Service profile,
-not a mislabeled dataset. On one screen you get the service's **endpoints**, its **contract**, its
-**production lifecycle stage**, and the **team that owns it** — everything you need to trust and
-depend on a service.
+Open a service — for example an **Order Entry API** — to see its Service profile. On one screen you
+get the service's **endpoints**, its **contract**, its **production lifecycle stage**, and the
+**team that owns it** — everything you need to trust and depend on a service.
 
 MCP servers are catalogued here too, as Services sub-typed **MCP**, complete with real connection
 details. The server, the tools (APIs) it exposes, and the agents that call them all live in the same
@@ -82,17 +80,18 @@ AI agents to query your catalog.
 
 ### APIs and endpoints
 
-Every operation a service exposes is first-class too. An endpoint like **Place Order** carries a
-**typed signature** — required inputs and typed outputs — rendered with the same rich schema views
-your teams already use for datasets. The result is strongly-typed, discoverable contracts for every
-endpoint you run, whether it's a REST path, a gRPC method, a GraphQL field, or an MCP tool.
+Every operation a service exposes is modeled as its own entity. An endpoint like **Place Order**
+carries a **typed signature** — required inputs and typed outputs — rendered with the same rich
+schema views your teams already use for datasets. The result is strongly-typed, discoverable
+contracts for every endpoint you run, whether it's a REST path, a gRPC method, a GraphQL field, or
+an MCP tool.
 
 ### The software-to-data chain
 
-The payoff of modeling these as distinct entities is the chain between them: the **payments
+Modeling these as distinct entities makes the chain between them explicit: the **payments
 repository** builds the **Order Entry service**, and the service **exposes** its endpoints —
-repository, to service, to endpoint — nested exactly the way your systems really run. It's one
-connected graph, strongly typed at every hop, rather than opaque strings buried in a description.
+repository, to service, to endpoint — nested the way your systems really run. Each hop is a typed
+graph edge, rather than opaque strings buried in a description.
 
 ### Applications
 
@@ -117,9 +116,9 @@ the service.
 ### Impact analysis
 
 Because services, APIs, applications, and agents share one graph, impact analysis spans all of them.
-Ask _"who depends on Place Order?"_ and the graph answers instantly — for example, the **Checkout**
-application _and_ the **FX Risk Scoring agent**. That's impact analysis across services, apps, and
-AI agents, on real types you can trust, from the same lineage view you already use for data.
+You can ask which assets depend on the **Place Order** endpoint and get the answer directly — for
+example, the **Checkout** application and the **FX Risk Scoring agent** — across services, apps, and
+AI agents, from the same lineage view you already use for data.
 
 ### Incidents and health
 
