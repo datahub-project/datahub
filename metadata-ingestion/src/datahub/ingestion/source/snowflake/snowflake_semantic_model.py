@@ -38,24 +38,25 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
+    DatasetPropertiesClass,
     DerivedMetricInputClass,
     DialectClass,
     DialectExpressionClass,
     DimensionClass,
-    EdgeClass,
     ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
-    MetricUpstreamsClass,
-    ModelDatasetClass,
+    MySqlDDLClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SemanticFieldClass,
+    SchemaMetadataClass,
+    SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
+    SemanticModelPropertiesClass,
     SemanticModelRelationshipClass,
     StatusClass,
     SubTypesClass,
@@ -76,10 +77,15 @@ _UNKNOWN_ACTOR_URN = "urn:li:corpuser:unknown"
 
 
 class SnowflakeSemanticModelMapper:
-    """Maps a SnowflakeSemanticView onto semanticModel and metric entities.
+    """Maps a SnowflakeSemanticView onto semanticModel, dataset, and metric entities.
 
-    Dimensions/facts become SemanticFields under the ModelDataset they belong to;
-    METRIC columns become first-class metric entities linked back to the model.
+    Each logical table the view exposes becomes its own ``dataset`` entity
+    (subtype ``Semantic Model Dataset``) carrying a ``semanticModelProperties``
+    back-reference and a ``schemaMetadata`` projection of its dimension/fact
+    columns; per-field semantic metadata is layered on each column's
+    ``schemaField`` via ``semanticFieldAnnotation``. ``METRIC`` columns become
+    first-class ``metric`` entities linked back to the model (``ModeledBy``).
+    Lineage flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``.
     """
 
     platform = "snowflake"
@@ -109,22 +115,27 @@ class SnowflakeSemanticModelMapper:
         metric_occurrences = self._metric_occurrences(semantic_view)
         metric_names_upper = set(metric_occurrences.keys())
         shadowed_metric_names = self._shadowed_metric_names(semantic_view)
-        model_lineages, metric_lineages = self._split_lineages_by_metric(
-            fine_grained_lineages, metric_names_upper, shadowed_metric_names
+        logical_dataset_urns = self._build_logical_dataset_urns(
+            semantic_view, schema_name, db_name
+        )
+        lineages_by_dataset = self._route_lineages(
+            fine_grained_lineages,
+            metric_names_upper,
+            shadowed_metric_names,
+            model_urn=model_urn,
+            semantic_view=semantic_view,
         )
 
+        # Semantic model entity.
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn, aspect=StatusClass(removed=False)
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=model_urn,
-            aspect=self._build_semantic_model_info(semantic_view, metric_occurrences),
-        ).as_workunit()
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=model_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.SEMANTIC_VIEW]),
+            aspect=self._build_semantic_model_info(
+                semantic_view, metric_occurrences, logical_dataset_urns
+            ),
         ).as_workunit()
 
         yield from self._gen_common_entity_aspects(
@@ -133,35 +144,28 @@ class SnowflakeSemanticModelMapper:
         )
 
         yield from self._gen_view_tags(semantic_view, model_urn)
-        yield from self._gen_field_structured_property_workunits(
-            semantic_view, model_urn
-        )
-
         yield from self._gen_domain_workunits(
             model_urn, semantic_view, schema_name, db_name
         )
 
-        # Gate upstreamLineage on resolved table-level upstreams: an FGL-only
-        # aspect with empty upstreams has no table edge for the UI to anchor
-        # column lineage on and is accepted-but-invisible.
-        if semantic_view.resolved_upstream_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=model_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=[
-                        UpstreamClass(
-                            dataset=upstream_urn, type=DatasetLineageTypeClass.VIEW
-                        )
-                        for upstream_urn in semantic_view.resolved_upstream_urns
-                    ],
-                    fineGrainedLineages=model_lineages or None,
-                ),
-            ).as_workunit()
+        # One dataset entity per logical table.
+        for logical_table_upper, logical_dataset_urn in logical_dataset_urns.items():
+            yield from self._gen_logical_dataset_workunits(
+                semantic_view=semantic_view,
+                logical_table_upper=logical_table_upper,
+                logical_dataset_urn=logical_dataset_urn,
+                model_urn=model_urn,
+                schema_name=schema_name,
+                db_name=db_name,
+                fine_grained_lineages=lineages_by_dataset.get(logical_dataset_urn, []),
+            )
 
-        for metric_name_upper, occurrence in metric_occurrences.items():
+        self._warn_unplaced_columns(semantic_view, logical_dataset_urns)
+
+        # One metric entity per METRIC column.
+        for _metric_name_upper, occurrence in metric_occurrences.items():
             yield from self._gen_metric_workunits(
                 occurrence=occurrence,
-                metric_lineages=metric_lineages.get(metric_name_upper, []),
                 metric_occurrences=metric_occurrences,
                 model_urn=model_urn,
                 semantic_view=semantic_view,
@@ -173,6 +177,7 @@ class SnowflakeSemanticModelMapper:
         self,
         semantic_view: SnowflakeSemanticView,
         metric_occurrences: Dict[str, SemanticViewColumnMetadata],
+        logical_dataset_urns: "Dict[str, str]",
     ) -> SemanticModelInfoClass:
         return SemanticModelInfoClass(
             name=semantic_view.name,
@@ -184,9 +189,65 @@ class SnowflakeSemanticModelMapper:
                 if self.config.include_view_definitions
                 else None
             ),
-            datasets=self._build_model_datasets(semantic_view, metric_occurrences),
+            datasets=list(logical_dataset_urns.values()),
             relationships=self._build_relationships(semantic_view),
         )
+
+    def _build_logical_dataset_urns(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        schema_name: str,
+        db_name: str,
+    ) -> "Dict[str, str]":
+        # Preserve declaration order so SemanticModelInfo.datasets is stable
+        # across re-ingestions (dict iteration order == insertion order).
+        urns: Dict[str, str] = {}
+        for logical_table_upper in semantic_view.logical_to_physical_table:
+            urns[logical_table_upper] = self.identifiers.gen_semantic_model_dataset_urn(
+                semantic_view.name, logical_table_upper, schema_name, db_name
+            )
+        return urns
+
+    def _warn_unplaced_columns(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_dataset_urns: "Dict[str, str]",
+    ) -> None:
+        # A non-metric column whose table_name doesn't match any logical table
+        # in logical_to_physical_table can't be re-homed onto a logical dataset,
+        # so it (and its semanticFieldAnnotation) is silently dropped. Surface
+        # that to operators so the column isn't lost without a trace.
+        placed: Set[str] = set()
+        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            for occurrence in occurrences:
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                    continue
+                if (
+                    occurrence.table_name
+                    and occurrence.table_name.upper() in logical_dataset_urns
+                ):
+                    placed.add(col_name_upper)
+        unplaced = set(semantic_view.column_occurrences.keys()) - placed
+        # Columns that are only metrics (no non-metric occurrence) are not
+        # "unplaced" — they're emitted as metric entities, not fields.
+        unplaced = {
+            col
+            for col in unplaced
+            if any(
+                o.subtype != SemanticViewColumnSubtype.METRIC
+                for o in semantic_view.column_occurrences[col]
+            )
+        }
+        if unplaced:
+            self.report.warning(
+                title="Semantic view columns without a logical table",
+                message=(
+                    "Some dimensions/facts could not be associated with a"
+                    " logical table and were omitted from the semantic model's"
+                    " logical datasets."
+                ),
+                context=f"{semantic_view.name}: {sorted(unplaced)}",
+            )
 
     def _build_relationships(
         self, semantic_view: SnowflakeSemanticView
@@ -196,8 +257,8 @@ class SnowflakeSemanticModelMapper:
         return [
             SemanticModelRelationshipClass(
                 name=relationship.name,
-                # Uppercased to match the ModelDataset.name values, so references
-                # resolve to real datasets.
+                # Uppercased to match each logical dataset's
+                # semanticModelProperties.alias, so join references resolve.
                 from_=relationship.from_table.upper(),
                 fromColumns=relationship.from_columns,
                 to=relationship.to_table.upper(),
@@ -208,151 +269,53 @@ class SnowflakeSemanticModelMapper:
             for relationship in semantic_view.relationships
         ]
 
-    def _build_model_datasets(
+    def _route_lineages(
         self,
+        fine_grained_lineages: List[FineGrainedLineageClass],
+        metric_names_upper: Set[str],
+        shadowed_metric_names: Set[str],
+        model_urn: str,
         semantic_view: SnowflakeSemanticView,
-        metric_occurrences: Dict[str, SemanticViewColumnMetadata],
-    ) -> List[ModelDatasetClass]:
-        datasets: List[ModelDatasetClass] = []
-        self._warn_field_path_collisions(semantic_view)
-        # Metrics are entities, not fields; seed them as "placed" so the unplaced
-        # check below doesn't flag them.
-        placed_columns: Set[str] = set(metric_occurrences.keys())
-
-        for (
-            logical_name_upper,
-            physical_table,
-        ) in semantic_view.logical_to_physical_table.items():
-            physical_db, physical_schema, physical_table_name = physical_table
-            source_urn = self.identifiers.gen_dataset_urn(
-                self.identifiers.get_dataset_identifier(
-                    physical_table_name, physical_schema, physical_db
-                )
-            )
-
-            fields: List[SemanticFieldClass] = []
-            # INFORMATION_SCHEMA can repeat a column row per logical table; dedupe.
-            seen_columns_upper: Set[str] = set()
-            for (
-                col_name_upper,
-                occurrences,
-            ) in semantic_view.column_occurrences.items():
-                for occurrence in occurrences:
-                    if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
-                        continue  # metrics are separate entities, not fields
-                    if (
-                        occurrence.table_name
-                        and occurrence.table_name.upper() == logical_name_upper
-                    ):
-                        placed_columns.add(col_name_upper)
-                        if col_name_upper in seen_columns_upper:
-                            continue
-                        seen_columns_upper.add(col_name_upper)
-                        fields.append(
-                            self._build_semantic_field(occurrence, semantic_view)
-                        )
-
-            datasets.append(
-                ModelDatasetClass(
-                    name=logical_name_upper,
-                    source=source_urn,
-                    fields=fields or None,
-                )
-            )
-
-        unplaced = set(semantic_view.column_occurrences.keys()) - placed_columns
-        if unplaced:
-            self.report.warning(
-                title="Semantic view columns without a logical table",
-                message="Some dimensions/facts could not be associated with a logical "
-                "table and were omitted from the semantic model fields.",
-                context=f"{semantic_view.name}: {sorted(unplaced)}",
-            )
-
-        return datasets
-
-    def _warn_field_path_collisions(self, semantic_view: SnowflakeSemanticView) -> None:
-        # fieldPath is the bare uppercased column name, so a non-metric column on
-        # multiple logical tables collides on one schemaField URN - ambiguous for
-        # lineage anchoring and SP tags. Just surface it to operators.
-        join_key_columns = self._relationship_key_columns(semantic_view)
-        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
-            # A same-name column on multiple tables is expected (not a collision)
-            # when it's a join key or primary-key column: that's what enables the join.
+    ) -> Dict[str, List[FineGrainedLineageClass]]:
+        # Group non-metric FGLs by their downstream schemaField's parent dataset
+        # (the logical dataset that owns the column). Metric FGLs are dropped:
+        # metric lineage flows Metric -> SemanticModel -> Logical Dataset, with
+        # no metricUpstreams for semantic-model-backed metrics.
+        by_dataset: Dict[str, List[FineGrainedLineageClass]] = {}
+        for lineage in fine_grained_lineages:
+            downstream_field = self._downstream_field_name(lineage)
+            downstream_upper = downstream_field.upper() if downstream_field else None
             if (
-                col_name_upper in join_key_columns
-                or col_name_upper in semantic_view.primary_key_columns
+                downstream_upper
+                and downstream_upper in metric_names_upper
+                and downstream_upper not in shadowed_metric_names
             ):
                 continue
-            table_names = {
-                occurrence.table_name
-                for occurrence in occurrences
-                if occurrence.subtype != SemanticViewColumnSubtype.METRIC
-                and occurrence.table_name
-            }
-            if len(table_names) > 1:
+            if not lineage.downstreams:
+                continue
+            parent_urn = SchemaFieldUrn.from_string(lineage.downstreams[0]).parent
+            if parent_urn == model_urn:
+                # The resolver only anchors a non-metric column on the model
+                # URN when it has no logical-table association. A
+                # dimension/fact without a logical table can't be re-homed onto
+                # a logical dataset, so warn rather than silently collapse its
+                # lineage onto the (now lineage-less) model.
                 self.report.warning(
-                    title="Semantic view column defined on multiple logical tables",
-                    message="A dimension/fact column with this name is defined on more "
-                    "than one logical table. Both produce a SemanticField with the same "
-                    "fieldPath, which collide on a single schemaField URN - this is "
-                    "ambiguous for column-level lineage anchoring and structured-property "
-                    "tags.",
-                    context=f"{semantic_view.name}.{col_name_upper}: tables={sorted(table_names)}",
+                    title=(
+                        "Semantic view column lineage has no logical table association"
+                    ),
+                    message=(
+                        "A non-metric column's fine-grained lineage could not be"
+                        " associated with a logical table, so its column-level"
+                        " lineage was dropped from the semantic model. Assign the"
+                        " column to a logical table on the Snowflake side to"
+                        " restore it."
+                    ),
+                    context=(f"{semantic_view.name}.{downstream_field or '<unknown>'}"),
                 )
-
-    @staticmethod
-    def _relationship_key_columns(semantic_view: SnowflakeSemanticView) -> Set[str]:
-        keys: Set[str] = set()
-        for relationship in semantic_view.relationships:
-            keys.update(col.upper() for col in relationship.from_columns)
-            keys.update(col.upper() for col in relationship.to_columns)
-        return keys
-
-    def _build_semantic_field(
-        self,
-        occurrence: SemanticViewColumnMetadata,
-        semantic_view: SnowflakeSemanticView,
-    ) -> SemanticFieldClass:
-        field_type = (
-            SemanticFieldTypeClass.DIMENSION
-            if occurrence.subtype == SemanticViewColumnSubtype.DIMENSION
-            else SemanticFieldTypeClass.MEASURE
-        )
-        type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
-            _base_type(occurrence.data_type), NullType
-        )
-
-        return SemanticFieldClass(
-            schemaField=SchemaFieldClass(
-                # Must stay uppercased to match the col_name_upper anchor in
-                # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view;
-                # restoring the original case desyncs the field path from its lineage
-                # anchor and breaks column-level lineage.
-                fieldPath=self.identifiers.snowflake_identifier(
-                    occurrence.name.upper()
-                ),
-                type=SchemaFieldDataTypeClass(type_class()),
-                nativeDataType=occurrence.data_type,
-                description=occurrence.comment,
-                nullable=True,
-                isPartOfKey=occurrence.name.upper()
-                in semantic_view.primary_key_columns,
-                globalTags=self._column_tags(occurrence.name, semantic_view),
-            ),
-            type=field_type,
-            expression=self._expression(occurrence),
-            dimension=(
-                DimensionClass(isTime=type_class in (DateType, TimeType))
-                if field_type == SemanticFieldTypeClass.DIMENSION
-                else None
-            ),
-            aiContext=(
-                AiContextClass(synonyms=occurrence.synonyms)
-                if occurrence.synonyms
-                else None
-            ),
-        )
+                continue
+            by_dataset.setdefault(parent_urn, []).append(lineage)
+        return by_dataset
 
     def _gen_domain_workunits(
         self,
@@ -361,8 +324,8 @@ class SnowflakeSemanticModelMapper:
         schema_name: str,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        # Match the domain pattern against the view identifier so the model and
-        # its metrics all land in the same domain.
+        # Match the domain pattern against the view identifier so the model,
+        # its metrics, and its logical datasets all land in the same domain.
         if self.domain_registry and self.config.domain:
             yield from get_domain_wu(
                 dataset_name=self.identifiers.get_dataset_identifier(
@@ -373,10 +336,216 @@ class SnowflakeSemanticModelMapper:
                 domain_registry=self.domain_registry,
             )
 
+    def _gen_logical_dataset_workunits(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_table_upper: str,
+        logical_dataset_urn: str,
+        model_urn: str,
+        schema_name: str,
+        db_name: str,
+        fine_grained_lineages: List[FineGrainedLineageClass],
+    ) -> Iterable[MetadataWorkUnit]:
+        physical_db, physical_schema, physical_table_name = (
+            semantic_view.logical_to_physical_table[logical_table_upper]
+        )
+        base_table_urn = self.identifiers.gen_dataset_urn(
+            self.identifiers.get_dataset_identifier(
+                physical_table_name, physical_schema, physical_db
+            )
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_dataset_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.SEMANTIC_MODEL_DATASET]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_dataset_urn,
+            aspect=SemanticModelPropertiesClass(
+                alias=logical_table_upper,
+                semanticModel=model_urn,
+            ),
+        ).as_workunit()
+
+        schema_fields = self._build_schema_fields(semantic_view, logical_table_upper)
+        if schema_fields:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=logical_dataset_urn,
+                aspect=SchemaMetadataClass(
+                    schemaName=logical_dataset_urn,
+                    platform=str(DataPlatformUrn(self.platform)),
+                    version=0,
+                    hash="",
+                    platformSchema=MySqlDDLClass(tableSchema=""),
+                    fields=schema_fields,
+                ),
+            ).as_workunit()
+
+            yield from self._gen_semantic_field_annotation_workunits(
+                semantic_view=semantic_view,
+                logical_table_upper=logical_table_upper,
+                logical_dataset_urn=logical_dataset_urn,
+            )
+
+        # Re-home the base-table lineage that previously hung off the model:
+        # one table-level Upstream to the physical base table for this logical
+        # table, plus the column-level FGLs routed to this logical dataset.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=logical_dataset_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=base_table_urn, type=DatasetLineageTypeClass.VIEW
+                    )
+                ],
+                fineGrainedLineages=fine_grained_lineages or None,
+            ),
+        ).as_workunit()
+
+        yield from self._gen_common_entity_aspects(
+            entity_urn=logical_dataset_urn,
+            browse_path=self._browse_path_entries(db_name, schema_name)
+            + [
+                BrowsePathEntryClass(
+                    id=self.identifiers.snowflake_identifier(semantic_view.name),
+                    urn=model_urn,
+                ),
+                BrowsePathEntryClass(
+                    id=self.identifiers.snowflake_identifier(logical_table_upper),
+                    urn=logical_dataset_urn,
+                ),
+            ],
+        )
+
+        yield from self._gen_domain_workunits(
+            logical_dataset_urn, semantic_view, schema_name, db_name
+        )
+
+        yield from self._gen_field_structured_property_workunits(
+            semantic_view, logical_table_upper, logical_dataset_urn
+        )
+
+        # Table-level synonyms have no aiContext home (aiContext is not
+        # registered on dataset), so preserve them on the logical dataset's
+        # datasetProperties.customProperties under the legacy key convention.
+        table_synonyms = semantic_view.table_synonyms.get(logical_table_upper, [])
+        if table_synonyms:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=logical_dataset_urn,
+                aspect=DatasetPropertiesClass(
+                    customProperties={
+                        f"TABLE_SYNONYM_{logical_table_upper}": ", ".join(
+                            table_synonyms
+                        )
+                    }
+                ),
+            ).as_workunit()
+
+    def _build_schema_fields(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_table_upper: str,
+    ) -> List[SchemaFieldClass]:
+        fields: List[SchemaFieldClass] = []
+        seen_columns_upper: Set[str] = set()
+        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            for occurrence in occurrences:
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                    continue
+                if not (
+                    occurrence.table_name
+                    and occurrence.table_name.upper() == logical_table_upper
+                ):
+                    continue
+                if col_name_upper in seen_columns_upper:
+                    continue
+                seen_columns_upper.add(col_name_upper)
+                type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
+                    _base_type(occurrence.data_type), NullType
+                )
+                fields.append(
+                    SchemaFieldClass(
+                        # Must match the col_name_upper anchor in
+                        # snowflake_schema_gen.py::_generate_column_lineage_for_semantic_view
+                        # so column-level lineage resolves.
+                        fieldPath=self.identifiers.snowflake_identifier(
+                            occurrence.name.upper()
+                        ),
+                        type=SchemaFieldDataTypeClass(type_class()),
+                        nativeDataType=occurrence.data_type,
+                        description=occurrence.comment,
+                        nullable=True,
+                        isPartOfKey=(
+                            occurrence.name.upper() in semantic_view.primary_key_columns
+                        ),
+                        globalTags=self._column_tags(occurrence.name, semantic_view),
+                    )
+                )
+        return fields
+
+    def _gen_semantic_field_annotation_workunits(
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_table_upper: str,
+        logical_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        seen_columns_upper: Set[str] = set()
+        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            for occurrence in occurrences:
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                    continue
+                if not (
+                    occurrence.table_name
+                    and occurrence.table_name.upper() == logical_table_upper
+                ):
+                    continue
+                if col_name_upper in seen_columns_upper:
+                    continue
+                seen_columns_upper.add(col_name_upper)
+                field_type = (
+                    SemanticFieldTypeClass.DIMENSION
+                    if occurrence.subtype == SemanticViewColumnSubtype.DIMENSION
+                    else SemanticFieldTypeClass.MEASURE
+                )
+                type_class = SNOWFLAKE_FIELD_TYPE_MAPPINGS.get(
+                    _base_type(occurrence.data_type), NullType
+                )
+                field_urn = SchemaFieldUrn(
+                    logical_dataset_urn,
+                    self.identifiers.snowflake_identifier(occurrence.name.upper()),
+                ).urn()
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=field_urn,
+                    aspect=SemanticFieldAnnotationClass(
+                        type=field_type,
+                        expression=self._expression_for_field(
+                            occurrence, logical_table_upper
+                        ),
+                        dimension=(
+                            DimensionClass(isTime=type_class in (DateType, TimeType))
+                            if field_type == SemanticFieldTypeClass.DIMENSION
+                            else None
+                        ),
+                    ),
+                ).as_workunit()
+                # Column synonyms live on the first-class aiContext aspect of
+                # the same schemaField (the model no longer embeds them on the
+                # field). Emit only when non-empty.
+                synonyms = semantic_view.column_synonyms.get(col_name_upper, [])
+                if synonyms:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=field_urn,
+                        aspect=AiContextClass(synonyms=list(synonyms)),
+                    ).as_workunit()
+
     def _gen_metric_workunits(
         self,
         occurrence: SemanticViewColumnMetadata,
-        metric_lineages: List[FineGrainedLineageClass],
         metric_occurrences: Dict[str, SemanticViewColumnMetadata],
         model_urn: str,
         semantic_view: SnowflakeSemanticView,
@@ -402,13 +571,17 @@ class SnowflakeSemanticModelMapper:
                 ),
                 expression=self._metric_expression(occurrence),
                 semanticModel=model_urn,
-                aiContext=(
-                    AiContextClass(synonyms=occurrence.synonyms)
-                    if occurrence.synonyms
-                    else None
-                ),
             ),
         ).as_workunit()
+
+        # Metric synonyms live on the first-class aiContext aspect of the
+        # metric entity (the model no longer embeds them on metricInfo).
+        metric_synonyms = semantic_view.column_synonyms.get(occurrence.name.upper(), [])
+        if metric_synonyms:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=metric_urn,
+                aspect=AiContextClass(synonyms=list(metric_synonyms)),
+            ).as_workunit()
 
         yield from self._gen_common_entity_aspects(
             entity_urn=metric_urn,
@@ -429,45 +602,19 @@ class SnowflakeSemanticModelMapper:
             metric_urn, semantic_view, schema_name, db_name
         )
 
-        upstreams = self._build_metric_upstreams(metric_lineages)
-        if upstreams:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=metric_urn, aspect=upstreams
-            ).as_workunit()
-
         derived_from = self._derived_from_metrics(
             occurrence, metric_occurrences, semantic_view, schema_name, db_name
         )
         # Always emit metricRelationships (even with empty derivedFrom) so
         # hasParentMetric is indexed as false - the /metrics sidebar lists root
         # metrics via hasParentMetric=false. These metrics have no parent, so
-        # parentMetric is left unset.
+        # parentMetric is left unset. metricUpstreams is intentionally not
+        # emitted: lineage flows Metric -> SemanticModel (ModeledBy) -> Logical
+        # Dataset (Contains) -> Physical Dataset (upstreamLineage).
         yield MetadataChangeProposalWrapper(
             entityUrn=metric_urn,
             aspect=MetricRelationshipsClass(derivedFrom=derived_from),
         ).as_workunit()
-
-    def _build_metric_upstreams(
-        self, metric_lineages: List[FineGrainedLineageClass]
-    ) -> Optional[MetricUpstreamsClass]:
-        field_urns: List[str] = []
-        dataset_urns: List[str] = []
-        for lineage in metric_lineages:
-            for upstream_field_urn in lineage.upstreams or []:
-                if upstream_field_urn not in field_urns:
-                    field_urns.append(upstream_field_urn)
-                parent_urn = str(SchemaFieldUrn.from_string(upstream_field_urn).parent)
-                if parent_urn not in dataset_urns:
-                    dataset_urns.append(parent_urn)
-
-        if not field_urns and not dataset_urns:
-            return None
-        return MetricUpstreamsClass(
-            datasetUpstreams=[EdgeClass(destinationUrn=urn) for urn in dataset_urns]
-            or None,
-            fieldUpstreams=[EdgeClass(destinationUrn=urn) for urn in field_urns]
-            or None,
-        )
 
     def _derived_from_metrics(
         self,
@@ -615,47 +762,59 @@ class SnowflakeSemanticModelMapper:
         )
 
     def _gen_field_structured_property_workunits(
-        self, semantic_view: SnowflakeSemanticView, model_urn: str
+        self,
+        semantic_view: SnowflakeSemanticView,
+        logical_table_upper: str,
+        logical_dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
-        # _column_tags only covers GlobalTags mode (embedded in SchemaFieldClass). In
-        # structured-properties mode there is no field aspect to carry them, so field
-        # tags are emitted as separate schemaField-level SP MCPs here.
+        # In structured-properties mode there is no field aspect to carry column
+        # tags, so emit them as schemaField-level SP MCPs anchored on this
+        # logical dataset's schemaField URNs. A column on multiple logical
+        # tables emits SPs on each logical dataset's schemaField.
         if not self.config.extract_tags_as_structured_properties:
             return
-        for occurrences in semantic_view.column_occurrences.values():
-            representative = next(
+        for col_name_upper, occurrences in semantic_view.column_occurrences.items():
+            occurrence = next(
                 (
                     o
                     for o in occurrences
                     if o.subtype != SemanticViewColumnSubtype.METRIC
+                    and o.table_name
+                    and o.table_name.upper() == logical_table_upper
                     and o.name in semantic_view.column_tags
                 ),
                 None,
             )
-            if representative is None:
+            if occurrence is None:
                 continue
             field_urn = SchemaFieldUrn(
-                model_urn,
-                self.identifiers.snowflake_identifier(representative.name.upper()),
+                logical_dataset_urn,
+                self.identifiers.snowflake_identifier(col_name_upper),
             ).urn()
             yield from add_structured_properties_to_entity_wu(
                 field_urn,
                 self._structured_property_values(
-                    semantic_view.column_tags[representative.name]
+                    semantic_view.column_tags[occurrence.name]
                 ),
                 write_mode=self.config.structured_properties_write_mode,
             )
 
-    def _expression(
-        self, occurrence: SemanticViewColumnMetadata
+    def _expression_for_field(
+        self,
+        occurrence: SemanticViewColumnMetadata,
+        logical_table_upper: str,
     ) -> MetricExpressionClass:
-        # SemanticField.expression is required, so fall back to the column's own
-        # name when Snowflake reports no expression.
+        # SemanticFieldAnnotation.expression is required, so synthesize a
+        # trivial qualified column reference when Snowflake reports no
+        # expression for a dimension/fact (they are expression-backed).
         return MetricExpressionClass(
             dialects=[
                 DialectExpressionClass(
                     dialect=DialectClass.SNOWFLAKE,
-                    expression=occurrence.expression or occurrence.name,
+                    expression=(
+                        occurrence.expression
+                        or f"{logical_table_upper}.{occurrence.name}"
+                    ),
                 )
             ]
         )
@@ -715,15 +874,15 @@ class SnowflakeSemanticModelMapper:
         metric_names_upper: Set[str],
         shadowed_metric_names: Set[str],
     ) -> Tuple[List[FineGrainedLineageClass], Dict[str, List[FineGrainedLineageClass]]]:
-        # Routes off each FGL's downstream field name (see _downstream_field_name).
+        # Retained for the unit test that exercises the routing heuristic in
+        # isolation; production routing goes through _route_lineages, which
+        # drops metric FGLs (no metricUpstreams) and groups the rest by their
+        # downstream schemaField's parent logical dataset.
         model_lineages: List[FineGrainedLineageClass] = []
         metric_lineages: Dict[str, List[FineGrainedLineageClass]] = {}
         for lineage in fine_grained_lineages:
             downstream_field = self._downstream_field_name(lineage)
             downstream_upper = downstream_field.upper() if downstream_field else None
-            # A downstream that is a metric name but *also* a non-metric column is
-            # shadowed: routing it to the metric would drop the column's own lineage
-            # from the model. Keep shadowed FGLs on the model.
             if (
                 downstream_upper
                 and downstream_upper in metric_names_upper
@@ -738,7 +897,8 @@ class SnowflakeSemanticModelMapper:
     def _shadowed_metric_names(semantic_view: SnowflakeSemanticView) -> Set[str]:
         # A column name that is both a metric and a dimension/fact column of the
         # same view is ambiguous; used by _derived_from_metrics (avoid a wrong
-        # derivedFrom edge) and _split_lineages_by_metric (avoid misrouting lineage).
+        # derivedFrom edge) and _route_lineages (keep the column's own lineage on
+        # its logical dataset rather than dropping it as a metric).
         return {
             col_upper
             for col_upper, occs in semantic_view.column_occurrences.items()

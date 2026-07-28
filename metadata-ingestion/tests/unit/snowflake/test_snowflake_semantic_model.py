@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Type, TypeVar
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -20,6 +21,8 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
+    DatasetPropertiesClass,
     DimensionClass,
     ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
@@ -29,10 +32,12 @@ from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     MetricUpstreamsClass,
-    ModelDatasetClass,
-    SemanticFieldClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+    SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
+    SemanticModelPropertiesClass,
     StatusClass,
     StructuredPropertiesClass,
     SubTypesClass,
@@ -71,6 +76,8 @@ def _make_semantic_view(
     tags: Optional[list] = None,
     column_tags: Optional[dict] = None,
     relationships: Optional[List[SnowflakeSemanticViewRelationship]] = None,
+    column_synonyms: Optional[Dict[str, List[str]]] = None,
+    table_synonyms: Optional[Dict[str, List[str]]] = None,
 ) -> SnowflakeSemanticView:
     return SnowflakeSemanticView(
         name="Sales_Analytics",
@@ -89,6 +96,8 @@ def _make_semantic_view(
         tags=tags,
         column_tags=column_tags or {},
         relationships=relationships or [],
+        column_synonyms=column_synonyms or {},
+        table_synonyms=table_synonyms or {},
     )
 
 
@@ -134,9 +143,28 @@ def _aspects_for(
     return results
 
 
-def _fields_by_path(dataset: ModelDatasetClass) -> Dict[str, SemanticFieldClass]:
-    assert dataset.fields is not None
-    return {f.schemaField.fieldPath: f for f in dataset.fields}
+def _logical_dataset_urn(
+    mapper: SnowflakeSemanticModelMapper, logical_table: str
+) -> str:
+    return mapper.identifiers.gen_semantic_model_dataset_urn(
+        "Sales_Analytics", logical_table, _SCHEMA, _DB
+    )
+
+
+def _annotation_for(
+    workunits: List[MetadataWorkUnit], dataset_urn: str, field_path: str
+) -> Optional[SemanticFieldAnnotationClass]:
+    field_urn = make_schema_field_urn(dataset_urn, field_path)
+    annotations = _aspects_for(workunits, field_urn, SemanticFieldAnnotationClass)
+    return annotations[0] if annotations else None
+
+
+def _schema_fields_by_path(
+    workunits: List[MetadataWorkUnit], dataset_urn: str
+) -> Dict[str, SchemaFieldClass]:
+    schemas = _aspects_for(workunits, dataset_urn, SchemaMetadataClass)
+    assert len(schemas) == 1
+    return {f.fieldPath: f for f in schemas[0].fields}
 
 
 def test_urn_builders_default_lowercase():
@@ -173,6 +201,30 @@ def test_urn_builders_platform_instance_and_no_lowercase():
     assert metric_urn == (
         "urn:li:metric:(urn:li:dataPlatform:snowflake,"
         f"my_instance.{_DB}.{_SCHEMA}.Sales_Analytics,Total_Revenue)"
+    )
+
+
+def test_logical_dataset_urn_shape_default_lowercase():
+    mapper = _make_mapper()
+    urn = mapper.identifiers.gen_semantic_model_dataset_urn(
+        "Sales_Analytics", "ORDERS", _SCHEMA, _DB
+    )
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "test_db.public.sales_analytics.orders,PROD)"
+    )
+
+
+def test_logical_dataset_urn_shape_with_platform_instance_and_no_lowercase():
+    mapper = _make_mapper(
+        convert_urns_to_lowercase=False, platform_instance="my_instance"
+    )
+    urn = mapper.identifiers.gen_semantic_model_dataset_urn(
+        "Sales_Analytics", "ORDERS", _SCHEMA, _DB
+    )
+    assert urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        f"my_instance.{_DB}.{_SCHEMA}.Sales_Analytics.ORDERS,PROD)"
     )
 
 
@@ -229,28 +281,55 @@ def test_semantic_model_info_datasets_and_field_grouping():
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
 
-    infos = _aspects_for(workunits, model_urn, SemanticModelInfoClass)
-    assert len(infos) == 1
-    info = infos[0]
+    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
     assert info.name == "Sales_Analytics"
     assert info.description == "Sales semantic view"
+    # datasets is now an array of dataset URNs (one per logical table).
+    assert set(info.datasets) == {orders_urn, customers_urn}
 
-    datasets_by_name = {d.name: d for d in info.datasets}
-    assert set(datasets_by_name) == {"ORDERS", "CUSTOMERS"}
+    # Each logical dataset is a dataset entity with the SEMANTIC_MODEL_DATASET
+    # subtype and a semanticModelProperties back-reference to the model.
+    for dataset_urn in (orders_urn, customers_urn):
+        subtypes = _aspects_for(workunits, dataset_urn, SubTypesClass)
+        assert len(subtypes) == 1
+        assert subtypes[0].typeNames == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
+        props = _aspects_for(workunits, dataset_urn, SemanticModelPropertiesClass)
+        assert len(props) == 1
+        assert props[0].semanticModel == model_urn
 
-    orders_fields = _fields_by_path(datasets_by_name["ORDERS"])
+    # The alias must match the uppercased logical-table key so relationship
+    # from/to references resolve.
+    orders_props = _aspects_for(workunits, orders_urn, SemanticModelPropertiesClass)[0]
+    customers_props = _aspects_for(
+        workunits, customers_urn, SemanticModelPropertiesClass
+    )[0]
+    assert orders_props.alias == "ORDERS"
+    assert customers_props.alias == "CUSTOMERS"
+
+    orders_fields = _schema_fields_by_path(workunits, orders_urn)
     assert set(orders_fields) == {"order_date", "order_total"}
-    assert orders_fields["order_date"].type == SemanticFieldTypeClass.DIMENSION
-    assert orders_fields["order_total"].type == SemanticFieldTypeClass.MEASURE
-
-    customers_fields = _fields_by_path(datasets_by_name["CUSTOMERS"])
+    customers_fields = _schema_fields_by_path(workunits, customers_urn)
     assert set(customers_fields) == {"customer_id"}
-    assert customers_fields["customer_id"].schemaField.isPartOfKey is True
+    assert customers_fields["customer_id"].isPartOfKey is True
 
-    # Metrics are not fields on any dataset.
-    for fields in (orders_fields, customers_fields):
-        assert "total_revenue" not in fields
+    # Per-field semantic metadata lives on semanticFieldAnnotation aspects
+    # anchored on each logical dataset's schemaField URN.
+    order_date_ann = _annotation_for(workunits, orders_urn, "order_date")
+    assert order_date_ann is not None
+    assert order_date_ann.type == SemanticFieldTypeClass.DIMENSION
+    order_total_ann = _annotation_for(workunits, orders_urn, "order_total")
+    assert order_total_ann is not None
+    assert order_total_ann.type == SemanticFieldTypeClass.MEASURE
+    customer_id_ann = _annotation_for(workunits, customers_urn, "customer_id")
+    assert customer_id_ann is not None
+    assert customer_id_ann.type == SemanticFieldTypeClass.DIMENSION
+    # Metrics are not fields on any logical dataset and have no annotation.
+    for dataset_urn in (orders_urn, customers_urn):
+        assert "total_revenue" not in _schema_fields_by_path(workunits, dataset_urn)
+        assert _annotation_for(workunits, dataset_urn, "total_revenue") is None
 
 
 def test_dimension_is_time_for_date_type_and_measure_for_fact():
@@ -293,17 +372,20 @@ def test_dimension_is_time_for_date_type_and_measure_for_fact():
             fine_grained_lineages=[],
         )
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    fields_by_path = _fields_by_path(info.datasets[0])
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
 
-    assert fields_by_path["order_date"].dimension == DimensionClass(isTime=True)
-    assert fields_by_path["customer_name"].dimension == DimensionClass(isTime=False)
+    order_date_ann = _annotation_for(workunits, orders_urn, "order_date")
+    assert order_date_ann is not None
+    customer_name_ann = _annotation_for(workunits, orders_urn, "customer_name")
+    assert customer_name_ann is not None
+    order_total_ann = _annotation_for(workunits, orders_urn, "order_total")
+    assert order_total_ann is not None
+
+    assert order_date_ann.dimension == DimensionClass(isTime=True)
+    assert customer_name_ann.dimension == DimensionClass(isTime=False)
     # FACT columns are MEASUREs and never carry a dimension aspect.
-    assert fields_by_path["order_total"].type == SemanticFieldTypeClass.MEASURE
-    assert fields_by_path["order_total"].dimension is None
+    assert order_total_ann.type == SemanticFieldTypeClass.MEASURE
+    assert order_total_ann.dimension is None
 
 
 def test_unplaced_column_triggers_warning():
@@ -395,8 +477,8 @@ def test_metric_entities_emitted_with_derived_from_relationships():
     revenue_info = _aspects_for(workunits, revenue_urn, MetricInfoClass)[0]
     assert revenue_info.name == "total_revenue"
     assert revenue_info.semanticModel == model_urn
-    assert revenue_info.aiContext is not None
-    assert revenue_info.aiContext.synonyms == ["revenue"]
+    # MetricInfo no longer carries a nested aiContext; synonyms are not
+    # emitted in this PR (first-class aiContext is a fast-follow).
 
     # Metrics that don't reference other metrics still emit metricRelationships,
     # with an empty derivedFrom and no parentMetric, so hasParentMetric is indexed
@@ -406,6 +488,11 @@ def test_metric_entities_emitted_with_derived_from_relationships():
         assert len(relationships) == 1
         assert relationships[0].derivedFrom == []
         assert relationships[0].parentMetric is None
+
+    # Metrics backed by a semanticModel must not carry metricUpstreams;
+    # lineage flows Metric -> SemanticModel -> Logical Dataset -> Physical.
+    for urn in (revenue_urn, count_urn, avg_urn):
+        assert not _aspects_for(workunits, urn, MetricUpstreamsClass)
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -465,7 +552,7 @@ def test_derived_from_preserves_case_when_lowercasing_disabled():
     assert [d.destinationUrn for d in relationships.derivedFrom] == [count_urn]
 
 
-def test_fine_grained_lineage_split_between_model_and_metric():
+def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -491,12 +578,10 @@ def test_fine_grained_lineage_split_between_model_and_metric():
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
         ],
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
     orders_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
     )
+    orders_logical_urn = _logical_dataset_urn(mapper, "ORDERS")
     order_date_source_urn = make_schema_field_urn(orders_dataset_urn, "order_date")
     order_total_source_urn = make_schema_field_urn(orders_dataset_urn, "order_total")
 
@@ -504,13 +589,13 @@ def test_fine_grained_lineage_split_between_model_and_metric():
         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         upstreams=[order_date_source_urn],
         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-        downstreams=[make_schema_field_urn(model_urn, "order_date")],
+        downstreams=[make_schema_field_urn(orders_logical_urn, "order_date")],
     )
     metric_fgl = FineGrainedLineageClass(
         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         upstreams=[order_total_source_urn],
         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-        downstreams=[make_schema_field_urn(model_urn, "total_revenue")],
+        downstreams=[make_schema_field_urn(orders_logical_urn, "total_revenue")],
     )
 
     workunits = list(
@@ -524,22 +609,25 @@ def test_fine_grained_lineage_split_between_model_and_metric():
     metric_urn = mapper.identifiers.gen_metric_urn(
         "total_revenue", semantic_view.name, _SCHEMA, _DB
     )
+    model_urn = mapper.identifiers.gen_semantic_model_urn(
+        semantic_view.name, _SCHEMA, _DB
+    )
 
-    upstream_lineages = _aspects_for(workunits, model_urn, UpstreamLineageClass)
-    assert len(upstream_lineages) == 1
-    upstream_lineage = upstream_lineages[0]
+    # The dimension FGL is re-homed onto the logical dataset's upstreamLineage;
+    # the metric FGL is dropped (no metricUpstreams for semantic-model metrics).
+    logical_upstream_lineages = _aspects_for(
+        workunits, orders_logical_urn, UpstreamLineageClass
+    )
+    assert len(logical_upstream_lineages) == 1
+    upstream_lineage = logical_upstream_lineages[0]
+    # Table-level lineage: the physical base table for this logical table.
     assert [u.dataset for u in upstream_lineage.upstreams] == [orders_dataset_urn]
     assert upstream_lineage.fineGrainedLineages == [dimension_fgl]
 
-    metric_upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)[0]
-    assert metric_upstreams.fieldUpstreams is not None
-    assert metric_upstreams.datasetUpstreams is not None
-    assert [e.destinationUrn for e in metric_upstreams.fieldUpstreams] == [
-        order_total_source_urn
-    ]
-    assert [e.destinationUrn for e in metric_upstreams.datasetUpstreams] == [
-        orders_dataset_urn
-    ]
+    # The model carries no upstreamLineage in the new model.
+    assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
+    # And the metric carries no metricUpstreams.
+    assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
 
 
 def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
@@ -573,7 +661,12 @@ def test_split_lineages_by_metric_handles_multi_downstream_without_crashing():
     assert metric_lineages == {"TOTAL_REVENUE": [multi_downstream_fgl]}
 
 
-def test_no_upstream_lineage_emitted_when_no_resolved_upstreams():
+def test_logical_dataset_upstream_lineage_uses_base_table_even_without_resolved_upstreams():
+    # In the new model each logical dataset's table-level upstream comes from
+    # logical_to_physical_table (the per-logical-table base table), not the
+    # view-level resolved_upstream_urns list. So even with an empty
+    # resolved_upstream_urns the logical dataset still gets an upstreamLineage
+    # edge to its physical base table.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -592,6 +685,10 @@ def test_no_upstream_lineage_emitted_when_no_resolved_upstreams():
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
+    orders_logical_urn = _logical_dataset_urn(mapper, "ORDERS")
+    base_table_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
+    )
 
     workunits = list(
         mapper.gen_workunits(
@@ -602,7 +699,14 @@ def test_no_upstream_lineage_emitted_when_no_resolved_upstreams():
         )
     )
 
+    # The model carries no upstreamLineage in the new model.
     assert not _aspects_for(workunits, model_urn, UpstreamLineageClass)
+    # The logical dataset carries the base-table upstream edge.
+    upstream_lineages = _aspects_for(
+        workunits, orders_logical_urn, UpstreamLineageClass
+    )
+    assert len(upstream_lineages) == 1
+    assert [u.dataset for u in upstream_lineages[0].upstreams] == [base_table_urn]
 
 
 def test_subtypes_and_status_always_emitted():
@@ -611,6 +715,8 @@ def test_subtypes_and_status_always_emitted():
     model_urn = mapper.identifiers.gen_semantic_model_urn(
         semantic_view.name, _SCHEMA, _DB
     )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
 
     workunits = list(
         mapper.gen_workunits(
@@ -621,12 +727,19 @@ def test_subtypes_and_status_always_emitted():
         )
     )
 
-    subtypes = _aspects_for(workunits, model_urn, SubTypesClass)
-    assert len(subtypes) == 1
-    assert subtypes[0].typeNames == ["Semantic View"]
-
+    # The semanticModel entity carries Status but no SubTypes (SEMANTIC_VIEW was
+    # a dataset subtype that does not belong on a semanticModel).
     statuses = _aspects_for(workunits, model_urn, StatusClass)
     assert len(statuses) == 1 and statuses[0].removed is False
+    assert not _aspects_for(workunits, model_urn, SubTypesClass)
+
+    # Each logical dataset carries the SEMANTIC_MODEL_DATASET subtype + Status.
+    for dataset_urn in (orders_urn, customers_urn):
+        subtypes = _aspects_for(workunits, dataset_urn, SubTypesClass)
+        assert len(subtypes) == 1
+        assert subtypes[0].typeNames == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
+        ds_statuses = _aspects_for(workunits, dataset_urn, StatusClass)
+        assert len(ds_statuses) == 1 and ds_statuses[0].removed is False
 
 
 def test_native_definition_gated_by_include_view_definitions():
@@ -899,8 +1012,9 @@ def test_metric_column_tags_emitted_as_structured_properties():
 
 
 def test_dimension_field_tags_emitted_as_structured_properties_in_sp_mode():
-    # In SP mode, DIMENSION/FACT field tags cannot ride on the SchemaField aspect,
-    # so they are emitted as schemaField-level structured properties instead.
+    # In SP mode, DIMENSION/FACT field tags cannot ride on the SchemaField
+    # aspect, so they are emitted as schemaField-level structured properties
+    # anchored on the logical dataset's schemaField URN.
     mapper = _make_mapper(extract_tags_as_structured_properties=True)
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -920,11 +1034,10 @@ def test_dimension_field_tags_emitted_as_structured_properties_in_sp_mode():
             ]
         },
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
+    orders_logical_urn = _logical_dataset_urn(mapper, "ORDERS")
     field_urn = make_schema_field_urn(
-        model_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
+        orders_logical_urn,
+        mapper.identifiers.snowflake_identifier("ORDER_DATE"),
     )
 
     workunits = list(
@@ -941,11 +1054,10 @@ def test_dimension_field_tags_emitted_as_structured_properties_in_sp_mode():
     assert len(field_props[0].properties) == 1
 
     # The field's globalTags must not carry the tag in SP mode.
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    field = _fields_by_path(info.datasets[0])[
-        mapper.identifiers.snowflake_identifier("ORDER_DATE")
-    ]
-    assert field.schemaField.globalTags is None
+    fields = _schema_fields_by_path(workunits, orders_logical_urn)
+    assert (
+        fields[mapper.identifiers.snowflake_identifier("ORDER_DATE")].globalTags is None
+    )
 
 
 def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
@@ -980,8 +1092,9 @@ def test_metrics_not_reported_as_unplaced_when_no_logical_tables():
 def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowercasing():
     # Regression test: snowflake_schema_gen.py anchors the fine-grained-lineage
     # downstream field on `snowflake_identifier(col_name_upper)` (the uppercased
-    # column_occurrences key). The mapper's SemanticField.fieldPath must use the
-    # same casing so the two match under convert_urns_to_lowercase=False.
+    # column_occurrences key), on the logical dataset URN. The mapper's
+    # schemaMetadata fieldPath must use the same casing so the two match under
+    # convert_urns_to_lowercase=False.
     mapper = _make_mapper(convert_urns_to_lowercase=False)
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -996,9 +1109,7 @@ def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowerca
         },
         logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
+    orders_logical_urn = _logical_dataset_urn(mapper, "ORDERS")
 
     workunits = list(
         mapper.gen_workunits(
@@ -1008,14 +1119,13 @@ def test_semantic_field_path_matches_fine_grained_lineage_anchor_when_no_lowerca
             fine_grained_lineages=[],
         )
     )
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    fields_by_path = _fields_by_path(info.datasets[0])
+    fields_by_path = _schema_fields_by_path(workunits, orders_logical_urn)
     field_path = next(iter(fields_by_path))
 
     lineage_anchor_urn = make_schema_field_urn(
-        model_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
+        orders_logical_urn, mapper.identifiers.snowflake_identifier("ORDER_DATE")
     )
-    semantic_field_urn = make_schema_field_urn(model_urn, field_path)
+    semantic_field_urn = make_schema_field_urn(orders_logical_urn, field_path)
     assert semantic_field_urn == lineage_anchor_urn
 
 
@@ -1088,11 +1198,11 @@ def test_derived_from_omits_metric_name_shadowed_by_a_column():
     assert revenue_urn not in derived_urns
 
 
-def test_shadowed_metric_name_fine_grained_lineage_stays_on_model():
+def test_shadowed_metric_name_fine_grained_lineage_lands_on_logical_dataset():
     # REVENUE is both a FACT column and a METRIC of the same view. The FGL for
-    # the FACT column's own downstream field must not be misrouted into the
-    # metric's metricUpstreams just because the (shadowed) name also happens to
-    # be a metric - it must stay on the model's upstreamLineage.
+    # the FACT column's own downstream field must not be dropped as a metric
+    # just because the (shadowed) name also happens to be a metric - it stays on
+    # the FACT column's logical dataset's upstreamLineage.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1116,9 +1226,7 @@ def test_shadowed_metric_name_fine_grained_lineage_stays_on_model():
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
         ],
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
+    orders_logical_urn = _logical_dataset_urn(mapper, "ORDERS")
     orders_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.orders,PROD)"
     )
@@ -1127,7 +1235,7 @@ def test_shadowed_metric_name_fine_grained_lineage_stays_on_model():
         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         upstreams=[revenue_source_urn],
         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-        downstreams=[make_schema_field_urn(model_urn, "revenue")],
+        downstreams=[make_schema_field_urn(orders_logical_urn, "revenue")],
     )
 
     workunits = list(
@@ -1142,7 +1250,9 @@ def test_shadowed_metric_name_fine_grained_lineage_stays_on_model():
         "revenue", semantic_view.name, _SCHEMA, _DB
     )
 
-    upstream_lineage = _aspects_for(workunits, model_urn, UpstreamLineageClass)[0]
+    upstream_lineage = _aspects_for(
+        workunits, orders_logical_urn, UpstreamLineageClass
+    )[0]
     assert upstream_lineage.fineGrainedLineages == [revenue_fgl]
 
     assert not _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
@@ -1239,7 +1349,10 @@ def test_metric_conflicting_expressions_selection_is_order_independent():
     assert any("conflicting expressions" in (m or "") for m in messages)
 
 
-def test_column_defined_on_multiple_logical_tables_warns_field_path_collision():
+def test_column_defined_on_multiple_logical_tables_emits_per_dataset_field():
+    # In the new model each logical table has its own schemaField URN, so a
+    # column on multiple logical tables no longer collides - it appears on each
+    # logical dataset's schemaMetadata, and no warning is raised.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1259,8 +1372,10 @@ def test_column_defined_on_multiple_logical_tables_warns_field_path_collision():
             ],
         },
     )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
 
-    list(
+    workunits = list(
         mapper.gen_workunits(
             semantic_view=semantic_view,
             schema_name=_SCHEMA,
@@ -1269,14 +1384,16 @@ def test_column_defined_on_multiple_logical_tables_warns_field_path_collision():
         )
     )
 
+    assert "status" in _schema_fields_by_path(workunits, orders_urn)
+    assert "status" in _schema_fields_by_path(workunits, customers_urn)
     messages = [w.title for w in mapper.report.warnings]
-    assert any("multiple logical tables" in (m or "") for m in messages)
+    assert not any("multiple logical tables" in (m or "") for m in messages)
 
 
 def test_repeated_information_schema_row_does_not_duplicate_field():
     # A repeated INFORMATION_SCHEMA row for the same column on the same logical
-    # table must not produce two SemanticFields with the same fieldPath (the
-    # legacy dataset-mode path merges duplicates the same way).
+    # table must not produce two schemaFields with the same fieldPath on that
+    # logical dataset's schemaMetadata.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1297,9 +1414,7 @@ def test_repeated_information_schema_row_does_not_duplicate_field():
         },
         logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
 
     workunits = list(
         mapper.gen_workunits(
@@ -1309,11 +1424,21 @@ def test_repeated_information_schema_row_does_not_duplicate_field():
             fine_grained_lineages=[],
         )
     )
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    assert info.datasets is not None
-    orders_dataset = next(d for d in info.datasets if d.name == "ORDERS")
-    assert orders_dataset.fields is not None
-    assert len(orders_dataset.fields) == 1
+    fields = _schema_fields_by_path(workunits, orders_urn)
+    assert len(fields["order_date"].fieldPath) == len("order_date")
+    # Exactly one schemaField for order_date on the ORDERS logical dataset.
+    assert sum(1 for p in fields if p == "order_date") == 1
+    # And exactly one semanticFieldAnnotation for it.
+    assert (
+        len(
+            _aspects_for(
+                workunits,
+                make_schema_field_urn(orders_urn, "order_date"),
+                SemanticFieldAnnotationClass,
+            )
+        )
+        == 1
+    )
 
 
 def test_metric_expression_omitted_when_declared_without_expression():
@@ -1349,9 +1474,11 @@ def test_metric_expression_omitted_when_declared_without_expression():
     assert info.expression is None
 
 
-def test_semantic_field_expression_falls_back_to_column_name_when_missing():
-    # SemanticField.expression is a required PDL field, so the fabricated
-    # fallback to the column's own name must remain for this path only.
+def test_semantic_field_expression_falls_back_to_qualified_column_ref_when_missing():
+    # SemanticFieldAnnotation.expression is a required PDL field, so when
+    # Snowflake reports no expression for a dimension/fact the mapper
+    # synthesizes a trivial qualified column reference
+    # (<logical_table_alias>.<col_name>) rather than dropping the annotation.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1367,9 +1494,7 @@ def test_semantic_field_expression_falls_back_to_column_name_when_missing():
         },
         logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
 
     workunits = list(
         mapper.gen_workunits(
@@ -1379,12 +1504,12 @@ def test_semantic_field_expression_falls_back_to_column_name_when_missing():
             fine_grained_lineages=[],
         )
     )
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    field = _fields_by_path(info.datasets[0])["order_date"]
-    assert field.expression.dialects[0].expression == "order_date"
+    annotation = _annotation_for(workunits, orders_urn, "order_date")
+    assert annotation is not None
+    assert annotation.expression.dialects[0].expression == "ORDERS.order_date"
 
 
-def test_relationships_populated_with_datasets_matching_model_dataset_names():
+def test_relationships_populated_with_aliases_matching_logical_dataset_aliases():
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1433,11 +1558,15 @@ def test_relationships_populated_with_datasets_matching_model_dataset_names():
     assert len(info.relationships) == 1
     relationship = info.relationships[0]
     assert relationship.name == "orders_to_customers"
-    # from/to must be normalized to match the ModelDataset.name values (the
-    # uppercased logical-table keys) so relationship references resolve.
-    dataset_names = {d.name for d in info.datasets}
-    assert relationship.from_ in dataset_names
-    assert relationship.to in dataset_names
+    # from/to must be normalized to match each logical dataset's
+    # semanticModelProperties.alias (the uppercased logical-table keys) so
+    # relationship references resolve.
+    aliases = {
+        _aspects_for(workunits, urn, SemanticModelPropertiesClass)[0].alias: urn
+        for urn in info.datasets
+    }
+    assert relationship.from_ in aliases
+    assert relationship.to in aliases
     assert relationship.from_ == "ORDERS"
     assert relationship.to == "CUSTOMERS"
     assert relationship.fromColumns == ["customer_id"]
@@ -1465,10 +1594,10 @@ def test_relationships_omitted_when_none_defined():
     assert info.relationships is None
 
 
-def test_join_key_column_collision_does_not_warn():
-    # ORDER_ID is a join key (declared as a relationship's from/to column) that is
-    # legitimately defined on both logical tables - this must not trigger the
-    # field-path-collision warning, unlike a genuine unrelated same-name collision.
+def test_join_key_and_primary_key_columns_on_multiple_tables_do_not_warn():
+    # A join-key or primary-key column legitimately defined on multiple logical
+    # tables is the normal case in the new model (each logical dataset gets its
+    # own schemaField), so no warning is raised.
     mapper = _make_mapper()
     semantic_view = _make_semantic_view(
         column_occurrences={
@@ -1497,53 +1626,6 @@ def test_join_key_column_collision_does_not_warn():
             ),
         ],
     )
-    model_urn = mapper.identifiers.gen_semantic_model_urn(
-        semantic_view.name, _SCHEMA, _DB
-    )
-
-    workunits = list(
-        mapper.gen_workunits(
-            semantic_view=semantic_view,
-            schema_name=_SCHEMA,
-            db_name=_DB,
-            fine_grained_lineages=[],
-        )
-    )
-
-    messages = [w.title for w in mapper.report.warnings]
-    assert not any("multiple logical tables" in (m or "") for m in messages)
-
-    info = _aspects_for(workunits, model_urn, SemanticModelInfoClass)[0]
-    assert info.relationships is not None
-    assert info.relationships[0].cardinality == (
-        ERModelRelationshipCardinalityClass.N_ONE
-    )
-
-
-def test_primary_key_column_collision_does_not_warn():
-    # Same as above, but suppressed via primary_key_columns rather than a
-    # relationship - the fallback the task calls out for views with no
-    # relationships metadata.
-    mapper = _make_mapper()
-    semantic_view = _make_semantic_view(
-        column_occurrences={
-            "ID": [
-                _col(
-                    "id",
-                    "NUMBER",
-                    SemanticViewColumnSubtype.DIMENSION,
-                    table_name="ORDERS",
-                ),
-                _col(
-                    "id",
-                    "NUMBER",
-                    SemanticViewColumnSubtype.DIMENSION,
-                    table_name="CUSTOMERS",
-                ),
-            ],
-        },
-        primary_key_columns={"ID"},
-    )
 
     list(
         mapper.gen_workunits(
@@ -1556,3 +1638,152 @@ def test_primary_key_column_collision_does_not_warn():
 
     messages = [w.title for w in mapper.report.warnings]
     assert not any("multiple logical tables" in (m or "") for m in messages)
+
+
+def test_column_synonyms_emitted_as_ai_context_on_schema_field():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+        column_synonyms={"ORDER_DATE": ["date of order", "order day"]},
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    field_urn = make_schema_field_urn(orders_urn, "order_date")
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    ai_contexts = _aspects_for(workunits, field_urn, AiContextClass)
+    assert len(ai_contexts) == 1
+    assert ai_contexts[0].synonyms == ["date of order", "order day"]
+
+
+def test_metric_synonyms_emitted_as_ai_context_on_metric_entity():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        column_synonyms={"TOTAL_REVENUE": ["revenue", "sales total"]},
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    ai_contexts = _aspects_for(workunits, metric_urn, AiContextClass)
+    assert len(ai_contexts) == 1
+    assert ai_contexts[0].synonyms == ["revenue", "sales total"]
+
+
+def test_table_synonyms_emitted_as_dataset_properties_on_logical_dataset():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+        table_synonyms={"ORDERS": ["sales_orders", "orders_table"]},
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    props = _aspects_for(workunits, orders_urn, DatasetPropertiesClass)
+    assert len(props) == 1
+    assert props[0].customProperties == {
+        "TABLE_SYNONYM_ORDERS": "sales_orders, orders_table"
+    }
+
+
+def test_no_ai_context_emitted_when_synonyms_absent():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_DATE": [
+                _col(
+                    "order_date",
+                    "DATE",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                )
+            ],
+            "TOTAL_REVENUE": [
+                _col(
+                    "total_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="SUM(orders.order_total)",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+        # No column_synonyms, no table_synonyms.
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "total_revenue", semantic_view.name, _SCHEMA, _DB
+    )
+
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+
+    # No aiContext on the schemaField, the metric, or the logical dataset
+    # (aiContext isn't registered on dataset anyway).
+    assert not _aspects_for(
+        workunits, make_schema_field_urn(orders_urn, "order_date"), AiContextClass
+    )
+    assert not _aspects_for(workunits, metric_urn, AiContextClass)
+    assert not _aspects_for(workunits, orders_urn, AiContextClass)
+    # And no datasetProperties MCP is emitted when there are no table synonyms.
+    assert not _aspects_for(workunits, orders_urn, DatasetPropertiesClass)

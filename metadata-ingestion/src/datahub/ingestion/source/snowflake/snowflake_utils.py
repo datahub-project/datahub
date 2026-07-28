@@ -457,6 +457,23 @@ class SnowflakeIdentifierBuilder:
             return f"{self.identifier_config.platform_instance}.{path}"
         return path
 
+    def gen_semantic_model_dataset_urn(
+        self, view_name: str, logical_table: str, schema_name: str, db_name: str
+    ) -> str:
+        # Each logical table a semantic view exposes is its own dataset entity.
+        # The identifier mirrors the semanticModel key shape (<db>.<schema>.<view>
+        # with the logical-table name appended), so logical datasets stay unique
+        # across semantic models on the same platform. The platform_instance
+        # prefix is added by gen_dataset_urn (make_dataset_urn_with_platform_instance),
+        # so it must NOT be baked into the identifier here (unlike gen_semantic_model_urn,
+        # whose URN has no separate platform_instance field).
+        identifier = self.snowflake_identifier(
+            f"{self.snowflake_identifier(f'{db_name}.{schema_name}')}"
+            f".{self.snowflake_identifier(view_name)}"
+            f".{self.snowflake_identifier(logical_table)}"
+        )
+        return self.gen_dataset_urn(identifier)
+
     def gen_marketplace_data_product_key(
         self, listing_global_name: str
     ) -> DataProductKey:

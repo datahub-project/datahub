@@ -2,7 +2,7 @@ import itertools
 import json
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
 import sqlglot.expressions
@@ -512,7 +512,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 snowflake_schema, db_name
             )
             yield from self._process_semantic_views(
-                semantic_views, snowflake_schema, db_name, schema_name
+                semantic_views, snowflake_schema, db_name
             )
 
         if self.config.include_streams:
@@ -677,7 +677,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_views: List[SnowflakeSemanticView],
         snowflake_schema: SnowflakeSchema,
         db_name: str,
-        schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
             f"Processing {len(semantic_views)} semantic views: {[sv.name for sv in semantic_views]}"
@@ -716,6 +715,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     ),
                     context=f"{db_name}.{schema_name}.{semantic_view.name}",
                 )
+
+        schema_name = snowflake_schema.name
 
         # STEP 1: Yield work units first (this registers schemas with the aggregator
         # in legacy dataset mode). When emit_semantic_model_entities is enabled,
@@ -1253,8 +1254,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 for tag in semantic_view.column_tags[column_name]:
                     yield from self._process_tag(tag)
 
-            # Column lineage is anchored on the semanticModel URN; the mapper splits it
-            # between the model's upstreamLineage and per-metric metricUpstreams.
+            # Column lineage is anchored on each logical dataset's schemaField
+            # URNs (one dataset per logical table); the mapper routes FGLs to
+            # the owning logical dataset's upstreamLineage and drops metric FGLs
+            # (metric lineage flows Metric -> SemanticModel -> Logical Dataset).
             column_lineages: List[FineGrainedLineageClass] = []
             if self.config.semantic_views.column_lineage:
                 try:
@@ -1262,7 +1265,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         semantic_view.name, schema_name, db_name
                     )
                     column_lineages = self._generate_column_lineage_for_semantic_view(
-                        semantic_view, semantic_model_urn, db_name
+                        semantic_view,
+                        semantic_model_urn,
+                        db_name,
+                        downstream_urn_resolver=lambda col, lt: make_schema_field_urn(
+                            self.identifiers.gen_semantic_model_dataset_urn(
+                                semantic_view.name, lt, schema_name, db_name
+                            )
+                            if lt is not None
+                            else semantic_model_urn,
+                            self.snowflake_identifier(col),
+                        ),
                     )
                 except Exception as e:
                     self.structured_reporter.warning(
@@ -2189,6 +2202,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view: SnowflakeSemanticView,
         semantic_view_urn: str,
         fine_grained_lineages: List["FineGrainedLineageClass"],
+        downstream_urn_resolver: Optional[Callable[[str, Optional[str]], str]] = None,
     ) -> None:
         """
         Handle columns without table associations (e.g., cross-table derived metrics).
@@ -2212,10 +2226,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if not column_expression:
                 continue
 
-            downstream_field_urn = make_schema_field_urn(
-                semantic_view_urn,
-                self.snowflake_identifier(col_name_upper),
-            )
+            if downstream_urn_resolver is not None:
+                downstream_field_urn = downstream_urn_resolver(col_name_upper, None)
+            else:
+                downstream_field_urn = make_schema_field_urn(
+                    semantic_view_urn,
+                    self.snowflake_identifier(col_name_upper),
+                )
 
             # Use depth-limited recursive resolution
             resolved_sources = self._resolve_derived_column_sources(
@@ -2257,12 +2274,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_view: SnowflakeSemanticView,
         semantic_view_urn: str,
         db_name: str,
+        downstream_urn_resolver: Optional[Callable[[str, Optional[str]], str]] = None,
     ) -> List[FineGrainedLineageClass]:
         """
         Generate column-level lineage for a semantic view.
 
         Maps semantic view columns (dimensions, facts, metrics) to their source columns
         in base tables.
+
+        When ``downstream_urn_resolver`` is provided, it is invoked as
+        ``resolver(col_name_upper, logical_table_upper)`` to build each FGL's
+        downstream schemaField URN. ``logical_table_upper`` is ``None`` for
+        columns with no table association. When omitted, downstreams anchor on
+        ``semantic_view_urn`` (legacy dataset-mode behavior).
 
         Returns:
             List of FineGrainedLineage objects
@@ -2287,6 +2311,14 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         warned_mappings: Set[str] = (
             set()
         )  # Track warned mappings to avoid duplicate logs
+
+        def _downstream_field_urn(col_name_upper: str, logical_table_upper: str) -> str:
+            if downstream_urn_resolver is not None:
+                return downstream_urn_resolver(col_name_upper, logical_table_upper)
+            return make_schema_field_urn(
+                semantic_view_urn,
+                self.snowflake_identifier(col_name_upper),
+            )
 
         logger.debug(
             f"Generating column lineage for semantic view {semantic_view.name}. "
@@ -2338,9 +2370,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     continue
 
                 # Create downstream field URN (needed for both direct and derived lineage)
-                downstream_field_urn = make_schema_field_urn(
-                    semantic_view_urn,
-                    self.snowflake_identifier(col_name_upper),
+                downstream_field_urn = _downstream_field_urn(
+                    col_name_upper, logical_table_upper
                 )
 
                 # Verify the column actually exists in the upstream table
@@ -2493,7 +2524,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # Second pass: Handle columns without table associations
         self._process_unassociated_columns(
-            semantic_view, semantic_view_urn, fine_grained_lineages
+            semantic_view,
+            semantic_view_urn,
+            fine_grained_lineages,
+            downstream_urn_resolver=downstream_urn_resolver,
         )
 
         logger.debug(

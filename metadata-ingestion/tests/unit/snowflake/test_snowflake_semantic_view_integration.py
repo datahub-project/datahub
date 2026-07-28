@@ -579,9 +579,7 @@ class TestSemanticViewOrchestrationFlow:
         schema.name = "PUBLIC"
 
         # Execute - should not raise
-        list(
-            gen._process_semantic_views([semantic_view], schema, "TEST_DB", schema.name)
-        )
+        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB"))
 
         # Should have empty upstream URNs
         assert semantic_view.resolved_upstream_urns == []
@@ -606,7 +604,7 @@ class TestSemanticViewOrchestrationFlow:
         schema.name = "PUBLIC"
 
         workunits = list(
-            gen._process_semantic_views([semantic_view], schema, "TEST_DB", schema.name)
+            gen._process_semantic_views([semantic_view], schema, "TEST_DB")
         )
 
         # Semantic model/metric entities should not be emitted at all.
@@ -874,9 +872,7 @@ class TestSemanticViewOrchestrationFlowLegacyDatasetMode:
         schema = MagicMock()
         schema.name = "PUBLIC"
 
-        list(
-            gen._process_semantic_views([semantic_view], schema, "TEST_DB", schema.name)
-        )
+        list(gen._process_semantic_views([semantic_view], schema, "TEST_DB"))
 
         gen.aggregator.add_view_definition.assert_called_once()
         _, kwargs = gen.aggregator.add_view_definition.call_args
