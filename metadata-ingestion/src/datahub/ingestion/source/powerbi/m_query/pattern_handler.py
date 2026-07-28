@@ -1655,8 +1655,28 @@ class OdbcLineage(AbstractLineage):
             return self.query_lineage(query, platform_pair, server_name, dsn)
         else:
             return self.expression_lineage(
-                data_access_func_detail, data_platform, platform_pair, server_name
+                data_access_func_detail, data_platform, platform_pair, server_name, dsn
             )
+
+    def _resolve_dsn_database_schema(
+        self, dsn: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Resolve the configured database (and optional schema) for a DSN.
+
+        ODBC inline SQL and hierarchical navigation do not always expose every
+        level of a table's qualified name (e.g. a BigQuery ODBC source commonly
+        surfaces dataset.table but omits the project). dsn_to_database_schema
+        supplies those missing high-order levels so a fully-qualified upstream
+        URN can still be built. Values are validated to be one or two
+        dot-separated parts at config load time.
+        """
+        value = self.config.dsn_to_database_schema.get(dsn)
+        if not value:
+            return None, None
+        parts = value.split(".")
+        if len(parts) == 1:
+            return parts[0], None
+        return parts[0], parts[1]
 
     def query_lineage(
         self,
@@ -1665,9 +1685,6 @@ class OdbcLineage(AbstractLineage):
         server_name: str,
         dsn: str,
     ) -> Lineage:
-        database = None
-        schema = None
-
         if not query:
             # query should never be None as it is checked before calling this function.
             # however, we need to check just in case.
@@ -1678,15 +1695,7 @@ class OdbcLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        if self.config.dsn_to_database_schema:
-            value = self.config.dsn_to_database_schema.get(dsn)
-            if value:
-                parts = value.split(".")
-                if len(parts) == 1:
-                    database = parts[0]
-                elif len(parts) == 2:
-                    database = parts[0]
-                    schema = parts[1]
+        database, schema = self._resolve_dsn_database_schema(dsn)
 
         logger.debug(
             f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
@@ -1867,6 +1876,7 @@ class OdbcLineage(AbstractLineage):
         data_platform: str,
         platform_pair: DataPlatformPair,
         server_name: str,
+        dsn: str,
     ) -> Lineage:
         database_name = None
         schema_name = None
@@ -1896,6 +1906,17 @@ class OdbcLineage(AbstractLineage):
                 temp_accessor = temp_accessor.next
             else:
                 break
+
+        # ODBC hierarchical navigation does not always expose every level of the
+        # qualified name (e.g. BigQuery commonly surfaces dataset.table but omits
+        # the project). Backfill the missing high-order levels from
+        # dsn_to_database_schema so a fully-qualified URN can still be built.
+        # Navigation values always take precedence over the configured defaults.
+        config_database, config_schema = self._resolve_dsn_database_schema(dsn)
+        if database_name is None:
+            database_name = config_database
+        if schema_name is None:
+            schema_name = config_schema
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
             if schema_name is not None:

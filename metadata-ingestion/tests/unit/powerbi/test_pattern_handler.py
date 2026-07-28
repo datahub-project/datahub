@@ -731,7 +731,9 @@ def test_odbc_two_tier_platform_drops_pseudo_catalog():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
@@ -757,7 +759,9 @@ def test_odbc_three_tier_platform_keeps_database():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.mytable,PROD)"
@@ -783,7 +787,9 @@ def test_odbc_two_tier_platform_with_no_schema():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert result.upstreams == []
     assert any(
@@ -886,7 +892,9 @@ def test_odbc_view_leaf_resolves_like_table():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"

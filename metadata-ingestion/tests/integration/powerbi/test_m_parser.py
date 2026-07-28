@@ -1638,6 +1638,214 @@ def test_mysql_odbc_query_without_dsn_mapping():
     )
 
 
+# BigQuery ODBC hierarchical navigation that surfaces only dataset.table (the
+# Simba driver often omits the project/catalog level). The platform resolves via
+# dsn_to_platform_name, but a 3-tier project.dataset.table URN cannot be built
+# from navigation alone.
+_ODBC_BIGQUERY_NAV_MISSING_PROJECT = (
+    'let\n    Source = Odbc.DataSource("driver={Simba ODBC Driver};dsn=bq_analytics", '
+    "[HierarchicalNavigation=true]),\n"
+    '    analytics_ds_Schema = Source{[Name="analytics_ds",Kind="Schema"]}[Data],\n'
+    '    events_Table = analytics_ds_Schema{[Name="events",Kind="Table"]}[Data]\n'
+    "in\n    events_Table"
+)
+
+# BigQuery ODBC navigation that surfaces only the leaf table (no dataset, no
+# project). Both higher levels must come from dsn_to_database_schema.
+_ODBC_BIGQUERY_NAV_TABLE_ONLY = (
+    'let\n    Source = Odbc.DataSource("driver={Simba ODBC Driver};dsn=bq_events", '
+    "[HierarchicalNavigation=true]),\n"
+    '    events_Table = Source{[Name="events",Kind="Table"]}[Data]\n'
+    "in\n    events_Table"
+)
+
+# Hive (two-tier) ODBC navigation that surfaces only the leaf table; the schema
+# level must be backfilled from dsn_to_database_schema.
+_ODBC_HIVE_NAV_MISSING_SCHEMA = (
+    'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};'
+    'server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n'
+    '    user_profile_Table = Source{[Name="user_profile",Kind="Table"]}[Data]\n'
+    "in\n    user_profile_Table"
+)
+
+
+@pytest.mark.integration
+def test_bigquery_odbc_navigation_missing_project_warns():
+    """Reproduce 'Can not determine qualified table name': the ODBC navigation
+    resolves to bigquery but exposes only dataset.table, so no project.dataset.table
+    URN can be built and no dsn_to_database_schema mapping is configured."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"bq_analytics": "bigquery"}}
+    )
+
+    lineages: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    warning_titles = [entry.title for entry in reporter.warnings]
+    assert "Can not determine qualified table name" in warning_titles, (
+        f"Expected the qualified-table-name warning; got: {warning_titles}"
+    )
+
+
+@pytest.mark.integration
+def test_bigquery_odbc_navigation_project_from_dsn_mapping():
+    """dsn_to_database_schema supplies the missing BigQuery project when the ODBC
+    navigation only exposes dataset.table, so a full 3-part URN is built."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"bq_analytics": "bigquery"},
+            "dsn_to_database_schema": {"bq_analytics": "my_project"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_bigquery_odbc_navigation_project_and_dataset_from_dsn_mapping():
+    """When ODBC navigation exposes only the leaf table, a two-part
+    dsn_to_database_schema value (project.dataset) supplies both missing levels."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_TABLE_ONLY,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"bq_events": "bigquery"},
+            "dsn_to_database_schema": {"bq_events": "my_project.analytics_ds"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_bigquery_odbc_navigation_wins_over_dsn_mapping():
+    """Navigation values take precedence over dsn_to_database_schema. Navigation
+    supplies the dataset (analytics_ds), so only the missing project is filled
+    from config; the config schema (wrong_dataset) must be ignored."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_BIGQUERY_NAV_MISSING_PROJECT,
+        name="events",
+        full_name="analytics.events",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"bq_analytics": "bigquery"},
+            "dsn_to_database_schema": {"bq_analytics": "my_project.wrong_dataset"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.analytics_ds.events,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_hive_odbc_navigation_schema_from_dsn_mapping():
+    """Two-tier backfill: Hive navigation exposes only the leaf table, and a
+    two-part dsn_to_database_schema value supplies the schema (the pseudo-catalog
+    database part is dropped for two-tier platforms)."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_HIVE_NAV_MISSING_SCHEMA,
+        name="user_profile",
+        full_name="product_analytics.user_profile",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"hive_prod": "hive_catalog.product_analytics"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.user_profile,PROD)"
+    )
+
+
 @pytest.mark.integration
 def test_athena_regular_case():
     """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
