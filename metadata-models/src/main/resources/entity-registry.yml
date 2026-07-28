@@ -20,6 +20,7 @@ entities:
     searchGroup: primary
     aspects:
       - viewProperties
+      - semanticModelProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
@@ -363,6 +364,7 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - semanticText
       - institutionalMemory
       - documentation
       - documentUsageStatistics
@@ -393,6 +395,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionRunSummary
       - assertionActions
       - status
       - globalTags
@@ -599,6 +602,8 @@ entities:
       - logicalParent
       - globalTags
       - glossaryTerms
+      - semanticFieldAnnotation
+      - aiContext
   - name: globalSettings
     viewUnrestricted: true
     doc: Global settings for an the platform
@@ -723,6 +728,7 @@ entities:
       - documentation
       - browsePathsV2
       - applications
+      - aiContext
   - name: metric
     category: core
     keyAspect: metricKey
@@ -744,6 +750,7 @@ entities:
       - documentation
       - browsePathsV2
       - applications
+      - aiContext
   - name: ownershipType
     viewUnrestricted: true
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
