@@ -253,7 +253,16 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     }
     Map<String, String> merged = new HashMap<>(base);
     for (UsageDimensionResolver resolver : dimensionResolvers) {
-      merged.putAll(resolver.resolve(opContext));
+      // Isolate each resolver: a broken dimension plugin must not abort the record path
+      // (matches OutboundContextResolver / InboundContextResolver / EnrichingSpanProcessor).
+      try {
+        merged.putAll(resolver.resolve(opContext));
+      } catch (RuntimeException e) {
+        log.error(
+            "UsageDimensionResolver {} failed; continuing without its dimensions",
+            resolver.getClass().getSimpleName(),
+            e);
+      }
     }
     return merged;
   }
