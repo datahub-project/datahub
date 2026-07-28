@@ -415,19 +415,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             except requests.RequestException as e:
                 self.report.warning(
                     title="Failed to emit asset",
-                    message=(
-                        f"Skipped asset {space_name}.{asset_name} due to network error"
-                    ),
-                    context=str(e),
+                    message="Skipped asset due to network error.",
+                    context=f"{space_name}.{asset_name}: {e}",
                 )
             except Exception as e:  # per-entity isolation
                 self.report.warning(
                     title="Failed to emit Datasphere asset",
-                    message=(
-                        f"Skipped asset {space_name}.{asset_name} due to "
-                        f"unexpected error"
-                    ),
-                    context=f"{type(e).__name__}: {e}",
+                    message="Skipped asset due to unexpected error.",
+                    context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
 
         if self.config.max_workers_assets > 1:
@@ -1178,14 +1173,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         except requests.RequestException as e:
             self.report.warning(
                 title="Failed to emit object",
-                message=f"Skipped {label} due to network error",
-                context=str(e),
+                message="Skipped object due to network error.",
+                context=f"{label}: {e}",
             )
         except Exception as e:
             self.report.warning(
                 title="Failed to emit object",
-                message=f"Skipped {label} due to unexpected error",
-                context=f"{type(e).__name__}: {e}",
+                message="Skipped object due to unexpected error.",
+                context=f"{label}: {type(e).__name__}: {e}",
             )
 
     def _space_key(self, space_name: str) -> SpaceContainerKey:
@@ -1329,11 +1324,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     title="Failed to read CSN @remote.source",
                     message=(
-                        f"Could not determine remote source from CSN for "
-                        f"{space_name}.{asset_name}; defaulting to the managed HANA "
-                        f"connection. Federated routing for this asset may be wrong."
+                        "Could not determine remote source from CSN; defaulting to "
+                        "the managed HANA connection. Federated routing for this "
+                        "asset may be wrong."
                     ),
-                    context=f"{type(e).__name__}: {e}",
+                    context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
                 remote = None
             if remote:
@@ -1422,11 +1417,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     title="Failed to build lineage aspect",
                     message=(
-                        f"Could not assemble UpstreamLineage for "
-                        f"{space_name}.{asset_name}; the dataset will be emitted "
-                        f"without lineage."
+                        "Could not assemble UpstreamLineage; the dataset will be "
+                        "emitted without lineage."
                     ),
-                    context=f"{type(e).__name__}: {e}",
+                    context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
                 upstreams_aspect = None
 
@@ -1541,11 +1535,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to apply analytic-model business layer",
                 message=(
-                    f"Could not assemble star-schema lineage/measure tags for "
-                    f"{space_name}.{technical_name}; emitting with prior lineage "
-                    f"only."
+                    "Could not assemble star-schema lineage/measure tags; emitting "
+                    "with prior lineage only."
                 ),
-                context=f"{type(e).__name__}: {e}",
+                context=f"{space_name}.{technical_name}: {type(e).__name__}: {e}",
             )
             return query_upstreams
 
@@ -1643,11 +1636,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to extract CSN lineage",
                 message=(
-                    f"Could not parse upstream references from CSN for "
-                    f"{space_name}.{asset_name}; the dataset will be emitted "
-                    f"without upstreamLineage."
+                    "Could not parse upstream references from CSN; the dataset "
+                    "will be emitted without upstreamLineage."
                 ),
-                context=f"{type(e).__name__}: {e}",
+                context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
             )
         try:
             association_targets = self._lineage_extractor.extract_association_targets(
@@ -1665,11 +1657,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to extract CSN association lineage",
                 message=(
-                    f"Could not parse association-based lineage from CSN for "
-                    f"{space_name}.{asset_name}; the dataset will be emitted "
-                    f"without association upstreams."
+                    "Could not parse association-based lineage from CSN; the "
+                    "dataset will be emitted without association upstreams."
                 ),
-                context=f"{type(e).__name__}: {e}",
+                context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
             )
         try:
             column_pairs = self._lineage_extractor.extract_column_lineage(csn_def)
@@ -1677,11 +1668,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to extract CSN column lineage",
                 message=(
-                    f"Could not parse column-level lineage from CSN for "
-                    f"{space_name}.{asset_name}; the dataset will be emitted "
-                    f"with table-level lineage only."
+                    "Could not parse column-level lineage from CSN; the dataset "
+                    "will be emitted with table-level lineage only."
                 ),
-                context=f"{type(e).__name__}: {e}",
+                context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
             )
         if not upstream_refs and not column_pairs:
             return None
@@ -1813,8 +1803,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_schema_failed.append(asset_name)
             self.report.warning(
                 title="EDMX schema fetch failed",
-                message=f"Could not fetch schema metadata for asset {asset_name}",
-                context=metadata_url,
+                message="Could not fetch schema metadata for asset.",
+                context=f"{asset_name}: {metadata_url}",
             )
             return None
         result = EdmxParser.parse(fetch.xml)
@@ -1822,22 +1812,24 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_schema_failed.append(asset_name)
             self.report.warning(
                 title="EDMX schema parse failed",
-                message=f"Could not parse schema metadata for asset {asset_name}: {result.error}",
-                context=metadata_url,
+                message="Could not parse schema metadata for asset.",
+                context=f"{asset_name}: {result.error} ({metadata_url})",
             )
             return None
         if result.unknown_edm_types:
             self.report.warning(
                 title="Unknown EDMX field type(s)",
                 message=(
-                    f"{len(result.unknown_edm_types)} field(s) on "
-                    f"{space_name}.{asset_name} have EDMX types not in the connector's "
-                    f"_EDM_TYPE_MAP; schema for those columns will use NullType. "
-                    f"Consider adding the type to the connector."
+                    "Field(s) have EDMX types not in the connector's _EDM_TYPE_MAP; "
+                    "schema for those columns will use NullType. Consider adding the "
+                    "type to the connector."
                 ),
-                context=", ".join(
-                    f"{unknown.column}:{unknown.type}"
-                    for unknown in result.unknown_edm_types
+                context=(
+                    f"{space_name}.{asset_name}: "
+                    + ", ".join(
+                        f"{unknown.column}:{unknown.type}"
+                        for unknown in result.unknown_edm_types
+                    )
                 ),
             )
             self.report.assets_with_unknown_edm_types.append(
@@ -1856,13 +1848,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self.report.warning(
             title="Unknown CDS field type(s)",
             message=(
-                f"{len(unknown_cds_types)} field(s) on {space_name}.{asset_name} "
-                f"have CDS types not in the connector's CSN _TYPE_MAP; those "
-                f"columns fall back to StringType. Consider adding the type to "
-                f"the connector."
+                "Field(s) have CDS types not in the connector's CSN _TYPE_MAP; those "
+                "columns fall back to StringType. Consider adding the type to the "
+                "connector."
             ),
-            context=", ".join(
-                f"{unknown.column}:{unknown.type}" for unknown in unknown_cds_types
+            context=(
+                f"{space_name}.{asset_name}: "
+                + ", ".join(
+                    f"{unknown.column}:{unknown.type}" for unknown in unknown_cds_types
+                )
             ),
         )
         self.report.assets_with_unknown_cds_types.append(f"{space_name}.{asset_name}")
@@ -1888,12 +1882,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         self.report.warning(
             title="CSN column(s) missing a type",
             message=(
-                f"{len(missing)} column(s) on {space_name}.{asset_name} had no "
-                f"type in the CSN and could not be resolved from a source object "
-                f"or inferred as a measure; they degrade to StringType/UNKNOWN. "
-                f"Expected for calculated/derived analytic-model columns."
+                "Column(s) had no type in the CSN and could not be resolved from a "
+                "source object or inferred as a measure; they degrade to "
+                "StringType/UNKNOWN. Expected for calculated/derived analytic-model "
+                "columns."
             ),
-            context=", ".join(missing),
+            context=f"{space_name}.{asset_name}: " + ", ".join(missing),
         )
         self.report.assets_with_missing_cds_types.append(f"{space_name}.{asset_name}")
 

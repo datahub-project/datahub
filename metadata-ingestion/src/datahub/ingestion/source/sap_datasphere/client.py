@@ -640,11 +640,10 @@ class SapDatasphereClient:
             self._report.warning(
                 title="Failed to fetch object definition from SAP Datasphere",
                 message=(
-                    f"Could not retrieve CSN for {space}/{object_type}/"
-                    f"{technical_name} from the supported "
-                    f"/dwaas-core/api/v1/spaces endpoint. Lineage for this "
-                    f"asset will be unavailable.{extra}"
+                    "Could not retrieve CSN from the supported "
+                    "/dwaas-core/api/v1/spaces endpoint. Lineage for this asset "
+                    f"will be unavailable.{extra}"
                 ),
-                context=f"{type(e).__name__}: {e}",
+                context=f"{space}/{object_type}/{technical_name}: {type(e).__name__}: {e}",
             )
         self._report_csn_fetch_failed(space, technical_name)

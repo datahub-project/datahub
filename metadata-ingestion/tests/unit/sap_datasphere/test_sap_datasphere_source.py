@@ -24,6 +24,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
     FlowEndpoint,
+    JsonDict,
     ResolvedPlatform,
     UpstreamColRef,
 )
@@ -237,9 +238,11 @@ def test_schema_failure_appends_to_lossy_list_and_warns(requests_mock):
 
     assert isinstance(source.report.assets_schema_failed, LossyList)
     assert "BROKEN" in list(source.report.assets_schema_failed)
-    warning_messages = [w.message for w in source.report.warnings]
-    assert any("BROKEN" in m for m in warning_messages), (
-        f"Expected a warning mentioning BROKEN, got: {warning_messages}"
+    warning_texts = [
+        f"{w.title} {w.message} {' '.join(w.context)}" for w in source.report.warnings
+    ]
+    assert any("BROKEN" in t for t in warning_texts), (
+        f"Expected a warning mentioning BROKEN, got: {warning_texts}"
     )
 
 
@@ -795,9 +798,11 @@ def test_malformed_edmx_emits_warning_and_appends_to_failed_list(requests_mock):
     assert "BAD" in list(source.report.assets_schema_failed), (
         "Asset name should be tracked in assets_schema_failed even on parse error"
     )
-    warning_messages = [w.message for w in source.report.warnings]
-    assert any("BAD" in m for m in warning_messages), (
-        f"Expected a warning mentioning BAD asset, got: {warning_messages}"
+    warning_texts = [
+        f"{w.title} {w.message} {' '.join(w.context)}" for w in source.report.warnings
+    ]
+    assert any("BAD" in t for t in warning_texts), (
+        f"Expected a warning mentioning BAD asset, got: {warning_texts}"
     )
 
 
@@ -984,8 +989,10 @@ def test_edmx_with_no_entity_type_emits_warning(requests_mock):
     list(source.get_workunits())
 
     assert "EMPTY" in list(source.report.assets_schema_failed)
-    warning_messages = [w.message for w in source.report.warnings]
-    assert any("EMPTY" in m for m in warning_messages)
+    warning_texts = [
+        f"{w.title} {w.message} {' '.join(w.context)}" for w in source.report.warnings
+    ]
+    assert any("EMPTY" in t for t in warning_texts)
 
 
 def test_subtype_is_analytical_model_when_supportsanalyticalqueries(requests_mock):
@@ -5877,7 +5884,12 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
         }
     }
 
-    def _fetch(space, object_type, technical_name, **kwargs):
+    def _fetch(
+        space: str,
+        object_type: str,
+        technical_name: str,
+        _try_alternate: bool = True,
+    ) -> Optional[JsonDict]:
         return source_view_csn if technical_name == "v_src" else None
 
     source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
@@ -5927,7 +5939,12 @@ def test_analytic_model_source_field_types_cached_across_lookups():
 
     calls: List[str] = []
 
-    def _fetch(space, object_type, technical_name, **kwargs):
+    def _fetch(
+        space: str,
+        object_type: str,
+        technical_name: str,
+        _try_alternate: bool = True,
+    ) -> Optional[JsonDict]:
         calls.append(technical_name)
         return {"definitions": {"v_src": {"elements": {"c": {"type": "cds.String"}}}}}
 
