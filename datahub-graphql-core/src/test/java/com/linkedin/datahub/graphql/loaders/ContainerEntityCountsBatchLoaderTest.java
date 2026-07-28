@@ -133,7 +133,10 @@ public class ContainerEntityCountsBatchLoaderTest {
   }
 
   @Test
-  public void testSearchFailureYieldsZeroForAllKeys() throws Exception {
+  public void testSearchFailurePropagatesInsteadOfYieldingZero() throws Exception {
+    // A backend search failure must surface as an error, not a fabricated 0 that reads as an empty
+    // container and would silently mask a search outage behind wrong UI counts. The cause is
+    // preserved so the underlying failure remains diagnosable.
     Mockito.when(
             _entityClient.searchAcrossEntities(
                 any(),
@@ -146,12 +149,14 @@ public class ContainerEntityCountsBatchLoaderTest {
                 any()))
         .thenThrow(new RuntimeException("search is down"));
 
-    // A failed aggregation degrades to zeros rather than failing the whole GraphQL request.
-    final List<Long> results =
-        ContainerEntityCountsBatchLoader.batchLoad(
-            List.of(SALES, FINANCE), _context, _entityClient);
+    final RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                ContainerEntityCountsBatchLoader.batchLoad(
+                    List.of(SALES, FINANCE), _context, _entityClient));
 
-    assertEquals(results, List.of(0L, 0L));
+    assertNotNull(thrown.getCause());
   }
 
   @Test
@@ -233,9 +238,9 @@ public class ContainerEntityCountsBatchLoaderTest {
   }
 
   @Test
-  public void testMalformedContainerFacetDegradesToZeros() throws Exception {
-    // `aggregations` is a required PDL field, so omitting it makes the getter throw. That must
-    // degrade this chunk to zeros rather than propagating out of the loader.
+  public void testMalformedContainerFacetPropagates() throws Exception {
+    // `aggregations` is a required PDL field, so omitting it makes the getter throw. Like a search
+    // failure, that must surface rather than being reported as a count of zero.
     final AggregationMetadata empty =
         new AggregationMetadata().setName(CONTAINER_FACET).setFilterValues(new FilterValueArray());
     stubSearch(
@@ -247,9 +252,13 @@ public class ContainerEntityCountsBatchLoaderTest {
             .setMetadata(
                 new SearchResultMetadata().setAggregations(new AggregationMetadataArray(empty))));
 
-    assertEquals(
-        ContainerEntityCountsBatchLoader.batchLoad(List.of(SALES), _context, _entityClient),
-        List.of(0L));
+    assertNotNull(
+        expectThrows(
+                RuntimeException.class,
+                () ->
+                    ContainerEntityCountsBatchLoader.batchLoad(
+                        List.of(SALES), _context, _entityClient))
+            .getCause());
   }
 
   @Test

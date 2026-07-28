@@ -106,8 +106,13 @@ public final class ContainerEntityCountsBatchLoader {
       try {
         resultByUrn.putAll(loadChunk(queryContext, entityClient, chunk));
       } catch (Exception e) {
-        log.error(
-            "Failed to batch-load container entity counts for {} containers", chunk.size(), e);
+        // Surface the failure rather than swallowing it: a returned 0 is indistinguishable from a
+        // genuinely empty container and would mask a search outage as "no entities" in the UI
+        // counts. Matches the throw-on-failure contract of the direct resolver path
+        // (ContainerEntitiesResolver#resolveDirect) and the other GMS batch loaders.
+        throw new RuntimeException(
+            String.format("Failed to resolve entity counts associated with Containers %s", chunk),
+            e);
       }
     }
 
@@ -149,7 +154,7 @@ public final class ContainerEntityCountsBatchLoader {
     // `metadata`, its `aggregations` array (which defaults to []), and each entry's own
     // `aggregations` map are all required PDL fields, so none can be null here — their getters
     // throw when absent. A malformed response therefore surfaces as an exception that batchLoad
-    // catches, leaving this chunk's counts at zero, rather than as a null to guard against.
+    // propagates, rather than as a null to guard against.
     for (AggregationMetadata agg : searchResult.getMetadata().getAggregations()) {
       if (!CONTAINER_FIELD.equals(agg.getName())) {
         continue;
