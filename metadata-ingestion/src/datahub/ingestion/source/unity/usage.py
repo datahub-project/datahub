@@ -651,7 +651,7 @@ class UnityCatalogUsageExtractor:
                     audit_log_file.unlink(missing_ok=True)
                 self.report.failure(
                     title="Usage extraction failed",
-                    message=f"Usage extraction failed: {e!r}",
+                    message="Usage extraction failed",
                     exc=e,
                 )
                 return

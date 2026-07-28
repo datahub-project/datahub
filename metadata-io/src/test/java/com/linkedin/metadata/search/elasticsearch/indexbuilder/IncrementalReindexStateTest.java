@@ -42,6 +42,66 @@ public class IncrementalReindexStateTest {
   }
 
   @Test
+  public void testSetReindexCompleteTimeKeepsInProgress() {
+    // Recording reindex (data copy) completion must NOT flip the status to COMPLETED — the index
+    // stays IN_PROGRESS until the alias swap succeeds. Marking COMPLETED before the swap would make
+    // a failed swap unrecoverable (resumed runs skip it instead of retrying the swap).
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            ENTITY_INDEX,
+            NEXT_INDEX,
+            null,
+            100L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
+
+    state = IncrementalReindexState.setReindexCompleteTime(state, ENTITY_INDEX, 200L);
+
+    assertEquals(
+        IncrementalReindexState.get(
+            state, ENTITY_INDEX, IncrementalReindexState.REINDEX_COMPLETE_TIME),
+        Optional.of("200"));
+    assertEquals(
+        IncrementalReindexState.getStatus(state, ENTITY_INDEX),
+        Optional.of(IncrementalReindexState.Status.IN_PROGRESS));
+  }
+
+  @Test
+  public void testSetPhase1Completed() {
+    // setPhase1Completed is what marks COMPLETED, and is only called after a successful alias swap.
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null,
+            ENTITY_INDEX,
+            NEXT_INDEX,
+            null,
+            100L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.IN_PROGRESS);
+    state = IncrementalReindexState.setReindexCompleteTime(state, ENTITY_INDEX, 200L);
+
+    assertEquals(
+        IncrementalReindexState.getStatus(state, ENTITY_INDEX),
+        Optional.of(IncrementalReindexState.Status.IN_PROGRESS));
+
+    state = IncrementalReindexState.setPhase1Completed(state, ENTITY_INDEX);
+
+    assertEquals(
+        IncrementalReindexState.getStatus(state, ENTITY_INDEX),
+        Optional.of(IncrementalReindexState.Status.COMPLETED));
+    // completion time is preserved across the status transition
+    assertEquals(
+        IncrementalReindexState.get(
+            state, ENTITY_INDEX, IncrementalReindexState.REINDEX_COMPLETE_TIME),
+        Optional.of("200"));
+  }
+
+  @Test
   public void testProtectsTimeseriesOldBackingWithGapAndNoCatchUpStatus() {
     Map<String, String> phase1State = timeseriesPhase1State(1000L, 2000L, OLD_BACKING);
 

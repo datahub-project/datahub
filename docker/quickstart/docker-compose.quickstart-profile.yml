@@ -261,12 +261,12 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
-      timeout: 5s
-      interval: 1s
-      retries: 5
+      - kafka-broker-api-versions --bootstrap-server broker:29092 >/dev/null 2>&1
+      timeout: 10s
+      interval: 5s
+      retries: 12
       start_period: 1m0s
-    image: confluentinc/cp-kafka:8.0.0
+    image: confluentinc/cp-kafka:8.2.2
     networks:
       default: null
     ports:

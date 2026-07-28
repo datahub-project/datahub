@@ -698,6 +698,7 @@ repos:
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
         language: python
+        files: ^metadata-models/src/main/pegasus/.*\.pdl$
         pass_filenames: false
         stages:
           - pre-commit

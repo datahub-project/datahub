@@ -170,6 +170,7 @@ interface EntityState {
 
 export enum DrawerType {
     VERSIONS,
+    CHANGE_HISTORY,
 }
 
 export type EntityContextType = {

@@ -213,11 +213,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 )
                 self.report.warning(
                     title="Platform Detection Fallback",
-                    message=(
-                        f"{entity_label} {request.entity_id} missing "
-                        f"{type_label}, using name '{request.name}' as fallback"
-                    ),
-                    context=", ".join(context_parts),
+                    message="Entity missing type info, using name as fallback",
+                    context=f"{entity_label} {request.entity_id}, {type_label}, fallback_name={request.name}, {', '.join(context_parts)}",
                 )
                 warned.add(request.entity_id)
             platform = _map_source_type_to_platform(
@@ -227,11 +224,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             if request.entity_id not in warned:
                 self.report.warning(
                     title="Platform Detection Failed",
-                    message=(
-                        f"{entity_label} {request.entity_id} missing both "
-                        f"{type_label} and name"
-                    ),
-                    context=f"{id_label}={request.entity_id}",
+                    message="Entity missing both type info and name",
+                    context=f"{entity_label} {request.entity_id}, {id_label}={request.entity_id}",
                 )
                 warned.add(request.entity_id)
             platform = ""
@@ -457,13 +451,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                             if attempt_status not in self._warned_unknown_statuses:
                                 self.report.warning(
                                     title="Unknown Airbyte Job Status",
-                                    message=(
-                                        f"Encountered unrecognized Airbyte job "
-                                        f"status '{attempt_status}'; mapping to "
-                                        "FAILURE. Update AIRBYTE_JOB_STATUS_MAP "
-                                        "if this is a legitimate status."
-                                    ),
-                                    context=f"connection_id={connection_id}, job_id={job_id}",
+                                    message="Encountered unrecognized Airbyte job status; mapping to FAILURE. "
+                                    "Update AIRBYTE_JOB_STATUS_MAP if this is a legitimate status.",
+                                    context=f"status={attempt_status}, connection_id={connection_id}, job_id={job_id}",
                                 )
                                 self._warned_unknown_statuses.add(attempt_status)
 
@@ -565,7 +555,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if not pipeline_info.connection.sync_catalog:
             self.report.warning(
                 title="Missing Sync Catalog",
-                message=f"Connection {pipeline_info.connection.connection_id} has no sync_catalog",
+                message="Connection has no sync_catalog",
                 context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []
@@ -573,7 +563,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if not pipeline_info.connection.sync_catalog.streams:
             self.report.warning(
                 title="Empty Sync Catalog",
-                message=f"Connection {pipeline_info.connection.connection_id} sync_catalog has no streams",
+                message="Connection sync_catalog has no streams",
                 context=f"connection_id={pipeline_info.connection.connection_id}, connection_name={pipeline_info.connection.name}",
             )
             return []

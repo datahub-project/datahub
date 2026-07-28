@@ -583,8 +583,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
                 self.report.failure(
-                    "No Metadata Produced",
-                    "No metadata was produced. Check the logs for more details.",
+                    message="No metadata was produced. Check the logs for more details.",
                 )
 
     def _recursively_check_manifests(

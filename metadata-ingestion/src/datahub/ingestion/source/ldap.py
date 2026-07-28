@@ -285,7 +285,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.failure("ldap-control", f"LDAP search failed: {e}")
+                self.report.failure(
+                    message="LDAP search failed", context="ldap-control", exc=e
+                )
                 break
 
             for dn, attrs in rdata:
@@ -294,9 +296,9 @@ class LDAPSource(StatefulIngestionSourceBase):
 
                 if not attrs or "objectClass" not in attrs:
                     self.report.warning(
-                        "<general>",
-                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
-                        f"check your permissions if this is unexpected",
+                        message="Skipping entry because attrs do not contain expected data; "
+                        "check your permissions if this is unexpected",
+                        context=dn,
                         log=False,
                     )
                     continue
@@ -321,7 +323,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
                     self.report.failure(
-                        "ldap-control", "Server ignores RFC 2696 control."
+                        message="Server ignores RFC 2696 control",
+                        context="ldap-control",
                     )
                     break
                 cookie = set_cookie(self.lc, pctrls)
@@ -364,7 +367,12 @@ class LDAPSource(StatefulIngestionSourceBase):
                     )
 
             except ldap.LDAPError as e:
-                self.report.warning(dn, f"manager LDAP search failed: {e}", log=False)
+                self.report.warning(
+                    message="Manager LDAP search failed",
+                    context=dn,
+                    exc=e,
+                    log=False,
+                )
         mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
             yield MetadataWorkUnit(dn, mce)

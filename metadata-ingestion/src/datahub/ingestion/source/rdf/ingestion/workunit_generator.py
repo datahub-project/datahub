@@ -48,7 +48,10 @@ class WorkUnitGenerator:
 
         if not isinstance(datahub_graph, DataHubGraph):
             logger.error(f"Expected DataHubGraph, got {type(datahub_graph)}")
-            self.report.failure(f"Invalid AST type: {type(datahub_graph)}")
+            self.report.failure(
+                message="Invalid AST type",
+                context=f"{type(datahub_graph)}",
+            )
             return  # Generator returns nothing on error
 
         try:
@@ -223,7 +226,7 @@ class WorkUnitGenerator:
             except RuntimeError as e:
                 # Continue processing other entity types even if one fails
                 self.report.failure(
-                    f"Failed to process {entity_type} entities",
+                    message="Failed to process entities",
                     context=f"Entity type: {entity_type}",
                     exc=e,
                 )

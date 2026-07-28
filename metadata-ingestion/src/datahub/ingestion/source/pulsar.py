@@ -215,16 +215,21 @@ class PulsarSource(StatefulIngestionSourceBase):
         except requests.exceptions.HTTPError as http_error:
             # Topics can exist without a schema, log the warning and move on
             if http_error.response.status_code == 404 and "/schemas/" in url:
-                message = (
-                    f"Failed to get schema from schema registry. The topic is either schema-less or"
-                    f" no messages have been written to the topic yet."
-                    f" {http_error}"
+                self.report.warning(
+                    message="Failed to get schema from schema registry; "
+                    "the topic is either schema-less or no messages have been written to the topic yet",
+                    context="NoSchemaFound",
+                    exc=http_error,
+                    log=False,
                 )
-                self.report.warning("NoSchemaFound", message, log=False)
             else:
                 # Authorization error
-                message = f"An HTTP error occurred: {http_error}"
-                self.report.warning("HTTPError", message, log=False)
+                self.report.warning(
+                    message="An HTTP error occurred",
+                    context="HTTPError",
+                    exc=http_error,
+                    log=False,
+                )
         except requests.exceptions.RequestException as e:
             raise Exception(
                 "An ambiguous exception occurred while handling the request"
@@ -361,8 +366,8 @@ class PulsarSource(StatefulIngestionSourceBase):
             )
         else:
             self.report.warning(
-                pulsar_topic.fullname,
-                f"Parsing Pulsar schema type {schema.schema_type} is currently not implemented",
+                message="Parsing Pulsar schema type is currently not implemented",
+                context=f"{pulsar_topic.fullname} (schema_type={schema.schema_type})",
                 log=False,
             )
         return fields

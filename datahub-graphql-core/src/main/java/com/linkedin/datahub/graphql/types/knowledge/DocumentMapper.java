@@ -9,6 +9,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.SemanticText;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
@@ -79,6 +80,16 @@ public class DocumentMapper {
 
     if (docInfo != null) {
       result.setInfo(mapDocumentInfo(docInfo, entityUrn));
+    }
+
+    // Map the standalone semanticText aspect (curated embedding-source text) into contents,
+    // keeping the GraphQL surface (contents.semanticText) stable across the aspect move.
+    final EnvelopedAspect envelopedSemanticText = aspects.get(Constants.SEMANTIC_TEXT_ASPECT_NAME);
+    if (envelopedSemanticText != null
+        && result.getInfo() != null
+        && result.getInfo().getContents() != null) {
+      final SemanticText semanticText = new SemanticText(envelopedSemanticText.getValue().data());
+      result.getInfo().getContents().setSemanticText(semanticText.getText());
     }
 
     // Map Document Settings aspect
