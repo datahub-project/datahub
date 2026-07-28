@@ -69,6 +69,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -173,6 +174,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   @VisibleForTesting @Getter private final EventProducer producer;
   private RetentionService<ChangeItemImpl> retentionService;
+  // Post-commit retention path only; NO_OP keeps the existing sync-DELETE behavior unchanged.
+  private RetentionBuffer retentionBuffer = RetentionBuffer.NO_OP;
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
@@ -1039,10 +1042,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Builds retention contexts from upsert results. Previous version existence is implied by
    * oldValue != null.
+   *
+   * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
+   *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
+   *     (post-commit path), no such restriction is applied since that snapshot isn't available
+   *     outside the transaction.
    */
   private List<RetentionService.RetentionContext> buildRetentionContexts(
-      List<UpdateAspectResult> upsertResults) {
+      List<UpdateAspectResult> upsertResults,
+      @Nullable Map<String, Map<String, SystemAspect>> updatedLatestAspects) {
     return upsertResults.stream()
+        .filter(
+            r ->
+                updatedLatestAspects == null
+                    || (updatedLatestAspects.containsKey(r.getUrn().toString())
+                        && updatedLatestAspects
+                            .get(r.getUrn().toString())
+                            .containsKey(r.getRequest().getAspectName())))
         .filter(
             r -> {
               RecordTemplate oldAspect = r.getOldValue();
@@ -1062,6 +1078,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * Best-effort retention applied AFTER the upsert transaction commits. Failures are logged and
    * metric'd; they never throw, never retry, never poison the ingest batch. Only runs when
    * postCommitRetentionEnabled is true.
+   *
+   * <p>When a {@link RetentionBuffer} is wired and {@link RetentionBuffer#defersApply()} returns
+   * true, retention keys are coalesced into the buffer for a background {@code RetentionDrainer} to
+   * apply asynchronously. Otherwise (no buffer, i.e. {@link RetentionBuffer#NO_OP}), this falls
+   * back to the original synchronous DELETE loop below.
    */
   @VisibleForTesting
   void applyRetentionPostCommit(
@@ -1073,35 +1094,59 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       log.warn("Retention service is missing!");
       return;
     }
-    List<RetentionService.RetentionContext> retentionBatch = buildRetentionContexts(upsertResults);
-    if (retentionBatch.isEmpty()) {
-      return;
-    }
-    opContext.withSpan(
-        "retentionPostCommit",
-        () -> {
-          // Per-context try/catch: one bad DELETE must not abort the rest of the cleanup.
-          for (RetentionService.RetentionContext ctx : retentionBatch) {
-            try {
-              retentionService.applyRetentionWithPolicyDefaults(opContext, List.of(ctx));
-            } catch (Exception e) {
-              // TODO: no retention_dlq table yet; do not claim DLQ. FMCP is for failed MCPs only,
-              // not retention prune. For now: log + metric only.
-              log.warn(
-                  "Post-commit retention failed for urn={} aspect={}; recorded metric only (no DLQ"
-                      + " yet). Upsert already committed; no data loss.",
-                  ctx.getUrn(),
-                  ctx.getAspectName(),
-                  e);
-              opContext
-                  .getMetricUtils()
-                  .ifPresent(
-                      m -> m.increment(EntityServiceImpl.class, "post_commit_retention_failed", 1));
+    // Outer safety net: nothing in this method may propagate. The upsert has already committed,
+    // so a retention bug must never fail the ingest call.
+    try {
+      List<RetentionService.RetentionContext> retentionBatch =
+          buildRetentionContexts(upsertResults, null);
+      if (retentionBatch.isEmpty()) {
+        return;
+      }
+
+      if (retentionBuffer.defersApply()) {
+        for (RetentionService.RetentionContext ctx : retentionBatch) {
+          retentionBuffer.enqueue(
+              ctx.getUrn(), ctx.getAspectName(), ctx.getMaxVersion().orElse(0L));
+        }
+        return;
+      }
+
+      opContext.withSpan(
+          "retentionPostCommit",
+          () -> {
+            // Per-context try/catch: one bad DELETE must not abort the rest of the cleanup.
+            for (RetentionService.RetentionContext ctx : retentionBatch) {
+              try {
+                retentionService.applyRetentionWithPolicyDefaults(opContext, List.of(ctx));
+              } catch (Exception e) {
+                // TODO: no retention_dlq table yet; do not claim DLQ. FMCP is for failed MCPs
+                // only, not retention prune. For now: log + metric only.
+                log.warn(
+                    "Post-commit retention failed for urn={} aspect={}; recorded metric only (no"
+                        + " DLQ yet). Upsert already committed; no data loss.",
+                    ctx.getUrn(),
+                    ctx.getAspectName(),
+                    e);
+                opContext
+                    .getMetricUtils()
+                    .ifPresent(
+                        m ->
+                            m.increment(
+                                EntityServiceImpl.class, "post_commit_retention_failed", 1));
+              }
             }
-          }
-        },
-        BATCH_SIZE_ATTR,
-        String.valueOf(retentionBatch.size()));
+          },
+          BATCH_SIZE_ATTR,
+          String.valueOf(retentionBatch.size()));
+    } catch (Exception e) {
+      log.warn(
+          "Post-commit retention batch failed unexpectedly; upsert already committed; no data"
+              + " loss.",
+          e);
+      opContext
+          .getMetricUtils()
+          .ifPresent(m -> m.increment(EntityServiceImpl.class, "post_commit_retention_failed", 1));
+    }
   }
 
   /**
@@ -1467,7 +1512,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   "retentionService",
                                   () -> {
                                     List<RetentionService.RetentionContext> retentionBatch =
-                                        buildRetentionContexts(upsertResults);
+                                        buildRetentionContexts(upsertResults, updatedLatestAspects);
                                     retentionService.applyRetentionWithPolicyDefaults(
                                         opContext, retentionBatch);
                                   },
@@ -2812,6 +2857,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public void setRetentionService(RetentionService<ChangeItemImpl> retentionService) {
     this.retentionService = retentionService;
+  }
+
+  /**
+   * Not part of the {@link EntityService} interface (avoids a circular dependency between
+   * metadata-service/services and metadata-io, where {@link RetentionBuffer} lives). Wired directly
+   * by {@code EntityServiceFactory} via an instanceof/cast check.
+   */
+  public void setRetentionBuffer(@Nullable RetentionBuffer retentionBuffer) {
+    this.retentionBuffer = retentionBuffer != null ? retentionBuffer : RetentionBuffer.NO_OP;
   }
 
   @Override

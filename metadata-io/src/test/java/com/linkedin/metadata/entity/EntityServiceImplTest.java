@@ -53,6 +53,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -1704,6 +1705,54 @@ public class EntityServiceImplTest {
 
     entityService.applyRetentionPostCommit(opContext, List.of(upsertResult));
 
+    verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
+  }
+
+  @Test
+  public void testApplyRetentionPostCommitDefersToBufferWhenPresent() {
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao,
+            mock(EventProducer.class),
+            false,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            true,
+            null);
+
+    RetentionService<ChangeItemImpl> retentionService = mock(RetentionService.class);
+    entityService.setRetentionService(retentionService);
+
+    RetentionBuffer retentionBuffer = mock(RetentionBuffer.class);
+    when(retentionBuffer.defersApply()).thenReturn(true);
+    entityService.setRetentionBuffer(retentionBuffer);
+
+    ChangeItemImpl request =
+        ChangeItemImpl.builder()
+            .urn(TEST_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(newAspect)
+            .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(opContext.getAspectRetriever());
+
+    UpdateAspectResult upsertResult =
+        UpdateAspectResult.builder()
+            .urn(TEST_URN)
+            .request(request)
+            .oldValue(oldAspect)
+            .newValue(newAspect)
+            .maxVersion(2L)
+            .newSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build();
+
+    entityService.applyRetentionPostCommit(opContext, List.of(upsertResult));
+
+    verify(retentionBuffer, times(1)).enqueue(eq(TEST_URN), eq(STATUS_ASPECT_NAME), eq(2L));
     verify(retentionService, never()).applyRetentionWithPolicyDefaults(any(), any());
   }
 }

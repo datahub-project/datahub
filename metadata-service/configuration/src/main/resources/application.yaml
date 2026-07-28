@@ -366,6 +366,21 @@ datahub:
         # Default: 1MB, 5MB, 10MB, 15MB creates buckets: 0-1MB, 1-5MB, 5-10MB, 10-15MB, 15MB+
         sizeBuckets: ${DATAHUB_ASPECT_SIZE_METRICS_BUCKETS:1048576,5242880,10485760,15728640}
 
+  retention:
+    buffer:
+      # Tuning only. On/off gate is featureFlags.retentionBufferEnabled (RETENTION_BUFFER_ENABLED).
+      # Also requires featureFlags.postCommitRetentionEnabled and Hazelcast; otherwise sync DELETE.
+      mapName: ${RETENTION_BUFFER_MAP_NAME:retention-pending}
+      lockMapName: ${RETENTION_BUFFER_LOCK_MAP_NAME:retention-drain-lock}
+      maxPendingEntries: ${RETENTION_BUFFER_MAX_PENDING_ENTRIES:100000}
+      drainBatchSize: ${RETENTION_BUFFER_DRAIN_BATCH_SIZE:500}
+      drainIntervalMs: ${RETENTION_BUFFER_DRAIN_INTERVAL_MS:5000}
+
+  buffer:
+    # Backend for CoalesceBuffer<K,V> (e.g. the post-commit retention buffer above).
+    # Values: caffeine (local-only, default) | hazelcast (cross-pod coalescing).
+    implementation: ${DATAHUB_BUFFER_IMPLEMENTATION:${searchService.cacheImplementation:caffeine}}
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
@@ -1516,6 +1531,7 @@ featureFlags:
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
   cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:false} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
   postCommitRetentionEnabled: ${POST_COMMIT_RETENTION_ENABLED:false} # Moves aspect retention out of the ingest retry loop to a best-effort post-commit path. When false, retention runs inside the retry loop (legacy behavior). When true, retention failures never trigger a retry or poison the batch.
+  retentionBufferEnabled: ${RETENTION_BUFFER_ENABLED:false} # When true (and postCommitRetentionEnabled), coalesce post-commit retention into Hazelcast and drain off the ingest thread. When false, post-commit applies retention synchronously. Requires Hazelcast or falls back to sync DELETE. Default OFF.
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
