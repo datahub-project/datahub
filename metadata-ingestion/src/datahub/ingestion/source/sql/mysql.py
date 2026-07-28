@@ -148,10 +148,14 @@ _MAX_TRACKED_SESSIONS = 10_000
 # Both are acceptable for a guardrail; neither must be presented as an accurate count.
 # `:table_row_limit` / `:table_size_limit` are passed NULL when unset, and the
 # `IS NULL OR ...` clauses make NULL limits pass through (no filtering on that axis).
+# `table_type = 'BASE TABLE'` excludes views, which have NULL table_rows/data_length and would
+# otherwise pass the IS NULL OR clauses — harmless today (loop_profiler_requests only iterates
+# get_table_names, not views) but explicit intent + smaller result set.
 _PROFILE_CANDIDATES_QUERY = """
 SELECT table_name, table_rows, data_length
 FROM information_schema.tables
 WHERE table_schema = :schema
+  AND table_type = 'BASE TABLE'
   AND (:table_row_limit IS NULL OR table_rows IS NULL OR table_rows < :table_row_limit)
   AND (:table_size_limit IS NULL OR data_length IS NULL
        OR data_length / (1024 * 1024 * 1024) < :table_size_limit)
@@ -256,30 +260,43 @@ class MySQLProfilingConfig(GEProfilingConfig):
     # pool and IO path regardless of session count, so concurrency past a handful mostly adds
     # contention and multiplies peak memory (each session may hold multi-GB COUNT(DISTINCT)
     # structures). The shared default (5 * cpu_count, ~40 on an 8-core box) is miscalibrated for
-    # MySQL. Proposed default of 5 — pending measurement in PR 5's validation alongside the
-    # flattening work, where a MySQL integration harness already exists.
+    # MySQL.
+    #
+    # 5 is a judgment call from that reasoning, not a measured optimum, and no benchmark is
+    # currently in flight to replace it. It is deliberately conservative: the failure mode it
+    # guards against (concurrent full scans exhausting memory on a large table) costs far more
+    # than the throughput it gives up. Deployments with many small tables lose the most here:
+    # profiling there is latency-bound rather than scan-bound, and per-database batching means
+    # databases with <= 5 profiled tables are unaffected either way, so those deployments
+    # should raise it. Tune per workload; do not treat 5 as validated.
     max_workers: int = Field(
         default=5,
         description="Number of worker threads to use for profiling. MySQL defaults to 5 (vs the "
         "shared 5*cpu_count) because MySQL is a single-primary row store: extra concurrency adds "
-        "contention and peak memory rather than throughput. Tune per your workload.",
+        "contention and peak memory rather than throughput. Tune per your workload. This default "
+        "is deliberately conservative; deployments with many small tables are latency-bound "
+        "rather than scan-bound and may want to raise it.",
     )
 
     # MySQL defaults to no row/size guardrail, so operators need a way to discover they should set
-    # one. This emits one post-run report.warning naming the few most expensive tables by observed
-    # profiling time, with the config to set. The warning lives in the profiler run path
+    # one. This emits one post-run report.info entry naming the few most expensive tables by observed
+    # profiling time, with the config to set. The info entry lives in the profiler run path
     # (independent of the generate_profile_candidates skip path) so it fires whether or not a
-    # limit is configured.
+    # limit is configured. Uses report.info (not report.warning) so it surfaces without counting
+    # toward --strict-warnings failure.
     report_expensive_tables: bool = Field(
         default=True,
-        description="Emit a post-run report.warning naming the few MySQL tables that took the "
+        description="Emit a post-run report.info entry naming the few MySQL tables that took the "
         "longest to profile, with a suggestion to set `profile_table_row_limit` / "
         "`profile_table_size_limit` to skip large tables.",
     )
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
-    profiling: MySQLProfilingConfig = MySQLProfilingConfig()
+    profiling: MySQLProfilingConfig = Field(
+        default_factory=MySQLProfilingConfig,
+        description="Configuration for profiling MySQL tables.",
+    )
 
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
@@ -387,6 +404,20 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 aws_config=config.aws_config,
             )
 
+        # profile_if_updated_since_days has no effect on MySQL: candidate selection is row/size
+        # based only (see generate_profile_candidates). SupportedSources is pure JSON-schema
+        # metadata and does not stop anyone setting the field, so warn rather than let users
+        # assume freshness filtering is applied. Mirrors the Teradata precedent (teradata.py).
+        if (
+            config.is_profiling_enabled()
+            and config.profiling.profile_if_updated_since_days is not None
+        ):
+            self.report.warning(
+                title="MySQL profiling does not support profile_if_updated_since_days",
+                message="This setting will be ignored. Tables are selected for profiling by "
+                "row/size limits only (profile_table_row_limit / profile_table_size_limit).",
+            )
+
     def get_platform(self):
         return "mysql"
 
@@ -482,8 +513,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
         threshold_time: Optional[datetime.datetime],
         schema: str,
     ) -> Optional[List[str]]:
-        # MySQL does not support profile_if_updated_since_days (not in SupportedSources), so
-        # threshold_time is always None here; the row/size limits do the filtering.
+        # profile_if_updated_since_days is NOT enforced here — candidate selection is row/size
+        # based only. SupportedSources is pure JSON-schema metadata (no runtime effect), so a
+        # user can still set profile_if_updated_since_days; sql_common.loop_profiler_requests
+        # will compute and pass threshold_time, but this method ignores it. A warning in
+        # MySQLSource.__init__ flags that misconfiguration rather than letting it silently no-op.
         # table_rows is an InnoDB *estimate* (can be stale until ANALYZE TABLE) and data_length
         # is in bytes — acceptable for a guardrail, not an accurate count.
         with inspector.engine.connect() as conn:

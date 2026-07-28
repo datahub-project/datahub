@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type
+from typing import Type
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,7 +9,15 @@ from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSo
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
 
-def _inspector_returning(rows: List[Tuple[str, str, int]]) -> MagicMock:
+def _source() -> MySQLSource:
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        profiling={"enabled": True},
+    )
+    return MySQLSource(config, PipelineContext(run_id="mysql-profiling-test"))
+
+
+def _inspector_returning(rows: list) -> MagicMock:
     conn = MagicMock()
     conn.execute.return_value = rows
     inspector = MagicMock()

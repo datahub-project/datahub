@@ -110,22 +110,26 @@ class GEProfilingBaseConfig(ProfilingMethodConfig):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    # Cross-platform flag (no SupportedSources annotation, following query_combiner_enabled):
-    # emits one post-run report.warning naming the most expensive tables by observed profiling
-    # time, with the guardrail config to set. Off by default; sources whose profiling defaults
-    # to no row/size limit (e.g. MySQL) opt in so operators can discover they need a limit.
-    report_expensive_tables: bool = Field(
-        default=False,
-        description="Emit a post-run report.warning naming the few tables that took the longest "
-        "to profile, with a suggestion to set `profile_table_row_limit` / `profile_table_size_limit` "
-        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL).",
-    )
-
 
 class GEProfilingConfig(GEProfilingBaseConfig):
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
+    )
+
+    # Cross-platform flag (no SupportedSources annotation, following query_combiner_enabled):
+    # emits one post-run report.info entry naming the most expensive tables by observed profiling
+    # time, with the guardrail config to set. Off by default; sources whose profiling defaults
+    # to no row/size limit (e.g. MySQL) opt in so operators can discover they need a limit.
+    # Uses report.info (not report.warning) so it surfaces without counting toward
+    # --strict-warnings failure. Applies only to `method: sqlalchemy` (the default); under
+    # `method: ge` both this flag and `profiling_isolation_level` are inert.
+    report_expensive_tables: bool = Field(
+        default=False,
+        description="Emit a post-run report.info entry naming the few tables that took the longest "
+        "to profile, with a suggestion to set `profile_table_row_limit` / `profile_table_size_limit` "
+        "to skip large tables. Intended for sources that default to no row/size guardrail (e.g. MySQL). "
+        "Applies only to `method: sqlalchemy`.",
     )
 
     turn_off_expensive_profiling_metrics: bool = Field(

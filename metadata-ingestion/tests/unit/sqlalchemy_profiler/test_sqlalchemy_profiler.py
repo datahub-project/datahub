@@ -75,6 +75,7 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
     return report
 
 
@@ -1105,7 +1106,7 @@ class TestProfilingIsolationLevelRejection:
 class TestReportExpensiveTables:
     """The post-run 'most expensive tables' warning (PR 2 discoverability mechanism).
 
-    Pre-flight warning #2: the warning must live in the profiler run path (here), NOT in
+    Pre-flight warning #2: the info entry must live in the profiler run path (here), NOT in
     generate_profile_candidates — which is dead by default when the limits are None. It must
     fire with no limits configured (the MySQL default), and behave independently of the skip
     path when limits ARE configured.
@@ -1119,7 +1120,7 @@ class TestReportExpensiveTables:
         flag: bool,
         limits: bool,
     ) -> SQLAlchemyProfiler:
-        # limits=True sets both row/size limits so we can prove the warning still fires
+        # limits=True sets both row/size limits so we can prove the info entry still fires
         # (independence from the skip path); limits=False leaves them None (the MySQL default).
         cfg_kwargs: Dict[str, Any] = {"enabled": True, "report_expensive_tables": flag}
         if limits:
@@ -1135,7 +1136,7 @@ class TestReportExpensiveTables:
         )
 
     def test_fires_with_no_limits_configured(self, sqlite_engine, mock_report):
-        # The default MySQL state: limits None, flag on. The warning must fire — this is the
+        # The default MySQL state: limits None, flag on. The info entry must fire — this is the
         # state the customer is actually in, and the whole point of opt-in discoverability.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=False
@@ -1148,18 +1149,20 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert mock_report.warning.called
-        _args, kwargs = mock_report.warning.call_args
+        assert mock_report.info.called
+        _args, kwargs = mock_report.info.call_args
         assert kwargs["title"] == "Profiling: expensive tables"
-        # Top-N is bounded and ordered by time desc; events (300s) and orders (120s) lead.
-        assert "my_db.events (300.0s)" in kwargs["message"]
-        assert "my_db.orders (120.0s)" in kwargs["message"]
+        # message is a constant literal; the formatted table list is in context= (so all
+        # databases on a multi-DB server group under one entry). Top-N is bounded and ordered
+        # by time desc; events (300s) and orders (120s) lead.
+        assert "my_db.events (300.0s)" in kwargs["context"]
+        assert "my_db.orders (120.0s)" in kwargs["context"]
         # customers (30s) is 3rd — still in top 3 of 3, so included; the cap matters only
         # when there are more than _EXPENSIVE_TABLES_TOP_N tables (asserted below).
 
     def test_fires_independently_of_limits(self, sqlite_engine, mock_report):
-        # With limits set, the skip path (generate_profile_candidates) and the warning path
-        # (here) are independent: the warning still fires because the flag is on, regardless
+        # With limits set, the skip path (generate_profile_candidates) and the info path
+        # (here) are independent: the info entry still fires because the flag is on, regardless
         # of the limits. This is the inverse case from pre-flight warning #2.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=True
@@ -1168,10 +1171,10 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert mock_report.warning.called
+        assert mock_report.info.called
 
     def test_does_not_fire_when_flag_off(self, sqlite_engine, mock_report):
-        # Non-MySQL sources default the flag off — no warning, even for expensive tables.
+        # Non-MySQL sources default the flag off — no info entry, even for expensive tables.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=False, limits=False
         )
@@ -1179,7 +1182,7 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert not mock_report.warning.called
+        assert not mock_report.info.called
 
     def test_does_not_fire_when_nothing_profiled(self, sqlite_engine, mock_report):
         profiler = self._make_profiler(
@@ -1189,10 +1192,10 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert not mock_report.warning.called
+        assert not mock_report.info.called
 
     def test_top_n_is_bounded(self, sqlite_engine, mock_report):
-        # The warning must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
+        # The info entry must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
         # actionable line regardless of how many tables were profiled.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=False
@@ -1203,7 +1206,7 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        _args, kwargs = mock_report.warning.call_args
-        # Count the "(<name> (<time>s)" entries in the message.
-        named = [w for w in kwargs["message"].split(", ") if "s)" in w]
+        _args, kwargs = mock_report.info.call_args
+        # The formatted list is in context=, not message=.
+        named = [w for w in kwargs["context"].split(", ") if "s)" in w]
         assert len(named) <= SQLAlchemyProfiler._EXPENSIVE_TABLES_TOP_N
