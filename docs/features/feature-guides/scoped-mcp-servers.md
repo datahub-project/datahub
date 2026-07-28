@@ -28,7 +28,6 @@ Clients connect the same way as the default server (OAuth or personal access tok
 
 - DataHub Cloud with Context Platform private beta access
 - **Manage platform settings** privilege (platform admin)
-- The **MCP Servers** settings tab enabled for your tenant
 
 ## Create a Scoped MCP Server
 
