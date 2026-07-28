@@ -336,3 +336,38 @@ def test_connection_string_account_diverges_from_account_name():
                 "AccountKey=c3VwZXJzZWNyZXQ=;EndpointSuffix=core.windows.net"
             ),
         )
+
+
+def test_connection_string_without_account_name_is_accepted():
+    """A connection string with no AccountName (e.g. SAS-based) can't diverge, so
+    it must be accepted rather than false-rejected."""
+    config = AzureConnectionConfig(
+        account_name="myacct",
+        container_name="c",
+        connection_string=(
+            "BlobEndpoint=https://myacct.blob.core.windows.net/;"
+            "SharedAccessSignature=sv=2022-11-02&ss=b&sig=abc%3D%3D"
+        ),
+    )
+    assert config.connection_string is not None
+
+
+def test_connection_string_account_check_handles_base64_key_padding():
+    """AccountKey base64 padding ('==') must not break parsing of AccountName."""
+    key = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
+    # Matching AccountName is accepted despite the '==' padding elsewhere.
+    ok = AzureConnectionConfig(
+        account_name="devstoreaccount1",
+        container_name="c",
+        connection_string=f"AccountName=devstoreaccount1;AccountKey={key};",
+    )
+    assert ok.connection_string is not None
+    # And a mismatch is still caught (parsing wasn't derailed by the padding).
+    from datahub.configuration.common import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="does not match AccountName"):
+        AzureConnectionConfig(
+            account_name="other",
+            container_name="c",
+            connection_string=f"AccountName=devstoreaccount1;AccountKey={key};",
+        )
