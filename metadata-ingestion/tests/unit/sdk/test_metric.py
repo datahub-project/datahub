@@ -8,6 +8,7 @@ rule for semantic-model-backed metrics.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -19,6 +20,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, MetricUrn
+from datahub.sdk.entity import Entity
 from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
     AiContextInput,
@@ -26,8 +28,8 @@ from datahub.sdk.semantic_model import (
 )
 
 
-def _aspects_by_name(entity) -> dict:
-    return {mcp.aspectName: mcp.aspect for mcp in entity.as_mcps()}
+def _aspects_by_name(entity: Entity) -> dict[str, Any]:
+    return {mcp.aspectName: mcp.aspect for mcp in entity.as_mcps() if mcp.aspectName}
 
 
 def test_metric_urn_and_core_aspects() -> None:

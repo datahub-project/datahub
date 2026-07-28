@@ -106,7 +106,7 @@ class SemanticModelRelationshipInput:
     to_alias: str
     to_columns: List[str]
     name: Optional[str] = None
-    cardinality: Optional[ERModelRelationshipCardinalityClass] = None
+    cardinality: Optional[str] = None
     ai_context: Optional[AiContextInput] = None
 
 
@@ -132,19 +132,15 @@ class SemanticFieldInput:
     ai_context: Optional[AiContextInput] = None
 
 
-def _ai_context_is_empty(ai: Optional[AiContextInput]) -> bool:
-    if ai is None:
-        return True
-    return not (ai.synonyms or ai.instructions or ai.examples or ai.custom_instructions)
-
-
 def _build_ai_context(ai: Optional[AiContextInput]) -> Optional[AiContextClass]:
-    if _ai_context_is_empty(ai):
+    if ai is None or not (
+        ai.synonyms or ai.instructions or ai.examples or ai.custom_instructions
+    ):
         return None
     return AiContextClass(
-        synonyms=list(ai.synonyms) if ai.synonyms else None,  # type: ignore[union-attr]
+        synonyms=list(ai.synonyms) if ai.synonyms else None,
         instructions=ai.instructions,
-        examples=list(ai.examples) if ai.examples else None,  # type: ignore[union-attr]
+        examples=list(ai.examples) if ai.examples else None,
         customInstructions=ai.custom_instructions,
     )
 
@@ -427,7 +423,7 @@ class SemanticModel(
         built = _build_ai_context(ai_context)
         if built is None:
             # Don't emit an empty aiContext; drop any previously set one.
-            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore[union-attr]
+            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
             return
         self._set_aspect(built)
 

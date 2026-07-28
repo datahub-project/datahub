@@ -87,7 +87,7 @@ and verify the aspect shapes match the producer contract:
 ## API Reference
 
 For the full surface area of each builder, see the
-[SDK Entities Reference](/docs/stdlib/sdk-v2/entities).
+[SDK Entities Reference](../../../python-sdk/sdk-v2/entities.mdx).
 
 - `SemanticModel` — `datahub.sdk.semantic_model.SemanticModel`
 - `SemanticModelDataset` — `datahub.sdk.semantic_model.SemanticModelDataset`

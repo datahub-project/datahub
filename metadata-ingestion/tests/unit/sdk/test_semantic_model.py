@@ -8,6 +8,7 @@ the required-expression fallback, and aiContext-only-when-non-empty.
 """
 
 from datetime import datetime, timezone
+from typing import Any
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
@@ -27,6 +28,7 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     SemanticModelUrn,
 )
+from datahub.sdk.entity import Entity
 from datahub.sdk.semantic_model import (
     AiContextInput,
     DialectExpressionInput,
@@ -37,14 +39,15 @@ from datahub.sdk.semantic_model import (
 )
 
 
-def _aspects_by_name(entity) -> dict:
-    return {mcp.aspectName: mcp.aspect for mcp in entity.as_mcps()}
+def _aspects_by_name(entity: Entity) -> dict[str, Any]:
+    return {mcp.aspectName: mcp.aspect for mcp in entity.as_mcps() if mcp.aspectName}
 
 
-def _mcps_by_urn(entity) -> dict:
-    out: dict = {}
+def _mcps_by_urn(entity: Entity) -> dict[str, list[Any]]:
+    out: dict[str, list[Any]] = {}
     for mcp in entity.as_mcps():
-        out.setdefault(mcp.entityUrn, []).append(mcp.aspect)
+        if mcp.entityUrn:
+            out.setdefault(mcp.entityUrn, []).append(mcp.aspect)
     return out
 
 

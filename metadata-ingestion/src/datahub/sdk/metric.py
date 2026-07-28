@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
     DerivedMetricInputClass,
+    DialectClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
@@ -21,6 +22,7 @@ from datahub.metadata.urns import MetricUrn, SemanticModelUrn, Urn
 from datahub.sdk._shared import (
     DomainInputType,
     HasDomain,
+    HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
     HasStructuredProperties,
@@ -50,6 +52,7 @@ DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
 class Metric(
     HasPlatformInstance,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
@@ -214,13 +217,10 @@ class Metric(
         self,
         expression: MetricExpressionInputType,
         *,
-        default_dialect: Union[str, "object"] = ...,  # type: ignore[assignment]
+        default_dialect: Union[str, DialectClass] = DialectClass.ANSI_SQL,
     ) -> None:
-        from datahub.metadata.schema_classes import DialectClass
-
-        dialect = DialectClass.ANSI_SQL if default_dialect is ... else default_dialect
         self._ensure_metric_props().expression = _build_metric_expression(
-            expression, default_dialect=dialect
+            expression, default_dialect=default_dialect
         )
 
     @property
@@ -257,7 +257,7 @@ class Metric(
         built = _build_ai_context(ai_context)
         if built is None:
             # Don't emit an empty aiContext; drop any previously set one.
-            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore[union-attr]
+            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
             return
         self._set_aspect(built)
 
