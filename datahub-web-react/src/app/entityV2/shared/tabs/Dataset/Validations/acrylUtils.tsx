@@ -115,7 +115,7 @@ export const getAssertionGroupName = (type: string): string => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
-const getAssertionGroupTypeIcon = (type: string) => {
+export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
@@ -137,6 +137,8 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         passing: 0,
         failing: 0,
         erroring: 0,
+        initializing: 0,
+        notRunning: 0,
         total: 0,
         totalAssertions: assertions.length,
     };
@@ -153,9 +155,14 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
             if (AssertionResultType.Error === resultType) {
                 summary.erroring++;
             }
+            if (AssertionResultType.Init === resultType) {
+                summary.initializing++;
+            }
             if (AssertionResultType.Init !== resultType) {
                 summary.total++; // only count assertions for which there is one completed run event, ignoring INIT statuses!
             }
+        } else {
+            summary.notRunning++;
         }
     });
     return summary;
