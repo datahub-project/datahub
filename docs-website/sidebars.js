@@ -648,15 +648,20 @@ module.exports = {
         },
         {
           label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          type: "category",
           className: "saasOnly",
-        },
-        {
-          label: "SMTP Email Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/smtp-email",
-          className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/subscription-and-notification",
+          },
+          items: [
+            {
+              label: "SMTP Email Notifications",
+              type: "doc",
+              id: "docs/managed-datahub/smtp-email",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Sync Status",
