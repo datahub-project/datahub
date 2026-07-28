@@ -622,3 +622,51 @@ The full stack trace might look like this:
 ```
 
 Solution: Replace the `uvx` bit of the command with the output of `which uvx`.
+
+#### The server starts, but never answers `initialize`
+
+The client shows no error and no response, just a stall of roughly forty seconds
+before anything happens. Running the server by hand shows why:
+
+```
+WARNING:urllib3.connectionpool:Retrying (Retry(total=3, ...)) after connection broken by
+  'ConnectTimeoutError(<HTTPSConnection(host='track.datahubproject.io', port=443)>,
+   'Connection to track.datahubproject.io timed out. (connect timeout=10)')': /mp/engage
+```
+
+The startup usage ping is sent before the MCP handshake completes, so on a host
+that cannot reach `track.datahubproject.io` the retries block the handshake
+itself. Because the protocol has not started yet, the client has nothing to
+report and simply waits.
+
+This is common on air-gapped hosts, and on cloud instances whose security group
+or egress proxy allows the DataHub GMS endpoint but not outbound HTTPS in
+general.
+
+Solution: disable telemetry in the server's environment.
+
+```json
+"env": {
+  "DATAHUB_GMS_URL": "<your-datahub-url>",
+  "DATAHUB_GMS_TOKEN": "<your-datahub-token>",
+  "DATAHUB_TELEMETRY_ENABLED": "false"
+}
+```
+
+#### `type` is missing from `search` results
+
+Tool responses are trimmed so that an answer fits inside a model's context
+window, and entity `type` is one of the fields dropped from `search` results.
+The same call made through the in-process `datahub-agent-context` SDK does
+return it.
+
+This matters when a client filters results by entity kind. The filter works
+against the SDK and matches nothing over MCP, without raising an error.
+
+Solution: derive the entity kind from the URN rather than the field, since the
+URN is the identifier and is always present.
+
+```python
+# urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.table,PROD) -> dataset
+kind = urn.split(":")[2]
+```
