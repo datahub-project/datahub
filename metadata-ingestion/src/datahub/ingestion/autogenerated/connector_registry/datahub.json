@@ -3997,7 +3997,7 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "Enabled by default (only for Import Data Models)",
+          "description": "Enabled by default (for Import Data Models and acquired Data Models)",
           "subtype_modifier": null,
           "supported": true
         },
