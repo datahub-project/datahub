@@ -22,6 +22,7 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
     DataHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+    EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
@@ -201,6 +202,35 @@ class TestDataHubDocumentsSource:
             assert len(hash1) == 64  # SHA256 produces 64 hex characters
             assert all(c in "0123456789abcdef" for c in hash1)
 
+    def test_resolve_embed_text_prefers_semantic_text(self):
+        """semanticText overrides text as the embedding source when present."""
+        resolve = DataHubDocumentsSource._resolve_embed_text
+
+        assert resolve({"text": "body", "semanticText": "summary"}) == "summary"
+        assert resolve({"text": "body"}) == "body"
+        assert resolve({}) == ""
+        # Empty-string semanticText is treated as absent (falls back to text).
+        assert resolve({"text": "body", "semanticText": ""}) == "body"
+
+    def test_semantic_text_governs_reembed_hash(self, ctx, config):
+        """The content hash tracks the embedded value: a change to `text` while
+        `semanticText` is set must not change the hash (no needless re-embed)."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+
+            before = source._resolve_embed_text(
+                {"text": "body-v1", "semanticText": "summary"}
+            )
+            after_body_edit = source._resolve_embed_text(
+                {"text": "body-v2", "semanticText": "summary"}
+            )
+            assert before == after_body_edit
+            assert source._calculate_text_hash(before) == source._calculate_text_hash(
+                after_body_edit
+            )
+
     def test_should_process_incremental_mode(self, ctx, config):
         """Test should_process logic in incremental mode."""
         with patch(
@@ -349,6 +379,108 @@ class TestDataHubDocumentsSource:
             # Verify hash matches expected value
             expected_hash = source._calculate_text_hash(text)
             assert source.document_state[document_urn]["content_hash"] == expected_hash
+
+
+class _InMemoryStateHandler:
+    """Minimal stand-in for DocumentChunkingStateHandler backing `_should_process`
+    with an in-memory hash store, so the re-embed invariant can be exercised
+    against the stateful-ingestion backend as well as the local one."""
+
+    def __init__(self) -> None:
+        self._hashes: dict[str, str] = {}
+
+    def is_checkpointing_enabled(self) -> bool:
+        return True
+
+    def get_document_hash(self, document_urn: str) -> Optional[str]:
+        return self._hashes.get(document_urn)
+
+    def update_document_state(
+        self, document_urn: str, content_hash: str, last_processed: str
+    ) -> None:
+        self._hashes[document_urn] = content_hash
+
+
+class TestSemanticTextReembedInvariant:
+    """The embedding must track the resolved embed source (`semanticText or text`)
+    through the real decision path (`_resolve_embed_text` -> `_should_process` ->
+    `_update_document_state`), on both the local `document_state` backend and the
+    stateful-ingestion state handler.
+
+    Downstream work (the #10832 write path and the serving path) assumes editing
+    `semanticText` re-embeds and editing `text` under a stable override does not,
+    so both directions are pinned here."""
+
+    URN = "urn:li:document:1"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture(params=["local", "state_handler"])
+    def source(self, request, ctx):
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.incremental.enabled = True
+            if request.param == "state_handler":
+                source.state_handler = _InMemoryStateHandler()  # type: ignore[assignment]
+            return source
+
+    def _run_pass(self, source: DataHubDocumentsSource, contents: dict) -> bool:
+        """Mirror one ingestion pass: resolve the embed source from contents (as the
+        fetch call sites do), decide via `_should_process`, then commit state if
+        processed. Returns whether the document was (re-)embedded this pass."""
+        resolved = source._resolve_embed_text(contents)
+        processed = source._should_process(self.URN, resolved)
+        if processed:
+            source._update_document_state(self.URN, resolved)
+        return processed
+
+    def test_semantic_text_change_reembeds_but_text_edit_does_not(self, source):
+        contents = {"text": "body-v1", "semanticText": "summary-v1"}
+        assert self._run_pass(source, contents) is True
+        # Idempotent: an unchanged re-run does not re-embed.
+        assert self._run_pass(source, contents) is False
+        # Editing only `text` under a stable override is a no-op.
+        assert (
+            self._run_pass(source, {"text": "body-v2", "semanticText": "summary-v1"})
+            is False
+        )
+        # Editing `semanticText` re-embeds.
+        assert (
+            self._run_pass(source, {"text": "body-v2", "semanticText": "summary-v2"})
+            is True
+        )
+
+    def test_setting_override_reembeds_doc_previously_embedded_from_text(self, source):
+        """Rollout case: a document embedded from `text` re-embeds once an override
+        is set on it."""
+        assert self._run_pass(source, {"text": "body"}) is True
+        assert self._run_pass(source, {"text": "body"}) is False
+        assert (
+            self._run_pass(source, {"text": "body", "semanticText": "summary"}) is True
+        )
+
+    def test_clearing_override_reembeds_from_text(self, source):
+        assert (
+            self._run_pass(source, {"text": "body", "semanticText": "summary"}) is True
+        )
+        # Clearing the override falls back to `text`, which differs -> re-embed.
+        assert self._run_pass(source, {"text": "body"}) is True
+        assert self._run_pass(source, {"text": "body"}) is False
 
 
 class TestEventModeFallback:
@@ -508,6 +640,8 @@ class TestEventModeFallback:
         """Test that fallback does NOT occur when offsets exist and events are processed."""
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            # The document carries no standalone semanticText aspect.
+            mock_graph_cls.return_value.get_aspect.return_value = None
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
             mock_state_handler.is_checkpointing_enabled.return_value = True
@@ -787,6 +921,8 @@ class TestStateStorage:
 
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            # The document carries no standalone semanticText aspect.
+            mock_graph_cls.return_value.get_aspect.return_value = None
             source.config.event_mode.enabled = True
 
             # Mock state handler
@@ -2049,13 +2185,96 @@ class TestPartialEntityHandling:
 
     def test_process_single_event_with_null_contents(self, ctx, config, mock_graph):
         """Test _process_single_event when MCL aspect has contents: null."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = None
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:partial1",
                 "aspectName": "documentInfo",
                 "aspect": json.dumps({"contents": None}),
+            }
+
+            workunits = list(source._process_single_event(event))
+            assert len(workunits) == 0
+
+    def test_process_single_event_embeds_semantic_text_override(
+        self, ctx, config, mock_graph
+    ):
+        """A documentInfo event embeds the standalone semanticText aspect's text
+        (not the document body) when the override is present."""
+        from datahub.metadata.schema_classes import SemanticTextClass
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = SemanticTextClass(
+                text="curated summary"
+            )
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:doc1",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": {"text": "full body"}}),
+            }
+
+            with patch.object(
+                source, "_process_document_with_throttle", return_value=iter([])
+            ) as mock_process:
+                list(source._process_single_event(event))
+
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "curated summary"
+
+    def test_process_single_event_semantic_text_aspect_event(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText aspect event re-embeds using the event's text, pulling
+        body and source type from the fetched documentInfo."""
+        from datahub.metadata.schema_classes import DocumentInfoClass
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_info = Mock()
+            mock_info.to_obj.return_value = {
+                "contents": {"text": "full body"},
+                "source": {"sourceType": "NATIVE"},
+            }
+
+            def get_aspect(entity_urn: str, aspect_type: type) -> Optional[Mock]:
+                return mock_info if aspect_type is DocumentInfoClass else None
+
+            mock_graph_cls.return_value.get_aspect.side_effect = get_aspect
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:doc1",
+                "aspectName": "semanticText",
+                "aspect": json.dumps({"text": "curated summary v2"}),
+            }
+
+            with patch.object(
+                source, "_process_document_with_throttle", return_value=iter([])
+            ) as mock_process:
+                list(source._process_single_event(event))
+
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "curated summary v2"
+            assert doc["source_type"] == "NATIVE"
+
+    def test_process_single_event_semantic_text_without_document_info(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText event for a document without readable documentInfo is skipped."""
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = None
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:orphan",
+                "aspectName": "semanticText",
+                "aspect": json.dumps({"text": "curated"}),
             }
 
             workunits = list(source._process_single_event(event))
@@ -3622,3 +3841,65 @@ class TestPollEventsSessionAuth:
         # poll unauthenticated.
         assert request.headers["Authorization"] == "Bearer fresh-oauth-token"
         assert events == []
+
+
+class TestDocumentEventConsumerAspectFilter:
+    """consume_events() must yield exactly the configured aspects — the
+    downstream _process_single_event filter is unreachable for anything the
+    consumer drops here."""
+
+    @staticmethod
+    def _make_consumer(**kwargs: Any) -> DocumentEventConsumer:
+        with patch.object(DocumentEventConsumer, "_load_offset", return_value=None):
+            return DocumentEventConsumer(
+                graph=Mock(),
+                consumer_id="test-consumer",
+                topics=["MetadataChangeLog_Versioned_v1"],
+                idle_timeout_seconds=0,
+                **kwargs,
+            )
+
+    @staticmethod
+    def _event(entity_type: str, aspect_name: Any, urn: str) -> dict[str, Any]:
+        return {
+            "contentType": "application/json",
+            "value": json.dumps(
+                {
+                    "entityType": entity_type,
+                    "entityUrn": urn,
+                    "aspectName": aspect_name,
+                    "aspect": {"value": "{}"},
+                }
+            ),
+        }
+
+    def test_yields_semantic_text_when_configured(self):
+        consumer = self._make_consumer(aspect_names=EMBED_SOURCE_ASPECT_NAMES)
+        events = [
+            # aspectName arrives both bare and Avro-union-wrapped.
+            self._event("document", {"string": "semanticText"}, "urn:li:document:d1"),
+            self._event("document", "documentInfo", "urn:li:document:d2"),
+            self._event("document", "status", "urn:li:document:d3"),
+            self._event("dataset", "documentInfo", "urn:li:dataset:d4"),
+        ]
+        with patch.object(consumer, "poll_events", side_effect=[events, []]):
+            yielded = list(consumer.consume_events())
+
+        assert [e.get("entityUrn") for e in yielded] == [
+            "urn:li:document:d1",
+            "urn:li:document:d2",
+        ]
+
+    def test_default_filter_stays_document_info_only(self):
+        # chunking_source constructs the consumer without aspect_names and
+        # parses every yielded aspect as documentInfo — the default must not
+        # widen underneath it.
+        consumer = self._make_consumer()
+        events = [
+            self._event("document", {"string": "semanticText"}, "urn:li:document:d1"),
+            self._event("document", "documentInfo", "urn:li:document:d2"),
+        ]
+        with patch.object(consumer, "poll_events", side_effect=[events, []]):
+            yielded = list(consumer.consume_events())
+
+        assert [e.get("entityUrn") for e in yielded] == ["urn:li:document:d2"]

@@ -56,6 +56,12 @@ from datahub.ingestion.source.unstructured.event_consumer import DocumentEventCo
 
 logger = logging.getLogger(__name__)
 
+# Aspects whose changes can change what a document's embedding should be built
+# from: documentInfo carries the body, the standalone semanticText aspect
+# carries the curated override. Passed to DocumentEventConsumer AND checked in
+# _process_single_event — keep the two filters in lockstep via this constant.
+EMBED_SOURCE_ASPECT_NAMES = ("documentInfo", "semanticText")
+
 
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
@@ -421,8 +427,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             logger.debug("Event missing entityUrn or aspectName, skipping")
             return
 
-        # Filter for documentInfo aspect
-        if aspect_name != "documentInfo":
+        if aspect_name not in EMBED_SOURCE_ASPECT_NAMES:
             return
 
         # Parse aspect data (handles Avro union wrapping)
@@ -435,9 +440,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             )
             return
 
-        # Extract text from documentInfo (contents may be null for partial entities)
-        contents = aspect_dict.get("contents") or {}
-        text = contents.get("text") or ""
+        if aspect_name == "semanticText":
+            # The event carries the override; the document body and source type
+            # live on documentInfo, so fetch it.
+            info_dict = self._fetch_document_info_dict(entity_urn)
+            if info_dict is None:
+                logger.debug(
+                    f"semanticText event for {entity_urn} without readable documentInfo, skipping"
+                )
+                return
+            contents = dict(info_dict.get("contents") or {})
+            contents["semanticText"] = aspect_dict.get("text")
+            # Downstream source-type filtering reads from the documentInfo shape.
+            aspect_dict = info_dict
+        else:
+            # documentInfo event: the override (if any) lives in the standalone
+            # semanticText aspect, so fetch it. Contents may be null for
+            # partial entities.
+            contents = dict(aspect_dict.get("contents") or {})
+            contents["semanticText"] = self._fetch_semantic_text(entity_urn)
+
+        # semanticText overrides text as the embedding source; see _resolve_embed_text.
+        text = self._resolve_embed_text(contents)
 
         if not text:
             logger.debug(f"No text content in document {entity_urn}")
@@ -536,6 +560,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             poll_timeout_seconds=self.config.event_mode.poll_timeout_seconds,
             poll_limit=self.config.event_mode.poll_limit,
             state_handler=self.state_handler,
+            aspect_names=EMBED_SOURCE_ASPECT_NAMES,
         )
 
         try:
@@ -593,6 +618,44 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             return json.loads(aspect_data)
         else:
             return {}
+
+    def _fetch_semantic_text(self, document_urn: str) -> Optional[str]:
+        """Read the standalone semanticText aspect (curated embedding-source
+        override), or None when absent.
+
+        On read failure we fall back to embedding the document body: a transient
+        wrong embed self-corrects on a later run because incremental state hashes
+        the embedded value.
+        """
+        from datahub.metadata.schema_classes import SemanticTextClass
+
+        try:
+            aspect = self.graph.get_aspect(
+                entity_urn=document_urn, aspect_type=SemanticTextClass
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to read semanticText for {document_urn}: {e}; "
+                "embedding document text."
+            )
+            return None
+        return aspect.text if aspect else None
+
+    def _fetch_document_info_dict(self, document_urn: str) -> Optional[dict[str, Any]]:
+        """Read the documentInfo aspect as a dict (the MCL payload shape), or
+        None when absent or unreadable."""
+        from datahub.metadata.schema_classes import DocumentInfoClass
+
+        try:
+            aspect = self.graph.get_aspect(
+                entity_urn=document_urn, aspect_type=DocumentInfoClass
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to read documentInfo for {document_urn}: {e}; skipping event."
+            )
+            return None
+        return aspect.to_obj() if aspect else None
 
     def _extract_platform_from_aspect(
         self, aspect_dict: dict[str, Any]
@@ -864,6 +927,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                   info {
                     contents {
                       text
+                      semanticText
                     }
                     customProperties {
                       key
@@ -950,10 +1014,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     ):
                         continue
 
-                    # Extract text content (GraphQL returns null for missing aspects)
+                    # Extract text content (GraphQL returns null for missing aspects).
+                    # semanticText overrides text as the embedding source; see _resolve_embed_text.
                     info = entity.get("info") or {}
                     contents = info.get("contents") or {}
-                    text = contents.get("text") or ""
+                    text = self._resolve_embed_text(contents)
 
                     # Default to NATIVE when sourceType is absent (older documents).
                     source = info.get("source") or {}
@@ -1048,6 +1113,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+
+    @staticmethod
+    def _resolve_embed_text(contents: Dict[str, Any]) -> str:
+        """Resolve the text to embed from a contents dict.
+
+        `semanticText` overrides `text` as the embedding source when present, so
+        a curated representation can drive retrieval while the full body stays in
+        `text`. The override lives in the standalone `semanticText` aspect: batch
+        mode still receives it under `contents` because the GraphQL surface maps
+        the aspect there, and event mode injects it into the dict before calling
+        this. Resolving here (rather than in the hash) means the content hash
+        tracks the embedded value: editing `semanticText` re-embeds, and a change
+        to `text` while `semanticText` is set does not.
+        """
+        return contents.get("semanticText") or contents.get("text") or ""
 
     def _calculate_text_hash(self, text: str) -> str:
         """Calculate hash of document content AND processing configuration.
