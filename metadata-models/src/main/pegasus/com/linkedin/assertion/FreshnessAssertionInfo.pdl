@@ -10,7 +10,10 @@ record FreshnessAssertionInfo {
     /**
      * The type of the freshness assertion being monitored.
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldName": "freshnessAssertionType",
+      "fieldType": "KEYWORD"
+    }
     type: enum FreshnessAssertionType {
       /**
        * An Freshness based on Operations performed on a particular Dataset (insert, update, delete, etc) and sourced from an audit log, as
@@ -26,9 +29,6 @@ record FreshnessAssertionInfo {
     /**
     * The entity targeted by this Freshness check.
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @Relationship = {
       "name": "Asserts",
       "entityTypes": [ "dataset", "dataJob" ]

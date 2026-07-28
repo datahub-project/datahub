@@ -17,6 +17,7 @@ import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.SemanticText;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
@@ -58,6 +59,7 @@ public class DocumentMapperTest {
   private static final String TEST_DOCUMENT_TITLE = "Test Tutorial";
   private static final String TEST_DOCUMENT_DESCRIPTION = "Test document description";
   private static final String TEST_CONTENT = "Test content";
+  private static final String TEST_SEMANTIC_TEXT = "Test semantic text";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String TEST_PARENT_URN = "urn:li:document:parent-document";
   private static final String TEST_ASSET_URN = "urn:li:dataset:test-dataset";
@@ -123,6 +125,11 @@ public class DocumentMapperTest {
 
     addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
 
+    // Curated embedding-source text lives in the standalone semanticText aspect.
+    SemanticText semanticText = new SemanticText();
+    semanticText.setText(TEST_SEMANTIC_TEXT);
+    addAspectToResponse(entityResponse, SEMANTIC_TEXT_ASPECT_NAME, semanticText);
+
     // Embed relationships inside DocumentInfo
     ParentDocument parentDocument = new ParentDocument();
     parentDocument.setDocument(parentUrn);
@@ -178,6 +185,7 @@ public class DocumentMapperTest {
       assertNotNull(result.getInfo());
       assertEquals(result.getInfo().getTitle(), TEST_DOCUMENT_TITLE);
       assertEquals(result.getInfo().getContents().getText(), TEST_CONTENT);
+      assertEquals(result.getInfo().getContents().getSemanticText(), TEST_SEMANTIC_TEXT);
       assertNotNull(result.getInfo().getCreated());
       assertEquals(result.getInfo().getCreated().getTime(), TEST_TIMESTAMP);
       // Verify actor is set as CorpUser in ResolvedAuditStamp

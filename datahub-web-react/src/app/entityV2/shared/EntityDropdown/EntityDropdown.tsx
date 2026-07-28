@@ -619,6 +619,8 @@ const EntityDropdown = (props: Props) => {
                     versionList={[]}
                     hideSemanticVersions
                     entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
                 />
             )}
         </>

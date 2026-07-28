@@ -25,6 +25,7 @@ Context Documents are first-class citizens in DataHub. You can:
 - **Link related assets** — Connect to the Datasets, Dashboards, and Charts they describe
 - **Control visibility** — Publish to share with your organization and AI agents, or keep as draft
 - **Track version history** — See changes over time and restore previous versions
+- **Import from external sources** — Bring in docs from Notion, Confluence, or GitHub
 
 ## Creating a Document
 
@@ -38,6 +39,26 @@ Create documents from the **Documents** section in the left navigation.
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-new.png"/>
 </p>
+
+## Importing Documents
+
+From **Documents**, click **Import**, choose a source, and configure the connection. DataHub creates a managed ingestion source you can run once or on a schedule. Managing imports requires the same privilege as other Data Sources.
+
+By default, all sources create **Native** (editable) documents in DataHub. Switch **Document import mode** to **External** in the data source configuration if you want read-only documents that stay linked to the source system.
+
+| Source         | Direction                               | Notes                                                                                    | Guide                                            |
+| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **Notion**     | One-way (Notion → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from Notion](./import-notion.md)         |
+| **Confluence** | One-way (Confluence → DataHub)          | Native by default; optionally External (read-only). No sync-back.                        | [Import from Confluence](./import-confluence.md) |
+| **GitHub**     | Import; sync-back on DataHub Cloud only | Native by default; optionally External (read-only). Sync-back is **DataHub Cloud only**. | [Import from GitHub](./import-github.md)         |
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-import.png"/>
+</p>
+
+_Screenshot: Import Documents source picker (Notion, Confluence, GitHub)._
+
+Track runs and schedules on the **Data Sources** / **Ingestion** page.
 
 ## Publishing a Document
 
@@ -97,8 +118,8 @@ Context Documents are accessible via:
 - **Python SDK**: Create, update, and retrieve documents programmatically. See the [Documents API tutorial](../../../api/tutorials/documents.md).
 - **MCP Server**: Expose documents to AI agents and external tools. See the [DataHub MCP Server](../mcp.md).
 
-## What's Next
+## Related Guides
 
-We're actively expanding Context Documents:
-
-- **External document connectors**: Bring in documentation from tools like Notion and Confluence while keeping the source of truth external.
+- [Notion ingestion source](../../../generated/ingestion/sources/notion.md)
+- [Confluence ingestion source](../../../generated/ingestion/sources/confluence.md)
+- [GitHub Documents ingestion source](../../../generated/ingestion/sources/github.md)

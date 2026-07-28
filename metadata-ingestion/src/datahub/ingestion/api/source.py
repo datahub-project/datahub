@@ -21,7 +21,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from typing_extensions import LiteralString, Self
+from typing_extensions import LiteralString, Self, deprecated
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
@@ -284,27 +284,6 @@ class SourceReport(ExamplesReport, IngestionStageReport):
 
         super()._store_workunit_data(wu)
 
-    def report_warning(
-        self,
-        message: LiteralString,
-        context: Optional[str] = None,
-        title: Optional[LiteralString] = None,
-        exc: Optional[BaseException] = None,
-        log_category: Optional[StructuredLogCategory] = None,
-    ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
-        """
-        self._structured_logs.report_log(
-            StructuredLogLevel.WARN,
-            message,
-            title,
-            context,
-            exc,
-            log=False,
-            log_category=log_category,
-        )
-
     def warning(
         self,
         message: LiteralString,
@@ -314,8 +293,25 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
+        """Report a user-facing warning for the ingestion run.
+
+        Warnings are surfaced in the ingestion report UI and optionally logged
+        to the console. Use for non-fatal issues that operators should be aware
+        of (e.g. skipped entities, degraded functionality, missing permissions).
+
+        Args:
+            message: Human-readable description of the warning. Must be a
+                literal string (no f-strings) so that identical warnings are
+                grouped together in the report.
+            context: Additional detail such as the affected entity or query.
+                Multiple calls with the same ``message`` but different
+                ``context`` values are grouped under one report entry.
+            title: Optional heading / category shown in the UI.
+            exc: Exception that triggered the warning, if any. The stack trace
+                is logged at DEBUG level when *log* is True.
+            log: Whether to also emit the warning to the Python logger
+                (default ``True``).
+            log_category: Optional structured-log category for filtering.
         """
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
@@ -327,7 +323,8 @@ class SourceReport(ExamplesReport, IngestionStageReport):
             log_category=log_category,
         )
 
-    def report_failure(
+    @deprecated("Use warning() instead.")
+    def report_warning(
         self,
         message: LiteralString,
         context: Optional[str] = None,
@@ -336,15 +333,12 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
-        """
-        self._structured_logs.report_log(
-            StructuredLogLevel.ERROR,
-            message,
-            title,
-            context,
-            exc,
+        """Deprecated: use ``warning()`` instead. Will be removed in a future release."""
+        self.warning(
+            message=message,
+            context=context,
+            title=title,
+            exc=exc,
             log=log,
             log_category=log_category,
         )
@@ -358,8 +352,22 @@ class SourceReport(ExamplesReport, IngestionStageReport):
         log: bool = True,
         log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
-        """
-        See docs of StructuredLogs.report_log for details of args
+        """Report a user-facing failure for the ingestion run.
+
+        Failures indicate errors that prevented metadata from being ingested
+        correctly. They are surfaced prominently in the ingestion report UI
+        and logged to the console by default.
+
+        Args:
+            message: Human-readable description of the failure. Must be a
+                literal string (no f-strings) so that identical failures are
+                grouped together in the report.
+            context: Additional detail such as the affected entity or query.
+            title: Optional heading / category shown in the UI.
+            exc: Exception that triggered the failure, if any.
+            log: Whether to also emit the failure to the Python logger
+                (default ``True``).
+            log_category: Optional structured-log category for filtering.
         """
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
@@ -367,6 +375,26 @@ class SourceReport(ExamplesReport, IngestionStageReport):
             title,
             context,
             exc,
+            log=log,
+            log_category=log_category,
+        )
+
+    @deprecated("Use failure() instead.")
+    def report_failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        """Deprecated: use ``failure()`` instead. Will be removed in a future release."""
+        self.failure(
+            message=message,
+            context=context,
+            title=title,
+            exc=exc,
             log=log,
             log_category=log_category,
         )

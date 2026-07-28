@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -83,6 +84,65 @@ public class V2MappingsBuilderTest {
       assertTrue(properties.containsKey("runId"), "Should contain runId field");
       assertTrue(properties.containsKey("systemCreated"), "Should contain systemCreated field");
     }
+  }
+
+  @Test
+  public void testSearchTextFieldsUseByteSafeIgnoreAbove() {
+    // Analyzed-text fields (TEXT / TEXT_PARTIAL / WORD_GRAM) map to a keyword parent guarded by a
+    // byte-safe ignore_above so an oversized value (e.g. a large document body) is skipped from the
+    // keyword index instead of failing the whole document write. The tokenized .delimited subfield
+    // (no per-term limit) still indexes the value in full and is what full-text queries target. The
+    // .keyword subfield carries the same byte-safe guard.
+    Collection<IndexMapping> result = mappingsBuilder.getIndexMappings(operationContext);
+
+    boolean sawGuardedField = false;
+    for (IndexMapping indexMapping : result) {
+      Object propsObj = indexMapping.getMappings().get("properties");
+      if (!(propsObj instanceof Map)) {
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties = (Map<String, Object>) propsObj;
+      for (Object fieldMappingObj : properties.values()) {
+        if (!(fieldMappingObj instanceof Map)) {
+          continue;
+        }
+        @SuppressWarnings("unchecked")
+        Map<String, Object> fieldMapping = (Map<String, Object>) fieldMappingObj;
+        Object subFieldsObj = fieldMapping.get("fields");
+        // A keyword parent with BOTH .delimited and .keyword subfields is an analyzed-text field
+        // (getMappingsForSearchText). URN fields also have a .delimited subfield but no .keyword,
+        // so requiring both excludes them.
+        if (!(subFieldsObj instanceof Map)
+            || !((Map<?, ?>) subFieldsObj).containsKey("delimited")
+            || !((Map<?, ?>) subFieldsObj).containsKey("keyword")) {
+          continue;
+        }
+        assertEquals(fieldMapping.get("type"), "keyword", "search-text parent should be keyword");
+        assertEquals(
+            fieldMapping.get("ignore_above"),
+            ESUtils.KEYWORD_IGNORE_ABOVE,
+            "search-text parent must use the byte-safe ignore_above guard");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> subFields = (Map<String, Object>) subFieldsObj;
+        assertTrue(
+            subFields.containsKey("delimited"),
+            "search-text field must keep the tokenized .delimited subfield (full-body search)");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> keywordSubField = (Map<String, Object>) subFields.get("keyword");
+        assertNotNull(keywordSubField, "search-text field must keep the .keyword subfield");
+        assertEquals(
+            keywordSubField.get("ignore_above"),
+            ESUtils.KEYWORD_IGNORE_ABOVE,
+            "the .keyword subfield must also use the byte-safe ignore_above guard");
+        sawGuardedField = true;
+      }
+    }
+
+    assertTrue(
+        sawGuardedField,
+        "Expected at least one analyzed-text field guarded by byte-safe ignore_above");
   }
 
   @Test
@@ -381,6 +441,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "testProp");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -388,6 +451,8 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            ESUtils.KEYWORD_IGNORE_ABOVE,
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -532,6 +597,9 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testProp.00000000000001.string");
 
     Object mappings = structuredPropertyFieldMappings.get(keyInMap);
+    // STRING structured properties carry an ignore_above guard (parent + .keyword sub-field) so an
+    // oversized value is skipped from the keyword index instead of failing the whole document
+    // write.
     assertEquals(
         mappings,
         Map.of(
@@ -539,6 +607,8 @@ public class V2MappingsBuilderTest {
             "keyword",
             "normalizer",
             "keyword_normalizer",
+            "ignore_above",
+            ESUtils.KEYWORD_IGNORE_ABOVE,
             "fields",
             Map.of("keyword", Map.of("type", "keyword"))));
 
@@ -563,6 +633,66 @@ public class V2MappingsBuilderTest {
     assertEquals(keyInMap, "_versioned.testPropNumber.00000000000001.number");
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertySameTypeCollisionKeepsLowestUrn()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    // urnDot < urnUnderscore lexicographically
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot)));
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyDifferentTypeCollisionOmitsField()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defString =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setDisplayName("Certification Status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defNumber =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setDisplayName("certification status")
+            .setEntityTypes(
+                new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "glossaryTerm")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
+
+    assertFalse(mappings.containsKey("certification_status"));
   }
 
   @Test

@@ -97,6 +97,24 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    # Entity types that bypass view authorization when enabled. All other types are restricted by
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
+    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
+    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
+    #
+    # Registry baseline (entity-registry.yml viewUnrestricted: true):
+    #   identity: corpuser, corpGroup
+    #   browse: container
+    #   platforms: dataPlatform, dataPlatformInstance
+    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
+    unrestrictedEntityTypes:
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
   # The value of cliVersion is substituted in by the processResources Gradle task.
@@ -922,6 +940,37 @@ elasticsearch:
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
       maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
+    # Default entity types when callers omit types. No code baseline — configure via YAML/env.
+    # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    defaultEntityTypes:
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for autocomplete-across-entities when callers omit types.
+    autocompleteEntityTypes:
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for browse V2 when callers omit types.
+    browseEntityTypes:
+      value: ${SEARCH_BROWSE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,notebook,document}
+      add: ${SEARCH_BROWSE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_BROWSE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for source-entity quick filters (first N with hits win).
+    prioritizedSourceEntityTypes:
+      value: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES:dataset,dashboard,dataFlow,dataJob,chart,container,mlModel,mlModelGroup,mlFeature,mlFeatureTable,mlPrimaryKey}
+      add: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for DataHub-entity quick filters (first N with hits win).
+    prioritizedDatahubEntityTypes:
+      value: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES:domain,glossaryTerm,corpGroup,corpuser}
+      add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
+
 
 # TODO: Kafka topic convention
 kafka:
@@ -1235,6 +1284,10 @@ incidents:
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertions:
+  hook:
+    enabled: ${ENABLE_ASSERTIONS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   async:
@@ -1285,6 +1338,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  assertionInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_CLL_LIMIT:0}
   restoreColumnLineageIndices:
     enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}
   restoreFormInfoIndices:
@@ -1338,6 +1396,16 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT:0}
+  assertionEntityField:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
+  assertionFieldPath:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_LIMIT:0}
   schemaFieldsDocIds:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE:500}
@@ -1444,6 +1512,9 @@ structuredProperties:
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
+  # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
+  # property keyword mappings and for rejecting oversized string-backed structured property values.
+  keywordMaxLength: ${STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH:32766}
 
 # Consistency check configuration (shared by upgrade job and API endpoints)
 consistencyChecks:
@@ -1469,7 +1540,6 @@ featureFlags:
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
   platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
-  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
@@ -1504,7 +1574,6 @@ featureFlags:
   showLineageFilterNodes: ${SHOW_LINEAGE_FILTER_NODES:false} # If turned on, render lineage filter nodes ("N shown of M" cards) in the lineage graph; if off, pagination and search live on the expand/contract buttons
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   # product updates for OSS (master):
   productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.
@@ -1512,7 +1581,7 @@ featureFlags:
   # product updates for Saas (acryl-main):
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
-  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:true} # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
@@ -1527,6 +1596,7 @@ featureFlags:
   i18nEnabled: ${I18N_ENABLED:true} # If enabled, internationalization (i18n) features are active
   timeseriesAspectBatchLoadEnabled: ${TIMESERIES_ASPECT_BATCH_LOAD_ENABLED:true} # If enabled, TimeSeriesAspectResolver uses the DataLoader batch path; disable to revert to single-URN queries
   timeseriesAspectAggBatchLoadEnabled: ${TIMESERIES_ASPECT_AGG_BATCH_LOAD_ENABLED:true} # If enabled, Dashboard.statsSummary uses the batch aggregation DataLoader; disable to revert to per-URN queries
+  datasetStatsSummaryBatchLoadEnabled: ${DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.statsSummary uses the batch aggregation DataLoader (batches usage aggregations across a request); disable to revert to per-dataset queries
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
   browserTracingEnabled: ${BROWSER_TRACING_ENABLED:false} # If enabled, the React app emits browser (RUM) OpenTelemetry spans, exported via the frontend /otel/v1/traces proxy and correlated with backend traces.
@@ -1774,6 +1844,9 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_URL_ENABLED:true}
       allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
       extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
+    logicalParent:
+      platformValidation:
+        enabled: ${MCP_VALIDATION_LOGICAL_PARENT_PLATFORM:false}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

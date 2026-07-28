@@ -161,5 +161,11 @@
     "tagTermRenderer.externalPlatformTooltip": "Certains tags proviennent de {{platform}}. Ils seront resynchronisés périodiquement lors des ingestions planifiées.",
     "tagTermRenderer.tagsNotEditable": "Certains tags ne sont pas modifiables.",
     "usageStatsRenderer.hasColumnStats": "Dispose de statistiques de colonne",
-    "usageStatsRenderer.noColumnStats": "Aucune statistique de colonne"
+    "usageStatsRenderer.noColumnStats": "Aucune statistique de colonne",
+    "fieldLogical.andMore": "et {{count}} autres",
+    "fieldLogical.logicalParentInfo": "Colonne du modèle logique qui définit les métadonnées de cette colonne. Les modifications des métadonnées de colonne du parent logique se propagent automatiquement à cette colonne.",
+    "fieldLogical.logicalParentTitle": "Parent logique",
+    "fieldLogical.physicalChildrenInfo": "Implémentations physiques de cette colonne du modèle logique. Les modifications des métadonnées de cette colonne se propagent automatiquement à ces colonnes enfants.",
+    "fieldLogical.physicalChildrenTitle": "Enfants physiques",
+    "fieldLogical.viewAllPhysicalChildren": "Afficher tous les enfants physiques"
 }
