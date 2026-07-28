@@ -3,7 +3,13 @@
 Regression guard for the PR 4 flattening change. Exercises the combiner
 directly (not via QueryCombinerRunner) against a real in-memory SQLite
 engine. Follows the repo testing philosophy: behavior over implementation,
-no reflection into privates, no exact-error-message assertions.
+no exact-error-message assertions.
+
+Two edge-case branches (a zero-row proxy, and a one-row/zero-column proxy)
+are unreachable through the combiner, which asserts exactly one row, so
+those tests construct _ResultProxyFake / _RowProxyFake directly. That is
+deliberate direct construction of internal types to reach branches the
+public surface cannot, not reflection into implementation details.
 """
 
 import dataclasses
@@ -436,20 +442,30 @@ class TestResultProxyContract:
             empty.fetchone()
 
     def test_fetchall_returns_all_rows(self):
-        # .fetchall() is used at 4 production result-consumption sites.
+        # .fetchall() is used at 4 production result-consumption sites, and
+        # .first() returns the first row (not None) on a populated proxy —
+        # pin both. The first() assertion kills the `first() -> None` mutant
+        # that the zero-row test alone cannot.
         rows = [
             _RowProxyFake({"a": 1, "b": 10}),
             _RowProxyFake({"a": 2, "b": 20}),
         ]
         result = _ResultProxyFake(rows)
+        assert result.first() is rows[0]
         fetched = result.fetchall()
         assert len(fetched) == 2
         assert fetched[0]["a"] == 1
         assert fetched[1]["b"] == 20
 
     def test_int_index_out_of_range_raises_indexerror(self):
-        # _RowProxyFake.__getitem__ guards int access against out-of-range
-        # indices with a clear IndexError. Pin the guard.
+        # Pin the CONTRACT that out-of-range int access raises IndexError
+        # (rather than KeyError or a silent wrong value). Note this does
+        # NOT pin the explicit guard in _RowProxyFake.__getitem__: that
+        # guard is message-only dead code, since the underlying keys[k]
+        # raises IndexError on its own for every out-of-range index. The
+        # "remove the guard" mutant is an equivalent mutant and cannot be
+        # killed by behavior alone. The contract will matter if PR 4
+        # reshapes row access.
         row = _RowProxyFake({"a": 1})
         with pytest.raises(IndexError):
             row[5]
