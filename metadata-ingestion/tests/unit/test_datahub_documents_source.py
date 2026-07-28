@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unstructured.event_consumer import (
     DocumentEventConsumer,
@@ -38,6 +39,16 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
 )
+
+
+def _mock_fetch(source, entities, urns=None):
+    """Wire a source so _fetch_documents_graphql enumerates `urns` and hydrates
+    them to `entities` (order preserved; a None entry is an orphan). URNs default
+    to the entities' own urns."""
+    if urns is None:
+        urns = [e["urn"] for e in entities if e]
+    source._scroll_document_urns = Mock(return_value=iter(urns))
+    source.graph.execute_graphql = Mock(return_value={"entities": entities})
 
 
 class TestTextPartitioner:
@@ -1904,49 +1915,40 @@ class TestConfigFingerprintInHash:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            # Mock GraphQL to return both NATIVE and EXTERNAL documents
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:native1",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This is a native document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                            }
+            # Hydration returns both a NATIVE and an EXTERNAL document.
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:native1",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This is a native document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:external1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is an external document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                            }
+                    },
+                    {
+                        "urn": "urn:li:document:external1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is an external document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                    ],
-                }
+                    },
+                ],
+            )
+
+            documents = source._fetch_documents_graphql()
+
+            # Both NATIVE and EXTERNAL documents are returned by default
+            assert len(documents) == 2
+            urns = {doc["urn"] for doc in documents}
+            assert urns == {
+                "urn:li:document:native1",
+                "urn:li:document:external1",
             }
-
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
-
-                # Both NATIVE and EXTERNAL documents are returned by default
-                assert len(documents) == 2
-                urns = {doc["urn"] for doc in documents}
-                assert urns == {
-                    "urn:li:document:native1",
-                    "urn:li:document:external1",
-                }
 
     def test_batch_mode_with_platform_filter(self, ctx, mock_graph):
         """Test batch mode with platform filter includes EXTERNAL from specified platforms."""
@@ -1966,53 +1968,42 @@ class TestConfigFingerprintInHash:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            # Mock GraphQL to return documents from different platforms
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:notion1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is a Notion document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                                "dataPlatformInstance": {
-                                    "platform": {"urn": "urn:li:dataPlatform:notion"}
-                                },
-                            }
+            # Hydration returns documents from different platforms.
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:notion1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is a Notion document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:confluence1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is a Confluence document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                                "dataPlatformInstance": {
-                                    "platform": {
-                                        "urn": "urn:li:dataPlatform:confluence"
-                                    }
-                                },
-                            }
+                        "dataPlatformInstance": {
+                            "platform": {"urn": "urn:li:dataPlatform:notion"}
                         },
-                    ],
-                }
-            }
+                    },
+                    {
+                        "urn": "urn:li:document:confluence1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is a Confluence document with enough text content to pass the minimum length requirement."
+                            },
+                        },
+                        "dataPlatformInstance": {
+                            "platform": {"urn": "urn:li:dataPlatform:confluence"}
+                        },
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                # Should only return notion document (confluence filtered out)
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:notion1"
+            # Should only return notion document (confluence filtered out)
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:notion1"
 
 
 class TestPartialEntityHandling:
@@ -2056,38 +2047,26 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:partial1",
-                                "info": None,
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {"urn": "urn:li:document:partial1", "info": None},
+                    {
+                        "urn": "urn:li:document:complete1",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This is a complete document with enough content."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:complete1",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This is a complete document with enough content."
-                                    },
-                                },
-                            }
-                        },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:complete1"
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:complete1"
 
     def test_fetch_documents_skips_entity_with_null_contents(
         self, ctx, config, mock_graph
@@ -2096,45 +2075,34 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:no_contents",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": None,
-                                },
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:no_contents",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": None,
                         },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 0
+            assert len(documents) == 0
 
-    def test_fetch_documents_skips_entity_with_null_search(
-        self, ctx, config, mock_graph
-    ):
-        """Test that a null search response is handled gracefully."""
+    def test_fetch_documents_skips_orphaned_hydration(self, ctx, config, mock_graph):
+        """A URN that hydrates to null (orphaned index entry) is skipped."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response: dict[str, Any] = {"scrollAcrossEntities": None}
+            _mock_fetch(source, [None], urns=["urn:li:document:orphan"])
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 0
+            assert len(documents) == 0
+            assert source.report.num_documents_skipped_orphaned == 1
 
     def test_should_process_by_source_type_with_null_source(
         self, ctx, config, mock_graph
@@ -2285,56 +2253,37 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:null_info",
-                                "info": None,
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {"urn": "urn:li:document:null_info", "info": None},
+                    {
+                        "urn": "urn:li:document:null_contents",
+                        "info": {"source": {"sourceType": "NATIVE"}, "contents": None},
+                    },
+                    {
+                        "urn": "urn:li:document:empty_text",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {"text": ""},
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:null_contents",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": None,
-                                },
-                            }
+                    },
+                    {
+                        "urn": "urn:li:document:valid",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This document has valid content that is long enough."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:empty_text",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {"text": ""},
-                                },
-                            }
-                        },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:valid",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This document has valid content that is long enough."
-                                    },
-                                },
-                            }
-                        },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:valid"
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:valid"
 
 
 class TestMaxDocumentsLimit:
@@ -2757,7 +2706,7 @@ class TestDataHubGraphInitialization:
 
 
 class TestFetchDocumentsPagination:
-    """Test that _fetch_documents_graphql paginates through all pages via scrollAcrossEntities."""
+    """Test that _scroll_document_urns paginates through all pages via scrollAcrossEntities."""
 
     @pytest.fixture
     def config(self):
@@ -2784,17 +2733,6 @@ class TestFetchDocumentsPagination:
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         )
 
-    def _make_entity(self, i: int) -> dict:
-        return {
-            "entity": {
-                "urn": f"urn:li:document:doc-{i}",
-                "info": {
-                    "source": {"sourceType": "NATIVE"},
-                    "contents": {"text": f"Document {i} with sufficient text content."},
-                },
-            }
-        }
-
     def _make_scroll_page(
         self, start: int, count: int, next_scroll_id: Any = None
     ) -> dict:
@@ -2802,13 +2740,14 @@ class TestFetchDocumentsPagination:
             "scrollAcrossEntities": {
                 "nextScrollId": next_scroll_id,
                 "searchResults": [
-                    self._make_entity(i) for i in range(start, start + count)
+                    {"entity": {"urn": f"urn:li:document:doc-{i}"}}
+                    for i in range(start, start + count)
                 ],
             }
         }
 
     def test_paginates_across_multiple_pages(self, ctx, config, mock_graph):
-        """Fetching >1000 documents issues multiple GraphQL calls and returns all results."""
+        """Enumerating >1000 documents issues multiple scroll calls and yields all URNs."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2820,9 +2759,9 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", side_effect=responses
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 1200
+            assert len(urns) == 1200
             assert mock_execute.call_count == 2
 
             first_scroll_id = mock_execute.call_args_list[0][0][1]["scrollId"]
@@ -2840,13 +2779,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 1000
+            assert len(urns) == 1000
             assert mock_execute.call_count == 1
 
     def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
-        """Document backfills request hidden-lifecycle stages so hidden documents are included."""
+        """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2855,13 +2794,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                source._fetch_documents_graphql()
+                list(source._scroll_document_urns())
 
             query = mock_execute.call_args[0][0]
             assert "includeHiddenLifecycleStages: true" in query
 
     def test_empty_result_set(self, ctx, config, mock_graph):
-        """Zero documents returns empty list after one call."""
+        """Zero documents yields no URNs after one call."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2875,13 +2814,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert documents == []
+            assert urns == []
             assert mock_execute.call_count == 1
 
     def test_three_pages(self, ctx, config, mock_graph):
-        """Three-page fetch collects all documents and threads scroll cursors correctly."""
+        """Three-page enumeration collects all URNs and threads scroll cursors correctly."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2894,60 +2833,12 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", side_effect=responses
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 2500
+            assert len(urns) == 2500
             assert mock_execute.call_count == 3
             scroll_ids = [c[0][1]["scrollId"] for c in mock_execute.call_args_list]
             assert scroll_ids == [None, "cursor-1", "cursor-2"]
-
-    def test_raw_page_size_used_as_start_advance(self, ctx, config, mock_graph):
-        """Pagination advances by raw page size even when some results are filtered client-side.
-
-        This test locks in that start is advanced by the number of results returned from the
-        server, not the number that pass client-side filters. Using filtered count would cause
-        pages to be requested at wrong offsets or loop incorrectly.
-        """
-        with mock_graph:
-            source = DataHubDocumentsSource(ctx, config)
-
-            # Page 1: 1000 results, 800 pass client filters (200 have empty text).
-            # Page 2: remaining results with no next scroll id.
-            page1_results = [self._make_entity(i) for i in range(800)]
-            # Add 200 entities with empty text that will be filtered out
-            for i in range(800, 1000):
-                page1_results.append(
-                    {
-                        "entity": {
-                            "urn": f"urn:li:document:doc-{i}",
-                            "info": {
-                                "source": {"sourceType": "NATIVE"},
-                                "contents": {"text": ""},
-                            },
-                        }
-                    }
-                )
-
-            responses = [
-                {
-                    "scrollAcrossEntities": {
-                        "nextScrollId": "cursor-1",
-                        "searchResults": page1_results,
-                    }
-                },
-                self._make_scroll_page(1000, 300, next_scroll_id=None),
-            ]
-
-            with patch.object(
-                source.graph, "execute_graphql", side_effect=responses
-            ) as mock_execute:
-                documents = source._fetch_documents_graphql()
-
-            # 800 from page 1 (200 filtered) + 300 from page 2
-            assert len(documents) == 1100
-            assert mock_execute.call_count == 2
-            # Second call must use the cursor from page 1, not a derived offset
-            assert mock_execute.call_args_list[1][0][1]["scrollId"] == "cursor-1"
 
 
 def _make_config(**overrides: Any) -> DataHubDocumentsSourceConfig:
@@ -3903,3 +3794,201 @@ class TestDocumentEventConsumerAspectFilter:
             yielded = list(consumer.consume_events())
 
         assert [e.get("entityUrn") for e in yielded] == ["urn:li:document:d2"]
+
+
+class TestOrphanedDocumentResilience:
+    """A single orphaned index entry (a URN present in the index but with no
+    resolvable backing entity) must not abort the embedding run."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @staticmethod
+    def _native_notion_doc(urn: str) -> dict:
+        return {
+            "urn": urn,
+            "type": "DOCUMENT",
+            "info": {
+                "contents": {
+                    "text": "This is a sufficiently long document body for embedding."
+                },
+                "source": {"sourceType": "NATIVE"},
+            },
+            "dataPlatformInstance": {"platform": {"urn": "urn:li:dataPlatform:notion"}},
+        }
+
+    def _make_source(self, ctx, config):
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+        source.graph = Mock()
+        source.graph.config.server = "http://test-server:8080"
+        return source
+
+    def test_orphaned_urn_is_skipped_not_fatal(self, ctx, config):
+        source = self._make_source(ctx, config)
+        urns = [
+            "urn:li:document:real-1",
+            "urn:li:document:__orphan_probe",
+            "urn:li:document:real-2",
+        ]
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [{"entity": {"urn": u}} for u in urns],
+                    }
+                }
+            # Hydration resolves the orphan to null (as GMS does for an index
+            # entry with no backing entity), the two real docs to full payloads.
+            return {
+                "entities": [
+                    self._native_notion_doc("urn:li:document:real-1"),
+                    None,
+                    self._native_notion_doc("urn:li:document:real-2"),
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        documents = source._fetch_documents_graphql()
+
+        assert [d["urn"] for d in documents] == [
+            "urn:li:document:real-1",
+            "urn:li:document:real-2",
+        ]
+        assert source.report.num_documents_skipped_orphaned == 1
+        assert source.report.num_documents_fetched == 2
+
+    def test_enumeration_scroll_selects_only_urn(self, ctx, config):
+        # Regression guard: the scroll query must select ONLY the URN from the
+        # non-null SearchResult.entity. Selecting any aspect-backed field (info,
+        # contents, ...) is what a single orphan nulls, taking down the run.
+        source = self._make_source(ctx, config)
+        captured: dict[str, str] = {}
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                captured["scroll"] = query
+                return {
+                    "scrollAcrossEntities": {"nextScrollId": None, "searchResults": []}
+                }
+            return {"entities": []}
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        source._fetch_documents_graphql()
+
+        scroll_query = captured["scroll"]
+        assert "info" not in scroll_query
+        assert "contents" not in scroll_query
+
+    def test_hydration_spans_batches_with_orphan_in_second(self, ctx, config):
+        # >100 URNs so _hydrate_documents runs two batches; the orphan lives in
+        # the second batch, exercising per-batch handling beyond the first page.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+
+        batch1 = {"entities": [self._native_notion_doc(u) for u in urns[:100]]}
+        batch2_entities: list = [self._native_notion_doc(u) for u in urns[100:]]
+        batch2_entities[25] = None  # one orphan in the second batch
+        batch2 = {"entities": batch2_entities}
+        source.graph.execute_graphql.side_effect = [batch1, batch2]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert source.graph.execute_graphql.call_count == 2
+        assert len(hydrated) == 149
+        assert source.report.num_documents_skipped_orphaned == 1
+
+    def test_batch_graph_error_falls_back_to_per_urn(self, ctx, config):
+        # A GraphError on the batch call (e.g. one document with a null in a
+        # non-null field) must not drop the whole batch: retry per-URN, yield the
+        # good ones, and skip only the offender.
+        source = self._make_source(ctx, config)
+        good = self._native_notion_doc("urn:li:document:good")
+
+        def _graphql(query, variables=None):
+            urns = variables["urns"]
+            if len(urns) > 1:
+                raise GraphError("NullValueInNonNullableField")
+            if urns == ["urn:li:document:good"]:
+                return {"entities": [good]}
+            raise GraphError("NullValueInNonNullableField")
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:good", "urn:li:document:bad"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:good"]
+        assert any(
+            "failed to hydrate" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+
+    def test_transport_error_aborts_not_swallowed(self, ctx, config):
+        # A transport/outage error (OperationalError) must abort the run, not be
+        # caught as a per-document skip — otherwise the run reports success with
+        # zero embeddings, the source's documented catastrophic mode.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = OperationalError(
+            "connection refused"
+        )
+
+        with pytest.raises(OperationalError):
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
+
+    def test_batch_all_urns_fail_reports_failure(self, ctx, config):
+        # If every URN in a batch fails identically (e.g. a GraphQL schema
+        # mismatch — GMS missing a queried field), the run must fail loudly, not
+        # report success with zero embeddings.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = GraphError(
+            "Cannot query field 'semanticText'"
+        )
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert hydrated == []
+        assert any(
+            "entire batch" in (f.title or "").lower() for f in source.report.failures
+        )
+
+    def test_hydration_entity_count_mismatch_warns(self, ctx, config):
+        # GMS returning fewer entities than requested URNs must be surfaced, not
+        # silently dropped by the zip.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a")]
+        }
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
+        assert any(
+            "entity count" in (w.title or "").lower() for w in source.report.warnings
+        )
