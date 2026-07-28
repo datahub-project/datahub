@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# check=skip=InvalidDefaultArgInFrom
+# EXECUTOR_IMAGE is required via --build-arg (no useful default for customer registries).
 
 ARG EXECUTOR_IMAGE
 FROM ${EXECUTOR_IMAGE}

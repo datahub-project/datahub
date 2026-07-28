@@ -51,6 +51,8 @@ USER datahub
 
 Docker substitutes **`${BUNDLED_VENV_PLUGINS}`** from the parent image so you need not repeat the base list. **`docker build`** needs network for **`uv`**/**`pip`**.
 
+Match **`--platform`** (and the base image variant) to the CPU architecture of the nodes that run the executor — bundled venvs contain arch-specific wheels. Details: [CPU architecture](/docs/managed-datahub/remote-executor/bundling-additional-connectors.md#cpu-architecture).
+
 **Locked** (**`*-locked`**) images remove **`uv`**/**`pip`**—do not use them as the base for this flow.
 
 **Security hardening:** Trust boundaries for executor workloads, why locked images remove runtime package managers, and how to steer installs through an internal PyPI mirror are covered in [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
