@@ -364,6 +364,7 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - semanticText
       - institutionalMemory
       - documentation
       - documentUsageStatistics
@@ -394,6 +395,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionRunSummary
       - assertionActions
       - status
       - globalTags
