@@ -1331,6 +1331,7 @@ module.exports = {
         "docs/api/tutorials/mlmodel-mlmodelgroup",
         "docs/api/tutorials/applications",
         "docs/api/tutorials/agent-registry",
+        "docs/api/tutorials/service-catalog",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

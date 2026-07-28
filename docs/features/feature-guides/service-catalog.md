@@ -44,8 +44,9 @@ repository ──builds──▶ service ──exposes──▶ api ──produc
 ## Setup, Prerequisites, and Permissions
 
 Services, APIs, repositories, and applications are populated through ingestion or emitted directly
-via the SDK/API, the same way you catalog any other asset. To browse and manage them, a user needs
-standard entity privileges:
+via the SDK/API, the same way you catalog any other asset — see the
+[API tutorial](../../api/tutorials/service-catalog.md), including ingesting a REST service straight
+from its OpenAPI spec. To browse and manage them, a user needs standard entity privileges:
 
 - **View Entity Page** to discover and open service, API, and repository profiles.
 - **Edit Entity** (and the relevant sub-privileges — ownership, tags, glossary terms, documentation)
@@ -132,6 +133,13 @@ broke, how severe it is, and who's on it.
 When DataHub or an agent needs to _call_ an external API, an **OAuth Authorization Server** entity
 models where tokens come from. Cataloging the authorization server keeps the credential-issuance
 step visible and governed, rather than hidden in configuration.
+
+## Additional Resources
+
+### API Tutorials
+
+- [Registering Services, APIs, and Repositories](../../api/tutorials/service-catalog.md) — ingest an
+  OpenAPI spec, or register services, APIs, and repositories with the SDK
 
 ## FAQ and Troubleshooting
 
