@@ -226,6 +226,12 @@ module.exports = {
           id: "docs/features/feature-guides/analytics-agent",
         },
         {
+          label: "Agent Registry",
+          type: "doc",
+          id: "docs/features/feature-guides/agent-registry",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -341,6 +347,12 @@ module.exports = {
           id: "docs/features/feature-guides/applications",
         },
         {
+          label: "Service Catalog",
+          type: "doc",
+          id: "docs/features/feature-guides/service-catalog",
+          className: "saasOnly",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: true,
@@ -423,8 +435,31 @@ module.exports = {
         },
         {
           label: "Context Documents",
-          type: "doc",
-          id: "docs/features/feature-guides/context/context-documents",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/context/context-documents",
+          },
+          items: [
+            {
+              label: "Import from Notion",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-notion",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from Confluence",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-confluence",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from GitHub",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-github",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Asset Summaries",
@@ -541,8 +576,19 @@ module.exports = {
         },
         {
           label: "MCP Server",
-          type: "doc",
-          id: "docs/features/feature-guides/mcp",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/mcp",
+          },
+          items: [
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Multi-Language Support",
@@ -1284,6 +1330,8 @@ module.exports = {
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
         "docs/api/tutorials/applications",
+        "docs/api/tutorials/agent-registry",
+        "docs/api/tutorials/service-catalog",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",

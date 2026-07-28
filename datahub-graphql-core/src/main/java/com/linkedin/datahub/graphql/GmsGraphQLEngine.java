@@ -4153,11 +4153,29 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
     builder.type(
-        "ModelDataset",
+        "SemanticModelInfo",
         typeWiring ->
             typeWiring.dataFetcher(
-                "source",
-                new EntityTypeResolver(
-                    entityTypes, (env) -> ((ModelDataset) env.getSource()).getSource())));
+                "datasets",
+                new LoadableTypeBatchResolver<>(
+                    datasetType,
+                    env ->
+                        ((SemanticModelInfo) env.getSource())
+                            .getDatasets().stream()
+                                .map(Dataset::getUrn)
+                                .collect(Collectors.toList()))));
+    builder.type(
+        "SemanticModelProperties",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "semanticModel",
+                new LoadableTypeResolver<>(
+                    semanticModelType,
+                    env -> {
+                      final SemanticModelProperties smp = env.getSource();
+                      return smp.getSemanticModel() != null
+                          ? smp.getSemanticModel().getUrn()
+                          : null;
+                    })));
   }
 }

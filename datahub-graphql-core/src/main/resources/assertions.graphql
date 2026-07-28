@@ -255,6 +255,11 @@ extend type AssertionInfo {
 
 extend type Assertion {
   """
+  The dataset targeted by this assertion.
+  """
+  dataset: Dataset
+
+  """
   The actions associated with the Assertion
   """
   actions: AssertionActions
