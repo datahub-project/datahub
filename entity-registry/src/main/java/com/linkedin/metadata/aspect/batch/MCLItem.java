@@ -11,7 +11,7 @@ import java.lang.reflect.InvocationTargetException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-/** An item that  a change that has been written to primary storage. */
+/** An item that represents a change that has been written to primary storage. */
 public interface MCLItem extends BatchItem {
 
   @Nonnull
