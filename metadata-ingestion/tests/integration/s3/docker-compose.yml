@@ -1,11 +1,9 @@
 version: "3.8"
 services:
-  floci-kinesis:
+  floci-s3:
     image: floci/floci:1.5.33
-    # Unique host port (container listens on 4566) to avoid colliding with the
-    # other Floci-backed suites when integration batches run in parallel.
     ports:
-      - "14572:4566"
+      - "14566:4566"
     environment:
       DEFAULT_REGION: us-east-1
     # Built-in healthcheck (/_floci/health); `up --wait` in the fixture blocks
