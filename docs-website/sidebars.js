@@ -226,6 +226,12 @@ module.exports = {
           id: "docs/features/feature-guides/analytics-agent",
         },
         {
+          label: "Agent Registry",
+          type: "doc",
+          id: "docs/features/feature-guides/agent-registry",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -339,6 +345,12 @@ module.exports = {
           label: "Applications",
           type: "doc",
           id: "docs/features/feature-guides/applications",
+        },
+        {
+          label: "Service Catalog",
+          type: "doc",
+          id: "docs/features/feature-guides/service-catalog",
+          className: "saasOnly",
         },
         {
           label: "Automations",
@@ -1318,6 +1330,8 @@ module.exports = {
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
         "docs/api/tutorials/applications",
+        "docs/api/tutorials/agent-registry",
+        "docs/api/tutorials/service-catalog",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
