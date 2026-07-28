@@ -11,9 +11,9 @@ import ProductTour from '@site/src/components/ProductTour';
 
 Your board just asked: _how many AI agents are running, what data are they touching, who owns them,
 and can we trust them?_ Most teams can't answer today — their agents are shadow AI, invisible to
-governance. The **Agent Registry** closes that gap by cataloging AI agents, the skills they adopt,
-and the tools they invoke as **first-class, governed, versioned metadata entities**, sitting in the
-same lineage graph as the data they consume.
+governance. Introduced in DataHub Cloud v2.1, the **Agent Registry** closes that gap by cataloging
+AI agents, the skills they adopt, and the tools they invoke as **first-class, governed, versioned
+metadata entities**, sitting in the same lineage graph as the data they consume.
 
 Because agents live in the graph alongside your datasets, the governance you already run on data —
 ownership, classification, lineage, incidents, change history — extends to your AI layer for free.

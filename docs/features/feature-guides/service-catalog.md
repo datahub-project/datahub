@@ -9,8 +9,8 @@ import ProductTour from '@site/src/components/ProductTour';
 
 <FeatureAvailability saasOnly />
 
-The **Service Catalog** brings the software layer of your stack into DataHub as first-class,
-typed, governed entities — right beside the data those systems produce. Repositories build
+Introduced in DataHub Cloud v2.1, the **Service Catalog** brings the software layer of your stack
+into DataHub as first-class, typed, governed entities — right beside the data those systems produce. Repositories build
 services, services expose APIs, applications call those APIs, and APIs produce and consume
 datasets. Instead of a service showing up as a mislabeled, schemaless dataset, it shows up as
 exactly what it is — a REST, GraphQL, gRPC, or MCP service — owned, versioned, health-checked,
