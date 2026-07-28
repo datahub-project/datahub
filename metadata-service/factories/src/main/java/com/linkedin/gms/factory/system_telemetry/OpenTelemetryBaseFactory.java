@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 
 /** Common System OpenTelemetry */
 @Slf4j
@@ -39,11 +38,6 @@ public abstract class OpenTelemetryBaseFactory {
   private static final int BSP_MAX_EXPORT_BATCH_SIZE = 512;
   private static final Duration BSP_SCHEDULE_DELAY = Duration.ofSeconds(5);
   private static final Duration BSP_EXPORT_TIMEOUT = Duration.ofSeconds(10);
-
-  // SPI beans from SpanEnricherFactory — field-injected so subclass @Bean methods keep master's
-  // 3-arg surface (metricUtils, config, usage producer). Empty lists → no-ops in OSS.
-  @Autowired private SpanProducerRecordResolver spanProducerRecordResolver;
-  @Autowired private EnrichingSpanProcessor enrichingSpanProcessor;
 
   /** Builds a bounded async {@link BatchSpanProcessor} with the shared settings above. */
   private static BatchSpanProcessor bsp(SpanExporter exporter) {
@@ -60,14 +54,17 @@ public abstract class OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      @Nullable GenericProducer<String> usageProducer) {
+      @Nullable GenericProducer<String> usageProducer,
+      SpanProducerRecordResolver spanProducerRecordResolver,
+      EnrichingSpanProcessor enrichingSpanProcessor) {
 
-    SpanProcessor usageSpanExporter = getUsageSpanExporter(configurationProvider, usageProducer);
-    OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
+    SpanProcessor usageSpanExporter =
+        getUsageSpanExporter(configurationProvider, usageProducer, spanProducerRecordResolver);
+    OpenTelemetry openTelemetry =
+        openTelemetry(metricUtils, usageSpanExporter, enrichingSpanProcessor);
     return SystemTelemetryContext.builder()
         .metricUtils(metricUtils)
         .tracer(tracer(openTelemetry))
-        .textMapPropagator(openTelemetry.getPropagators().getTextMapPropagator())
         .usageSpanExporter(usageSpanExporter)
         .build();
   }
@@ -75,7 +72,8 @@ public abstract class OpenTelemetryBaseFactory {
   @Nullable
   private SpanProcessor getUsageSpanExporter(
       ConfigurationProvider configurationProvider,
-      @Nullable GenericProducer<String> usageProducer) {
+      @Nullable GenericProducer<String> usageProducer,
+      SpanProducerRecordResolver spanProducerRecordResolver) {
     if (usageProducer != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
@@ -93,7 +91,10 @@ public abstract class OpenTelemetryBaseFactory {
     return openTelemetry.getTracer(getApplicationComponent());
   }
 
-  private OpenTelemetry openTelemetry(MetricUtils metricUtils, SpanProcessor usageSpanExporter) {
+  private OpenTelemetry openTelemetry(
+      MetricUtils metricUtils,
+      SpanProcessor usageSpanExporter,
+      EnrichingSpanProcessor enrichingSpanProcessor) {
     OpenTelemetrySdk sdk =
         AutoConfiguredOpenTelemetrySdk.builder()
             // Do NOT let autoconfigure register a JVM shutdown hook during build().

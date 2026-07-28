@@ -95,16 +95,19 @@ public class OpenTelemetryBaseFactoryTest {
         MetricUtils metricUtils,
         ConfigurationProvider configurationProvider,
         GenericProducer<String> usageEventPublisher) {
-      return traceContext(metricUtils, configurationProvider, usageEventPublisher);
+      return traceContext(
+          metricUtils,
+          configurationProvider,
+          usageEventPublisher,
+          mockSpanProducerRecordResolver,
+          mockEnrichingSpanProcessor);
     }
   }
 
   @BeforeMethod
-  public void setUp() throws Exception {
+  public void setUp() {
     mocks = MockitoAnnotations.openMocks(this);
     factory = new TestOpenTelemetryFactory("test-component");
-    injectField(factory, "spanProducerRecordResolver", mockSpanProducerRecordResolver);
-    injectField(factory, "enrichingSpanProcessor", mockEnrichingSpanProcessor);
 
     // Setup mock chain for ConfigurationProvider
     when(mockConfigurationProvider.getPlatformAnalytics()).thenReturn(mockPlatformAnalytics);
@@ -112,12 +115,6 @@ public class OpenTelemetryBaseFactoryTest {
     when(mockConfigurationProvider.getKafka()).thenReturn(mockKafka);
     when(mockKafka.getTopics()).thenReturn(mockTopics);
     when(mockTopics.getDataHubUsage()).thenReturn("test-usage-topic");
-  }
-
-  private static void injectField(Object target, String fieldName, Object value) throws Exception {
-    Field field = OpenTelemetryBaseFactory.class.getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 
   @AfterMethod
@@ -196,7 +193,10 @@ public class OpenTelemetryBaseFactoryTest {
     // Use reflection to test private method
     Method getUsageSpanExporterMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "getUsageSpanExporter", ConfigurationProvider.class, GenericProducer.class);
+            "getUsageSpanExporter",
+            ConfigurationProvider.class,
+            GenericProducer.class,
+            SpanProducerRecordResolver.class);
     getUsageSpanExporterMethod.setAccessible(true);
 
     // Test with all conditions met
@@ -205,7 +205,8 @@ public class OpenTelemetryBaseFactoryTest {
 
     SpanProcessor result =
         (SpanProcessor)
-            getUsageSpanExporterMethod.invoke(factory, mockConfigurationProvider, mockPublisher);
+            getUsageSpanExporterMethod.invoke(
+                factory, mockConfigurationProvider, mockPublisher, mockSpanProducerRecordResolver);
 
     assertNotNull(result);
     assertTrue(result instanceof BatchSpanProcessor);
@@ -366,14 +367,15 @@ public class OpenTelemetryBaseFactoryTest {
     // Test the OpenTelemetry configuration
     Method openTelemetryMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "openTelemetry", MetricUtils.class, SpanProcessor.class);
+            "openTelemetry", MetricUtils.class, SpanProcessor.class, EnrichingSpanProcessor.class);
     openTelemetryMethod.setAccessible(true);
 
     SpanProcessor mockSpanProcessor = mock(SpanProcessor.class);
 
     io.opentelemetry.api.OpenTelemetry result =
         (io.opentelemetry.api.OpenTelemetry)
-            openTelemetryMethod.invoke(factory, mockMetricUtils, mockSpanProcessor);
+            openTelemetryMethod.invoke(
+                factory, mockMetricUtils, mockSpanProcessor, mockEnrichingSpanProcessor);
 
     assertNotNull(result);
   }

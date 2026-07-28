@@ -5,6 +5,8 @@ import com.linkedin.gms.factory.system_telemetry.OpenTelemetryBaseFactory;
 import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +24,14 @@ public class MCEOpenTelemetryConfig extends OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      @Qualifier("dataHubUsageGenericProducer") GenericProducer<String> usageProducer) {
-    return super.traceContext(metricUtils, configurationProvider, usageProducer);
+      @Qualifier("dataHubUsageGenericProducer") GenericProducer<String> usageProducer,
+      SpanProducerRecordResolver spanProducerRecordResolver,
+      EnrichingSpanProcessor enrichingSpanProcessor) {
+    return super.traceContext(
+        metricUtils,
+        configurationProvider,
+        usageProducer,
+        spanProducerRecordResolver,
+        enrichingSpanProcessor);
   }
 }
