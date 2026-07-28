@@ -41,6 +41,20 @@ _CONTAINER_C = _container_urn("c")
 
 _EXPECTED = {_CONTAINER_A: 2, _CONTAINER_B: 3, _CONTAINER_C: 0}
 
+# The loader chunks keys at MAX_CONTAINERS_PER_AGG (25), issuing one aggregation search per
+# chunk. Requesting more than that in a single GraphQL request is the only way to exercise the
+# multi-chunk path end to end, where the failure modes are chunk results being applied to the
+# wrong keys, later chunks silently reading as 0, and off-by-one key/result alignment.
+_CHUNK_SPAN_COUNT = 30
+
+# Counts cycle 0,1,2 so the expected value differs at every adjacent position: any shift or
+# cross-chunk swap of the key/result alignment changes the assertion, and the zero-count
+# containers land in both chunks (a missing facet bucket must read as 0 in a later chunk too,
+# not as a dropped key).
+_CHUNK_SPAN_EXPECTED = {
+    _container_urn(f"span{i}"): i % 3 for i in range(_CHUNK_SPAN_COUNT)
+}
+
 
 class _FileEmitter:
     def __init__(self, filename: str) -> None:
@@ -91,6 +105,20 @@ def _build_test_data(filename: str) -> None:
         mcps += _dataset_in_container(f"batching_a_{_RUN_ID}_{i}", _CONTAINER_A)
     for i in range(_EXPECTED[_CONTAINER_B]):
         mcps += _dataset_in_container(f"batching_b_{_RUN_ID}_{i}", _CONTAINER_B)
+
+    for span_index, (urn, expected) in enumerate(_CHUNK_SPAN_EXPECTED.items()):
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=ContainerPropertiesClass(
+                    name=f"Batching Span {span_index} {_RUN_ID}"
+                ),
+            )
+        )
+        for i in range(expected):
+            mcps += _dataset_in_container(
+                f"batching_span{span_index}_{_RUN_ID}_{i}", urn
+            )
 
     emitter = _FileEmitter(filename)
     for mcp in mcps:
@@ -150,6 +178,15 @@ query containerEntitiesFiltered($urn: String!) {
 """
 
 
+def _chunk_span_query() -> str:
+    """One request aliasing every span container, so all keys coalesce into one batchLoad."""
+    fields = "\n  ".join(
+        f'c{i}: container(urn: "{urn}") {{ urn entities(input: {{}}) {{ total }} }}'
+        for i, urn in enumerate(_CHUNK_SPAN_EXPECTED)
+    )
+    return f"query containerEntityCountsAcrossChunks {{\n  {fields}\n}}"
+
+
 def test_container_entities_counts_are_batched_and_correct(auth_session):
     variables: Dict[str, Any] = {
         "a": _CONTAINER_A,
@@ -177,6 +214,25 @@ def test_container_entities_counts_are_batched_and_correct(auth_session):
                 f"{urn} entities: expected {expected}, "
                 f"got {data[alias]['entities']['total']}"
             )
+
+    check()
+
+
+def test_container_entities_counts_correct_across_chunk_boundary(auth_session):
+    @with_test_retry()
+    def check() -> None:
+        res = execute_graphql(auth_session, _chunk_span_query(), {})
+        data = res["data"]
+
+        actual = {
+            data[f"c{i}"]["urn"]: data[f"c{i}"]["entities"]["total"]
+            for i in range(_CHUNK_SPAN_COUNT)
+        }
+        logger.info(f"chunk-spanning container entity counts: {actual}")
+
+        # Compare the whole mapping at once so a mis-attributed or zeroed chunk shows up as a
+        # diff rather than passing on the containers that happened to be right.
+        assert actual == _CHUNK_SPAN_EXPECTED
 
     check()
 
