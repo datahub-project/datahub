@@ -109,7 +109,7 @@ class DorisProfilingConfig(MySQLProfilingConfig):
     )
     report_expensive_tables: bool = Field(
         default=False,
-        description="Emit a post-run report.warning naming the few tables that took the longest to profile.",
+        description="Emit a post-run report.info entry naming the few tables that took the longest to profile.",
     )
 
 

@@ -70,6 +70,7 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
     return report
 
 
@@ -1045,11 +1046,98 @@ class TestProfilingIsolationLevel:
         )
         assert profiler._profiling_isolation_level is None
 
+    def test_adapter_returned_level_opens_no_validation_connection(
+        self, sqlite_engine, mock_report
+    ):
+        # Item 4: only a config-escape-hatch level opens a validation connection at
+        # construction; an adapter-returned level is code-controlled (asserted in
+        # test_adapters.py) and must NOT do I/O at construction. get_profiler_instance is
+        # called once per database and is not wrapped in a try, so a transient blip during a
+        # validation connect would abort ingestion — the common path must be I/O-free.
+        checkouts: list = []
+        sa.event.listen(sqlite_engine, "checkout", lambda *a, **k: checkouts.append(1))
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            profiler = SQLAlchemyProfiler(
+                conn=sqlite_engine,
+                report=mock_report,
+                config=ProfilingConfig(
+                    enabled=True
+                ),  # no profiling_isolation_level override
+                platform="sqlite",
+                env="TEST",
+            )
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+        assert checkouts == []  # zero validation connections at construction
+
+    def test_per_table_isolation_rejection_names_transactional_remedy(
+        self, sqlite_engine, mock_report
+    ):
+        # Residual A: when the DB rejects an adapter-returned isolation level at SET time
+        # (e.g. MySQL behind a proxy that rejects AUTOCOMMIT), execution_options raises a
+        # SQLAlchemyError per table. The per-table wrapper emits a DISTINCT entry naming
+        # `profiling_isolation_level: TRANSACTIONAL` as the remedy (not the generic
+        # "Failed to extract statistics" warning), and returns None when catch_exceptions
+        # is True (the default). Adapter-returned levels are not pre-flighted at construction
+        # (only config overrides are), so this is the failure shape the original hoisting
+        # existed to prevent — reached by a different trigger.
+        import sqlalchemy as sa
+
+        config = ProfilingConfig(enabled=True)  # no override; level comes from adapter
+        mock_adapter = MagicMock()
+        mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+        ) as mock_get_adapter:
+            mock_get_adapter.return_value = mock_adapter
+            profiler = SQLAlchemyProfiler(
+                conn=sqlite_engine,
+                report=mock_report,
+                config=config,
+                platform="sqlite",
+                env="TEST",
+            )
+        assert profiler._profiling_isolation_level == "AUTOCOMMIT"
+
+        # Simulate the DB rejecting the AUTOCOMMIT session setting at SET time.
+        mock_conn = MagicMock()
+        mock_conn.__enter__.return_value = mock_conn
+        mock_conn.execution_options.side_effect = sa.exc.SQLAlchemyError(
+            "proxy rejected AUTOCOMMIT"
+        )
+
+        with (
+            patch.object(sqlite_engine, "connect", return_value=mock_conn),
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter",
+                return_value=mock_adapter,
+            ),
+        ):
+            result = profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="main.test_table",
+                schema="main",
+                table="test_table",
+                platform="sqlite",
+            )
+
+        assert result is None
+        assert mock_report.warning.called
+        _args, kwargs = mock_report.warning.call_args
+        assert kwargs["title"] == "Profiling isolation level rejected"
+        assert "profiling_isolation_level: TRANSACTIONAL" in kwargs["message"]
+        assert "AUTOCOMMIT" in kwargs["message"]
+        assert "main.test_table" in kwargs["context"]
+
 
 class TestReportExpensiveTables:
     """The post-run 'most expensive tables' warning (PR 2 discoverability mechanism).
 
-    Pre-flight warning #2: the warning must live in the profiler run path (here), NOT in
+    Pre-flight warning #2: the info entry must live in the profiler run path (here), NOT in
     generate_profile_candidates — which is dead by default when the limits are None. It must
     fire with no limits configured (the MySQL default), and behave independently of the skip
     path when limits ARE configured.
@@ -1063,7 +1151,7 @@ class TestReportExpensiveTables:
         flag: bool,
         limits: bool,
     ) -> SQLAlchemyProfiler:
-        # limits=True sets both row/size limits so we can prove the warning still fires
+        # limits=True sets both row/size limits so we can prove the info entry still fires
         # (independence from the skip path); limits=False leaves them None (the MySQL default).
         cfg_kwargs: Dict[str, Any] = {"enabled": True, "report_expensive_tables": flag}
         if limits:
@@ -1079,7 +1167,7 @@ class TestReportExpensiveTables:
         )
 
     def test_fires_with_no_limits_configured(self, sqlite_engine, mock_report):
-        # The default MySQL state: limits None, flag on. The warning must fire — this is the
+        # The default MySQL state: limits None, flag on. The info entry must fire — this is the
         # state the customer is actually in, and the whole point of opt-in discoverability.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=False
@@ -1092,18 +1180,20 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert mock_report.warning.called
-        _args, kwargs = mock_report.warning.call_args
+        assert mock_report.info.called
+        _args, kwargs = mock_report.info.call_args
         assert kwargs["title"] == "Profiling: expensive tables"
-        # Top-N is bounded and ordered by time desc; events (300s) and orders (120s) lead.
-        assert "my_db.events (300.0s)" in kwargs["message"]
-        assert "my_db.orders (120.0s)" in kwargs["message"]
+        # message is a constant literal; the formatted table list is in context= (so all
+        # databases on a multi-DB server group under one entry). Top-N is bounded and ordered
+        # by time desc; events (300s) and orders (120s) lead.
+        assert "my_db.events (300.0s)" in kwargs["context"]
+        assert "my_db.orders (120.0s)" in kwargs["context"]
         # customers (30s) is 3rd — still in top 3 of 3, so included; the cap matters only
         # when there are more than _EXPENSIVE_TABLES_TOP_N tables (asserted below).
 
     def test_fires_independently_of_limits(self, sqlite_engine, mock_report):
-        # With limits set, the skip path (generate_profile_candidates) and the warning path
-        # (here) are independent: the warning still fires because the flag is on, regardless
+        # With limits set, the skip path (generate_profile_candidates) and the info path
+        # (here) are independent: the info entry still fires because the flag is on, regardless
         # of the limits. This is the inverse case from pre-flight warning #2.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=True
@@ -1112,10 +1202,10 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert mock_report.warning.called
+        assert mock_report.info.called
 
     def test_does_not_fire_when_flag_off(self, sqlite_engine, mock_report):
-        # Non-MySQL sources default the flag off — no warning, even for expensive tables.
+        # Non-MySQL sources default the flag off — no info entry, even for expensive tables.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=False, limits=False
         )
@@ -1123,7 +1213,7 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert not mock_report.warning.called
+        assert not mock_report.info.called
 
     def test_does_not_fire_when_nothing_profiled(self, sqlite_engine, mock_report):
         profiler = self._make_profiler(
@@ -1133,10 +1223,10 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        assert not mock_report.warning.called
+        assert not mock_report.info.called
 
     def test_top_n_is_bounded(self, sqlite_engine, mock_report):
-        # The warning must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
+        # The info entry must name at most _EXPENSIVE_TABLES_TOP_N tables so it stays one short,
         # actionable line regardless of how many tables were profiled.
         profiler = self._make_profiler(
             sqlite_engine, mock_report, flag=True, limits=False
@@ -1147,7 +1237,7 @@ class TestReportExpensiveTables:
 
         profiler._report_expensive_tables()
 
-        _args, kwargs = mock_report.warning.call_args
-        # Count the "(<name> (<time>s)" entries in the message.
-        named = [w for w in kwargs["message"].split(", ") if "s)" in w]
+        _args, kwargs = mock_report.info.call_args
+        # The formatted list is in context=, not message=.
+        named = [w for w in kwargs["context"].split(", ") if "s)" in w]
         assert len(named) <= SQLAlchemyProfiler._EXPENSIVE_TABLES_TOP_N
