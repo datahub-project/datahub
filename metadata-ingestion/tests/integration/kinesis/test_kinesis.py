@@ -159,8 +159,9 @@ def _seed_test_data() -> None:
 # Required Floci fix (tested against floci/floci:1.5.33): CreateDeliveryStream
 # accepts a ``KinesisStreamSourceConfiguration`` but DescribeDeliveryStream drops
 # it — ``Source`` comes back null instead of echoing
-# ``Source.KinesisStreamSourceDescription.KinesisStreamARN``. Once Floci persists
-# and returns that ARN, drop the waiver below and assert the golden carries the
+# ``Source.KinesisStreamSourceDescription.KinesisStreamARN``. Tracked upstream at
+# https://github.com/floci-io/floci/issues/2016. Once Floci persists and returns
+# that ARN, drop the waiver below and assert the golden carries the
 # Kinesis→Firehose upstream edge. The lost golden coverage is recovered locally by
 # ``test_source_stream_urn_matches_stream_extractor_urn`` in
 # ``tests/unit/kinesis/test_kinesis_firehose.py``.
