@@ -833,6 +833,30 @@ def quickstart(
             click.echo("Dumping docker compose logs:")
             click.echo(pathlib.Path(log_file.name).read_text())
             click.echo()
+        else:
+            # Surface *why* it failed by default: print the tail of the logs for
+            # the containers that actually errored, so the root cause (e.g. a
+            # required env var) is visible without re-running with
+            # --dump-logs-on-failure.
+            for container in status.errored_containers():
+                try:
+                    tail = subprocess.run(
+                        base_command + ["logs", "--tail", "25", container],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        env=_docker_subprocess_env(),
+                    ).stdout.decode(errors="replace")
+                except Exception:
+                    continue
+                if tail.strip():
+                    click.secho(
+                        f"\n----- last logs: {container} -----", fg="yellow"
+                    )
+                    click.echo(tail)
+            click.secho(
+                "Re-run with --dump-logs-on-failure for the full compose logs.",
+                fg="yellow",
+            )
 
         raise status.to_exception(
             header="Unable to run quickstart - the following issues were detected:",
