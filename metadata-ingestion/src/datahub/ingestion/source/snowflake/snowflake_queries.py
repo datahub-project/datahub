@@ -213,9 +213,13 @@ class SnowflakeQueriesExtractorReport(Report):
     num_ddl_queries_dropped: int = 0
     num_stream_queries_observed: int = 0
     num_stream_queries_clean_fast_path: int = 0
+    num_stream_bypass_by_query_type: Dict[str, int] = dataclasses.field(
+        default_factory=dict
+    )
     num_create_temp_view_queries_observed: int = 0
     num_audit_rows_missing_object_name: int = 0
     num_audit_rows_unknown_dollar_prefix: int = 0
+    num_query_type_counts: Dict[str, int] = dataclasses.field(default_factory=dict)
     num_users: int = 0
     num_queries_with_empty_column_name: int = 0
     queries_with_empty_column_name: LossyList[str] = dataclasses.field(
@@ -616,6 +620,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             snowflake_query_type, QueryType.UNKNOWN
         )
 
+        self.report.num_query_type_counts[snowflake_query_type] = (
+            self.report.num_query_type_counts.get(snowflake_query_type, 0) + 1
+        )
+
         direct_objects_accessed = res["direct_objects_accessed"] or []
         objects_modified = res["objects_modified"] or []
         object_modified_by_ddl = res["object_modified_by_ddl"]
@@ -715,10 +723,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         ) or is_create_temp_view:
             if has_stream_objects:
                 self.report.num_stream_queries_observed += 1
-                logger.debug(
+                self.report.num_stream_bypass_by_query_type[snowflake_query_type] = (
+                    self.report.num_stream_bypass_by_query_type.get(
+                        snowflake_query_type, 0
+                    )
+                    + 1
+                )
+                logger.info(
                     "Snowflake stream-bypass fired for query_id=%s "
-                    "(corrupt=%s, unknown_dollar=%s, multi_target=%s)",
+                    "(query_type=%s, corrupt=%s, unknown_dollar=%s, multi_target=%s)",
                     res["query_id"],
+                    snowflake_query_type,
                     has_corrupt_object_names,
                     has_unknown_dollar_prefix,
                     is_multi_target,
