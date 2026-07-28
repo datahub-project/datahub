@@ -9,6 +9,14 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
+# MariaDB uses MySQLConfig directly (via @config_class below), so it intentionally inherits
+# MySQLProfilingConfig's four overrides (max_workers=5, profile_table_row_limit=None,
+# profile_table_size_limit=None, report_expensive_tables=True). MariaDB is a MySQL fork — same
+# single-primary row-store architecture, same InnoDB undo-log / history-list growth that produces
+# the long-transaction problem, same information_schema.tables estimates. The MySQL defaults are
+# correct for MariaDB; do NOT revert them. (If a new override is added to MySQLProfilingConfig,
+# MariaDB should pick it up too — see test_mysql_profiling.py::test_mysql_profiling_overrides_do_not_drift.)
+
 
 @platform_name("MariaDB")
 @config_class(MySQLConfig)
