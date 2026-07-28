@@ -1097,11 +1097,11 @@ public class EntityServiceImplTest {
     doAnswer(
             invocation -> {
               Function<TransactionContext, TransactionResult<RollbackResult>> function =
-                  invocation.getArgument(1);
+                  invocation.getArgument(0);
               return function.apply(TransactionContext.empty(3)).getResults();
             })
         .when(mockAspectDao)
-        .runInTransactionWithRetry(any(), any(), anyInt());
+        .runInTransactionWithRetry(any(), anyInt());
 
     RollbackResult result =
         entityService.deleteAspectWithoutMCL(
