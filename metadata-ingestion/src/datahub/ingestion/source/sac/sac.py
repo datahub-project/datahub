@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -68,6 +69,9 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     NullTypeClass,
     NumberTypeClass,
     SchemaFieldClass,
@@ -212,6 +216,19 @@ class SACSourceConfig(
         ),
     )
 
+    resolve_datasphere_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "In addition to table-level DWC lineage, emit column-level lineage to the "
+            "backing SAP Datasphere dataset. SAC does not expose columns for Live Data "
+            "Models, so the field list is resolved from the upstream Datasphere dataset's "
+            "schema in DataHub (requires a `datahub_api`/graph connection) and mirrored "
+            "onto the SAC dataset, since the live model is a passthrough. Falls back to "
+            "table-level lineage when the graph or upstream schema is unavailable. "
+            "No effect unless `resolve_datasphere_lineage` is also enabled."
+        ),
+    )
+
     @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
@@ -228,6 +245,8 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     dwc_lineage_resolved: int = 0
     dwc_lineage_unresolved: int = 0
     dwc_lineage_skipped_no_space: int = 0
+    dwc_column_lineage_resolved: int = 0
+    dwc_column_lineage_unresolved: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
@@ -577,6 +596,13 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
                 if datasphere_upstream_urn is not None:
                     self.report.dwc_lineage_resolved += 1
+                    fine_grained, schema_workunit = (
+                        self._resolve_datasphere_column_lineage(
+                            dataset_urn, datasphere_upstream_urn
+                        )
+                    )
+                    if schema_workunit is not None:
+                        yield schema_workunit
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn,
                         aspect=UpstreamLineageClass(
@@ -586,6 +612,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                                     type=DatasetLineageTypeClass.COPY,
                                 ),
                             ],
+                            fineGrainedLineages=fine_grained or None,
                         ),
                     ).as_workunit()
         elif model.system_type is not None:
@@ -990,6 +1017,72 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=connection.platform_instance,
             env=connection.env,
         )
+
+    def _resolve_datasphere_column_lineage(
+        self, dataset_urn: str, upstream_urn: str
+    ) -> Tuple[List[FineGrainedLineageClass], Optional[MetadataWorkUnit]]:
+        # SAC exposes no columns for Live Data Models, so the field list is taken from
+        # the upstream SAP Datasphere dataset's schema in the DataHub graph. The live
+        # model is a passthrough, so that schema is mirrored onto the SAC dataset and
+        # each field is mapped to itself. Best-effort: an unavailable graph or upstream
+        # schema degrades to table-level lineage only.
+        if not self.config.resolve_datasphere_column_lineage:
+            return [], None
+
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere column lineage needs a DataHub graph",
+                message=(
+                    "Column-level lineage for DWC-backed models resolves the upstream "
+                    "schema from DataHub, which requires a datahub_api/graph connection. "
+                    "Emitting table-level lineage only; set "
+                    "resolve_datasphere_column_lineage=false to silence this."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        upstream_schema = graph.get_aspect(upstream_urn, SchemaMetadataClass)
+        if upstream_schema is None or not upstream_schema.fields:
+            self.report.dwc_column_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere upstream schema not found",
+                message=(
+                    "The upstream SAP Datasphere dataset has no schema in DataHub "
+                    "(ingest SAP Datasphere first). Emitting table-level lineage only."
+                ),
+                context=upstream_urn,
+            )
+            return [], None
+
+        # Mirror the upstream schema onto the SAC dataset so downstream field urns
+        # resolve, and map each field to its identical upstream counterpart.
+        schema_workunit = MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=upstream_schema.schemaName,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=upstream_schema.fields,
+                primaryKeys=upstream_schema.primaryKeys,
+            ),
+        ).as_workunit()
+
+        fine_grained = [
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[make_schema_field_urn(upstream_urn, field.fieldPath)],
+                downstreams=[make_schema_field_urn(dataset_urn, field.fieldPath)],
+            )
+            for field in upstream_schema.fields
+        ]
+        self.report.dwc_column_lineage_resolved += 1
+        return fine_grained, schema_workunit
 
     def get_schema_field_data_type(
         self, column: ImportDataModelColumn
