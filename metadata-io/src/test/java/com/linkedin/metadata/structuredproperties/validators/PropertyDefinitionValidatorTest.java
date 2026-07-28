@@ -1,12 +1,9 @@
 package com.linkedin.metadata.structuredproperties.validators;
 
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,15 +11,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
-import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
-import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
@@ -30,15 +24,9 @@ import com.linkedin.structured.PropertyValueArray;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
-import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import org.mockito.Mockito;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class PropertyDefinitionValidatorTest {
@@ -46,23 +34,15 @@ public class PropertyDefinitionValidatorTest {
   private EntityRegistry entityRegistry;
   private Urn testPropertyUrn;
   private RetrieverContext mockRetrieverContext;
-  private OperationContext operationContext;
-  private AspectRetriever mockAspectRetriever;
-  private StructuredPropertyMappingLookup mockStructuredPropertyMappingLookup;
 
-  @BeforeMethod
-  public void init() throws IOException {
+  @BeforeTest
+  public void init() {
     entityRegistry = new TestEntityRegistry();
-    operationContext = mock(OperationContext.class);
     testPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
-    mockAspectRetriever = mock(AspectRetriever.class);
+    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
-    when(mockAspectRetriever.entityExists(any(), any())).thenReturn(map);
-    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenReturn(Collections.emptyMap());
-    mockStructuredPropertyMappingLookup = mock(StructuredPropertyMappingLookup.class);
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), any())).thenReturn(false);
+    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -84,7 +64,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -108,7 +87,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setCardinality(PropertyCardinality.MULTIPLE);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -133,7 +111,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -158,7 +135,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -182,7 +158,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -207,7 +182,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -231,7 +205,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setDisplayName("newProp");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -255,7 +228,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setQualifiedName("newProp");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -280,7 +252,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion("00000000000001");
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -308,7 +279,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setVersion(null, SetMode.REMOVE_IF_NULL);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -320,7 +290,6 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues((new PropertyValueArray(allowedValue, oldAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -350,7 +319,6 @@ public class PropertyDefinitionValidatorTest {
 
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -362,7 +330,6 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues((new PropertyValueArray(allowedValue, oldAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -389,7 +356,6 @@ public class PropertyDefinitionValidatorTest {
     oldProperty.setAllowedValues(new PropertyValueArray(allowedValue));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -401,7 +367,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setAllowedValues((new PropertyValueArray(allowedValue, newAllowedValue)));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -433,7 +398,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setAllowedValues(new PropertyValueArray(newAllowedValue));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -452,7 +416,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -471,7 +434,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -488,7 +450,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -506,7 +467,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -524,7 +484,6 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
@@ -534,16 +493,14 @@ public class PropertyDefinitionValidatorTest {
   @Test
   public void testEntityTypeDoesNotExistInAllowedTypes()
       throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
-    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
     map.put(UrnUtils.getUrn("urn:li:entityType:datahub.fakeEntity"), false);
-    when(aspectRetriever.entityExists(any(), any())).thenReturn(map);
-    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenReturn(Collections.emptyMap());
+    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     RetrieverContext retrieverContext = mock(RetrieverContext.class);
-    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    when(retrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
     when(retrieverContext.getGraphRetriever()).thenReturn(mockGraphRetriever);
 
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
@@ -554,9 +511,7 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
-                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
-                retrieverContext)
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry), retrieverContext)
             .count(),
         1);
   }
@@ -574,121 +529,10 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setTypeQualifier(typeQualifier);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
-                operationContext,
                 TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
                 mockRetrieverContext)
             .count(),
         1);
-  }
-
-  @Test
-  public void testRejectsElasticsearchFieldNameCollisionWithExistingProperty()
-      throws URISyntaxException, IOException {
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition newDefinition =
-        createCollisionTestDefinition("certification_status");
-
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
-        .thenReturn(true);
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        1);
-  }
-
-  @Test
-  public void testAllowsCreateWhenNormalizedNamesDiffer() throws URISyntaxException {
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition newDefinition =
-        createCollisionTestDefinition("certification_status");
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        0);
-  }
-
-  @Test
-  public void testAllowsUpsertOfExistingDefinitionWithoutMappingLookup()
-      throws URISyntaxException, IOException {
-    // When a definition already exists for the URN the write is an update; the qualified name is
-    // immutable, so the mapping-backed collision check must be skipped entirely.
-    Urn urn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition existing = createCollisionTestDefinition("certification_status");
-    StructuredPropertyDefinition updated = createCollisionTestDefinition("certification_status");
-    updated.setDisplayName("updated display");
-
-    when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any()))
-        .thenReturn(
-            Map.of(
-                urn,
-                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(existing.data()))));
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(urn, updated, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        0);
-    Mockito.verify(mockStructuredPropertyMappingLookup, Mockito.never()).fieldExists(any(), any());
-  }
-
-  @Test
-  public void testRejectsInBatchElasticsearchFieldCollision() throws URISyntaxException {
-    Urn urnA = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
-    Urn urnB = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition defA = createCollisionTestDefinition("certification.status");
-    StructuredPropertyDefinition defB = createCollisionTestDefinition("certification_status");
-
-    Set<ChangeMCP> batch = new java.util.HashSet<>();
-    batch.addAll(TestMCP.ofOneMCP(urnA, defA, entityRegistry));
-    batch.addAll(TestMCP.ofOneMCP(urnB, defB, entityRegistry));
-
-    long exceptionCount =
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext, batch, mockRetrieverContext, mockStructuredPropertyMappingLookup)
-            .count();
-    assertTrue(exceptionCount >= 1);
-  }
-
-  @Test
-  public void testFailsClosedWhenMappingLookupFails() throws URISyntaxException, IOException {
-    Urn newUrn = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
-    StructuredPropertyDefinition newDefinition =
-        createCollisionTestDefinition("certification_status");
-
-    when(mockStructuredPropertyMappingLookup.fieldExists(any(), eq("certification_status")))
-        .thenThrow(new IOException("mapping backend unavailable"));
-
-    assertEquals(
-        PropertyDefinitionValidator.validateDefinitionUpsertsProposed(
-                operationContext,
-                TestMCP.ofOneMCP(newUrn, newDefinition, entityRegistry),
-                mockRetrieverContext,
-                mockStructuredPropertyMappingLookup)
-            .count(),
-        1);
-  }
-
-  private StructuredPropertyDefinition createCollisionTestDefinition(String qualifiedName)
-      throws URISyntaxException {
-    return new StructuredPropertyDefinition()
-        .setEntityTypes(new UrnArray(Urn.createFromString("urn:li:entityType:datahub.dataset")))
-        .setDisplayName(qualifiedName)
-        .setQualifiedName(qualifiedName)
-        .setCardinality(PropertyCardinality.MULTIPLE)
-        .setValueType(Urn.createFromString("urn:li:dataType:datahub.string"));
   }
 
   private StructuredPropertyDefinition createValidPropertyDefinition() throws URISyntaxException {

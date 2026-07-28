@@ -7,11 +7,9 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPropertyMappingLookup;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
-import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
@@ -29,14 +27,6 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 public class MappingsBuilderFactory {
 
-  @Bean
-  @Nonnull
-  protected StructuredPropertyMappingLookup structuredPropertyMappingLookup(
-      @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
-      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
-    return new SearchEngineStructuredPropertyMappingLookup(searchClient, indexConvention);
-  }
-
   @Bean("legacyMappingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
@@ -44,10 +34,8 @@ public class MappingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier("searchClientShim") SearchClientShim<?> searchClient) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     log.info("Creating LegacyMappingsBuilder bean (engineType={})", searchClient.getEngineType());
-    return new V2MappingsBuilder(
-        entityIndexConfig, searchClient.partialNgramConfig(), keywordMaxLength);
+    return new V2MappingsBuilder(entityIndexConfig, searchClient.partialNgramConfig());
   }
 
   @Bean("multiEntityMappingsBuilder")
@@ -55,10 +43,9 @@ public class MappingsBuilderFactory {
   @Nonnull
   protected MappingsBuilder createMultiEntityMappingsBuilder(ConfigurationProvider configProvider) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    int keywordMaxLength = resolveKeywordMaxLength(configProvider);
     log.info("Creating MultiEntityMappingsBuilder bean");
     try {
-      return new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength);
+      return new MultiEntityMappingsBuilder(entityIndexConfig);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
@@ -118,9 +105,5 @@ public class MappingsBuilderFactory {
     }
 
     return new DelegatingMappingsBuilder(builders);
-  }
-
-  private static int resolveKeywordMaxLength(@Nonnull ConfigurationProvider configProvider) {
-    return configProvider.getStructuredProperties().getKeywordMaxLength();
   }
 }
