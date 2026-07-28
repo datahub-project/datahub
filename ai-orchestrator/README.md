@@ -13,46 +13,66 @@ answer back to the UI over SSE.
 Browser (AIChatButton) --POST /api/ai/chat--> Orchestrator (this) --> Claude API
                         <----- SSE tokens -----            |
                                                            v
-                                              DataHub tools (GraphQL) --> DataHub GMS
+                                    DataHub MCP server (container) --> DataHub GMS
 ```
+
+The MCP session is opened **once** at startup and reused for every request
+(`PersistentMCP` in `mcp_tools.py`), so no server is spawned per chat message.
+A background task owns the session and auto-reconnects if it drops.
 
 Files:
 
-- `main.py` — FastAPI server, SSE endpoint, config endpoints
+- `main.py` — FastAPI server, SSE endpoint, config endpoints, MCP lifespan
 - `agent.py` — model-agnostic agent loop (tool-use cycle)
-- `mcp_tools.py` — MCP client: connects to DataHub's MCP server via stdio (`uvx`) or HTTP
-- `datahub_tools.py` — fallback GraphQL tool definitions (used before MCP integration)
+- `mcp_tools.py` — persistent MCP session, tool discovery and execution
+- `mcp-server/Dockerfile` — standalone MCP server image (pinned version)
+- `docker-compose.mcp.yml` — runs that MCP server on `127.0.0.1:8001`
+- `datahub_tools.py` — legacy direct-GraphQL tools, kept for reference only
 
 ## Run locally
 
+Prerequisite: a running DataHub — `scripts/dev/datahub-dev.sh start`.
+
+### 1. Secrets
+
+Create `.env` (gitignored):
+
 ```bash
-cd ai-orchestrator
+ANTHROPIC_API_KEY=sk-ant-...
+DATAHUB_GMS_TOKEN=<pat>                     # required when GMS auth is enabled
+DATAHUB_TELEMETRY_ENABLED=false             # avoids slow telemetry retries
+DATAHUB_MCP_URL=http://localhost:8001/mcp   # use the containerised MCP server
+```
+
+Quickstart GMS runs with `METADATA_SERVICE_AUTH_ENABLED=true`, so a Personal Access
+Token is needed. Generate one from the UI: Settings → Access Tokens.
+
+### 2. MCP server
+
+```bash
+docker compose -f docker-compose.mcp.yml up -d --build
+docker compose -f docker-compose.mcp.yml ps   # expect healthy
+```
+
+Published on loopback only — the endpoint carries a DataHub token and the OSS server
+does not authenticate callers itself. Bump the pinned server version via
+`MCP_SERVER_DATAHUB_VERSION` in `mcp-server/Dockerfile`.
+
+### 3. Orchestrator
+
+```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-export ANTHROPIC_API_KEY="sk-ant-..."     # required
-export ANTHROPIC_MODEL="claude-sonnet-5"  # optional
-
-# --- Tool source: DataHub's MCP server ---
-# Option A (default): stdio — spawns `uvx mcp-server-datahub` against your GMS.
-#   Requires `uv` installed (https://github.com/astral-sh/uv).
-export DATAHUB_GMS_URL="http://localhost:8080"      # your DataHub GMS (local or remote)
-export DATAHUB_GMS_TOKEN="<pat>"                    # optional (if GMS auth is on)
-
-# IMPORTANT: disable DataHub telemetry, otherwise the MCP server tries to reach
-# track.datahubproject.io on every request and times out (~30s retries) before
-# Claude can respond. Disabling drops response time from ~35s to ~3s.
-export DATAHUB_TELEMETRY_ENABLED=false
-
-
-# Use the venv's uvicorn directly to avoid conflicts with system-installed versions
-.venv/bin/uvicorn main:app --port 8000 --reload
+uvicorn main:app --port 8000 --reload
 ```
 
-> ⚡ **Slow responses?** If chat replies take ~30-40s, you almost certainly forgot
-> `DATAHUB_TELEMETRY_ENABLED=false`. This is an env-var-only fix — no code changes.
+Startup logs a single `MCP connected (N tools).` line.
 
-Test:
+> ⚡ **Slow responses without the MCP container?** Add `DATAHUB_TELEMETRY_ENABLED=false`
+> to your `.env`. The MCP server's telemetry retries (~30s) are the bottleneck.
+
+## Test
 
 ```bash
 curl -N -X POST http://localhost:8000/api/ai/chat \

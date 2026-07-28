@@ -16,16 +16,29 @@ from __future__ import annotations
 import json
 import os
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from agent import run_agent
+from mcp_tools import get_mcp, shutdown_mcp
 import mysql.connector
 import uuid
 
-app = FastAPI(title="DataHub AI Orchestrator")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize DB tables and warm the MCP session so the first chat isn't slow.
+    init_db()
+    await get_mcp()
+    yield
+    await shutdown_mcp()
+
+
+app = FastAPI(title="DataHub AI Orchestrator", lifespan=lifespan)
 
 # Allow the Vite dev server (localhost:3000) and Docker frontend (9002) to call us.
 app.add_middleware(
@@ -164,12 +177,6 @@ def init_db():
     finally:
         cursor.close()
         conn.close()
-
-
-@app.on_event("startup")
-def startup_event():
-    """Runs database setup automatically on API start."""
-    init_db()
 
 
 class SessionCreate(BaseModel):

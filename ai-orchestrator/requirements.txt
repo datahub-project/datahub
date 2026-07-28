@@ -1,8 +1,7 @@
-fastapi
-uvicorn[standard]
-anthropic
-mcp
-httpx
-pydantic
-
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+anthropic==0.120.0
+mcp==1.28.1
+httpx==0.28.1
+pydantic==2.13.4
 mysql-connector-python
