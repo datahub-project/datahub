@@ -155,6 +155,15 @@ def _seed_test_data() -> None:
 # ``tests/unit/kinesis/test_kinesis_firehose*``). We assert this is the *only*
 # warning rather than dropping warning-checking wholesale, so any new/unexpected
 # warning still fails the test.
+#
+# Required Floci fix (tested against floci/floci:1.5.33): CreateDeliveryStream
+# accepts a ``KinesisStreamSourceConfiguration`` but DescribeDeliveryStream drops
+# it — ``Source`` comes back null instead of echoing
+# ``Source.KinesisStreamSourceDescription.KinesisStreamARN``. Once Floci persists
+# and returns that ARN, drop the waiver below and assert the golden carries the
+# Kinesis→Firehose upstream edge. The lost golden coverage is recovered locally by
+# ``test_source_stream_urn_matches_stream_extractor_urn`` in
+# ``tests/unit/kinesis/test_kinesis_firehose.py``.
 _EXPECTED_WARNING_TITLE = "Unresolved Firehose source stream"
 
 
