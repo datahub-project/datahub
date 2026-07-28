@@ -1600,7 +1600,10 @@ class SQLAlchemyProfiler:
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
+                isolation_level = adapter.profiling_isolation_level()
                 with self.base_engine.connect() as conn:
+                    if isolation_level is not None:
+                        conn = conn.execution_options(isolation_level=isolation_level)
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     try:

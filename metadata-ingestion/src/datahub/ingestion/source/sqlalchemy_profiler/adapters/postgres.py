@@ -178,3 +178,19 @@ class PostgresAdapter(PlatformAdapter):
                 f"Failed to get PostgreSQL row count estimate: {type(e).__name__}: {str(e)}"
             )
             return None
+
+    # =========================================================================
+    # Connection Isolation
+    # =========================================================================
+
+    def profiling_isolation_level(self) -> Optional[str]:
+        # Postgres holds an implicit transaction across every query on a connection
+        # that does not set an isolation level, which for a large table means a
+        # long-lived transaction. PostgresAdapter creates no temp resources and does
+        # not override setup_profiling, so switching to AUTOCOMMIT is safe and removes
+        # the long transaction. The trade-off is that min/max/COUNT(*)/COUNT(col) come
+        # from different snapshots on a concurrently written table; the profiler
+        # already clamps derived counts (null_count via max(0, row_count -
+        # non_null_count), nullProportion/uniqueProportion via min(1, ...)) to
+        # tolerate that skew.
+        return "AUTOCOMMIT"

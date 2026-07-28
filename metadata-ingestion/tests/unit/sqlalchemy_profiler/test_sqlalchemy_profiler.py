@@ -200,6 +200,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = PermissionError(
                 "permission denied"
             )
@@ -241,6 +242,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = PermissionError(
                 "permission denied"
             )
@@ -271,6 +273,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
                 "database error", None, None
             )
@@ -311,6 +314,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
                 "database error", None, None
             )
@@ -341,6 +345,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = ConnectionError(
                 "connection lost"
             )
@@ -379,6 +384,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -415,6 +421,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("unexpected error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -441,6 +448,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_adapter.setup_profiling.side_effect = RuntimeError("test error")
             mock_get_adapter.return_value = mock_adapter
 
@@ -641,6 +649,7 @@ class TestSQLAlchemyProfiler:
         ):
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
 
             # Setup succeeds but subsequent profiling will fail
             # We raise an exception that will propagate through the profiling pipeline
@@ -715,6 +724,7 @@ class TestSQLAlchemyProfiler:
 
             # Create mock adapter and mock context
             mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
             mock_context = MagicMock()
             mock_context.sql_table = sql_table
             mock_adapter.setup_profiling.return_value = mock_context
@@ -745,3 +755,70 @@ class TestSQLAlchemyProfiler:
             ), (
                 f"Expected no field profiles for empty table, got {len(result_profile.fieldProfiles) if result_profile.fieldProfiles else 0}"
             )
+
+
+class TestProfilingIsolationLevel:
+    """The profiler must apply the adapter's profiling_isolation_level to the connection."""
+
+    def _make_profiler(self, profiler):
+        # Short-circuit after the connection is opened so we can assert on the
+        # execution_options call without driving the full profile flow.
+        profiler.config.catch_exceptions = True
+        return profiler
+
+    def test_applies_autocommit_when_adapter_opts_in(self, profiler):
+        self._make_profiler(profiler)
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+            mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = "AUTOCOMMIT"
+            # Raise to short-circuit past setup_profiling; catch_exceptions swallows it.
+            mock_adapter.setup_profiling.side_effect = RuntimeError("short-circuit")
+            mock_get_adapter.return_value = mock_adapter
+
+            result = profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="my_db.my_table",
+                schema="my_db",
+                table="my_table",
+                platform="mysql",
+            )
+
+        assert result is None  # short-circuited
+        mock_conn.execution_options.assert_called_once_with(
+            isolation_level="AUTOCOMMIT"
+        )
+
+    def test_does_not_apply_options_when_adapter_returns_none(self, profiler):
+        self._make_profiler(profiler)
+        mock_conn = MagicMock()
+
+        with (
+            patch.object(profiler, "base_engine") as mock_engine,
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.get_adapter"
+            ) as mock_get_adapter,
+        ):
+            mock_engine.connect.return_value.__enter__.return_value = mock_conn
+            mock_adapter = MagicMock()
+            mock_adapter.profiling_isolation_level.return_value = None
+            mock_adapter.setup_profiling.side_effect = RuntimeError("short-circuit")
+            mock_get_adapter.return_value = mock_adapter
+
+            result = profiler._generate_single_profile(
+                query_combiner=MagicMock(),
+                pretty_name="my_db.my_table",
+                schema="my_db",
+                table="my_table",
+                platform="sqlite",
+            )
+
+        assert result is None  # short-circuited
+        mock_conn.execution_options.assert_not_called()

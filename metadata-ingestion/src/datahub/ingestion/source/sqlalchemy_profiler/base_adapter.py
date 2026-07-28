@@ -117,6 +117,25 @@ class PlatformAdapter(ABC):
         # Default implementation: no temp resources to clean up
         return
 
+    def profiling_isolation_level(self) -> Optional[str]:
+        """
+        Isolation level to apply to the profiling connection, or None to keep the default.
+
+        Adapters that create no session-scoped temp resources and whose profiling
+        queries do not need a single consistent snapshot may return "AUTOCOMMIT" to
+        avoid holding a long-lived transaction across all profiling stages. This is
+        the correct mechanism (vs. connect_args autocommit) because it routes through
+        the dialect's autocommit API.
+
+        Adapters that create temp tables/views in setup_profiling, or that rely on a
+        consistent snapshot across queries, should return None (the default) until
+        individually reviewed.
+
+        Returns:
+            A SQLAlchemy isolation level name (e.g. "AUTOCOMMIT"), or None.
+        """
+        return None
+
     # =========================================================================
     # Identifier Quoting
     # =========================================================================
