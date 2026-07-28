@@ -5,6 +5,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
@@ -16,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
@@ -37,6 +39,7 @@ public class AssertionService extends BaseService {
   private final GraphClient _graphClient;
 
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
+  private static final String MONITOR_EVALUATES_RELATIONSHIP_NAME = "Evaluates";
 
   public AssertionService(
       @Nonnull SystemEntityClient entityClient, @Nonnull GraphClient graphClient) {
@@ -80,6 +83,60 @@ public class AssertionService extends BaseService {
           String.format("Failed to retrieve entity for assertion with urn %s", assertionUrn), e);
     }
     return null;
+  }
+
+  /** Retrieves the monitor that evaluates an assertion, if one exists. */
+  public @Nullable Urn getMonitorUrnForAssertion(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              assertionUrn.toString(),
+              ImmutableSet.of(MONITOR_EVALUATES_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              0,
+              1,
+              opContext.getActorContext().getActorUrn().toString());
+      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
+        return relationships.getRelationships().get(0).getEntity();
+      }
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve monitor for assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  /** Retrieves the indexed run summary for an assertion, if one exists. */
+  @Nullable
+  public AssertionRunSummary getAssertionRunSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      final EntityResponse response =
+          this.entityClient.getV2(
+              opContext,
+              Constants.ASSERTION_ENTITY_NAME,
+              assertionUrn,
+              ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME));
+      if (response == null
+          || !response.getAspects().containsKey(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)) {
+        return null;
+      }
+      return new AssertionRunSummary(
+          response.getAspects().get(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME).getValue().data());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve run summary for assertion with urn %s", assertionUrn),
+          e);
+    }
+  }
+
+  /** Applies a partial update to an assertion run summary. */
+  public void patchAssertionRunSummary(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder)
+      throws Exception {
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }
 
   /**
