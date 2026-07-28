@@ -111,7 +111,9 @@ class SnowflakeStagesExtractor:
                     stage_key=stage_key,
                 )
             else:
-                lookup_entry.dataset_urn = self._resolve_external_stage_url(stage.url)
+                lookup_entry.dataset_urn = self._resolve_external_stage_url(
+                    stage.url, stage_identifier
+                )
 
             self.stage_lookup[stage_identifier] = lookup_entry
 
@@ -209,14 +211,42 @@ class SnowflakeStagesExtractor:
             dataset_urn=dataset_urn,
         )
 
-    def _resolve_external_stage_url(self, url: Optional[str]) -> Optional[str]:
+    def _resolve_external_stage_url(
+        self, url: Optional[str], stage_identifier: str
+    ) -> Optional[str]:
         if not url:
+            self.report.num_stage_external_lineage_dropped += 1
+            self.report.info(
+                title="External stage has no URL",
+                message="External stage reported no location, so no lineage was emitted for it.",
+                context=f"stage={stage_identifier}",
+            )
             return None
-        urn = self.config.datalake_lineage_config.get_urn_for_lineage(
-            url, self.config.env, mode=PathMode.DIRECTORY
-        )
+        try:
+            urn = self.config.datalake_lineage_config.get_urn_for_lineage(
+                url, self.config.env, mode=PathMode.DIRECTORY
+            )
+        except Exception as e:
+            # One malformed stage location must not abort stage/task/pipe extraction
+            # for the whole ingestion run.
+            self.report.num_stage_external_lineage_dropped += 1
+            self.report.warning(
+                title="Failed to resolve external stage location",
+                message="Could not build a dataset URN for this stage location, so no "
+                "lineage was emitted for it.",
+                context=f"stage={stage_identifier}, url={url}",
+                exc=e,
+            )
+            return None
         if urn is None:
             self.report.num_stage_external_lineage_dropped += 1
+            self.report.info(
+                title="External stage lineage not resolved",
+                message="Stage location did not resolve to a dataset URN, so no lineage "
+                "was emitted for it. Check datalake_lineage_config.path_specs and "
+                "that the location's scheme is supported (s3://, gcs://, azure://).",
+                context=f"stage={stage_identifier}, url={url}",
+            )
         else:
             self.report.num_stage_external_lineage_resolved += 1
         return urn
