@@ -43,6 +43,9 @@ public class UpdateIndicesServiceFactory {
   @Value("${elasticsearch.search.graph.graphStatusEnabled}")
   private boolean graphStatusEnabled;
 
+  @Value("${graphService.edgeFanoutCap:2147483647}")
+  private int graphEdgeFanoutCap;
+
   /** Creates a collection of UpdateIndicesStrategy instances based on Spring beans. */
   private Collection<UpdateIndicesStrategy> createStrategies(
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
@@ -101,7 +104,8 @@ public class UpdateIndicesServiceFactory {
             graphService,
             graphDiffMode,
             graphStatusEnabled,
-            fineGrainedLineageNotAllowedForPlatforms),
+            fineGrainedLineageNotAllowedForPlatforms,
+            graphEdgeFanoutCap),
         entitySearchService,
         systemMetadataService,
         strategies,

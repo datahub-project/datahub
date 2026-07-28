@@ -376,6 +376,10 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  # RFC-0b: hard cap on edges written per aspect change. Default Integer.MAX_VALUE = no truncation
+  # (metric-only, dark). Lower once datahub.hook.fanout.size reveals a safe ceiling; cap-hits WARN
+  # and emit datahub.hook.fanout.cap_hit.
+  edgeFanoutCap: ${GRAPH_SERVICE_EDGE_FANOUT_CAP:2147483647}
   limit:
     results:
       max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries

@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.listener;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
+import com.linkedin.metadata.utils.HookExecutionContext;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
@@ -185,6 +186,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                   log.debug(
                       "Invoking hook {} for event: {}", hookName, getEventDisplayString(event));
                   try {
+                    HookExecutionContext.set(hookName);
                     hook.invoke(eventContext, event);
                     updateMetrics(hookName, event);
                   } catch (Exception e) {
@@ -203,6 +205,8 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                     currentSpan.recordException(e);
                     currentSpan.setStatus(StatusCode.ERROR, e.getMessage());
                     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, e.getClass().getName());
+                  } finally {
+                    HookExecutionContext.clear();
                   }
                 },
                 Stream.concat(

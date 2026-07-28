@@ -37,6 +37,12 @@ public class MetricUtils {
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
   public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
 
+  /* MAE-consumer hook observability (RFC-0). Tag by "hook" (simple class name). */
+  public static final String DATAHUB_HOOK_EXTERNAL_READS = "datahub.hook.external.reads";
+  public static final String DATAHUB_HOOK_FANOUT_SIZE = "datahub.hook.fanout.size";
+  public static final String DATAHUB_HOOK_FANOUT_CAP_HIT = "datahub.hook.fanout.cap_hit";
+  public static final String HOOK_TAG = "hook";
+
   public static final String MESSAGING_SYSTEM_KAFKA = "kafka";
   public static final String MESSAGING_SYSTEM_PGQUEUE = "pgqueue";
   public static final String MESSAGING_TOPIC = "topic";
@@ -204,6 +210,14 @@ public class MetricUtils {
         micrometerDistributionCache.computeIfAbsent(
             cacheKey, key -> DistributionSummary.builder(metricName).tags(tags).register(registry));
     summary.record(value);
+  }
+
+  /**
+   * Records the realized fan-out width of a hook (RFC-0) on {@link #DATAHUB_HOOK_FANOUT_SIZE},
+   * tagged by hook. Single emission point shared by all fan-out sites and {@code BoundedFanout}.
+   */
+  public void recordHookFanout(long size, String hookName) {
+    recordDistribution(DATAHUB_HOOK_FANOUT_SIZE, size, HOOK_TAG, hookName);
   }
 
   /**

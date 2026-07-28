@@ -11,7 +11,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.context.inbound.InboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
-import com.linkedin.metadata.trace.TraceServiceImpl;
+import com.linkedin.metadata.utils.HookExecutionContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -19,7 +19,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -112,20 +111,7 @@ public class MCLBatchKafkaListener
   protected void updateMetrics(String hookName, MetadataChangeLog event) {
     systemOperationContext
         .getMetricUtils()
-        .ifPresent(
-            metricUtils -> {
-              Long requestEpochMillis =
-                  TraceServiceImpl.extractTraceIdEpochMillis(event.getSystemMetadata());
-              if (requestEpochMillis != null) {
-                long queueTimeMs = System.currentTimeMillis() - requestEpochMillis;
-
-                // request
-                metricUtils
-                    .getRegistry()
-                    .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
-                    .record(Duration.ofMillis(queueTimeMs));
-              }
-            });
+        .ifPresent(metricUtils -> MclHookMetrics.recordHookQueueTime(metricUtils, event, hookName));
   }
 
   @Override
@@ -213,6 +199,7 @@ public class MCLBatchKafkaListener
                 () -> {
                   log.debug("Invoking hook {} for batch of {} MCLs", hookName, mcls.size());
                   try {
+                    HookExecutionContext.set(hookName);
                     // Always call invokeBatch - hooks that don't support batch processing
                     // will fall back to individual processing via the default implementation
                     hook.invokeBatch(sliceContext, mcls);
@@ -245,6 +232,8 @@ public class MCLBatchKafkaListener
                     currentSpan.recordException(e);
                     currentSpan.setStatus(StatusCode.ERROR, e.getMessage());
                     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, e.getClass().getName());
+                  } finally {
+                    HookExecutionContext.clear();
                   }
                 },
                 MetricUtils.DROPWIZARD_NAME,

@@ -73,6 +73,7 @@ public class UpdateGraphIndicesServiceTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   private UpdateGraphIndicesService test;
+  private ElasticSearchGraphService graphService;
   private ESBulkProcessor mockESBulkProcessor;
   private ESGraphWriteDAO mockWriteDAO;
   private ESGraphQueryDAO mockReadDAO;
@@ -84,17 +85,16 @@ public class UpdateGraphIndicesServiceTest {
     mockWriteDAO = mock(ESGraphWriteDAO.class);
     mockReadDAO = mock(ESGraphQueryDAO.class);
 
-    test =
-        new UpdateGraphIndicesService(
-            new ElasticSearchGraphService(
-                new LineageRegistry(entityRegistry),
-                mockESBulkProcessor,
-                IndexConventionImpl.noPrefix(
-                    "md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION),
-                mockWriteDAO,
-                mockReadDAO,
-                mock(ESIndexBuilder.class),
-                "md5"));
+    graphService =
+        new ElasticSearchGraphService(
+            new LineageRegistry(entityRegistry),
+            mockESBulkProcessor,
+            IndexConventionImpl.noPrefix("md5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION),
+            mockWriteDAO,
+            mockReadDAO,
+            mock(ESIndexBuilder.class),
+            "md5");
+    test = new UpdateGraphIndicesService(graphService);
   }
 
   @BeforeMethod
@@ -500,6 +500,36 @@ public class UpdateGraphIndicesServiceTest {
     // Verify that we have documents for both the update and the addition
     assertTrue(documents.stream().anyMatch(doc -> doc.contains("updatedUser")));
     assertTrue(documents.stream().anyMatch(doc -> doc.contains(upstream3.toString())));
+  }
+
+  @Test
+  public void testEdgeFanoutCapTruncatesWrites() throws URISyntaxException {
+    // Full-rewrite path (diff mode off) re-adds every edge, so edgeFanoutCap bounds the writes.
+    UpdateGraphIndicesService capped =
+        new UpdateGraphIndicesService(graphService, false, true, List.of(), 3);
+
+    // 5 upstream edges against a cap of 3.
+    UpstreamArray upstreams = new UpstreamArray();
+    for (int i = 1; i <= 5; i++) {
+      upstreams.add(
+          createUpstream(
+              UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,upstream" + i + ",PROD)")));
+    }
+    GenericAspect aspect =
+        GenericRecordUtils.serializeAspect(new UpstreamLineage().setUpstreams(upstreams));
+
+    capped.handleChangeEvent(
+        TEST_OP_CONTEXT,
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)
+            .setAspect(aspect));
+
+    // Only the first 3 of 5 edges are written; the rest are truncated by the cap.
+    verify(mockWriteDAO, times(3))
+        .upsertDocument(any(OperationContext.class), any(String.class), any(String.class));
   }
 
   // Helper method
