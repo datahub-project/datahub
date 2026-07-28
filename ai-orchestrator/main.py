@@ -68,6 +68,12 @@ async def health() -> dict:
     return {"status": "ok", "hasKey": bool(os.environ.get("ANTHROPIC_API_KEY"))}
 
 
+# Idle timeout: if a session has had no activity for this many minutes, its
+# prior context is considered "dead" and the conversation starts fresh.
+# (Mohit's session design: ~10 min idle → session expires.)
+SESSION_IDLE_TIMEOUT_MINUTES = 10
+
+
 @app.post("/api/ai/chat")
 async def chat(req: ChatRequest) -> StreamingResponse:
     # Load conversation history from MySQL if a session_id was provided
@@ -76,11 +82,36 @@ async def chat(req: ChatRequest) -> StreamingResponse:
         try:
             conn = get_db_connection()
             cursor = conn.cursor(dictionary=True)
+            # Only load history if the most recent message is within the idle
+            # window. TIMESTAMPDIFF returns minutes since the last message; if
+            # that exceeds the timeout the session is stale, so we skip its
+            # history (Claude answers fresh) and mark the session completed.
             cursor.execute(
-                "SELECT role, content FROM messages WHERE session_id = %s ORDER BY created_at ASC",
-                (req.session_id,)
+                """
+                SELECT role, content,
+                       TIMESTAMPDIFF(
+                           MINUTE,
+                           (SELECT MAX(created_at) FROM messages WHERE session_id = %s),
+                           NOW()
+                       ) AS idle_minutes
+                FROM messages
+                WHERE session_id = %s
+                ORDER BY created_at ASC
+                """,
+                (req.session_id, req.session_id),
             )
-            history = [{"role": r["role"], "content": r["content"]} for r in cursor.fetchall()]
+            rows = cursor.fetchall()
+            idle_minutes = rows[0]["idle_minutes"] if rows else 0
+            if rows and idle_minutes is not None and idle_minutes >= SESSION_IDLE_TIMEOUT_MINUTES:
+                # Session expired due to inactivity — drop context and mark it dead.
+                history = []
+                cursor.execute(
+                    "UPDATE sessions SET status = 'completed' WHERE id = %s",
+                    (req.session_id,),
+                )
+                conn.commit()
+            else:
+                history = [{"role": r["role"], "content": r["content"]} for r in rows]
             cursor.close()
             conn.close()
         except Exception:
