@@ -39,10 +39,18 @@ export ANTHROPIC_MODEL="claude-sonnet-5"  # optional
 export DATAHUB_GMS_URL="http://localhost:8080"      # your DataHub GMS (local or remote)
 export DATAHUB_GMS_TOKEN="<pat>"                    # optional (if GMS auth is on)
 
+# IMPORTANT: disable DataHub telemetry, otherwise the MCP server tries to reach
+# track.datahubproject.io on every request and times out (~30s retries) before
+# Claude can respond. Disabling drops response time from ~35s to ~3s.
+export DATAHUB_TELEMETRY_ENABLED=false
+
 
 # Use the venv's uvicorn directly to avoid conflicts with system-installed versions
 .venv/bin/uvicorn main:app --port 8000 --reload
 ```
+
+> ⚡ **Slow responses?** If chat replies take ~30-40s, you almost certainly forgot
+> `DATAHUB_TELEMETRY_ENABLED=false`. This is an env-var-only fix — no code changes.
 
 Test:
 
@@ -70,4 +78,34 @@ curl -X POST "http://127.0.0.1:8000/sessions" \
 
 curl -X  GET "http://127.0.0.1:8000/sessions/9cacfa60-7ad4-417a-acf4-44176d1ea7fe" \
      -H "Accept: application/json"
+```
+
+## Conversation Memory (multi-turn chat)
+
+The `/api/ai/chat` endpoint accepts an optional `session_id`. When present, the
+orchestrator:
+
+1. Loads all prior messages for that session from MySQL
+2. Passes them to the agent so Claude has full conversation context
+3. Saves the user message + assistant response back to MySQL
+
+The UI (`AIChatButton.tsx`) generates a `session_id` via `crypto.randomUUID()`
+once per browser tab and sends it in every request — so each tab is one
+continuous conversation.
+
+Verify memory works across two separate requests:
+
+```bash
+SID="demo-$(date +%s)"
+
+# Turn 1 — tell it something
+curl -sN -X POST http://localhost:8000/api/ai/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"message\":\"Remember the word PINEAPPLE\",\"session_id\":\"$SID\"}"
+
+# Turn 2 — same session, ask it to recall
+curl -sN -X POST http://localhost:8000/api/ai/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"message\":\"What word did I ask you to remember?\",\"session_id\":\"$SID\"}"
+# -> Claude replies "PINEAPPLE" (loaded from MySQL history)
 ```
