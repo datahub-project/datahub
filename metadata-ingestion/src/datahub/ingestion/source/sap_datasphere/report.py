@@ -48,9 +48,9 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     assets_with_unknown_edm_types: LossyList[str] = field(default_factory=LossyList)
     assets_with_unknown_cds_types: LossyList[str] = field(default_factory=LossyList)
     # CSN columns with no type key that also could NOT be resolved from a source
-    # object nor inferred as a measure — they degrade to StringType/"UNKNOWN".
-    # Expected for calculated/derived analytic-model columns. Distinct from
-    # unknown-but-present CDS types above.
+    # object nor inferred as a measure — they degrade to NullType (native
+    # "UNKNOWN"). Expected for calculated/derived analytic-model columns. Distinct
+    # from unknown-but-present CDS types above.
     assets_with_missing_cds_types: LossyList[str] = field(default_factory=LossyList)
     # Analytic-model elements carry no inline type; these were recovered by
     # following the projection to the source object's column type, or (for derived

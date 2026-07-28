@@ -3470,7 +3470,7 @@ def test_include_local_tables_emits_dataset_stubs(requests_mock):
 
 def test_local_table_unknown_cds_type_is_reported(requests_mock):
     """A Local Table column whose CDS type isn't in the parser's _TYPE_MAP must
-    still emit (as StringType) but be surfaced via the report + a warning, so the
+    still emit (as NullType) but be surfaced via the report + a warning, so the
     parser's unknown-type return is actually consumed end-to-end by the source."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
@@ -5867,7 +5867,7 @@ def test_source_does_not_override_get_workunits():
 def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
     # Analytic-model elements carry no inline type: an attribute and a measure are
     # recovered from the projection's source view, a derived measure is inferred
-    # numeric, and a non-measure with no source column stays String + is reported.
+    # numeric, and a non-measure with no source column stays NullType + is reported.
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
@@ -5921,7 +5921,7 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
     assert by_path["dim_a"] == "StringTypeClass"  # from source cds.String
     assert by_path["meas_x"] == "NumberTypeClass"  # from source cds.Decimal
     assert by_path["cc_derived"] == "NumberTypeClass"  # measure heuristic
-    assert by_path["mystery"] == "StringTypeClass"  # unresolved, stays String
+    assert by_path["mystery"] == "NullTypeClass"  # unresolved, stays NullType
 
     assert source.report.analytic_model_columns_typed_from_source == 2
     assert source.report.analytic_model_columns_typed_by_measure_heuristic == 1

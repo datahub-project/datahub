@@ -7,6 +7,7 @@ from datahub.ingestion.source.sap_datasphere.models import UnknownColumnType
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DateTypeClass,
+    NullTypeClass,
     NumberTypeClass,
     StringTypeClass,
 )
@@ -40,11 +41,12 @@ def test_parses_date_type():
     assert isinstance(fields[0].type.type, DateTypeClass)
 
 
-def test_parses_unknown_cds_type_as_string_with_warning_path():
-    """Unknown cds.* types fall back to StringType (native preserved) and are returned in unknown_types for reporting."""
+def test_parses_unknown_cds_type_as_null_with_warning_path():
+    """Unknown cds.* types fall back to NullType (unclassified), preserve the raw
+    CDS literal as native, and are returned in unknown_types for reporting."""
     elements = {"WEIRD": {"type": "cds.SomethingNew"}}
     result = parse_csn_elements_to_schema_fields(elements)
-    assert isinstance(result.fields[0].type.type, StringTypeClass)
+    assert isinstance(result.fields[0].type.type, NullTypeClass)
     assert "cds.SomethingNew" in result.fields[0].nativeDataType
     assert result.unknown_types == [
         UnknownColumnType(type="cds.SomethingNew", column="WEIRD")
@@ -58,7 +60,7 @@ def test_missing_type_key_is_tracked_separately_from_unknown():
         "EMPTY_TYPE": {"type": ""},
     }
     result = parse_csn_elements_to_schema_fields(elements)
-    assert all(isinstance(f.type.type, StringTypeClass) for f in result.fields)
+    assert all(isinstance(f.type.type, NullTypeClass) for f in result.fields)
     assert result.unknown_types == []
     assert set(result.columns_missing_type) == {"NO_TYPE", "EMPTY_TYPE"}
 

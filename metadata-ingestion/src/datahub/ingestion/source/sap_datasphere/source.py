@@ -1849,8 +1849,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             title="Unknown CDS field type(s)",
             message=(
                 "Field(s) have CDS types not in the connector's CSN _TYPE_MAP; those "
-                "columns fall back to StringType. Consider adding the type to the "
-                "connector."
+                "columns fall back to NullType (unclassified). Consider adding the "
+                "type to the connector."
             ),
             context=(
                 f"{space_name}.{asset_name}: "
@@ -1883,8 +1883,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             title="CSN column(s) missing a type",
             message=(
                 "Column(s) had no type in the CSN and could not be resolved from a "
-                "source object or inferred as a measure; they degrade to "
-                "StringType/UNKNOWN. Expected for calculated/derived analytic-model "
+                "source object or inferred as a measure; they degrade to NullType "
+                "(native UNKNOWN). Expected for calculated/derived analytic-model "
                 "columns."
             ),
             context=f"{space_name}.{asset_name}: " + ", ".join(missing),
@@ -1964,9 +1964,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if cached is not None:
             return cached
         # A projection ref is space-qualified (``SPACE.name``); a bare name is a
-        # same-space source. ponytail: only VIEWS is probed (its 404 retry also
-        # covers analytic models) — a local/remote-table source is not resolved and
-        # its columns fall back to the measure heuristic or stay StringType.
+        # same-space source. NOTE: only VIEWS is probed (its 404 retry also covers
+        # analytic models) — a local/remote-table source is not resolved and its
+        # columns fall back to the measure heuristic or stay NullType.
         space, _, name = source_object.partition(".")
         if not name:
             space, name = default_space, source_object
@@ -1977,7 +1977,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if isinstance(elements, dict):
             result = parse_csn_elements_to_schema_fields(elements)
             # Only propagate types we actually know: a typeless source column (e.g.
-            # a nested analytic model) must not overwrite with a bogus StringType.
+            # a nested analytic model) must not overwrite with a bogus NullType.
             typeless = set(result.columns_missing_type)
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless

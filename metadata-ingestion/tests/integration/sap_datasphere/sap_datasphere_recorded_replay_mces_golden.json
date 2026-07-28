@@ -288,7 +288,7 @@
                     "description": "BusinessPartner",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -308,7 +308,7 @@
                     "description": "BusinessPartner_Location",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -328,7 +328,7 @@
                     "description": "BW_ORDERID",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -348,7 +348,7 @@
                     "description": "BW_Athena_YEAR",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -368,7 +368,7 @@
                     "description": "BW_Athena_MONTH",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -388,7 +388,7 @@
                     "description": "BW_SALESAGENT",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -408,7 +408,7 @@
                     "description": "BW_Athena_COUNTRY",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -428,7 +428,7 @@
                     "description": "BW_Athena_CUSTOMERSTATUS",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -448,7 +448,7 @@
                     "description": "BW_Athena_PRODUCT",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -468,7 +468,7 @@
                     "description": "BW_Athena_PRODUCTTYPE",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -488,7 +488,7 @@
                     "description": "Opportunity_Id",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -508,7 +508,7 @@
                     "description": "ForecastCategory",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -528,7 +528,7 @@
                     "description": "HasOpenActivity",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -548,7 +548,7 @@
                     "description": "HasOpportunityLineItem",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -568,7 +568,7 @@
                     "description": "IsClosed",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -588,7 +588,7 @@
                     "description": "IsDeleted",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -608,7 +608,7 @@
                     "description": "IsWon",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -628,7 +628,7 @@
                     "description": "LeadSource",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -648,7 +648,7 @@
                     "description": "MainCompetitors",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -668,7 +668,7 @@
                     "description": "Name",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -688,7 +688,7 @@
                     "description": "OrderNumber",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -708,7 +708,7 @@
                     "description": "OrderNumber__c_0",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -728,7 +728,7 @@
                     "description": "Probability",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -748,7 +748,7 @@
                     "description": "StageName",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -768,7 +768,7 @@
                     "description": "Type",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -788,7 +788,7 @@
                     "description": "Sold to party",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -808,7 +808,7 @@
                     "description": "Company Code",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -828,7 +828,7 @@
                     "description": "BusinessPartnerCategory",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -848,7 +848,7 @@
                     "description": "BusinessPartnerName",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -868,7 +868,7 @@
                     "description": "CreationDate",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -888,7 +888,7 @@
                     "description": "LastChangeDate",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -908,7 +908,7 @@
                     "description": "BusinessPartnerIsBlocked",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -928,7 +928,7 @@
                     "description": "IsBusinessPurposeCompleted",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -948,7 +948,7 @@
                     "description": "OrganizationBPName",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -968,7 +968,7 @@
                     "description": "InternationalLocationNumber",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -988,7 +988,7 @@
                     "description": "LegalForm",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1008,7 +1008,7 @@
                     "description": "IsNaturalPerson",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1028,7 +1028,7 @@
                     "description": "BusinessPartnerGrouping",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1048,7 +1048,7 @@
                     "description": "BusinessPartnerType",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1068,7 +1068,7 @@
                     "description": "Risk_Class",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1088,7 +1088,7 @@
                     "description": "Rating_Payment_Behav",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1108,7 +1108,7 @@
                     "description": "Country",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1128,7 +1128,7 @@
                     "description": "Region",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1148,7 +1148,7 @@
                     "description": "State",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1168,7 +1168,7 @@
                     "description": "City",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1188,7 +1188,7 @@
                     "description": "City_Population",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1208,7 +1208,7 @@
                     "description": "Average_income_per_head_year",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1228,7 +1228,7 @@
                     "description": "Purchasing_Power_per_Year",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",
@@ -1248,7 +1248,7 @@
                     "description": "Location",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
                     "nativeDataType": "UNKNOWN",

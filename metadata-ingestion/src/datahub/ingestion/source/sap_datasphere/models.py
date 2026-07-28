@@ -213,9 +213,9 @@ class CsnSchemaResult(BaseModel):
     # their targets are turned into lineage edges by the lineage extractor.
     navigation_elements: List[str] = Field(default_factory=list)
     # Columns whose CSN element carried no (or an empty) type key — a structural
-    # concern distinct from an unknown-but-present type. They still emit as
-    # StringType/"UNKNOWN", but are surfaced so an operator can tell a genuine
-    # string column from one whose type the API failed to emit.
+    # concern distinct from an unknown-but-present type. They emit as NullType
+    # (native "UNKNOWN"), but are surfaced so an operator can tell a genuine typed
+    # column from one whose type the API failed to emit.
     columns_missing_type: List[str] = Field(default_factory=list)
 
 
