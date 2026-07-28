@@ -392,6 +392,7 @@ public class ESIndexBuilder {
                     && !copyStructuredPropertyMappings)
             .enableStructuredPropertyTypeMismatchReindex(
                 structPropConfig.isEnabled()
+                    && structPropConfig.isSystemUpdateEnabled()
                     && structPropConfig.isTypeMismatchReindexEnabled()
                     && !copyStructuredPropertyMappings)
             .version(gitVersion.getVersion())

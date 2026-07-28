@@ -15,26 +15,4 @@ public class StructuredPropertiesConfigurationTest {
     fromSetter.setKeywordMaxLength(2048);
     Assert.assertEquals(fromSetter.getKeywordMaxLength(), 2048);
   }
-
-  @Test
-  public void testShouldLoadStructuredPropertiesForSystemUpdate() {
-    Assert.assertFalse(
-        StructuredPropertiesConfiguration.builder()
-            .systemUpdateEnabled(false)
-            .typeMismatchReindexEnabled(false)
-            .build()
-            .shouldLoadStructuredPropertiesForSystemUpdate());
-    Assert.assertTrue(
-        StructuredPropertiesConfiguration.builder()
-            .systemUpdateEnabled(true)
-            .typeMismatchReindexEnabled(false)
-            .build()
-            .shouldLoadStructuredPropertiesForSystemUpdate());
-    Assert.assertTrue(
-        StructuredPropertiesConfiguration.builder()
-            .systemUpdateEnabled(false)
-            .typeMismatchReindexEnabled(true)
-            .build()
-            .shouldLoadStructuredPropertiesForSystemUpdate());
-  }
 }

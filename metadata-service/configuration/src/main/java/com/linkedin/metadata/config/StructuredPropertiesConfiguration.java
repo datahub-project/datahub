@@ -21,9 +21,10 @@ public class StructuredPropertiesConfiguration {
   private boolean systemUpdateEnabled;
 
   /**
-   * When true, system-update reindexes entity search indices whose structured-property field
-   * Elasticsearch types differ from the definition-driven target (e.g. dynamic {@code float}/{@code
-   * long} vs intended {@code double} for NUMBER). Independent of {@link #systemUpdateEnabled}.
+   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
+   * search indices whose structured-property field Elasticsearch types differ from the
+   * definition-driven target (e.g. dynamic {@code float}/{@code long} vs intended {@code double}
+   * for NUMBER). Both flags must be enabled for type-mismatch reindex to run.
    */
   private boolean typeMismatchReindexEnabled;
 
@@ -40,11 +41,4 @@ public class StructuredPropertiesConfiguration {
    * application.yaml}.
    */
   private int keywordMaxLength;
-
-  /**
-   * Whether system-update should load active structured property definitions into index targets.
-   */
-  public boolean shouldLoadStructuredPropertiesForSystemUpdate() {
-    return systemUpdateEnabled || typeMismatchReindexEnabled;
-  }
 }

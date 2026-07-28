@@ -58,9 +58,7 @@ public class BuildIndices implements BlockingSystemUpgrade {
         ElasticSearchUpgradeUtils.createElasticSearchIndexedServices(
             graphService, entitySearchService, systemMetadataService, timeseriesAspectService);
 
-    if (configurationProvider
-        .getStructuredProperties()
-        .shouldLoadStructuredPropertiesForSystemUpdate()) {
+    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
       _structuredProperties =
           ElasticSearchUpgradeUtils.getActiveStructuredPropertiesDefinitions(aspectDao);
     } else {

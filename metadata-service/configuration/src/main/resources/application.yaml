@@ -1512,6 +1512,7 @@ structuredProperties:
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
   # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
+  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
   # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
