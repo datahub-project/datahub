@@ -304,3 +304,35 @@ def test_get_abs_tags_emits_blob_tags(mock_blob_service_client_class):
         "urn:li:tag:team:data",
     }
     mock_blob_client.get_blob_tags.assert_called_once()
+
+
+def test_connection_string_account_matches_account_name():
+    """A connection string whose AccountName matches account_name is accepted."""
+    config = AzureConnectionConfig(
+        account_name="myacct",
+        container_name="c",
+        connection_string=(
+            "DefaultEndpointsProtocol=https;AccountName=myacct;"
+            "AccountKey=c3VwZXJzZWNyZXQ=;EndpointSuffix=core.windows.net"
+        ),
+    )
+    assert config.connection_string is not None
+
+
+def test_connection_string_account_diverges_from_account_name():
+    """A connection string whose AccountName differs from account_name is rejected.
+
+    Reads would use the connection string's account while dataset URNs would name
+    account_name — silent wrong lineage — so config parsing must fail fast.
+    """
+    from datahub.configuration.common import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="does not match AccountName"):
+        AzureConnectionConfig(
+            account_name="prod",
+            container_name="c",
+            connection_string=(
+                "DefaultEndpointsProtocol=https;AccountName=staging;"
+                "AccountKey=c3VwZXJzZWNyZXQ=;EndpointSuffix=core.windows.net"
+            ),
+        )

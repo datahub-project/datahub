@@ -13,6 +13,10 @@ class AzureConnectionConfig(ConfigModel):
     """
     Common Azure credentials config.
 
+    Reads use ``connection_string`` when set (it takes precedence over the other
+    credential fields); ``account_name`` still names the account in dataset URNs,
+    so its ``AccountName`` must match the connection string.
+
     https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-directory-file-acl-python
     """
 
@@ -112,3 +116,25 @@ class AzureConnectionConfig(ConfigModel):
         raise ConfigurationError(
             "credentials missing, requires one combination of connection_string or account_key or sas_token or (client_id and client_secret and tenant_id)"
         )
+
+    @model_validator(mode="after")
+    def _check_connection_string_account(self) -> "AzureConnectionConfig":
+        # Reads use the connection string's AccountName, but dataset URNs are
+        # derived from account_name / the path. If they disagree, ingestion would
+        # read one account while naming another — fail fast instead.
+        if self.connection_string is None:
+            return self
+        # Bounded split: base64 account keys contain '=' padding.
+        parts = dict(
+            segment.split("=", 1)
+            for segment in self.connection_string.get_secret_value().split(";")
+            if "=" in segment
+        )
+        cs_account = parts.get("AccountName")
+        if cs_account and cs_account != self.account_name:
+            raise ConfigurationError(
+                f"account_name '{self.account_name}' does not match AccountName "
+                f"'{cs_account}' in connection_string; dataset URNs are derived from "
+                "account_name and would name an account that was never read."
+            )
+        return self
