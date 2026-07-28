@@ -135,6 +135,17 @@ Queries have a fundamental relationship with dataset entities through the `query
 - Navigate from a query to the datasets it references
 - Navigate from a dataset to all queries that reference it
 
+**Authorization:** Query write operations (create, update, delete) require **Edit Dataset Queries** (or **Edit Entity**) on every subject dataset in `querySubjects`. GraphQL mutations enforce this via resolver pre-checks; there is no separate aspect validator for Query writes today.
+
+**Read authorization** is derived, not stored on the Query URN:
+
+- When view authorization is enabled (`VIEW_AUTHORIZATION_ENABLED`), Query metadata is visible if the actor has **View Entity Page** or **Edit Dataset Queries** (or **Edit Entity**) on **every** subject dataset.
+- Queries with **no subjects** are hidden (fail-closed).
+- Schema field subjects are resolved to their parent dataset before checking access.
+- If the actor can read via some but not all subjects, the entire Query is hidden.
+
+Read checks apply consistently across GraphQL, Rest.li, and search. See [Metadata Policies — derived authorization rules](../../../authorization/policies.md#derived-authorization-rules).
+
 This relationship is crucial for understanding dataset usage and query-based lineage.
 
 ### Lineage Integration

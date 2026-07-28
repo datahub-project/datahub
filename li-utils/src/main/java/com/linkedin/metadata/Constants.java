@@ -57,6 +57,14 @@ public class Constants {
   public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH =
       "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
 
+  // Jackson's default max JSON property-name length is 50000. Deeply-nested struct field paths
+  // (e.g. dbt column-level lineage) can be carried as JSON names in patches and exceed it, throwing
+  // a StreamConstraintsException during deserialization. Raise it alongside the string-length
+  // limit.
+  public static final String MAX_JACKSON_NAME_LENGTH = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_NAME_LENGTH =
+      "INGESTION_MAX_SERIALIZED_NAME_LENGTH";
+
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 

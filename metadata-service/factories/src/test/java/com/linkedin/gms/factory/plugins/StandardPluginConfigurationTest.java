@@ -354,7 +354,8 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(
         validator.getConfig().getClassName(), StructuredPropertiesValidator.class.getName());
     assertEquals(
-        validator.getConfig().getSupportedOperations(), List.of("CREATE", "UPSERT", "DELETE"));
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH", "DELETE"));
   }
 
   @Test

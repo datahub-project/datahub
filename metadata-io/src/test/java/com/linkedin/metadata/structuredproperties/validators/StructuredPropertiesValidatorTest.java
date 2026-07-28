@@ -6,6 +6,8 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
@@ -20,11 +22,13 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -573,5 +577,108 @@ public class StructuredPropertiesValidatorTest {
     Assert.assertEquals(exceptions.size(), 1);
     Assert.assertTrue(
         exceptions.get(0).getMessage().contains("no valid property assignments remain"));
+  }
+
+  private static final AspectPluginConfig PATCH_TEST_CONFIG =
+      AspectPluginConfig.builder()
+          .className(StructuredPropertiesValidator.class.getName())
+          .enabled(true)
+          .supportedOperations(
+              List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH", "DELETE"))
+          .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+          .build();
+
+  private static final String TEST_PROPERTY = "urn:li:structuredProperty:io.acryl.test.patch";
+
+  private static final String PATCH_ADD_OPS =
+      "[{\"op\":\"add\",\"path\":\"/properties/"
+          + TEST_PROPERTY
+          + "\",\"value\":{\"propertyUrn\":\""
+          + TEST_PROPERTY
+          + "\",\"values\":[{\"string\":\"foo\"}]}}]";
+
+  private static RetrieverContext patchContext(MockAspectRetriever aspectRetriever) {
+    aspectRetriever.setEntityRegistry(TEST_REGISTRY);
+    RetrieverContext retrieverContext = Mockito.mock(RetrieverContext.class);
+    Mockito.when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    return retrieverContext;
+  }
+
+  private static List<AspectValidationException> validatePatch(
+      String serializedPatch, MockAspectRetriever aspectRetriever) {
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator().setConfig(PATCH_TEST_CONFIG);
+    return validator
+        .validateProposed(
+            List.of(
+                TestPatchMCP.ofProposed(TEST_DATASET_URN, "structuredProperties", serializedPatch)),
+            patchContext(aspectRetriever),
+            null)
+        .collect(Collectors.toList());
+  }
+
+  @Test
+  public void testPatchAddMissingDefinitionRejected() {
+    // Regression guard for the alternate-MCP-validation bypass: a PATCH assigning a structured
+    // property with no definition must fail request-stage validation like an equivalent upsert.
+    List<AspectValidationException> exceptions =
+        validatePatch(PATCH_ADD_OPS, new MockAspectRetriever(Map.of()));
+    assertEquals(exceptions.size(), 1);
+    Assert.assertTrue(exceptions.get(0).getMessage().contains("Structured Property Definition"));
+  }
+
+  @Test
+  public void testPatchAddValidValueAccepted() throws URISyntaxException {
+    StructuredPropertyDefinition stringDef =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+    List<AspectValidationException> exceptions =
+        validatePatch(
+            PATCH_ADD_OPS, new MockAspectRetriever(UrnUtils.getUrn(TEST_PROPERTY), stringDef));
+    assertEquals(exceptions.size(), 0);
+  }
+
+  @Test
+  public void testPatchGenericJsonPatchShapeValidated() {
+    // Same rejection when the payload is a GenericJsonPatch object rather than a bare ops array.
+    String serialized =
+        "{\"arrayPrimaryKeys\":{\"properties\":[\"propertyUrn\"]},\"patch\":" + PATCH_ADD_OPS + "}";
+    List<AspectValidationException> exceptions =
+        validatePatch(serialized, new MockAspectRetriever(Map.of()));
+    assertEquals(exceptions.size(), 1);
+  }
+
+  @Test
+  public void testPatchRemoveOpIgnored() {
+    String removeOps = "[{\"op\":\"remove\",\"path\":\"/properties/" + TEST_PROPERTY + "\"}]";
+    assertEquals(validatePatch(removeOps, new MockAspectRetriever(Map.of())).size(), 0);
+  }
+
+  @Test
+  public void testPatchNonPropertiesPathIgnored() {
+    String otherPathOps = "[{\"op\":\"add\",\"path\":\"/other/thing\",\"value\":{}}]";
+    assertEquals(validatePatch(otherPathOps, new MockAspectRetriever(Map.of())).size(), 0);
+  }
+
+  @Test
+  public void testPatchUnparseableAddValueSkipped() {
+    // Non-canonical add values are skipped here; applyPatch/schema still rejects them at merge.
+    String badValueOps =
+        "[{\"op\":\"add\",\"path\":\"/properties/" + TEST_PROPERTY + "\",\"value\":42}]";
+    assertEquals(validatePatch(badValueOps, new MockAspectRetriever(Map.of())).size(), 0);
+  }
+
+  @Test
+  public void testPatchWithoutResolvablePayloadIgnored() {
+    StructuredPropertiesValidator validator =
+        new StructuredPropertiesValidator().setConfig(PATCH_TEST_CONFIG);
+    List<AspectValidationException> exceptions =
+        validator
+            .validateProposed(
+                List.of(TestPatchMCP.of(TEST_DATASET_URN, "structuredProperties", "[]")),
+                patchContext(new MockAspectRetriever(Map.of())),
+                null)
+            .collect(Collectors.toList());
+    assertEquals(exceptions.size(), 0);
   }
 }
