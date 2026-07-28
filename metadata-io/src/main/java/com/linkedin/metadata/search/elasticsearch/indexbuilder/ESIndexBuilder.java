@@ -2470,14 +2470,6 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration esConfig,
       ReindexConfig indexState) {
-    cleanOrphanedIndices(searchClient, esConfig, indexState, Set.of());
-  }
-
-  public static void cleanOrphanedIndices(
-      SearchClientShim<?> searchClient,
-      ElasticSearchConfiguration esConfig,
-      ReindexConfig indexState,
-      @Nonnull Set<String> excludePhysicalIndices) {
     log.info(
         "Checking for orphan index pattern {} older than {} {}",
         indexState.indexPattern(),
@@ -2485,7 +2477,7 @@ public class ESIndexBuilder {
         esConfig.getBuildIndices().getRetentionUnit());
 
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
-    getOrphanedIndices(searchClient, esConfig, indexState, excludePhysicalIndices)
+    getOrphanedIndices(searchClient, esConfig, indexState)
         .forEach(
             orphanIndex -> {
               log.warn("Deleting orphan index {}.", orphanIndex);
@@ -2500,8 +2492,7 @@ public class ESIndexBuilder {
   private static List<String> getOrphanedIndices(
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration esConfig,
-      ReindexConfig indexState,
-      @Nonnull Set<String> excludePhysicalIndices) {
+      ReindexConfig indexState) {
     List<String> orphanedIndices = new ArrayList<>();
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
     try {
@@ -2518,11 +2509,6 @@ public class ESIndexBuilder {
               new GetIndexRequest(indexState.indexCleanPattern()), requestOptions);
 
       for (String index : response.getIndices()) {
-        if (excludePhysicalIndices.contains(index)) {
-          log.info("Skipping protected index {} referenced by incremental reindex state", index);
-          continue;
-        }
-
         // The base entity clean pattern (e.g. "datasetindex_v2_*") also matches the semantic index
         // "datasetindex_v2_semantic". That is the live semantic search index itself (where the
         // embeddings live), addressed directly by its physical name - not an orphaned backing index

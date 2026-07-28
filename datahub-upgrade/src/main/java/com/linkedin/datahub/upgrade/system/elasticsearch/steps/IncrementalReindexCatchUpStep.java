@@ -19,7 +19,6 @@ import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersi
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState.CatchUpStatus;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
@@ -60,7 +59,7 @@ import org.opensearch.tasks.TaskInfo;
 @Slf4j
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
-  public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
+  static final String UPGRADE_ID_PREFIX = "IncrementalReindexCatchUp";
   private static final int DEFAULT_BATCH_SIZE = 500;
   public static final String LAST_URN_KEY = "lastUrn";
 
@@ -148,62 +147,98 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
 
-        Optional<DataHubUpgradeResult> previousCatchUpResult =
-            context.upgrade().getUpgradeResult(opContext, upgradeIdUrn, entityService);
-        Map<String, String> catchUpState =
-            previousCatchUpResult
-                .map(DataHubUpgradeResult::getResult)
-                .map(HashMap::new)
-                .orElseGet(HashMap::new);
-
-        if (previousCatchUpResult.isPresent()
-            && DataHubUpgradeState.SUCCEEDED.equals(previousCatchUpResult.get().getState())
-            && IncrementalReindexState.isCatchUpCompleteForAllIndices(phase1State, catchUpState)) {
-          log.info("Catch-up already completed for all indices, skipping");
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
-        }
-
-        boolean anyIndexFailed = false;
         for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
           String indexName = entry.getKey();
           Map<String, String> indexState = entry.getValue();
 
-          Optional<CatchUpStatus> existingCatchUpStatus =
-              IncrementalReindexState.getCatchUpStatus(catchUpState, indexName);
-          if (existingCatchUpStatus.isPresent() && existingCatchUpStatus.get().isTerminal()) {
+          String reindexStartTimeStr = indexState.get(IncrementalReindexState.REINDEX_START_TIME);
+          String dualWriteStartTimeStr =
+              indexState.get(IncrementalReindexState.DUAL_WRITE_START_TIME);
+
+          if (reindexStartTimeStr == null) {
+            log.warn("Index {} missing reindexStartTime, skipping catch-up", indexName);
             continue;
           }
 
-          try {
-            CatchUpStatus outcome = catchUpIndex(context, indexName, indexState);
-            catchUpState =
-                IncrementalReindexState.setCatchUpStatus(catchUpState, indexName, outcome);
-            persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.IN_PROGRESS);
-            if (outcome == CatchUpStatus.FAILED) {
-              anyIndexFailed = true;
+          long reindexStartTime = Long.parseLong(reindexStartTimeStr);
+          long dualWriteStartTime =
+              dualWriteStartTimeStr != null
+                  ? Long.parseLong(dualWriteStartTimeStr)
+                  : System.currentTimeMillis();
+
+          if (reindexStartTime >= dualWriteStartTime) {
+            continue;
+          }
+
+          IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+          String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
+          Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
+
+          if (entityNameOpt.isPresent()) {
+            // Entity index — emit MCLs from SQL for the gap window, scoped by entity type
+            String entityName = entityNameOpt.get();
+            log.info(
+                "Catch-up for entity index {} (entity {}): window [{}, {}]",
+                indexName,
+                entityName,
+                reindexStartTime,
+                dualWriteStartTime);
+            emitMCLsForTimeRange(
+                context,
+                indexName,
+                "urn:li:" + entityName + ":%",
+                reindexStartTime,
+                dualWriteStartTime);
+          } else if (indexConvention.getEntityAndAspectName(indexName).isPresent()
+              && nextIndexName != null) {
+            // Timeseries index — filtered _reindex from OLD backing index to next for the gap
+            // window. The old backing index continued receiving writes during Phase 1; after alias
+            // swap the alias points to next, so we must use the physical old index name.
+            String oldBackingIndexName =
+                indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
+            if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
+              log.warn(
+                  "Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
+              continue;
             }
-          } catch (Exception e) {
-            log.error("Catch-up failed for index {}", indexName, e);
-            catchUpState =
-                IncrementalReindexState.setCatchUpStatus(
-                    catchUpState, indexName, CatchUpStatus.FAILED);
-            persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.IN_PROGRESS);
-            anyIndexFailed = true;
+            log.info(
+                "Catch-up for timeseries index {} (old: {}): _reindex window [{}, {}]",
+                indexName,
+                oldBackingIndexName,
+                reindexStartTime,
+                dualWriteStartTime);
+            reindexTimeseriesGap(
+                indexName,
+                oldBackingIndexName,
+                nextIndexName,
+                reindexStartTime,
+                dualWriteStartTime);
+          } else if (isGlobalIndex(indexName)) {
+            // Graph or system metadata index — emit MCLs for ALL entities in the gap window.
+            // These indices are not entity-scoped, so we need to cover all entity types.
+            // The RESTATE MCLs flow through UpdateIndicesService which updates graph, system
+            // metadata, and search indices.
+            log.info(
+                "Catch-up for global index {}: window [{}, {}]",
+                indexName,
+                reindexStartTime,
+                dualWriteStartTime);
+            emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, dualWriteStartTime);
+          } else {
+            log.warn(
+                "Could not resolve index '{}' as entity, timeseries, or global, skipping",
+                indexName);
           }
         }
 
         // If rollback dual-write is not enabled, mark all completed indices as
         // DUAL_WRITE_DISABLED to prevent a later enable of the flag from writing to stale or
         // deleted old indices.
-        if (!buildIndicesConfig.isRollbackDualWriteEnabled() && !anyIndexFailed) {
+        if (!buildIndicesConfig.isRollbackDualWriteEnabled()) {
           for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
             String indexName = entry.getKey();
             String status = entry.getValue().get(IncrementalReindexState.STATUS);
-            Optional<CatchUpStatus> catchUpStatus =
-                IncrementalReindexState.getCatchUpStatus(catchUpState, indexName);
-            if (IncrementalReindexState.Status.COMPLETED.name().equals(status)
-                && catchUpStatus.isPresent()
-                && catchUpStatus.get() == CatchUpStatus.COMPLETED) {
+            if (IncrementalReindexState.Status.COMPLETED.name().equals(status)) {
               DataHubUpgradeState phaseState = phase1Result.get().getState();
               DataHubUpgradeResultConditionalPersist.mergeAndPersist(
                   opContext,
@@ -217,91 +252,13 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           }
         }
 
-        if (anyIndexFailed) {
-          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-        }
-
-        persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.SUCCEEDED);
+        BootstrapStep.setUpgradeResult(opContext, upgradeIdUrn, entityService);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
         log.error("IncrementalReindexCatchUpStep failed", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
-  }
-
-  private CatchUpStatus catchUpIndex(
-      UpgradeContext context, String indexName, Map<String, String> indexState) throws Throwable {
-    String reindexStartTimeStr = indexState.get(IncrementalReindexState.REINDEX_START_TIME);
-    String dualWriteStartTimeStr = indexState.get(IncrementalReindexState.DUAL_WRITE_START_TIME);
-
-    if (reindexStartTimeStr == null) {
-      log.warn("Index {} missing reindexStartTime, skipping catch-up", indexName);
-      return CatchUpStatus.SKIPPED;
-    }
-
-    long reindexStartTime = Long.parseLong(reindexStartTimeStr);
-    long dualWriteStartTime =
-        dualWriteStartTimeStr != null
-            ? Long.parseLong(dualWriteStartTimeStr)
-            : System.currentTimeMillis();
-
-    if (reindexStartTime >= dualWriteStartTime) {
-      return CatchUpStatus.SKIPPED;
-    }
-
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String nextIndexName = indexState.get(IncrementalReindexState.NEXT_INDEX_NAME);
-    Optional<String> entityNameOpt = indexConvention.getEntityName(indexName);
-
-    if (entityNameOpt.isPresent()) {
-      String entityName = entityNameOpt.get();
-      log.info(
-          "Catch-up for entity index {} (entity {}): window [{}, {}]",
-          indexName,
-          entityName,
-          reindexStartTime,
-          dualWriteStartTime);
-      emitMCLsForTimeRange(
-          context, indexName, "urn:li:" + entityName + ":%", reindexStartTime, dualWriteStartTime);
-      return CatchUpStatus.COMPLETED;
-    }
-
-    if (indexConvention.getEntityAndAspectName(indexName).isPresent() && nextIndexName != null) {
-      String oldBackingIndexName = indexState.get(IncrementalReindexState.OLD_BACKING_INDEX_NAME);
-      if (oldBackingIndexName == null || oldBackingIndexName.isEmpty()) {
-        log.warn("Timeseries index {} has no oldBackingIndexName, skipping catch-up", indexName);
-        return CatchUpStatus.SKIPPED;
-      }
-      log.info(
-          "Catch-up for timeseries index {} (old: {}): _reindex window [{}, {}]",
-          indexName,
-          oldBackingIndexName,
-          reindexStartTime,
-          dualWriteStartTime);
-      return reindexTimeseriesGap(
-          indexName, oldBackingIndexName, nextIndexName, reindexStartTime, dualWriteStartTime);
-    }
-
-    if (isGlobalIndex(indexName)) {
-      log.info(
-          "Catch-up for global index {}: window [{}, {}]",
-          indexName,
-          reindexStartTime,
-          dualWriteStartTime);
-      emitMCLsForTimeRange(context, indexName, "%", reindexStartTime, dualWriteStartTime);
-      return CatchUpStatus.COMPLETED;
-    }
-
-    log.warn("Could not resolve index '{}' as entity, timeseries, or global, skipping", indexName);
-    return CatchUpStatus.SKIPPED;
-  }
-
-  private void persistCatchUpCheckpoint(
-      UpgradeContext context, Map<String, String> catchUpState, DataHubUpgradeState state) {
-    Map<String, String> merged = loadCurrentCheckpointState(context);
-    merged.putAll(catchUpState);
-    context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, merged);
   }
 
   /**
@@ -392,9 +349,17 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
                         .orElse(null);
 
                 if (lastAspect != null) {
+                  // Merge into existing state so per-index keys from other indices are preserved
                   Map<String, String> checkpoint = loadCurrentCheckpointState(context);
                   checkpoint.put(lastUrnKey, lastAspect.getUrn().toString());
-                  persistCatchUpCheckpoint(context, checkpoint, DataHubUpgradeState.IN_PROGRESS);
+                  context
+                      .upgrade()
+                      .setUpgradeResult(
+                          opContext,
+                          upgradeIdUrn,
+                          entityService,
+                          DataHubUpgradeState.IN_PROGRESS,
+                          checkpoint);
                 }
               });
     }
@@ -418,13 +383,13 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * @param oldBackingIndex the physical old backing index that received writes during Phase 1
    * @param nextIndex the physical next index created by Phase 1
    */
-  private CatchUpStatus reindexTimeseriesGap(
+  private void reindexTimeseriesGap(
       String aliasName, String oldBackingIndex, String nextIndex, long fromEpochMs, long toEpochMs)
       throws Throwable {
     Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(aliasName);
     if (builderAndConfig == null) {
       log.warn("No index builder found for timeseries index {}, skipping catch-up", aliasName);
-      return CatchUpStatus.SKIPPED;
+      return;
     }
 
     ESIndexBuilder indexBuilder = builderAndConfig.getFirst();
@@ -434,27 +399,19 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     RangeQueryBuilder timeRangeFilter =
         QueryBuilders.rangeQuery(TIMESERIES_TIMESTAMP_FIELD).gte(fromEpochMs).lt(toEpochMs);
 
-    try {
-      String taskId =
-          indexBuilder.submitFilteredReindex(
-              oldBackingIndex, nextIndex, timeRangeFilter, targetShards);
-      log.info(
-          "Submitted timeseries catch-up _reindex for {} -> {} (task {}, shards {})",
-          oldBackingIndex,
-          nextIndex,
-          taskId,
-          targetShards);
-    } catch (Exception e) {
-      if (isIndexNotFound(e)) {
-        log.warn(
-            "Old backing index {} missing for timeseries catch-up on {}, skipping",
-            oldBackingIndex,
-            aliasName);
-        return CatchUpStatus.SKIPPED;
-      }
-      throw e;
-    }
+    String taskId =
+        indexBuilder.submitFilteredReindex(
+            oldBackingIndex, nextIndex, timeRangeFilter, targetShards);
+    log.info(
+        "Submitted timeseries catch-up _reindex for {} -> {} (task {}, shards {})",
+        oldBackingIndex,
+        nextIndex,
+        taskId,
+        targetShards);
 
+    // Poll using listTasks until the reindex task is no longer running. Once the task drops off
+    // the active task list, it has completed. Doc count comparison is not used here because the
+    // next index is also receiving live writes via the alias.
     long timeoutAt = indexBuilder.computeTimeoutAt();
     long pollIntervalMs = buildIndicesConfig.getTaskPollIntervalSeconds() * 1000;
 
@@ -462,7 +419,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
       Optional<TaskInfo> runningTask = indexBuilder.getTaskInfoByHeader(oldBackingIndex);
       if (runningTask.isEmpty()) {
         log.info("Timeseries catch-up _reindex completed for {} -> {}", oldBackingIndex, nextIndex);
-        return CatchUpStatus.COMPLETED;
+        return;
       }
       log.info(
           "Timeseries catch-up _reindex still running for {} -> {}", oldBackingIndex, nextIndex);
@@ -471,18 +428,6 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
     throw new RuntimeException(
         "Timeseries catch-up _reindex timed out for " + oldBackingIndex + " -> " + nextIndex);
-  }
-
-  private static boolean isIndexNotFound(Throwable throwable) {
-    Throwable current = throwable;
-    while (current != null) {
-      String message = current.getMessage();
-      if (message != null && message.contains("index_not_found_exception")) {
-        return true;
-      }
-      current = current.getCause();
-    }
-    return false;
   }
 
   /**

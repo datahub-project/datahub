@@ -6,23 +6,18 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.CleanIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.version.GitVersion;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
 public class CleanIndicesConfig {
   @Bean
-  @Order(100)
   public NonBlockingSystemUpgrade cleanIndices(
       final SystemMetadataService systemMetadataService,
       final TimeseriesAspectService timeseriesAspectService,
@@ -31,10 +26,7 @@ public class CleanIndicesConfig {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao,
-      final EntityService<?> entityService,
-      final GitVersion gitVersion,
-      @Qualifier("revision") final String revision) {
+      final AspectDao aspectDao) {
 
     return new CleanIndices(
         systemMetadataService,
@@ -43,9 +35,6 @@ public class CleanIndicesConfig {
         graphService,
         baseElasticSearchComponents,
         configurationProvider,
-        aspectDao,
-        entityService,
-        gitVersion,
-        revision);
+        aspectDao);
   }
 }

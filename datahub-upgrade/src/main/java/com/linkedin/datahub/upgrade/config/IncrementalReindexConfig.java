@@ -17,7 +17,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
@@ -27,7 +26,6 @@ import org.springframework.core.annotation.Order;
 public class IncrementalReindexConfig {
 
   @Bean
-  @Order(4)
   public NonBlockingSystemUpgrade incrementalReindexNonBlocking(
       final SystemMetadataService systemMetadataService,
       final TimeseriesAspectService timeseriesAspectService,
