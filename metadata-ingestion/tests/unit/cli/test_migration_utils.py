@@ -1,6 +1,6 @@
 """Tests for datahub.cli.migration_utils — relationship-to-aspect mapping and URN rewriting."""
 
-from typing import Dict
+from typing import Dict, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +10,11 @@ from datahub.cli.migrate import (
     MigrationReport,
 )
 from datahub.cli.migration_utils import (
+    _FALLBACK_RELATIONSHIP_TYPES,
+    _RELATIONSHIP_TYPE_CACHE,
     ConflictStrategy,
+    get_incoming_relationship_types,
+    get_incoming_relationships,
     make_batch_urn_rewriter,
     make_i2i_chart_urn,
     make_i2i_dashboard_urn,
@@ -27,6 +31,7 @@ from datahub.cli.migration_utils import (
     replace_instance_prefix,
     should_overwrite_non_additive,
 )
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
@@ -558,3 +563,111 @@ class TestBatchUrnRewriter:
         assert aspect.fineGrainedLineages[0].downstreams == [
             make_schema_field_urn(self.A_NEW, "order_id")
         ]
+
+
+def _aspect_specs_response(*relationships: Dict) -> Dict:
+    """An aspect-specifications payload carrying the given @Relationship annotations."""
+    return {
+        "elements": [
+            {
+                "relationshipFieldSpec": {
+                    f"/field{i}": {"annotations": {"relationshipAnnotation": rel}}
+                }
+            }
+            for i, rel in enumerate(relationships)
+        ]
+    }
+
+
+class TestGetIncomingRelationshipTypes:
+    def setup_method(self):
+        _RELATIONSHIP_TYPE_CACHE.clear()
+
+    def _graph(self, response: Union[Dict, Exception]) -> MagicMock:
+        graph = MagicMock()
+        graph.config.server = "http://localhost:8080"
+        if isinstance(response, Exception):
+            graph._get_generic.side_effect = response
+        else:
+            graph._get_generic.return_value = response
+        return graph
+
+    def test_selects_relationships_targeting_the_entity_type(self):
+        graph = self._graph(
+            _aspect_specs_response(
+                {"name": "DownstreamOf", "validDestinationTypes": ["dataset"]},
+                {"name": "OwnedBy", "validDestinationTypes": ["corpuser", "corpGroup"]},
+                {"name": "Consumes", "validDestinationTypes": ["dataset", "dataJob"]},
+            )
+        )
+
+        assert get_incoming_relationship_types(graph, "dataset") == [
+            "Consumes",
+            "DownstreamOf",
+        ]
+
+    def test_unconstrained_relationship_always_matches(self):
+        """No entityTypes on @Relationship means it may point at anything."""
+        graph = self._graph(
+            _aspect_specs_response(
+                {"name": "AssociatedWith", "validDestinationTypes": []},
+                {"name": "OwnedBy", "validDestinationTypes": ["corpuser"]},
+            )
+        )
+
+        assert get_incoming_relationship_types(graph, "dataset") == ["AssociatedWith"]
+
+    def test_falls_back_when_registry_unauthorized(self):
+        """Ingestion tokens lack MANAGE_SYSTEM_OPERATIONS_PRIVILEGE — don't hard-fail."""
+        graph = self._graph(Exception("403 Forbidden"))
+
+        assert (
+            get_incoming_relationship_types(graph, "dataset")
+            == _FALLBACK_RELATIONSHIP_TYPES
+        )
+
+    def test_falls_back_when_registry_returns_nothing(self):
+        graph = self._graph({"elements": []})
+
+        assert (
+            get_incoming_relationship_types(graph, "dataset")
+            == _FALLBACK_RELATIONSHIP_TYPES
+        )
+
+    def test_result_is_cached_per_server_and_entity_type(self):
+        graph = self._graph(
+            _aspect_specs_response(
+                {"name": "DownstreamOf", "validDestinationTypes": ["dataset"]}
+            )
+        )
+
+        get_incoming_relationship_types(graph, "dataset")
+        get_incoming_relationship_types(graph, "dataset")
+        assert graph._get_generic.call_count == 1
+
+        get_incoming_relationship_types(graph, "chart")
+        assert graph._get_generic.call_count == 2
+
+
+class TestGetIncomingRelationships:
+    def setup_method(self):
+        _RELATIONSHIP_TYPE_CACHE.clear()
+
+    def test_queries_registry_derived_types_for_the_urn_entity_type(self):
+        graph = MagicMock()
+        graph.config.server = "http://localhost:8080"
+        graph._get_generic.return_value = _aspect_specs_response(
+            {"name": "DownstreamOf", "validDestinationTypes": ["dataset"]},
+            {"name": "OwnedBy", "validDestinationTypes": ["corpuser"]},
+        )
+        graph.get_related_entities.return_value = iter([])
+
+        list(
+            get_incoming_relationships(
+                graph, "urn:li:dataset:(urn:li:dataPlatform:mysql,db.t,PROD)"
+            )
+        )
+
+        _, kwargs = graph.get_related_entities.call_args
+        assert kwargs["relationship_types"] == ["DownstreamOf"]
+        assert kwargs["direction"] == RelationshipDirection.INCOMING

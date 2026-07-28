@@ -14,7 +14,7 @@ Use one when a connector change means metadata **already in DataHub** must be tr
 - The set of applied migration ids is stored in a **ledger** that rides the stateful-ingestion checkpoint, keyed per pipeline. So migrations **require stateful ingestion** to be enabled.
 - Before ingestion, a pre-ingestion hook computes the **pending** migrations (declared but not in the ledger) and, when enabled, runs them in id order, recording each id as it succeeds.
 
-Because the ledger is per pipeline, a migration can re-trigger when a *different* pipeline ingests the same data, and the ledger read is eventually consistent (so two runs of the *same* pipeline in quick succession could both apply). **Migrations must therefore be idempotent** — re-running one must be a no-op. A migration that selects its targets with a filter that matches nothing after the first apply (e.g. "datasets whose URN is not already lowercase") satisfies this naturally.
+Because the ledger is per pipeline, a migration can re-trigger when a _different_ pipeline ingests the same data, and the ledger read is eventually consistent (so two runs of the _same_ pipeline in quick succession could both apply). **Migrations must therefore be idempotent** — re-running one must be a no-op. A migration that selects its targets with a filter that matches nothing after the first apply (e.g. "datasets whose URN is not already lowercase") satisfies this naturally.
 
 ## Declaring a migration
 
@@ -67,6 +67,14 @@ def _lowercase_urns(self, graph, report, dry_run):
 
 For aspect-shape changes, fetch the affected aspects and re-emit them in the new shape from within `run`.
 
+#### Incoming references and the entity registry
+
+Renaming a URN also has to repoint everything that references it. Entities migrated together in the same run are handled from an in-memory old→new map, but references held by _other_ entities are found through the relationship index, which has to be queried with an explicit list of relationship types.
+
+That list is read from the live entity registry at `/openapi/v1/registry/models/aspect/specifications` — every relationship whose `@Relationship` annotation can target the entity type being migrated (a relationship with no `entityTypes` is unconstrained and always qualifies). A relationship added to the metadata model is therefore covered automatically.
+
+That endpoint requires `MANAGE_SYSTEM_OPERATIONS_PRIVILEGE`, which an ingestion token typically does not have. When it can't be read, the migration logs a warning and falls back to a built-in list of lineage relationship types; it still runs, but references held through other relationship types are left pointing at the old URN. Grant the privilege to the ingestion token, or run `datahub migrate transform` as an admin, if full coverage matters for your migration.
+
 ## Ordering and version gating
 
 **Ordering** is by **id**. Pending migrations run sorted by their `id`, each recorded on success — so the id is the ordering key, not the position in the list. Use a **timestamp prefix** (`20260722-...`, optionally `20260722T1530-...`) so migrations run chronologically and a global fix (see below) interleaves correctly with a connector's own. If one migration depends on another, give it a later timestamp. Ids are permanent — never reorder or reuse them.
@@ -112,10 +120,10 @@ source:
     stateful_ingestion:
       enabled: true
       migrations:
-        enabled: true        # apply pending migrations before ingestion
-        dry_run: false       # log what would run without mutating
-        fail_on_pending: false  # if true, abort when a migration is pending but disabled
-        force: false         # re-run every migration even if the ledger/version gate would skip it
+        enabled: true # apply pending migrations before ingestion
+        dry_run: false # log what would run without mutating
+        fail_on_pending: false # if true, abort when a migration is pending but disabled
+        force: false # re-run every migration even if the ledger/version gate would skip it
 ```
 
 When migrations are pending but `enabled` is false, the run logs a warning listing the pending ids (and fails if `fail_on_pending` is set), so operators know a migration is waiting.

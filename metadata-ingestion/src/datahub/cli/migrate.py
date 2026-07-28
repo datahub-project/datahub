@@ -253,7 +253,9 @@ def _migrate_single_entity(
     # entities reference the migrated URN; we then rewrite that reference
     # wherever it appears, across all of the referencing entity's aspects.
     seen_targets = set()
-    for relationship in migration_utils.get_incoming_relationships(src_entity_urn):
+    for relationship in migration_utils.get_incoming_relationships(
+        graph, src_entity_urn
+    ):
         target_urn = relationship.urn
         if target_urn in seen_targets:
             continue
@@ -532,7 +534,7 @@ def _process_container_relationships(
     client = get_default_graph(ClientMode.CLI)
     rewrite_urn = migration_utils.make_self_urn_rewriter(src_urn, dst_urn)
     seen_targets = set()
-    for relationship in migration_utils.get_incoming_relationships(urn=src_urn):
+    for relationship in migration_utils.get_incoming_relationships(client, src_urn):
         target_urn: str = relationship.urn
         if target_urn in container_id_map:
             target_urn = container_id_map[target_urn]

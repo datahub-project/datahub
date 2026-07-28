@@ -117,6 +117,26 @@ SYSTEM_MANAGED_ASPECTS = {
 
 _SCHEMA_FIELD_PREFIX = "urn:li:schemaField:"
 
+# Entity-registry endpoint exposing every aspect's @Relationship annotations.
+_ASPECT_SPECS_PATH = "/openapi/v1/registry/models/aspect/specifications"
+# Read every aspect spec in one request — see get_incoming_relationship_types.
+_ASPECT_SPECS_PAGE_SIZE = 10000
+
+# Used only when the entity registry can't be read (see
+# get_incoming_relationship_types). Historically the hardcoded list.
+_FALLBACK_RELATIONSHIP_TYPES = [
+    "Consumes",
+    "DerivedFrom",
+    "DownstreamOf",
+    "ForeignKeyToDataset",
+    "IsPartOf",
+    "Produces",
+]
+
+# Relationship types are fixed for the lifetime of a run; keyed by (server, entity
+# type) so a process talking to two instances doesn't cross them.
+_RELATIONSHIP_TYPE_CACHE: Dict[Tuple[str, str], List[str]] = {}
+
 
 def get_migratable_aspect_names(entity_type: str) -> List[str]:
     """Non-timeseries, user-migratable aspects for an entity type.
@@ -286,18 +306,77 @@ def clone_aspect(
                 log.debug(f"did not find aspect {a} in response, continuing...")
 
 
-def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
-    client = get_default_graph(ClientMode.CLI)
-    yield from client.get_related_entities(
+def get_incoming_relationship_types(graph: DataHubGraph, entity_type: str) -> List[str]:
+    """Relationship names in the live entity registry that can point at ``entity_type``.
+
+    The relationships endpoint requires an explicit ``relationshipTypes`` filter —
+    there is no "every incoming edge" query — so the migration has to name every
+    relationship a referrer could use. Deriving that from the registry keeps it in
+    step with :func:`get_migratable_aspect_names`: a relationship added to the model
+    is picked up without touching this file, where a hand-maintained list would
+    silently leave those referrers pointing at the migrated-away URN.
+
+    A relationship with no ``entityTypes`` on its ``@Relationship`` annotation is
+    unconstrained and may point at anything, so it always matches.
+
+    Falls back to :data:`_FALLBACK_RELATIONSHIP_TYPES` when the registry is
+    unreachable — most importantly for connector migrations, which run under an
+    ingestion token that usually lacks MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.
+    """
+    cache_key = (graph.config.server, entity_type)
+    cached = _RELATIONSHIP_TYPE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        response = graph._get_generic(
+            f"{graph.config.server}{_ASPECT_SPECS_PATH}",
+            # A single unpaginated read: PaginatedResponse raises once start goes
+            # past the end, so walking pages costs a guess at the total.
+            params={"start": 0, "count": _ASPECT_SPECS_PAGE_SIZE},
+        )
+        names = _extract_relationship_types(response, entity_type)
+        if not names:
+            raise ValueError(f"registry reported no relationships for {entity_type}")
+    except Exception as e:
+        log.warning(
+            f"Could not read relationship types from the entity registry at "
+            f"{graph.config.server} ({e}). Falling back to the built-in list "
+            f"{_FALLBACK_RELATIONSHIP_TYPES} — references to migrated URNs held by "
+            f"other relationship types will not be repointed. The registry endpoint "
+            f"requires MANAGE_SYSTEM_OPERATIONS_PRIVILEGE."
+        )
+        names = list(_FALLBACK_RELATIONSHIP_TYPES)
+
+    _RELATIONSHIP_TYPE_CACHE[cache_key] = names
+    return names
+
+
+def _extract_relationship_types(response: Dict, entity_type: str) -> List[str]:
+    """Pull relationship names targeting ``entity_type`` out of an aspect-specs response."""
+    names = set()
+    for aspect_spec in response.get("elements", []):
+        for field_spec in (aspect_spec.get("relationshipFieldSpec") or {}).values():
+            annotation = (field_spec.get("annotations") or {}).get(
+                "relationshipAnnotation"
+            ) or {}
+            name = annotation.get("name")
+            if not name:
+                continue
+            destinations = annotation.get("validDestinationTypes") or []
+            if not destinations or entity_type in destinations:
+                names.add(name)
+    return sorted(names)
+
+
+def get_incoming_relationships(
+    graph: DataHubGraph, urn: str
+) -> Iterable[RelatedEntity]:
+    yield from graph.get_related_entities(
         entity_urn=urn,
-        relationship_types=[
-            "DownstreamOf",
-            "Consumes",
-            "Produces",
-            "ForeignKeyToDataset",
-            "DerivedFrom",
-            "IsPartOf",
-        ],
+        relationship_types=get_incoming_relationship_types(
+            graph, guess_entity_type(urn)
+        ),
         direction=RelationshipDirection.INCOMING,
     )
 
