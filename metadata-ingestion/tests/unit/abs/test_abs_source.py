@@ -5,7 +5,17 @@ from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
+
+# AccountName matches the account_name used throughout so the connection-string
+# vs account_name divergence validator accepts these fixtures.
+_CONNECTION_STRING = (
+    "DefaultEndpointsProtocol=https;AccountName=testaccount;"
+    "AccountKey=c3VwZXJzZWNyZXQ=;EndpointSuffix=core.windows.net"
+)
 
 
 def test_service_principal_credentials_return_objects():
@@ -93,6 +103,55 @@ def test_service_clients_receive_credential_objects(service_client_class, method
         credential = mock_client.call_args[1]["credential"]
         assert isinstance(credential, ClientSecretCredential)
         assert not isinstance(credential, str)
+
+
+@pytest.mark.parametrize(
+    "service_client_class,method_name",
+    [
+        (BlobServiceClient, "get_blob_service_client"),
+        (DataLakeServiceClient, "get_data_lake_service_client"),
+    ],
+)
+def test_service_clients_use_connection_string_when_set(
+    service_client_class, method_name
+):
+    """When connection_string is set, both getters build via from_connection_string
+    and never the account_url constructor — including the ADLS Gen2
+    DataLakeServiceClient branch, which has no other coverage."""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        connection_string=_CONNECTION_STRING,
+    )
+
+    with patch(
+        f"datahub.ingestion.source.azure.azure_common.{service_client_class.__name__}"
+    ) as mock_client:
+        getattr(config, method_name)()
+
+        mock_client.from_connection_string.assert_called_once_with(_CONNECTION_STRING)
+        # The account_url + credential constructor must not be used.
+        mock_client.assert_not_called()
+
+
+def test_connection_string_takes_precedence_over_account_key():
+    """The connection_string description claims precedence; enforce it. With both
+    connection_string and account_key set, the client is built from the connection
+    string, not the account_url + account_key path."""
+    config = AzureConnectionConfig(
+        account_name="testaccount",
+        container_name="testcontainer",
+        account_key="test-account-key",
+        connection_string=_CONNECTION_STRING,
+    )
+
+    with patch(
+        "datahub.ingestion.source.azure.azure_common.BlobServiceClient"
+    ) as mock_client:
+        config.get_blob_service_client()
+
+        mock_client.from_connection_string.assert_called_once_with(_CONNECTION_STRING)
+        mock_client.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -272,9 +331,6 @@ def test_get_abs_tags_emits_blob_tags(mock_blob_service_client_class):
     integration test skips it because floci-az's get_blob_tags response can't be
     decoded by the Azure SDK.
     """
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.azure.abs_folder_utils import get_abs_tags
-
     mock_blob_client = Mock()
     mock_blob_client.get_blob_tags.return_value = {"env": "prod", "team": "data"}
     mock_container_client = Mock()
@@ -325,8 +381,6 @@ def test_connection_string_account_diverges_from_account_name():
     Reads would use the connection string's account while dataset URNs would name
     account_name — silent wrong lineage — so config parsing must fail fast.
     """
-    from datahub.configuration.common import ConfigurationError
-
     with pytest.raises(ConfigurationError, match="does not match AccountName"):
         AzureConnectionConfig(
             account_name="prod",
@@ -363,8 +417,6 @@ def test_connection_string_account_check_handles_base64_key_padding():
     )
     assert ok.connection_string is not None
     # And a mismatch is still caught (parsing wasn't derailed by the padding).
-    from datahub.configuration.common import ConfigurationError
-
     with pytest.raises(ConfigurationError, match="does not match AccountName"):
         AzureConnectionConfig(
             account_name="other",
