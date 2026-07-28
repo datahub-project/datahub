@@ -194,7 +194,7 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
                   + "prevent URN case-collision drops in getNextVersions. This may rebuild the "
                   + "table and can be slow on large datasets.",
               ASPECT_TABLE_COLLATION);
-          try (Statement alterStmt = connection.createStatement()) {
+          try (java.sql.Statement alterStmt = connection.createStatement()) {
             alterStmt.execute(
                 "ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE "
                     + ASPECT_TABLE_COLLATION);

@@ -247,7 +247,7 @@ public class EbeanAspectDaoTest {
             new EntityAspectIdentifier(
                 "urn:li:corpuser:b", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION));
 
-    List<String> actual = captureKeysHandedToQuery(dao -> dao.batchGet(opContext, ids, true));
+    List<String> actual = captureKeysHandedToQuery(dao -> dao.batchGet(ids, true));
 
     assertEquals(
         actual,
@@ -612,8 +612,7 @@ public class EbeanAspectDaoTest {
   @Test
   public void getVersionRangeReturnsSentinelWhenAspectMissing() {
     com.linkedin.util.Pair<Long, Long> range =
-        testDao.getVersionRange(
-            opContext, "urn:li:container:missing-aspect-range-test", "containerKey");
+        testDao.getVersionRange("urn:li:container:missing-aspect-range-test", "containerKey");
 
     assertEquals(range.getFirst(), Long.valueOf(-1L));
     assertEquals(range.getSecond(), Long.valueOf(-1L));

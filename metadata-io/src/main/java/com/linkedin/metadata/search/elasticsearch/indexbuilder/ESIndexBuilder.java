@@ -17,7 +17,6 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -2505,7 +2504,6 @@ public class ESIndexBuilder {
       @Nonnull Set<String> excludePhysicalIndices) {
     List<String> orphanedIndices = new ArrayList<>();
     RequestOptions requestOptions = buildRequestOptionsLong(esConfig);
-    final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     try {
       Date retentionDate =
           Date.from(
@@ -2532,9 +2530,11 @@ public class ESIndexBuilder {
         // (alias-less + past retention) would otherwise delete live data. The bare index is only
         // meant to be removed when a reindex converts it to an alias - renameReindexedIndices
         // deletes it and points the alias at the new "<base>_semantic_<ts>" backing; those backings
-        // are then cleaned normally (they don't match isSemanticEntityIndex). So never delete the
-        // bare name here.
-        if (indexConvention.isSemanticEntityIndex(index)) {
+        // are then cleaned normally (they end in a timestamp). So never delete the bare name here.
+        //
+        // v1.6 cleanOrphanedIndices is static and has no OperationContext/IndexConvention; match
+        // IndexConventionImpl.isSemanticEntityIndex (suffix *_index_v2_semantic) via endsWith.
+        if (index.endsWith("_semantic")) {
           log.info(
               "Skipping semantic index {} matched by base clean pattern {}",
               index,

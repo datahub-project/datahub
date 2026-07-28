@@ -390,14 +390,16 @@ public class V2MappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mappingForField.put("ignore_above", ESUtils.KEYWORD_MAXLENGTH);
+    // Byte-safe character threshold (see ESUtils.KEYWORD_IGNORE_ABOVE); #18533 revert had restored
+    // KEYWORD_MAXLENGTH here which can still trip Lucene's byte limit on multi-byte text.
+    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
     // Outer KEYWORD is the sub-field name; the inner KEYWORD is the field type value (both
     // "keyword").
     // The sub-field carries the same ignore_above guard, so KEYWORD_TYPE_MAP cannot be reused here.
     mappingForField.put(
         FIELDS,
         ImmutableMap.of(
-            KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_MAXLENGTH)));
+            KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE)));
     return mappingForField;
   }
 

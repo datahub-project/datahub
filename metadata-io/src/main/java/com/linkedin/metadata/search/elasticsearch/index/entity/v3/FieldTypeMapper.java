@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.DOUBLE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.FLOAT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.INTEGER_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.LONG_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
 
@@ -136,6 +137,22 @@ public class FieldTypeMapper {
   @Nonnull
   public static Map<String, Object> getMappingsForKeyword() {
     return Map.of("type", KEYWORD_FIELD_TYPE);
+  }
+
+  /**
+   * Keyword mapping for structured-property STRING/RICH_TEXT values with a byte-safe {@code
+   * ignore_above} so oversized values are skipped from the keyword index instead of failing the
+   * whole document write (Lucene 32,766-byte term limit). See {@code ESUtils.KEYWORD_IGNORE_ABOVE}.
+   *
+   * <p>Method body kept here (not only on master via #18533) so #18552 call sites compile on v1.6
+   * without bringing the full structured-property collision-detection stack.
+   */
+  @Nonnull
+  public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", KEYWORD_FIELD_TYPE);
+    mapping.put("ignore_above", KEYWORD_IGNORE_ABOVE);
+    return mapping;
   }
 
   /**

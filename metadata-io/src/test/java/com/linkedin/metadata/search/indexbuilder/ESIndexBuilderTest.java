@@ -20,7 +20,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -718,14 +717,11 @@ public class ESIndexBuilderTest {
     // The base entity config's clean pattern (e.g. datasetindex_v2_*) also matches the live
     // semantic index (datasetindex_v2_semantic). The bare semantic index is alias-less and old, so
     // it otherwise satisfies the orphan condition, but it must NOT be deleted as an orphan of the
-    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT semantic
-    // per isSemanticEntityIndex (they end in a timestamp), so a stale, alias-less one must still be
-    // deleted - the guard protects only the bare name, not the semantic index's backing churn.
-    // Names are derived from the context's IndexConvention so the semantic suffix (and any
-    // configured prefix) match what isSemanticEntityIndex expects.
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String baseName = indexConvention.getEntityIndexName("dataset");
-    String semanticSibling = indexConvention.getEntityIndexNameSemantic("dataset");
+    // base entity config. Its own backing indices (datasetindex_v2_semantic_<ts>) are NOT the bare
+    // semantic name (they end in a timestamp), so a stale, alias-less one must still be deleted —
+    // the guard protects only names ending in "_semantic".
+    String baseName = "datasetindex_v2";
+    String semanticSibling = "datasetindex_v2_semantic";
     String baseBackingOrphan = baseName + "_1700000000000";
     String semanticBackingOrphan = semanticSibling + "_1700000000000";
 
@@ -753,29 +749,22 @@ public class ESIndexBuilderTest {
                 semanticBackingOrphan,
                 List.of()));
 
-    when(searchClient.getIndex(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(getIndexResponse);
-    when(searchClient.indexExists(
-            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
 
     AcknowledgedResponse deleteResponse = mock(AcknowledgedResponse.class);
     when(deleteResponse.isAcknowledged()).thenReturn(true);
-    when(searchClient.deleteIndex(
-            any(OperationFingerprint.class),
-            any(DeleteIndexRequest.class),
-            any(RequestOptions.class)))
+    when(searchClient.deleteIndex(any(DeleteIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(deleteResponse);
 
     ESIndexBuilder.cleanOrphanedIndices(
-        searchClient, opContext, elasticSearchConfiguration, baseConfig, Set.of());
+        searchClient, elasticSearchConfiguration, baseConfig, Set.of());
 
     ArgumentCaptor<DeleteIndexRequest> deleteCaptor =
         ArgumentCaptor.forClass(DeleteIndexRequest.class);
-    verify(searchClient, times(2))
-        .deleteIndex(
-            any(OperationContext.class), deleteCaptor.capture(), any(RequestOptions.class));
+    verify(searchClient, times(2)).deleteIndex(deleteCaptor.capture(), any(RequestOptions.class));
     Set<String> deleted = new HashSet<>();
     for (DeleteIndexRequest request : deleteCaptor.getAllValues()) {
       deleted.add(request.indices()[0]);
@@ -1715,11 +1704,9 @@ public class ESIndexBuilderTest {
     // Destination holds fewer docs than the source (900 of 1000) — the dropped-docs signature.
     CountResponse countResponse = mock(CountResponse.class);
     when(countResponse.getCount()).thenReturn(900L);
-    when(searchClient.count(
-            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+    when(searchClient.count(any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
     when(searchClient.refreshIndex(
-            any(OperationFingerprint.class),
             any(org.opensearch.action.admin.indices.refresh.RefreshRequest.class),
             any(RequestOptions.class)))
         .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
@@ -1740,8 +1727,7 @@ public class ESIndexBuilderTest {
     assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
     // With no retry budget it must give up rather than re-submitting.
     verify(searchClient, never())
-        .submitReindexTask(
-            any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
   }
 
   @Test

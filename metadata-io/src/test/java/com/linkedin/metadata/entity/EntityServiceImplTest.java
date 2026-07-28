@@ -1091,8 +1091,7 @@ public class EntityServiceImplTest {
     when(mockAspectDao.getLatestAspect(
             any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), eq(false)))
         .thenReturn(latestStatus);
-    when(mockAspectDao.getVersionRange(
-            any(OperationContext.class), eq(testUrn.toString()), eq(aspectName)))
+    when(mockAspectDao.getVersionRange(eq(testUrn.toString()), eq(aspectName)))
         .thenReturn(Pair.of(-1L, -1L));
 
     doAnswer(
@@ -1109,12 +1108,10 @@ public class EntityServiceImplTest {
             opContext, testUrn.toString(), aspectName, Collections.emptyMap(), false);
 
     assertNull(result);
-    verify(mockAspectDao)
-        .getVersionRange(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName));
+    verify(mockAspectDao).getVersionRange(eq(testUrn.toString()), eq(aspectName));
     verify(mockAspectDao, never())
         .deleteUrn(any(OperationContext.class), any(), eq(testUrn.toString()));
-    verify(mockAspectDao, never())
-        .getAspect(any(OperationContext.class), eq(testUrn.toString()), eq(aspectName), anyLong());
+    verify(mockAspectDao, never()).getAspect(eq(testUrn.toString()), eq(aspectName), anyLong());
   }
 
   @Test
