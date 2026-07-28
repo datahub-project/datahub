@@ -1,0 +1,94 @@
+---
+description: "Tutorial for emitting Semantic Models, Metrics, and Logical Datasets in DataHub using the Python SDK (datahub.sdk)."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Semantic Models & Metrics
+
+## Why Would You Use Semantic Models and Metrics?
+
+Semantic Models and Metrics let you describe a **logical layer** over your physical data: a
+`semanticModel` groups one or more logical `dataset`s (each a "Semantic Model Dataset" subtype),
+exposes dimensions and measures via schema-field-anchored `semanticFieldAnnotation`s, and
+serves as the backing model for `metric` entities. Together they form the lineage chain
+`Metric → SemanticModel → Logical Dataset → Physical Dataset`, giving consumers a stable,
+source-agnostic surface for analytics, governance, and AI-assisted exploration.
+
+This mirrors modeling that already exists inside the Snowflake connector, lifted into the
+high-level SDK so any producer (connector or direct SDK user) can emit the same entities
+without re-implementing the aspect wiring.
+
+### Goal Of This Guide
+
+This guide will show you how to:
+
+- Build a `SemanticModel` with two logical datasets, schema fields, and a relationship.
+- Emit `metric` entities backed by the model, including one metric derived from another.
+- Serialize every emitted MCP to a file and inspect the resulting aspect shapes.
+
+## Prerequisites
+
+For this tutorial, you need DataHub SDK v2 (`datahub.sdk.*`) installed. If you are running
+the example from the `metadata-ingestion` package, the venv is set up by
+`../gradlew :metadata-ingestion:installDev`.
+
+## Build a Semantic Model with Logical Datasets and Metrics
+
+The example below builds the full lineage chain
+`Metric -> SemanticModel -> Logical Dataset -> Physical Dataset` using the high-level
+`datahub.sdk` builders, then writes every emitted MCP to a JSON file so the resulting
+aspect shapes can be inspected.
+
+```python
+{{ inline /metadata-ingestion/examples/library/semantic_model_create.py show_path_as_comment }}
+```
+
+### What the SDK emits for you
+
+When you call `entity.as_mcps()` on each builder, the SDK produces the full aspect set and
+wires the lineage chain automatically:
+
+- **`semanticModel`**: a `Status`, a `SemanticModelInfo` (with `datasets` preserving
+  insertion order, plus optional `relationships`), and a model-level `AiContext` **only when
+  non-empty**.
+- **Logical `dataset`s**: each gets `Status`, `SubTypes([SEMANTIC_MODEL_DATASET])`, a
+  `SemanticModelProperties(alias, semanticModel=<model urn>)` back-ref, a
+  `SchemaMetadata` with the declared fields, and an `UpstreamLineage` to the physical
+  datasets. For every field, the SDK emits a `schemaField`-anchored
+  `semanticFieldAnnotation` (with `expression` auto-synthesized as `f"{alias}.{field_path}"`
+  when not provided) and, when non-empty, a field-anchored `aiContext`.
+- **`metric`s**: each gets `Status`, `MetricInfo` (with `semanticModel=<model urn>` back-ref
+  and an optional `expression`; the expression is **never** fabricated when omitted),
+  `MetricRelationships` (**always** emitted, even with empty `derivedFrom`, so
+  `hasParentMetric` indexes as false), and an `AiContext` only when non-empty.
+
+Note that the SDK **does not** populate `metricUpstreams` for semantic-model-backed
+metrics — the lineage chain is expressed entirely through `metricInfo.semanticModel`,
+`semanticModelInfo.datasets`, and the logical dataset's own `upstreamLineage`.
+
+### Expected Output
+
+Running the example writes `semantic_model_create.json` in the working directory. Open it
+and verify the aspect shapes match the producer contract:
+
+- URN patterns: `urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)`,
+  `urn:li:metric:(urn:li:dataPlatform:snowflake,analytics,total_revenue)`, and
+  `urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)`.
+- Logical datasets carry the `Semantic Model Dataset` subtype.
+- Each logical dataset's `semanticModelProperties` points back at the model URN with the
+  right `alias`.
+- `semanticFieldAnnotation` MCPs are anchored on `schemaField` URNs and the `expression`
+  falls back to `ORDERS.order_id` when not explicitly provided.
+- `aiContext` is only present on fields/entities that had non-empty inputs.
+- No `metricUpstreams` aspect is emitted for the metrics.
+
+## API Reference
+
+For the full surface area of each builder, see the
+[SDK Entities Reference](/docs/stdlib/sdk-v2/entities).
+
+- `SemanticModel` — `datahub.sdk.semantic_model.SemanticModel`
+- `SemanticModelDataset` — `datahub.sdk.semantic_model.SemanticModelDataset`
+- `Metric` — `datahub.sdk.metric.Metric`

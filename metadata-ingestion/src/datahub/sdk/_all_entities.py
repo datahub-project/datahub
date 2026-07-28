@@ -10,8 +10,10 @@ from datahub.sdk.document import Document
 from datahub.sdk.entity import Entity
 from datahub.sdk.glossary_node import GlossaryNode
 from datahub.sdk.glossary_term import GlossaryTerm
+from datahub.sdk.metric import Metric
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
+from datahub.sdk.semantic_model import SemanticModel
 from datahub.sdk.tag import Tag
 
 # Base entity classes that don't have circular dependencies
@@ -30,6 +32,8 @@ ENTITY_CLASSES_LIST: List[Type[Entity]] = [
     GlossaryNode,
     GlossaryTerm,
     Tag,
+    SemanticModel,
+    Metric,
 ]
 
 # Create the mapping of entity types to classes

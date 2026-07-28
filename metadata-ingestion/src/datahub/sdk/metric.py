@@ -1,0 +1,283 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional, Sequence, Type, Union
+
+from typing_extensions import Self, TypeAlias
+
+from datahub.emitter.mce_builder import make_ts_millis, parse_ts_millis
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    AiContextClass,
+    AuditStampClass,
+    ChangeTypeClass,
+    DerivedMetricInputClass,
+    MetricExpressionClass,
+    MetricInfoClass,
+    MetricRelationshipsClass,
+    StatusClass,
+)
+from datahub.metadata.urns import MetricUrn, SemanticModelUrn, Urn
+from datahub.sdk._shared import (
+    DomainInputType,
+    HasDomain,
+    HasOwnership,
+    HasPlatformInstance,
+    HasStructuredProperties,
+    HasTags,
+    HasTerms,
+    LinksInputType,
+    OwnersInputType,
+    StructuredPropertyInputType,
+    TagsInputType,
+    TermsInputType,
+)
+from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.sdk.semantic_model import (
+    AiContextInput,
+    DialectExpressionInput,
+    MetricExpressionInputType,
+    _build_ai_context,
+    _build_metric_expression,
+)
+
+_DEFAULT_ACTOR_URN = "urn:li:corpuser:__ingestion"
+
+SemanticModelInputType: TypeAlias = Union[str, SemanticModelUrn]
+DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
+
+
+class Metric(
+    HasPlatformInstance,
+    HasOwnership,
+    HasTags,
+    HasTerms,
+    HasDomain,
+    HasStructuredProperties,
+    Entity,
+):
+    """A metric: a business measure calculated over a semantic model.
+
+    A semantic-model-backed metric points at its owning model via
+    ``metricInfo.semanticModel`` (the ``ModeledBy`` lineage edge). Its lineage
+    flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``;
+    do not populate ``metricUpstreams`` for these metrics.
+
+    ``metricRelationships`` is always emitted (even with empty ``derivedFrom``)
+    so ``hasParentMetric`` indexes as false. ``metricInfo.expression`` is
+    optional and is omitted when not provided.
+    """
+
+    __slots__ = ()
+
+    @classmethod
+    def get_urn_type(cls) -> Type[MetricUrn]:
+        return MetricUrn
+
+    def __init__(
+        self,
+        *,
+        platform: str,
+        path: str,
+        id: str,
+        semantic_model: SemanticModelInputType,
+        platform_instance: Optional[str] = None,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        created: Optional[datetime] = None,
+        last_modified: Optional[datetime] = None,
+        expression: Optional[MetricExpressionInputType] = None,
+        derived_from: Optional[Sequence[DerivedFromInputType]] = None,
+        ai_context: Optional[AiContextInput] = None,
+        owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
+        tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
+        domain: Optional[DomainInputType] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
+    ):
+        urn = MetricUrn(platform=platform, path=path, id=id)
+        super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
+        self._set_platform_instance(urn.platform, platform_instance)
+        # Status is part of the producer contract for this entity.
+        self._set_aspect(StatusClass(removed=False))
+        self._ensure_metric_props(semantic_model=str(semantic_model))
+
+        if name is not None:
+            self.set_name(name)
+        if description is not None:
+            self.set_description(description)
+        if created is not None:
+            self.set_created(created)
+        if last_modified is not None:
+            self.set_last_modified(last_modified)
+        if expression is not None:
+            self.set_expression(expression)
+        if ai_context is not None:
+            self.set_ai_context(ai_context)
+        # Always emit metricRelationships so hasParentMetric indexes as false.
+        self.set_derived_from(derived_from or [])
+        if owners is not None:
+            self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
+        if tags is not None:
+            self.set_tags(tags)
+        if terms is not None:
+            self.set_terms(terms)
+        if domain is not None:
+            self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
+
+    @classmethod
+    def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
+        assert isinstance(urn, MetricUrn)
+        entity = cls(
+            platform=urn.platform,
+            path=urn.path,
+            id=urn.id,
+            # semantic_model is required on metricInfo; the graph-loaded
+            # aspect will overwrite this placeholder during _init_from_graph.
+            semantic_model="urn:li:semanticModel:__placeholder__",
+        )
+        return entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
+
+    @property
+    def urn(self) -> MetricUrn:
+        return self._urn  # type: ignore
+
+    def _ensure_metric_props(
+        self, *, semantic_model: Optional[str] = None
+    ) -> MetricInfoClass:
+        props = self._get_aspect(MetricInfoClass)
+        if props is None:
+            # name is required on the aspect; default to the URN id. semanticModel
+            # is also required by the contract; use the provided value or a
+            # placeholder that _init_from_graph will overwrite.
+            props = MetricInfoClass(
+                name=self.urn.id,
+                semanticModel=semantic_model,
+            )
+            self._set_aspect(props)
+        return props
+
+    @property
+    def name(self) -> str:
+        return self._ensure_metric_props().name
+
+    def set_name(self, name: str) -> None:
+        self._ensure_metric_props().name = name
+
+    @property
+    def description(self) -> Optional[str]:
+        return self._ensure_metric_props().description
+
+    def set_description(self, description: str) -> None:
+        self._ensure_metric_props().description = description
+
+    @property
+    def created(self) -> Optional[datetime]:
+        stamp = self._ensure_metric_props().created
+        if stamp is None or stamp.time == 0:
+            return None
+        return parse_ts_millis(stamp.time)
+
+    def set_created(self, created: datetime) -> None:
+        self._ensure_metric_props().created = _make_audit_stamp(created)
+
+    @property
+    def last_modified(self) -> Optional[datetime]:
+        stamp = self._ensure_metric_props().lastModified
+        if stamp is None or stamp.time == 0:
+            return None
+        return parse_ts_millis(stamp.time)
+
+    def set_last_modified(self, last_modified: datetime) -> None:
+        self._ensure_metric_props().lastModified = _make_audit_stamp(last_modified)
+
+    @property
+    def semantic_model(self) -> Optional[str]:
+        return self._ensure_metric_props().semanticModel
+
+    def set_semantic_model(self, semantic_model: SemanticModelInputType) -> None:
+        self._ensure_metric_props().semanticModel = str(semantic_model)
+
+    @property
+    def expression(self) -> Optional[MetricExpressionClass]:
+        return self._ensure_metric_props().expression
+
+    def set_expression(
+        self,
+        expression: MetricExpressionInputType,
+        *,
+        default_dialect: Union[str, "object"] = ...,  # type: ignore[assignment]
+    ) -> None:
+        from datahub.metadata.schema_classes import DialectClass
+
+        dialect = DialectClass.ANSI_SQL if default_dialect is ... else default_dialect
+        self._ensure_metric_props().expression = _build_metric_expression(
+            expression, default_dialect=dialect
+        )
+
+    @property
+    def derived_from(self) -> List[DerivedMetricInputClass]:
+        rels = self._get_aspect(MetricRelationshipsClass)
+        if rels is None or rels.derivedFrom is None:
+            return []
+        return list(rels.derivedFrom)
+
+    def set_derived_from(self, derived_from: Sequence[DerivedFromInputType]) -> None:
+        # Always emit metricRelationships (even with empty derivedFrom) so
+        # hasParentMetric indexes as false. parentMetric is left unset: these
+        # metrics have no parent.
+        self._set_aspect(
+            MetricRelationshipsClass(
+                derivedFrom=[
+                    DerivedMetricInputClass(destinationUrn=str(d)) for d in derived_from
+                ]
+            )
+        )
+
+    def add_derived_from(self, metric: DerivedFromInputType) -> None:
+        current = self.derived_from
+        dest = str(metric)
+        if all(d.destinationUrn != dest for d in current):
+            current.append(DerivedMetricInputClass(destinationUrn=dest))
+        self._set_aspect(MetricRelationshipsClass(derivedFrom=current))
+
+    @property
+    def ai_context(self) -> Optional[AiContextClass]:
+        return self._get_aspect(AiContextClass)
+
+    def set_ai_context(self, ai_context: AiContextInput) -> None:
+        built = _build_ai_context(ai_context)
+        if built is None:
+            # Don't emit an empty aiContext; drop any previously set one.
+            self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore[union-attr]
+            return
+        self._set_aspect(built)
+
+    def as_mcps(
+        self,
+        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
+    ) -> List[MetadataChangeProposalWrapper]:  # type: ignore[override]
+        return super().as_mcps(change_type=change_type)
+
+
+def _make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
+    if ts is None:
+        return None
+    return AuditStampClass(time=make_ts_millis(ts), actor=_DEFAULT_ACTOR_URN)
+
+
+__all__ = [
+    "AiContextInput",
+    "DialectExpressionInput",
+    "DerivedFromInputType",
+    "Metric",
+    "SemanticModelInputType",
+]
