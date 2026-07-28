@@ -106,4 +106,30 @@ public class InboundMetadataEnvelopeTest {
     assertEquals(
         envelope.getHeaders(), Map.of("x-request-id", "second", "x-custom-header", "other-value"));
   }
+
+  @Test
+  public void testFromKafkaSkipsNullHeaderValues() {
+    RecordHeaders headers = new RecordHeaders();
+    headers.add("x-keep", "ok".getBytes(StandardCharsets.UTF_8));
+    headers.add("x-null", null);
+
+    ConsumerRecord<String, String> record =
+        new ConsumerRecord<>(
+            "MCP_v1",
+            0,
+            100L,
+            0L,
+            TimestampType.CREATE_TIME,
+            0,
+            0,
+            "key",
+            "value",
+            headers,
+            Optional.empty());
+
+    InboundMetadataEnvelope<String> envelope =
+        InboundMetadataEnvelope.fromKafka(record, "mce-consumer");
+
+    assertEquals(envelope.getHeaders(), Map.of("x-keep", "ok"));
+  }
 }

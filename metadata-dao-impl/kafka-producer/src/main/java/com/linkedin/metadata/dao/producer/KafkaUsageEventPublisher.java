@@ -26,9 +26,9 @@ public class KafkaUsageEventPublisher implements UsageEventPublisher {
   private boolean canWrite = true;
 
   public KafkaUsageEventPublisher(
-      Producer<String, String> producer,
-      KafkaHealthChecker kafkaHealthChecker,
-      MetricUtils metricUtils,
+      @Nonnull Producer<String, String> producer,
+      @Nonnull KafkaHealthChecker kafkaHealthChecker,
+      @Nonnull MetricUtils metricUtils,
       @Nonnull OutboundContextResolver outboundContextResolver) {
     this.producer = producer;
     this.kafkaHealthChecker = kafkaHealthChecker;

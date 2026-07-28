@@ -2,11 +2,12 @@ package com.linkedin.gms.factory.system_telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporter;
-import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricSpanExporter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -25,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Common System OpenTelemetry */
 @Slf4j
@@ -37,6 +39,11 @@ public abstract class OpenTelemetryBaseFactory {
   private static final int BSP_MAX_EXPORT_BATCH_SIZE = 512;
   private static final Duration BSP_SCHEDULE_DELAY = Duration.ofSeconds(5);
   private static final Duration BSP_EXPORT_TIMEOUT = Duration.ofSeconds(10);
+
+  // SPI beans from SpanEnricherFactory — field-injected so subclass @Bean methods keep master's
+  // 3-arg surface (metricUtils, config, usage producer). Empty lists → no-ops in OSS.
+  @Autowired private SpanProducerRecordResolver spanProducerRecordResolver;
+  @Autowired private EnrichingSpanProcessor enrichingSpanProcessor;
 
   /** Builds a bounded async {@link BatchSpanProcessor} with the shared settings above. */
   private static BatchSpanProcessor bsp(SpanExporter exporter) {
@@ -53,15 +60,14 @@ public abstract class OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      UsageEventPublisher usageEventPublisher,
-      OperationContext systemOperationContext) {
+      @Nullable GenericProducer<String> usageProducer) {
 
-    SpanProcessor usageSpanExporter =
-        getUsageSpanExporter(configurationProvider, usageEventPublisher, systemOperationContext);
+    SpanProcessor usageSpanExporter = getUsageSpanExporter(configurationProvider, usageProducer);
     OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
     return SystemTelemetryContext.builder()
         .metricUtils(metricUtils)
         .tracer(tracer(openTelemetry))
+        .textMapPropagator(openTelemetry.getPropagators().getTextMapPropagator())
         .usageSpanExporter(usageSpanExporter)
         .build();
   }
@@ -69,18 +75,16 @@ public abstract class OpenTelemetryBaseFactory {
   @Nullable
   private SpanProcessor getUsageSpanExporter(
       ConfigurationProvider configurationProvider,
-      UsageEventPublisher usageEventPublisher,
-      OperationContext systemOperationContext) {
-    if (usageEventPublisher != null
-        && systemOperationContext != null
+      @Nullable GenericProducer<String> usageProducer) {
+    if (usageProducer != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
       return bsp(
           new DataHubUsageSpanExporter(
-              usageEventPublisher,
-              systemOperationContext,
+              usageProducer,
               configurationProvider.getKafka().getTopics().getDataHubUsage(),
-              configurationProvider.getPlatformAnalytics().getUsageExport()));
+              configurationProvider.getPlatformAnalytics().getUsageExport(),
+              spanProducerRecordResolver));
     }
     return null;
   }
@@ -136,6 +140,7 @@ public abstract class OpenTelemetryBaseFactory {
                   // negligible: when the header is absent, export() is a single ThreadLocal
                   // read + early return, so it does not block normal user operations.
                   sdkTracerProviderBuilder
+                      .addSpanProcessor(enrichingSpanProcessor)
                       .addSpanProcessor(
                           // MetricSpanExporter: forwards OTel spans to Dropwizard timers.
                           // Pure in-memory update — no ordering requirement, async-safe.

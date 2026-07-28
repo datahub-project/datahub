@@ -57,6 +57,7 @@ public final class PgQueueUsageEventPublisher implements UsageEventPublisher {
       @Nonnull String topic,
       @Nullable String key,
       @Nonnull String payload) {
+    // pgQueue currently has no header/context channel, so opContext cannot be propagated yet.
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return CompletableFuture.completedFuture(null);

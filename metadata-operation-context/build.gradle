@@ -19,6 +19,7 @@ dependencies {
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
+  implementation externalDependency.kafkaClients
   api externalDependency.jacksonDataBind
   api externalDependency.jacksonJDK8
   compileOnly externalDependency.lombok
