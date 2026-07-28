@@ -407,6 +407,7 @@ services:
         required: true
     environment:
       BACKFILL_BROWSE_PATHS_V2: 'true'
+      BACKFILL_DATA_PRODUCT_ASSETS: 'true'
       CREATE_USER: 'false'
       CREATE_USER_PASSWORD: datahub
       CREATE_USER_USERNAME: datahub

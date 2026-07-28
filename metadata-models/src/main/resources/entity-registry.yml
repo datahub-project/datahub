@@ -26,6 +26,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - dataProducts
       - applications
       - schemaMetadata
       - status
@@ -70,6 +71,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -98,6 +100,7 @@ entities:
     searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -155,6 +158,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -176,6 +180,7 @@ entities:
     searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -214,6 +219,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - dataProducts
       - applications
       - subTypes
       - dataPlatformInstance
@@ -294,6 +300,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - dataProducts
       - applications
       - browsePathsV2
       - structuredProperties
@@ -357,6 +364,7 @@ entities:
       - status
       - ownership
       - domains
+      - dataProducts
       - structuredProperties
       - subTypes
       - dataPlatformInstance
@@ -426,6 +434,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - dataProducts
       - applications
       - ownership
       - mlModelProperties
@@ -461,6 +470,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - dataProducts
       - applications
       - mlModelGroupProperties
       - ownership
@@ -497,6 +507,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureTableProperties
       - ownership
@@ -520,6 +531,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureProperties
       - ownership
@@ -543,6 +555,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - dataProducts
       - applications
       - mlPrimaryKeyProperties
       - ownership
