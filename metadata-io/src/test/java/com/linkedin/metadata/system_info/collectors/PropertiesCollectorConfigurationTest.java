@@ -897,6 +897,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "structuredProperties.dropMissingPropertyValuesWithWarning",
           "structuredProperties.keywordMaxLength",
           "structuredProperties.systemUpdateEnabled",
+          "structuredProperties.typeMismatchReindexEnabled",
           "structuredProperties.writeEnabled",
           "telemetry.enabledCli",
           "telemetry.enabledIngestion",
