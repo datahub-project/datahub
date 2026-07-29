@@ -9,20 +9,10 @@ from avrogen.dict_wrapper import DictWrapper
 
 from datahub.cli import cli_utils
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import (
-    chart_urn_to_key,
-    dashboard_urn_to_key,
-    dataset_urn_to_key,
-    make_chart_urn,
-    make_dashboard_urn,
-    make_data_flow_urn,
-    make_data_job_urn_with_flow,
-    make_dataset_urn_with_platform_instance,
-)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     ENTITY_TYPE_TO_ASPECT_NAMES,
     GlobalTagsClass,
@@ -33,9 +23,8 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     _Aspect,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.migration.models import ConflictStrategy, MergeResult
 from datahub.specific.dataset import DatasetPatchBuilder
-from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns, transform_urns
 
@@ -50,20 +39,6 @@ ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 # Entity types that support env/origin filtering in ElasticSearch.
 # Charts, dashboards, dataflows, and datajobs don't have env/origin fields.
 ENV_ENTITY_TYPES = {"dataset"}
-
-
-class ConflictStrategy(StrEnum):
-    """How to handle aspect writes during migration.
-
-    Aligns with DataHub's TransformerSemantics terminology:
-    - OVERWRITE: Write aspects from source, replacing target values
-    - PATCH: Merge with existing target values, only add new data
-    - PROMPT: Ask user interactively for each conflict
-    """
-
-    OVERWRITE = "overwrite"
-    PATCH = "patch"
-    PROMPT = "prompt"
 
 
 # Aspects that can be merged additively (lists of items, deduplicated)
@@ -87,13 +62,14 @@ MIXED_ASPECTS = {
     "editableDatasetProperties",
 }
 
-# Aspects that are always overwritten during migration
+# Aspects that are always overwritten during migration.
+# Note: dataPlatformInstance and key aspects (e.g. containerKey) are intentionally
+# absent — they never reach src_aspect_map because get_migratable_aspect_names
+# excludes system-managed aspects and key aspects are not in the entity registry.
 ALWAYS_OVERWRITE_ASPECTS = {
-    "dataPlatformInstance",
     "container",
     "status",
     "containerProperties",
-    "containerKey",
 }
 
 # Aspects the migration must NOT clone verbatim from source to the new URN:
@@ -123,6 +99,12 @@ def get_migratable_aspect_names(entity_type: str) -> List[str]:
     automatically. Timeseries aspects are excluded (append-only; migrated, if at
     all, via a separate path), as are system-managed aspects the migration
     re-derives.
+
+    TODO: source this from the live server via
+    ``DataHubGraph.get_entity_aspect_specs()`` (see
+    ``ingestion/graph/client.py``) instead of the codegen constant, so the aspect
+    list reflects the running server's registry — including custom aspects — rather
+    than whatever the CLI happened to be built against.
     """
     return [
         a
@@ -166,6 +148,10 @@ def rewrite_incoming_references(
     relationship/Urn field markers. Unlike a hand-maintained relationship-to-aspect
     map, this rewrites the reference wherever it appears, in any aspect. Returns an
     MCP for each aspect that actually changed (the caller decides how to emit).
+
+    TODO: this fetches all aspects for every referencing entity, one entity at a
+    time. For a heavily-referenced entity (many downstreams) that's a full-entity
+    read per reference and can get slow on large migrations — worth batching.
     """
     aspect_map = cli_utils.get_aspects_for_entity(
         graph._session,
@@ -194,9 +180,12 @@ def clone_aspect(
     src_urn: str,
     aspect_names: List[str],
     dst_urn: str,
-    run_id: str = str(uuid.uuid4()),
+    run_id: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
+    # Generate per call rather than as a default arg: a default is evaluated once
+    # at import time and would share a single run_id across every migration.
+    run_id = run_id or str(uuid.uuid4())
     client = graph or get_default_graph(ClientMode.CLI)
     aspect_map = cli_utils.get_aspects_for_entity(
         client._session,
@@ -222,20 +211,41 @@ def clone_aspect(
                 log.debug(f"did not find aspect {a} in response, continuing...")
 
 
-def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
-    client = get_default_graph(ClientMode.CLI)
-    yield from client.get_related_entities(
-        entity_urn=urn,
-        relationship_types=[
-            "DownstreamOf",
-            "Consumes",
-            "Produces",
-            "ForeignKeyToDataset",
-            "DerivedFrom",
-            "IsPartOf",
-        ],
-        direction=RelationshipDirection.INCOMING,
-    )
+def get_incoming_relationships(
+    urn: str, graph: Optional[DataHubGraph] = None
+) -> Iterable[RelatedEntity]:
+    """Entities that hold an indexed reference to ``urn``.
+
+    Queries the relationship graph across ALL relationship types rather than a
+    hand-picked subset, so references such as ``Asserts`` (assertions → dataset)
+    are included and get rewritten during migration instead of being left
+    dangling. Edges are stored ``(source)-[type]->(destination)``; an entity that
+    references ``urn`` has it as the *destination*, so we filter on
+    ``destination_urns`` and return each edge's *source*.
+
+    Only ``@Relationship``-annotated fields are graph-indexed; references held in
+    plain URN fields (e.g. structured-property URN values) are not discovered here.
+    """
+    client = graph or get_default_graph(ClientMode.CLI)
+    seen: set = set()
+    scroll_id: Optional[str] = None
+    while True:
+        result = client.scroll_relationships(
+            destination_urns=[urn],
+            relationship_types=None,  # all indexed relationship types
+            include_soft_delete=True,
+            scroll_id=scroll_id,
+        )
+        for rel in result.relationships:
+            if rel.source_urn in seen:
+                continue
+            seen.add(rel.source_urn)
+            yield RelatedEntity(
+                urn=rel.source_urn, relationship_type=rel.relationship_type
+            )
+        scroll_id = result.scroll_id
+        if not scroll_id:
+            break
 
 
 # --- Merge logic (for instance2instance with overlapping entities) ---
@@ -467,11 +477,11 @@ def _overwrite_entity(
     dst_urn: str,
     graph: DataHubGraph,
     dry_run: bool,
-) -> tuple[int, int]:
+) -> MergeResult:
     """Overwrite target entity with all aspects from source (no merge logic).
 
     Used as fallback for entity types that don't support Patch-based merge.
-    Returns (aspects_written, 0) — no conflicts since we always overwrite.
+    No conflicts are reported since we always overwrite.
     """
     aspects_written = 0
     for mcp in clone_aspect(
@@ -483,7 +493,45 @@ def _overwrite_entity(
         if not dry_run:
             graph.emit_mcp(mcp)
         aspects_written += 1
-    return aspects_written, 0
+    return MergeResult(merged=aspects_written, skipped=0)
+
+
+def _merge_non_additive_aspects(
+    src_aspect_map: Dict[str, Union[dict, _Aspect]],
+    dst_urn: str,
+    src_urn: str,
+    graph: DataHubGraph,
+    on_conflict: ConflictStrategy,
+    dry_run: bool,
+) -> Tuple[int, int]:
+    """Merge scalar (non-additive) aspects, honoring the conflict strategy.
+
+    Returns (aspects_merged, conflicts_skipped).
+    """
+    merged = 0
+    skipped = 0
+    for aspect_name in NON_ADDITIVE_ASPECTS:
+        src_aspect = src_aspect_map.get(aspect_name)
+        if not isinstance(src_aspect, DictWrapper):
+            continue
+        dst_aspect_map = cli_utils.get_aspects_for_entity(
+            graph._session,
+            graph.config.server,
+            dst_urn,
+            aspects=[aspect_name],
+            typed=True,
+        )
+        dst_aspect = dst_aspect_map.get(aspect_name)
+        if isinstance(dst_aspect, DictWrapper) and not should_overwrite_non_additive(
+            aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
+        ):
+            skipped += 1
+            continue
+        mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
+        if not dry_run:
+            graph.emit_mcp(mcp)
+        merged += 1
+    return merged, skipped
 
 
 def merge_entity(
@@ -492,14 +540,18 @@ def merge_entity(
     on_conflict: ConflictStrategy,
     graph: DataHubGraph,
     dry_run: bool,
-) -> tuple[int, int]:
+) -> MergeResult:
     """Merge all aspects from source entity into existing target.
 
     Only dataset entities support full merge via the Patch API. For other entity
     types (chart, dashboard, dataFlow, dataJob), this falls back to overwrite.
-
-    Returns (aspects_merged, conflicts_skipped).
     """
+    # PRESERVE leaves the existing target entirely untouched — no additive merge,
+    # no scalar overwrite. Short-circuit here, before any merge work: the additive
+    # path never consults on_conflict, so it would otherwise still mutate the target.
+    if on_conflict == ConflictStrategy.PRESERVE:
+        return MergeResult(merged=0, skipped=1)
+
     # Only datasets support Patch-based merge. Other entity types fall back to
     # overwrite because there's no ChartPatchBuilder/DashboardPatchBuilder etc.
     entity_type = guess_entity_type(dst_urn)
@@ -550,42 +602,11 @@ def merge_entity(
         total_skipped += skipped
 
     # Non-additive aspects with conflict strategy
-    for aspect_name in NON_ADDITIVE_ASPECTS:
-        if aspect_name not in src_aspect_map:
-            continue
-        src_aspect = src_aspect_map[aspect_name]
-        if not isinstance(src_aspect, DictWrapper):
-            continue
-        dst_aspect_map = cli_utils.get_aspects_for_entity(
-            graph._session,
-            graph.config.server,
-            dst_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        if aspect_name in dst_aspect_map and isinstance(
-            dst_aspect_map[aspect_name], DictWrapper
-        ):
-            dst_aspect: DictWrapper = dst_aspect_map[aspect_name]  # type: ignore[assignment]
-            assert isinstance(src_aspect, DictWrapper)
-            if should_overwrite_non_additive(
-                aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
-            ):
-                assert isinstance(src_aspect, DictWrapper)
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=dst_urn, aspect=src_aspect
-                )
-                if not dry_run:
-                    graph.emit_mcp(mcp)
-                total_merged += 1
-            else:
-                total_skipped += 1
-        else:
-            assert isinstance(src_aspect, DictWrapper)
-            mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
-            if not dry_run:
-                graph.emit_mcp(mcp)
-            total_merged += 1
+    merged, skipped = _merge_non_additive_aspects(
+        src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
+    )
+    total_merged += merged
+    total_skipped += skipped
 
     # Always overwrite migration-specific aspects
     for aspect_name in ALWAYS_OVERWRITE_ASPECTS:
@@ -603,7 +624,7 @@ def merge_entity(
     total_merged += merged
     total_skipped += skipped
 
-    return total_merged, total_skipped
+    return MergeResult(merged=total_merged, skipped=total_skipped)
 
 
 def _merge_default_aspects(
@@ -650,170 +671,3 @@ def _merge_default_aspects(
             graph.emit_mcp(mcp)
         merged += 1
     return merged, skipped
-
-
-# --- URN rewriting ---
-
-
-def replace_instance_prefix(name: str, old_instance: str, new_instance: str) -> str:
-    """Replace the old platform instance prefix in an entity name with the new one.
-
-    Entity names with a platform instance are formatted as '{instance}.{name}'.
-    Raises ValueError if the name doesn't start with the expected old instance prefix,
-    as this indicates a data quality issue (entity doesn't belong to the old instance).
-    """
-    prefix = f"{old_instance}."
-    if name.startswith(prefix):
-        return f"{new_instance}.{name[len(prefix) :]}"
-    raise ValueError(
-        f"Entity name '{name}' does not start with expected instance prefix "
-        f"'{old_instance}.'. This entity may not belong to the source instance. "
-        f"Use --skip-on-error to skip such entities."
-    )
-
-
-# --- Generic URN builder ---
-
-# Entity type → (key_parser, name_extractor, urn_constructor)
-_UrnSpec = Tuple[Callable, Callable, Callable]
-
-_ENTITY_URN_SPECS: Dict[str, _UrnSpec] = {
-    "dataset": (
-        dataset_urn_to_key,
-        lambda key: key.name,
-        # `name` already carries the new instance prefix (added by
-        # _rewrite_name), so platform_instance must be None here — otherwise the
-        # instance segment is prepended twice (e.g. new_inst.new_inst.db.table).
-        lambda key, name, _inst: make_dataset_urn_with_platform_instance(
-            platform=key.platform[len("urn:li:dataPlatform:") :],
-            name=name,
-            platform_instance=None,
-            env=str(key.origin),
-        ),
-    ),
-    "chart": (
-        chart_urn_to_key,
-        lambda key: key.chartId,
-        lambda key, name, _inst: make_chart_urn(platform=key.dashboardTool, name=name),
-    ),
-    "dashboard": (
-        dashboard_urn_to_key,
-        lambda key: key.dashboardId,
-        lambda key, name, _inst: make_dashboard_urn(
-            platform=key.dashboardTool, name=name
-        ),
-    ),
-}
-
-
-def make_urn_builder(
-    entity_type: str,
-    new_instance: str,
-    old_instance: Optional[str] = None,
-) -> Callable[[str], str]:
-    """Build a URN rewriter for any supported entity type.
-
-    When *old_instance* is ``None`` (platform-to-instance migration) the
-    new instance is simply prepended.  When *old_instance* is given
-    (instance-to-instance) the old prefix is replaced.
-    """
-
-    def _rewrite_name(name: str) -> str:
-        if old_instance is None:
-            return f"{new_instance}.{name}"
-        return replace_instance_prefix(name, old_instance, new_instance)
-
-    if entity_type == "dataFlow":
-
-        def _dataflow_urn(src_urn: str) -> str:
-            parsed = DataFlowUrn.from_string(src_urn)
-            return make_data_flow_urn(
-                orchestrator=parsed.orchestrator,
-                flow_id=_rewrite_name(parsed.flow_id),
-                cluster=parsed.cluster,
-            )
-
-        return _dataflow_urn
-
-    if entity_type == "dataJob":
-
-        def _datajob_urn(src_urn: str) -> str:
-            parsed = DataJobUrn.from_string(src_urn)
-            flow = DataFlowUrn.from_string(parsed.flow)
-            new_flow_urn = make_data_flow_urn(
-                orchestrator=flow.orchestrator,
-                flow_id=_rewrite_name(flow.flow_id),
-                cluster=flow.cluster,
-            )
-            return make_data_job_urn_with_flow(new_flow_urn, parsed.job_id)
-
-        return _datajob_urn
-
-    spec = _ENTITY_URN_SPECS.get(entity_type)
-    if spec is None:
-        raise ValueError(f"Unsupported entity type for URN rewriting: {entity_type}")
-
-    key_parser, name_extractor, urn_constructor = spec
-
-    def _entity_urn(src_urn: str) -> str:
-        key = key_parser(src_urn)
-        assert key
-        new_name = _rewrite_name(name_extractor(key))
-        return urn_constructor(key, new_name, new_instance)
-
-    return _entity_urn
-
-
-# --- Backward-compatible convenience wrappers ---
-
-
-def make_p2i_dataset_urn(instance: str) -> Callable[[str], str]:
-    return make_urn_builder("dataset", new_instance=instance)
-
-
-def make_p2i_chart_urn(instance: str) -> Callable[[str], str]:
-    return make_urn_builder("chart", new_instance=instance)
-
-
-def make_p2i_dashboard_urn(instance: str) -> Callable[[str], str]:
-    return make_urn_builder("dashboard", new_instance=instance)
-
-
-def make_p2i_dataflow_urn(instance: str) -> Callable[[str], str]:
-    return make_urn_builder("dataFlow", new_instance=instance)
-
-
-def make_p2i_datajob_urn(instance: str) -> Callable[[str], str]:
-    return make_urn_builder("dataJob", new_instance=instance)
-
-
-def make_i2i_dataset_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
-    return make_urn_builder(
-        "dataset", new_instance=new_instance, old_instance=old_instance
-    )
-
-
-def make_i2i_chart_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
-    return make_urn_builder(
-        "chart", new_instance=new_instance, old_instance=old_instance
-    )
-
-
-def make_i2i_dashboard_urn(
-    old_instance: str, new_instance: str
-) -> Callable[[str], str]:
-    return make_urn_builder(
-        "dashboard", new_instance=new_instance, old_instance=old_instance
-    )
-
-
-def make_i2i_dataflow_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
-    return make_urn_builder(
-        "dataFlow", new_instance=new_instance, old_instance=old_instance
-    )
-
-
-def make_i2i_datajob_urn(old_instance: str, new_instance: str) -> Callable[[str], str]:
-    return make_urn_builder(
-        "dataJob", new_instance=new_instance, old_instance=old_instance
-    )

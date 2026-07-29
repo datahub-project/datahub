@@ -6,8 +6,7 @@ from unittest.mock import MagicMock, patch
 from avrogen.dict_wrapper import DictWrapper
 
 import datahub.cli.migration_utils as migration_utils
-from datahub.cli.migrate import _migrate_single_entity
-from datahub.cli.migration_utils import ConflictStrategy, merge_entity
+from datahub.cli.migration_utils import merge_entity
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -15,9 +14,15 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
-    SystemMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.migration import engine
+from datahub.migration.models import (
+    ConflictStrategy,
+    MigrationOptions,
+    MigrationPair,
+    MigrationReport,
 )
 from datahub.utilities.urns.urn_iter import transform_urns
 
@@ -120,7 +125,7 @@ class TestClonePathRewritesSelfReferences:
     """The clone path must rewrite the migrated entity's own aspect URNs."""
 
     @patch(
-        "datahub.cli.migrate.migration_utils.get_incoming_relationships",
+        "datahub.cli.migration_utils.get_incoming_relationships",
         return_value=[],
     )
     def test_clone_path_rewrites_own_fine_grained_lineage(
@@ -152,22 +157,16 @@ class TestClonePathRewritesSelfReferences:
         graph.emit_mcp.side_effect = lambda mcp: emitted.append(mcp)
 
         with patch(
-            "datahub.cli.migrate.migration_utils.clone_aspect",
+            "datahub.cli.migration_utils.clone_aspect",
             return_value=[cloned],
         ):
-            _migrate_single_entity(
-                src_entity_urn=OLD_DS,
-                make_new_urn=lambda _: NEW_DS,
-                platform="mysql",
-                target_instance="new_inst",
-                dry_run=False,
-                hard=False,
-                keep=True,
-                run_id="test-run",
-                graph=graph,
-                on_conflict=None,
-                system_metadata=SystemMetadataClass(runId="test-run"),
-                migration_report=MagicMock(),
+            engine.migrate_pair(
+                graph,
+                MigrationPair(source_urn=OLD_DS, target_urn=NEW_DS),
+                MigrationOptions(
+                    run_id="test-run", dry_run=False, keep=True, on_conflict=None
+                ),
+                MigrationReport("test-run", dry_run=False, keep=True),
             )
 
         lineage = [

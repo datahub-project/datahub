@@ -10,19 +10,12 @@ import click
 import progressbar
 
 from datahub.cli import delete_cli, migration_utils
-from datahub.cli.migration_utils import (
-    ALL_ENTITY_TYPES,
-    ENV_ENTITY_TYPES,
-    ConflictStrategy,
-    make_urn_builder,
-    merge_entity,
-)
+from datahub.cli.migration_utils import ALL_ENTITY_TYPES
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     BigQueryDatasetKey,
     DatabaseKey,
@@ -38,81 +31,21 @@ from datahub.ingestion.graph.client import (
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
-    SystemMetadataClass,
 )
+from datahub.migration import engine
+from datahub.migration.fetch import fetch_instance_urns, fetch_platform_urns
+from datahub.migration.models import (
+    ConflictStrategy,
+    MigrationOptions,
+    MigrationPair,
+    MigrationReport,
+)
+from datahub.migration.transform import make_urn_builder, pairs_from_transform
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn, guess_entity_type
-from datahub.utilities.urns.urn_iter import transform_urns
 
 log = logging.getLogger(__name__)
-
-
-# --- Migration Report ---
-
-
-class MigrationReport:
-    def __init__(self, run_id: str, dry_run: bool, keep: bool) -> None:
-        self.run_id = run_id
-        self.dry_run = dry_run
-        self.keep = keep
-        self.num_events = 0
-        self.entities_migrated: Dict[Tuple[str, str], int] = {}
-        self.entities_created: Dict[Tuple[str, str], int] = {}
-        self.entities_affected: Dict[Tuple[str, str], int] = {}
-        self.conflicts_skipped: int = 0
-        self.aspects_merged: int = 0
-        self.entities_errored: List[Tuple[str, str]] = []
-
-    def on_entity_migrated(self, urn: str, aspect: str) -> None:
-        self.num_events += 1
-        if (urn, aspect) not in self.entities_migrated:
-            self.entities_migrated[(urn, aspect)] = 1
-
-    def on_entity_create(self, urn: str, aspect: str) -> None:
-        self.num_events += 1
-        if (urn, aspect) not in self.entities_created:
-            self.entities_created[(urn, aspect)] = 1
-
-    def on_entity_affected(self, urn: str, aspect: str) -> None:
-        self.num_events += 1
-        if (urn, aspect) not in self.entities_affected:
-            self.entities_affected[(urn, aspect)] = 1
-        else:
-            self.entities_affected[(urn, aspect)] += 1
-
-    def _get_prefix(self) -> str:
-        return "[Dry Run] " if self.dry_run else ""
-
-    def __repr__(self) -> str:
-        p = self._get_prefix()
-        lines = [
-            f"{p}Migration Report:",
-            "--------------",
-            f"{p}Migration Run Id: {self.run_id}",
-            f"{p}Num entities created = {len(set(x[0] for x in self.entities_created))}",
-            f"{p}Num entities affected = {len(set(x[0] for x in self.entities_affected))}",
-            f"{p}Num entities {'kept' if self.keep else 'migrated'} = {len(set(x[0] for x in self.entities_migrated))}",
-        ]
-        if self.aspects_merged > 0:
-            lines.append(f"{p}Aspects merged = {self.aspects_merged}")
-        if self.conflicts_skipped > 0:
-            lines.append(f"{p}Conflicts skipped = {self.conflicts_skipped}")
-        if self.entities_errored:
-            lines.append(f"{p}Entities errored = {len(self.entities_errored)}")
-            for urn, err in self.entities_errored:
-                lines.append(f"{p}  {urn}: {err}")
-        lines.append(f"{p}Details:")
-        lines.append(
-            f"{p}New Entities Created: {set(x[0] for x in self.entities_created) or 'None'}"
-        )
-        lines.append(
-            f"{p}External Entities Affected: {set(x[0] for x in self.entities_affected) or 'None'}"
-        )
-        lines.append(
-            f"{p}Old Entities {'Kept' if self.keep else 'Migrated'} = {set(x[0] for x in self.entities_migrated) or 'None'}"
-        )
-        return "\n".join(lines)
 
 
 @click.group()
@@ -167,153 +100,59 @@ def _warn_dataflow_datajob_coupling(
 # --- Core migration logic ---
 
 
-def _migrate_single_entity(
-    src_entity_urn: str,
-    make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
-    dry_run: bool,
-    hard: bool,
-    keep: bool,
-    run_id: str,
+def _run_migration(
     graph: DataHubGraph,
-    on_conflict: Optional[ConflictStrategy],
-    system_metadata: SystemMetadataClass,
-    migration_report: MigrationReport,
-) -> None:
-    """Migrate a single entity URN to a new URN."""
-    new_urn = make_new_urn(src_entity_urn)
-    log.debug(f"Will migrate {src_entity_urn} to {new_urn}")
-    rewrite_urn = migration_utils.make_self_urn_rewriter(src_entity_urn, new_urn)
-
-    # Check if target already exists (for merge mode)
-    target_exists = False
-    if on_conflict is not None:
-        try:
-            target_exists = graph.exists(new_urn)
-        except Exception:
-            target_exists = False
-
-    if target_exists and on_conflict is not None:
-        log.info(f"Target {new_urn} exists — merging aspects")
-        merged, skipped = merge_entity(
-            src_entity_urn, new_urn, on_conflict, graph, dry_run
-        )
-        migration_report.aspects_merged += merged
-        migration_report.conflicts_skipped += skipped
-    else:
-        # Aspect list comes from the entity registry, not a hand-maintained
-        # constant, so newly-modeled aspects are migrated automatically.
-        aspect_names = migration_utils.get_migratable_aspect_names(
-            guess_entity_type(src_entity_urn)
-        )
-        for mcp in migration_utils.clone_aspect(
-            src_entity_urn,
-            aspect_names=aspect_names,
-            dst_urn=new_urn,
-            run_id=run_id,
-        ):
-            # Rewrite the entity's own self-references inside the aspect body
-            # (e.g. fineGrainedLineages schemaField URNs), driven by the
-            # aspect's relationship/Urn field markers.
-            if mcp.aspect is not None:
-                transform_urns(mcp.aspect, rewrite_urn)
-            if not dry_run:
-                graph.emit_mcp(mcp)
-            migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
-
-    # Always emit dataPlatformInstance
-    if not dry_run:
-        graph.emit_mcp(
-            MetadataChangeProposalWrapper(
-                entityUrn=new_urn,
-                aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(platform),
-                    instance=make_dataplatform_instance_urn(platform, target_instance),
-                ),
-                systemMetadata=system_metadata,
-            )
-        )
-    migration_report.on_entity_create(new_urn, "dataPlatformInstance")
-
-    # Update incoming relationships. The relationship index tells us which
-    # entities reference the migrated URN; we then rewrite that reference
-    # wherever it appears, across all of the referencing entity's aspects.
-    seen_targets = set()
-    for relationship in migration_utils.get_incoming_relationships(src_entity_urn):
-        target_urn = relationship.urn
-        if target_urn in seen_targets:
-            continue
-        seen_targets.add(target_urn)
-        for mcp in migration_utils.rewrite_incoming_references(
-            graph, target_urn, rewrite_urn
-        ):
-            if not dry_run:
-                graph.emit_mcp(mcp)
-            migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
-
-    if not dry_run and not keep:
-        log.info(f"will {'hard' if hard else 'soft'} delete {src_entity_urn}")
-        delete_cli._delete_one_urn(graph, src_entity_urn, soft=not hard, run_id=run_id)
-    migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
-
-
-def _migrate_entities(
-    urns_to_migrate: List[str],
-    make_new_urn: Callable[[str], str],
-    platform: str,
-    target_instance: str,
-    dry_run: bool,
-    force: bool,
-    hard: bool,
-    keep: bool,
-    run_id: str,
-    graph: DataHubGraph,
-    on_conflict: Optional[ConflictStrategy] = None,
-    skip_on_error: bool = False,
+    pairs: List[MigrationPair],
+    options: MigrationOptions,
 ) -> MigrationReport:
-    """Migrate a list of entity URNs to new URNs, updating relationships."""
-    migration_report = MigrationReport(run_id, dry_run, keep)
-    system_metadata = SystemMetadataClass(runId=run_id)
+    """Drive the migration engine over a fixed list of pairs, with a progress bar.
 
-    if not force and not dry_run:
-        sampled_urns = random.sample(urns_to_migrate, k=min(10, len(urns_to_migrate)))
-        sampled_new_urns = [make_new_urn(u) for u in sampled_urns]
-        click.echo(f"Will migrate {len(urns_to_migrate)} urns such as {sampled_urns}")
+    Adds the CLI-only error hint that the engine (which is UI-agnostic) omits.
+    """
+    try:
+        return engine.migrate_pairs(
+            graph,
+            progressbar.progressbar(pairs, redirect_stdout=True),
+            options,
+        )
+    except Exception as e:
+        click.echo(
+            f"\nError during migration: {e}\n"
+            "Hint: use --skip-on-error to skip problematic entities "
+            "and continue with the rest."
+        )
+        raise
+
+
+def _run_entity_migration(
+    graph: DataHubGraph,
+    *,
+    urns: List[str],
+    transform: Callable[[str], str],
+    platform: str,
+    target_instance: str,
+    options: MigrationOptions,
+    force: bool,
+) -> MigrationReport:
+    """Confirm, then migrate a single entity type via fetch → transform → engine."""
+    if not force and not options.dry_run:
+        sampled_urns = random.sample(urns, k=min(10, len(urns)))
+        sampled_new_urns = [transform(u) for u in sampled_urns]
+        click.echo(f"Will migrate {len(urns)} urns such as {sampled_urns}")
         click.echo(f"New urns will look like {sampled_new_urns}")
         click.confirm("Ok to proceed?", abort=True)
 
-    for src_entity_urn in progressbar.progressbar(
-        urns_to_migrate, redirect_stdout=True
-    ):
-        try:
-            _migrate_single_entity(
-                src_entity_urn=src_entity_urn,
-                make_new_urn=make_new_urn,
-                platform=platform,
-                target_instance=target_instance,
-                dry_run=dry_run,
-                hard=hard,
-                keep=keep,
-                run_id=run_id,
-                graph=graph,
-                on_conflict=on_conflict,
-                system_metadata=system_metadata,
-                migration_report=migration_report,
-            )
-        except Exception as e:
-            if skip_on_error:
-                log.warning(f"Error migrating {src_entity_urn}, skipping: {e}")
-                migration_report.entities_errored.append((src_entity_urn, str(e)))
-            else:
-                click.echo(
-                    f"\nError migrating {src_entity_urn}: {e}\n"
-                    "Hint: use --skip-on-error to skip problematic entities "
-                    "and continue with the rest."
-                )
-                raise
-
-    return migration_report
+    # A platform instance cannot be recovered from the target URN, so the target
+    # instance aspect is built here from the known platform/instance and attached
+    # to every pair.
+    instance_aspect = DataPlatformInstanceClass(
+        platform=make_data_platform_urn(platform),
+        instance=make_dataplatform_instance_urn(platform, target_instance),
+    )
+    pairs = list(
+        pairs_from_transform(urns, transform, data_platform_instance=instance_aspect)
+    )
+    return _run_migration(graph, pairs, options)
 
 
 def _migrate_containers(
@@ -495,9 +334,14 @@ def _process_container_relationships(
 )
 @click.option(
     "--on-conflict",
-    type=click.Choice(["overwrite", "patch", "prompt"]),
+    type=click.Choice(["overwrite", "patch", "prompt", "preserve"]),
     default="overwrite",
-    help="How to handle existing target entities.",
+    help=(
+        "How to handle existing target entities: overwrite (replace target "
+        "values), patch (only add new data), prompt (ask per conflict), or "
+        "preserve (leave the existing target untouched, but still repoint "
+        "references to it and delete the source)."
+    ),
 )
 @click.option(
     "--skip-on-error",
@@ -530,7 +374,15 @@ def dataplatform2instance(
     skip_on_error: bool,
     entity_types: Optional[str],
 ) -> None:
-    """Migrate entities from one dataplatform to a dataplatform instance."""
+    """Migrate entities from one dataplatform to a dataplatform instance.
+
+    Migrates every entity of the selected types (datasets, charts, dashboards,
+    dataflows, datajobs, and containers) together with ALL of their aspects —
+    the aspect list is sourced from the entity registry, so user-authored
+    metadata (ownership, tags, terms, documentation, structured properties, ...)
+    is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
+    and system-managed aspects (browse paths, incidents summary) are not migrated.
+    """
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, "
         f"force={force}, dry-run={dry_run}"
@@ -548,44 +400,32 @@ def dataplatform2instance(
     )
 
     for entity_type in entity_types_to_migrate:
-        urns_to_migrate: List[str] = []
-        for src_urn in graph.get_urns_by_filter(
-            platform=platform,
-            env=env if entity_type in ENV_ENTITY_TYPES else None,
-            entity_types=[entity_type],
-        ):
-            response = graph.get_aspects_for_entity(
-                entity_urn=src_urn,
-                aspects=["dataPlatformInstance"],
-                aspect_types=[DataPlatformInstanceClass],
+        urns_to_migrate = list(
+            fetch_platform_urns(
+                graph, platform=platform, env=env, entity_type=entity_type
             )
-            if "dataPlatformInstance" in response:
-                assert isinstance(
-                    response["dataPlatformInstance"], DataPlatformInstanceClass
-                )
-                if response["dataPlatformInstance"].instance:
-                    log.debug(f"{src_urn} already has instance, skipping")
-                    continue
-            urns_to_migrate.append(src_urn)
-
+        )
         if not urns_to_migrate:
             click.echo(f"No {entity_type} entities found without instance, skipping.")
             continue
 
         click.echo(f"Found {len(urns_to_migrate)} {entity_type} entities to migrate.")
-        report = _migrate_entities(
-            urns_to_migrate=urns_to_migrate,
-            make_new_urn=make_urn_builder(entity_type, new_instance=instance),
-            platform=platform,
-            target_instance=instance,
+        options = MigrationOptions(
+            run_id=f"{run_id}-{entity_type}",
             dry_run=dry_run,
-            force=force,
             hard=hard,
             keep=keep,
-            run_id=f"{run_id}-{entity_type}",
-            graph=graph,
             on_conflict=conflict,
             skip_on_error=skip_on_error,
+        )
+        report = _run_entity_migration(
+            graph,
+            urns=urns_to_migrate,
+            transform=make_urn_builder(entity_type, new_instance=instance),
+            platform=platform,
+            target_instance=instance,
+            options=options,
+            force=force,
         )
         click.echo(f"{report}")
 
@@ -627,9 +467,14 @@ def dataplatform2instance(
 )
 @click.option(
     "--on-conflict",
-    type=click.Choice(["overwrite", "patch", "prompt"]),
+    type=click.Choice(["overwrite", "patch", "prompt", "preserve"]),
     default="patch",
-    help="How to handle existing target entities.",
+    help=(
+        "How to handle existing target entities: overwrite (replace target "
+        "values), patch (only add new data), prompt (ask per conflict), or "
+        "preserve (leave the existing target untouched, but still repoint "
+        "references to it and delete the source)."
+    ),
 )
 @click.option(
     "--skip-on-error",
@@ -663,7 +508,15 @@ def instance2instance(
     skip_on_error: bool,
     entity_types: Optional[str],
 ) -> None:
-    """Migrate entities from one platform instance to another."""
+    """Migrate entities from one platform instance to another.
+
+    Migrates every entity of the selected types (datasets, charts, dashboards,
+    dataflows, datajobs, and containers) together with ALL of their aspects —
+    the aspect list is sourced from the entity registry, so user-authored
+    metadata (ownership, tags, terms, documentation, structured properties, ...)
+    is carried over, not just a fixed subset. Timeseries aspects (usage, profiles)
+    and system-managed aspects (browse paths, incidents summary) are not migrated.
+    """
     conflict = ConflictStrategy(on_conflict)
     entity_types_to_migrate = _parse_entity_types(
         entity_types, force=force, dry_run=dry_run
@@ -682,11 +535,12 @@ def instance2instance(
 
     for entity_type in entity_types_to_migrate:
         urns = list(
-            graph.get_urns_by_filter(
+            fetch_instance_urns(
+                graph,
                 platform=platform,
-                platform_instance=old_instance,
-                env=env if entity_type in ENV_ENTITY_TYPES else None,
-                entity_types=[entity_type],
+                old_instance=old_instance,
+                env=env,
+                entity_type=entity_type,
             )
         )
         if not urns:
@@ -694,23 +548,26 @@ def instance2instance(
             continue
 
         click.echo(f"Found {len(urns)} {entity_type} entities to migrate.")
-        report = _migrate_entities(
-            urns_to_migrate=urns,
-            make_new_urn=make_urn_builder(
+        options = MigrationOptions(
+            run_id=f"{run_id}-{entity_type}",
+            dry_run=dry_run,
+            hard=hard,
+            keep=keep,
+            on_conflict=conflict,
+            skip_on_error=skip_on_error,
+        )
+        report = _run_entity_migration(
+            graph,
+            urns=urns,
+            transform=make_urn_builder(
                 entity_type,
                 new_instance=new_instance,
                 old_instance=old_instance,
             ),
             platform=platform,
             target_instance=new_instance,
-            dry_run=dry_run,
+            options=options,
             force=force,
-            hard=hard,
-            keep=keep,
-            run_id=f"{run_id}-{entity_type}",
-            graph=graph,
-            on_conflict=conflict,
-            skip_on_error=skip_on_error,
         )
         click.echo(f"{report}")
 
@@ -726,3 +583,156 @@ def instance2instance(
         keep=keep,
         rest_emitter=graph,
     )
+
+
+def _validate_mapping_pair(source: str, target: str) -> None:
+    """Validate a single source → target URN pair from a mapping file."""
+    for label, urn in (("source", source), ("target", target)):
+        if not isinstance(urn, str) or not urn.startswith("urn:li:"):
+            raise click.BadParameter(
+                f"Invalid {label} URN: {urn!r}", param_hint="--mapping-file"
+            )
+    src_type = guess_entity_type(source)
+    tgt_type = guess_entity_type(target)
+    if src_type != tgt_type:
+        raise click.BadParameter(
+            f"source and target must be the same entity type: "
+            f"{source} ({src_type}) != {target} ({tgt_type})",
+            param_hint="--mapping-file",
+        )
+
+
+def _load_mapping_pairs(mapping_file: str) -> List[MigrationPair]:
+    """Parse a JSON mapping file into validated :class:`MigrationPair` objects.
+
+    Accepts either a list of ``{"source": ..., "target": ...}`` objects or a flat
+    ``{source: target}`` object.
+    """
+    with open(mapping_file) as f:
+        data = json.load(f)
+
+    raw_pairs: List[Tuple[str, str]] = []
+    if isinstance(data, dict):
+        raw_pairs = list(data.items())
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            if (
+                not isinstance(item, dict)
+                or "source" not in item
+                or "target" not in item
+            ):
+                raise click.BadParameter(
+                    f"Entry {i} must be an object with 'source' and 'target' keys.",
+                    param_hint="--mapping-file",
+                )
+            raw_pairs.append((item["source"], item["target"]))
+    else:
+        raise click.BadParameter(
+            "Mapping file must be a JSON object or a list of {source, target} objects.",
+            param_hint="--mapping-file",
+        )
+
+    if not raw_pairs:
+        raise click.BadParameter("Mapping file is empty.", param_hint="--mapping-file")
+
+    pairs: List[MigrationPair] = []
+    for source, target in raw_pairs:
+        _validate_mapping_pair(source, target)
+        # No dataPlatformInstance is stamped: a platform instance cannot be
+        # recovered from the target URN, and the caller controls the exact target,
+        # so we do not guess one. Use instance2instance for instance-aware moves.
+        pairs.append(MigrationPair(source_urn=source, target_urn=target))
+    return pairs
+
+
+@migrate.command(name="urns-mapping")
+@click.option(
+    "--mapping-file",
+    type=click.Path(exists=True, dir_okay=False),
+    required=True,
+    help=(
+        "Path to a JSON file of source → target URN pairs. Either a list of "
+        '{"source": "urn:...", "target": "urn:..."} objects or a flat '
+        '{"urn:src": "urn:tgt"} object.'
+    ),
+)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option("-F", "--force", type=bool, is_flag=True, default=False)
+@click.option(
+    "--hard",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Hard-delete previous entities instead of soft-delete.",
+)
+@click.option(
+    "--keep",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Do not delete previous entities.",
+)
+@click.option(
+    "--on-conflict",
+    type=click.Choice(["overwrite", "patch", "prompt", "preserve"]),
+    default="overwrite",
+    help=(
+        "How to handle existing target entities: overwrite (replace target "
+        "values), patch (only add new data), prompt (ask per conflict), or "
+        "preserve (leave the existing target untouched, but still repoint "
+        "references to it and delete the source)."
+    ),
+)
+@click.option(
+    "--skip-on-error",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip entities that cause errors instead of aborting.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def urns_mapping(
+    mapping_file: str,
+    dry_run: bool,
+    force: bool,
+    hard: bool,
+    keep: bool,
+    on_conflict: str,
+    skip_on_error: bool,
+) -> None:
+    """Migrate entities using an explicit source → target URN mapping.
+
+    Migrates each source entity (with ALL of its registry-defined aspects) to the
+    target URN you specify, repointing references and deleting the source — the
+    same engine that backs the instance-migration commands, but with the target
+    URNs supplied directly instead of derived from a strategy.
+
+    Source and target of each pair must be the same entity type. Unlike the
+    instance-migration commands this does not stamp a dataPlatformInstance and does
+    not migrate containers or enforce dataFlow/dataJob parent consistency — the
+    caller owns the exact mapping.
+    """
+    pairs = _load_mapping_pairs(mapping_file)
+    conflict = ConflictStrategy(on_conflict)
+    graph = get_default_graph(ClientMode.CLI)
+    click.echo(
+        f"Starting URN-mapping migration of {len(pairs)} pair(s): "
+        f"force={force}, dry-run={dry_run}, on-conflict={conflict.value}"
+    )
+
+    if not force and not dry_run:
+        sample = [(p.source_urn, p.target_urn) for p in pairs[:10]]
+        click.echo(f"Will migrate {len(pairs)} urns such as {sample}")
+        click.confirm("Ok to proceed?", abort=True)
+
+    options = MigrationOptions(
+        run_id=f"migrate-urns-{uuid.uuid4()}",
+        dry_run=dry_run,
+        hard=hard,
+        keep=keep,
+        on_conflict=conflict,
+        skip_on_error=skip_on_error,
+    )
+    report = _run_migration(graph, pairs, options)
+    click.echo(f"{report}")

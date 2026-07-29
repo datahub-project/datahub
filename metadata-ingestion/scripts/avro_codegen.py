@@ -346,6 +346,9 @@ ENTITY_TYPE_NAMES: List[str] = [
 # Entity type -> full list of non-key aspect names, sourced verbatim from
 # entity-registry.yml. This is the authoritative set of aspects an entity type
 # may carry (includes timeseries aspects such as datasetProfile).
+# TODO: consumers that need the *running server's* registry (e.g. to pick up
+# custom aspects not in this build) can instead fetch it at runtime via
+# DataHubGraph.get_entity_aspect_specs() rather than this codegen constant.
 ENTITY_TYPE_TO_ASPECT_NAMES: Dict[str, List[str]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['Aspect']['entityAspects']!r}" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}

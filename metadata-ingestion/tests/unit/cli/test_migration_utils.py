@@ -6,24 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from avrogen.dict_wrapper import DictWrapper
 
-from datahub.cli.migrate import (
-    MigrationReport,
-)
 from datahub.cli.migration_utils import (
-    ConflictStrategy,
-    make_i2i_chart_urn,
-    make_i2i_dashboard_urn,
-    make_i2i_dataflow_urn,
-    make_i2i_datajob_urn,
-    make_i2i_dataset_urn,
-    make_p2i_chart_urn,
-    make_p2i_dashboard_urn,
-    make_p2i_dataflow_urn,
-    make_p2i_datajob_urn,
-    make_p2i_dataset_urn,
     merge_additive_aspects,
     merge_mixed_aspects,
-    replace_instance_prefix,
     should_overwrite_non_additive,
 )
 from datahub.metadata.schema_classes import (
@@ -38,6 +23,20 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.migration.models import ConflictStrategy, MigrationReport
+from datahub.migration.transform import (
+    make_i2i_chart_urn,
+    make_i2i_dashboard_urn,
+    make_i2i_dataflow_urn,
+    make_i2i_datajob_urn,
+    make_i2i_dataset_urn,
+    make_p2i_chart_urn,
+    make_p2i_dashboard_urn,
+    make_p2i_dataflow_urn,
+    make_p2i_datajob_urn,
+    make_p2i_dataset_urn,
+    replace_instance_prefix,
 )
 
 # --- instance2instance helper tests ---
@@ -458,7 +457,7 @@ class TestMergeEntityNonDataset:
         mock_clone.return_value = iter([])
         graph = MagicMock()
 
-        merged, skipped = merge_entity(
+        result = merge_entity(
             self.CHART_SRC,
             self.CHART_DST,
             ConflictStrategy.PATCH,
@@ -467,7 +466,7 @@ class TestMergeEntityNonDataset:
         )
 
         mock_clone.assert_called_once()
-        assert skipped == 0
+        assert result.skipped == 0
 
     @patch("datahub.cli.migration_utils.clone_aspect")
     def test_dataflow_merge_falls_back_to_overwrite(
@@ -479,7 +478,7 @@ class TestMergeEntityNonDataset:
         mock_clone.return_value = iter([])
         graph = MagicMock()
 
-        merged, skipped = merge_entity(
+        result = merge_entity(
             "urn:li:dataFlow:(airflow,old.dag,PROD)",
             "urn:li:dataFlow:(airflow,new.dag,PROD)",
             ConflictStrategy.PATCH,
@@ -488,4 +487,4 @@ class TestMergeEntityNonDataset:
         )
 
         mock_clone.assert_called_once()
-        assert skipped == 0
+        assert result.skipped == 0
