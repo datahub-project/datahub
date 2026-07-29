@@ -14,6 +14,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     _operator_and_params_from_threshold,
     build_schema_metadata,
     odcs_to_assertion_mcps,
+    odcs_to_data_product_urn,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_urn,
     odcs_to_logical_parent_mcp,
@@ -51,6 +52,7 @@ from datahub.metadata.schema_classes import (
     SchemaAssertionCompatibilityClass,
     StringTypeClass,
 )
+from datahub.utilities.urns.error import InvalidUrnError
 
 LOGICAL_URN = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)"
 
@@ -1177,3 +1179,19 @@ def test_boolean_must_be_is_not_treated_as_number() -> None:
     rule = ODCSQualityRule.model_validate({"mustBe": True})
     op, params = _operator_and_params_from_threshold(rule)
     assert op is None and params is None
+
+
+def test_data_product_urn_takes_id_or_full_urn() -> None:
+    assert odcs_to_data_product_urn("orders_product") == (
+        "urn:li:dataProduct:orders_product"
+    )
+    assert odcs_to_data_product_urn(" urn:li:dataProduct:orders_product ") == (
+        "urn:li:dataProduct:orders_product"
+    )
+
+
+def test_data_product_display_name_cannot_be_an_id() -> None:
+    # Commas and parens are structural in DataHub urns, so the source has to
+    # resolve such a value against product names instead.
+    with pytest.raises(InvalidUrnError):
+        odcs_to_data_product_urn("Orders, Retail (EU)")

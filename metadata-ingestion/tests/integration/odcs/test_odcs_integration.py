@@ -238,6 +238,52 @@ def test_odcs_bitol_official_full_example(
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_data_product_output_ports(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    """End-to-end output-port emission over the file sink.
+
+    The synthetic fixture names `dataProduct: acme-storefront` (a valid urn id)
+    on four postgres-bound schema entries. With no graph the id resolves
+    unverified, so the run must add all four *physical* datasets to the one
+    product as output ports in a single additive patch."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_synthetic_ecommerce.odcs.yaml",
+        output_name="odcs_data_product_mces.json",
+        extra_config={"emit_data_product_association": True},
+    )
+    mces = _read_mces(output_path)
+
+    product_patches = [
+        m
+        for m in mces
+        if m.get("aspectName") == "dataProductProperties"
+        and m.get("changeType") == "PATCH"
+    ]
+    # One product, so one patch — several schema entries fold into it.
+    assert len(product_patches) == 1
+    patch = product_patches[0]
+    assert patch["entityUrn"] == "urn:li:dataProduct:acme-storefront"
+
+    ops = patch["aspect"]["json"]
+    ports = {
+        op["value"]["destinationUrn"] for op in ops if op["path"].startswith("/assets/")
+    }
+    assert ports == {
+        f"urn:li:dataset:(urn:li:dataPlatform:postgres,acmestore.public.{table},PROD)"
+        for table in ("customers", "orders", "products", "inventory")
+    }
+    assert all(
+        op["value"]["outputPort"] is True
+        for op in ops
+        if op["path"].startswith("/assets/")
+    )
+
+
 def _schema_field_paths_by_logical_dataset(
     mces: List[Dict[str, Any]],
 ) -> Dict[str, List[str]]:
