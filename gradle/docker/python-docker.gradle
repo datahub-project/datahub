@@ -1,12 +1,6 @@
-// Shared configuration for Python Docker image builds.
-// Apply this script after docker.gradle in any Python Docker build.gradle:
-//
-//   apply from: "../../gradle/docker/docker.gradle"
-//   apply from: "../../gradle/docker/python-docker.gradle"
-//
-// Provides:
-//   - netrc secret injection (via DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc)
-//   - resolveUvBuildArgs(Map) — adds UV_PROFILE, DEFAULT_INDEX_URL, EXTRA_INDEX_URLS
+// Shared config for Python Docker image builds. Apply after docker.gradle.
+// Provides netrc secret injection and resolveUvBuildArgs (UV_PROFILE / index URLs).
+// Profile resolution (CLI -P > UV_DOCKER_PROFILE env > gradle.properties) is in settings.gradle.
 
 def netrcFile = {
   def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
@@ -14,55 +8,29 @@ def netrcFile = {
   return file.exists() ? file.absolutePath : null
 }()
 
-// uvDockerProfile is resolved once in settings.gradle (CLI -P > UV_DOCKER_PROFILE
-// env var > gradle.properties default) and shared with the install path.
 def uvDockerProfile = gradle.ext['datahub.dependencies.python.uvDockerProfile']
 
 if (netrcFile) {
-  // Use explicit Property.set() rather than DSL `=` assignment: DockerPluginExtension
-  // is a plain Groovy class (not an abstract managed type), so Gradle's lazy
-  // property assignment isn't guaranteed and `netrcPath = ...` can silently
-  // replace the Property<String> field with a String.
+  // Property.set required: DSL `=` can replace the Property with a String on this extension.
   docker.netrcPath.set(netrcFile)
   logger.lifecycle("[python-docker] netrc secret enabled for ${project.path}: ${netrcFile}")
 }
 
-// Export the Docker-build profile name to the `docker`/`dockerFromCache` Exec tasks
-// (which shell out to `docker build`) for visibility in logs and so any wrapper
-// script in the build's environment can read it. The Dockerfile itself receives
-// the profile via the UV_PROFILE build-arg set in resolveUvBuildArgs below.
 tasks.withType(Exec).configureEach {
   if (name == 'docker' || name == 'dockerFromCache') {
     environment 'UV_DOCKER_PROFILE', uvDockerProfile
   }
 }
 
+// Layering: custom = from-scratch (requires pipExtraIndexUrl); existing profile =
+// copy + optional EXTRA_INDEX_URLS. Non-vanilla pipMirrorUrl rejected on existing profiles.
 ext.resolveUvBuildArgs = { Map args ->
   def pipMirrorUrl     = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
   def pipExtraIndexUrl = gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']
-  // uvDockerProfile is resolved once in settings.gradle (CLI -P > UV_DOCKER_PROFILE
-  // env var > gradle.properties default) — reuse that here so validation sees the
-  // same value. The file-existence check is delegated to the shared helper below.
-  // Layering model ("custom" is an explicit caller choice — not inferred):
-  //   custom (uvDockerProfile=custom) — generated from scratch; REQUIRES
-  //     pipExtraIndexUrl. pipMirrorUrl (non-vanilla) is the default index,
-  //     else vanilla PyPI. pipExtraIndexUrl supplies the extras.
-  //   existing profile (default/chainguard/chainguard-ci, file must exist) —
-  //     copied as the base. pipExtraIndexUrl is LAYERED on top as extra indexes.
-  //     A non-vanilla pipMirrorUrl (default-index override) is rejected here:
-  //     overriding the default would drop the profile's own indexes, so use
-  //     uvDockerProfile=custom for a from-scratch default.
-  //   An unknown profile (not "custom" and no file) is rejected so typos surface.
-  // This is the DOCKER-BUILD profile only; runner-side Python installs use
-  // uvInstallProfile (see gradle/python/python-uv.gradle).
   def vanilla = "https://pypi.python.org/simple"
   def mirror = pipMirrorUrl ? pipMirrorUrl.replaceAll('/+$', "") : ""
   def mirrorIsOverride = mirror && mirror != vanilla
   def hasExtra = pipExtraIndexUrl ? true : false
-  // "custom" is an explicit choice the caller makes — it is NOT inferred from a
-  // missing profile file. The shared helper (allowCustom=true) rejects an unknown
-  // profile (not "custom" and no file) so typos surface here instead of silently
-  // becoming a from-scratch build; for "custom" it returns null (fileless).
   def isCustom = (uvDockerProfile == "custom")
   gradle.ext['resolveUvProfileFile'](uvDockerProfile, true)
   if (isCustom) {

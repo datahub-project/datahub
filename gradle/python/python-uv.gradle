@@ -1,28 +1,10 @@
-// Shared configuration for local Python venv installs that use `uv`.
-// Apply this script in any Python module's build.gradle:
-//
-//   apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
-//
-// Runner-side installs resolve from the `uvInstallProfile` gradle property
-// (datahub.dependencies.python.uvInstallProfile, default `default`), NOT from the
-// Docker-build profile (uvDockerProfile). They are decoupled so codegen/install
-// tasks don't depend on private indexes being reachable or well-formed on the
-// runner. The Docker image build selects its own profile via the UV_PROFILE
-// build-arg (see gradle/docker/python-docker.gradle).
-//
-// Sets these env vars on every Exec task in the project (uv reads them natively):
-//   UV_CONFIG_FILE    -> profiles/${uvInstallProfile}.toml (always set; the resolved
-//                        profile's file must exist, else the build fails fast).
-//   UV_INSTALL_PROFILE -> the resolved profile name (e.g. `default`, `chainguard`).
-//   NETRC              -> $DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc (if either exists).
-//
-// Profile precedence (resolved once in settings.gradle, shared with the Docker
-// build path): CLI -P > UV_INSTALL_PROFILE env var > gradle.properties default.
-// `custom` is rejected here (it can't be honored on the runner — no
-// generate-config step, and pipMirrorUrl/pipExtraIndexUrl are docker-only).
+// Shared config for runner-side Python uv installs (not Docker builds).
+// Apply: apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
+// Uses uvInstallProfile from settings.gradle (CLI -P > UV_INSTALL_PROFILE > gradle.properties).
+// Sets UV_CONFIG_FILE, UV_INSTALL_PROFILE, and NETRC on Exec tasks. Rejects profile "custom".
 
 def uvInstallProfile = gradle.ext['datahub.dependencies.python.uvInstallProfile']
-def uvConfigPath = gradle.ext['resolveUvProfileFile'](uvInstallProfile) // throws on custom / missing file
+def uvConfigPath = gradle.ext['resolveUvProfileFile'](uvInstallProfile)
 
 def netrcPath = {
   if (System.getenv("NETRC") != null) {
