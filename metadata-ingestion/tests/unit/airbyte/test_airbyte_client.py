@@ -817,7 +817,10 @@ class TestClientBuildSyncCatalog:
         stream = result["streams"][0]
         assert stream["stream"]["name"] == "events"
         assert stream["stream"]["namespace"] == "my_schema"
-        assert "id" in stream["stream"]["jsonSchema"]["properties"]
+        properties: Dict[str, Any] = stream["stream"]["jsonSchema"].get(  # type: ignore[assignment]
+            "properties", {}
+        )
+        assert "id" in properties
 
     def test_build_sync_catalog_assigns_multi_schema_namespaces_in_order(self):
         config = AirbyteClientConfig(
@@ -844,10 +847,20 @@ class TestClientBuildSyncCatalog:
 
         result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
+        first_properties: Dict[str, Any] = result["streams"][0]["stream"][
+            "jsonSchema"
+        ].get(  # type: ignore[assignment]
+            "properties", {}
+        )
+        second_properties: Dict[str, Any] = result["streams"][1]["stream"][
+            "jsonSchema"
+        ].get(  # type: ignore[assignment]
+            "properties", {}
+        )
         assert result["streams"][0]["stream"]["namespace"] == "public"
-        assert "id" in result["streams"][0]["stream"]["jsonSchema"]["properties"]
+        assert "id" in first_properties
         assert result["streams"][1]["stream"]["namespace"] == "analytics"
-        assert "user_id" in result["streams"][1]["stream"]["jsonSchema"]["properties"]
+        assert "user_id" in second_properties
 
     def test_build_sync_catalog_skips_partial_multi_schema_backfill(self):
         config = AirbyteClientConfig(

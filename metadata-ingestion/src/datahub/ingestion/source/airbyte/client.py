@@ -426,8 +426,7 @@ class AirbyteBaseClient(ABC):
         config_streams: List[Dict[str, Any]],
         namespaces_by_name: Dict[str, List[str]],
     ) -> Dict[str, List[str]]:
-        # Counts unnamed config streams only — ignores API namespaces already
-        # claimed by explicitly-namespaced siblings, so mixed cases stay skipped.
+        # Unnamed count vs full /streams list; does not subtract explicit siblings.
         unnamed_counts: Dict[str, int] = {}
         for stream in config_streams:
             name = stream.get("name")
