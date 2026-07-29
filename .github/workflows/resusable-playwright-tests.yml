@@ -103,7 +103,7 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' }}
         uses: ./.github/actions/setup-uv-credentials
         with:
-          base_profile: ${{ secrets.CHAINGUARD_PYTHON_TOKEN != '' && 'chainguard-ci' || 'default' }}
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
           chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
           chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
 
