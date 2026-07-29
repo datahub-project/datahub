@@ -599,7 +599,7 @@
     "platform_type": "Database",
     "connection_type": "Pull",
     "title": "SAP Datasphere",
-    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service. Ingest Views, Analytic Models, and Local Tables as datasets with schema, CDS-annotation tags, and Space hierarchy; extract table- and column-level lineage from Data Flows, Replication Flows, and Transformation Flows (modeled as DataFlow/DataJob pipelines). Federated Remote Tables emit on their source platform (Snowflake, BigQuery, HANA, ...) so lineage stitches automatically to DataHub's native connectors."
+    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service for integrating, modeling, and governing data across an organization."
   },
   "cassandra": {
     "platform_type": "Database",
