@@ -602,6 +602,12 @@
     "description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
     "title": "SAC"
   },
+  "sap-datasphere": {
+    "platform_type": "Database",
+    "connection_type": "Pull",
+    "title": "SAP Datasphere",
+    "description": "SAP Datasphere is a cloud data warehouse and data-fabric service for integrating, modeling, and governing data across an organization."
+  },
   "cassandra": {
     "platform_type": "Database",
     "connection_type": "Pull",
