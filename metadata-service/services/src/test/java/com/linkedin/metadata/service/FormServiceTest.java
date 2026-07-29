@@ -185,6 +185,148 @@ public class FormServiceTest {
     assertEquals(mcps.get(0).getEntityUrn(), entityUrns.get(0));
   }
 
+  @Test
+  public void testBatchUnassignFormRemovesFromCompletedForms() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(1);
+    final Map<Urn, Forms> existing =
+        Map.of(entityUrns.get(0), completedFormsWith(TEST_FORM_URN, TEST_PROMPT_ID));
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient).batchUnassignFormForEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN);
+
+    final List<MetadataChangeProposal> mcps = captureSingleIngestBatch(mockClient);
+    assertEquals(mcps.size(), 1);
+    final Forms result = deserializeForms(mcps.get(0));
+    assertTrue(result.getCompletedForms().isEmpty());
+    assertTrue(result.getIncompleteForms().isEmpty());
+  }
+
+  @Test
+  public void testBatchAssignFormWithNothingToChangeSkipsIngestEntirely() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(1);
+    // The only entity already has the form, so no proposals are produced.
+    final Map<Urn, Forms> existing = Map.of(entityUrns.get(0), formsWithIncomplete(TEST_FORM_URN));
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient).batchAssignFormToEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN);
+
+    verify(mockClient, never()).batchIngestProposals(any(), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchAssignFormFailsWhenExistenceCheckErrors() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(2);
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, Map.of());
+    when(mockClient.filterExistingUrns(eq(OP_CONTEXT), anyCollection()))
+        .thenThrow(new RuntimeException("primary store unavailable"));
+
+    final FormService service = new FormService(mockClient);
+    assertThrows(
+        RuntimeException.class,
+        () -> service.batchAssignFormToEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN));
+
+    verify(mockClient, never()).batchIngestProposals(any(), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testBatchSetFormPromptIncompleteSkipsEntitiesWithoutThatForm() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(2);
+    // Entity 1 has a forms aspect, but for a different form: it must be skipped.
+    final Map<Urn, Forms> existing =
+        Map.of(
+            entityUrns.get(0),
+            completedFormsWith(TEST_FORM_URN, TEST_PROMPT_ID),
+            entityUrns.get(1),
+            formsWithIncomplete(UrnUtils.getUrn("urn:li:form:otherForm")));
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient)
+        .batchSetFormPromptIncomplete(OP_CONTEXT, entityUrns, TEST_FORM_URN, TEST_PROMPT_ID);
+
+    final List<MetadataChangeProposal> mcps = captureSingleIngestBatch(mockClient);
+    assertEquals(mcps.size(), 1);
+    assertEquals(mcps.get(0).getEntityUrn(), entityUrns.get(0));
+  }
+
+  @Test
+  public void testBatchAssignFormSkipsUnusableAspectAndKeepsRest() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(3);
+    // Entity 1's stored aspect cannot be read as a Forms record; it alone must be skipped.
+    final Map<Urn, Forms> existing = Map.of(entityUrns.get(1), malformedForms());
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient).batchAssignFormToEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN);
+
+    final List<MetadataChangeProposal> mcps = captureSingleIngestBatch(mockClient);
+    assertEquals(
+        mcps.stream().map(MetadataChangeProposal::getEntityUrn).collect(Collectors.toSet()),
+        Set.of(entityUrns.get(0), entityUrns.get(2)));
+  }
+
+  @Test
+  public void testBatchUnassignFormSkipsUnusableAspectAndKeepsRest() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(2);
+    final Map<Urn, Forms> existing =
+        Map.of(
+            entityUrns.get(0),
+            formsWithIncomplete(TEST_FORM_URN),
+            entityUrns.get(1),
+            malformedForms());
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient).batchUnassignFormForEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN);
+
+    final List<MetadataChangeProposal> mcps = captureSingleIngestBatch(mockClient);
+    assertEquals(mcps.size(), 1);
+    assertEquals(mcps.get(0).getEntityUrn(), entityUrns.get(0));
+  }
+
+  @Test
+  public void testBatchSetFormPromptIncompleteSkipsUnusableAspectAndKeepsRest() throws Exception {
+    final List<Urn> entityUrns = datasetUrns(2);
+    final Map<Urn, Forms> existing =
+        Map.of(
+            entityUrns.get(0),
+            completedFormsWith(TEST_FORM_URN, TEST_PROMPT_ID),
+            entityUrns.get(1),
+            malformedForms());
+    final SystemEntityClient mockClient = mockEntityClient(entityUrns, existing);
+
+    new FormService(mockClient)
+        .batchSetFormPromptIncomplete(OP_CONTEXT, entityUrns, TEST_FORM_URN, TEST_PROMPT_ID);
+
+    final List<MetadataChangeProposal> mcps = captureSingleIngestBatch(mockClient);
+    assertEquals(mcps.size(), 1);
+    assertEquals(mcps.get(0).getEntityUrn(), entityUrns.get(0));
+  }
+
+  @Test
+  public void testBatchUnassignFormLeavesOtherFormsInPlace() throws Exception {
+    final Urn otherForm = UrnUtils.getUrn("urn:li:form:otherForm");
+    final List<Urn> entityUrns = datasetUrns(1);
+    final Forms forms = completedFormsWith(TEST_FORM_URN, TEST_PROMPT_ID);
+    forms.getCompletedForms().add(new FormAssociation().setUrn(otherForm));
+    final SystemEntityClient mockClient =
+        mockEntityClient(entityUrns, Map.of(entityUrns.get(0), forms));
+
+    new FormService(mockClient).batchUnassignFormForEntities(OP_CONTEXT, entityUrns, TEST_FORM_URN);
+
+    final Forms result = deserializeForms(captureSingleIngestBatch(mockClient).get(0));
+    assertEquals(
+        result.getCompletedForms().stream()
+            .map(FormAssociation::getUrn)
+            .collect(Collectors.toList()),
+        List.of(otherForm));
+  }
+
+  /**
+   * A stored aspect that cannot be read as a Forms record, standing in for any per-entity
+   * deserialization failure: the required incompleteForms / completedForms arrays are absent.
+   */
+  private static Forms malformedForms() {
+    return new Forms();
+  }
+
   /**
    * incompleteForms and completedForms are required in Forms.pdl, so a stored aspect always has
    * both.
@@ -258,6 +400,8 @@ public class FormServiceTest {
             eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
         .thenReturn(entityResponse(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, formInfo.data()));
 
+    // Mirrors the real client: every existing urn comes back with a response, and the forms
+    // aspect is simply absent from it when the entity has none.
     when(mockClient.batchGetV2(eq(OP_CONTEXT), anyString(), anySet(), anySet()))
         .thenAnswer(
             invocation -> {
@@ -266,9 +410,11 @@ public class FormServiceTest {
               requested.forEach(
                   urn -> {
                     final Forms forms = existingForms.get(urn);
-                    if (forms != null) {
-                      responses.put(urn, entityResponse(urn, FORMS_ASPECT_NAME, forms.data()));
-                    }
+                    responses.put(
+                        urn,
+                        forms == null
+                            ? entityResponse(urn, Map.of())
+                            : entityResponse(urn, Map.of(FORMS_ASPECT_NAME, forms.data())));
                   });
               return responses;
             });
@@ -278,13 +424,19 @@ public class FormServiceTest {
 
   private static EntityResponse entityResponse(
       final Urn urn, final String aspectName, final com.linkedin.data.DataMap aspectData) {
+    return entityResponse(urn, Map.of(aspectName, aspectData));
+  }
+
+  private static EntityResponse entityResponse(
+      final Urn urn, final Map<String, com.linkedin.data.DataMap> aspects) {
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspects.forEach(
+        (aspectName, data) ->
+            aspectMap.put(
+                aspectName, new EnvelopedAspect().setName(aspectName).setValue(new Aspect(data))));
     return new EntityResponse()
         .setUrn(urn)
         .setEntityName(urn.getEntityType())
-        .setAspects(
-            new EnvelopedAspectMap(
-                Map.of(
-                    aspectName,
-                    new EnvelopedAspect().setName(aspectName).setValue(new Aspect(aspectData)))));
+        .setAspects(aspectMap);
   }
 }
