@@ -10,26 +10,16 @@ import {
     SearchIconButton,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
-import { treeRowInteractionBg } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
+import { treeRowHitTarget, treeRowInteractionBg } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 
-/**
- * Hit target + selected chrome for collapsed icons. Uses the same ::before
- * interaction paint as expanded tree rows so Glossary’s flat rail and Domains’
- * collapsed tree stay on one rhythm.
- */
 const CollapsedIconLink = styled(Link)<{ $isSelected?: boolean }>`
-    position: relative;
-    z-index: 0;
+    ${treeRowHitTarget}
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 38px;
-    height: 38px;
-    margin: 0 0 2px 0;
     padding: 0;
     text-decoration: none;
-    background: transparent;
     ${treeRowInteractionBg}
 `;
 
@@ -55,10 +45,6 @@ export type SidebarCollapsedIconRailProps = {
     items: CollapsedIconRailItem[];
 };
 
-/**
- * Shared collapsed sidebar chrome: search (re-expands) + optional home + icon column.
- * Pages only supply the icons/links — sizing, spacing, and selected focus live here.
- */
 export default function SidebarCollapsedIconRail({
     onExpandSearch,
     searchAriaLabel,

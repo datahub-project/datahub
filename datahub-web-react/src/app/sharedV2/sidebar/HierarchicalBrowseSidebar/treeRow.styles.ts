@@ -3,17 +3,17 @@ import styled, { css } from 'styled-components';
 import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { getTreeRowPaddingLeft } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/treeRowChrome';
 
-/**
- * Canonical tree-row chrome for hierarchical browse sidebars.
- *
- * Tokens:
- * - Row: 38px tall; content padding matches TreeSectionHeader
- * - Hover/selected: ::before overlay (bg does not push content)
- * - Caret: 14px Phosphor, far right
- * - Icon slot: 24×20 with 8px right gutter
- */
+/** Shared row height / gap for tree, home, and collapsed rail. */
+export const treeRowHitTarget = css`
+    position: relative;
+    z-index: 0;
+    min-height: 38px;
+    height: 38px;
+    margin: 0 0 2px 0;
+    background: transparent;
+`;
 
-/** Shared hover/selected paint — content stays flush; bg is a separate layer. */
+/** Hover/selected paint via ::before so padding doesn’t shift content. */
 export const treeRowInteractionBg = css<{ $isSelected?: boolean }>`
     &::before {
         content: '';
@@ -28,22 +28,19 @@ export const treeRowInteractionBg = css<{ $isSelected?: boolean }>`
     }
 
     ${(props) =>
-        props.$isSelected &&
-        css`
-            &::before {
-                background: ${props.theme.colors.bgSelectedSubtle};
-                box-shadow: ${props.theme.colors.shadowFocusBrand};
-            }
-        `}
-
-    ${(props) =>
-        !props.$isSelected &&
-        css`
-            &:hover::before {
-                background: ${props.theme.colors.bgHover};
-                box-shadow: ${props.theme.colors.shadowFocus};
-            }
-        `}
+        props.$isSelected
+            ? css`
+                  &::before {
+                      background: ${props.theme.colors.bgSelectedSubtle};
+                      box-shadow: ${props.theme.colors.shadowFocusBrand};
+                  }
+              `
+            : css`
+                  &:hover::before {
+                      background: ${props.theme.colors.bgHover};
+                      box-shadow: ${props.theme.colors.shadowFocus};
+                  }
+              `}
 `;
 
 export const TreeRowContainer = styled.div<{
@@ -51,17 +48,12 @@ export const TreeRowContainer = styled.div<{
     $isSelected: boolean;
     $isCollapsed?: boolean;
 }>`
-    position: relative;
-    z-index: 0;
+    ${treeRowHitTarget}
     display: flex;
     align-items: center;
     justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'space-between')};
     padding: ${(props) => (props.$isCollapsed ? '4px 0' : `4px 2px 4px ${getTreeRowPaddingLeft(props.$level)}px`)};
-    min-height: 38px;
-    height: 38px;
     cursor: pointer;
-    margin: 0 0 2px 0;
-    background: transparent;
 
     ${(props) => !props.$isCollapsed && treeRowInteractionBg}
 `;
@@ -71,9 +63,7 @@ export const TreeRowLeftContent = styled.div<{ $isCollapsed?: boolean }>`
     align-items: center;
     ${(props) =>
         props.$isCollapsed
-            ? `
-        flex: 0 0 auto;
-    `
+            ? `flex: 0 0 auto;`
             : `
         flex: 1;
         min-width: 0;
@@ -100,6 +90,7 @@ export const TreeRowIconSlot = styled.div<{ $isCollapsed?: boolean }>`
     flex-shrink: 0;
 `;
 
+/** Shared by tree rows and home nav. */
 export const TreeRowTitle = styled.span<{ $isSelected: boolean }>`
     overflow: hidden;
     text-overflow: ellipsis;
@@ -126,6 +117,7 @@ export const TreeRowRightContent = styled.div`
     flex-shrink: 0;
 `;
 
+/** Caret / expand-all / section chevron hit target. */
 export const TreeRowExpandButton = styled.button`
     display: flex;
     align-items: center;
@@ -136,9 +128,15 @@ export const TreeRowExpandButton = styled.button`
     border: none;
     background: transparent;
     cursor: pointer;
-    color: inherit;
+    color: ${(props) => props.theme.colors.icon};
+    flex-shrink: 0;
 
     &:hover {
         opacity: 0.7;
+    }
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
     }
 `;

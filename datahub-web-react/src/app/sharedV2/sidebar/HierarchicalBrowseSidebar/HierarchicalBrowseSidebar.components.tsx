@@ -1,15 +1,32 @@
 import { Button } from '@components';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 import {
     SIDEBAR_COLLAPSED_WIDTH,
     SIDEBAR_TRANSITION_MS,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
-import { treeRowInteractionBg } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
-import { hierarchicalBrowseScrollbar } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/scrollbar.styles';
+import { treeRowHitTarget, treeRowInteractionBg } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 
-/** Header "+" create control — same chrome on Documents / Glossary / Domains. */
+const scrollbar = css`
+    scrollbar-gutter: stable;
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    &::-webkit-scrollbar-track {
+        background: ${(props) => props.theme.colors.scrollbarTrack};
+    }
+    &::-webkit-scrollbar-thumb {
+        background: ${(props) => props.theme.colors.scrollbarThumb};
+        border-radius: 3px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
+    }
+    scrollbar-width: thin;
+    scrollbar-color: ${(props) => `${props.theme.colors.scrollbarThumb} ${props.theme.colors.scrollbarTrack}`};
+`;
+
 export const SidebarCreateButton = styled(Button)`
     padding: 2px;
     svg {
@@ -18,22 +35,17 @@ export const SidebarCreateButton = styled(Button)`
     }
 `;
 
-/** Shell-owned search padding so every page’s search control lines up. */
 export const SearchSlot = styled.div`
     flex-shrink: 0;
     position: relative;
     padding: 12px;
 `;
 
-/** Home / overview row band — horizontal rhythm matches TreeContainer.
- *  Above the divider (no-filters layout) needs bottom margin so the home
- *  row doesn't sit flush against the ThinDivider. */
 export const HomeNavSlot = styled.div<{ $inTree?: boolean }>`
     flex-shrink: 0;
     padding: ${(props) => (props.$inTree ? '0' : '0 8px 8px')};
 `;
 
-/** Shared autocomplete dropdown chrome for sidebar search. */
 export const SearchResultsDropdown = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
@@ -48,7 +60,6 @@ export const SearchResultsDropdown = styled.div`
     z-index: 1;
 `;
 
-/** Collapsed icon column — same padding/scrollbar as TreeContainer. */
 export const CollapsedScrollColumn = styled.div`
     display: flex;
     flex-direction: column;
@@ -57,8 +68,8 @@ export const CollapsedScrollColumn = styled.div`
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 2px 8px 2px;
-    ${hierarchicalBrowseScrollbar}
+    padding: 8px 2px;
+    ${scrollbar}
 `;
 
 export const SidebarContainer = styled.div<{
@@ -81,8 +92,6 @@ export const SidebarContainer = styled.div<{
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Spacing between sidebar and page comes from ContentWrapper gap (8px),
-       not from sidebar margin — keeps sidebar height flush with the page. */
     ${(props) => !props.$isShowNavBarRedesign && 'margin-bottom: 12px;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -146,7 +155,7 @@ export const FiltersRow = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 0 12px 12px 12px;
+    padding: 0 12px 12px;
     flex-shrink: 0;
 `;
 
@@ -155,7 +164,7 @@ export const TreeContainer = styled.div`
     overflow-y: auto;
     overflow-x: hidden;
     padding: 8px 2px 8px 8px;
-    ${hierarchicalBrowseScrollbar}
+    ${scrollbar}
 `;
 
 export const Content = styled.div`
@@ -167,48 +176,12 @@ export const Content = styled.div`
 `;
 
 export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
-    position: relative;
-    z-index: 0;
+    ${treeRowHitTarget}
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 4px 2px 4px 8px;
-    margin: 0 0 2px 0;
-    min-height: 38px;
-    height: 38px;
     text-decoration: none;
     cursor: pointer;
-    background: transparent;
     ${treeRowInteractionBg}
-`;
-
-export const HomeNavIcon = styled.div<{ $isSelected: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 20px;
-    flex-shrink: 0;
-
-    && svg {
-        color: ${(props) => (props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.icon)};
-    }
-`;
-
-export const HomeNavLabel = styled.span<{ $isSelected: boolean }>`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textSecondary};
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-            background: ${props.theme.colors.brandGradientSelected};
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 600;
-        `}
 `;

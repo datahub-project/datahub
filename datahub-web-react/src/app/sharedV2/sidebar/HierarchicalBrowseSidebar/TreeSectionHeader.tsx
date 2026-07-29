@@ -7,11 +7,9 @@ import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import { TreeRowExpandButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 import { getTreeRowPaddingLeft } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/treeRowChrome';
 
-// Section header for the DataHub / per-platform group rows. Indent + right
-// padding match HierarchicalBrowseTreeRow so expand-all / caret share one
-// vertical line with node carets. No hover background — structural label only.
 const SectionHeaderRow = styled.div<{ $level: number }>`
     display: flex;
     align-items: center;
@@ -49,29 +47,6 @@ const SectionHeaderLabel = styled.span`
     white-space: nowrap;
 `;
 
-const SectionIconButton = styled.button`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: ${TREE_ROW_CARET_SIZE + 2}px;
-    height: ${TREE_ROW_CARET_SIZE + 2}px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: ${(props) => props.theme.colors.icon};
-    flex-shrink: 0;
-
-    &:hover {
-        opacity: 0.7;
-    }
-
-    &:disabled {
-        cursor: default;
-        opacity: 0.5;
-    }
-`;
-
 interface TreeSectionHeaderProps {
     level: number;
     label: string;
@@ -86,13 +61,7 @@ interface TreeSectionHeaderProps {
     collapseAllLabel?: string;
 }
 
-/**
- * Collapsible header row for a tree section (DataHub or a per-platform
- * sub-section). Pure presentation — owns no expansion state of its own.
- *
- * When `onToggleExpandAll` is provided, a bulk expand/collapse control renders
- * next to the section chevron. Icons match tree-row carets (Phosphor 14, regular).
- */
+/** Section label + optional expand-all; carets match tree-row chrome. */
 export function TreeSectionHeader({
     level,
     label,
@@ -119,7 +88,7 @@ export function TreeSectionHeader({
             </SectionToggleButton>
             {onToggleExpandAll && (
                 <Tooltip title={bulkLabel} placement="bottom" showArrow={false}>
-                    <SectionIconButton
+                    <TreeRowExpandButton
                         type="button"
                         onClick={onToggleExpandAll}
                         disabled={expandAllLoading}
@@ -139,10 +108,10 @@ export function TreeSectionHeader({
                                 weight="regular"
                             />
                         )}
-                    </SectionIconButton>
+                    </TreeRowExpandButton>
                 </Tooltip>
             )}
-            <SectionIconButton
+            <TreeRowExpandButton
                 type="button"
                 onClick={onToggle}
                 aria-expanded={isExpanded}
@@ -150,7 +119,7 @@ export function TreeSectionHeader({
                 tabIndex={-1}
             >
                 <Caret color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-            </SectionIconButton>
+            </TreeRowExpandButton>
         </SectionHeaderRow>
     );
 }

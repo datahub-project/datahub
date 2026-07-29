@@ -190,7 +190,6 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
             onSelect={() => handleItemClick()}
             onToggleExpand={onToggleExpand}
             isLoadingChildren={!!isLoading}
-            expandHitArea="leadingZone"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         />
