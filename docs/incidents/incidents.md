@@ -1,5 +1,5 @@
 ---
-title: Incidents Overview
+title: Incidents
 description: This page provides an overview of working with the DataHub Incidents API.
 ---
 
