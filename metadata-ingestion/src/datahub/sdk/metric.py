@@ -5,12 +5,9 @@ from typing import List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self, TypeAlias
 
-from datahub.emitter.mce_builder import make_ts_millis, parse_ts_millis
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata.schema_classes import (
     AiContextClass,
-    AuditStampClass,
-    ChangeTypeClass,
     DerivedMetricInputClass,
     DialectClass,
     MetricExpressionClass,
@@ -19,6 +16,14 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.metadata.urns import MetricUrn, SemanticModelUrn, Urn
+from datahub.sdk._semantic_shared import (
+    AiContextInput,
+    DialectExpressionInput,
+    MetricExpressionInputType,
+    build_ai_context,
+    build_metric_expression,
+    make_audit_stamp,
+)
 from datahub.sdk._shared import (
     DomainInputType,
     HasDomain,
@@ -35,15 +40,15 @@ from datahub.sdk._shared import (
     TermsInputType,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
-from datahub.sdk.semantic_model import (
-    AiContextInput,
-    DialectExpressionInput,
-    MetricExpressionInputType,
-    _build_ai_context,
-    _build_metric_expression,
-)
 
-_DEFAULT_ACTOR_URN = "urn:li:corpuser:__ingestion"
+__all__ = [
+    "AiContextInput",
+    "DialectExpressionInput",
+    "DerivedFromInputType",
+    "Metric",
+    "MetricExpressionInputType",
+    "SemanticModelInputType",
+]
 
 SemanticModelInputType: TypeAlias = Union[str, SemanticModelUrn]
 DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
@@ -66,9 +71,18 @@ class Metric(
     flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``;
     do not populate ``metricUpstreams`` for these metrics.
 
+    This builder emits semantic-model-backed metrics; ``semantic_model`` is
+    required. Standalone/`metricUpstreams` metrics are out of scope for now.
+
     ``metricRelationships`` is always emitted (even with empty ``derivedFrom``)
     so ``hasParentMetric`` indexes as false. ``metricInfo.expression`` is
     optional and is omitted when not provided.
+
+    Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
+    Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
+    semanticModel/metric model (operator's responsibility — no automatic
+    check). See :func:`datahub.sdk.require_metrics_support` for an opt-in
+    preflight helper.
     """
 
     __slots__ = ()
@@ -139,14 +153,12 @@ class Metric(
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
         assert isinstance(urn, MetricUrn)
-        entity = cls(
-            platform=urn.platform,
-            path=urn.path,
-            id=urn.id,
-            # semantic_model is required on metricInfo; the graph-loaded
-            # aspect will overwrite this placeholder during _init_from_graph.
-            semantic_model="urn:li:semanticModel:__placeholder__",
-        )
+        # Construct without routing through the strict __init__ (which requires
+        # semantic_model). _init_from_graph resets self._aspects = {} before
+        # repopulating from the graph, so the placeholder props created here
+        # are discarded.
+        entity = cls.__new__(cls)
+        Entity.__init__(entity, urn)  # type: ignore[arg-type]
         return entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
 
     @property
@@ -159,8 +171,9 @@ class Metric(
         props = self._get_aspect(MetricInfoClass)
         if props is None:
             # name is required on the aspect; default to the URN id. semanticModel
-            # is also required by the contract; use the provided value or a
-            # placeholder that _init_from_graph will overwrite.
+            # is also required by the contract; use the provided value or None
+            # (only the _new_from_graph path passes None, and it resets aspects
+            # before repopulating).
             props = MetricInfoClass(
                 name=self.urn.id,
                 semanticModel=semantic_model,
@@ -190,7 +203,7 @@ class Metric(
         return parse_ts_millis(stamp.time)
 
     def set_created(self, created: datetime) -> None:
-        self._ensure_metric_props().created = _make_audit_stamp(created)
+        self._ensure_metric_props().created = make_audit_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
@@ -200,7 +213,7 @@ class Metric(
         return parse_ts_millis(stamp.time)
 
     def set_last_modified(self, last_modified: datetime) -> None:
-        self._ensure_metric_props().lastModified = _make_audit_stamp(last_modified)
+        self._ensure_metric_props().lastModified = make_audit_stamp(last_modified)
 
     @property
     def semantic_model(self) -> Optional[str]:
@@ -219,7 +232,7 @@ class Metric(
         *,
         default_dialect: Union[str, DialectClass] = DialectClass.ANSI_SQL,
     ) -> None:
-        self._ensure_metric_props().expression = _build_metric_expression(
+        self._ensure_metric_props().expression = build_metric_expression(
             expression, default_dialect=default_dialect
         )
 
@@ -254,30 +267,9 @@ class Metric(
         return self._get_aspect(AiContextClass)
 
     def set_ai_context(self, ai_context: AiContextInput) -> None:
-        built = _build_ai_context(ai_context)
+        built = build_ai_context(ai_context)
         if built is None:
             # Don't emit an empty aiContext; drop any previously set one.
             self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
             return
         self._set_aspect(built)
-
-    def as_mcps(
-        self,
-        change_type: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT,
-    ) -> List[MetadataChangeProposalWrapper]:  # type: ignore[override]
-        return super().as_mcps(change_type=change_type)
-
-
-def _make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
-    if ts is None:
-        return None
-    return AuditStampClass(time=make_ts_millis(ts), actor=_DEFAULT_ACTOR_URN)
-
-
-__all__ = [
-    "AiContextInput",
-    "DialectExpressionInput",
-    "DerivedFromInputType",
-    "Metric",
-    "SemanticModelInputType",
-]

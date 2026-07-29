@@ -10,6 +10,8 @@ the required-expression fallback, and aiContext-only-when-non-empty.
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
+
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -29,6 +31,7 @@ from datahub.metadata.urns import (
     SemanticModelUrn,
 )
 from datahub.sdk.entity import Entity
+from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
     AiContextInput,
     DialectExpressionInput,
@@ -507,8 +510,6 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         ],
     )
 
-    from datahub.sdk.metric import Metric
-
     total_revenue = Metric(
         platform="snowflake",
         path="analytics",
@@ -549,8 +550,9 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         assert props.semanticModel == str(model.urn)
         assert "schemaMetadata" in ds_aspects
         assert "upstreamLineage" in ds_aspects
-        # No metricUpstreams on logical datasets.
-        assert "metricUpstreams" not in ds_aspects
+        # A dataset never carries metricUpstreams; assert the logical dataset's
+        # actual back-ref is present instead.
+        assert ds_aspects["semanticModelProperties"].semanticModel == str(model.urn)
 
     # Field-anchored annotations exist for every field.
     orders_by_urn = _mcps_by_urn(orders_ds)
@@ -572,7 +574,7 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     assert isinstance(tr_aspects["metricRelationships"], MetricRelationshipsClass)
     assert tr_aspects["metricRelationships"].derivedFrom == []
     # No metricUpstreams for semantic-model-backed metrics.
-    assert "upstreamLineage" not in tr_aspects
+    assert "metricUpstreams" not in tr_aspects
 
     dr_aspects = _aspects_by_name(double_revenue)
     assert dr_aspects["metricInfo"].expression.dialects[0].dialect == (
@@ -602,3 +604,226 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         customers_ds.upstreams.upstreams[0].dataset
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw.customers,PROD)"
     )
+
+
+def test_logical_dataset_duplicate_field_path_raises() -> None:
+    """Two SemanticFieldInput specs with the same field_path must raise rather
+    than silently dropping one of the per-field annotations.
+    """
+    from datahub.errors import SdkUsageError
+
+    try:
+        SemanticModelDataset(
+            platform="snowflake",
+            name="analytics.orders_model.orders_ds",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            alias="ORDERS",
+            schema=[
+                SemanticFieldInput(
+                    field_path="order_id",
+                    type="int",
+                    semantic_type=SemanticFieldTypeClass.DIMENSION,
+                ),
+                SemanticFieldInput(
+                    field_path="order_id",
+                    type="int",
+                    semantic_type=SemanticFieldTypeClass.DIMENSION,
+                ),
+            ],
+        )
+    except SdkUsageError as e:
+        assert "order_id" in str(e)
+    else:
+        raise AssertionError("expected SdkUsageError for duplicate field_path")
+
+
+def test_logical_dataset_tag_validation_runs() -> None:
+    """SemanticFieldInput(tags=[...]) must route through the canonical tag
+    parser so a bare tag name (not a URN) is rejected rather than silently
+    emitting an invalid tag URN.
+    """
+    from datahub.utilities.urns.error import InvalidUrnError
+
+    try:
+        SemanticModelDataset(
+            platform="snowflake",
+            name="analytics.orders_model.orders_ds",
+            semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+            alias="ORDERS",
+            schema=[
+                SemanticFieldInput(
+                    field_path="order_id",
+                    type="int",
+                    semantic_type=SemanticFieldTypeClass.DIMENSION,
+                    tags=["PII"],
+                )
+            ],
+        )
+    except (InvalidUrnError, AssertionError):
+        pass
+    else:
+        raise AssertionError("expected error for bare tag name 'PII'")
+
+
+def test_relationship_alias_mismatch_warns(caplog: Any) -> None:
+    """A relationship alias with no matching attached dataset should emit a
+    warning (best-effort, never raise).
+    """
+    import logging
+
+    model_urn_str = (
+        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)"
+    )
+    orders_ds = SemanticModelDataset(
+        platform="snowflake",
+        name="analytics.orders_model.orders_ds",
+        semantic_model=model_urn_str,
+        alias="ORDERS",
+        schema=[
+            SemanticFieldInput(
+                field_path="order_id",
+                type="int",
+                semantic_type=SemanticFieldTypeClass.DIMENSION,
+            )
+        ],
+    )
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[orders_ds],
+    )
+    with caplog.at_level(logging.WARNING, logger="datahub.sdk.semantic_model"):
+        model.set_relationships(
+            [
+                SemanticModelRelationshipInput(
+                    from_alias="ORDERS",
+                    from_columns=["customer_id"],
+                    to_alias="TYPO_CUSTOMERS",
+                    to_columns=["customer_id"],
+                )
+            ]
+        )
+    assert any("TYPO_CUSTOMERS" in r.message for r in caplog.records)
+
+
+def _build_governance_kwargs():
+    return dict(
+        owners=["urn:li:corpuser:datahub"],
+        links=["https://example.com/docs"],
+        tags=["urn:li:tag:PII"],
+        terms=["urn:li:glossaryTerm:Revenue.abc"],
+        domain="urn:li:domain:Analytics",
+        structured_properties={"urn:li:structuredProperty:team": ["data"]},
+    )
+
+
+def _governance_aspect_names():
+    return {
+        "institutionalMemory",
+        "ownership",
+        "globalTags",
+        "glossaryTerms",
+        "domains",
+        "structuredProperties",
+    }
+
+
+@pytest.mark.parametrize(
+    "builder",
+    [
+        pytest.param(
+            lambda: SemanticModel(
+                platform="snowflake",
+                path="analytics",
+                id="orders_model",
+                **_build_governance_kwargs(),
+            ),
+            id="SemanticModel",
+        ),
+        pytest.param(
+            lambda: Metric(
+                platform="snowflake",
+                path="analytics",
+                id="total_revenue",
+                semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+                **_build_governance_kwargs(),
+            ),
+            id="Metric",
+        ),
+        pytest.param(
+            lambda: SemanticModelDataset(
+                platform="snowflake",
+                name="analytics.orders_model.orders_ds",
+                semantic_model="urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)",
+                alias="ORDERS",
+                schema=[
+                    SemanticFieldInput(
+                        field_path="order_id",
+                        type="int",
+                        semantic_type=SemanticFieldTypeClass.DIMENSION,
+                    )
+                ],
+                **_build_governance_kwargs(),
+            ),
+            id="SemanticModelDataset",
+        ),
+    ],
+)
+def test_governance_kwargs_land_in_aspects(builder) -> None:
+    entity = builder()
+    aspects = _aspects_by_name(entity)
+    for name in _governance_aspect_names():
+        assert name in aspects, f"{name} missing from {type(entity).__name__}"
+
+
+def test_require_metrics_support_saas_below_min_raises() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.sdk import require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.is_version_at_least.return_value = False
+    graph.server_config.service_version = "2.0.0"
+
+    from datahub.errors import SdkUsageError
+
+    try:
+        require_metrics_support(graph)
+    except SdkUsageError as e:
+        assert "v2.0.0" in str(e)
+        assert "2.1.0" in str(e)
+    else:
+        raise AssertionError("expected SdkUsageError for old SaaS server")
+
+
+def test_require_metrics_support_saas_at_or_above_min_ok() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.sdk import require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.is_version_at_least.return_value = True
+    graph.server_config.service_version = "2.1.0"
+    require_metrics_support(graph)  # should not raise
+
+
+def test_require_metrics_support_oss_is_noop() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.sdk import require_metrics_support
+
+    graph = MagicMock()
+    graph.server_config.is_datahub_cloud = False
+    require_metrics_support(graph)  # should not raise, no version probe
+
+
+def test_require_metrics_support_no_server_config_fail_open() -> None:
+    from datahub.sdk import require_metrics_support
+
+    class _BareGraph:
+        pass
+
+    require_metrics_support(_BareGraph())  # should not raise

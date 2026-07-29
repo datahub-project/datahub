@@ -68,7 +68,7 @@ def test_metric_urn_and_core_aspects() -> None:
     assert rels.derivedFrom == []
     assert rels.parentMetric is None
     # No metricUpstreams for semantic-model-backed metrics.
-    assert "upstreamLineage" not in aspects
+    assert "metricUpstreams" not in aspects
     # No aiContext when none provided.
     assert "aiContext" not in aspects
 

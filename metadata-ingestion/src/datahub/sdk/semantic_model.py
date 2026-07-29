@@ -1,22 +1,20 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Sequence, Type, Union
+from typing import Dict, List, Optional, Sequence, Set, Type, Union
 
 from typing_extensions import Self, TypeAlias
 
-from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
+from datahub.emitter.mce_builder import DEFAULT_ENV, parse_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import SdkUsageError
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     AiContextClass,
-    AuditStampClass,
     ChangeTypeClass,
-    DialectClass,
-    DialectExpressionClass,
     DimensionClass,
-    ERModelRelationshipCardinalityClass,
     GlobalTagsClass,
     MetricExpressionClass,
     SchemaFieldClass,
@@ -26,13 +24,20 @@ from datahub.metadata.schema_classes import (
     SemanticModelPropertiesClass,
     SemanticModelRelationshipClass,
     StatusClass,
-    TagAssociationClass,
 )
 from datahub.metadata.urns import (
     DatasetUrn,
     SchemaFieldUrn,
     SemanticModelUrn,
     Urn,
+)
+from datahub.sdk._semantic_shared import (
+    AiContextInput,
+    DialectExpressionInput,
+    MetricExpressionInputType,
+    build_ai_context,
+    build_metric_expression,
+    make_audit_stamp,
 )
 from datahub.sdk._shared import (
     DomainInputType,
@@ -49,47 +54,20 @@ from datahub.sdk._shared import (
     TagsInputType,
     TermsInputType,
 )
-from datahub.sdk.dataset import Dataset
+from datahub.sdk.dataset import Dataset, UpstreamLineageInputType
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
-_DEFAULT_ACTOR_URN = "urn:li:corpuser:__ingestion"
+logger = logging.getLogger(__name__)
 
-
-class SemanticFieldType(SemanticFieldTypeClass):
-    pass
-
-
-class ERModelRelationshipCardinality(ERModelRelationshipCardinalityClass):
-    pass
-
-
-@dataclass
-class AiContextInput:
-    """Input container for the first-class ``aiContext`` aspect.
-
-    The aspect is only emitted when at least one field carries content; an
-    all-empty ``AiContextInput`` produces no aspect.
-    """
-
-    synonyms: Optional[List[str]] = None
-    instructions: Optional[str] = None
-    examples: Optional[List[str]] = None
-    custom_instructions: Optional[str] = None
-
-
-@dataclass
-class DialectExpressionInput:
-    """A single (dialect, expression) pair for a metric or field expression."""
-
-    expression: str
-    dialect: Union[str, DialectClass] = DialectClass.ANSI_SQL
-
-
-MetricExpressionInputType: TypeAlias = Union[
-    str,
-    DialectExpressionInput,
-    List[DialectExpressionInput],
-    MetricExpressionClass,
+__all__ = [
+    "AiContextInput",
+    "DialectExpressionInput",
+    "MetricExpressionInputType",
+    "SemanticFieldInput",
+    "SemanticModel",
+    "SemanticModelDataset",
+    "SemanticModelDatasetInputType",
+    "SemanticModelRelationshipInput",
 ]
 
 
@@ -132,52 +110,6 @@ class SemanticFieldInput:
     ai_context: Optional[AiContextInput] = None
 
 
-def _build_ai_context(ai: Optional[AiContextInput]) -> Optional[AiContextClass]:
-    if ai is None or not (
-        ai.synonyms or ai.instructions or ai.examples or ai.custom_instructions
-    ):
-        return None
-    return AiContextClass(
-        synonyms=list(ai.synonyms) if ai.synonyms else None,
-        instructions=ai.instructions,
-        examples=list(ai.examples) if ai.examples else None,
-        customInstructions=ai.custom_instructions,
-    )
-
-
-def _build_metric_expression(
-    expression: MetricExpressionInputType,
-    *,
-    default_dialect: Union[str, DialectClass] = DialectClass.ANSI_SQL,
-) -> MetricExpressionClass:
-    if isinstance(expression, MetricExpressionClass):
-        return expression
-    if isinstance(expression, DialectExpressionInput):
-        dialects = [
-            DialectExpressionClass(
-                dialect=expression.dialect, expression=expression.expression
-            )
-        ]
-    elif isinstance(expression, str):
-        dialects = [
-            DialectExpressionClass(dialect=default_dialect, expression=expression)
-        ]
-    elif isinstance(expression, list):
-        dialects = [
-            DialectExpressionClass(dialect=item.dialect, expression=item.expression)
-            for item in expression
-        ]
-    else:  # pragma: no cover - defensive
-        raise TypeError(f"Unsupported expression input type: {type(expression)!r}")
-    return MetricExpressionClass(dialects=dialects)
-
-
-def _make_audit_stamp(ts: Optional[datetime]) -> Optional[AuditStampClass]:
-    if ts is None:
-        return None
-    return AuditStampClass(time=make_ts_millis(ts), actor=_DEFAULT_ACTOR_URN)
-
-
 SemanticModelDatasetInputType: TypeAlias = Union[
     str, DatasetUrn, "SemanticModelDataset"
 ]
@@ -217,9 +149,15 @@ class SemanticModel(
     ``semanticModelInfo.datasets`` (Contains), and each logical dataset's own
     ``upstreamLineage``. Do not populate ``metricUpstreams`` for
     semantic-model-backed metrics.
+
+    Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
+    Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
+    semanticModel/metric model (operator's responsibility — no automatic
+    check). See :func:`datahub.sdk.require_metrics_support` for an opt-in
+    preflight helper.
     """
 
-    __slots__ = ()
+    __slots__ = ("_attached_logical_datasets",)
 
     @classmethod
     def get_urn_type(cls) -> Type[SemanticModelUrn]:
@@ -254,6 +192,7 @@ class SemanticModel(
         self._set_platform_instance(urn.platform, platform_instance)
         # Status is part of the producer contract for this entity.
         self._set_aspect(StatusClass(removed=False))
+        self._attached_logical_datasets: List["SemanticModelDataset"] = []
         self._ensure_model_props()
 
         if name is not None:
@@ -334,7 +273,7 @@ class SemanticModel(
         return parse_ts_millis(stamp.time)
 
     def set_created(self, created: datetime) -> None:
-        self._ensure_model_props().created = _make_audit_stamp(created)
+        self._ensure_model_props().created = make_audit_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
@@ -344,7 +283,7 @@ class SemanticModel(
         return parse_ts_millis(stamp.time)
 
     def set_last_modified(self, last_modified: datetime) -> None:
-        self._ensure_model_props().lastModified = _make_audit_stamp(last_modified)
+        self._ensure_model_props().lastModified = make_audit_stamp(last_modified)
 
     @property
     def native_definition(self) -> Optional[str]:
@@ -371,6 +310,7 @@ class SemanticModel(
         if isinstance(dataset, SemanticModelDataset):
             ds_urn = str(dataset.urn)
             dataset._set_semantic_model_back_ref(self.urn)
+            self._attached_logical_datasets.append(dataset)
         else:
             ds_urn = str(dataset)
         props = self._ensure_model_props()
@@ -381,6 +321,7 @@ class SemanticModel(
 
     def set_datasets(self, datasets: Sequence[SemanticModelDatasetInputType]) -> None:
         self._ensure_model_props().datasets = []
+        self._attached_logical_datasets = []
         for dataset in datasets:
             self.add_dataset(dataset)
 
@@ -394,12 +335,14 @@ class SemanticModel(
         self._ensure_model_props().relationships = [
             self._build_relationship(rel) for rel in relationships
         ]
+        self._validate_relationship_aliases()
 
     def add_relationship(self, relationship: SemanticModelRelationshipInput) -> None:
         props = self._ensure_model_props()
         if props.relationships is None:
             props.relationships = []
         props.relationships.append(self._build_relationship(relationship))
+        self._validate_relationship_aliases()
 
     @staticmethod
     def _build_relationship(
@@ -412,15 +355,42 @@ class SemanticModel(
             to=rel.to_alias,
             toColumns=list(rel.to_columns),
             cardinality=rel.cardinality,
-            aiContext=_build_ai_context(rel.ai_context),
+            aiContext=build_ai_context(rel.ai_context),
         )
+
+    def _attached_dataset_aliases(self) -> Set[str]:
+        return {ds.alias for ds in self._attached_logical_datasets}
+
+    def _validate_relationship_aliases(self) -> None:
+        """Best-effort warn when a relationship alias has no matching attached
+        dataset. Datasets are often attached after relationships, so this only
+        flags aliases that are still unmatched at the time it runs; it never
+        raises.
+        """
+        rels = self._ensure_model_props().relationships
+        if not rels:
+            return
+        known = self._attached_dataset_aliases()
+        if not known:
+            return
+        for rel in rels:
+            for alias in (rel.from_, rel.to):
+                if alias and alias not in known:
+                    logger.warning(
+                        "SemanticModel %s: relationship alias %r does not match "
+                        "any attached dataset alias (known: %s). Join path may "
+                        "be broken.",
+                        str(self.urn),
+                        alias,
+                        sorted(known),
+                    )
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:
         return self._get_aspect(AiContextClass)
 
     def set_ai_context(self, ai_context: AiContextInput) -> None:
-        built = _build_ai_context(ai_context)
+        built = build_ai_context(ai_context)
         if built is None:
             # Don't emit an empty aiContext; drop any previously set one.
             self._aspects.pop(AiContextClass.ASPECT_NAME, None)  # type: ignore
@@ -440,6 +410,19 @@ class SemanticModelDataset(Dataset):
 
     The dataset ``name`` should encode ``<sm_path>.<sm_id>.<view_name>`` so
     logical datasets stay unique across semantic models.
+
+    Per-field ``semanticFieldAnnotation`` and field-level ``aiContext`` are
+    **create-only**: they are not preserved on a read-modify-write cycle. A
+    graph read returns a :class:`SemanticModelDataset` but its
+    ``_semantic_field_annotations`` is empty, so re-emitting the result drops
+    every field-anchored annotation. Re-attach fields via the ``schema``
+    constructor kwarg to preserve them.
+
+    Server compatibility: requires a DataHub Cloud server >= v2.1.0 with the
+    Metrics feature enabled, or a self-hosted/OSS GMS build that includes the
+    semanticModel/metric model (operator's responsibility — no automatic
+    check). See :func:`datahub.sdk.require_metrics_support` for an opt-in
+    preflight helper.
     """
 
     __slots__ = ("_semantic_field_annotations",)
@@ -456,7 +439,7 @@ class SemanticModelDataset(Dataset):
         env: str = DEFAULT_ENV,
         description: Optional[str] = None,
         view_definition: Optional[str] = None,
-        upstreams: Optional[object] = None,
+        upstreams: Optional[UpstreamLineageInputType] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
@@ -465,9 +448,9 @@ class SemanticModelDataset(Dataset):
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
-        # Build SchemaFieldClass list + per-field annotation/aiContext records
-        # before delegating to Dataset so the platform is known for type
-        # resolution.
+        # Initialize the per-field annotation store before delegating to
+        # Dataset so _set_semantic_schema can populate it.
+        self._semantic_field_annotations: Dict[str, _FieldAnnotation] = {}
         super().__init__(
             platform=platform,
             name=name,
@@ -476,7 +459,7 @@ class SemanticModelDataset(Dataset):
             subtype=DatasetSubTypes.SEMANTIC_MODEL_DATASET,
             description=description,
             view_definition=view_definition,
-            upstreams=upstreams,  # type: ignore[arg-type]
+            upstreams=upstreams,
             owners=owners,
             links=links,
             tags=tags,
@@ -485,28 +468,33 @@ class SemanticModelDataset(Dataset):
             structured_properties=structured_properties,
             extra_aspects=extra_aspects,
         )
-        self._semantic_field_annotations: Dict[str, _FieldAnnotation] = {}
-        self._set_semantic_model_back_ref(semantic_model)
-        self._set_alias(alias)
+        self._set_semantic_model_properties(semantic_model=semantic_model, alias=alias)
         self._set_semantic_schema(schema, alias=alias)
 
-    def _set_semantic_model_back_ref(
-        self, semantic_model: Union[str, SemanticModelUrn]
+    def _set_semantic_model_properties(
+        self,
+        *,
+        semantic_model: Union[str, SemanticModelUrn],
+        alias: str,
     ) -> None:
         existing = self._get_aspect(SemanticModelPropertiesClass)
         if existing is None:
             self._set_aspect(
                 SemanticModelPropertiesClass(
-                    alias="", semanticModel=str(semantic_model)
+                    alias=alias, semanticModel=str(semantic_model)
                 )
             )
         else:
+            existing.alias = alias
             existing.semanticModel = str(semantic_model)
 
-    def _set_alias(self, alias: str) -> None:
+    def _set_semantic_model_back_ref(
+        self, semantic_model: Union[str, SemanticModelUrn]
+    ) -> None:
+        """Reconcile the back-reference to the owning model, preserving alias."""
         props = self._get_aspect(SemanticModelPropertiesClass)
         assert props is not None
-        props.alias = alias
+        props.semanticModel = str(semantic_model)
 
     @property
     def alias(self) -> str:
@@ -520,12 +508,18 @@ class SemanticModelDataset(Dataset):
         platform_name = self.urn.get_data_platform_urn().platform_name
         schema_fields: List[SchemaFieldClass] = []
         for spec in schema:
+            if spec.field_path in self._semantic_field_annotations:
+                raise SdkUsageError(
+                    f"Duplicate field_path {spec.field_path!r} in "
+                    f"SemanticModelDataset {str(self.urn)}; each field must be "
+                    f"unique."
+                )
             schema_fields.append(
                 self._build_schema_field(spec, platform_name=platform_name)
             )
             self._semantic_field_annotations[spec.field_path] = _FieldAnnotation(
                 annotation=self._build_field_annotation(spec, alias=alias),
-                ai_context=_build_ai_context(spec.ai_context),
+                ai_context=build_ai_context(spec.ai_context),
             )
         # Use the private schema setter so the schema is recorded exactly as
         # we built it (with per-field tags/isPartOfKey preserved).
@@ -545,7 +539,10 @@ class SemanticModelDataset(Dataset):
         field_type = resolved if resolved is not None else NullTypeClass()
         global_tags = None
         if spec.tags is not None:
-            parsed = [TagAssociationClass(tag=str(tag)) for tag in spec.tags]
+            parsed = [
+                SemanticModelDataset._parse_tag_association_class(tag)
+                for tag in spec.tags
+            ]
             global_tags = GlobalTagsClass(tags=parsed)
         return SchemaFieldClass(
             fieldPath=spec.field_path,
@@ -564,11 +561,11 @@ class SemanticModelDataset(Dataset):
         # expression is REQUIRED on the annotation; synthesize a trivial
         # qualified reference when the caller gives none.
         if spec.expression is None:
-            expression: MetricExpressionClass = _build_metric_expression(
+            expression: MetricExpressionClass = build_metric_expression(
                 f"{alias}.{spec.field_path}"
             )
         else:
-            expression = _build_metric_expression(spec.expression)
+            expression = build_metric_expression(spec.expression)
         dimension: Optional[DimensionClass] = None
         if spec.semantic_type == SemanticFieldTypeClass.DIMENSION:
             dimension = DimensionClass(isTime=spec.is_time_dimension)
@@ -578,6 +575,18 @@ class SemanticModelDataset(Dataset):
             aggregationFunction=spec.aggregation_function,
             dimension=dimension,
         )
+
+    @classmethod
+    def _new_from_graph(cls, urn: Urn, current_aspects: object) -> Self:  # type: ignore[override]
+        assert isinstance(urn, DatasetUrn)
+        # Bypass __init__ (which requires semantic_model/alias/schema) and
+        # construct via the Entity base. _init_from_graph resets _aspects = {}
+        # before repopulating from the graph. Field annotations are
+        # create-only: a read-constructed instance has none.
+        entity = cls.__new__(cls)
+        Entity.__init__(entity, urn)  # type: ignore[arg-type]
+        entity._semantic_field_annotations = {}
+        return entity._init_from_graph(current_aspects)  # type: ignore[arg-type]
 
     def as_mcps(
         self,

@@ -13,7 +13,7 @@ from datahub.sdk.glossary_term import GlossaryTerm
 from datahub.sdk.metric import Metric
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
-from datahub.sdk.semantic_model import SemanticModel
+from datahub.sdk.semantic_model import SemanticModel, SemanticModelDataset
 from datahub.sdk.tag import Tag
 
 # Base entity classes that don't have circular dependencies
@@ -33,6 +33,7 @@ ENTITY_CLASSES_LIST: List[Type[Entity]] = [
     GlossaryTerm,
     Tag,
     SemanticModel,
+    SemanticModelDataset,
     Metric,
 ]
 

@@ -92,3 +92,41 @@ For the full surface area of each builder, see the
 - `SemanticModel` — `datahub.sdk.semantic_model.SemanticModel`
 - `SemanticModelDataset` — `datahub.sdk.semantic_model.SemanticModelDataset`
 - `Metric` — `datahub.sdk.metric.Metric`
+
+## Server compatibility
+
+The `semanticModel`, `metric`, and logical-`dataset` entities require a GMS
+build that understands the semantic-model metadata model.
+
+- **DataHub Cloud (SaaS):** requires server version **>= v2.1.0** with the
+  Metrics feature enabled (the `metricsEnabled` kill-switch flag must not be
+  `false`). Emitting to an older SaaS server fails loudly — the server rejects
+  the unregistered aspect and `emit_mcps` raises.
+- **Self-hosted / OSS:** there is no automatic version probe. The operator is
+  responsible for running a GMS build that includes the
+  `semanticModel`/`metric` model. The SDK does **not** gate emission on an OSS
+  version check.
+
+For a clear, actionable error instead of a server-side rejection, call the
+opt-in preflight helper before emitting:
+
+```python
+from datahub.sdk import DataHubClient, require_metrics_support
+
+client = DataHubClient(server="...", token="...")
+require_metrics_support(client.graph)  # raises on old SaaS; no-op on OSS
+```
+
+The helper mirrors the Snowflake connector gate's asymmetry: it version-checks
+DataHub Cloud and fails open on OSS (no version signal exists to probe). It is
+**not** wired into `DataHubClient.upsert` automatically — call it explicitly
+when you want the preflight.
+
+### Read-modify-write caveat for logical datasets
+
+Per-field `semanticFieldAnnotation` and field-level `aiContext` on a
+`SemanticModelDataset` are **create-only**. A graph read of a logical dataset
+returns a `SemanticModelDataset`, but its per-field annotation store is empty,
+so re-emitting the read result drops every field-anchored annotation. To
+preserve them on an update, re-attach the fields via the `schema` constructor
+kwarg.

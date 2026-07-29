@@ -19,7 +19,7 @@ URN patterns, the ``Semantic Model Dataset`` subtype, the
 """
 
 import json
-from typing import Any
+from typing import Any, List
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -28,20 +28,22 @@ from datahub.metadata.schema_classes import (
     ERModelRelationshipCardinalityClass,
     SemanticFieldTypeClass,
 )
-from datahub.sdk import Metric, SemanticModel, SemanticModelDataset
-from datahub.sdk.semantic_model import (
+from datahub.metadata.urns import SemanticModelUrn
+from datahub.sdk import (
     AiContextInput,
     DialectExpressionInput,
+    Metric,
     SemanticFieldInput,
+    SemanticModel,
+    SemanticModelDataset,
     SemanticModelRelationshipInput,
 )
+from datahub.sdk.entity import Entity
 
 
-def build_graph() -> tuple[SemanticModel, list]:
+def build_graph() -> tuple[SemanticModel, List[Entity]]:
     platform = "snowflake"
-    model_urn = (
-        "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)"
-    )
+    model_urn = SemanticModelUrn(platform=platform, path="analytics", id="orders_model")
 
     orders_ds = SemanticModelDataset(
         platform=platform,
@@ -156,6 +158,15 @@ def main() -> None:
     with open("semantic_model_create.json", "w") as f:
         json.dump(records, f, indent=2, default=str)
     print(f"Wrote {len(all_mcps)} MCPs to semantic_model_create.json")
+
+    # When emitting to a live server instead of a file, call the opt-in
+    # preflight helper first to get a clear error on an unsupported GMS:
+    #
+    #   from datahub.sdk import DataHubClient, require_metrics_support
+    #   client = DataHubClient(server=..., token=...)
+    #   require_metrics_support(client.graph)  # raises on old SaaS; no-op on OSS
+    #   for mcp in all_mcps:
+    #       client.graph.emit_mcp(mcp)
 
 
 if __name__ == "__main__":
