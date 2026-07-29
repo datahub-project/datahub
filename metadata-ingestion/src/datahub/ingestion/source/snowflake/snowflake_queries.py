@@ -434,12 +434,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     stored_proc_tracker.add_stored_proc_call(query)
                     continue
 
-                if not (
-                    isinstance(query, PreparsedQuery)
-                    and stored_proc_tracker.add_related_query(query)
-                ):
-                    # Only add to aggregator if it's not part of a stored procedure.
-                    self.aggregator.add(query)
+                # Stored-proc child queries go to both the tracker (for synthetic
+                # proc-level lineage) and the aggregator (for per-query CLL).
+                # The tracker produces table-level-only lineage; without the
+                # aggregator copy, native column-level lineage from the audit
+                # log would be discarded for queries inside stored procs.
+                if isinstance(query, PreparsedQuery):
+                    stored_proc_tracker.add_related_query(query)
+                self.aggregator.add(query)
 
             # Generate and add stored procedure lineage entries.
             for lineage_entry in stored_proc_tracker.build_merged_lineage_entries():
@@ -703,9 +705,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         is_create_view = query_type == QueryType.CREATE_VIEW
         is_create_temp_view = is_create_view and self._has_temp_keyword(query_text)
 
-        stream_clean_multi_target: bool = (
+        stream_clean: bool = (
             has_stream_objects
-            and is_multi_target
             and not has_corrupt_object_names
             and not has_unknown_dollar_prefix
         )
@@ -713,14 +714,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         # Stream-bypass: Snowflake leaks $SYS_VIEW_<id> placeholder names into the
         # audit log for some stream-driven queries (undocumented; observed empirically).
         # URNs built from those names are unusable, so we fall back to sqlglot parsing
-        # via ObservedQuery.  Single-target stream queries also stay on this path
-        # because PR #15391's per-downstream logic only helps multi-target INSERT ALL;
-        # routing a single-target query through it would add no value.
+        # via ObservedQuery.  Clean stream queries (no placeholders, no unknown $-prefix)
+        # proceed to the PreparsedQuery path to preserve native CLL from directSources.
         # CREATE TEMPORARY VIEW takes the bypass regardless of stream presence because
         # sqlglot resolves temp-view references correctly without audit-log metadata.
-        if (
-            has_stream_objects and not stream_clean_multi_target
-        ) or is_create_temp_view:
+        if (has_stream_objects and not stream_clean) or is_create_temp_view:
             if has_stream_objects:
                 self.report.num_stream_queries_observed += 1
                 self.report.num_stream_bypass_by_query_type[snowflake_query_type] = (
@@ -755,10 +753,24 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
             return
 
-        # Reaching here with has_stream_objects=True means stream_clean_multi_target
-        # is True (the bypass above returned early for all other stream cases).
-        if stream_clean_multi_target:
+        # Reaching here with has_stream_objects=True means stream_clean is True
+        # (the bypass above returned early for all other stream cases).
+        if stream_clean:
             self.report.num_stream_queries_clean_fast_path += 1
+            n_cll_cols = sum(
+                len(col.get("directSources") or [])
+                for obj in objects_modified
+                for col in obj.get("columns") or []
+            )
+            downstream_names = [obj.get("objectName", "?") for obj in objects_modified]
+            logger.info(
+                "Stream query preserved on PreparsedQuery path: "
+                "query_id=%s, query_type=%s, cll_columns=%d, downstreams=%s",
+                res["query_id"],
+                snowflake_query_type,
+                n_cll_cols,
+                downstream_names,
+            )
 
         if snowflake_query_type == "CALL" and res["root_query_id"] is None:
             yield StoredProcCall(
