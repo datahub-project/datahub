@@ -456,12 +456,14 @@ def get_expectation_kwargs_and_type(
 def _normalize_expectation_result(result: Any) -> Dict[str, Any]:
     if isinstance(result, dict):
         return result
-    if hasattr(result, "to_json_dict"):
-        return result.to_json_dict()
+    # Read attributes rather than to_json_dict(): the latter coerces Decimal
+    # observed values to float (changing emitted nativeResults) and drops
+    # result_url entirely.
     return {
         "success": getattr(result, "success", None),
         "expectation_config": getattr(result, "expectation_config", {}),
         "result": getattr(result, "result", {}) or {},
+        "result_url": getattr(result, "result_url", None),
     }
 
 

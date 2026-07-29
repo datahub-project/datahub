@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
 from datahub.emitter.rest_emitter import EmitMode
@@ -232,3 +233,60 @@ def test_build_assertions_with_results_gx1_objects_and_suite_parameters():
     assert run_event.result.rowCount == 5
     assert run_event.result.unexpectedCount == 0
     assert run_event.result.severity is None
+
+
+def test_build_assertions_with_results_preserves_decimal_observed_values():
+    """SQL backends return Decimal observed values.
+
+    GX's to_json_dict() coerces those to float and drops result_url, so we read
+    the result attributes directly instead.
+    """
+    run_id = SimpleNamespace(
+        run_time=datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    )
+    expectation_config = SimpleNamespace(
+        to_json_dict=lambda: {
+            "type": "expect_column_values_to_be_between",
+            "kwargs": {"column": "score", "min_value": 0, "max_value": 8},
+        },
+    )
+    raw_result = SimpleNamespace(
+        success=False,
+        expectation_config=expectation_config,
+        result={
+            "element_count": 5,
+            "unexpected_count": 2,
+            "partial_unexpected_list": [Decimal("10"), Decimal("9")],
+        },
+        result_url="https://app.example.com/validations/abc",
+        # Mirrors GX: floats, and no result_url. Must not be used.
+        to_json_dict=lambda: {
+            "success": False,
+            "expectation_config": {
+                "type": "expect_column_values_to_be_between",
+                "kwargs": {"column": "score", "min_value": 0, "max_value": 8},
+            },
+            "result": {
+                "element_count": 5,
+                "unexpected_count": 2,
+                "partial_unexpected_list": [10.0, 9.0],
+            },
+        },
+    )
+    validation_result = SimpleNamespace(
+        evaluation_parameters=None,
+        results=[raw_result],
+    )
+    datasets = [
+        {
+            "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.t,PROD)",
+            "partitionSpec": None,
+            "batchSpec": None,
+        }
+    ]
+    assertions = build_assertions_with_results(
+        validation_result, "suite", run_id, datasets
+    )
+    result = assertions[0]["assertionResults"][0].result
+    assert result.nativeResults["partial_unexpected_list"] == '["10", "9"]'
+    assert result.externalUrl == "https://app.example.com/validations/abc"
