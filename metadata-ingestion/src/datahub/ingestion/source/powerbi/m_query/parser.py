@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
@@ -27,6 +28,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
+
+# Every M-Query expression begins with the `let` keyword. We use this to tell a
+# genuine (but unparseable) M-Query from a non-M expression such as a DAX
+# computed-table definition (SELECTCOLUMNS/CALCULATETABLE/FILTER/...). A word
+# boundary is required so identifiers that merely contain the substring "let"
+# (e.g. a column named `filetype`) are not mistaken for the keyword.
+_M_QUERY_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
 
 
 def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
@@ -109,7 +117,7 @@ def get_upstream_tables(
         # Lark parser happened to parse these and then logged INFO "Non-Data
         # Platform Expression". Preserve that behaviour: only warn when the
         # expression looks like it was intended to be M-Query.
-        if "let" not in expression.lower():
+        if not _M_QUERY_LET_KEYWORD.search(expression):
             reporter.m_query_non_mquery_expressions += 1
             logger.info(
                 "Non-M-Query expression in table %s — skipping lineage extraction "
