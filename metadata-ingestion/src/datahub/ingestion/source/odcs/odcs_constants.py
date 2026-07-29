@@ -82,6 +82,10 @@ SCOPE_PROPERTY = "property"
 # Marker value written to PROP_ASSERTION for schema-compliance assertions.
 ASSERTION_SCHEMA_COMPLIANCE = "schema-compliance"
 
+# Cap on name-search candidates confirmed when resolving a `dataProduct` value,
+# so a generic value doesn't walk the whole product catalog.
+DATA_PRODUCT_NAME_SEARCH_LIMIT = 25
+
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
 # SchemaFieldDataType union member. ODCS logical/physical types are free-form
 # strings, so this is a best-effort mapping; unmapped types fall back to

@@ -57,6 +57,13 @@ how to disable replication.
   (datahub-rest sink), a derived URN that does not exist in DataHub is left unbound with a
   warning instead of creating a stub dataset (`verify_physical_urns_exist: false` opts out).
   With a file sink there is no graph, and links are emitted without verification.
+- **Data product output ports are opt-in.** The contract-level `dataProduct` field is free
+  text, so it is emitted only as the `odcs.dataProduct` custom property by default. Set
+  `emit_data_product_association: true` to add the dataset each contract governs to that
+  Data Product as an output port — matching ODPS, where a product lists its contracts under
+  `outputPorts`. The product must already exist, resolved by id or by display name; the
+  association is an additive patch that never clears assets added by hand or by another
+  source.
 - **Logical Models are in private beta.** The logical `odcs` datasets this source emits —
   and the assertions attached to them — render in the UI only when `LOGICAL_MODELS_ENABLED`
   is enabled (off by default). The metadata is ingested either way. The recommended workflow
