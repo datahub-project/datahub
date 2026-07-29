@@ -1,8 +1,10 @@
 package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,7 +33,9 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -229,6 +233,15 @@ public class ApplicationServiceTest {
     verify(_entityClient, times(1))
         .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
 
+    // Both assets share an entity type, so their current memberships are read in one request.
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(ImmutableSet.of(TEST_ASSET_URN, TEST_ASSET_URN_2)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)));
+    verify(_entityClient, never()).getV2(any(), any(), any(), any());
+
     List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
     assertEquals(mcps.size(), 2);
 
@@ -281,6 +294,91 @@ public class ApplicationServiceTest {
   }
 
   @Test
+  public void testBatchSetApplicationAssetsGroupsReadsByEntityType() throws Exception {
+    final Urn dashboardUrn = UrnUtils.getUrn("urn:li:dashboard:(looker,test-dashboard)");
+
+    Applications existingApps = new Applications();
+    existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN_2)));
+    mockMembershipRead(dashboardUrn, existingApps);
+
+    _applicationService.batchSetApplicationAssets(
+        _opContext,
+        TEST_APPLICATION_URN,
+        ImmutableList.of(TEST_ASSET_URN, dashboardUrn),
+        TEST_USER_URN);
+
+    // One read per distinct entity type, and still a single write batch across both types.
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            eq(TEST_ASSET_URN.getEntityType()),
+            eq(ImmutableSet.of(TEST_ASSET_URN)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)));
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            eq(dashboardUrn.getEntityType()),
+            eq(ImmutableSet.of(dashboardUrn)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME)));
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 2);
+    // Proposal order follows the input order, independent of the read grouping.
+    assertEquals(mcps.get(0).getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcps.get(1).getEntityUrn(), dashboardUrn);
+
+    // The dataset had no aspect, so it gets only the new application.
+    Applications datasetApps =
+        GenericRecordUtils.deserializeAspect(
+            mcps.get(0).getAspect().getValue(),
+            mcps.get(0).getAspect().getContentType(),
+            Applications.class);
+    assertEquals(
+        datasetApps.getApplications(), new UrnArray(ImmutableList.of(TEST_APPLICATION_URN)));
+
+    // The dashboard's existing application is preserved alongside the new one.
+    Applications dashboardApps =
+        GenericRecordUtils.deserializeAspect(
+            mcps.get(1).getAspect().getValue(),
+            mcps.get(1).getAspect().getContentType(),
+            Applications.class);
+    assertEquals(
+        dashboardApps.getApplications(),
+        new UrnArray(ImmutableList.of(TEST_APPLICATION_URN_2, TEST_APPLICATION_URN)));
+  }
+
+  @Test
+  public void testBatchUnsetAllApplications() throws Exception {
+    _applicationService.batchUnsetAllApplications(
+        _opContext, ImmutableList.of(TEST_ASSET_URN, TEST_ASSET_URN_2), TEST_USER_URN);
+
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+    verify(_entityClient, never()).ingestProposal(any(), any(), anyBoolean());
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 2);
+    assertEquals(mcps.get(0).getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcps.get(1).getEntityUrn(), TEST_ASSET_URN_2);
+
+    for (MetadataChangeProposal mcp : mcps) {
+      assertEquals(mcp.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+      Applications apps =
+          GenericRecordUtils.deserializeAspect(
+              mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+      assertNotNull(apps.getApplications());
+      assertTrue(apps.getApplications().isEmpty());
+    }
+  }
+
+  @Test
   public void testUnsetApplication() throws Exception {
     _applicationService.unsetApplication(_opContext, TEST_ASSET_URN, TEST_USER_URN);
 
@@ -315,15 +413,37 @@ public class ApplicationServiceTest {
         () -> _applicationService.verifyEntityExists(_opContext, TEST_DOMAIN_URN));
   }
 
+  /**
+   * Stubs the batched membership read for a single resource. A null {@code applications} models a
+   * resource with no existing aspect (absent from the response map).
+   */
+  private void mockMembershipRead(Urn resourceUrn, Applications applications) throws Exception {
+    final Map<Urn, EntityResponse> responses = new HashMap<>();
+    if (applications != null) {
+      EntityResponse response = new EntityResponse();
+      EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+      envelopedAspect.setValue(new Aspect(applications.data()));
+      response.setAspects(
+          new EnvelopedAspectMap(
+              Collections.singletonMap(
+                  Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
+      response.setEntityName(resourceUrn.getEntityType());
+      response.setUrn(resourceUrn);
+      responses.put(resourceUrn, response);
+    }
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            eq(resourceUrn.getEntityType()),
+            eq(ImmutableSet.of(resourceUrn)),
+            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(responses);
+  }
+
   @Test
   public void testBatchUnsetApplicationFromEmptyList() throws Exception {
     // Mock: Resource has no existing applications
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(null);
+    mockMembershipRead(TEST_ASSET_URN, null);
 
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchUnsetApplication(
@@ -353,23 +473,7 @@ public class ApplicationServiceTest {
     Applications existingApps = new Applications();
     existingApps.setApplications(
         new UrnArray(ImmutableList.of(TEST_APPLICATION_URN, TEST_APPLICATION_URN_2)));
-
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(existingApps.data()));
-    response.setAspects(
-        new EnvelopedAspectMap(
-            Collections.singletonMap(
-                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
-    response.setEntityName(TEST_ASSET_URN.getEntityType());
-    response.setUrn(TEST_ASSET_URN);
-
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+    mockMembershipRead(TEST_ASSET_URN, existingApps);
 
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchUnsetApplication(
@@ -398,12 +502,7 @@ public class ApplicationServiceTest {
   public void testBatchUnsetApplicationHandlesException() throws Exception {
     List<Urn> resourceUrns = ImmutableList.of(TEST_ASSET_URN);
 
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(null);
+    mockMembershipRead(TEST_ASSET_URN, null);
 
     when(_entityClient.batchIngestProposals(eq(_opContext), any(List.class), eq(false)))
         .thenThrow(new RuntimeException("Batch ingest failed"));
@@ -420,22 +519,7 @@ public class ApplicationServiceTest {
     // Mock: Resource already has TEST_APPLICATION_URN_2, we're adding TEST_APPLICATION_URN
     Applications existingApps = new Applications();
     existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN_2)));
-
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(existingApps.data()));
-    response.setAspects(
-        new EnvelopedAspectMap(
-            Collections.singletonMap(
-                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
-    response.setUrn(TEST_ASSET_URN);
-
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+    mockMembershipRead(TEST_ASSET_URN, existingApps);
 
     List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchSetApplicationAssets(
@@ -465,22 +549,7 @@ public class ApplicationServiceTest {
     // Mock: Resource already has TEST_APPLICATION_URN
     Applications existingApps = new Applications();
     existingApps.setApplications(new UrnArray(ImmutableList.of(TEST_APPLICATION_URN)));
-
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(existingApps.data()));
-    response.setAspects(
-        new EnvelopedAspectMap(
-            Collections.singletonMap(
-                Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME, envelopedAspect)));
-    response.setUrn(TEST_ASSET_URN);
-
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(TEST_ASSET_URN.getEntityType()),
-            eq(TEST_ASSET_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME))))
-        .thenReturn(response);
+    mockMembershipRead(TEST_ASSET_URN, existingApps);
 
     List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchSetApplicationAssets(
