@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import styled, { keyframes } from 'styled-components';
 
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
 // ─── Animations ────────────────────────────────────────────────────────────────
 
 const slideIn = keyframes`
@@ -106,12 +108,22 @@ const ModelSelect = styled.select`
     option { color: #333; }
 `;
 
-// Available models the user can switch between in the chat. V1 = Claude family.
-const CHAT_MODELS: { value: string; label: string }[] = [
-    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+type ChatModelOption = { value: string; label: string };
+
+const MODEL_OPTIONS_BY_ENUM: Record<string, ChatModelOption> = {
+    SONNET: { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
+    OPUS: { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    GPT_5_5: { value: 'gpt-5-5', label: 'GPT 5.5' },
+};
+
+const FALLBACK_CHAT_MODELS: ChatModelOption[] = [
+    MODEL_OPTIONS_BY_ENUM.SONNET,
+    MODEL_OPTIONS_BY_ENUM.OPUS,
 ];
+
+type PreferredModelResponse = {
+    model?: string | null;
+};
 
 const MessagesArea = styled.div`
     flex: 1;
@@ -232,8 +244,6 @@ const SendBtn = styled.button`
     &:disabled { background: #ccc; cursor: default; }
 `;
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
-
 interface ChatMessage {
     id: number;
     text: string;
@@ -245,8 +255,6 @@ const WELCOME: ChatMessage = {
     text: '👋 Hi! I\'m your DataHub AI Assistant. Ask me anything about datasets, schemas, lineage, or privacy risk.',
     isUser: false,
 };
-
-// ─── Page context — automatically read from the current browser URL ─────────────
 
 interface PageContext {
     pageUrl: string;
@@ -264,12 +272,8 @@ const getPageContext = (): PageContext => {
     };
 };
 
-// ─── AI endpoint — points at the local AI Orchestrator (see ai-orchestrator/) ───
-// Override at build time with VITE_AI_CHAT_ENDPOINT if needed.
 const AI_CHAT_ENDPOINT =
     (import.meta as any)?.env?.VITE_AI_CHAT_ENDPOINT || 'http://localhost:8000/api/ai/chat';
-
-// ─── Mock fallback (used when backend is unavailable) ───────────────────────────
 
 const MOCK_RESPONSES: string[] = [
     'The `user_events` table has 6 columns: `user_id`, `event_type`, `timestamp`, `session_id`, `raw_payload`, and `ip_address`. Note that `user_id` and `ip_address` are tagged as PII.',
@@ -286,21 +290,61 @@ const getMockResponse = () => {
     return response;
 };
 
-// ─── Component ──────────────────────────────────────────────────────────────────
-
 export const AIChatButton: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
-    const [model, setModel] = useState(CHAT_MODELS[0].value);
-    // One UUID per browser tab — gives Claude memory within a session; resets on tab close
     const [sessionId] = useState<string>(() => crypto.randomUUID());
+    const [availableModels, setAvailableModels] = useState<ChatModelOption[]>(FALLBACK_CHAT_MODELS);
+    const [model, setModel] = useState(FALLBACK_CHAT_MODELS[0].value);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadModels = async () => {
+            try {
+                const [modelsResponse, preferredModelResponse] = await Promise.all([
+                    fetch(resolveRuntimePath('/api/ai-config/models')),
+                    fetch(resolveRuntimePath('/api/ai-config/preferred-model')),
+                ]);
+                if (!modelsResponse.ok) return;
+
+                const data = (await modelsResponse.json()) as { models?: string[] };
+                const preferredModelData = preferredModelResponse.ok
+                    ? ((await preferredModelResponse.json()) as PreferredModelResponse)
+                    : null;
+                const nextModels = data.models
+                    ?.map((modelName) => MODEL_OPTIONS_BY_ENUM[modelName])
+                    .filter((option): option is ChatModelOption => Boolean(option)) || [];
+
+                if (!isMounted || nextModels.length === 0) return;
+
+                const preferredModel = preferredModelData?.model || null;
+                setAvailableModels(nextModels);
+                setModel((currentModel) =>
+                    preferredModel && nextModels.some((option) => option.value === preferredModel)
+                        ? preferredModel
+                        : nextModels.some((option) => option.value === currentModel)
+                        ? currentModel
+                        : nextModels[0].value,
+                );
+            } catch {
+                // keep fallback chat models if backend request fails
+            }
+        };
+
+        loadModels();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const sendMessage = async () => {
         const text = inputText.trim();
@@ -328,16 +372,15 @@ export const AIChatButton: React.FC = () => {
                 throw new Error(`Backend returned ${response.status}`);
             }
 
-            // Stream response token-by-token (SSE JSON events: data: {"token": "..."})
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             const aiMsgId = Date.now() + 1;
             let accumulated = '';
 
-            // Add empty AI message bubble — we'll fill it as tokens arrive
             setMessages((prev) => [...prev, { id: aiMsgId, text: '', isUser: false }]);
             setIsTyping(false);
 
+            // Stream response token-by-token (SSE JSON events: data: {"token": "..."})
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -376,6 +419,20 @@ export const AIChatButton: React.FC = () => {
         if (e.key === 'Enter') sendMessage();
     };
 
+    const handleModelChange = async (nextModel: string) => {
+        setModel(nextModel);
+
+        try {
+            await fetch(resolveRuntimePath('/api/ai-config/preferred-model'), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: nextModel }),
+            });
+        } catch {
+            // keep the local selection even if persistence fails
+        }
+    };
+
     return (
         <>
             {isOpen && (
@@ -385,10 +442,10 @@ export const AIChatButton: React.FC = () => {
                             <HeaderTitle>🤖 DataHub AI Assistant</HeaderTitle>
                             <ModelSelect
                                 value={model}
-                                onChange={(e) => setModel(e.target.value)}
+                                onChange={(e) => void handleModelChange(e.target.value)}
                                 title="Choose the model for this conversation"
                             >
-                                {CHAT_MODELS.map((m) => (
+                                {availableModels.map((m) => (
                                     <option key={m.value} value={m.value}>
                                         {m.label}
                                     </option>
@@ -405,9 +462,7 @@ export const AIChatButton: React.FC = () => {
                                     msg.text
                                 ) : (
                                     <MarkdownContent>
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                            {msg.text}
-                                        </ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </MarkdownContent>
                                 )}
                             </Message>
