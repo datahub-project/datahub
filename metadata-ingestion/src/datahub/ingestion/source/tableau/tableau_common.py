@@ -5,7 +5,7 @@ import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 from pydantic.fields import Field
@@ -518,7 +518,7 @@ virtual_connection_graphql_query = """
 """
 
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
-FIELD_TYPE_MAPPING = {
+FIELD_TYPE_MAPPING: Dict[str, Type] = {
     "INTEGER": NumberTypeClass,
     "REAL": NumberTypeClass,
     "STRING": StringTypeClass,
@@ -1022,14 +1022,10 @@ def make_fine_grained_lineage_class(
                     ),
                 )
             ]
-            if cll_info.downstream is not None
-            and cll_info.downstream.column is not None
+            if cll_info.downstream is not None and cll_info.downstream.column
             else []
         )
-        upstreams = [
-            builder.make_schema_field_urn(column_ref.table, column_ref.column)
-            for column_ref in cll_info.upstreams
-        ]
+        upstreams = cll_info.upstream_schema_field_urns()
 
         fine_grained_lineages.append(
             FineGrainedLineage(

@@ -205,7 +205,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                     if (metricUtils != null)
                       metricUtils.increment(
                           this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-                    return client.scroll(scrollRequest, RequestOptions.DEFAULT);
+                    return client.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
                   } catch (Exception e) {
                     log.error("Scroll query failed", e);
                     throw new ESQueryException("Scroll query failed:", e);
@@ -262,7 +262,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         try {
           ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
           clearScrollRequest.addScrollId(scrollId);
-          client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+          client.clearScroll(opContext, clearScrollRequest, RequestOptions.DEFAULT);
         } catch (Exception e) {
           log.warn("Failed to clear scroll context for slice {}", sliceId, e);
         }
@@ -273,7 +273,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
   }
 
   /** Execute a search request with common error handling and metrics. */
-  private SearchResponse executeSearch(OperationContext opContext, SearchRequest searchRequest) {
+  @Override
+  SearchResponse executeSearch(OperationContext opContext, SearchRequest searchRequest) {
     return opContext.withSpan(
         "esQuery",
         () -> {
@@ -281,7 +282,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return client.search(searchRequest, RequestOptions.DEFAULT);
+            return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

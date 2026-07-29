@@ -1,4 +1,5 @@
-describe("tags - title, search, and results", () => {
+// Migrated to Playwright — see e2e-test/ui/playwright/tests/
+describe.skip("tags - title, search, and results", () => {
   beforeEach(() => {
     cy.login();
   });

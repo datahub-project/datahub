@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.schema_inference.object import (
@@ -41,7 +40,6 @@ from datahub.ingestion.source.schema_inference.object import (
     construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -367,14 +365,6 @@ class AerospikeSource(StatefulIngestionSourceBase):
         config = AerospikeConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_aerospike_type_string(
         self, field_type: Union[Type, str], set_name: str
     ) -> str:
@@ -390,9 +380,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         """
         type_string = PYTHON_TYPE_TO_AEROSPIKE_TYPE.get(field_type)
         if type_string is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             type_string = "unknown"
 
@@ -414,9 +405,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             TypeClass = NullTypeClass
 
@@ -610,10 +602,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     f"Truncated schema from {len(schema)} to {len(truncated_schema)}"
                 )
                 schema_depth = max([len(k) for k in schema])
-                self.report.report_warning(
+                self.report.warning(
                     title="Schema depth limit reached",
                     message="Truncating the collection schema because it has too many nested levels.",
                     context=f"Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    log=False,
                 )
                 custom_properties["schema.truncated"] = "True"
                 custom_properties["schema.totalDepth"] = f"{schema_depth}"
@@ -622,10 +615,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
         schema_size = len(schema)
         max_schema_size = self.config.max_schema_size
         if max_schema_size is not None and schema_size > max_schema_size:
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
                 message="Downsampling the collection schema because it has too many schema fields.",
                 context=f"Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                log=False,
             )
             custom_properties["schema.downsampled"] = "True"
             custom_properties["schema.totalFields"] = f"{schema_size}"

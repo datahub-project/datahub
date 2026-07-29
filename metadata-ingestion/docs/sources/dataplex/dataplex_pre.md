@@ -30,10 +30,28 @@ Enable the following APIs on all target projects:
 - **Data Lineage API** (`datalineage.googleapis.com`) — required for lineage extraction (`include_lineage: true`), see [Enable Data Lineage API](https://docs.cloud.google.com/dataplex/docs/use-lineage#enable-apis)
 - **Cloud Resource Manager API** (`cloudresourcemanager.googleapis.com`) — required for term-asset associations (`include_glossary_term_associations: true`)
 
-Some asset types require additional setup. For example, Cloud SQL instances must be connected to Dataplex to enable automatic metadata harvesting (schemas, tables, and views):
+#### Asset-Specific Configuration
+
+Some asset types require additional setup for automatic metadata discovery:
+
+**Cloud SQL** - Instances must be connected to Dataplex:
 
 ```sh
-gcloud sql instances patch my-cloud-sql-instance --enable-dataplex-integration --project=my-gcp-project
+gcloud sql instances patch INSTANCE_NAME --enable-dataplex-integration --project=PROJECT_ID
+```
+
+**Dataproc Metastore** - Services must have Knowledge Catalog integration enabled:
+
+```sh
+# For new services
+gcloud metastore services create SERVICE_NAME \
+  --enable-dataplex-integration \
+  --location=LOCATION
+
+# For existing services
+gcloud metastore services update SERVICE_NAME \
+  --enable-dataplex-integration \
+  --location=LOCATION
 ```
 
 #### Authentication

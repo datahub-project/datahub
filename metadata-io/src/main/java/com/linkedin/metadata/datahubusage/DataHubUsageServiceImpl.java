@@ -92,7 +92,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
 
     searchRequest.source(searchSourceBuilder);
-    SearchResponse response = executeAndExtractDocuments(searchRequest);
+    SearchResponse response = executeAndExtractDocuments(opContext, searchRequest);
     return mapExternalAuditEventsSearchResponse(
         opContext, response, externalAuditEventsSearchRequest);
   }
@@ -175,9 +175,10 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     return opContext.getObjectMapper().convertValue(usageEventResult, UsageEventResult.class);
   }
 
-  private SearchResponse executeAndExtractDocuments(SearchRequest searchRequest) {
+  private SearchResponse executeAndExtractDocuments(
+      OperationContext opContext, SearchRequest searchRequest) {
     try {
-      return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      return elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error(String.format("Search query failed: %s", e.getMessage()));
       throw new RuntimeException("Search query failed:", e);

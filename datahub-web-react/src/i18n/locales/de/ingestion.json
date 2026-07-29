@@ -156,6 +156,8 @@
     "status.rolledBack": "Zurückgerollt",
     "status.rollingBack": "Wird zurückgerollt",
     "status.running": "Läuft",
+    "status.succeeded": "Erfolgreich",
+    "status.succeededWithWarnings": "Erfolgreich mit Warnungen",
     "status.success": "Erfolgreich",
     "status.upForRetry": "Wird wiederholt"
 }

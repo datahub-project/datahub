@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.institutional_memory import (
     HasInstitutionalMemoryPatch,
 )
@@ -25,6 +26,7 @@ class DataProductPatchBuilder(
     HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     HasInstitutionalMemoryPatch,
     MetadataPatchProposal,
 ):

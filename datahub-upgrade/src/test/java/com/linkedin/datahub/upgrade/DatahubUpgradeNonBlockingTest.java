@@ -57,7 +57,6 @@ import org.testng.annotations.Test;
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     properties = {
       "BOOTSTRAP_SYSTEM_UPDATE_DATA_JOB_NODE_CLL_ENABLED=true",
-      "kafka.schemaRegistry.type=INTERNAL",
       "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
       "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + Topics.METADATA_CHANGE_LOG_VERSIONED,
     },

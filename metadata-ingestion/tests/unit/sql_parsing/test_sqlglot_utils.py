@@ -5,9 +5,11 @@ from enum import Enum
 import pytest
 import sqlglot
 
+from datahub.sql_parsing import sqlglot_utils
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_common import QueryType, get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     sqlglot_lineage,
@@ -28,6 +30,14 @@ def test_update_from_select():
     assert {"returning", "this"} == _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 
+def test_glue_and_athena_use_trino_dialect():
+    # Glue catalog views are Athena/Presto views (Trino SQL). Without this mapping,
+    # Glue/Athena view-SQL parsing silently fails and no lineage is produced.
+    assert get_dialect_str("glue") == "trino"
+    assert get_dialect_str("athena") == "trino"
+    assert is_dialect_instance(get_dialect("glue"), "trino")
+
+
 def test_is_dialect_instance():
     snowflake = get_dialect("snowflake")
 
@@ -37,6 +47,14 @@ def test_is_dialect_instance():
     redshift = get_dialect("redshift")
     assert is_dialect_instance(redshift, ["redshift", "snowflake"])
     assert is_dialect_instance(redshift, ["postgres", "snowflake"])
+
+
+def test_mysql_compatible_dialects():
+    # TiDB and MariaDB speak the MySQL wire protocol; they must resolve to the
+    # MySQL dialect, otherwise sqlglot raises "Unknown dialect" and view/query
+    # lineage parsing silently produces nothing.
+    for platform in ["mysql", "mariadb", "tidb"]:
+        assert is_dialect_instance(get_dialect(platform), "mysql")
 
 
 def test_query_types():
@@ -205,6 +223,52 @@ def test_redshift_query_fingerprint():
     assert get_query_fingerprint(query1, "redshift", True) != get_query_fingerprint(
         query2, "redshift", True
     )
+
+
+def test_redshift_copy_credentials_generalization():
+    # Regression: `COPY ... CREDENTIALS '<secret>'` used to crash generalization
+    # with `TypeError: 'Placeholder' object is not iterable`. The credentials
+    # literal was replaced with a Placeholder, which flips sqlglot's
+    # credentials_sql dispatch onto the Snowflake key=value path that iterates
+    # the node.
+    copy_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=EXAMPLE;aws_secret_access_key=EXAMPLESECRET' "
+        "FORMAT AS PARQUET"
+    )
+
+    generalized = generalize_query(copy_sql, dialect="redshift")
+
+    # The secret must never leak into the generalized (stored) query text.
+    assert "EXAMPLESECRET" not in generalized
+    assert "CREDENTIALS" in generalized
+
+    # Fingerprinting must succeed and be independent of the actual secret, so
+    # two COPYs differing only in credentials share a fingerprint.
+    other_creds_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=OTHER;aws_secret_access_key=OTHERSECRET' "
+        "FORMAT AS PARQUET"
+    )
+    assert get_query_fingerprint(copy_sql, "redshift") == get_query_fingerprint(
+        other_creds_sql, "redshift"
+    )
+
+
+def test_get_query_fingerprint_survives_generalization_error(monkeypatch):
+    # Defense in depth: if generalization raises an unexpected error (e.g. a
+    # sqlglot generator bug on an exotic statement), fingerprinting must fall
+    # back to the raw text rather than propagating and killing the pipeline.
+    def _boom(*args: object, **kwargs: object) -> str:
+        raise TypeError("simulated sqlglot generator failure")
+
+    monkeypatch.setattr(sqlglot_utils, "generalize_query", _boom)
+
+    raw_query = "SELECT * FROM my_table"
+    fingerprint = get_query_fingerprint(raw_query, "redshift")
+    # Pin the fallback path: the fingerprint must be the hash of the raw text,
+    # proving generalization was bypassed rather than merely "didn't raise".
+    assert fingerprint == generate_hash(raw_query)
 
 
 def test_query_fingerprint_with_secondary_id():

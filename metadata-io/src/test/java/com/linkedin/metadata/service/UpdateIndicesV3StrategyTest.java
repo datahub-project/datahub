@@ -496,14 +496,15 @@ public class UpdateIndicesV3StrategyTest {
     // Mock applyMappings to throw IOException
     doThrow(new IOException("Elasticsearch communication error"))
         .when(mockIndexBuilder)
-        .applyMappings(any(ReindexConfig.class), anyBoolean());
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
 
     // Execute - the method catches the RuntimeException and logs it, so no exception is thrown
     strategy.updateIndexMappings(
         operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
 
     // Verify that applyMappings was called (which would have thrown the IOException)
-    verify(mockIndexBuilder).applyMappings(any(ReindexConfig.class), eq(false));
+    verify(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), eq(false));
   }
 
   @Test

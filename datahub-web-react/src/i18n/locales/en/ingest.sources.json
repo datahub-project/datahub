@@ -74,6 +74,7 @@
     "sources.superset.description": "Import Charts and Dashboards from Superset.",
     "sources.tableau.description": "Import Data Sources, Workbooks, Worksheets, Tags, Dashboards, and lineage from Tableau.",
     "sources.thoughtspot.description": "Import Liveboards, Answers, Visualizations, Worksheets, Tags, and column-level lineage from ThoughtSpot.",
+    "sources.tidb.description": "Import Tables, Views, Databases, Schemas, and statistics from TiDB.",
     "sources.timescaledb.description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
     "sources.trino.description": "Import Tables, Databases, Schemas, and statistics from Trino.",
     "sources.vertexai.description": "Import ML Models and lineage from Google Vertex AI.",

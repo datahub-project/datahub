@@ -1789,7 +1789,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     result = _run(
         ["./gradlew", task],
         capture=False,
-        timeout=1200,
+        timeout=args.timeout,
     )
     if result.returncode != 0:
         _log(f"{task} failed. Check the output above for errors.")
@@ -2089,8 +2089,8 @@ def build_parser() -> argparse.ArgumentParser:
     start_p.add_argument(
         "--timeout",
         type=int,
-        default=DEFAULT_TIMEOUT,
-        help=f"Timeout for readiness wait (default: {DEFAULT_TIMEOUT})",
+        default=1200,
+        help="Timeout in seconds for both the Gradle build and readiness wait (default: 1200)",
     )
 
     # wait

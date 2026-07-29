@@ -76,7 +76,7 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
       // Check if semantic index exists
       GetIndexRequest getIndexRequest = new GetIndexRequest(semanticIndexName);
-      if (!searchClient.indexExists(getIndexRequest, RequestOptions.DEFAULT)) {
+      if (!searchClient.indexExists(opContext, getIndexRequest, RequestOptions.DEFAULT)) {
         log.error("Semantic index '{}' does not exist. Skipping.", semanticIndexName);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
@@ -89,7 +89,8 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
               .setMaxRetries(3)
               .setAbortOnVersionConflict(false);
 
-      String taskId = searchClient.submitReindexTask(reindexRequest, RequestOptions.DEFAULT);
+      String taskId =
+          searchClient.submitReindexTask(opContext, reindexRequest, RequestOptions.DEFAULT);
       log.info("Document copy task submitted for entity '{}'. Task ID: {}", entityName, taskId);
 
       // Wait for the reindex task to complete

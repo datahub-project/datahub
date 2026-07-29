@@ -3,10 +3,12 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReindexIOException;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -81,6 +83,7 @@ public class DestinationIndexOptimizer {
    * @throws IOException If unable to read or write index settings
    */
   public OriginalSettings optimizeForReindex(
+      @Nonnull OperationContext opContext,
       String destIndexName,
       CircuitBreakerState.HealthState currentHealthState,
       BuildIndicesConfiguration config)
@@ -104,6 +107,7 @@ public class DestinationIndexOptimizer {
     // Step 1: Fetch all original settings in a single API call (batch operation)
     Map<String, String> originalSettingsMap =
         indexBuilder.getIndexSettings(
+            opContext,
             destIndexName,
             INDEX_REFRESH_INTERVAL,
             INDEX_NUMBER_OF_REPLICAS,
@@ -122,7 +126,7 @@ public class DestinationIndexOptimizer {
     boolean shouldOptimizeFlush = false;
     String optimalFlushThreshold = null;
     try {
-      double minNodeHeapGb = getMinimumDataNodeHeapGB();
+      double minNodeHeapGb = getMinimumDataNodeHeapGB(opContext);
       optimalFlushThreshold = calculateOptimalFlushThreshold(minNodeHeapGb);
       if (optimalFlushThreshold != null && !optimalFlushThreshold.equals(originalFlushThreshold)) {
         shouldOptimizeFlush = true;
@@ -185,7 +189,7 @@ public class DestinationIndexOptimizer {
 
       Settings settings = optimizerBuilder.build();
       // Apply all optimizations in a single atomic call
-      indexBuilder.updateIndexSettings(destIndexName, settings);
+      indexBuilder.updateIndexSettings(opContext, destIndexName, settings);
       log.debug("Applied {} optimizations to {} atomically", settings.size(), destIndexName);
 
       log.info("Successfully optimized destination index {}", destIndexName);
@@ -199,7 +203,7 @@ public class DestinationIndexOptimizer {
           destIndexName,
           e.getMessage());
       //  Handled by the parent , incase temp indexes and other things need to be deleted
-      restoreOriginalSettings(destIndexName, original);
+      restoreOriginalSettings(opContext, destIndexName, original);
       throw e;
     }
   }
@@ -214,7 +218,8 @@ public class DestinationIndexOptimizer {
    * @param originalSettings Settings returned by optimizeForReindex()
    * @throws IOException If unable to restore settings - caller must handle to detect failures
    */
-  public void restoreOriginalSettings(String destIndexName, OriginalSettings originalSettings)
+  public void restoreOriginalSettings(
+      @Nonnull OperationContext opContext, String destIndexName, OriginalSettings originalSettings)
       throws IOException {
     if (originalSettings == null) {
       log.debug("No original settings to restore for {}", destIndexName);
@@ -260,7 +265,7 @@ public class DestinationIndexOptimizer {
 
     // Restore all settings in a single atomic call using Settings object directly
     try {
-      indexBuilder.updateIndexSettings(destIndexName, restoreBuilder.build());
+      indexBuilder.updateIndexSettings(opContext, destIndexName, restoreBuilder.build());
       log.info("Restored original settings on {} atomically", destIndexName);
     } catch (Exception e) {
       log.error(
@@ -285,12 +290,13 @@ public class DestinationIndexOptimizer {
    * @param minReplicas Minimum replica count to restore to (typically 1)
    * @throws Exception If replica restoration fails
    */
-  public void restoreToMinimalReplicas(String destIndexName, int minReplicas) throws Exception {
+  public void restoreToMinimalReplicas(
+      @Nonnull OperationContext opContext, String destIndexName, int minReplicas) throws Exception {
     log.info(
         "Restoring minimal replicas ({}) for {} before alias swap", minReplicas, destIndexName);
     try {
       indexBuilder.setIndexSetting(
-          destIndexName, String.valueOf(minReplicas), "index.number_of_replicas");
+          opContext, destIndexName, String.valueOf(minReplicas), "index.number_of_replicas");
       log.info("Successfully restored {} replica(s) on {}", minReplicas, destIndexName);
     } catch (Exception e) {
       log.error(
@@ -308,9 +314,9 @@ public class DestinationIndexOptimizer {
    *
    * @return Minimum heap size in GB across all data nodes, or 0 if unable to determine
    */
-  private double getMinimumDataNodeHeapGB() throws IOException {
+  private double getMinimumDataNodeHeapGB(@Nonnull OperationContext opContext) throws IOException {
     try {
-      OpenSearchJvmInfo.HeapSizeStats heapStats = jvminfo.getDataNodeHeapSizeStats();
+      OpenSearchJvmInfo.HeapSizeStats heapStats = jvminfo.getDataNodeHeapSizeStats(opContext);
       return heapStats.getMinHeapGB();
     } catch (Exception e) {
       log.warn("Failed to determine minimum data node heap size: {}", e.getMessage());

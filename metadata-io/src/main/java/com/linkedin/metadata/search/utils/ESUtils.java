@@ -136,7 +136,26 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+
   // End of field types
+
+  /**
+   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
+   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
+   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
+   * sub-fields are unaffected.
+   *
+   * <p>Structured-property write validation is configured separately via {@code
+   * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
+   */
+  public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return maxBytes / 4;
+  }
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
@@ -1547,7 +1566,11 @@ public class ESUtils {
   }
 
   public static @Nonnull String computePointInTime(
-      String scrollId, String keepAlive, SearchClientShim<?> client, String... indexArray) {
+      @Nonnull OperationContext opContext,
+      String scrollId,
+      String keepAlive,
+      SearchClientShim<?> client,
+      String... indexArray) {
     if (scrollId != null) {
       SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
       if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
@@ -1556,11 +1579,11 @@ public class ESUtils {
     }
     switch (client.getEngineType()) {
       case ELASTICSEARCH_7:
-        return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+        return createPointInTimeElasticSearch(opContext, client, indexArray, keepAlive);
       case ELASTICSEARCH_8:
       case OPENSEARCH_2:
       case ELASTICSEARCH_9:
-        return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+        return createPointInTimeOpenSearch(opContext, client, indexArray, keepAlive);
       default:
         log.warn("Unsupported elasticsearch implementation: {}", client.getEngineType());
         throw new IllegalStateException("Unsupported elasticsearch implementation.");
@@ -1568,12 +1591,15 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeElasticSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     String endPoint = String.join(",", indexArray) + "/_pit";
     Request request = new Request("POST", endPoint);
     request.addParameter("keep_alive", keepAlive);
     try {
-      RawResponse response = client.performLowLevelRequest(request);
+      RawResponse response = client.performLowLevelRequest(opContext, request);
       Map<String, Object> mappedResponse =
           OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
       return (String) mappedResponse.get("id");
@@ -1584,11 +1610,14 @@ public class ESUtils {
   }
 
   private static @Nonnull String createPointInTimeOpenSearch(
-      SearchClientShim<?> client, String[] indexArray, String keepAlive) {
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String[] indexArray,
+      String keepAlive) {
     try {
       CreatePitRequest request =
           new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
-      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      CreatePitResponse response = client.createPit(opContext, request, RequestOptions.DEFAULT);
       return response.getId();
     } catch (OpenSearchStatusException ose) {
       if (TOO_MANY_REQUESTS.equals(ose.status())) {
@@ -1621,7 +1650,11 @@ public class ESUtils {
    * @param pitId The PIT ID to clean up
    * @param context Optional context for logging (e.g., "slice 0", "search request")
    */
-  public static void cleanupPointInTime(SearchClientShim<?> client, String pitId, String context) {
+  public static void cleanupPointInTime(
+      @Nonnull OperationContext opContext,
+      SearchClientShim<?> client,
+      String pitId,
+      String context) {
     if (pitId == null) {
       return;
     }
@@ -1634,7 +1667,7 @@ public class ESUtils {
           {
             DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
             DeletePitResponse deletePitResponse =
-                client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+                client.deletePit(opContext, deletePitRequest, RequestOptions.DEFAULT);
             // DeletePitResponse doesn't have isAcknowledged(), but if we get here without
             // exception, it
             // succeeded
@@ -1647,7 +1680,7 @@ public class ESUtils {
             String endPoint = "/_pit";
             Request request = new Request("DELETE", endPoint);
             request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
-            RawResponse response = client.performLowLevelRequest(request);
+            RawResponse response = client.performLowLevelRequest(opContext, request);
             if (response.getStatusLine().getStatusCode() == 200) {
               log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
             } else {

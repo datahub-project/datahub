@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.dataproduct;
 
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.DataProductService;
 import javax.annotation.Nonnull;
@@ -21,7 +21,7 @@ public class DataProductServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected DataProductService getInstance(
-      @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
+      @Qualifier("systemEntityClient") final SystemEntityClient entityClient) throws Exception {
     return new DataProductService(entityClient, _graphClient);
   }
 }

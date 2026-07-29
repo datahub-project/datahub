@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Optional, Sequence, cast
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -14,6 +14,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.tableau.tableau import (
     DEFAULT_PAGE_SIZE,
+    CustomSqlParseResult,
     LineageResult,
     SiteIdContentUrl,
     TableauConfig,
@@ -29,11 +30,14 @@ from datahub.ingestion.source.tableau.tableau_common import (
     TableauUpstreamReference,
     get_filter_pages,
     make_filter,
+    make_fine_grained_lineage_class,
     optimize_query_filter,
     tableau_field_to_schema_field,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -41,6 +45,12 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
 )
 from tests.test_helpers import test_connection_helpers
 from tests.unit.tableau.test_tableau_config import default_config
@@ -176,6 +186,30 @@ def test_tableau_no_verify():
     report = source.get_report().as_string()
     assert "SSL" not in report
     assert "Unable to login" in report
+
+
+@pytest.mark.parametrize(
+    "ssl_verify",
+    [
+        True,
+        False,
+        "/etc/ssl/certs/custom-ca-bundle.pem",
+    ],
+)
+def test_tableau_ssl_verify_passed_to_http_options(ssl_verify):
+    config = TableauConfig.model_validate(
+        {
+            **default_config,
+            "ssl_verify": ssl_verify,
+        }
+    )
+
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_server:
+        config.make_tableau_client(config.site)
+
+    http_options = mock_server.call_args.kwargs["http_options"]
+    assert http_options["verify"] == ssl_verify
+    assert "cert" not in http_options
 
 
 def test_tableau_unsupported_csql():
@@ -326,6 +360,63 @@ def test_lineage_overrides():
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
     )
+
+
+def test_make_fine_grained_lineage_class_skips_upstreams_with_unresolved_column():
+    # Simulates sqlglot failing to resolve an upstream column (e.g. because
+    # lineage_overrides.platform_override_map swapped the platform and the
+    # schema-aware column resolver no longer matches), which surfaces as an
+    # empty column name on the ColumnRef.
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="my_col"),
+                upstreams=[
+                    ColumnRef(table=upstream_table_urn, column=""),
+                    ColumnRef(table=upstream_table_urn, column="resolved_col"),
+                ],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)",
+        out_columns=[],
+    )
+
+    assert len(result) == 1
+    assert result[0].upstreams == [
+        f"urn:li:schemaField:({upstream_table_urn},resolved_col)"
+    ]
+
+
+def test_make_fine_grained_lineage_class_skips_unresolved_downstream_column():
+    # An empty downstream column (same root cause as the upstream case above)
+    # must not produce an invalid schemaField URN with an empty field path.
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column=""),
+                upstreams=[ColumnRef(table=upstream_table_urn, column="resolved_col")],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)",
+        out_columns=[],
+    )
+
+    assert len(result) == 1
+    assert result[0].downstreams == []
 
 
 def test_database_hostname_to_platform_instance_map():
@@ -943,6 +1034,39 @@ class TestTableauSourceNewFeatures:
                 "customer_name" in upstream_field_urn
             )  # Normalized from "Customer Name"
 
+    def test_get_upstream_fields_from_custom_sql_skips_unresolved_downstream_column(
+        self,
+    ):
+        upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+        parsed_result = SqlParsingResult(
+            in_tables=[upstream_table_urn],
+            out_tables=[],
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(column=""),
+                    upstreams=[
+                        ColumnRef(table=upstream_table_urn, column="resolved_col")
+                    ],
+                )
+            ],
+        )
+
+        with mock.patch.object(
+            self.tableau_source,
+            "parse_custom_sql",
+            return_value=CustomSqlParseResult(
+                result=parsed_result, platform_instance=None
+            ),
+        ):
+            fine_grained_lineages = (
+                self.tableau_source.get_upstream_fields_from_custom_sql(
+                    datasource={}, datasource_urn="urn:li:dataset:(...,csql,PROD)"
+                )
+            )
+
+        assert len(fine_grained_lineages) == 1
+        assert fine_grained_lineages[0].downstreams == []
+
 
 def _extract_dataset_properties(work_units):
     for wu in work_units:
@@ -1289,6 +1413,327 @@ def _make_site_source() -> TableauSiteSource:
             report=TableauSourceReport(),
             server=mock.MagicMock(spec=Server),
         )
+
+
+class ProjectSpec(NamedTuple):
+    id: str
+    name: str
+    parent_id: Optional[str]
+
+
+def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
+    """Minimal stand-in for a tableauserverclient ProjectItem, as returned by the
+    projects Pager."""
+    project = mock.MagicMock()
+    project.id = spec.id
+    project.name = spec.name
+    project.parent_id = spec.parent_id
+    project.description = None
+    return project
+
+
+def _collect_container_tree(
+    source: TableauSiteSource,
+    all_project_map: Dict[str, TableauProject],
+) -> Dict[str, Dict[str, Optional[str]]]:
+    """Run emit_project_containers and return {project_id: {name, parent}} so
+    assertions read in terms of project ids rather than opaque container urns. A
+    root project's parent resolves to the "site" sentinel (its container nests under
+    the site container, which emit_site_container emits separately)."""
+    urn_to_id = {
+        source.gen_project_key(p.id).as_urn(): p.id for p in all_project_map.values()
+    }
+    urn_to_id[source.gen_site_key(source.site_id).as_urn()] = "site"
+
+    tree: Dict[str, Dict[str, Optional[str]]] = {}
+    for wu in source.emit_project_containers(all_project_map):
+        project_id = urn_to_id[wu.get_urn()]
+        entry = tree.setdefault(project_id, {"name": None, "parent": None})
+        props = wu.get_aspect_of_type(ContainerPropertiesClass)
+        if props is not None:
+            entry["name"] = props.name
+        parent = wu.get_aspect_of_type(ContainerClass)
+        if parent is not None:
+            entry["parent"] = urn_to_id.get(parent.container)
+    return tree
+
+
+class TestProjectContainerHierarchy:
+    """End-to-end tests for project container emission under project_pattern
+    filtering.
+
+    Each test declares a source project hierarchy plus a filter, then runs the real
+    pipeline -- fetch (via a mocked projects Pager) -> project_pattern filtering ->
+    registry building -> container emission -- and asserts the resulting browse
+    tree. The guiding invariant: every ingested project keeps its full folder path
+    up to the site, regardless of which ancestors matched the filter.
+    """
+
+    @staticmethod
+    def _run(
+        projects: List[ProjectSpec],
+        *,
+        allow: Optional[List[str]] = None,
+        deny: Optional[List[str]] = None,
+        extract_project_hierarchy: bool = True,
+    ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
+        """Feed ``projects`` through the real projects Pager and run filtering +
+        registry building + container emission.
+
+        Returns (source, tree), where tree is {project_id: {name, parent}} and a
+        root project's parent resolves to the "site" sentinel (its container nests
+        under the site container). Sites are always added as containers here to
+        mirror a typical deployment.
+        """
+        project_pattern: Dict[str, List[str]] = {}
+        if allow is not None:
+            project_pattern["allow"] = allow
+        if deny is not None:
+            project_pattern["deny"] = deny
+
+        config_dict = {k: v for k, v in default_config.items() if k != "projects"}
+        config_dict.update(
+            project_pattern=project_pattern or {"allow": [".*"]},
+            extract_project_hierarchy=extract_project_hierarchy,
+            add_site_container=True,
+        )
+        config = TableauConfig.model_validate(config_dict)
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+            source = TableauSiteSource(
+                config=config,
+                ctx=PipelineContext(run_id="test"),
+                platform="tableau",
+                site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
+                report=TableauSourceReport(),
+                server=mock.MagicMock(),
+            )
+
+        project_items = [_tsc_project(p) for p in projects]
+
+        def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
+            # Only the projects endpoint has data; the datasource/workbook registries
+            # are irrelevant to project-container emission.
+            if endpoint is source.server.projects:
+                return iter(project_items)
+            return iter([])
+
+        with mock.patch(
+            "datahub.ingestion.source.tableau.tableau.TSC.Pager", side_effect=fake_pager
+        ):
+            all_project_map = source._populate_projects_registry()
+
+        return source, _collect_container_tree(source, all_project_map)
+
+    def test_reconstructs_unmatched_ancestors(self) -> None:
+        """A matched leaf keeps its full folder path when every ancestor is filtered
+        out.
+
+            Site
+            └── Project_1        filtered out
+                └── Project_2    filtered out
+                    └── Project_3    filtered out
+                        └── Project_4    MATCHES (leaf)
+        """
+        _, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+                ProjectSpec("p4", "Project_4", "p3"),
+            ],
+            allow=["^Project_4$"],
+        )
+
+        assert set(tree) == {"p1", "p2", "p3", "p4"}
+        assert tree["p4"]["parent"] == "p3"
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+        assert tree["p1"]["name"] == "Project_1"
+
+    def test_shares_common_ancestors_once(self) -> None:
+        """Two matched leaves keep their full paths and share ancestors exactly once,
+        with each branch nested correctly.
+
+            Site
+            └── Project_1                shared ancestor
+                └── Project_2            shared ancestor
+                    ├── Project_3
+                    │   └── Project_4        MATCHES (leaf)
+                    └── Project_5
+                        └── Project_6        MATCHES (leaf)
+        """
+        _, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+                ProjectSpec("p4", "Project_4", "p3"),
+                ProjectSpec("p5", "Project_5", "p2"),
+                ProjectSpec("p6", "Project_6", "p5"),
+            ],
+            allow=["^Project_4$", "^Project_6$"],
+        )
+
+        # Shared ancestors (p1, p2) appear once each -- keying by project id
+        # collapses duplicates, so an equal set means no ancestor was emitted twice
+        # under a different identity.
+        assert set(tree) == {"p1", "p2", "p3", "p4", "p5", "p6"}
+        assert tree["p4"]["parent"] == "p3"
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p6"]["parent"] == "p5"
+        assert tree["p5"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_middle_project_with_parent_and_child(self) -> None:
+        """A matched middle project (unmatched parent above, child below) links up to
+        its reconstructed parent and down to its child.
+
+            Site
+            └── Project_1        filtered out    -> path-only ancestor
+                └── Project_2    MATCHES         -> content container
+                    └── Project_3  child of match -> content container
+        """
+        source, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_2$"],
+        )
+
+        # Project_2 matched directly; Project_3 was pulled in as its child; the
+        # unmatched ancestor Project_1 stayed out of the content registry.
+        assert set(source.tableau_project_registry) == {"p2", "p3"}
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_denied_ancestor_still_emitted_as_path_container(self) -> None:
+        """An explicitly denied ancestor carries no content but is still emitted as a
+        path container so the matched descendant's path stays unbroken."""
+        source, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+            deny=["^Project_1$"],
+        )
+
+        # Denied ancestor is not content-bearing...
+        assert "p1" not in source.tableau_project_registry
+        # ...but still appears in the browse tree, correctly nested.
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_denied_child_excluded_while_sibling_emits(self) -> None:
+        """Under a matched parent, extract_project_hierarchy pulls in children --
+        except ones matching a deny rule. A denied child that is not an ancestor of
+        anything ingested emits no container at all, while its sibling emits
+        normally.
+
+            Site
+            └── Project_1    MATCHES (parent)
+                ├── Project_2    child, re-admitted -> emits
+                └── Project_3    DENIED             -> not emitted
+        """
+        source, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p1"),
+            ],
+            allow=["^Project_1$"],
+            deny=["^Project_3$"],
+        )
+
+        # The denied child is excluded entirely; the parent and its other child emit.
+        assert set(source.tableau_project_registry) == {"p1", "p2"}
+        assert set(tree) == {"p1", "p2"}
+        assert "p3" not in tree
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_path_reconstructed_when_hierarchy_flag_disabled(self) -> None:
+        """Path correctness does not depend on extract_project_hierarchy: with the
+        flag off, no descendants are re-admitted, yet the matched project's full
+        ancestor path is still reconstructed."""
+        source, tree = self._run(
+            projects=[
+                ProjectSpec("p1", "Project_1", None),
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+            extract_project_hierarchy=False,
+        )
+
+        # Only the matched leaf is content-bearing (no downward re-admission)...
+        assert set(source.tableau_project_registry) == {"p3"}
+        # ...yet the full ancestor path is still reconstructed.
+        assert set(tree) == {"p1", "p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "p1"
+        assert tree["p1"]["parent"] == "site"
+
+    def test_ancestor_absent_from_map_is_reparented_to_site(self) -> None:
+        """An ancestor entirely absent from the fetched project map (e.g. the API
+        omits it because of insufficient permissions) has no entry to recurse into.
+        _get_all_project nulls the dangling parent_id, so the orphaned project is
+        reparented under the site instead of dangling -- and container emission must
+        not fail looking up the missing ancestor.
+
+            Site
+            (Project_1)          NOT fetched -- absent from the map
+                └── Project_2    orphaned -> reparented under site
+                    └── Project_3    MATCHES (leaf)
+        """
+        source, tree = self._run(
+            # Project_1, the parent of Project_2, is intentionally not fetched.
+            projects=[
+                ProjectSpec("p2", "Project_2", "p1"),
+                ProjectSpec("p3", "Project_3", "p2"),
+            ],
+            allow=["^Project_3$"],
+        )
+
+        # The missing ancestor never emits a container...
+        assert "p1" not in tree
+        # ...and its orphaned child is reparented directly under the site.
+        assert set(tree) == {"p2", "p3"}
+        assert tree["p3"]["parent"] == "p2"
+        assert tree["p2"]["parent"] == "site"
+        # The dangling parent reference is surfaced to operators, not swallowed.
+        assert "Incomplete project hierarchy" in source.report.as_string()
+
+    def test_dangling_parent_id_raises_actionable_error(self) -> None:
+        """emit_project_containers relies on _get_all_project having nulled out any
+        parent_id absent from the project map. If a future regression breaks that
+        normalization, the lookup should fail with an actionable error naming the
+        offending project -- not a bare KeyError."""
+        source = _make_site_source()
+        # A project pointing at a parent id that is not in the map -- the exact state
+        # _get_all_project is supposed to prevent.
+        orphan = TableauProject(
+            id="p2",
+            name="Project_2",
+            description=None,
+            parent_id="p1",
+            parent_name=None,
+            path=["Project_2"],
+        )
+        source.tableau_project_registry = {"p2": orphan}
+
+        with pytest.raises(ValueError, match="p1"):
+            list(source.emit_project_containers({"p2": orphan}))
 
 
 class TestNullApiResponseHandling:

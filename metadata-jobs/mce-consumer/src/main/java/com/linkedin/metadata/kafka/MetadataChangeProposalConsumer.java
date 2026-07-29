@@ -12,6 +12,7 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
+import com.linkedin.metadata.kafka.usage.UsageQueueIngestRecorder;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -25,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +40,9 @@ public class MetadataChangeProposalConsumer {
   private final SystemEntityClient entityClient;
   private final EventProducer eventProducer;
   private final InboundContextResolver inboundContextResolver;
+
+  @Autowired(required = false)
+  private UsageQueueIngestRecorder usageQueueIngestRecorder;
 
   /** Unified entry: both Kafka and pgQueue paths funnel through this method. */
   public void accept(InboundMetadataEnvelope<GenericRecord> envelope, String mceConsumerGroupId) {
@@ -66,7 +71,7 @@ public class MetadataChangeProposalConsumer {
           envelope.getSerializedValueSize(),
           envelope.getEnqueuedAtMillis());
 
-      processRecord(envelope.getPayload(), envelope.getLogicalTopic(), eventContext);
+      processRecord(envelope, envelope.getPayload(), envelope.getLogicalTopic(), eventContext);
     } finally {
       MDC.clear();
     }
@@ -74,6 +79,7 @@ public class MetadataChangeProposalConsumer {
 
   /** Shared processing path used after intake metric + log. */
   private void processRecord(
+      @Nonnull InboundMetadataEnvelope<GenericRecord> envelope,
       @Nonnull final GenericRecord record,
       @Nonnull final String topic,
       @Nonnull final OperationContext eventContext) {
@@ -104,6 +110,9 @@ public class MetadataChangeProposalConsumer {
 
               if (log.isDebugEnabled()) {
                 log.debug("MetadataChangeProposal {}", event);
+              }
+              if (usageQueueIngestRecorder != null) {
+                usageQueueIngestRecorder.recordIfNeeded(envelope, eventContext, event);
               }
               entityClient.ingestProposal(eventContext, event, false);
 

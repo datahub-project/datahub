@@ -1,5 +1,6 @@
 """State handler for document chunking stateful ingestion."""
 
+import copy
 import logging
 from typing import Optional, cast
 
@@ -85,12 +86,26 @@ class DocumentChunkingStateHandler(
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return None
 
+        # Seed the new checkpoint from the last committed state so previously
+        # embedded document hashes (and event offsets) carry forward. Otherwise
+        # each run starts from an empty state and only records the documents it
+        # processed, so the committed checkpoint overwrites rather than
+        # accumulates. That makes unchanged documents re-embed on later runs
+        # (the skip set never converges) instead of being skipped.
+        state = DocumentChunkingCheckpointState()
+        last_state = self.get_last_state()
+        if last_state:
+            state = DocumentChunkingCheckpointState(
+                document_state=copy.deepcopy(last_state.document_state),
+                event_offsets=dict(last_state.event_offsets),
+            )
+
         assert self.pipeline_name is not None
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
             run_id=self.run_id,
-            state=DocumentChunkingCheckpointState(),
+            state=state,
         )
 
     def get_current_state(

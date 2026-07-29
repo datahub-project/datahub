@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.SYNC_INDEX_UPDATE_HEADER_NAME;
 import static com.linkedin.metadata.Constants.UI_SOURCE;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,10 +20,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -41,6 +44,7 @@ public class EntityServiceImplPreprocessEventTest {
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
+    when(mockOperationContext.getEntityGraphCache()).thenReturn(EntityGraphCache.NO_OP);
     entityService =
         new EntityServiceImpl(mockAspectDao, mockEventProducer, false, mockPreProcessHooks, true);
     entityService.setUpdateIndicesService(mockUpdateIndicesService);
@@ -196,6 +200,70 @@ public class EntityServiceImplPreprocessEventTest {
     // Verify that handleChangeEvent was called
     verify(mockUpdateIndicesService, times(1))
         .handleChangeEvent(eq(mockOperationContext), eq(event));
+  }
+
+  @Test
+  public void testPreprocessEventWithGraphqlRequestContext() {
+    MetadataChangeLog event = createTestEvent("urn:li:dataset:1");
+    OperationContext graphqlContext = mock(OperationContext.class);
+    RequestContext requestContext = mock(RequestContext.class);
+    when(graphqlContext.getRequestContext()).thenReturn(requestContext);
+    when(requestContext.getRequestAPI()).thenReturn(RequestContext.RequestAPI.GRAPHQL);
+    when(graphqlContext.getEntityGraphCache()).thenReturn(EntityGraphCache.NO_OP);
+    when(mockPreProcessHooks.isUiEnabled()).thenReturn(true);
+
+    boolean result = entityService.preprocessEvent(graphqlContext, event);
+
+    assertFalse(result);
+    verify(mockUpdateIndicesService, never())
+        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testPreprocessEventWithNullUpdateIndicesServiceSkipsGraphCacheInvalidation() {
+    entityService.setUpdateIndicesService(null);
+    EntityGraphCache mockEntityGraphCache = mock(EntityGraphCache.class);
+    when(mockOperationContext.getEntityGraphCache()).thenReturn(mockEntityGraphCache);
+
+    MetadataChangeLog event = createTestEvent("urn:li:domain:1");
+    event.setEntityType("domain");
+    event.setAspectName("domainProperties");
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    event.setSystemMetadata(systemMetadata);
+
+    when(mockPreProcessHooks.isUiEnabled()).thenReturn(true);
+
+    boolean result = entityService.preprocessEvent(mockOperationContext, event);
+
+    assertFalse(result);
+    verify(mockEntityGraphCache, never()).invalidateOnSyncBatch(any());
+  }
+
+  @Test
+  public void testPreprocessEventWithUISourceInvalidatesGraphCacheAfterIndexUpdate() {
+    EntityGraphCache mockEntityGraphCache = mock(EntityGraphCache.class);
+    when(mockOperationContext.getEntityGraphCache()).thenReturn(mockEntityGraphCache);
+
+    MetadataChangeLog event = createTestEvent("urn:li:domain:1");
+    event.setEntityType("domain");
+    event.setAspectName("domainProperties");
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    event.setSystemMetadata(systemMetadata);
+
+    when(mockPreProcessHooks.isUiEnabled()).thenReturn(true);
+
+    boolean result = entityService.preprocessEvent(mockOperationContext, event);
+
+    assertTrue(result);
+    verify(mockUpdateIndicesService, times(1))
+        .handleChangeEvent(eq(mockOperationContext), eq(event));
+    verify(mockEntityGraphCache).invalidateOnSyncBatch(any());
   }
 
   @Test

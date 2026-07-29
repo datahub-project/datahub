@@ -8,124 +8,102 @@ import {
 
 import { Document, EntityType, InstitutionalMemoryMetadata } from '@types';
 
-// Helper to create test link
-const createTestLink = (url: string, createdTime: number): InstitutionalMemoryMetadata =>
+// Helper to create test link. `label` doubles as both the display label AND the
+// sort key (via `description || label`), so callers pass the desired sort value.
+const createTestLink = (url: string, label: string): InstitutionalMemoryMetadata =>
     ({
         url,
-        description: `Link to ${url}`,
-        label: `Link to ${url}`,
-        created: {
-            time: createdTime,
-            actor: 'urn:li:corpuser:test',
-        },
+        description: label,
+        label,
+        created: { time: 0, actor: 'urn:li:corpuser:test' },
         author: { urn: 'urn:li:corpuser:test', username: 'test', type: EntityType.CorpUser },
         actor: { urn: 'urn:li:corpuser:test', username: 'test', type: EntityType.CorpUser },
         associatedUrn: 'urn:li:dataset:test',
     }) as InstitutionalMemoryMetadata;
 
-// Helper to create test document
-const createTestDocument = (urn: string, lastModifiedTime: number): Document =>
+const createTestDocument = (urn: string, title: string): Document =>
     ({
         urn,
         type: EntityType.Document,
         info: {
-            title: `Document ${urn}`,
-            lastModified: { time: lastModifiedTime },
-            created: { time: lastModifiedTime - 1000 },
+            title,
+            lastModified: { time: 0 },
+            created: { time: 0 },
             contents: { text: '' },
         },
     }) as Document;
 
 describe('relatedSectionUtils', () => {
     describe('combineAndSortRelatedItems', () => {
-        it('should combine links and documents and sort by time (most recent first)', () => {
+        it('groups documents before links and sorts each group alphabetically (case-insensitive)', () => {
             const links = [
-                createTestLink('https://example.com/old', 1000),
-                createTestLink('https://example.com/new', 3000),
+                createTestLink('https://example.com/beta', 'Beta link'),
+                createTestLink('https://example.com/alpha', 'alpha link'),
             ];
 
             const documents = [
-                createTestDocument('urn:li:document:1', 2000),
-                createTestDocument('urn:li:document:2', 4000),
+                createTestDocument('urn:li:document:2', 'Charlie doc'),
+                createTestDocument('urn:li:document:1', 'apple doc'),
             ];
 
             const result = combineAndSortRelatedItems(links, documents);
 
             expect(result).toHaveLength(4);
-            // Most recent first (4000) -> document:2
+            // Documents first, A→Z (case-insensitive)
             expect(result[0].type).toBe('document');
-            expect(result[0].sortTime).toBe(4000);
-            // Next (3000) -> link to example.com/new
-            expect(result[1].type).toBe('link');
-            expect(result[1].sortTime).toBe(3000);
-            // Next (2000) -> document:1
-            expect(result[2].type).toBe('document');
-            expect(result[2].sortTime).toBe(2000);
-            // Oldest (1000) -> link to example.com/old
+            expect(result[0].sortLabel).toBe('apple doc');
+            expect(result[1].type).toBe('document');
+            expect(result[1].sortLabel).toBe('Charlie doc');
+            // Then links, A→Z (case-insensitive)
+            expect(result[2].type).toBe('link');
+            expect(result[2].sortLabel).toBe('alpha link');
             expect(result[3].type).toBe('link');
-            expect(result[3].sortTime).toBe(1000);
+            expect(result[3].sortLabel).toBe('Beta link');
         });
 
-        it('should handle empty documents array', () => {
-            const links = [createTestLink('https://example.com', 1000)];
-
-            const result = combineAndSortRelatedItems(links, []);
-
+        it('handles empty documents array', () => {
+            const result = combineAndSortRelatedItems([createTestLink('https://example.com', 'foo')], []);
             expect(result).toHaveLength(1);
             expect(result[0].type).toBe('link');
         });
 
-        it('should handle null documents', () => {
-            const links = [createTestLink('https://example.com', 1000)];
-
-            const result = combineAndSortRelatedItems(links, null);
-
+        it('handles null documents', () => {
+            const result = combineAndSortRelatedItems([createTestLink('https://example.com', 'foo')], null);
             expect(result).toHaveLength(1);
             expect(result[0].type).toBe('link');
         });
 
-        it('should handle undefined documents', () => {
-            const links = [createTestLink('https://example.com', 1000)];
-
-            const result = combineAndSortRelatedItems(links, undefined);
-
+        it('handles undefined documents', () => {
+            const result = combineAndSortRelatedItems([createTestLink('https://example.com', 'foo')], undefined);
             expect(result).toHaveLength(1);
             expect(result[0].type).toBe('link');
         });
 
-        it('should handle empty links array', () => {
-            const documents = [createTestDocument('urn:li:document:1', 2000)];
-
-            const result = combineAndSortRelatedItems([], documents);
-
+        it('handles empty links array', () => {
+            const result = combineAndSortRelatedItems([], [createTestDocument('urn:li:document:1', 'foo')]);
             expect(result).toHaveLength(1);
             expect(result[0].type).toBe('document');
         });
 
-        it('should handle both empty arrays', () => {
-            const result = combineAndSortRelatedItems([], []);
-
-            expect(result).toEqual([]);
+        it('handles both empty arrays', () => {
+            expect(combineAndSortRelatedItems([], [])).toEqual([]);
         });
 
-        it('should use 0 as default sortTime when created time is missing for links', () => {
-            const linkWithoutTime = {
-                ...createTestLink('https://example.com', 1000),
-                created: null as any,
-            };
+        it('falls back to url when a link has no description or label', () => {
+            const link = createTestLink('https://example.com/only-url', '');
+            link.description = null as any;
+            link.label = null as any;
 
-            const result = combineAndSortRelatedItems([linkWithoutTime], []);
-
-            expect(result[0].sortTime).toBe(0);
+            const result = combineAndSortRelatedItems([link], []);
+            expect(result[0].sortLabel).toBe('https://example.com/only-url');
         });
 
-        it('should use 0 as default sortTime when lastModified time is missing for documents', () => {
-            const docWithoutTime = createTestDocument('urn:li:document:1', 2000);
-            (docWithoutTime.info as any).lastModified = null;
+        it('uses empty string for documents with no title', () => {
+            const doc = createTestDocument('urn:li:document:1', 'ignored');
+            (doc.info as any).title = null;
 
-            const result = combineAndSortRelatedItems([], [docWithoutTime]);
-
-            expect(result[0].sortTime).toBe(0);
+            const result = combineAndSortRelatedItems([], [doc]);
+            expect(result[0].sortLabel).toBe('');
         });
     });
 

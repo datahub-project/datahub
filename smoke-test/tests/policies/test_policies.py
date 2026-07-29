@@ -16,6 +16,9 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.global_policy_mutator
+
 TEST_POLICY_NAME = "Updated Platform Policy"
 TEST_DENY_POLICY_NAME = "Test Deny Policy"
 PERF_DENY_POLICY_PREFIX = "PerfDeny-EDIT_ENTITY_TAGS-"

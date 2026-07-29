@@ -8,6 +8,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+:::note Self-hosted (OSS) deployments
+Search Access Controls with query-time filtering are a **DataHub Cloud** feature. On OSS, set `VIEW_AUTHORIZATION_ENABLED=true` for entity page gating — this does **not** filter search at query time. See [Designing policies for view-based access control](../../authorization/policies.md#designing-policies-for-view-based-access-control) in the Policies Guide.
+:::
+
 Search Access Controls allow organizations to restrict which entities users can discover through search results. This feature uses the **View Entity** permission to filter search results based on policies, ensuring users only see metadata they are authorized to access.
 
 ## Key Concepts
@@ -34,6 +38,26 @@ When Search Access Controls are enabled:
 - Search results are filtered based on the user's applicable policies
 - Only entities matching at least one policy with the "View Entity" privilege are returned
 - This creates a "default deny" model where explicit permission grants are required
+
+### Entity types that bypass view checks
+
+When Search Access Controls are enabled, some entity types still **bypass** view authorization entirely and can appear
+in search without a View Entity grant. The lean baseline is declared on entities in `entity-registry.yml` via
+`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (full replace when non-empty) plus
+`_ADD` / `_REMOVE`. All other types are restricted by default.
+
+Stock `_ADD` defaults to the previous unrestricted CSV **minus** types already flagged in
+`entity-registry.yml`, so types that previously fail-opened (including `schemaField` and `document`) remain
+unrestricted until you trim them. To stop columns and documents from appearing for users without View Entity grants:
+
+```
+VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document
+```
+
+These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
+applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on self-hosted deployments — that only
+gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
+note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
 
 ### Policy-Based Filtering
 
@@ -298,6 +322,14 @@ Yes. Instead of domain filters, select "Tag" as the resource filter type. This i
 **Do Search Access Controls affect the GraphQL API?**
 
 Yes. The same filtering applies to programmatic access via the GraphQL API. Users will only receive entities they have permission to view.
+
+**Why do users still see columns (`schemaField`) or documents without View Entity grants?**
+
+Those entity types may be on the effective view-unrestricted list (registry `viewUnrestricted` baseline and/or
+stock `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`). Remove them with
+`VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE=schemaField,document` (or set a full override with
+`VIEW_UNRESTRICTED_ENTITY_TYPES`). See
+[Entity types that bypass view checks](#entity-types-that-bypass-view-checks).
 
 **Can I create a policy that denies access instead of granting it?**
 

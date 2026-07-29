@@ -46,12 +46,16 @@ on:
         required: false
         type: string
         default: ${{ vars.DOCKER_REGISTRY }}
+      send_posthog_metrics:
+        description: "Whether to send test failure metrics to PostHog. Should only be true for scheduled/push runs, not workflow_dispatch."
+        required: false
+        type: boolean
+        default: false
 jobs:
   playwright_test:
-    name: Playwright E2E Tests (Shard ${{ inputs.shard }}/${{ inputs.shard_count }})
+    name: Playwright E2E Tests
     runs-on: ${{ inputs.test_runner_type }}
-    # Increase timeout when docker build needs to be done within the job
-    timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' || inputs.depot_build_id != '') && 20 || 45 }}
+    timeout-minutes: 60
     steps:
       - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
@@ -175,6 +179,38 @@ jobs:
           name: playwright-junit-${{ inputs.shard }}
           path: e2e-test/ui/playwright/test-results/junit.xml
           retention-days: 5
+
+      - name: Send failed test metrics to PostHog
+        if: failure() && inputs.send_posthog_metrics
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          GH_HEAD_REF: ${{ github.head_ref || github.ref_name }}
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+        run: |
+          if [ -z "$POSTHOG_API_KEY" ]; then
+            echo "⚠️ POSTHOG_API_KEY not configured, skipping test failure metrics"
+            exit 0
+          fi
+
+          python3 .github/scripts/send_failed_tests_to_posthog.py \
+            --input-dir e2e-test/ui/playwright/test-results \
+            --posthog-api-key "$POSTHOG_API_KEY" \
+            --posthog-host "${POSTHOG_HOST:-https://app.posthog.com}" \
+            --repository "$GH_REPOSITORY" \
+            --workflow-name "$GH_WORKFLOW" \
+            --branch "$GH_HEAD_REF" \
+            --run-id "$GH_RUN_ID" \
+            --run-attempt "$GH_RUN_ATTEMPT" \
+            --batch "$SHARD" \
+            --batch-count "$SHARD_COUNT" \
+            --test-strategy "playwright"
 
       - name: Store logs on failure
         if: failure()

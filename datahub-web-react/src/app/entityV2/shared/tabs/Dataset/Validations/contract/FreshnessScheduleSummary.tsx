@@ -27,12 +27,18 @@ export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Pro
                 ? t('freshnessContract.scheduleSinceCheckWithCron', { schedule: cronToString(cronStr).toLowerCase() })
                 : t('freshnessContract.scheduleSinceCheck');
             break;
-        case FreshnessAssertionScheduleType.FixedInterval:
-            /* untranslated-text -- number + unit + optional schedule fragment, word order differs by language */
-            scheduleText = `In the past ${definition.fixedInterval?.multiple} ${definition.fixedInterval?.unit.toLocaleLowerCase()}s${
-                cronStr ? `, as of ${cronToString(cronStr).toLowerCase()}` : ''
-            }`;
+        case FreshnessAssertionScheduleType.FixedInterval: {
+            const multiple = definition.fixedInterval?.multiple;
+            const unit = `${definition.fixedInterval?.unit.toLocaleLowerCase()}s`;
+            scheduleText = cronStr
+                ? t('freshnessContract.scheduleFixedIntervalWithCron', {
+                      multiple,
+                      unit,
+                      schedule: cronToString(cronStr).toLowerCase(),
+                  })
+                : t('freshnessContract.scheduleFixedInterval', { multiple, unit });
             break;
+        }
         default:
             break;
     }

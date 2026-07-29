@@ -70,7 +70,8 @@ public class RateLimitControllerTest {
   public void testConfigEndpoint() throws Exception {
     RateLimitProperties config = new RateLimitProperties();
     config.getCapacity().setEnabled(true);
-    when(rateLimitEngine.getConfig()).thenReturn(config);
+    when(rateLimitEngine.getRedactedConfig())
+        .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(config));
 
     mockMvc
         .perform(get("/openapi/v1/rate-limits/config"))

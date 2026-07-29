@@ -1,5 +1,5 @@
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
-import { Avatar } from '@components';
+import { Avatar, Text } from '@components';
 import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -148,7 +148,9 @@ export default function UserListItem({
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
                             <div data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
-                                <Typography.Text type="secondary">{user.username}</Typography.Text>
+                                <Text type="span" color="textSecondary">
+                                    {user.username}
+                                </Text>
                             </div>
                         </div>
                         {userStatus && (

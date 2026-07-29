@@ -66,7 +66,8 @@ public class RoleService {
 
     // Ingest new RoleMembership aspect
     final MetadataChangeProposal proposal =
-        buildMetadataChangeProposal(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
+        buildSynchronousMetadataChangeProposal(
+            actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
     _entityClient.ingestProposal(opContext, proposal, false);
   }
 }

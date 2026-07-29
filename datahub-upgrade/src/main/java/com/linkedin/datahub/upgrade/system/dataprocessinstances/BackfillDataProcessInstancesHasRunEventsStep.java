@@ -130,7 +130,7 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           SearchResponse response;
 
           try {
-            response = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+            response = restHighLevelClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
           } catch (IOException e) {
             log.error(Throwables.getStackTraceAsString(e));
             log.error("Error querying index {}", runEventsIndexName);

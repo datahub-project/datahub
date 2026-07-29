@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
@@ -9,18 +10,25 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
@@ -38,7 +46,40 @@ public class TestUtils {
   }
 
   public static QueryContext getMockAllowContext(String actorUrn) {
-    return getMockAllowContext(actorUrn, null);
+    return getMockAllowContext(actorUrn, (AuthorizationRequest) null);
+  }
+
+  public static QueryContext getMockAllowContext(
+      @Nonnull String actorUrn, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionGroupMembership(getMockAllowContext(actorUrn), sessionGroupMembership);
+  }
+
+  /** Stubs session group membership on an existing mock context. */
+  public static QueryContext withSessionGroupMembership(
+      @Nonnull QueryContext context, @Nonnull Collection<Urn> sessionGroupMembership) {
+    return withSessionActorIdentity(
+        context,
+        new SessionActorIdentity(
+            UrnUtils.getUrn(context.getActorUrn()), List.copyOf(sessionGroupMembership), Set.of()));
+  }
+
+  /** Stubs session actor identity (corp + native groups) on an existing mock context. */
+  public static QueryContext withSessionActorIdentity(
+      @Nonnull QueryContext context, @Nonnull SessionActorIdentity sessionActorIdentity) {
+    OperationContext operationContext = spy(context.getOperationContext());
+    io.datahubproject.metadata.context.ActorContext actorContext =
+        mock(io.datahubproject.metadata.context.ActorContext.class);
+    when(actorContext.getActorUrn()).thenReturn(sessionActorIdentity.getActorUrn());
+    when(actorContext.getGroupMembership()).thenReturn(sessionActorIdentity.getGroups());
+    when(operationContext.getSessionActorContext()).thenReturn(actorContext);
+
+    AuthorizationContext authorizationContext = mock(AuthorizationContext.class);
+    when(authorizationContext.getSessionActorIdentity(sessionActorIdentity.getActorUrn()))
+        .thenReturn(sessionActorIdentity);
+    when(operationContext.getAuthorizationContext()).thenReturn(authorizationContext);
+
+    when(context.getOperationContext()).thenReturn(operationContext);
+    return context;
   }
 
   public static QueryContext getMockAllowContext(String actorUrn, AuthorizationRequest request) {
@@ -75,10 +116,39 @@ public class TestUtils {
     when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
+  }
+
+  /**
+   * Enriches an {@link OperationContext} with YAML-default entity-type lists on {@link
+   * SearchContext} so GraphQL resolvers that fall back to configured defaults behave like
+   * production in unit tests.
+   */
+  public static OperationContext withDefaultSearchEntityTypes(
+      @Nonnull OperationContext operationContext) {
+    SearchContext enriched =
+        operationContext.getSearchContext().toBuilder()
+            .defaultSearchEntityNames(
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES))
+            .defaultAutocompleteEntityNames(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES))
+            .defaultBrowseEntityNames(
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_BROWSE_ENTITY_TYPES))
+            .prioritizedSourceEntityTypes(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_PRIORITIZED_SOURCE_ENTITY_TYPES))
+            .prioritizedDatahubEntityTypes(
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_PRIORITIZED_DATAHUB_ENTITY_TYPES))
+            .build();
+    return operationContext.toBuilder()
+        .searchContext(enriched)
+        .build(operationContext.getSessionActorContext(), false);
   }
 
   public static QueryContext getMockDenyContext() {
@@ -113,7 +183,8 @@ public class TestUtils {
     when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+        withDefaultSearchEntityTypes(
+            TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication));
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;

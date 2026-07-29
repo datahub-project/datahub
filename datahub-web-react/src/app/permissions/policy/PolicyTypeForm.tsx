@@ -28,6 +28,7 @@ const TypeForm = styled(Form)`
 
 const TypeDescriptionParagraph = styled(Typography.Paragraph)`
     margin-top: 12px;
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export default function PolicyTypeForm({
@@ -76,7 +77,7 @@ export default function PolicyTypeForm({
                         {t('typeForm.metadataOption')}
                     </Select.Option>
                 </Select>
-                <TypeDescriptionParagraph type="secondary">
+                <TypeDescriptionParagraph>
                     <Trans t={t} i18nKey="typeForm.platformDescription" components={{ bold: <b /> }} />
                     <br />
                     <br />

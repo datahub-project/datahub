@@ -64,12 +64,14 @@ export const SetApplicationModal = ({ urns, onCloseModal, refetch }: Props) => {
                 return {
                     value: appEntity.urn,
                     label: appEntity.properties?.name || '',
+                    'data-testid': `application-option-${appEntity.urn}`,
                 };
             }) || [];
 
     return (
         <Modal title={t('sidebar.application.modalTitle')} open onOk={onOk} onCancel={onCloseModal} closable>
             <Select
+                data-testid="application-select"
                 showSearch
                 style={{ width: '100%' }}
                 placeholder={t('sidebar.application.selectPlaceholder')}

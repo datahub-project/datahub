@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -8,7 +8,7 @@ import QueryCardDetailsMenu from '@app/entityV2/shared/tabs/Dataset/Queries/Quer
 import QueryCardEditButton from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardEditButton';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
 
-const Title = styled(Typography.Title)<{ secondary?: boolean }>`
+const Title = styled(Heading)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
@@ -98,7 +98,7 @@ export default function QueryCardDetails({
     return (
         <Details>
             <Header>
-                <Title secondary={!title} level={5}>
+                <Title secondary={!title} type="h5">
                     {title || t('queryCard.noTitle')}
                 </Title>
                 <Actions>
@@ -127,9 +127,9 @@ export default function QueryCardDetails({
             </Description>
             <Date>
                 {(createdAtMs && (
-                    <Typography.Text type="secondary">
+                    <Text type="span" color="textSecondary">
                         {t('queryCard.createdOn', { date: toLocalDateString(createdAtMs) })}
-                    </Typography.Text>
+                    </Text>
                 )) ||
                     undefined}
             </Date>

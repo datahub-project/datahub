@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -16,6 +17,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -24,11 +26,14 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.exception.ActorAccessException;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.testng.annotations.BeforeMethod;
@@ -276,8 +281,12 @@ public class OperationContextTest {
 
     // Setup Actor URN and mock Authorizer responses
     Urn actorUrn = UrnUtils.getUrn(actor.toUrnStr());
-    when(mockAuthorizer.getActorPolicies(eq(actorUrn))).thenReturn(Collections.emptySet());
-    when(mockAuthorizer.getActorGroups(eq(actorUrn))).thenReturn(Collections.emptySet());
+    SessionActorIdentity identity = SessionActorIdentity.empty(actorUrn);
+    when(mockAuthorizer.resolveSessionActorIdentity(eq(actorUrn)))
+        .thenReturn(Optional.of(identity));
+    when(mockAuthorizer.getActorPolicies(
+            eq(actorUrn), eq(identity.getGroups()), eq(identity.getDirectRoles())))
+        .thenReturn(Collections.emptySet());
 
     // Mock ActorContext isActive
     ActorContext mockActorContext = mock(ActorContext.class);
@@ -302,6 +311,91 @@ public class OperationContextTest {
     // Assert
     assertEquals(actualAspectNames, expectedAspectNames);
     verify(mockEntityRegistryContext).getEntityAspectNames(entityType);
+  }
+
+  @Test
+  public void testSessionBuildResolvesActorIdentityOnce() {
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "USER"), "");
+    Urn actorUrn = UrnUtils.getUrn(userAuth.getActor().toUrnStr());
+    Urn groupUrn = UrnUtils.getUrn("urn:li:corpGroup:test");
+    SessionActorIdentity identity = new SessionActorIdentity(actorUrn, List.of(groupUrn), Set.of());
+
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.resolveSessionActorIdentity(actorUrn)).thenReturn(Optional.of(identity));
+    when(mockAuthorizer.getActorPolicies(
+            eq(actorUrn), eq(identity.getGroups()), eq(identity.getDirectRoles())))
+        .thenReturn(Collections.emptySet());
+
+    OperationContext systemOpContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            new Authentication(new Actor(ActorType.USER, "SYSTEM"), ""),
+            mock(EntityRegistry.class),
+            mock(ServicesRegistryContext.class),
+            null,
+            TestOperationContexts.emptyActiveUsersRetrieverContext(null),
+            mock(ValidationContext.class),
+            null,
+            false);
+
+    systemOpContext.asSession(RequestContext.TEST, mockAuthorizer, userAuth);
+
+    verify(mockAuthorizer).resolveSessionActorIdentity(actorUrn);
+    verify(mockAuthorizer)
+        .getActorPolicies(actorUrn, identity.getGroups(), identity.getDirectRoles());
+    verifyNoMoreInteractions(mockAuthorizer);
+  }
+
+  @Test
+  public void testSkipCacheStillCachesIdentityForLazyRoleResolution() {
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "USER"), "");
+    Urn actorUrn = UrnUtils.getUrn(userAuth.getActor().toUrnStr());
+    Urn groupUrn = UrnUtils.getUrn("urn:li:corpGroup:test");
+    Urn inheritedRole = UrnUtils.getUrn("urn:li:dataHubRole:Admin");
+    SessionActorIdentity identity = new SessionActorIdentity(actorUrn, List.of(groupUrn), Set.of());
+
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+    when(mockAuthorizer.resolveSessionActorIdentity(actorUrn)).thenReturn(Optional.of(identity));
+    when(mockAuthorizer.getActorPolicies(
+            eq(actorUrn), eq(identity.getGroups()), eq(identity.getDirectRoles())))
+        .thenReturn(Collections.emptySet());
+
+    ActorGroupMembershipService membershipService = mock(ActorGroupMembershipService.class);
+    when(membershipService.fetchRolesViaGroups(any(OperationContext.class), eq(List.of(groupUrn))))
+        .thenReturn(Set.of(inheritedRole));
+
+    OperationContext systemOpContext =
+        OperationContext.asSystem(
+            OperationContextConfig.builder().build(),
+            new Authentication(new Actor(ActorType.USER, "SYSTEM"), ""),
+            mock(EntityRegistry.class),
+            ServicesRegistryContext.builder()
+                .restrictedService(mock(RestrictedService.class))
+                .actorGroupMembershipService(membershipService)
+                .build(),
+            null,
+            TestOperationContexts.emptyActiveUsersRetrieverContext(null),
+            mock(ValidationContext.class),
+            null,
+            false);
+
+    OperationContext sessionContext;
+    try {
+      sessionContext =
+          OperationContext.asSession(
+              systemOpContext, RequestContext.TEST, mockAuthorizer, userAuth, true, true);
+    } catch (ActorAccessException e) {
+      throw new RuntimeException(e);
+    }
+
+    assertEquals(sessionContext.getSessionActorContext().getGroupMembership(), List.of(groupUrn));
+    assertEquals(
+        sessionContext
+            .getAuthorizationContext()
+            .resolveSessionActorRoles(sessionContext, sessionContext.getSessionActorContext()),
+        Set.of(inheritedRole));
+    verify(membershipService, times(1))
+        .fetchRolesViaGroups(any(OperationContext.class), eq(List.of(groupUrn)));
   }
 
   @Test

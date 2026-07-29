@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Underkänd",
+    "resultText.passing": "Godkänd",
+    "summary.allFailing": "Alla tester är underkända",
+    "summary.allPassing": "Alla tester är godkända",
+    "summary.countsSubtitle": "{{passing}} godkända tester, {{failing}} underkända tester",
+    "summary.noTestsRun": "Inga tester har körts",
+    "summary.someFailing": "Vissa tester är underkända",
+    "summary.statusTooltip": "Den här statusen baseras på den senaste körningen av varje test.",
+    "testResults.empty": "Inga tester hittades :(",
+    "testResults.noEvaluations": "Inga utvärderingar",
+    "testResults.title": "Governance-testresultat"
+}

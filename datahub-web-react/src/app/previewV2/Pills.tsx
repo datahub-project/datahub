@@ -111,6 +111,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                 isColumnLevelLineage &&
                 selectedColumn && (
                     <SearchPill
+                        data-testid="show-column-path-button"
                         icon={<LayoutOutlined />}
                         count={paths.length || 0}
                         enabled={!!paths.length}

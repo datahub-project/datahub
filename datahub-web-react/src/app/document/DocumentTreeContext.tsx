@@ -1,5 +1,23 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
 
+import { DataPlatform, EntityType } from '@types';
+
+/**
+ * Lightweight, fully-resolved representation of a document's creator (the actor
+ * on `info.created.actor`). We carry a pre-resolved `displayName` so consumers
+ * — namely the sidebar Author filter — can render owner pills without threading
+ * an entity registry through the tree.
+ *
+ * `urn` is also the filter key: the sidebar's Author multi-select stores
+ * creator URNs directly.
+ */
+export interface DocumentCreator {
+    urn: string;
+    type: EntityType;
+    displayName: string;
+    pictureLink?: string | null;
+}
+
 /**
  * DocumentTreeContext - Single source of truth for the document tree state.
  *
@@ -17,6 +35,10 @@ export interface DocumentTreeNode {
     parentUrn: string | null; // null = root
     hasChildren: boolean;
     children?: DocumentTreeNode[]; // Loaded children (undefined = not loaded yet, or merged with server)
+    isUnpublished?: boolean; // Any non-PUBLISHED lifecycle stage (or legacy state=UNPUBLISHED) — renders as a dashed icon
+    isExternal?: boolean; // info.source.sourceType === EXTERNAL — renders the platform logo instead of folder/file
+    platform?: DataPlatform | null; // Source platform; consumed by DocumentSourceLogo when isExternal is true
+    creator?: DocumentCreator | null; // Resolved actor on info.created.actor — drives the sidebar's Author multi-select
 }
 
 interface DocumentTreeContextType {
@@ -35,6 +57,8 @@ interface DocumentTreeContextType {
     deleteNode: (urn: string) => void;
     addNode: (node: DocumentTreeNode) => void;
     setNodeChildren: (parentUrn: string | null, children: DocumentTreeNode[]) => void;
+    appendRootNodes: (nodes: DocumentTreeNode[]) => void;
+    appendNodeChildren: (parentUrn: string, nodes: DocumentTreeNode[]) => void;
 
     // Batch initialization (for loading root documents or initial data)
     initializeTree: (rootNodes: DocumentTreeNode[]) => void;
@@ -307,6 +331,42 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, []);
 
+    // Append additional root nodes (used by infinite-scroll pagination of the root list).
+    // Dedupes against current rootUrns to avoid double-rendering when a refetch overlaps.
+    const appendRootNodes = useCallback((newNodes: DocumentTreeNode[]) => {
+        setRootUrns((prev) => {
+            const existingSet = new Set(prev);
+            const newUrns = newNodes.filter((n) => !existingSet.has(n.urn)).map((n) => n.urn);
+            return [...prev, ...newUrns];
+        });
+        setNodes((prev) => {
+            const updated = new Map(prev);
+            newNodes.forEach((n) => updated.set(n.urn, n));
+            return updated;
+        });
+    }, []);
+
+    // Append additional children to a parent (used by infinite-scroll pagination of expanded
+    // sub-trees). Dedupes by URN so subsequent pages can't introduce duplicates.
+    const appendNodeChildren = useCallback((parentUrn: string, newChildren: DocumentTreeNode[]) => {
+        setNodes((prev) => {
+            const updated = new Map(prev);
+            const parent = updated.get(parentUrn);
+            if (parent) {
+                const existing = parent.children || [];
+                const existingSet = new Set(existing.map((c) => c.urn));
+                const deduped = newChildren.filter((c) => !existingSet.has(c.urn));
+                updated.set(parentUrn, {
+                    ...parent,
+                    children: [...existing, ...deduped],
+                    hasChildren: true,
+                });
+            }
+            newChildren.forEach((c) => updated.set(c.urn, c));
+            return updated;
+        });
+    }, []);
+
     // Batch initialization
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
         setRootUrns(rootNodes.map((n) => n.urn));
@@ -350,6 +410,8 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             deleteNode,
             addNode,
             setNodeChildren,
+            appendRootNodes,
+            appendNodeChildren,
             initializeTree,
             expandedUrns,
             setExpandedUrns,
@@ -368,6 +430,8 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             deleteNode,
             addNode,
             setNodeChildren,
+            appendRootNodes,
+            appendNodeChildren,
             initializeTree,
             expandedUrns,
             toggleExpanded,

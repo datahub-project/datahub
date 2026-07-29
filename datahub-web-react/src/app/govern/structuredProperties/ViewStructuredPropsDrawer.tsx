@@ -49,6 +49,8 @@ const ViewStructuredPropsDrawer = ({
 
     const allowedTypes = selectedPropEntity?.definition?.typeQualifier?.allowedTypes;
 
+    const allowedPlatforms = selectedPropEntity?.definition?.allowedPlatforms;
+
     const propType = getValueTypeLabel(
         selectedPropEntity.definition.valueType.urn,
         selectedPropEntity.definition.cardinality || PropertyCardinality.Single,
@@ -122,6 +124,22 @@ const ViewStructuredPropsDrawer = ({
                     </RowContainer>
                 )}
 
+                {allowedPlatforms && allowedPlatforms.length > 0 && (
+                    <RowContainer>
+                        <StyledLabel>{t('allowedPlatforms.title')}</StyledLabel>
+                        <ItemsList>
+                            {allowedPlatforms.map((platform, index) => {
+                                const displayName = platform.properties?.displayName || platform.name || platform.urn;
+                                return (
+                                    <React.Fragment key={platform.urn}>
+                                        <Text color="gray">{displayName}</Text>
+                                        {index < allowedPlatforms.length - 1 && <VerticalDivider type="vertical" />}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </ItemsList>
+                    </RowContainer>
+                )}
                 <RowContainer>
                     <StyledLabel>{t('appliesTo.titleCapitalized')}</StyledLabel>
                     <ItemsList>

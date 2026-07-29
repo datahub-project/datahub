@@ -28,25 +28,6 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
   }
 
   @Test
-  public void testMCPBatchDefaults() {
-    assertFalse(
-        testApplication
-            .getDataHubAppConfig()
-            .getMetadataChangeProposal()
-            .getConsumer()
-            .getBatch()
-            .isEnabled());
-    assertEquals(
-        testApplication
-            .getDataHubAppConfig()
-            .getMetadataChangeProposal()
-            .getConsumer()
-            .getBatch()
-            .getSize(),
-        15744000);
-  }
-
-  @Test
   public void testCustomSearchConfiguration() throws IOException {
     assertNotNull(testApplication.getDataHubAppConfig());
     assertNotNull(testApplication.getDataHubAppConfig().getElasticSearch());

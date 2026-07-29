@@ -357,7 +357,7 @@ export function ActionsColumn({
             <Icon
                 icon={Play}
                 weight="fill"
-                color="violet"
+                color="iconBrand"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);

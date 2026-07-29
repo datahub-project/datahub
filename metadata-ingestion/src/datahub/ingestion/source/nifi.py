@@ -36,14 +36,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -669,8 +667,8 @@ class NifiSource(StatefulIngestionSourceBase):
 
             if not pg_response.ok:
                 self.report.warning(
-                    "Failed to get process group flow " + pg.get("id"),
-                    self.config.site_url,
+                    message="Failed to get process group flow",
+                    context=f"{self.config.site_url}: {pg.get('id')}",
                 )
                 continue
 
@@ -711,10 +709,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 ("Get", "List", "Fetch", "Put")
             ):
                 self.report.warning(
-                    f"Dropping NiFi Processor of type {component.type}, id {component.id}, name {component.name} from lineage view. \
-                    This is likely an Ingress or Egress node which may be reading to/writing from external datasets \
-                    However not currently supported in datahub",
-                    self.config.site_url,
+                    message="Dropping NiFi Processor from lineage view: likely an Ingress or Egress node not currently supported in DataHub",
+                    context=f"{self.config.site_url}: type={component.type}, id={component.id}, name={component.name}",
                 )
             else:
                 logger.debug(
@@ -838,9 +834,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 )
         else:
             self.report.warning(
-                f"Provenance events could not be fetched for processor \
-                    {processor.id} of type {processor.name}",
-                self.config.site_url,
+                message="Provenance events could not be fetched for processor",
+                context=f"{self.config.site_url}: id={processor.id}, type={processor.name}",
             )
             logger.warning(provenance_response.text)
         return
@@ -1006,10 +1001,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
                         self.report.warning(
-                            f"Site with url {site_url} is being used in flow but\
-                            corresponding site name is not configured via site_url_to_site_name.\
-                            This may result in broken lineage.",
-                            site_url,
+                            message="Site URL is used in flow but corresponding site name is not configured via site_url_to_site_name, this may result in broken lineage",
+                            context=site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -1027,10 +1020,8 @@ class NifiSource(StatefulIngestionSourceBase):
                 for site_url in site_urls:
                     if site_url not in self.config.site_url_to_site_name:
                         self.report.warning(
-                            f"Site with url {site_url} is being used in flow but\
-                            corresponding site name is not configured via site_url_to_site_name.\
-                            This may result in broken lineage.",
-                            self.config.site_url,
+                            message="Site URL is used in flow but corresponding site name is not configured via site_url_to_site_name, this may result in broken lineage",
+                            context=site_url,
                         )
                     else:
                         site_name = self.config.site_url_to_site_name[site_url]
@@ -1164,19 +1155,13 @@ class NifiSource(StatefulIngestionSourceBase):
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.authenticate()
         except Exception as e:
-            self.report.failure("Failed to authenticate", self.config.site_url, exc=e)
+            self.report.failure(
+                message="Failed to authenticate", context=self.config.site_url, exc=e
+            )
             return
 
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
@@ -1184,7 +1169,9 @@ class NifiSource(StatefulIngestionSourceBase):
             self.create_nifi_flow()
         except Exception as e:
             self.report.failure(
-                "Failed to get root process group flow", self.config.site_url, exc=e
+                message="Failed to get root process group flow",
+                context=self.config.site_url,
+                exc=e,
             )
             return
 

@@ -38,7 +38,11 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
 }
 
 export function pathMatchesInsensitiveToV2(fieldPathA?: string | null, fieldPathB?: string | null) {
-    return fieldPathA === fieldPathB || downgradeV2FieldPath(fieldPathA) === downgradeV2FieldPath(fieldPathB);
+    if (!fieldPathA || !fieldPathB) return false;
+    if (fieldPathA === fieldPathB) return true;
+    const a = downgradeV2FieldPath(fieldPathA);
+    const b = downgradeV2FieldPath(fieldPathB);
+    return !!a && !!b && a.toLowerCase() === b.toLowerCase();
 }
 
 // should use pathMatchesExact when rendering editable info so the user edits the correct field

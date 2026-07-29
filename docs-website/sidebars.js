@@ -23,6 +23,11 @@ module.exports = {
           id: "docs/quickstart",
         },
         {
+          type: "doc",
+          label: "Use Docs with AI",
+          id: "docs/use-docs-with-ai",
+        },
+        {
           type: "link",
           label: "Demo",
           href: "https://demo.datahub.com/",
@@ -221,6 +226,12 @@ module.exports = {
           id: "docs/features/feature-guides/analytics-agent",
         },
         {
+          label: "Agent Registry",
+          type: "doc",
+          id: "docs/features/feature-guides/agent-registry",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
@@ -299,9 +310,31 @@ module.exports = {
           ],
         },
         {
-          label: "Data Access Workflows",
-          type: "doc",
-          id: "docs/managed-datahub/workflows/access-workflows",
+          label: "Workflows",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+            },
+          ],
         },
         {
           label: "Data Access Roles",
@@ -312,6 +345,12 @@ module.exports = {
           label: "Applications",
           type: "doc",
           id: "docs/features/feature-guides/applications",
+        },
+        {
+          label: "Service Catalog",
+          type: "doc",
+          id: "docs/features/feature-guides/service-catalog",
+          className: "saasOnly",
         },
         {
           label: "Automations",
@@ -376,6 +415,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/overview",
             },
@@ -396,8 +436,31 @@ module.exports = {
         },
         {
           label: "Context Documents",
-          type: "doc",
-          id: "docs/features/feature-guides/context/context-documents",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/context/context-documents",
+          },
+          items: [
+            {
+              label: "Import from Notion",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-notion",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from Confluence",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-confluence",
+              className: "saasOnly",
+            },
+            {
+              label: "Import from GitHub",
+              type: "doc",
+              id: "docs/features/feature-guides/context/import-github",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Asset Summaries",
@@ -514,8 +577,24 @@ module.exports = {
         },
         {
           label: "MCP Server",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/mcp",
+          },
+          items: [
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
+          label: "Multi-Language Support",
           type: "doc",
-          id: "docs/features/feature-guides/mcp",
+          id: "docs/features/feature-guides/multi-language-support",
         },
         {
           label: "Ownership",
@@ -538,6 +617,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/properties/overview",
             },
@@ -570,9 +650,20 @@ module.exports = {
         },
         {
           label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/subscription-and-notification",
+          },
+          items: [
+            {
+              label: "SMTP Email Notifications",
+              type: "doc",
+              id: "docs/managed-datahub/smtp-email",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Sync Status",
@@ -645,6 +736,11 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
           className: "saasOnly",
         },
       ],
@@ -721,6 +817,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
@@ -884,6 +981,16 @@ module.exports = {
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
         //"metadata-ingestion/source-docs-template",
+        // Discoverability alias: "Amazon Data Firehose" is ingested by
+        // the same `kinesis` connector, but users searching for "Firehose"
+        // expect to see it as its own sidebar entry. Use `ref` so
+        // docusaurus allows pointing at the same doc twice (the autogen
+        // list below produces the "Amazon Kinesis Data Streams" entry).
+        {
+          type: "ref",
+          id: "docs/generated/ingestion/sources/kinesis",
+          label: "Amazon Data Firehose",
+        },
         {
           type: "autogenerated",
           dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
@@ -908,6 +1015,7 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+        "metadata-ingestion/docs/dev_guides/lineage_urn_casing",
         "docs/iceberg-catalog",
       ],
     },
@@ -1229,6 +1337,8 @@ module.exports = {
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
         "docs/api/tutorials/applications",
+        "docs/api/tutorials/agent-registry",
+        "docs/api/tutorials/service-catalog",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
@@ -1336,6 +1446,7 @@ module.exports = {
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/gms-rate-limiting",
+        "docs/deploy/gms-entity-graph-cache",
         "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",

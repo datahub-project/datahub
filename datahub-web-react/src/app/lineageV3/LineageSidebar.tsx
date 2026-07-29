@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
 
@@ -64,11 +65,14 @@ export default function LineageSidebar() {
                 fineGrainedOperations: queryDetails,
             }}
         >
-            <SidebarWrapper $distanceFromTop={0}>
-                <CompactContext.Provider key={selectedEntity.urn} value>
-                    {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
-                </CompactContext.Provider>
-            </SidebarWrapper>
+            {createPortal(
+                <SidebarWrapper $distanceFromTop={0}>
+                    <CompactContext.Provider key={selectedEntity.urn} value>
+                        {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
+                    </CompactContext.Provider>
+                </SidebarWrapper>,
+                document.body,
+            )}
         </EntitySidebarContext.Provider>
     );
 }

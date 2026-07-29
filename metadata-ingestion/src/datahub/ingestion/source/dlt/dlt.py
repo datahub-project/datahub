@@ -32,7 +32,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -50,9 +49,6 @@ from datahub.ingestion.source.dlt.data_classes import (
 )
 from datahub.ingestion.source.dlt.dlt_client import DltClient
 from datahub.ingestion.source.dlt.dlt_report import DltSourceReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -131,18 +127,6 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
 
     # ------------------------------------------------------------------
     # Workunit processors
-    # ------------------------------------------------------------------
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
-    # ------------------------------------------------------------------
-    # Main extraction
     # ------------------------------------------------------------------
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -445,10 +429,7 @@ class DltSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 self.report.warning(
                     title="Failed to emit run history record",
-                    message=(
-                        f"Could not emit DataProcessInstance for a run "
-                        f"({type(e).__name__}: {e}). Skipping this load and continuing."
-                    ),
+                    message="Could not emit DataProcessInstance for a run. Skipping this load and continuing.",
                     context=f"pipeline={pipeline_info.pipeline_name}, load_id={load.load_id}",
                     exc=e,
                 )

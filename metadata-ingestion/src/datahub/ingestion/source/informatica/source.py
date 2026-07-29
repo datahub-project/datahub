@@ -31,7 +31,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -56,9 +55,6 @@ from datahub.ingestion.source.informatica.models import (
     TaskflowStep,
     V2Id,
     V3Guid,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -236,14 +232,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self.client.close()
         super().close()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -278,12 +266,11 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self.report.warning(
             title="Taskflow step DAG missing for some Taskflows",
             message=(
-                f"Resolved {with_steps}/{total} Taskflow step DAGs; "
-                f"{missing} Taskflow(s) emitted as DataFlow-only. "
+                "Some Taskflows emitted as DataFlow-only. "
                 "Common cause: service account lacks 'Asset - export' "
                 "privilege. Grant it to enable MT chaining via inputDatajobs."
             ),
-            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}",
+            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}, missing={missing}",
         )
 
     def _extract_containers(self) -> Iterable[Entity]:

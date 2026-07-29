@@ -6,6 +6,7 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlPrimaryKey/preview/Preview';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -26,6 +27,12 @@ import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entit
 
 import { useGetMlPrimaryKeyQuery } from '@graphql/mlPrimaryKey.generated';
 import { EntityType, MlPrimaryKey, SearchResult } from '@types';
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -76,6 +83,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             entityType={EntityType.MlprimaryKey}
             useEntityQuery={useGetMlPrimaryKeyQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.featureTables'),
@@ -162,6 +170,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                deprecation={data.deprecation}
+                headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
         );
@@ -183,9 +193,11 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                deprecation={data.deprecation}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
         );

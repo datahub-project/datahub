@@ -17,7 +17,7 @@ const StyledAccessButton = styled(Button)`
     font-weight: bold;
 
     &:hover {
-        background-color: ${(props) => props.theme.styles['primary-color'] || props.theme.colors.bgSurfaceBrandHover};
+        background-color: ${(props) => props.theme.colors.buttonSurfaceBrandHover};
         color: ${(props) => props.theme.colors.textOnFillBrand};
         border: none;
     }

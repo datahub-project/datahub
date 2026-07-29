@@ -242,7 +242,7 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer>
+                <ResultContainer data-testid="embedded-list-search-results">
                     {view && (
                         <ViewsContainer>
                             <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
@@ -291,7 +291,7 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
-                <PaginationInfoContainer>
+                <PaginationInfoContainer data-testid="embedded-list-search-pagination">
                     <PaginationRow>
                         <PaginationInfo>
                             <Trans

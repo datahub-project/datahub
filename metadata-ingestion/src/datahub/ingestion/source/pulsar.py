@@ -25,13 +25,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -219,16 +215,21 @@ class PulsarSource(StatefulIngestionSourceBase):
         except requests.exceptions.HTTPError as http_error:
             # Topics can exist without a schema, log the warning and move on
             if http_error.response.status_code == 404 and "/schemas/" in url:
-                message = (
-                    f"Failed to get schema from schema registry. The topic is either schema-less or"
-                    f" no messages have been written to the topic yet."
-                    f" {http_error}"
+                self.report.warning(
+                    message="Failed to get schema from schema registry; "
+                    "the topic is either schema-less or no messages have been written to the topic yet",
+                    context="NoSchemaFound",
+                    exc=http_error,
+                    log=False,
                 )
-                self.report.report_warning("NoSchemaFound", message)
             else:
                 # Authorization error
-                message = f"An HTTP error occurred: {http_error}"
-                self.report.report_warning("HTTPError", message)
+                self.report.warning(
+                    message="An HTTP error occurred",
+                    context="HTTPError",
+                    exc=http_error,
+                    log=False,
+                )
         except requests.exceptions.RequestException as e:
             raise Exception(
                 "An ambiguous exception occurred while handling the request"
@@ -243,14 +244,6 @@ class PulsarSource(StatefulIngestionSourceBase):
             config.topic_patterns.deny.append(r".*-partition-[0-9]+")
 
         return cls(config, ctx)
-
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -372,9 +365,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 schema.schema_str, is_key_schema=is_key_schema
             )
         else:
-            self.report.report_warning(
-                pulsar_topic.fullname,
-                f"Parsing Pulsar schema type {schema.schema_type} is currently not implemented",
+            self.report.warning(
+                message="Parsing Pulsar schema type is currently not implemented",
+                context=f"{pulsar_topic.fullname} (schema_type={schema.schema_type})",
+                log=False,
             )
         return fields
 

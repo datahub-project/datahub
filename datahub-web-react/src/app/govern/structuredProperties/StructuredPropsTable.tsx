@@ -3,6 +3,7 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -17,7 +18,7 @@ import {
     PropDescription,
     PropName,
 } from '@app/govern/structuredProperties/styledComponents';
-import { getDisplayName } from '@app/govern/structuredProperties/utils';
+import { getDisplayName, getFilteredSortedStructuredProperties } from '@app/govern/structuredProperties/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
@@ -68,22 +69,15 @@ const StructuredPropsTable = ({
     const { t } = useTranslation('governance.structured-properties');
     const { t: tc } = useTranslation('common.actions');
     const { t: tl } = useTranslation('common.labels');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
     const structuredProperties = (searchQuery && (searchResults as StructuredPropertyEntity[])) || [];
 
-    // Filter the search results on just displayName based on the search query
-    const filteredProperties = structuredProperties
-        .filter((prop: StructuredPropertyEntity) =>
-            prop.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
-        .sort(
-            (propA, propB) =>
-                ((propB as StructuredPropertyEntity).definition.created?.time || 0) -
-                ((propA as StructuredPropertyEntity).definition.created?.time || 0),
-        );
+    // Filter on the displayed name (displayName, falling back to qualifiedName) and sort by newest first.
+    const filteredProperties = getFilteredSortedStructuredProperties(structuredProperties, searchQuery);
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
 
@@ -150,8 +144,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once brand purple token is added */}
-                            <TableIcon color="#705EE4" />
+                            <TableIcon color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName

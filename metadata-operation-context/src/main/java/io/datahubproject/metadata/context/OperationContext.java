@@ -4,6 +4,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.Enrichment;
+import com.datahub.context.EnrichmentBundle;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,6 +15,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -20,9 +23,12 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
+import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEnricher;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.exception.OperationContextException;
 import io.datahubproject.metadata.exception.TraceException;
+import io.opentelemetry.context.Scope;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -93,19 +99,33 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       boolean allowSystemAuthentication,
       boolean skipCache)
       throws ActorAccessException {
-    return systemOperationContext.toBuilder()
-        .operationContextConfig(
-            // update allowed system authentication
-            systemOperationContext.getOperationContextConfig().toBuilder()
-                .allowSystemAuthentication(allowSystemAuthentication)
-                .build())
-        .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
-        .requestContext(
-            requestContext
-                .metricUtils(systemOperationContext.getMetricUtils().orElse(null))
-                .build())
-        .validationContext(systemOperationContext.getValidationContext())
-        .build(sessionAuthentication, skipCache);
+    OperationContextConfig sessionConfig =
+        systemOperationContext.getOperationContextConfig().toBuilder()
+            .allowSystemAuthentication(allowSystemAuthentication)
+            .build();
+    SessionContextEnricher enricher = sessionConfig.getSessionContextEnricher();
+    RequestContext.RequestContextBuilder sessionRequestBuilder =
+        requestContext.metricUtils(systemOperationContext.getMetricUtils().orElse(null));
+    if (enricher != null) {
+      enricher.enrichBeforeBuild(sessionRequestBuilder, sessionAuthentication);
+    }
+    RequestContext builtRequestContext = sessionRequestBuilder.build();
+    // Propagate enrichments from the request-side context (populated by upstream filters via
+    // RequestContext#REQUEST_ENRICHMENTS_ATTR) into the session-scoped OperationContext, so
+    // downstream code can retrieve them via getEnrichment(Class).
+    final EnrichmentBundle sessionEnrichmentBundle = builtRequestContext.getEnrichmentBundle();
+    OperationContext sessionContext =
+        systemOperationContext.toBuilder()
+            .operationContextConfig(sessionConfig)
+            .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
+            .requestContext(builtRequestContext)
+            .validationContext(systemOperationContext.getValidationContext())
+            .enrichmentBundle(sessionEnrichmentBundle)
+            .build(sessionAuthentication, skipCache);
+    if (enricher != null) {
+      enricher.onSessionReady(sessionContext);
+    }
+    return sessionContext;
   }
 
   /**
@@ -276,6 +296,27 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Nullable private final SystemTelemetryContext systemTelemetryContext;
   @Nonnull private final PrimaryStorageContext primaryStorageContext;
 
+  /**
+   * Typed, class-keyed enrichments propagated from the request-side {@link RequestContext} at
+   * {@link #asSession} time, or stamped programmatically for bootstrap paths that need per-domain
+   * context without an HTTP request. Retrieve via {@link #getEnrichment(Class)}.
+   *
+   * <p>Backing field is nullable (contexts with no enrichments carry a null bundle). Callers must
+   * use {@link #getEnrichmentBundle()} which normalizes null to {@link EnrichmentBundle#EMPTY} —
+   * this closes the {@code opCtx.getEnrichmentBundle().plus(...)} NPE footgun.
+   */
+  @Nullable private final EnrichmentBundle enrichmentBundle;
+
+  /**
+   * Non-null accessor for the enrichment bundle. Returns {@link EnrichmentBundle#EMPTY} when no
+   * enrichments were stamped, so callers can chain {@code .plus(...)} / {@code .get(...)} without
+   * null checks. Overrides Lombok's generated getter for this field only.
+   */
+  @Nonnull
+  public EnrichmentBundle getEnrichmentBundle() {
+    return enrichmentBundle == null ? EnrichmentBundle.EMPTY : enrichmentBundle;
+  }
+
   // Mutable collection for pending aspect deletions during validation
   // This is per-operation and not shared across threads, so ArrayList is safe
   @Builder.Default @Nonnull
@@ -410,6 +451,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return retrieverContext.getAspectRetriever();
   }
 
+  @Nonnull
+  public EntityGraphCache getEntityGraphCache() {
+    return retrieverContext.getEntityGraphCache();
+  }
+
   /**
    * Provides a cached authorizer interface in the context of the session user
    *
@@ -420,7 +466,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   @Override
   public AuthorizationResult authorize(
       @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
-    return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
+    return authorizationContext.authorize(this, getSessionActorContext(), privilege, resourceSpec);
   }
 
   public AuthorizationResult authorize(
@@ -428,7 +474,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
       @Nullable EntitySpec resourceSpec,
       @Nonnull Collection<EntitySpec> subResources) {
     return authorizationContext.authorize(
-        getSessionActorContext(), privilege, resourceSpec, subResources);
+        this, getSessionActorContext(), privilege, resourceSpec, subResources);
   }
 
   @Nullable
@@ -463,7 +509,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public <T> T withSpan(String name, Supplier<T> operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      return systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        return systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       return operation.get();
     }
@@ -471,7 +519,9 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
 
   public void withSpan(String name, Runnable operation, String... attributes) {
     if (systemTelemetryContext != null) {
-      systemTelemetryContext.withSpan(name, operation, attributes);
+      try (Scope scope = EnrichingSpanProcessor.attach(this)) {
+        systemTelemetryContext.withSpan(name, operation, attributes);
+      }
     } else {
       operation.run();
     }
@@ -645,6 +695,40 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     pendingDeletions.clear();
   }
 
+  /**
+   * Typed retrieval of an {@link Enrichment} stamped onto this operation. See {@link Enrichment}
+   * for the extension pattern and {@link EnrichmentBundle} for the storage container.
+   */
+  @Override
+  @Nonnull
+  public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
+    // getEnrichmentBundle() normalizes null → EMPTY, so this is always safe.
+    return getEnrichmentBundle().get(type);
+  }
+
+  /**
+   * Return a new {@link OperationContext} with {@code enrichment} added to (or replacing) any
+   * same-class entry in this context's enrichments. Copy-on-write — the original context is
+   * unchanged. Useful for downstream services that need to enhance an existing enrichment, e.g.:
+   *
+   * <pre>{@code
+   * TenantConfig existing = opContext.getEnrichment(TenantConfig.class).orElseThrow();
+   * OperationContext promoted = opContext.withEnrichment(existing.withTier("premium"));
+   * }</pre>
+   *
+   * <p>The record's own {@code withXxx(...)} methods (idiomatic Java records) produce the updated
+   * value; this helper stitches it back into a new session context.
+   */
+  @Nonnull
+  public OperationContext withEnrichment(@Nonnull final Enrichment enrichment) {
+    // build(ActorContext, boolean) does not declare `throws OperationContextException` and this
+    // path modifies only enrichmentBundle — no actor/auth invariant can trip. No wrapping needed;
+    // any RuntimeException propagates with its original type intact.
+    return this.toBuilder()
+        .enrichmentBundle(getEnrichmentBundle().plus(enrichment))
+        .build(getSessionActorContext(), false);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -687,21 +771,26 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
         @Nonnull Authentication sessionAuthentication,
         boolean skipCache,
         boolean enforceExistenceEnabled) {
-      final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
-      final ActorContext sessionActor =
+      final Authentication systemAuthentication = systemAuthenticationOrNull();
+      final ActorContext provisionalActor =
           ActorContext.builder()
               .authentication(sessionAuthentication)
-              .systemAuth(
-                  this.systemActorContext != null
-                      && this.systemActorContext
-                          .getAuthentication()
-                          .getActor()
-                          .equals(sessionAuthentication.getActor()))
-              .policyInfoSet(this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn))
-              .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
+              .systemAuth(ActorContext.isSystemSession(sessionAuthentication, systemAuthentication))
               .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();
+      final OperationContext provisionalContext = build(provisionalActor, skipCache);
+      final ActorContext sessionActor =
+          this.authorizationContext.buildSessionActor(
+              provisionalContext,
+              sessionAuthentication,
+              systemAuthentication,
+              enforceExistenceEnabled);
       return build(sessionActor, skipCache);
+    }
+
+    @Nullable
+    private Authentication systemAuthenticationOrNull() {
+      return this.systemActorContext != null ? this.systemActorContext.getAuthentication() : null;
     }
 
     @Nonnull
@@ -730,6 +819,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
               this.primaryStorageContext != null
                   ? this.primaryStorageContext
                   : PrimaryStorageContext.EMPTY,
+              this.enrichmentBundle,
               new java.util.ArrayList<>());
 
       if (!sessionActor.isActive(authContext, retriever)) {

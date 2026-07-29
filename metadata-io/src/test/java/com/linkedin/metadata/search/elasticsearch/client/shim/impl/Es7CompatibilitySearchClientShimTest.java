@@ -8,6 +8,8 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -22,6 +24,9 @@ import org.testng.annotations.Test;
 public class Es7CompatibilitySearchClientShimTest {
 
   private Es7CompatibilitySearchClientShim shim;
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @BeforeMethod
   public void setUp() {
@@ -41,7 +46,8 @@ public class Es7CompatibilitySearchClientShimTest {
             .build();
 
     UnsupportedOperationException ex =
-        expectThrows(UnsupportedOperationException.class, () -> shim.searchKnn(request));
+        expectThrows(
+            UnsupportedOperationException.class, () -> shim.searchKnn(OP_CONTEXT, request));
 
     String msg = ex.getMessage().toLowerCase();
     assertTrue(
@@ -77,7 +83,8 @@ public class Es7CompatibilitySearchClientShimTest {
             List.of(new EmbeddingBatch.Chunk(new float[] {0.1f, 0.2f}, "text", 0, 0, 4, 1)));
 
     UnsupportedOperationException ex =
-        expectThrows(UnsupportedOperationException.class, () -> shim.indexEmbeddings(batch));
+        expectThrows(
+            UnsupportedOperationException.class, () -> shim.indexEmbeddings(OP_CONTEXT, batch));
 
     String msg = ex.getMessage().toLowerCase();
     assertTrue(

@@ -28,7 +28,7 @@ export const ExploreLineageAction = () => {
 
     return (
         <Tooltip placement="left" showArrow={false} title={t('sidebar.lineage.exploreTooltip', { entityName })}>
-            <Button variant="text" color="violet" size="md" icon={{ icon: TreeStructure }} onClick={handleClick} />
+            <Button variant="text" color="primary" size="md" icon={{ icon: TreeStructure }} onClick={handleClick} />
         </Tooltip>
     );
 };

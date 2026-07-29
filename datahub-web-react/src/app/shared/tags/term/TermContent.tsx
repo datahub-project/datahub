@@ -16,8 +16,8 @@ const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
         ${(props) =>
             props.highlightTerm &&
             `
-                background: ${props.theme.styles['highlight-color']};
-                border: 1px solid ${props.theme.styles['highlight-border-color']};
+                background: ${props.theme.colors.bgSurfaceBrand};
+                border: 1px solid ${props.theme.colors.borderBrand};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}

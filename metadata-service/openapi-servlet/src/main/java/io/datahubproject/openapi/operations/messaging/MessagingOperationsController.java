@@ -14,6 +14,7 @@ import com.linkedin.metadata.queue.QueueTopicMetadata;
 import com.linkedin.mxe.TopicConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -69,7 +70,7 @@ public class MessagingOperationsController {
   @GetMapping(path = "/transport", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get active messaging transport and primary metadata queue topic names")
   public ResponseEntity<?> getTransport(HttpServletRequest httpServletRequest) {
-    if (!authorize(httpServletRequest, "getMessagingTransport")) {
+    if (!authorize(httpServletRequest, "getMessagingTransport", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     MessagingTransportInfoResponse body =
@@ -89,7 +90,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMcpConsumerLag")) {
+    if (!authorize(httpServletRequest, "getMcpConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -103,7 +104,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMclVersionedConsumerLag")) {
+    if (!authorize(httpServletRequest, "getMclVersionedConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -117,7 +118,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getUsageEventsConsumerLag")) {
+    if (!authorize(httpServletRequest, "getUsageEventsConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -131,7 +132,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMclTimeseriesConsumerLag")) {
+    if (!authorize(httpServletRequest, "getMclTimeseriesConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -143,7 +144,7 @@ public class MessagingOperationsController {
   @Operation(summary = "List registered consumers for a topic (aggressive retention)")
   public ResponseEntity<?> listConsumers(
       HttpServletRequest httpServletRequest, @RequestParam("topicName") String topicName) {
-    if (!authorize(httpServletRequest, "listConsumers")) {
+    if (!authorize(httpServletRequest, "listConsumers", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -178,7 +179,7 @@ public class MessagingOperationsController {
   @Operation(summary = "Register a consumer group for a topic (aggressive retention)")
   public ResponseEntity<?> registerConsumer(
       HttpServletRequest httpServletRequest, @RequestBody ConsumerRegistrationRequest request) {
-    if (!authorize(httpServletRequest, "registerConsumer")) {
+    if (!authorize(httpServletRequest, "registerConsumer", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -200,7 +201,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam("consumerGroup") String consumerGroup,
       @RequestParam("topicName") String topicName) {
-    if (!authorize(httpServletRequest, "unregisterConsumer")) {
+    if (!authorize(httpServletRequest, "unregisterConsumer", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -216,13 +217,16 @@ public class MessagingOperationsController {
     return ResponseEntity.ok(Map.of("deleted", deleted));
   }
 
-  private boolean authorize(HttpServletRequest request, String operation) {
+  private boolean authorize(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, operation, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, operation, List.of())
+                .withUsageOperation(usageOperation),
             authorizerChain,
             authentication,
             true);

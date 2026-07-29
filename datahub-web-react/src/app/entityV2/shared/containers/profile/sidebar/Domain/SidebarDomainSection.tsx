@@ -105,6 +105,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                     fontSize={12}
                                     iconSize={20}
                                     iconFontSize={12}
+                                    attribution={entityData?.domain?.attribution}
                                 />
                             </DomainLinkWrapper>
                         )}

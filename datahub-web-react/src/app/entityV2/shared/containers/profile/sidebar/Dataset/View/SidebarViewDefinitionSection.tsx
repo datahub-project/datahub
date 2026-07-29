@@ -49,7 +49,7 @@ export const SidebarViewDefinitionSection = () => {
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <Button variant="link" color="violet" onClick={() => routeToTab({ tabName: VIEW_DEFINITION_TAB })}>
+                    <Button variant="link" color="primary" onClick={() => routeToTab({ tabName: VIEW_DEFINITION_TAB })}>
                         {t('sidebar.viewDefinition.viewFullDefinitionLink')}
                     </Button>
                 </>

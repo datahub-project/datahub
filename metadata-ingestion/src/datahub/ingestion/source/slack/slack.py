@@ -19,13 +19,11 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import (
-    MetadataWorkUnitProcessor,
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -298,14 +296,6 @@ class SlackSource(StatefulIngestionSourceBase):
         )
         return SlackUserDetails(slack_user_info=user_info)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
@@ -346,8 +336,9 @@ class SlackSource(StatefulIngestionSourceBase):
                 yield mcp.as_workunit()
         else:
             logger.error("Failed to fetch team information")
-            self.report.report_failure(
-                "team_info", "Failed to fetch team information for users"
+            self.report.failure(
+                message="Failed to fetch team information for users",
+                context="team_info",
             )
 
         assert slack_instance
@@ -363,7 +354,7 @@ class SlackSource(StatefulIngestionSourceBase):
                 response = self.get_slack_client().users_list(cursor=cursor)
             assert isinstance(response.data, dict)
             if not response.data["ok"]:
-                self.report.report_failure("users", "Failed to fetch users")
+                self.report.failure(message="Failed to fetch users", context="users")
                 return
 
             assert self.ctx.graph is not None
@@ -431,8 +422,9 @@ class SlackSource(StatefulIngestionSourceBase):
             )
         assert isinstance(response.data, dict)
         if not response.data["ok"]:
-            self.report.report_failure(
-                "public_channel", "Failed to fetch public channels"
+            self.report.failure(
+                message="Failed to fetch public channels",
+                context="public_channel",
             )
             return result_channels, None
         for channel in response.data["channels"]:

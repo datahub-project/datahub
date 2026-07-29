@@ -429,7 +429,7 @@
               "description": "A forwards & backwards compatible change due to the newly added field 'property_id'."
             }
           ],
-          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:1"
+          "versionStamp": "aliases:0;browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:1"
         },
         {
           "timestamp": 1723245269788,
@@ -480,7 +480,7 @@
               "description": "A backwards incompatible change due to removal of field: 'service.provider.name'."
             }
           ],
-          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:2"
+          "versionStamp": "aliases:0;browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:2"
         },
         {
           "timestamp": 1723245279320,
@@ -531,7 +531,7 @@
               "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.name'."
             }
           ],
-          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:0"
+          "versionStamp": "aliases:0;browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:0"
         }
       ]
     }

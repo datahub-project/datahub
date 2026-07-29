@@ -13,6 +13,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StructuredPropertiesClass,
 )
 from datahub.utilities.mapping import OperationProcessor
 from datahub.utilities.urns.error import InvalidUrnError
@@ -514,3 +515,346 @@ def test_operation_processor_list_values():
     assert len(term_aspect.terms) == 1
     # The matched values get joined with comma - terms don't get URL-encoded
     assert term_aspect.terms[0].urn == "urn:li:glossaryTerm:match1,match2"
+
+
+def test_operation_processor_add_structured_property_default_value():
+    """Default value should be the captured regex match (mirrors add_tag/add_term)."""
+    raw_props = {"data_load_frequency": "hourly"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "data_load_frequency": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": (
+                        "urn:li:structuredProperty:data.load.frequency"
+                    ),
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" in aspect_map
+    sp_aspect: StructuredPropertiesClass = aspect_map["add_structured_property"]
+    assert len(sp_aspect.properties) == 1
+    assignment = sp_aspect.properties[0]
+    assert assignment.propertyUrn == "urn:li:structuredProperty:data.load.frequency"
+    assert list(assignment.values) == ["hourly"]
+
+
+def test_operation_processor_add_structured_property_short_id():
+    """The structured_property_urn config also accepts a short qualifiedName."""
+    raw_props = {"region": "us-east-1"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "region": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.region"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" in aspect_map
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert assignment.propertyUrn == "urn:li:structuredProperty:io.acme.region"
+    assert list(assignment.values) == ["us-east-1"]
+
+
+def test_operation_processor_add_structured_property_explicit_value():
+    """An explicit `value` overrides the default `{{ $match }}` substitution."""
+    raw_props = {"frequency": "anything"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "frequency": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.frequency",
+                    "value": "hourly",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["hourly"]
+
+
+def test_operation_processor_add_structured_property_match_substitution():
+    """`{{ $match }}` placeholders should be substituted with the captured match."""
+    raw_props = {"region": "us-east-1"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "region": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.region",
+                    "value": "aws-{{ $match }}",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["aws-us-east-1"]
+
+
+def test_operation_processor_add_structured_property_numeric_coercion():
+    """Numeric meta values should be coerced to double for PrimitivePropertyValue."""
+    raw_props = {"retention_days": 30}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "retention_days": {
+                "match": 30,
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.retention.days"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == [30.0]
+    assert isinstance(assignment.values[0], float)
+
+
+def test_operation_processor_add_structured_property_value_type_number():
+    """`value_type: number` coerces a string literal value into a double."""
+    raw_props = {"score": "anything"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "score": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.score",
+                    "value": "0.95",
+                    "value_type": "number",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == [0.95]
+
+
+def test_operation_processor_add_structured_property_aggregates_by_urn():
+    """Multiple rules targeting the same URN should aggregate values into one assignment."""
+    raw_props = {"domain": "finance", "subdomain": "treasury"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "domain": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.scope"},
+            },
+            "subdomain": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.scope"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert len(aspect_map["add_structured_property"].properties) == 1
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert assignment.propertyUrn == "urn:li:structuredProperty:io.acme.scope"
+    assert sorted(assignment.values) == ["finance", "treasury"]
+
+
+def test_operation_processor_add_structured_property_multiple_urns():
+    """Multiple rules targeting different URNs should produce multiple assignments."""
+    raw_props = {"region": "us-east-1", "tier": "gold"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "region": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.region"},
+            },
+            "tier": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.tier"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignments = {
+        a.propertyUrn: list(a.values)
+        for a in aspect_map["add_structured_property"].properties
+    }
+    assert assignments == {
+        "urn:li:structuredProperty:io.acme.region": ["us-east-1"],
+        "urn:li:structuredProperty:io.acme.tier": ["gold"],
+    }
+
+
+def test_operation_processor_add_structured_property_missing_urn_skipped():
+    """A rule missing structured_property_urn should be silently dropped (with a warning)."""
+    raw_props = {"x": "value"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "x": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"value": "value"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map
+
+
+def test_operation_processor_add_structured_property_invalid_value_type():
+    """`value_type: number` with a non-numeric value should be dropped."""
+    raw_props = {"score": "not_a_number"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "score": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.score",
+                    "value_type": "number",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map
+
+
+def test_operation_processor_datahub_props_structured_properties():
+    """The `datahub:` shorthand bag accepts a `structured_properties` map."""
+    raw_props = {
+        "datahub": {
+            "structured_properties": {
+                "io.acme.frequency": "hourly",
+                "io.acme.retention_days": 30,
+                "io.acme.regions": ["us-east-1", "eu-west-1"],
+            },
+        },
+    }
+
+    processor = OperationProcessor(operation_defs={})
+    aspect_map = processor.process(raw_props)
+
+    assert "add_structured_property" in aspect_map
+    assignments = {
+        a.propertyUrn: list(a.values)
+        for a in aspect_map["add_structured_property"].properties
+    }
+    assert assignments == {
+        "urn:li:structuredProperty:io.acme.frequency": ["hourly"],
+        "urn:li:structuredProperty:io.acme.retention_days": [30.0],
+        "urn:li:structuredProperty:io.acme.regions": ["us-east-1", "eu-west-1"],
+    }
+
+
+def test_operation_processor_add_structured_property_bool_value():
+    """Boolean meta values (e.g. `pii: true`) are stringified rather than
+    silently coerced to 1.0/0.0 via Python's bool-is-int subtype quirk."""
+    raw_props = {"pii": True}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "pii": {
+                "match": True,
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.pii"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["True"]
+    assert isinstance(assignment.values[0], str)
+
+
+def test_operation_processor_add_structured_property_invalid_urn():
+    """An invalid structured_property_urn (e.g. wrong entity type from a
+    typo) is logged and the rule is skipped without breaking the run."""
+    raw_props = {"x": "value"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "x": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    # common typo: tag URN where structuredProperty URN was meant
+                    "structured_property_urn": "urn:li:tag:io.acme.something",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map
+
+
+def test_operation_processor_add_structured_property_list_value_template():
+    """A list-typed `value` with `{{ $match }}` substitutes the capture into
+    each string element while preserving non-string elements as-is."""
+    raw_props = {"region": "us-east-1"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "region": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.region",
+                    "value": ["aws-{{ $match }}", "azure-{{ $match }}"],
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["aws-us-east-1", "azure-us-east-1"]
+
+
+def test_operation_processor_add_structured_property_empty_value_skipped():
+    """An empty list value coerces to no values and the rule is dropped
+    rather than producing an empty assignment that would fail server-side
+    validation."""
+    raw_props: Dict[str, Any] = {"labels": []}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "labels": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.labels"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map

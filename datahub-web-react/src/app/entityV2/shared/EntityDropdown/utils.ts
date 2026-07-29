@@ -1,6 +1,32 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { EntityType, PlatformPrivileges } from '@types';
+import { EntityPrivileges, EntityType, PlatformPrivileges } from '@types';
+
+export function canShowEditDeprecation(privileges?: EntityPrivileges | null): boolean {
+    return privileges?.canEditDeprecation !== false;
+}
+
+export type DeprecationMenuAction = 'markDeprecated' | 'editDeprecated' | 'markUnDeprecated';
+
+/**
+ * Resolves which deprecation menu actions to surface for an entity, in display order:
+ * - not deprecated: only "mark as deprecated"
+ * - deprecated: "edit" (only when the user can edit deprecation) followed by "un-deprecate"
+ */
+export function getDeprecationMenuActions(
+    isDeprecated: boolean,
+    privileges?: EntityPrivileges | null,
+): DeprecationMenuAction[] {
+    if (!isDeprecated) {
+        return ['markDeprecated'];
+    }
+    const actions: DeprecationMenuAction[] = [];
+    if (canShowEditDeprecation(privileges)) {
+        actions.push('editDeprecated');
+    }
+    actions.push('markUnDeprecated');
+    return actions;
+}
 
 export function isDeleteDisabled(
     entityType: EntityType,

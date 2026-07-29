@@ -1,12 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
@@ -35,6 +35,16 @@ export const CellHoverWrapper = styled.div`
     align-items: center;
     margin: -16px;
     padding: 16px;
+`;
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const LoadingSpinner = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: ${({ theme }) => theme.colors.iconBrand};
 `;
 
 export const tableDefaults: TableProps<any> = {
@@ -94,7 +104,7 @@ export const Table = <T,>({
     if (isLoading) {
         return (
             <LoadingContainer>
-                <LoadingOutlined />
+                <LoadingSpinner />
                 <Text>{t('table.loading')}</Text>
             </LoadingContainer>
         );
