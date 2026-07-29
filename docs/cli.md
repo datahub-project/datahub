@@ -1266,6 +1266,15 @@ relationship index, which only reflects references that existed before the run �
 referenced entity first ensures the referrer is repointed and then carries the updated reference
 into its own migrated copy.
 
+**Large or complex migrations**: for big migrations, or reference graphs where clean
+referenced-before-referrer ordering isn't possible (bidirectional references, cycles), migrate in
+stages — e.g. one entity type at a time — with `--keep`, verifying (in the UI or via the graph API)
+that references have settled before running the next stage. Because a later stage's
+incoming-reference rewrite reads the relationship index, letting it catch up between stages lets that
+stage see the entities migrated earlier. Note this only helps references _across_ stages; references
+between two entities migrated in the **same** stage still rely on the ordering above, so keep
+mutually-referencing entities dependency-ordered within a stage.
+
 Example `mapping.json` (list form):
 
 ```json
