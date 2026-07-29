@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
 import com.linkedin.datahub.graphql.generated.Policy;
+import com.linkedin.datahub.graphql.generated.PolicyEffect;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterion;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
@@ -41,12 +42,13 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
   public Policy apply(@Nullable QueryContext context, DataHubPolicyInfo info) {
     final Policy result = new Policy();
     result.setDescription(info.getDescription());
-    // Type/state are free-form strings in the metadata model, so ingested or API-created policies
-    // can carry values outside these GraphQL enums. Fall back to a safe default rather than throw,
-    // so a single malformed policy does not fail the whole listPolicies request (which otherwise
-    // surfaces as "Failed to load policies!" on any page containing it).
+    // Type/state/effect are free-form strings in the metadata model, so ingested or API-created
+    // policies can carry values outside these GraphQL enums. Fall back to a safe default rather
+    // than throw, so a single malformed policy does not fail the whole listPolicies request (which
+    // otherwise surfaces as "Failed to load policies!" on any page containing it).
     result.setType(safeValueOf(PolicyType.class, info.getType(), PolicyType.METADATA));
     result.setState(safeValueOf(PolicyState.class, info.getState(), PolicyState.INACTIVE));
+    result.setEffect(safeValueOf(PolicyEffect.class, info.getEffect(), PolicyEffect.ALLOW));
     result.setName(info.getDisplayName()); // Rebrand to 'name'
     result.setPrivileges(info.getPrivileges());
     result.setActors(mapActors(info.getActors()));

@@ -124,6 +124,7 @@ query appConfig {
             hideLineageInSearchCards
             dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
+            denyPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
