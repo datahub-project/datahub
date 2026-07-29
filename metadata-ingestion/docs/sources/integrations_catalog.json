@@ -1073,5 +1073,12 @@
     "title": "SQL Queries",
     "description": "DataHub utility for ingesting SQL query metadata and lineage from query log files, generating column-level lineage between datasets.",
     "img_path": "img/logos/platforms/sql-queries.svg"
+  },
+  "zipline": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "title": "Zipline",
+    "description": "Zipline is an ML feature platform built on Chronon for defining, computing, and serving machine learning features. Ingest feature tables, features, primary keys, and job lineage from a compiled Chronon/Zipline repository.",
+    "img_path": "img/logos/platforms/zipline.png"
   }
 }
