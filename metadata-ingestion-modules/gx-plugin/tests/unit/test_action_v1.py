@@ -100,10 +100,7 @@ def test_action_v1_emits_assertions(mock_validation_result):
     assert result["datahub_notification_result"] == "DataHub notification succeeded"
     assert emitter.emit_mcp.call_count >= 3
     # assertionInfo MCP should carry checkpoint custom properties
-    info_calls = [
-        call
-        for call in mock_build_info.call_args_list
-    ]
+    info_calls = [call for call in mock_build_info.call_args_list]
     assert info_calls
     assertion_info = info_calls[0].args[2]
     assert assertion_info.customProperties["checkpoint_name"] == "orders_checkpoint"
