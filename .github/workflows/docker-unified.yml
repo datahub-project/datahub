@@ -10,7 +10,7 @@ on:
       playwright_shard_count:
         description: "Number of parallel shards for Playwright E2E tests"
         required: false
-        default: "5"
+        default: "6"
         type: string
   push:
     branches:
@@ -67,7 +67,9 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  PLAYWRIGHT_SHARD_COUNT: "8"
+  # 6 shards keeps the slowest Playwright job below the pytest critical path while
+  # spinning up 2 fewer quickstart stacks (each boot ≈ pull + quickstart overhead).
+  PLAYWRIGHT_SHARD_COUNT: "6"
 
 permissions:
   contents: read
@@ -297,6 +299,7 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: ./.github/actions/restore-dependency-caches
+        id: dep-caches
         with:
           uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
           uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
@@ -356,21 +359,23 @@ jobs:
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
+      # Save only when the restore missed the exact key — re-saving an existing key just
+      # wastes ~60-90s uploading a cache the runner already has ("key already reserved").
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.uv_cache_hit != 'true' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.yarn_cache_hit != 'true' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master' && steps.dep-caches.outputs.gradle_cache_hit != 'true' }}
         with:
           path: |
             ~/.gradle/wrapper
@@ -879,18 +884,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
-        with:
-          path: ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   playwright_test:
     name: Playwright E2E Tests

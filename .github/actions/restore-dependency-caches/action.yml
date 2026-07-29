@@ -23,10 +23,22 @@ inputs:
     required: false
     default: "false"
 
+outputs:
+  uv_cache_hit:
+    description: "true" # when the UV cache restored on an exact key match.
+    value: ${{ steps.restore-uv.outputs.cache-hit }}
+  yarn_cache_hit:
+    description: "true" # when the Yarn cache restored on an exact key match.
+    value: ${{ steps.restore-yarn.outputs.cache-hit }}
+  gradle_cache_hit:
+    description: "true" # when the Gradle cache restored on an exact key match (only when restore_gradle=true).
+    value: ${{ steps.restore-gradle.outputs.cache-hit }}
+
 runs:
   using: composite
   steps:
-    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+    - id: restore-uv
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: |
           ~/.cache/uv
@@ -34,7 +46,8 @@ runs:
         restore-keys: |
           ${{ inputs.uv_cache_key_prefix }}
 
-    - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+    - id: restore-yarn
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: |
           ~/.cache/yarn
@@ -43,6 +56,7 @@ runs:
           ${{ inputs.yarn_cache_key_prefix }}
 
     - name: Restore Gradle plugins cache (docker-unified bucket)
+      id: restore-gradle
       if: ${{ inputs.restore_gradle == 'true' }}
       uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:

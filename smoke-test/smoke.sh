@@ -39,12 +39,15 @@ echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: $BATCH_COUNT, BATCH_NUMBER: $B
 
 # PYTEST_XDIST_WORKERS: optional pytest-xdist worker count (nightly sets this to 3).
 # Independent of BATCH_COUNT/BATCH_NUMBER — matrix batching and xdist are orthogonal knobs.
-# --dist=loadscope groups by class (or whole module for module-level tests).
+# --dist=worksteal: idle workers pull queued tests from busy workers, so one slow class
+# (e.g. the ~440s lifecycle suite) no longer strands a single worker while others idle.
+# Trade-off vs loadscope: less locality → module-scoped fixtures may run on more workers
+# and shared-resource races are likelier; relies on per-test isolation to stay safe.
 # Policy mutators run in a second serial pytest invocation after non-mutators finish.
 xdist_args=()
 if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "PYTEST_XDIST_WORKERS=${PYTEST_XDIST_WORKERS}: enabling pytest-xdist -n ${PYTEST_XDIST_WORKERS} --dist=loadscope"
-  xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=loadscope)
+  echo "PYTEST_XDIST_WORKERS=${PYTEST_XDIST_WORKERS}: enabling pytest-xdist -n ${PYTEST_XDIST_WORKERS} --dist=worksteal"
+  xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=worksteal)
 fi
 
 # pytest exit 5 = no tests collected (empty phase for this batch is OK).
