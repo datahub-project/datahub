@@ -12,6 +12,7 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.service.DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -71,6 +72,7 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -414,10 +416,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(Boolean.TRUE.equals(fulltext)));
 
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-             READ,
-            entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -434,7 +434,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               entitySearchService.search(opContext,
                   List.of(entityName), input, filter, sortCriterionList, start, count);
 
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -466,10 +466,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities), count);
-    if (!isAPIAuthorizedEntityType(
-            opContext,
-            READ,
-            entityList)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(opContext, entityList)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -480,7 +477,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(
         () -> {
           SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -524,9 +521,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true));
 
     List<String> entityList = searchService.getEntitiesToSearch(opContext, entities == null ? Collections.emptyList() : Arrays.asList(entities), count);
-    if (!isAPIAuthorizedEntityType(
-            opContext,
-            READ, entityList)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(opContext, entityList)) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -550,7 +545,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   scrollId,
                   keepAlive,
                   count);
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -705,9 +700,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                             ACTION_LIST, entityName).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true)
             .withSearchFlags(flags -> new SearchFlags().setFulltext(false));
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-            READ, entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -719,7 +713,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
             SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
-          if (!AuthUtil.isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -748,9 +742,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                             ACTION_AUTOCOMPLETE, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-             READ, entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -758,7 +751,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
           AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -785,9 +778,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                             ACTION_BROWSE, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true)
             .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-             READ, entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -796,7 +788,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtils.toTask(opContext,
         () -> {
           BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(
@@ -1169,9 +1161,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_LIST_URNS, entityName).withUsageOperation(UsageOperation.METADATA_READ), authorizer, auth, true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-            READ, entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -1239,9 +1230,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
                     ACTION_FILTER, entityName).withUsageOperation(UsageOperation.SEARCH_QUERY), authorizer, auth, true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(
-            opContext,
-            READ, entityName)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
@@ -1252,7 +1242,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                   entityName, filter, sortCriterionList, start, count);
-          if (!isAPIAuthorizedResult(
+          if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(
                   opContext,
                   result)) {
             throw new RestLiServiceException(

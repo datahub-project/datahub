@@ -3,11 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ChangeCategoryType;
@@ -67,7 +67,8 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
     final boolean includeVersionSet = Boolean.TRUE.equals(input.getIncludeVersionSet());
 
     final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
-    if (!AuthUtil.canViewEntity(context.getOperationContext(), entityUrn)) {
+    // Use GraphQL canView so document URNs get bridge-aware authorization.
+    if (!AuthorizationUtils.canView(context.getOperationContext(), entityUrn)) {
       throw new AuthorizationException(
           "Unauthorized to view change history for entity: " + entityUrn);
     }

@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v2.controller;
 
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 
 import com.datahub.authentication.Authentication;
@@ -21,6 +22,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
@@ -122,7 +124,11 @@ public class TimelineControllerV2 {
       throw new UnauthorizedException(
           actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
     }
-    if (!AuthUtil.canViewEntity(opContext, urn)) {
+    boolean canView =
+        DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())
+            ? DocumentAuthorizationUtils.canViewDocumentEntity(opContext, urn)
+            : AuthUtil.canViewEntity(opContext, urn);
+    if (!canView) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
     }
 

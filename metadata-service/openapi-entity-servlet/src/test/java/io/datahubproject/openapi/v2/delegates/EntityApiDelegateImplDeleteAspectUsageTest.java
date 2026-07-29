@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.v2.delegates;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -117,7 +117,7 @@ public class EntityApiDelegateImplDeleteAspectUsageTest {
         MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
       authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
       authUtil
-          .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+          .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
           .thenReturn(true);
 
       delegate.deleteAspect(TEST_URN, "status");

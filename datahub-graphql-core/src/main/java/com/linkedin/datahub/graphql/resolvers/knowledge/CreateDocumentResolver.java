@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -24,8 +25,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver used for creating a new Document on DataHub. Requires the CREATE_ENTITY privilege for
- * Documents or MANAGE_DOCUMENTS privilege.
+ * Resolver used for creating a new Document on DataHub. Requires CREATE_ENTITY or EDIT_ENTITY for
+ * documents, or the MANAGE_DOCUMENTS platform privilege.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -135,6 +136,8 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
             }
 
             return documentUrn.toString();
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
           } catch (Exception e) {
             log.error(
                 "Failed to create Document with id: {}, subType: {}: {}",

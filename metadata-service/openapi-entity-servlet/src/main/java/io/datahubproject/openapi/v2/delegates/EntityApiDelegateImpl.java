@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
@@ -642,7 +643,10 @@ public class EntityApiDelegateImpl<I, O, S> {
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entitySpec.getName())) {
+    // Document access can be inherited from each bridge source, which cannot be evaluated at the
+    // entity-type level. The result-level check below authorizes every returned document.
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entitySpec.getName()))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
     }
@@ -671,7 +675,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }

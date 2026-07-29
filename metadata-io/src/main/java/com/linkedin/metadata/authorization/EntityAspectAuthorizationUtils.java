@@ -19,8 +19,10 @@ import com.linkedin.domain.DomainAssociation;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjects;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -465,5 +467,22 @@ public final class EntityAspectAuthorizationUtils {
 
   public static boolean isQueryEntity(@Nonnull Urn urn) {
     return QUERY_ENTITY_NAME.equals(urn.getEntityType());
+  }
+
+  /**
+   * Returns true when the actor may view {@code documentUrn}. Platform {@code MANAGE_DOCUMENTS}
+   * allows any document. ENTITY READ on the document URN allows direct access; bridge documents
+   * additionally inherit VIEW from the source entity. An unresolvable bridge source denies access
+   * unless a prior privilege check already allowed it.
+   *
+   * @see com.linkedin.metadata.service.DocumentAuthorizationUtils#canViewDocumentEntity
+   */
+  public static boolean canViewDocumentEntity(
+      @Nonnull OperationContext opContext, @Nonnull Urn documentUrn) {
+    return DocumentAuthorizationUtils.canViewDocumentEntity(opContext, documentUrn);
+  }
+
+  public static boolean isDocumentEntity(@Nonnull Urn urn) {
+    return DocumentAuthorizationUtils.isDocumentEntity(urn);
   }
 }

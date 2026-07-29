@@ -3,8 +3,10 @@ package com.linkedin.datahub.graphql.authorization;
 import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
+import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import static com.linkedin.metadata.authorization.PoliciesConfig.MANAGE_ACCESS_TOKENS;
 
 import com.datahub.authorization.AuthUtil;
@@ -12,11 +14,15 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
+import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -26,6 +32,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.reflect.ConstructorUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
@@ -265,7 +272,31 @@ public class AuthorizationUtils {
             opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
             urn.getEntityType())) {
 
+      if (DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())) {
+        return EntityAspectAuthorizationUtils.canViewDocumentEntity(opContext, urn);
+      }
       return canViewEntity(opContext, urn);
+    }
+    return true;
+  }
+
+  /**
+   * View-auth gate for documents when {@code documentInfo}/{@code subTypes} are already loaded
+   * (e.g. GraphQL DocumentMapper). Preserves the same view-auth / unrestricted short-circuits as
+   * {@link #canView}, then evaluates bridge-aware VIEW without re-fetching aspects.
+   */
+  public static boolean canViewDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nullable DocumentInfo documentInfo,
+      @Nullable SubTypes subTypes) {
+    if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
+        && !opContext.isSystemAuth()
+        && isViewRestrictedEntityType(
+            opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
+            documentUrn.getEntityType())) {
+      return DocumentAuthorizationUtils.canViewDocumentEntity(
+          opContext, opContext.getAspectRetriever(), documentUrn, documentInfo, subTypes);
     }
     return true;
   }
@@ -407,77 +438,41 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Returns true if the current user is able to create Knowledge Articles. This is true if the user
-   * has the 'Create Entity' privilege for Knowledge Articles or 'Manage Knowledge Articles'
-   * platform privilege.
+   * Returns true if the current user can create Documents. This is true with the standard ENTITY
+   * create privileges ({@code CREATE_ENTITY} or {@code EDIT_ENTITY}) for documents, or the platform
+   * {@code MANAGE_DOCUMENTS} privilege.
    */
   public static boolean canCreateDocument(@Nonnull QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
-
-    return AuthUtil.isAuthorized(context.getOperationContext(), orPrivilegeGroups, null);
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), CREATE, List.of(DOCUMENT_ENTITY_NAME));
   }
 
   /**
-   * Returns true if the current user is able to edit a specific Document. This is true if the user
-   * has the 'Edit Entity Docs' or 'Edit Entity' metadata privilege on the document, or the 'Manage
-   * Documents' platform privilege.
+   * Returns true if the current user is able to edit a specific Document. Uses the shared document
+   * privilege map ({@code EDIT_ENTITY} or {@code MANAGE_DOCUMENTS}).
    */
   public static boolean canEditDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())),
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
-
-    return isAuthorized(
-        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+    return DocumentAuthorizationUtils.isAuthorizedDocumentOperation(
+        context.getOperationContext(), UPDATE, documentUrn);
   }
 
   /**
-   * Returns true if the current user is able to read a specific Document. This is true if the user
-   * has the 'Get Entity' metadata privilege on the document or the 'Manage Documents' platform
-   * privilege.
+   * Returns true if the current user is able to read a specific Document. Delegates to the shared
+   * document view evaluator (ENTITY READ / platform MANAGE_DOCUMENTS, with bridge source
+   * inheritance).
    */
   public static boolean canGetDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType())),
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
-
-    return isAuthorized(
-        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+    return EntityAspectAuthorizationUtils.canViewDocumentEntity(
+        context.getOperationContext(), documentUrn);
   }
 
   /**
-   * Returns true if the current user is able to delete a specific Document. This is true if the
-   * user has the delete entity authorization on the document or the 'Manage Documents' platform
-   * privilege.
+   * Returns true if the current user is able to delete a specific Document. Uses the shared
+   * document privilege map ({@code DELETE_ENTITY} or {@code MANAGE_DOCUMENTS}).
    */
   public static boolean canDeleteDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
-    // Check if user can delete entity using standard delete authorization
-    if (AuthUtil.isAuthorizedEntityUrns(
-        context.getOperationContext(), DELETE, List.of(documentUrn))) {
-      return true;
-    }
-
-    // Fallback to document-specific management privilege
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE.getType()))));
-
-    return isAuthorized(
-        context, documentUrn.getEntityType(), documentUrn.toString(), orPrivilegeGroups);
+    return DocumentAuthorizationUtils.isAuthorizedDocumentOperation(
+        context.getOperationContext(), DELETE, documentUrn);
   }
 
   /** Returns true if the current user has the platform-level 'Manage Documents' privilege. */
