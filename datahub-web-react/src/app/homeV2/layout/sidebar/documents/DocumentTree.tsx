@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -6,6 +6,7 @@ import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
+import { useRevealDocumentInTree } from '@app/document/hooks/useRevealDocumentInTree';
 import { useSectionExpansion } from '@app/document/hooks/useSectionExpansion';
 import {
     DocumentTreeFilterSelection,
@@ -91,6 +92,16 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     });
     const { getCurrentDocumentUrn, handleDocumentClick } = useDocumentNavigation(onSelectDocument);
 
+    // Deep-link / URL navigation: expand + load the ancestor path so the selected
+    // row mounts. Skip in picker/selection mode (move dialog, etc.).
+    const isNavigationMode = !onSelectDocument && !multiSelect;
+    useRevealDocumentInTree({
+        loadChildren,
+        loadMoreChildren,
+        hasMoreChildren,
+        rootsLoading: loading || !isNavigationMode,
+    });
+
     // Section-scoped expand-all / collapse-all (per DataHub + per-platform group).
     const { isSectionExpanded, isSectionExpanding, toggleSectionExpandAll } = useSectionExpansion(loadChildren);
     const expandAllLabel = t('context.tree.expandAll');
@@ -123,6 +134,37 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             return next;
         });
     }, []);
+
+    // Keep the section that owns the open document expanded (native vs platform).
+    useEffect(() => {
+        if (!isNavigationMode) return;
+        const currentUrn = getCurrentDocumentUrn();
+        if (!currentUrn) return;
+
+        let cursor: string | null = currentUrn;
+        let rootUrn = currentUrn;
+        while (cursor) {
+            const node = getNode(cursor);
+            if (!node) break;
+            rootUrn = node.urn;
+            cursor = node.parentUrn;
+        }
+
+        const rootNode = getNode(rootUrn);
+        if (!rootNode) return;
+
+        if (rootNode.isExternal && rootNode.platform?.urn) {
+            const platformUrn = rootNode.platform.urn;
+            setCollapsedPlatformUrns((prev) => {
+                if (!prev.has(platformUrn)) return prev;
+                const next = new Set(prev);
+                next.delete(platformUrn);
+                return next;
+            });
+        } else {
+            setIsNativeExpanded(true);
+        }
+    }, [isNavigationMode, getCurrentDocumentUrn, getNode, expandedUrns]);
 
     const renderTreeNode = useCallback(
         (urn: string, level: number): React.ReactNode => {
