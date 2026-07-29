@@ -1259,6 +1259,29 @@ commands, `urns-mapping` does **not** stamp a `dataPlatformInstance` (a platform
 recovered from a target URN), does not migrate containers, and does not enforce dataFlow/dataJob
 parent-URN consistency — you own the exact mapping.
 
+Example `mapping.json` (list form):
+
+```json
+[
+  {
+    "source": "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)",
+    "target": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+  },
+  {
+    "source": "urn:li:dashboard:(looker,old.sales)",
+    "target": "urn:li:dashboard:(looker,new.sales)"
+  }
+]
+```
+
+The equivalent flat-object form maps each source URN directly to its target:
+
+```json
+{
+  "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_db.schema.events,PROD)": "urn:li:dataset:(urn:li:dataPlatform:snowflake,new_db.schema.events,PROD)"
+}
+```
+
 ```console
 datahub migrate urns-mapping --mapping-file ./mapping.json --dry-run
 ```
