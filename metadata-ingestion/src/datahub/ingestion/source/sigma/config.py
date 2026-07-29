@@ -518,6 +518,20 @@ class SigmaSourceConfig(
         default=True,
         description="Whether to extract lineage of workbook's elements and datasets or not.",
     )
+    lineage_trace: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Diagnostic-only: when ``True``, emit detailed per-element / per-column "
+            "trace logs from the chart-lineage and formula-resolver pipeline to the "
+            "``datahub.ingestion.source.sigma.trace`` logger at ``DEBUG`` level. "
+            "Use to investigate why a specific chart's ``inputFields`` are missing "
+            "or fell back to self-edges (counter "
+            "``chart_input_fields_self_ref_fallback``). Produces tens of thousands "
+            "of additional log lines on real workloads; leave ``False`` in normal "
+            "operation. The flag only changes log volume -- no metadata emission "
+            "behavior changes."
+        ),
+    )
     workbook_lineage_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter workbook's elements and datasets lineage in ingestion."
