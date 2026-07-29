@@ -10,6 +10,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Tag extraction (`enable_tag_extraction`) reads tag bags stored in each object's `MetaData.customJson` (`groupby_tags`, `join_tags`, and per-column `column_tags`). Owner extraction (`enable_owner_extraction`) requires `owner_mappings` to map each Chronon team to a DataHub owner URN.
 
+#### Reading from a local directory or Git
+
+Point `path` at a locally-available compiled output directory, or set `git_info` to shallow-clone the repository at ingestion time (authenticated with an SSH deploy key). When `git_info` is set, `path` is interpreted relative to the checkout (e.g. `path: production`) and may be omitted to scan from the repository root. This lets you ingest directly from a GitHub/GitLab repository of compiled Chronon output instead of pre-fetching it.
+
 ### Limitations
 
 - The connector reads the **compiled** repository, not the Python config source. Run ingestion after `compile.py` so metadata reflects the latest changes.

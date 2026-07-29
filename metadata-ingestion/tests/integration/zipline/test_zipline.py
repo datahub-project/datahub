@@ -144,6 +144,44 @@ def test_zipline_ingest(pytestconfig, tmp_path):
     assert "risk_features" in report.unmapped_source_namespaces
 
 
+def test_zipline_git_info_clones_and_scans(pytestconfig, tmp_path):
+    """git_info shallow-clones a repo and scans it like a local dir; `path` is
+    resolved relative to the checkout. Cloned over file:// via repo_ssh_locator
+    so no network/SSH is needed."""
+    git = pytest.importorskip("git")
+    test_resources_dir = _resources_dir(pytestconfig)
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    shutil.copytree(test_resources_dir / "production", repo_dir / "production")
+    repo = git.Repo.init(repo_dir)
+    with repo.config_writer() as cw:
+        cw.set_value("user", "email", "test@example.com")
+        cw.set_value("user", "name", "Test")
+    repo.git.add(A=True)
+    repo.index.commit("add compiled output")
+
+    output_path = tmp_path / "zipline_git.json"
+    pipeline = _run_pipeline(
+        _base_config(
+            path="production",
+            git_info={
+                # `repo` only labels the source; the clone reads the local repo
+                # through repo_ssh_locator.
+                "repo": "https://github.com/acme/zipline",
+                "repo_ssh_locator": f"file://{repo_dir}",
+            },
+        ),
+        output_path,
+    )
+
+    report = _report(pipeline)
+    assert report.git_checkout is not None
+    assert report.feature_tables_scanned == 2
+    assert report.joins_scanned == 1
+    assert report.staging_queries_scanned == 2
+
+
 def test_zipline_ingest_defaults(pytestconfig, tmp_path):
     """With tag/owner extraction off (the defaults) no tag or ownership aspects
     are emitted, while feature tables are still produced."""

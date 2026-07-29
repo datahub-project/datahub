@@ -202,3 +202,16 @@ def test_owner_mapping_rejects_typoed_key():
         ZiplineOwnerMapping.model_validate(
             {"team_name": "t", "datahub_owner": "urn:li:corpGroup:t"}
         )
+
+
+def test_config_requires_path_without_git_info():
+    with pytest.raises(ValueError):
+        ZiplineConfig()
+
+
+def test_config_accepts_git_info_without_path():
+    config = ZiplineConfig(
+        git_info={"repo": "https://github.com/acme/zipline"},
+    )
+    assert config.path is None
+    assert config.git_info is not None

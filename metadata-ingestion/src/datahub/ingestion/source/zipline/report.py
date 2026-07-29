@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Set
+from typing import Optional, Set
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -9,6 +9,8 @@ from datahub.utilities.lossy_collections import LossyList
 
 @dataclass
 class ZiplineSourceReport(StaleEntityRemovalSourceReport):
+    git_checkout: Optional[str] = None
+
     feature_tables_scanned: int = 0
     features_scanned: int = 0
     primary_keys_scanned: int = 0

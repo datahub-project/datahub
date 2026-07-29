@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -56,13 +57,25 @@ class ZiplineConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
 ):
-    path: str = Field(
+    path: Optional[str] = Field(
+        default=None,
         description=(
             "Path to the compiled Chronon/Zipline output directory produced by "
             "`compile.py` (the `production/` folder, containing "
             "`group_bys/`, `joins/` and `staging_queries/` sub-directories). "
             "This is the compiled thrift-as-JSON output, NOT the Python config repo. "
-            "Run ingestion after `compile.py` so metadata reflects the latest compile."
+            "Run ingestion after `compile.py` so metadata reflects the latest compile. "
+            "When `git_info` is set, this is interpreted relative to the repository "
+            "checkout (e.g. `path: production`) and defaults to the repository root."
+        ),
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description=(
+            "Git repository to shallow-clone and scan for compiled Chronon/Zipline "
+            "output, authenticated with an SSH deploy key. When set, `path` is "
+            "resolved relative to the repository checkout. Use this to ingest "
+            "directly from GitHub/GitLab instead of a pre-fetched local directory."
         ),
     )
 
@@ -165,4 +178,10 @@ class ZiplineConfig(
             raise ValueError(
                 "owner_mappings is required when enable_owner_extraction is enabled"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_path_source(self) -> "ZiplineConfig":
+        if self.git_info is None and not self.path:
+            raise ValueError("path is required when git_info is not set")
         return self

@@ -847,9 +847,9 @@ plugins: Dict[str, Set[str]] = {
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
-    # Reads compiled Chronon thrift-JSON from disk; only needs sqlglot for
-    # StagingQuery SQL lineage parsing.
-    "zipline": sqlglot_lib,
+    # Reads compiled Chronon thrift-JSON from a local dir or a cloned git repo;
+    # sqlglot parses StagingQuery SQL lineage, GitPython clones `git_info` repos.
+    "zipline": sqlglot_lib | {"GitPython>2,<4.0.0"},
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard

@@ -1,4 +1,7 @@
+import contextlib
 import logging
+import os
+import tempfile
 from functools import partial
 from typing import Dict, Iterable, List, Optional, Set, Type, Union
 
@@ -86,7 +89,6 @@ class ZiplineSource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = PLATFORM_NAME
         self.report = ZiplineSourceReport()
-        self.reader = ZiplineRepositoryReader(config.path, self.report)
         self.source_resolver = SourceResolver(config, self.report)
         self.mapper = ZiplineMapper(config, self.report, self.source_resolver)
         self.staging_lineage = StagingQueryLineageExtractor(
@@ -122,30 +124,47 @@ class ZiplineSource(StatefulIngestionSourceBase):
             partial(auto_stale_entity_removal, self.stale_entity_removal_handler),
         ]
 
+    def _build_reader(self, stack: contextlib.ExitStack) -> ZiplineRepositoryReader:
+        if self.config.git_info is not None:
+            # Shallow-clone into a temp dir that lives for the whole scan; the
+            # reader then walks the checkout like any local directory.
+            tmp_dir = stack.enter_context(tempfile.TemporaryDirectory("zipline_git"))
+            checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
+            self.report.git_checkout = str(checkout_dir)
+            root = os.path.join(str(checkout_dir), self.config.path or ".")
+        else:
+            # Guaranteed non-None by the config validator when git_info is unset.
+            root = self.config.path or "."
+        return ZiplineRepositoryReader(root, self.report)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if not self.reader.is_valid():
-            self.report.failure(
-                title="Compiled config directory not found",
-                message=(
-                    "`path` exists but contains no compiled Zipline output "
-                    "(no group_bys/, joins/ or staging_queries/). Point it at the "
-                    "`production/` output of compile.py, not the Python config repo."
-                ),
-                context=self.config.path,
-            )
-            return
+        with contextlib.ExitStack() as stack:
+            reader = self._build_reader(stack)
+            if not reader.is_valid():
+                self.report.failure(
+                    title="Compiled config directory not found",
+                    message=(
+                        "`path` exists but contains no compiled Zipline output "
+                        "(no group_bys/, joins/ or staging_queries/). Point it at the "
+                        "`production/` output of compile.py, not the Python config repo."
+                    ),
+                    context=reader.root,
+                )
+                return
 
-        yield from self._extract_feature_tables()
+            yield from self._extract_feature_tables(reader)
 
-        if self.config.include_joins:
-            yield from self._extract_joins()
+            if self.config.include_joins:
+                yield from self._extract_joins(reader)
 
-        if self.config.include_staging_queries:
-            yield from self._extract_staging_queries()
+            if self.config.include_staging_queries:
+                yield from self._extract_staging_queries(reader)
 
-    def _extract_feature_tables(self) -> Iterable[MetadataWorkUnit]:
+    def _extract_feature_tables(
+        self, reader: ZiplineRepositoryReader
+    ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(_STAGE_FEATURE_TABLES):
-            for group_by in self.reader.read_group_bys():
+            for group_by in reader.read_group_bys():
                 name = group_by.meta_data.name
                 output_table = group_by.meta_data.output_table_name()
                 if name is not None and output_table is not None:
@@ -160,9 +179,11 @@ class ZiplineSource(StatefulIngestionSourceBase):
                     continue
                 yield from self.mapper.map_group_by(group_by)
 
-    def _extract_joins(self) -> Iterable[MetadataWorkUnit]:
+    def _extract_joins(
+        self, reader: ZiplineRepositoryReader
+    ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(_STAGE_JOINS):
-            for join in self.reader.read_joins():
+            for join in reader.read_joins():
                 if not self._team_allowed(join.meta_data.team):
                     self.report.filtered_joins += 1
                     continue
@@ -176,9 +197,11 @@ class ZiplineSource(StatefulIngestionSourceBase):
                 yield from self._emit_join(join)
                 self.report.report_join_scanned()
 
-    def _extract_staging_queries(self) -> Iterable[MetadataWorkUnit]:
+    def _extract_staging_queries(
+        self, reader: ZiplineRepositoryReader
+    ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(_STAGE_STAGING_QUERIES):
-            for staging_query in self.reader.read_staging_queries():
+            for staging_query in reader.read_staging_queries():
                 if not self._team_allowed(staging_query.meta_data.team):
                     self.report.filtered_staging_queries += 1
                     continue
