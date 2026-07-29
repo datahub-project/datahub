@@ -381,12 +381,18 @@ def test_urns_mapping_full_scenario(graph_client: DataHubGraph, tmp_path) -> Non
     wait_for_writes_to_sync()
     _seed_urns_mapping_scenario(graph_client)
 
+    # Migrate the referenced entity (dataset) before the referrer (dashboard):
+    # the dataset's incoming-reference pass repoints the dashboard in the primary
+    # store, and the dashboard's own clone then reads that already-updated
+    # reference. The reverse order would rely on the relationship index having
+    # caught up with the just-cloned dashboard within the same run, which is not
+    # guaranteed under eventual consistency.
     mapping_file = tmp_path / "mapping.json"
     mapping_file.write_text(
         json.dumps(
             [
-                {"source": um_dash_src, "target": um_dash_tgt},
                 {"source": um_ds_src, "target": um_ds_tgt},
+                {"source": um_dash_src, "target": um_dash_tgt},
             ]
         )
     )

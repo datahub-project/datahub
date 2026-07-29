@@ -1259,6 +1259,13 @@ commands, `urns-mapping` does **not** stamp a `dataPlatformInstance` (a platform
 recovered from a target URN), does not migrate containers, and does not enforce dataFlow/dataJob
 parent-URN consistency — you own the exact mapping.
 
+**Ordering across cross-referenced entities**: when a single mapping migrates entities that
+reference one another (e.g. a dashboard that consumes a dataset you are also migrating), list the
+**referenced** entity before the **referrer**. Incoming references are repointed using the
+relationship index, which only reflects references that existed before the run — so migrating the
+referenced entity first ensures the referrer is repointed and then carries the updated reference
+into its own migrated copy.
+
 Example `mapping.json` (list form):
 
 ```json
