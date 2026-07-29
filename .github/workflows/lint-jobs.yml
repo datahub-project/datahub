@@ -63,8 +63,24 @@ jobs:
           distribution: "zulu"
           java-version: 21
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
+      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      - name: Restore yarn cache
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: run markdown checks
         run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
+      - name: Save yarn cache
+        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   github-actions-format:
     name: github_actions_format_check
@@ -78,8 +94,24 @@ jobs:
           distribution: "zulu"
           java-version: 21
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
+      # Cache ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
+      - name: Restore yarn cache
+        id: yarn-cache
+        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
       - name: run prettier --check
         run: ./gradlew :datahub-web-react:githubActionsPrettierCheck
+      - name: Save yarn cache
+        if: always() && steps.yarn-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
   validate-post-workflow-list:
     name: validate_post_workflow_list

@@ -7,8 +7,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
 import com.linkedin.metadata.aspect.hooks.DomainsSyncMutationHook;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -174,6 +176,28 @@ public class SpringStandardPluginConfiguration {
     return new SchemaFieldSideEffect()
         .setConfig(config)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.aliases.enabled",
+      havingValue = "true")
+  public MCPSideEffect aliasesSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(AliasesSideEffect.class.getName())
+            .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, RESTATE))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATASET_ENTITY_NAME)
+                        .aspectName(Constants.DATASET_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", AliasesSideEffect.class.getName());
+    return new AliasesSideEffect().setConfig(config);
   }
 
   @Bean
@@ -648,6 +672,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook assertionInfoMutator() {
+    return new AssertionInfoMutator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(AssertionInfoMutator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, RESTATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ASSERTION_ENTITY_NAME)
+                            .aspectName(ASSERTION_INFO_ASPECT_NAME)
                             .build()))
                 .build());
   }

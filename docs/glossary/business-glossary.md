@@ -1,5 +1,5 @@
 ---
-title: Business Glossary Guide
+title: Business Glossary
 description: "Build a Business Glossary in DataHub to define a shared vocabulary of business terms and link them to physical data assets."
 ---
 

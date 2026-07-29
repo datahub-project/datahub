@@ -21,7 +21,15 @@ public interface UsageAggregationStore {
 
   void recordResponse(@Nonnull OperationContext opContext, @Nullable Long outputBytes);
 
-  void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger);
+  /**
+   * @param opContext context the flush runs under — the system context for the scheduled
+   *     coordinator (cron) path, or the originating request context for cardinality drains. Passed
+   *     through to {@link com.linkedin.metadata.usage.flush.UsageFlushSink} so sinks stay off the
+   *     {@code systemOperationContext} bean construction graph.
+   */
+  void flush(
+      @Nonnull OperationContext opContext,
+      @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger);
 
   /**
    * Report-driven usage from trusted reporters (not HTTP request-path {@link #recordRequest}).
