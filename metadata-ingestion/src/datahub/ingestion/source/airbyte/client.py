@@ -21,6 +21,68 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteDeploymentType,
     OAuth2GrantType,
 )
+from datahub.ingestion.source.airbyte.constants import (
+    API_ENDPOINT_APPLICATIONS_TOKEN,
+    API_ENDPOINT_CONNECTIONS,
+    API_ENDPOINT_DESTINATIONS,
+    API_ENDPOINT_JOBS,
+    API_ENDPOINT_SOURCES,
+    API_ENDPOINT_STREAMS,
+    API_ENDPOINT_TAGS,
+    API_ENDPOINT_WORKSPACES,
+    API_FIELD_CLIENT_ID,
+    API_FIELD_CLIENT_SECRET,
+    API_FIELD_CONFIG_ID,
+    API_FIELD_CONFIG_TYPES,
+    API_FIELD_CONFIGURATIONS,
+    API_FIELD_CURSOR_FIELD,
+    API_FIELD_DESTINATION_ID,
+    API_FIELD_GRANT_TYPE,
+    API_FIELD_JSON_SCHEMA,
+    API_FIELD_JSON_SCHEMA_SNAKE,
+    API_FIELD_PRIMARY_KEY,
+    API_FIELD_REFRESH_TOKEN,
+    API_FIELD_SOURCE_ID,
+    API_FIELD_STATUS,
+    API_FIELD_SYNC_CATALOG,
+    API_FIELD_SYNC_MODE,
+    API_JOB_CONFIG_TYPE_RESET,
+    API_JOB_CONFIG_TYPE_SYNC,
+    API_QUERY_LIMIT,
+    API_QUERY_OFFSET,
+    API_QUERY_UPDATED_AT_END,
+    API_QUERY_UPDATED_AT_START,
+    API_QUERY_WORKSPACE_ID,
+    API_RESPONSE_KEY_ACCESS_TOKEN,
+    API_RESPONSE_KEY_DATA,
+    API_RESPONSE_KEY_ERROR_DESCRIPTION,
+    API_RESPONSE_KEY_EXPIRES_IN,
+    API_RESPONSE_KEY_JOBS,
+    API_RESPONSE_KEY_NEXT,
+    API_RESPONSE_KEY_STREAMS,
+    API_RESPONSE_KEY_TAGS,
+    API_STATUS_INACTIVE,
+    DEFAULT_TOKEN_EXPIRY_SECONDS,
+    HTTP_CONTENT_TYPE_FORM_URLENCODED,
+    HTTP_CONTENT_TYPE_JSON,
+    HTTP_HEADER_AUTHORIZATION,
+    HTTP_HEADER_BEARER_PREFIX,
+    HTTP_HEADER_CONTENT_TYPE,
+    HTTP_METHOD_GET,
+    HTTP_METHOD_POST,
+    HTTP_PROTOCOL_HTTP,
+    HTTP_PROTOCOL_HTTPS,
+    JSON_SCHEMA_KEY_PROPERTIES,
+    JSON_SCHEMA_KEY_TYPE,
+    JSON_SCHEMA_TYPE_NULL,
+    JSON_SCHEMA_TYPE_OBJECT,
+    JSON_SCHEMA_TYPE_STRING,
+    STREAM_SYNC_OPTIONAL_FIELD_MAP,
+    SYNC_MODE_DESTINATION_OVERWRITE,
+    SYNC_MODE_FULL_REFRESH,
+    SYNC_MODE_PARTS_RE,
+    TOKEN_REFRESH_BUFFER_SECONDS,
+)
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConfigStreamRef,
     AirbyteConnectionPartial,
@@ -39,14 +101,6 @@ from datahub.ingestion.source.airbyte.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_FORM_URLENCODED = "application/x-www-form-urlencoded"
-
-DEFAULT_TOKEN_EXPIRY_SECONDS = 3600
-# Refresh 10 minutes before expiry to avoid races between the "still valid"
-# check and the actual API call landing on the server.
-TOKEN_REFRESH_BUFFER_SECONDS = 600
 
 
 class AirbyteApiError(Exception):
@@ -67,7 +121,7 @@ class AirbyteBaseClient(ABC):
     def _create_session(self) -> requests.Session:
         session = requests.Session()
 
-        session.headers.update({"Content-Type": CONTENT_TYPE_JSON})
+        session.headers.update({HTTP_HEADER_CONTENT_TYPE: HTTP_CONTENT_TYPE_JSON})
 
         if self.config.extra_headers:
             session.headers.update(self.config.extra_headers)
@@ -91,11 +145,11 @@ class AirbyteBaseClient(ABC):
             total=self.config.max_retries,
             backoff_factor=self.config.retry_backoff_factor,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST"],
+            allowed_methods=[HTTP_METHOD_GET, HTTP_METHOD_POST],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
+        session.mount(HTTP_PROTOCOL_HTTP, adapter)
+        session.mount(HTTP_PROTOCOL_HTTPS, adapter)
 
         return session
 
@@ -104,14 +158,7 @@ class AirbyteBaseClient(ABC):
         url: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        # Inner wire hook. Subclasses override this (not `_make_request`) to
-        # add behaviour around the request itself — e.g. the Cloud client's
-        # 401/403 token-refresh retry — while keeping the error-translation
-        # shell in `_make_request` shared.
-        #
-        # Deliberately *don't* log response bodies at DEBUG: Airbyte API
-        # payloads embed source/destination configs that often contain
-        # connector credentials (JDBC URLs with passwords, S3 secrets, etc.).
+        # Do not log response bodies — payloads often contain connector credentials.
         response = self.session.get(
             url, params=params, timeout=self.config.request_timeout
         )
@@ -148,11 +195,11 @@ class AirbyteBaseClient(ABC):
         self,
         endpoint: str,
         params: Optional[dict] = None,
-        result_key: str = "data",
+        result_key: str = API_RESPONSE_KEY_DATA,
         page_size: Optional[int] = None,
         limit: Optional[int] = None,
-        next_page_token_key: str = "next",
-        offset_param: str = "offset",
+        next_page_token_key: str = API_RESPONSE_KEY_NEXT,
+        offset_param: str = API_QUERY_OFFSET,
     ) -> Iterator[dict]:
         if not page_size:
             page_size = self.config.page_size
@@ -160,7 +207,7 @@ class AirbyteBaseClient(ABC):
         if not params:
             params = {}
 
-        params["limit"] = page_size
+        params[API_QUERY_LIMIT] = page_size
         offset = 0
         total_items = 0
 
@@ -172,8 +219,6 @@ class AirbyteBaseClient(ABC):
 
             items = response.get(result_key, [])
             if not isinstance(items, list):
-                # A malformed page silently truncating the rest of the
-                # enumeration would yield incomplete metadata; surface it.
                 raise AirbyteApiError(
                     f"Paginated response for {endpoint} returned non-list at "
                     f"key '{result_key}': got {type(items).__name__}"
@@ -186,8 +231,6 @@ class AirbyteBaseClient(ABC):
                 if limit and total_items >= limit:
                     return
 
-            # Airbyte's Public API paginates by offset only; the next-token
-            # check is kept for forward-compat with hypothetical cursors.
             if not items:
                 break
             next_token = response.get(next_page_token_key)
@@ -207,7 +250,9 @@ class AirbyteBaseClient(ABC):
     ) -> List[AirbyteWorkspacePartial]:
         self._check_auth_before_request()
         workspaces_data = list(
-            self._paginate_results(endpoint="/workspaces", result_key="data")
+            self._paginate_results(
+                endpoint=API_ENDPOINT_WORKSPACES, result_key=API_RESPONSE_KEY_DATA
+            )
         )
 
         if pattern:
@@ -219,15 +264,19 @@ class AirbyteBaseClient(ABC):
         self, workspace_id: str, pattern: Optional[AllowDenyPattern] = None
     ) -> List[AirbyteConnectionPartial]:
         self._check_auth_before_request()
-        params = {"workspaceId": workspace_id}
+        params = {API_QUERY_WORKSPACE_ID: workspace_id}
         connections = list(
             self._paginate_results(
-                endpoint="/connections", params=params, result_key="data"
+                endpoint=API_ENDPOINT_CONNECTIONS,
+                params=params,
+                result_key=API_RESPONSE_KEY_DATA,
             )
         )
 
         active_connections = [
-            conn for conn in connections if conn.get("status") != "inactive"
+            conn
+            for conn in connections
+            if conn.get(API_FIELD_STATUS) != API_STATUS_INACTIVE
         ]
 
         if pattern:
@@ -246,28 +295,31 @@ class AirbyteBaseClient(ABC):
         self._check_auth_before_request()
 
         params = {
-            "configId": connection_id,
-            "configTypes": ["sync", "reset_connection"],
-            "limit": limit,
+            API_FIELD_CONFIG_ID: connection_id,
+            API_FIELD_CONFIG_TYPES: [
+                API_JOB_CONFIG_TYPE_SYNC,
+                API_JOB_CONFIG_TYPE_RESET,
+            ],
+            API_QUERY_LIMIT: limit,
         }
 
         if workspace_id:
-            params["workspaceId"] = workspace_id
+            params[API_QUERY_WORKSPACE_ID] = workspace_id
 
         if start_date:
-            params["updatedAtStart"] = start_date
+            params[API_QUERY_UPDATED_AT_START] = start_date
 
         if end_date:
-            params["updatedAtEnd"] = end_date
+            params[API_QUERY_UPDATED_AT_END] = end_date
 
-        response = self._make_request("/jobs", params=params)
-        # Older Airbyte versions return the list under "jobs"; newer ones
-        # consolidated on "data".
-        return response.get("data") or response.get("jobs", [])
+        response = self._make_request(API_ENDPOINT_JOBS, params=params)
+        return response.get(API_RESPONSE_KEY_DATA) or response.get(
+            API_RESPONSE_KEY_JOBS, []
+        )
 
     def get_source(self, source_id: str) -> AirbyteSourcePartial:
         self._check_auth_before_request()
-        source_data = self._make_request(f"/sources/{source_id}")
+        source_data = self._make_request(f"{API_ENDPOINT_SOURCES}/{source_id}")
         return AirbyteSourcePartial.model_validate(source_data)
 
     def list_sources(
@@ -275,10 +327,12 @@ class AirbyteBaseClient(ABC):
     ) -> List[AirbyteSourcePartial]:
         self._check_auth_before_request()
 
-        params = {"workspaceId": workspace_id}
+        params = {API_QUERY_WORKSPACE_ID: workspace_id}
         sources_data = list(
             self._paginate_results(
-                endpoint="/sources", params=params, result_key="data"
+                endpoint=API_ENDPOINT_SOURCES,
+                params=params,
+                result_key=API_RESPONSE_KEY_DATA,
             )
         )
 
@@ -289,7 +343,7 @@ class AirbyteBaseClient(ABC):
 
     def get_destination(self, destination_id: str) -> AirbyteDestinationPartial:
         self._check_auth_before_request()
-        dest_data = self._make_request(f"/destinations/{destination_id}")
+        dest_data = self._make_request(f"{API_ENDPOINT_DESTINATIONS}/{destination_id}")
         return AirbyteDestinationPartial.model_validate(dest_data)
 
     def list_destinations(
@@ -297,10 +351,12 @@ class AirbyteBaseClient(ABC):
     ) -> List[AirbyteDestinationPartial]:
         self._check_auth_before_request()
 
-        params = {"workspaceId": workspace_id}
+        params = {API_QUERY_WORKSPACE_ID: workspace_id}
         destinations_data = list(
             self._paginate_results(
-                endpoint="/destinations", params=params, result_key="data"
+                endpoint=API_ENDPOINT_DESTINATIONS,
+                params=params,
+                result_key=API_RESPONSE_KEY_DATA,
             )
         )
 
@@ -311,24 +367,24 @@ class AirbyteBaseClient(ABC):
 
     def get_connection(self, connection_id: str) -> AirbyteConnectionPartial:
         self._check_auth_before_request()
-        connection_data = self._make_request(f"/connections/{connection_id}")
+        connection_data = self._make_request(
+            f"{API_ENDPOINT_CONNECTIONS}/{connection_id}"
+        )
 
-        # Airbyte 1.x Public API exposes `configurations.streams` instead of
-        # the legacy `syncCatalog.streams` shape. Synthesize the legacy
-        # structure so downstream code can stay version-agnostic.
-        if not connection_data.get("syncCatalog") and connection_data.get(
-            "configurations"
+        # Public API 1.x uses configurations.streams instead of syncCatalog.streams.
+        if not connection_data.get(API_FIELD_SYNC_CATALOG) and connection_data.get(
+            API_FIELD_CONFIGURATIONS
         ):
-            configurations = connection_data.get("configurations", {})
+            configurations = connection_data.get(API_FIELD_CONFIGURATIONS, {})
             if "streams" in configurations:
                 stream_api_metadata = self._fetch_stream_api_metadata(
-                    connection_data.get("sourceId")
+                    connection_data.get(API_FIELD_SOURCE_ID)
                 )
                 build_result = self._build_sync_catalog(
                     configurations["streams"],
                     stream_api_metadata,
                 )
-                connection_data["syncCatalog"] = build_result.catalog
+                connection_data[API_FIELD_SYNC_CATALOG] = build_result.catalog
                 connection_data["ambiguous_stream_namespaces"] = build_result.ambiguous
                 connection_data["positional_stream_namespaces"] = (
                     build_result.positional
@@ -397,7 +453,6 @@ class AirbyteBaseClient(ABC):
         queue_result = namespace_queues_for_catalog(
             stream_refs, stream_api_metadata.namespaces_by_name
         )
-        # Mutate a copy so frozen NamespaceQueueResult.queues stays intact for callers.
         queues = {name: list(ns) for name, ns in queue_result.queues.items()}
         streams: List[AirbyteStreamConfig] = []
         for stream, stream_ref in zip(config_streams, stream_refs, strict=True):
@@ -434,27 +489,24 @@ class AirbyteBaseClient(ABC):
         )
 
     def _build_stream_config(self, stream: Dict[str, Any]) -> AirbyteStreamSyncSettings:
-        sync_mode = stream.get("syncMode", "")
+        sync_mode = stream.get(API_FIELD_SYNC_MODE, "")
+        sync_mode_parts = SYNC_MODE_PARTS_RE.split(sync_mode) if sync_mode else []
 
         settings = AirbyteStreamSyncSettings(
             selected=True,
-            sync_mode=sync_mode.split("_")[0] if sync_mode else "full_refresh",
+            sync_mode=sync_mode_parts[0] if sync_mode_parts else SYNC_MODE_FULL_REFRESH,
             destination_sync_mode=(
-                sync_mode.split("_")[1] if "_" in sync_mode else "overwrite"
+                sync_mode_parts[1]
+                if len(sync_mode_parts) > 1
+                else SYNC_MODE_DESTINATION_OVERWRITE
             ),
-            primary_key=stream.get("primaryKey") or [],
-            cursor_field=stream.get("cursorField") or [],
+            primary_key=stream.get(API_FIELD_PRIMARY_KEY) or [],
+            cursor_field=stream.get(API_FIELD_CURSOR_FIELD) or [],
         )
 
-        optional_aliases = {
-            "destinationNamespace": "destination_namespace",
-            "aliasName": "alias_name",
-            "selectedFields": "selected_fields",
-            "fieldSelectionEnabled": "field_selection_enabled",
-        }
         updates = {
             field_name: stream[key]
-            for key, field_name in optional_aliases.items()
+            for key, field_name in STREAM_SYNC_OPTIONAL_FIELD_MAP
             if key in stream
         }
         if updates:
@@ -466,50 +518,62 @@ class AirbyteBaseClient(ABC):
         stream: Dict[str, Any],
         property_fields: Optional[List[PropertyFieldPath]] = None,
     ) -> Dict[str, Any]:
-        # Schema sources in order of preference:
-        #   1. propertyFields from `/streams` (Airbyte 1.8+, most accurate)
-        #   2. jsonSchema embedded in the legacy configurations payload
-        #   3. empty schema — column-level lineage will be dropped
         if property_fields:
             properties = {
-                field_path.field_name: {"type": ["null", "string"]}
+                field_path.field_name: {
+                    JSON_SCHEMA_KEY_TYPE: [
+                        JSON_SCHEMA_TYPE_NULL,
+                        JSON_SCHEMA_TYPE_STRING,
+                    ]
+                }
                 for field_path in property_fields
                 if field_path.field_name
             }
             if properties:
-                return {"type": "object", "properties": properties}
+                return {
+                    JSON_SCHEMA_KEY_TYPE: JSON_SCHEMA_TYPE_OBJECT,
+                    JSON_SCHEMA_KEY_PROPERTIES: properties,
+                }
 
-        return stream.get("jsonSchema") or stream.get("json_schema") or {}
+        return (
+            stream.get(API_FIELD_JSON_SCHEMA)
+            or stream.get(API_FIELD_JSON_SCHEMA_SNAKE)
+            or {}
+        )
 
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        # `/streams` is Airbyte 1.8+. Older versions 404 — callers should
-        # treat that as "fall back to configurations.streams" instead of
-        # propagating the error.
         self._check_auth_before_request()
         query_params = []
         if source_id:
-            query_params.append(f"sourceId={source_id}")
+            query_params.append(f"{API_FIELD_SOURCE_ID}={source_id}")
         if destination_id:
-            query_params.append(f"destinationId={destination_id}")
+            query_params.append(f"{API_FIELD_DESTINATION_ID}={destination_id}")
 
-        endpoint = "/streams"
+        endpoint = API_ENDPOINT_STREAMS
         if query_params:
             endpoint = f"{endpoint}?{'&'.join(query_params)}"
 
         response = self._make_request(endpoint)
-        return response if isinstance(response, list) else response.get("streams", [])
+        return (
+            response
+            if isinstance(response, list)
+            else response.get(API_RESPONSE_KEY_STREAMS, [])
+        )
 
     def get_job(self, job_id: str) -> Dict[str, Any]:
         self._check_auth_before_request()
-        return self._make_request(f"/jobs/{job_id}")
+        return self._make_request(f"{API_ENDPOINT_JOBS}/{job_id}")
 
     def list_tags(self, workspace_id: str) -> List[Dict[str, Any]]:
         self._check_auth_before_request()
-        response = self._make_request(f"/tags?workspaceIds={workspace_id}")
-        # Older Airbyte versions return tags under "tags".
-        return response.get("data") or response.get("tags", [])
+        response = self._make_request(
+            f"{API_ENDPOINT_TAGS}?workspaceIds={workspace_id}"
+        )
+        return response.get(API_RESPONSE_KEY_DATA) or response.get(
+            API_RESPONSE_KEY_TAGS, []
+        )
 
 
 class AirbyteOSSClient(AirbyteBaseClient):
@@ -519,17 +583,17 @@ class AirbyteOSSClient(AirbyteBaseClient):
         if not config.host_port:
             raise ValueError("host_port is required for open_source deployment")
 
-        # See https://docs.airbyte.com/developers/api-documentation
         self.base_url = f"{clean_uri(config.host_port)}/api/public/v1"
         self._setup_authentication()
 
     def _setup_authentication(self) -> None:
-        # OAuth2 → API key/Bearer → basic auth → no-auth (in that order).
         if self.config.oauth2_client_id and self.config.oauth2_client_secret:
             self._setup_oauth_authentication()
         elif self.config.api_key:
             token = self.config.api_key.get_secret_value()
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
+            self.session.headers.update(
+                {HTTP_HEADER_AUTHORIZATION: f"{HTTP_HEADER_BEARER_PREFIX}{token}"}
+            )
         elif self.config.username:
             password = (
                 self.config.password.get_secret_value() if self.config.password else ""
@@ -541,46 +605,50 @@ class AirbyteOSSClient(AirbyteBaseClient):
             raise ValueError(
                 "OAuth2 client ID and client secret are required for OAuth authentication"
             )
-        # OSS only exposes client_credentials.
         self._request_oauth_token()
 
     def _request_oauth_token(self) -> None:
         if not self.config.oauth2_client_secret:
             raise ValueError("OAuth2 client secret is required")
 
-        # See https://docs.airbyte.com/using-airbyte/configuring-api-access
-        token_url = f"{self.base_url}/applications/token"
+        token_url = f"{self.base_url}{API_ENDPOINT_APPLICATIONS_TOKEN}"
 
         token_data = {
-            "client_id": self.config.oauth2_client_id,
-            "client_secret": self.config.oauth2_client_secret.get_secret_value(),
-            "grant_type": "client_credentials",
+            API_FIELD_CLIENT_ID: self.config.oauth2_client_id,
+            API_FIELD_CLIENT_SECRET: self.config.oauth2_client_secret.get_secret_value(),
+            API_FIELD_GRANT_TYPE: "client_credentials",
         }
 
         try:
             response = requests.post(
                 token_url,
                 data=token_data,
-                headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
+                headers={HTTP_HEADER_CONTENT_TYPE: HTTP_CONTENT_TYPE_FORM_URLENCODED},
                 timeout=self.config.request_timeout,
                 verify=self.session.verify,
             )
             response.raise_for_status()
             token_response = response.json()
-            access_token = token_response.get("access_token")
+            access_token = token_response.get(API_RESPONSE_KEY_ACCESS_TOKEN)
 
             if not access_token:
                 raise ValueError("No access_token in OAuth response")
 
-            self.session.headers.update({"Authorization": f"Bearer {access_token}"})
+            self.session.headers.update(
+                {
+                    HTTP_HEADER_AUTHORIZATION: f"{HTTP_HEADER_BEARER_PREFIX}{access_token}"
+                }
+            )
 
-            expires_in = token_response.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
+            expires_in = token_response.get(
+                API_RESPONSE_KEY_EXPIRES_IN, DEFAULT_TOKEN_EXPIRY_SECONDS
+            )
             self.token_expiry = time.time() + expires_in
         except requests.HTTPError as e:
             error_message = f"Failed to get OAuth2 token: HTTP {e.response.status_code}"
             try:
                 error_details = e.response.json()
-                error_message += f" - {error_details.get('error_description', error_details.get('message', e.response.text))}"
+                error_message += f" - {error_details.get(API_RESPONSE_KEY_ERROR_DESCRIPTION, error_details.get('message', e.response.text))}"
             except (ValueError, KeyError):
                 error_message += f" - {e.response.text}"
             logger.error(error_message)
@@ -637,15 +705,15 @@ class AirbyteCloudClient(AirbyteBaseClient):
             raise ValueError("OAuth2 client secret is required")
 
         token_data = {
-            "client_id": self.config.oauth2_client_id,
-            "client_secret": self.config.oauth2_client_secret.get_secret_value(),
-            "grant_type": grant_type.value,
+            API_FIELD_CLIENT_ID: self.config.oauth2_client_id,
+            API_FIELD_CLIENT_SECRET: self.config.oauth2_client_secret.get_secret_value(),
+            API_FIELD_GRANT_TYPE: grant_type.value,
         }
 
         if grant_type == OAuth2GrantType.REFRESH_TOKEN:
             if not self.config.oauth2_refresh_token:
                 raise ValueError("OAuth2 refresh token is required")
-            token_data["refresh_token"] = (
+            token_data[API_FIELD_REFRESH_TOKEN] = (
                 self.config.oauth2_refresh_token.get_secret_value()
             )
 
@@ -653,25 +721,31 @@ class AirbyteCloudClient(AirbyteBaseClient):
             response = requests.post(
                 self.token_url,
                 data=token_data,
-                headers={"Content-Type": CONTENT_TYPE_FORM_URLENCODED},
+                headers={HTTP_HEADER_CONTENT_TYPE: HTTP_CONTENT_TYPE_FORM_URLENCODED},
                 timeout=self.config.request_timeout,
                 verify=self.session.verify,
             )
             response.raise_for_status()
 
             response_data = response.json()
-            self.access_token = response_data.get("access_token")
-            expires_in = response_data.get("expires_in", DEFAULT_TOKEN_EXPIRY_SECONDS)
+            self.access_token = response_data.get(API_RESPONSE_KEY_ACCESS_TOKEN)
+            expires_in = response_data.get(
+                API_RESPONSE_KEY_EXPIRES_IN, DEFAULT_TOKEN_EXPIRY_SECONDS
+            )
             self.token_expiry = time.time() + expires_in
 
             self.session.headers.update(
-                {"Authorization": f"Bearer {self.access_token}"}
+                {
+                    HTTP_HEADER_AUTHORIZATION: (
+                        f"{HTTP_HEADER_BEARER_PREFIX}{self.access_token}"
+                    )
+                }
             )
         except requests.HTTPError as e:
             error_message = f"Failed to get OAuth2 token via {grant_type.value}: HTTP {e.response.status_code}"
             try:
                 error_details = e.response.json()
-                error_message += f" - {error_details.get('error_description', error_details.get('message', e.response.text))}"
+                error_message += f" - {error_details.get(API_RESPONSE_KEY_ERROR_DESCRIPTION, error_details.get('message', e.response.text))}"
             except (ValueError, KeyError):
                 error_message += f" - {e.response.text}"
             logger.error(error_message)
@@ -699,9 +773,6 @@ class AirbyteCloudClient(AirbyteBaseClient):
         url: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        # Override the wire hook (not `_make_request`) so the HTTP→error
-        # translation logic stays shared and only the token-refresh-on-401/403
-        # behaviour differs between OSS and Cloud.
         try:
             return super()._do_get(url, params=params)
         except requests.HTTPError as e:
@@ -726,10 +797,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
             self._acquire_token()
 
     def _get_full_url(self, endpoint: str) -> str:
-        # Concatenate explicitly: `urljoin` drops trailing path segments
-        # when the base URL lacks a trailing slash, so customer-supplied
-        # `cloud_api_url` values like "https://eu.example.com/api/v1" lose
-        # their path prefix.
+        # urljoin drops path segments when base URL lacks a trailing slash.
         return f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
     def _check_auth_before_request(self) -> None:
@@ -738,11 +806,11 @@ class AirbyteCloudClient(AirbyteBaseClient):
     def list_workspaces(
         self, pattern: Optional[AllowDenyPattern] = None
     ) -> List[AirbyteWorkspacePartial]:
-        # Cloud restricts each set of credentials to a single workspace, so
-        # this is a single GET rather than a paginated list.
         self._check_auth_before_request()
         try:
-            workspace_data = self._make_request(f"/workspaces/{self.workspace_id}")
+            workspace_data = self._make_request(
+                f"{API_ENDPOINT_WORKSPACES}/{self.workspace_id}"
+            )
             workspaces_data = [workspace_data] if workspace_data else []
 
             if pattern:

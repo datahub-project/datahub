@@ -11,6 +11,12 @@ from datahub.configuration.source_common import (
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.airbyte.constants import (
+    DEFAULT_CLOUD_API_URL,
+    DEFAULT_CLOUD_OAUTH_TOKEN_URL,
+    DEFAULT_CLOUD_UI_URL,
+    KNOWN_SOURCE_TYPE_MAPPING,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -18,6 +24,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.str_enum import StrEnum
+
+# Re-export for callers that import mapping/defaults from config.
+__all__ = [
+    "AirbyteClientConfig",
+    "AirbyteDeploymentType",
+    "AirbyteSourceConfig",
+    "DEFAULT_CLOUD_API_URL",
+    "DEFAULT_CLOUD_OAUTH_TOKEN_URL",
+    "KNOWN_SOURCE_TYPE_MAPPING",
+    "OAuth2GrantType",
+    "PlatformDetail",
+]
 
 
 class AirbyteDeploymentType(StrEnum):
@@ -30,70 +48,7 @@ class OAuth2GrantType(StrEnum):
     CLIENT_CREDENTIALS = "client_credentials"
 
 
-# Default Airbyte Cloud URLs
-DEFAULT_CLOUD_API_URL = "https://api.airbyte.com/v1"
-DEFAULT_CLOUD_OAUTH_TOKEN_URL = "https://auth.airbyte.com/oauth/token"
-
-# Known source type to DataHub platform mapping
-KNOWN_SOURCE_TYPE_MAPPING = {
-    # Relational Databases
-    "postgres": "postgres",
-    "postgresql": "postgres",
-    "mysql": "mysql",
-    "mariadb": "mariadb",
-    "mssql": "mssql",
-    "sql-server": "mssql",
-    "sqlserver": "mssql",
-    "oracle": "oracle",
-    "db2": "db2",
-    # Cloud Data Warehouses
-    "snowflake": "snowflake",
-    "bigquery": "bigquery",
-    "redshift": "redshift",
-    "databricks": "databricks",
-    "synapse": "mssql",
-    # NoSQL Databases
-    "mongodb": "mongodb",
-    "mongo": "mongodb",
-    "cassandra": "cassandra",
-    "dynamodb": "dynamodb",
-    "elasticsearch": "elasticsearch",
-    "opensearch": "opensearch",
-    "clickhouse": "clickhouse",
-    # Big Data & Analytics
-    "hive": "hive",
-    "presto": "presto",
-    "trino": "trino",
-    "athena": "athena",
-    "vertica": "vertica",
-    "teradata": "teradata",
-    "druid": "druid",
-    # Cloud Storage
-    "s3": "s3",
-    "gcs": "gcs",
-    "google-cloud-storage": "gcs",
-    "azure-blob-storage": "abs",
-    "abs": "abs",
-    # Streaming & Messaging
-    "kafka": "kafka",
-    "pulsar": "pulsar",
-    "kinesis": "kinesis",
-    # File Formats & Data Lakes
-    "delta-lake": "delta-lake",
-    "iceberg": "iceberg",
-    "hudi": "hudi",
-    # Other
-    "glue": "glue",
-    "salesforce": "salesforce",
-    "netsuite": "netsuite",
-    "sap-hana": "hana",
-    "hana": "hana",
-}
-
-
 class PlatformDetail(ConfigModel):
-    """Configuration for mapping a specific Airbyte source/destination to DataHub URNs."""
-
     platform: Optional[str] = Field(
         default=None,
         description="Override the platform type detection (e.g., 'postgres', 'mysql')",
@@ -123,8 +78,6 @@ class PlatformDetail(ConfigModel):
 
 
 class AirbyteClientConfig(ConfigModel):
-    """Base Airbyte Client Configuration"""
-
     deployment_type: AirbyteDeploymentType = Field(
         default=AirbyteDeploymentType.OPEN_SOURCE,
         description="Type of Airbyte deployment ('oss' or 'cloud')",
@@ -215,12 +168,10 @@ class AirbyteClientConfig(ConfigModel):
 
     @property
     def external_url_base(self) -> str:
-        # Base URL used to build `externalUrl` aspects. OSS uses the
-        # configured `host_port`; Cloud always points at cloud.airbyte.com
-        # (the Cloud API host is a different domain and isn't web-browsable).
+        # Cloud API host is not web-browsable; UI lives on cloud.airbyte.com.
         if self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
             return self.host_port or ""
-        return "https://cloud.airbyte.com"
+        return DEFAULT_CLOUD_UI_URL
 
     @model_validator(mode="after")
     def validate_deployment_requirements(self) -> "AirbyteClientConfig":
@@ -268,8 +219,6 @@ class AirbyteSourceConfig(
     EnvConfigMixin,
     IncrementalLineageConfigMixin,
 ):
-    """Airbyte source configuration for metadata ingestion"""
-
     extract_column_level_lineage: bool = Field(
         default=True,
         description="Extract column-level lineage",

@@ -38,7 +38,6 @@ def namespace_queues_for_catalog(
     config_streams: Sequence[AirbyteConfigStreamRef],
     namespaces_by_name: StreamNamespacesByName,
 ) -> NamespaceQueueResult:
-    # Unnamed count vs full /streams list; does not subtract explicit siblings.
     unnamed_counts: Dict[str, int] = {}
     for stream in config_streams:
         name = coerce_str(stream.name)
