@@ -1,6 +1,7 @@
 package io.datahubproject.aiassistant.servlet;
 
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.AiAssistantConfigPersistenceService;
 import com.linkedin.metadata.service.AiAssistantConfigService;
 import com.linkedin.metadata.service.SettingsService;
@@ -14,10 +15,11 @@ public class AiAssistantConfigConfiguration {
   @Bean
   public AiAssistantConfigPersistenceService aiAssistantConfigPersistenceService(
       SystemEntityClient systemEntityClient,
+      EntityService entityService,
       SecretService secretService,
       SettingsService settingsService) {
     return new AiAssistantConfigPersistenceService(
-        systemEntityClient, secretService, settingsService);
+        systemEntityClient, entityService, secretService, settingsService);
   }
 
   @Bean

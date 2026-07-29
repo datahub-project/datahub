@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { EyeSlash } from '@phosphor-icons/react/dist/csr/EyeSlash';
 
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -40,7 +42,7 @@ const HelpText = styled.p`
 
 const Input = styled.input`
     width: 100%;
-    padding: 8px 12px;
+    padding: 8px 64px 8px 12px;
     border: 1px solid ${(props) => props.theme.colors.borderInput};
     border-radius: 6px;
     font-size: 14px;
@@ -52,6 +54,31 @@ const Input = styled.input`
         outline: none;
         border-color: ${(props) => props.theme.colors.borderInputFocus};
         box-shadow: ${(props) => props.theme.colors.shadowFocusBrand};
+    }
+`;
+
+const InputWrapper = styled.div`
+    position: relative;
+`;
+
+const VisibilityToggle = styled.button`
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: ${(props) => props.theme.colors.textSecondary};
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 0;
+
+    &:disabled {
+        color: ${(props) => props.theme.colors.textDisabled};
+        cursor: not-allowed;
     }
 `;
 
@@ -98,6 +125,26 @@ const SaveButton = styled.button`
     }
 `;
 
+const DeleteButton = styled.button`
+    padding: 8px 20px;
+    background-color: ${(props) => props.theme.colors.bgContainer};
+    color: ${(props) => props.theme.colors.text};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    &:hover {
+        background-color: ${(props) => props.theme.colors.bgHover};
+    }
+    &:disabled {
+        background-color: ${(props) => props.theme.colors.bgDisabled};
+        color: ${(props) => props.theme.colors.textDisabled};
+        border-color: ${(props) => props.theme.colors.borderDisabled};
+        cursor: not-allowed;
+    }
+`;
+
 const StatusBadge = styled.span<{ $success: boolean }>`
     display: inline-flex;
     align-items: center;
@@ -120,16 +167,6 @@ const Divider = styled.hr`
     margin: 28px 0;
 `;
 
-const InfoBox = styled.div`
-    background: ${(props) => props.theme.colors.bgSurfaceInfo};
-    border: 1px solid ${(props) => props.theme.colors.borderInformation};
-    border-radius: 8px;
-    padding: 14px 16px;
-    font-size: 13px;
-    color: ${(props) => props.theme.colors.textOnSurfaceInformation};
-    line-height: 1.5;
-`;
-
 type ProviderApiKeyResponse = {
     provider: string;
     hasKey: boolean;
@@ -139,10 +176,6 @@ type ProviderApiKeyResponse = {
 
 type ProvidersResponse = {
     providers: string[];
-};
-
-type ModelsResponse = {
-    models: string[];
 };
 
 type ErrorResponse = {
@@ -171,12 +204,6 @@ const PROVIDER_METADATA: Record<string, ProviderMeta> = {
     },
 };
 
-const MODEL_LABELS: Record<string, string> = {
-    SONNET: 'Claude Sonnet',
-    OPUS: 'Claude Opus',
-    GPT_5_5: 'GPT 5.5',
-};
-
 const DEFAULT_PROVIDER_META: ProviderMeta = {
     label: 'Provider',
     keyPrefix: 'api-key',
@@ -200,12 +227,10 @@ const API_KEY_STATUS_EXISTS = 'A saved key already exists for this provider.';
 const BUTTON_LABEL_SAVING = 'Saving...';
 const BUTTON_LABEL_UPDATE = 'Update Configuration';
 const BUTTON_LABEL_SAVE = 'Save Configuration';
+const BUTTON_LABEL_DELETE = 'Delete Configuration';
 const STATUS_SAVED = 'Configuration saved';
+const STATUS_DELETED = 'Configuration deleted';
 const STATUS_SHORT_KEY = 'API key looks too short';
-const MODEL_SELECTION_TITLE = 'Model selection has moved.';
-const MODEL_SELECTION_EMPTY = 'Pick the model in the chat panel.';
-const MODEL_SELECTION_SUFFIX =
-    'Pick the model per conversation in the chat panel instead of changing it here.';
 
 const toProviderValue = (provider: string) => provider.toLowerCase();
 
@@ -226,7 +251,6 @@ const getErrorMessage = async (response: Response): Promise<string> => {
 
 export const AIAssistantSettings = () => {
     const [providers, setProviders] = useState<string[]>([]);
-    const [models, setModels] = useState<string[]>([]);
     const [provider, setProvider] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [savedKeyPreview, setSavedKeyPreview] = useState<string | null>(null);
@@ -236,6 +260,7 @@ export const AIAssistantSettings = () => {
     const [loadingProviders, setLoadingProviders] = useState(true);
     const [loadingProviderState, setLoadingProviderState] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
 
     const providerMeta = useMemo(() => getProviderMeta(provider), [provider]);
     let saveButtonLabel = BUTTON_LABEL_SAVE;
@@ -245,12 +270,6 @@ export const AIAssistantSettings = () => {
     if (saving) {
         saveButtonLabel = BUTTON_LABEL_SAVING;
     }
-    const modelSummaryText =
-        models.length > 0
-            ? `Supported models from GMS: ${models
-                  .map((model) => MODEL_LABELS[model] || model.replaceAll('_', ' '))
-                  .join(', ')}.`
-            : MODEL_SELECTION_EMPTY;
 
     useEffect(() => {
         let isMounted = true;
@@ -260,27 +279,18 @@ export const AIAssistantSettings = () => {
             setErrorMessage(null);
 
             try {
-                const [providersResponse, modelsResponse] = await Promise.all([
-                    fetch(resolveRuntimePath('/api/ai-config/providers')),
-                    fetch(resolveRuntimePath('/api/ai-config/models')),
-                ]);
+                const providersResponse = await fetch(resolveRuntimePath('/api/ai-config/providers'));
 
                 if (!providersResponse.ok) {
                     throw new Error(await getErrorMessage(providersResponse));
                 }
 
-                if (!modelsResponse.ok) {
-                    throw new Error(await getErrorMessage(modelsResponse));
-                }
-
                 const providersData = (await providersResponse.json()) as ProvidersResponse;
-                const modelsData = (await modelsResponse.json()) as ModelsResponse;
 
                 if (!isMounted) return;
 
                 const nextProviders = (providersData.providers || []).map(toProviderValue);
                 setProviders(nextProviders);
-                setModels(modelsData.models || []);
                 setProvider((currentProvider) => currentProvider || nextProviders[0] || '');
             } catch (e) {
                 if (!isMounted) return;
@@ -347,6 +357,22 @@ export const AIAssistantSettings = () => {
         };
     }, [provider]);
 
+    const refreshProviderState = async (selectedProvider: string) => {
+        const statusResponse = await fetch(
+            resolveRuntimePath(
+                `/api/ai-config/api-key?${new URLSearchParams({ provider: selectedProvider }).toString()}`,
+            ),
+        );
+
+        if (!statusResponse.ok) {
+            throw new Error(await getErrorMessage(statusResponse));
+        }
+
+        const statusData = (await statusResponse.json()) as ProviderApiKeyResponse;
+        setHasSavedKey(statusData.hasKey);
+        setSavedKeyPreview(statusData.keyPreview || null);
+    };
+
     const handleSave = async () => {
         if (!provider || !apiKey.trim()) return;
 
@@ -371,23 +397,52 @@ export const AIAssistantSettings = () => {
             setHasSavedKey(data.hasKey);
             setSaved(true);
             setApiKey('');
-
-            const statusResponse = await fetch(
-                resolveRuntimePath(
-                    `/api/ai-config/api-key?${new URLSearchParams({ provider }).toString()}`,
-                ),
-            );
-
-            if (statusResponse.ok) {
-                const statusData = (await statusResponse.json()) as ProviderApiKeyResponse;
-                setSavedKeyPreview(statusData.keyPreview || null);
-            }
+            setShowApiKey(false);
+            await refreshProviderState(provider);
 
             window.setTimeout(() => setSaved(false), 3000);
         } catch (e) {
             setSaved(false);
             setErrorMessage(
                 e instanceof Error ? e.message : 'Failed to save AI assistant configuration.',
+            );
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!provider) return;
+
+        setSaving(true);
+        setSaved(false);
+        setErrorMessage(null);
+
+        try {
+            const response = await fetch(resolveRuntimePath('/api/ai-config/api-key'), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    provider,
+                    apiKey: null,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response));
+            }
+
+            setHasSavedKey(false);
+            setSavedKeyPreview(null);
+            setApiKey('');
+            setShowApiKey(false);
+            setSaved(true);
+
+            window.setTimeout(() => setSaved(false), 3000);
+        } catch (e) {
+            setSaved(false);
+            setErrorMessage(
+                e instanceof Error ? e.message : 'Failed to delete AI assistant configuration.',
             );
         } finally {
             setSaving(false);
@@ -412,6 +467,7 @@ export const AIAssistantSettings = () => {
                     onChange={(e) => {
                         setProvider(e.target.value);
                         setApiKey('');
+                        setShowApiKey(false);
                         setSaved(false);
                         setErrorMessage(null);
                     }}
@@ -432,14 +488,25 @@ export const AIAssistantSettings = () => {
 
             <Section>
                 <Label htmlFor="api-key">{API_KEY_LABEL}</Label>
-                <Input
-                    id="api-key"
-                    type="password"
-                    placeholder={providerMeta.keyPrefix}
-                    value={apiKey}
-                    disabled={!provider || loadingProviderState}
-                    onChange={(e) => setApiKey(e.target.value)}
-                />
+                <InputWrapper>
+                    <Input
+                        id="api-key"
+                        type={showApiKey ? 'text' : 'password'}
+                        placeholder={providerMeta.keyPrefix}
+                        value={apiKey}
+                        disabled={!provider || loadingProviderState}
+                        onChange={(e) => setApiKey(e.target.value)}
+                    />
+                    <VisibilityToggle
+                        type="button"
+                        disabled={!provider || loadingProviderState || apiKey.length === 0}
+                        onClick={() => setShowApiKey((current) => !current)}
+                        aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                        title={showApiKey ? 'Hide API key' : 'Show API key'}
+                    >
+                        {showApiKey ? <EyeSlash size={18} /> : <Eye size={18} />}
+                    </VisibilityToggle>
+                </InputWrapper>
                 <HelpText>
                     {API_KEY_HELP_PREFIX}{' '}
                     <a href={providerMeta.consoleUrl} target="_blank" rel="noreferrer">
@@ -462,19 +529,17 @@ export const AIAssistantSettings = () => {
                 <SaveButton onClick={handleSave} disabled={!isValid || saving || !provider}>
                     {saveButtonLabel}
                 </SaveButton>
-                {saved && <StatusBadge $success>{STATUS_SAVED}</StatusBadge>}
+                {hasSavedKey && (
+                    <DeleteButton onClick={handleDelete} disabled={saving || !provider}>
+                        {BUTTON_LABEL_DELETE}
+                    </DeleteButton>
+                )}
+                {saved && <StatusBadge $success>{hasSavedKey ? STATUS_SAVED : STATUS_DELETED}</StatusBadge>}
                 {!isValid && apiKey.length > 0 && (
                     <StatusBadge $success={false}>{STATUS_SHORT_KEY}</StatusBadge>
                 )}
                 {errorMessage && <StatusBadge $success={false}>{errorMessage}</StatusBadge>}
             </ButtonRow>
-
-            <Divider />
-
-            <InfoBox>
-                <strong>{MODEL_SELECTION_TITLE}</strong> {modelSummaryText}{' '}
-                {MODEL_SELECTION_SUFFIX}
-            </InfoBox>
         </PageContainer>
     );
 };

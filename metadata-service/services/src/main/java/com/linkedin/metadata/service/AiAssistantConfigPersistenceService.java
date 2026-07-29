@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.CorpUserSettings;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
@@ -13,14 +14,17 @@ import java.util.Set;
 public class AiAssistantConfigPersistenceService {
 
   private final SystemEntityClient entityClient;
+  private final EntityService entityService;
   private final SecretService secretService;
   private final SettingsService settingsService;
 
   public AiAssistantConfigPersistenceService(
       SystemEntityClient entityClient,
+      EntityService entityService,
       SecretService secretService,
       SettingsService settingsService) {
     this.entityClient = entityClient;
+    this.entityService = entityService;
     this.secretService = secretService;
     this.settingsService = settingsService;
   }
@@ -37,6 +41,10 @@ public class AiAssistantConfigPersistenceService {
   void ingestProposal(OperationContext opContext, MetadataChangeProposal proposal)
       throws Exception {
     entityClient.ingestProposal(opContext, proposal, false);
+  }
+
+  void deleteUrn(OperationContext opContext, Urn urn) throws Exception {
+    entityService.deleteUrn(opContext, urn);
   }
 
   String encrypt(OperationContext opContext, String value) {

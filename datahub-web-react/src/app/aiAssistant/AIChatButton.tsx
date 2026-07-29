@@ -121,6 +121,10 @@ const FALLBACK_CHAT_MODELS: ChatModelOption[] = [
     MODEL_OPTIONS_BY_ENUM.OPUS,
 ];
 
+type PreferredModelResponse = {
+    model?: string | null;
+};
+
 const MessagesArea = styled.div`
     flex: 1;
     overflow-y: auto;
@@ -305,19 +309,30 @@ export const AIChatButton: React.FC = () => {
 
         const loadModels = async () => {
             try {
-                const response = await fetch(resolveRuntimePath('/api/ai-config/models'));
-                if (!response.ok) return;
+                const [modelsResponse, preferredModelResponse] = await Promise.all([
+                    fetch(resolveRuntimePath('/api/ai-config/models')),
+                    fetch(resolveRuntimePath('/api/ai-config/preferred-model')),
+                ]);
+                if (!modelsResponse.ok) return;
 
-                const data = (await response.json()) as { models?: string[] };
+                const data = (await modelsResponse.json()) as { models?: string[] };
+                const preferredModelData = preferredModelResponse.ok
+                    ? ((await preferredModelResponse.json()) as PreferredModelResponse)
+                    : null;
                 const nextModels = data.models
                     ?.map((modelName) => MODEL_OPTIONS_BY_ENUM[modelName])
                     .filter((option): option is ChatModelOption => Boolean(option)) || [];
 
                 if (!isMounted || nextModels.length === 0) return;
 
+                const preferredModel = preferredModelData?.model || null;
                 setAvailableModels(nextModels);
                 setModel((currentModel) =>
-                    nextModels.some((option) => option.value === currentModel) ? currentModel : nextModels[0].value,
+                    preferredModel && nextModels.some((option) => option.value === preferredModel)
+                        ? preferredModel
+                        : nextModels.some((option) => option.value === currentModel)
+                        ? currentModel
+                        : nextModels[0].value,
                 );
             } catch {
                 // keep fallback chat models if backend request fails
@@ -404,6 +419,20 @@ export const AIChatButton: React.FC = () => {
         if (e.key === 'Enter') sendMessage();
     };
 
+    const handleModelChange = async (nextModel: string) => {
+        setModel(nextModel);
+
+        try {
+            await fetch(resolveRuntimePath('/api/ai-config/preferred-model'), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: nextModel }),
+            });
+        } catch {
+            // keep the local selection even if persistence fails
+        }
+    };
+
     return (
         <>
             {isOpen && (
@@ -413,7 +442,7 @@ export const AIChatButton: React.FC = () => {
                             <HeaderTitle>🤖 DataHub AI Assistant</HeaderTitle>
                             <ModelSelect
                                 value={model}
-                                onChange={(e) => setModel(e.target.value)}
+                                onChange={(e) => void handleModelChange(e.target.value)}
                                 title="Choose the model for this conversation"
                             >
                                 {availableModels.map((m) => (

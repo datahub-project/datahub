@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.identity.CorpUserAIAssistantSettings;
+import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubSecretKey;
@@ -21,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -46,13 +48,25 @@ public class AiAssistantConfigService {
   }
 
   public ProviderKeyResult upsertProviderKey(
-      @Nonnull OperationContext opContext, @Nonnull String provider, @Nonnull String apiKey) {
+      @Nonnull OperationContext opContext, @Nonnull String provider, @Nullable String apiKey) {
     final String normalizedProvider = normalizeProvider(provider);
-    final String trimmedApiKey = requireNonEmpty(apiKey, "apiKey");
     final String secretName = getSecretName(normalizedProvider);
     final Urn secretUrn = getSecretUrn(secretName);
 
     try {
+      if (apiKey == null) {
+        if (persistenceService.exists(opContext, secretUrn)) {
+          persistenceService.deleteUrn(opContext, secretUrn);
+        }
+
+        return ProviderKeyResult.builder()
+            .provider(normalizedProvider)
+            .hasKey(false)
+            .updated(true)
+            .build();
+      }
+
+      final String trimmedApiKey = requireNonEmpty(apiKey, "apiKey");
       if (persistenceService.exists(opContext, secretUrn)) {
         final EntityResponse existingSecret =
             persistenceService.get(opContext, secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
@@ -139,6 +153,9 @@ public class AiAssistantConfigService {
     final CorpUserSettings userSettings =
         Optional.ofNullable(persistenceService.getCorpUserSettings(opContext, actorUrn))
             .orElseGet(CorpUserSettings::new);
+    if (!userSettings.hasAppearance()) {
+      userSettings.setAppearance(new CorpUserAppearanceSettings());
+    }
     final CorpUserAIAssistantSettings aiAssistantSettings =
         userSettings.hasAiAssistant()
             ? userSettings.getAiAssistant()
