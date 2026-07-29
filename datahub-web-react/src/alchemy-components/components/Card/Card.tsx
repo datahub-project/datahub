@@ -62,15 +62,19 @@ export const Card = ({
         </SubTitle>
     );
 
+    // When a nested `button` slot is present, that control owns keyboard access —
+    // avoid making the card itself a button (nested interactive).
+    const isKeyboardClickable = !!onClick && isCardClickable && !button;
+
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLDivElement>) => {
-            if (!onClick || !isCardClickable || (!button && !onClick)) return;
+            if (!isKeyboardClickable || !onClick) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 onClick();
             }
         },
-        [button, isCardClickable, onClick],
+        [isKeyboardClickable, onClick],
     );
 
     return (
@@ -86,9 +90,9 @@ export const Card = ({
                 <CardContainer
                     isClickable={(!!button || onClick) && isCardClickable}
                     onClick={onClick}
-                    role={onClick ? 'button' : undefined}
-                    tabIndex={onClick && isCardClickable ? 0 : undefined}
-                    aria-label={typeof title === 'string' ? title : undefined}
+                    role={isKeyboardClickable ? 'button' : undefined}
+                    tabIndex={isKeyboardClickable ? 0 : undefined}
+                    aria-label={isKeyboardClickable && typeof title === 'string' ? title : undefined}
                     onKeyDown={handleKeyDown}
                     maxWidth={maxWidth}
                     height={height}

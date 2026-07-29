@@ -286,7 +286,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                     size={size}
                                 />
                             )}
-                            <OptionList id={dropdownListId}>
+                            <OptionList id={dropdownListId} role="listbox" aria-multiselectable={isMultiSelect}>
                                 {rootOptions.map((option) => {
                                     const isParentOptionLabelExpanded = stagedOptions.find(
                                         (opt) => opt.parentValue === option.value,

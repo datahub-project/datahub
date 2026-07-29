@@ -42,6 +42,7 @@ export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDi
                     <Form.Item rules={[{ required: true, message: t('usernameRequired') }]} name="username">
                         <Input
                             label={t('usernameLabel')}
+                            isRequired
                             placeholder={t('usernamePlaceholder')}
                             inputTestId="username"
                         />
@@ -52,6 +53,7 @@ export default function LoginForm({ form, handleSubmit, onFormChange, isSubmitDi
                     <Form.Item rules={[{ required: true, message: t('passwordRequired') }]} name="password">
                         <Input
                             label={t('passwordLabel')}
+                            isRequired
                             placeholder="********"
                             type="password"
                             inputTestId="password"

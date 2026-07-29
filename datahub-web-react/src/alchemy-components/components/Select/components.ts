@@ -186,13 +186,14 @@ export const LabelsWrapper = styled.div<{ shouldShowGap?: boolean }>(({ shouldSh
     maxWidth: '100%',
 }));
 
-export const OptionLabel = styled.label<{
+export const OptionLabel = styled.div<{
     isSelected: boolean;
     isMultiSelect?: boolean;
     isDisabled?: boolean;
+    isHighlighted?: boolean;
     applyHoverWidth?: boolean;
-}>(({ isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme }) => ({
-    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme),
+}>(({ isSelected, isMultiSelect, isDisabled, isHighlighted, applyHoverWidth, theme }) => ({
+    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, applyHoverWidth, theme, isHighlighted),
     '&:focus-visible': {
         outline: `2px solid ${theme.colors.borderBrandFocused}`,
         outlineOffset: '2px',

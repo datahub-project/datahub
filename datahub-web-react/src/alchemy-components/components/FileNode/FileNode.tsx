@@ -27,13 +27,22 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}
 `;
 
-const FileDetails = styled.div<{ $isClickable?: boolean }>`
+const FileDetails = styled.div`
     display: flex;
     gap: 4px;
     align-items: center;
     font-weight: 600;
     width: 100%;
     padding: 4px;
+`;
+
+const FileMain = styled.div<{ $isClickable?: boolean }>`
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    min-width: 0;
+    flex: 1;
+
     ${({ $isClickable, theme }) =>
         $isClickable
             ? `
@@ -129,20 +138,21 @@ export function FileNode({
 
     return (
         <Container $border={border} className={className} $fontSize={fontSize}>
-            <FileDetails
-                $isClickable={!!onClick}
-                onClick={clickHandler}
-                role={onClick ? 'button' : undefined}
-                tabIndex={onClick ? 0 : undefined}
-                aria-label={fileName}
-                onKeyDown={keyDownHandler}
-            >
-                <FileIcon extension={extension} />
-                <Tooltip title={fileName}>
-                    <FileName type="span">{fileName}</FileName>
-                </Tooltip>
-
-                {hasRightContent && <SpaceFiller />}
+            <FileDetails>
+                <FileMain
+                    $isClickable={!!onClick}
+                    onClick={onClick ? clickHandler : undefined}
+                    role={onClick ? 'button' : undefined}
+                    tabIndex={onClick ? 0 : undefined}
+                    aria-label={onClick ? fileName : undefined}
+                    onKeyDown={onClick ? keyDownHandler : undefined}
+                >
+                    <FileIcon extension={extension} />
+                    <Tooltip title={fileName}>
+                        <FileName type="span">{fileName}</FileName>
+                    </Tooltip>
+                    {hasRightContent && <SpaceFiller />}
+                </FileMain>
 
                 {onClose && (
                     <CloseButton

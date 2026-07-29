@@ -37,23 +37,30 @@ const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     `}
 
     :hover,
-    :focus,
+    :focus-within,
     :active {
         ${(props) => !props.$disabled && `box-shadow: ${props.theme.colors.shadowSm};`}
     }
 `;
 
-const Content = styled(Text)<{ $disabled?: boolean }>`
+const Content = styled(Text).attrs({ type: 'div' as const })<{ $disabled?: boolean }>`
     color: ${(props) => props.theme.colors.textTertiary};
     user-select: none;
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
+    flex: 1;
+    text-align: center;
 
     :hover {
         ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
     }
+
+    &:focus-visible {
+        outline: 2px solid ${(props) => props.theme.colors.borderBrandFocused};
+        outline-offset: 2px;
+    }
 `;
 
-const CaretWrapper = styled(Button)<{ $disabled?: boolean }>`
+const CaretWrapper = styled(Button)`
     padding: 0;
     min-width: unset;
 
@@ -63,9 +70,9 @@ const CaretWrapper = styled(Button)<{ $disabled?: boolean }>`
         align-items: start;
     }
 
-    &:hover svg,
-    &:focus-visible svg {
-        ${(props) => !props.$disabled && `color: ${props.theme.colors.textHover};`}
+    &:hover:not(:disabled) svg,
+    &:focus-visible:not(:disabled) svg {
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -90,7 +97,7 @@ function SwitcherButton({ direction, onClick, disabled }: SwitcherButtonProps) {
             type="button"
             variant="text"
             color="gray"
-            $disabled={disabled}
+            disabled={disabled}
             onClick={onClickHandler}
             aria-label={ariaLabel}
         >
@@ -125,23 +132,24 @@ export function DateSwitcherInput({ datePickerProps, datePickerState, ...props }
         typeof props.title === 'string' && props.title ? props.title : props.placeholder || t('datePicker.placeholder');
 
     return (
-        <StyledContainer
-            $opened={open}
-            $disabled={disabled}
-            tabIndex={0}
-            role="button"
-            aria-label={ariaLabel}
-            aria-disabled={disabled}
-            onMouseDown={props.onMouseDown}
-            onKeyDown={props.onKeyDown}
-        >
+        <StyledContainer $opened={open} $disabled={disabled}>
             <SwitcherButton
                 disabled={isDateSwitchingDisabled}
                 direction={SwitcherDirection.Left}
                 onClick={onSwitcherClick}
             />
 
-            <Content $disabled={disabled}>{props.title ? props.title : props.placeholder}</Content>
+            <Content
+                $disabled={disabled}
+                role="button"
+                tabIndex={disabled ? -1 : 0}
+                aria-label={ariaLabel}
+                aria-disabled={disabled}
+                onMouseDown={props.onMouseDown}
+                onKeyDown={props.onKeyDown}
+            >
+                {props.title ? props.title : props.placeholder}
+            </Content>
 
             <SwitcherButton
                 disabled={isDateSwitchingDisabled}
