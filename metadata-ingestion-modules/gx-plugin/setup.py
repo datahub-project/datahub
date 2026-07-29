@@ -30,7 +30,9 @@ base_requirements = {
     # https://github.com/great-expectations/great_expectations/pull/5382
     # GX v0.17.15 is the earliest version that supports Pydantic v2.
     # See https://github.com/great-expectations/great_expectations/pull/8604
-    "great-expectations>=0.17.15, <1.0.0",
+    # GX Core 1.x is supported via datahub_gx_plugin.action_v1 (additive).
+    # Keep using datahub_gx_plugin.action for GX 0.17/0.18.
+    "great-expectations>=0.17.15",
     "pydantic>=2.1.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
@@ -60,6 +62,9 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
+    # Keep the 0.x action/test suite on GX <1 in local/CI installs.
+    # Package install_requires still allows GX 1.x for action_v1 users.
+    "great-expectations>=0.17.15, <1.0.0",
     "coverage>=5.1",
     "ruff==0.15.22",
     "mypy==1.17.1",
@@ -90,6 +95,8 @@ integration_test_requirements = {
 }
 
 entry_points = {
+    # GX 0.x discovery. For GX Core 1.x, instantiate
+    # datahub_gx_plugin.action_v1.DataHubValidationAction in Python (Fluent API).
     "gx.plugins": "acryl-datahub-gx-plugin = datahub_gx_plugin.action:DataHubValidationAction"
 }
 

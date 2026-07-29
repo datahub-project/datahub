@@ -27,9 +27,15 @@ This integration does not support
 
 ## Compatibility
 
-- DataHubValidationAction with SparkDFExecutionEngine has only been tested with **Great Expectation >= 0.18.0, <1.0.0**. Other versions may not be compatible
+| GX version          | Action module                                         |
+| ------------------- | ----------------------------------------------------- |
+| `>=0.17.15, <1.0.0` | `datahub_gx_plugin.action.DataHubValidationAction`    |
+| `>=1.0.0`           | `datahub_gx_plugin.action_v1.DataHubValidationAction` |
 
-## Setting up
+- GX 0.x SparkDFExecutionEngine has been tested with **Great Expectations >= 0.18.0, <1.0.0**.
+- GX Core 1.x uses a separate, additive action class so existing 0.x checkpoint YAML continues to work unchanged.
+
+## Setting up (GX 0.17 / 0.18)
 
 1. Install the required dependency in your Great Expectations environment.
 
@@ -61,6 +67,39 @@ This integration does not support
    - `parse_table_names_from_sql` (defaults to false): The integration can use an SQL parser to try to parse the datasets being asserted. This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`. The parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
    - `convert_urns_to_lowercase` (optional): Whether to convert dataset urns to lowercase.
    - `emit_mode` (defaults to `ASYNC`): Emit mode for writes to DataHub. `ASYNC` avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.
+
+## Setting up (GX Core 1.x)
+
+GX 1.x replaced legacy checkpoint YAML `action_list` with Fluent Checkpoints and Pydantic Actions. Use the V1 action module:
+
+```python
+import great_expectations as gx
+from datahub_gx_plugin.action_v1 import DataHubValidationAction
+
+context = gx.get_context()
+# Assume validation_definitions already exist on the context.
+
+checkpoint = context.checkpoints.add(
+    gx.Checkpoint(
+        name="my_checkpoint",
+        validation_definitions=validation_definitions,
+        actions=[
+            DataHubValidationAction(
+                name="datahub_action",
+                server_url="http://localhost:8080",
+                # Optional explicit identity when validation meta lacks batch_spec:
+                # platform="postgres",
+                # dataset_name="public.my_table",
+                # platform_instance="warehouse",
+            )
+        ],
+    )
+)
+
+checkpoint.run()
+```
+
+V1 supports the same core options as the 0.x action (`server_url`, `env`, `token`, `platform_alias`, `platform_instance_map`, `graceful_exceptions`, `emit_mode`, etc.), plus optional `platform` / `dataset_name` / `platform_instance` when dataset identity cannot be inferred from validation `meta.batch_spec`.
 
 ## Debugging
 
