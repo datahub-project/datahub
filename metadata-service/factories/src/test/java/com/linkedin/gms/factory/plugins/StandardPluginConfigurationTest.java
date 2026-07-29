@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.plugins;
 import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -47,7 +48,8 @@ import org.testng.annotations.Test;
       "metadataChangeProposal.validation.ignoreUnknown=true",
       "metadataChangeProposal.validation.extensions.enabled=false",
       "metadataChangeProposal.sideEffects.schemaField.enabled=true",
-      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true"
+      "metadataChangeProposal.sideEffects.dataProductUnset.enabled=true",
+      "metadataChangeProposal.sideEffects.aliases.enabled=true"
     })
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
@@ -109,6 +111,19 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertNotNull(sideEffect.getConfig());
     assertTrue(sideEffect.getConfig().isEnabled());
     assertEquals(sideEffect.getConfig().getClassName(), SchemaFieldSideEffect.class.getName());
+  }
+
+  @Test
+  public void testAliasesSideEffectBeanCreation() {
+    assertTrue(context.containsBean("aliasesSideEffect"));
+    MCPSideEffect sideEffect = context.getBean("aliasesSideEffect", MCPSideEffect.class);
+    assertNotNull(sideEffect);
+    assertTrue(sideEffect instanceof AliasesSideEffect);
+
+    // Verify configuration
+    assertNotNull(sideEffect.getConfig());
+    assertTrue(sideEffect.getConfig().isEnabled());
+    assertEquals(sideEffect.getConfig().getClassName(), AliasesSideEffect.class.getName());
   }
 
   @Test
