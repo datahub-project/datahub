@@ -97,6 +97,24 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    # Entity types that bypass view authorization when enabled. All other types are restricted by
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
+    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
+    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
+    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
+    #
+    # Registry baseline (entity-registry.yml viewUnrestricted: true):
+    #   identity: corpuser, corpGroup
+    #   browse: container
+    #   platforms: dataPlatform, dataPlatformInstance
+    #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
+    unrestrictedEntityTypes:
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
   # The value of cliVersion is substituted in by the processResources Gradle task.
@@ -922,6 +940,37 @@ elasticsearch:
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
       maxQueryLength: ${SEARCH_VALIDATION_MAX_QUERY_LENGTH:500}
       regex: ${SEARCH_VALIDATION_REGEX:.*[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+.*|(?i).*\b(java|javax)\.(util|lang|io|naming|xml|security|beans|management|script|sql)\.(\w+\.)*\w+.*|(?i).*\b(org\.(springframework|apache|hibernate|jboss|codehaus|eclipse)|com\.sun)\.(\w+\.)*\w+.*|(?i).*(ldap://|rmi://|dns://|iiop://|corba:|jndi:|oastify\.com).*|.*(\u00ac\u00ed|\\xac\\xed).*}
+    # Default entity types when callers omit types. No code baseline — configure via YAML/env.
+    # Example: SEARCH_DEFAULT_ENTITY_TYPES_REMOVE=schemaField,document
+    defaultEntityTypes:
+      value: ${SEARCH_DEFAULT_ENTITY_TYPES:dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document}
+      add: ${SEARCH_DEFAULT_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_DEFAULT_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for autocomplete-across-entities when callers omit types.
+    autocompleteEntityTypes:
+      value: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty}
+      add: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_AUTOCOMPLETE_ENTITY_TYPES_REMOVE:}
+
+    # Default entity types for browse V2 when callers omit types.
+    browseEntityTypes:
+      value: ${SEARCH_BROWSE_ENTITY_TYPES:dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,notebook,document}
+      add: ${SEARCH_BROWSE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_BROWSE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for source-entity quick filters (first N with hits win).
+    prioritizedSourceEntityTypes:
+      value: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES:dataset,dashboard,dataFlow,dataJob,chart,container,mlModel,mlModelGroup,mlFeature,mlFeatureTable,mlPrimaryKey}
+      add: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_SOURCE_ENTITY_TYPES_REMOVE:}
+
+    # Priority order for DataHub-entity quick filters (first N with hits win).
+    prioritizedDatahubEntityTypes:
+      value: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES:domain,glossaryTerm,corpGroup,corpuser}
+      add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
+      remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
+
 
 # TODO: Kafka topic convention
 kafka:
@@ -1235,6 +1284,10 @@ incidents:
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertions:
+  hook:
+    enabled: ${ENABLE_ASSERTIONS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   async:
@@ -1285,6 +1338,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  assertionInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_CLL_LIMIT:0}
   restoreColumnLineageIndices:
     enabled: ${RESTORE_COLUMN_LINEAGE_INDICES_ENABLED:false}
   restoreFormInfoIndices:
@@ -1338,6 +1396,16 @@ systemUpdate:
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
     delayMs: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS:1000}
     limit: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT:0}
+  assertionEntityField:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_ENTITY_FIELD_LIMIT:0}
+  assertionFieldPath:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_FIELD_PATH_LIMIT:0}
   schemaFieldsDocIds:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_DOC_IDS_BATCH_SIZE:500}
@@ -1443,6 +1511,9 @@ structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
   systemUpdateEnabled: ${ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE:false} # applies structured property mappings in system update job
+  # Reindex when existing SP field ES types disagree with definition-driven targets (e.g. float vs double).
+  # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
+  typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
   # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
   # property keyword mappings and for rejecting oversized string-backed structured property values.

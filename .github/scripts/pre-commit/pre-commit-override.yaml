@@ -83,6 +83,12 @@ repos:
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
         language: python
+        # Gate on staged PDL sources so the hook is skipped entirely on
+        # docs-/frontend-/Python-only commits. The script scans PDL_ROOTS
+        # (default metadata-models/src/main/pegasus) for changed .pdl aspects,
+        # so scope the regex to that root. If PDL_ROOTS is ever overridden to
+        # add roots, extend this pattern to cover them too.
+        files: ^metadata-models/src/main/pegasus/.*\.pdl$
         pass_filenames: false
         # Changes schema version numbers (semantic), not a formatter.
         stages: [pre-commit]

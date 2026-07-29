@@ -232,6 +232,35 @@ def test_config_redaction():
     }
 
 
+def test_config_redaction_connection_string():
+    # A connection string embeds credentials (e.g. an Azure AccountKey / storage
+    # account master key) but its key name matches none of the suffix rules, so it
+    # must be redacted by exact key name.
+    obj = {
+        "config": {
+            "azure_config": {
+                "account_name": "myacct",
+                "connection_string": (
+                    "DefaultEndpointsProtocol=https;AccountName=myacct;"
+                    "AccountKey=SUPERSECRETMASTERKEY==;EndpointSuffix=core.windows.net"
+                ),
+            },
+            "azure_connection_string": "AccountKey=alsosecret==;",
+        }
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "config": {
+            "azure_config": {
+                "account_name": "myacct",
+                "connection_string": "********",
+            },
+            "azure_connection_string": "********",
+        }
+    }
+
+
 def test_config_redaction_2():
     obj = {
         "config": {

@@ -286,6 +286,17 @@ describe('VolumeAssertionDescription', () => {
             'Table has between 5 and 10 rows',
         ],
         [
+            'rowCountTotal + equalTo',
+            {
+                type: VolumeAssertionType.RowCountTotal,
+                rowCountTotal: {
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table has exactly 100 rows',
+        ],
+        [
             'rowCountChange absolute + atLeast',
             {
                 type: VolumeAssertionType.RowCountChange,
@@ -296,6 +307,18 @@ describe('VolumeAssertionDescription', () => {
                 },
             },
             'Table should grow by at least 100 rows',
+        ],
+        [
+            'rowCountChange absolute + equalTo',
+            {
+                type: VolumeAssertionType.RowCountChange,
+                rowCountChange: {
+                    type: AssertionValueChangeType.Absolute,
+                    operator: AssertionStdOperator.EqualTo,
+                    parameters: { value: numberParam(100) },
+                },
+            },
+            'Table should grow by exactly 100 rows',
         ],
         [
             'rowCountChange percentage + atMost',
@@ -333,14 +356,11 @@ describe('VolumeAssertionDescription', () => {
             'Table should grow by between 5 and 10 %',
         ],
         [
-            // Volume assertions only ever use GreaterThanOrEqualTo/LessThanOrEqualTo/Between, but the
-            // operator type allows any AssertionStdOperator. An out-of-range operator must degrade to
-            // a generic description rather than throw and crash the Validation tab.
             'unexpected operator falls back',
             {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.EqualTo,
+                    operator: AssertionStdOperator.NotEqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
@@ -599,12 +619,12 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
             volumeAssertion: {
                 type: VolumeAssertionType.RowCountTotal,
                 rowCountTotal: {
-                    operator: AssertionStdOperator.GreaterThanOrEqualTo,
+                    operator: AssertionStdOperator.EqualTo,
                     parameters: { value: numberParam(100) },
                 },
             },
         } as any;
-        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has at least 100 rows');
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table has exactly 100 rows');
     });
     it('schema', () => {
         const info = {

@@ -1,7 +1,7 @@
 namespace com.linkedin.semanticmodel
 
+import com.linkedin.common.AiContext
 import com.linkedin.ermodelrelation.ERModelRelationshipCardinality
-import com.linkedin.metric.AiContext
 
 /**
  * A join relationship between two logical datasets defined within a SemanticModel.
@@ -15,7 +15,7 @@ record SemanticModelRelationship {
   name: optional string
 
   /**
-   * Alias of the source dataset (as declared in ModelDataset.name).
+   * Alias of the source dataset (as declared in that Dataset's semanticModelProperties.alias).
    */
   from: string
 
@@ -25,7 +25,7 @@ record SemanticModelRelationship {
   fromColumns: array[string]
 
   /**
-   * Alias of the target dataset (as declared in ModelDataset.name).
+   * Alias of the target dataset (as declared in that Dataset's semanticModelProperties.alias).
    */
   to: string
 
