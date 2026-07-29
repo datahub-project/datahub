@@ -76,7 +76,6 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
     ODCSSlaProperty,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdOperatorClass,
@@ -111,6 +110,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
+    MetadataChangeProposalClass,
     NullTypeClass,
     OtherSchemaClass,
     OwnerClass,
@@ -1655,7 +1655,7 @@ def odcs_to_data_product_urn(data_product: str) -> str:
 
 def odcs_to_data_product_output_port_mcps(
     data_product_urn: str, asset_urns: List[str], name: Optional[str] = None
-) -> List[MetadataChangeProposal]:
+) -> List[MetadataChangeProposalClass]:
     """Add `asset_urns` to a DataProduct as output ports, as an additive patch.
 
     ODPS lists a product's contracts under `outputPorts`, so a dataset an ODCS
