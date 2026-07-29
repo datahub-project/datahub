@@ -274,10 +274,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 view_name = self._extract_view_from_field(field_name)
                 views.add(view_name)
             except AssertionError:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Failed to Extract View Name from Field",
                     message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                     context=f"Field Name: {field_name}",
+                    log=False,
                 )
                 continue
 
@@ -1272,11 +1273,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 fields=fields,
             )
         except (SDKError, DeserializeError) as e:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Failed to fetch dashboard from the Looker API",
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -1651,9 +1653,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and self.reporter.email_ids_missing == self.reporter.resolved_user_ids
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
-            self.reporter.report_warning(
+            self.reporter.warning(
                 "Failed to extract owner emails",
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
+                log=False,
             )
 
         # Extract independent looks first, so their explores are considered in _make_explore_containers.

@@ -292,15 +292,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     yield from self._process_workspace_items(workspace)
 
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to Process Workspace",
                         message="Error processing workspace. Skipping to next.",
                         context=f"workspace={workspace.name}",
                         exc=e,
+                        log=False,
                     )
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Workspaces",
                 message="Unable to retrieve workspaces from Fabric.",
                 context="",
@@ -323,7 +324,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             aggregator_drain_succeeded = True
             logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Generate Lineage / Usage",
                 message="Error draining SQL aggregator for lineage and usage.",
                 context=f"mcps_emitted_before_failure={emitted}",
@@ -379,11 +380,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
                     yield from self._process_lakehouse(workspace, lakehouse)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to List Lakehouses",
                     message="Unable to retrieve lakehouses from workspace.",
                     context=f"workspace={workspace.name}",
                     exc=e,
+                    log=False,
                 )
 
         # Process warehouses
@@ -401,11 +403,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
                     yield from self._process_warehouse(workspace, warehouse)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to List Warehouses",
                     message="Unable to retrieve warehouses from workspace.",
                     context=f"workspace={workspace.name}",
                     exc=e,
+                    log=False,
                 )
 
     def _process_lakehouse(
@@ -639,11 +642,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Process Tables",
                 message="Unable to retrieve tables from item.",
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
+                log=False,
             )
 
     def _get_columns(
@@ -773,7 +777,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "usage statistics will be skipped for this item.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="SQL Analytics Endpoint Initialization Failed",
                 message=(
                     "Failed to initialize the SQL Analytics Endpoint client. "
@@ -782,6 +786,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -810,7 +815,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "Tables and views will be emitted without column-level schema.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Column Metadata Extraction Failed",
                 message=(
                     "Failed to query INFORMATION_SCHEMA.COLUMNS. Tables and views "
@@ -818,6 +823,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
+                log=False,
             )
             return {}
 
@@ -877,13 +883,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "Views will be missing for this item.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="View Discovery Failed",
                 message=(
                     "Failed to query INFORMATION_SCHEMA.VIEWS. Views will be missing for this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
+                log=False,
             )
             return
 

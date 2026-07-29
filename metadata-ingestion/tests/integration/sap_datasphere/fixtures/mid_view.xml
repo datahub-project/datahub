@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="LINEAGE_TEST">
+      <EntityType Name="MID_VIEW">
+        <Property Name="ID" Type="Edm.Int64" Nullable="false"/>
+        <Property Name="NAME" Type="Edm.String" Nullable="true"/>
+        <Property Name="total_amount" Type="Edm.Decimal" Precision="18" Scale="2" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="LINEAGE_TEST.MID_VIEW">
+        <Annotation Term="Common.Label" String="Mid View on Base Table"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.UsageAggregationConfiguration;
 import com.linkedin.metadata.config.UsageConfiguration;
 import com.linkedin.metadata.config.usage.loader.UsageMetricRegistryLoader;
 import com.linkedin.metadata.config.usage.loader.UsageOperationsLoader;
+import com.linkedin.metadata.usage.UsageDimensionResolver;
 import com.linkedin.metadata.usage.flush.AdaptiveFlushCoordinator;
 import com.linkedin.metadata.usage.flush.MicrometerUsageFlushSink;
 import com.linkedin.metadata.usage.flush.UsageFlushSink;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.usage.registry.metrics.UsageMetricContributor;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import com.linkedin.metadata.usage.registry.operations.UsageOperationsRegistry;
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -101,7 +103,8 @@ public class UsageAggregationFactory {
       UsageMetricRegistry usageMetricRegistry,
       UsageActorClassResolver usageActorClassResolver,
       UsageFlushSinkComposer usageFlushSinkComposer,
-      ConfigurationProvider configurationProvider) {
+      ConfigurationProvider configurationProvider,
+      @Autowired(required = false) List<UsageDimensionResolver> dimensionResolvers) {
     // When commercial usage metrics are enabled, @Primary overlay-backed registries are injected.
     UsageAggregationConfiguration config = resolveAggregationConfig(configurationProvider);
     UsageAggregationConfiguration.FlushConfiguration flush = config.getFlush();
@@ -115,17 +118,20 @@ public class UsageAggregationFactory {
         flush.getRetryAttempts(),
         flush.getRetryInitialBackoffMillis(),
         flush.getAlignmentPeriodSeconds(),
-        flush.isIncludeAgentNameDimension());
+        flush.isIncludeAgentNameDimension(),
+        dimensionResolvers);
   }
 
   @Bean
   @Nonnull
   public AdaptiveFlushCoordinator adaptiveFlushCoordinator(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       InMemoryUsageAggregationStore usageAggregationStore,
       ConfigurationProvider configurationProvider) {
     UsageAggregationConfiguration config = resolveAggregationConfig(configurationProvider);
     adaptiveFlushCoordinator =
         new AdaptiveFlushCoordinator(
+            systemOperationContext,
             usageAggregationStore,
             config.getFlush().getScheduledIntervalSeconds(),
             usageAggregationStore.clock());

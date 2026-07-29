@@ -424,6 +424,36 @@ def test_multiple_files_emit_all_logical_datasets(
     assert src.report.logical_datasets_emitted == 2
 
 
+def test_dataset_pattern_filters_logical_datasets(tmp_path: pathlib.Path) -> None:
+    """A deny pattern drops the matching schema entry's logical dataset (and its
+    assertions / logicalParent), keeping the rest and recording it as filtered."""
+    body = _VALID_CONTRACT_BODY + (
+        "  - name: u\n"
+        "    physicalName: u\n"
+        "    properties:\n"
+        "      - name: id\n"
+        "        logicalType: number\n"
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        dataset_pattern={"deny": [r".*\.u$"]},
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert src.report.logical_datasets_emitted == 1
+    assert "test-contract-1.u" in src.report.filtered
+    odcs_urns = set()
+    for wu in workunits:
+        urn = getattr(wu.metadata, "entityUrn", None)
+        if isinstance(urn, str) and "urn:li:dataPlatform:odcs" in urn:
+            odcs_urns.add(urn)
+    assert any("test-contract-1.t," in urn for urn in odcs_urns)
+    assert not any("test-contract-1.u," in urn for urn in odcs_urns)
+
+
 def test_duplicate_physical_binding_warns(tmp_path: pathlib.Path) -> None:
     body2 = _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2")
     _write(tmp_path / "a.odcs.yaml", _VALID_CONTRACT_BODY)
@@ -992,6 +1022,31 @@ def test_load_remote_yaml_read_failure_is_skipped(
     monkeypatch.setattr(odcs_source, "read_file_as_bytes", _boom)
     assert src._load_remote_yaml("s3://bucket/c.odcs.yaml") is None
     assert "s3://bucket/c.odcs.yaml" in src.report.files_skipped
+
+
+def test_load_remote_yaml_passes_http_connection(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = _make_source(tmp_path, http_connection={"token": "secret-token"})
+    seen: Dict[str, Any] = {}
+
+    def _capture(*a: Any, **k: Any) -> bytes:
+        seen.update(k)
+        return b"apiVersion: v3.0.0\nkind: DataContract\n"
+
+    monkeypatch.setattr(odcs_source, "read_file_as_bytes", _capture)
+    src._load_remote_yaml("https://x.example/c.odcs.yaml")
+    assert seen["http_connection"] is src.config.http_connection
+
+
+def test_http_connection_verify_ssl_disabled_warns(tmp_path: pathlib.Path) -> None:
+    src = _make_source(
+        tmp_path,
+        http_connection={"username": "u", "password": "p", "verify_ssl": False},
+    )
+    assert any(
+        "TLS verification" in str(getattr(w, "title", "")) for w in src.report.warnings
+    )
 
 
 def test_process_uri_emits_logical_dataset(
