@@ -5,6 +5,7 @@ import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_S
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

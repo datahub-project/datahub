@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.loaders;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
@@ -8,7 +8,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -104,10 +103,14 @@ public final class DomainEntityCountsBatchLoader {
       resultByKey.put(key, 0L);
     }
 
-    final List<String> entityNames =
-        SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList());
+    // Same configured search scope the direct resolver path uses, so batched counts and unbatched
+    // counts can never diverge when elasticsearch.search.defaultEntityTypes is set.
+    final List<String> entityNames = getSearchEntityNames(queryContext.getOperationContext());
+    if (entityNames.isEmpty()) {
+      // Empty means "search no entity types" — it must not reach searchAcrossEntities, which would
+      // read it as "all non-empty indices" (Rest.li omit-entities semantics). Every count is zero.
+      return orderedResults(keys, resultByKey);
+    }
 
     // Group by the entity-type constraint: all keys sharing a constraint are answered by the same
     // aggregation(s), one per chunk of their domains.
@@ -148,7 +151,12 @@ public final class DomainEntityCountsBatchLoader {
       }
     }
 
-    // DataLoader contract: results[i] must correspond to keys[i].
+    return orderedResults(keys, resultByKey);
+  }
+
+  /** DataLoader contract: results[i] must correspond to keys[i]. */
+  private static List<Long> orderedResults(
+      final List<DomainCountKey> keys, final Map<DomainCountKey, Long> resultByKey) {
     final List<Long> ordered = new ArrayList<>(keys.size());
     for (DomainCountKey key : keys) {
       ordered.add(resultByKey.get(key));

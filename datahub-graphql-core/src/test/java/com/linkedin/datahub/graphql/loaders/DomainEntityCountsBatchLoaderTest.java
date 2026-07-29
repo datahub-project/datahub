@@ -17,6 +17,8 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +92,28 @@ public class DomainEntityCountsBatchLoaderTest {
             nullable(Integer.class),
             any(),
             any());
+  }
+
+  @Test
+  public void testEmptyConfiguredSearchScopeSkipsSearchAndReturnsZeros() throws Exception {
+    // An empty getSearchEntityNames result means "search no entity types". It must not reach
+    // searchAcrossEntities, which would read the empty list as "all non-empty indices" and count
+    // far more than the configured scope allows.
+    final SearchContext emptyScope =
+        SearchContext.EMPTY.toBuilder().defaultSearchEntityNames(List.of()).build();
+    final OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(opContext.getSearchContext()).thenReturn(emptyScope);
+    final QueryContext context = Mockito.mock(QueryContext.class);
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
+
+    final List<Long> results =
+        DomainEntityCountsBatchLoader.batchLoad(
+            List.of(new DomainCountKey(MARKETING), new DomainCountKey(FINANCE)),
+            context,
+            _entityClient);
+
+    assertEquals(results, List.of(0L, 0L));
+    Mockito.verifyNoInteractions(_entityClient);
   }
 
   @Test
