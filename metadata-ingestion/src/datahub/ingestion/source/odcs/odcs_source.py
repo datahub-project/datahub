@@ -287,12 +287,10 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
         self._data_product_ports: Dict[str, _DataProductOutputPorts] = {}
-        # `dataProduct` value -> the product it resolved to, or None when it
-        # resolved to nothing. Cached so a value shared by many contracts costs
-        # one resolution and warns once.
+        # `dataProduct` value -> resolved product urn (or None); cached so a value
+        # shared by many contracts resolves and warns once.
         self._data_product_urns: Dict[str, Optional[str]] = {}
-        # Products this run creates (urn -> the `dataProduct` value to name it
-        # with), which is only ever the case with verify_data_product_exists off.
+        # Products this run creates (urn -> name), only when verify_data_product_exists is off.
         self._data_products_created: Dict[str, str] = {}
 
         if self.config.http_connection and not self.config.http_connection.verify_ssl:
@@ -984,9 +982,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                     freshness_assertion_urn,
                 )
             if self.config.emit_data_product_association:
-                # The physical dataset when the contract bound to one: that is
-                # the interface consumers of the product actually query, and it
-                # renders without the Logical Models beta flag.
+                # Prefer the bound physical dataset (what consumers query);
+                # fall back to the logical one when the contract is unbound.
                 self._record_data_product_asset(
                     contract, physical_urn or binding.logical_urn, source_uri
                 )
@@ -1323,22 +1320,18 @@ class ODCSSource(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         """The urn of the Data Product a `dataProduct` value names, if resolvable.
 
-        ODCS documents the field as the product's *name*, while DataHub products
-        are keyed by id, so a value is tried as an id first and then matched
-        against product names. Products are authored in DataHub (or from an ODPS
-        document); a value matching neither is a mismatch to report rather than a
-        product to invent, unless `verify_data_product_exists` is off.
+        Tried as an id first, then matched against product display names. A value
+        matching neither is reported rather than invented, unless
+        `verify_data_product_exists` is off.
         """
         context = f"file={source_uri} contract={contract.id} dataProduct={raw}"
         try:
             by_id: Optional[str] = odcs_to_data_product_urn(raw)
         except InvalidUrnError:
-            # Only a name can have been meant: `Orders, Retail (EU)` cannot be an
-            # id, because commas and parens are structural in DataHub urns.
             by_id = None
+        # `is not False` also covers the no-graph case (file sink), where the
+        # id-derived urn is emitted unverified.
         if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
-            # Also the no-graph case (file sink): nothing to resolve against, so
-            # the id-derived urn is emitted unverified.
             return by_id
 
         by_name = self._data_products_named(raw)
@@ -1360,9 +1353,8 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
 
         if not self.config.verify_data_product_exists and by_id is not None:
-            # Reaching here with an id means the graph was definitive that no
-            # product exists at it (a missing graph returns above), so seeding
-            # the product cannot overwrite anything curated in DataHub.
+            # The graph was definitive that no product exists at this id (a
+            # missing graph returned above), so seeding it overwrites nothing.
             self._data_products_created[by_id] = raw
             return by_id
         self.report.data_products_unresolved += 1
@@ -1385,8 +1377,8 @@ class ODCSSource(StatefulIngestionSourceBase):
     def _data_products_named(self, name: str) -> List[str]:
         """Urns of every Data Product whose display name equals `name`.
 
-        Search is a prefilter only — it matches on word grams, so every candidate
-        is confirmed against the persisted `dataProductProperties.name`.
+        Search word-grams are a prefilter; each candidate is confirmed against
+        the persisted `dataProductProperties.name`.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -1424,15 +1416,13 @@ class ODCSSource(StatefulIngestionSourceBase):
         for product_urn, entry in self._data_product_ports.items():
             created_name = self._data_products_created.get(product_urn)
             if created_name is not None:
-                # A product this run brings into existence needs its `status`
-                # spelled out: AutoStatusAspectProcessor only fills it in for
-                # primary-source workunits, and these are deliberately not.
+                # AutoStatusAspectProcessor only sets status on primary-source
+                # workunits, and these are not, so spell it out for a new product.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=product_urn, aspect=StatusClass(removed=False)
                 ).as_workunit(is_primary_source=False)
-            # is_primary_source=False keeps the product out of the stateful
-            # checkpoint: it is curated in DataHub, so stale-entity removal must
-            # never soft-delete it when a contract stops naming it.
+            # Non-primary: the product is curated in DataHub, so ODCS must never
+            # stale-remove it when a contract stops naming it.
             for mcp in odcs_to_data_product_output_port_mcps(
                 product_urn, entry.asset_urns, name=created_name
             ):
@@ -1481,8 +1471,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 self.report.files_skipped.append(uri)
                 self.report.contracts_skipped += 1
 
-        # After every contract has been read, so a product named by several of
-        # them gets one patch rather than one per contract.
+        # After all contracts are read, so a product named by several gets one patch.
         yield from self._emit_data_product_output_ports()
 
         # Surface the silent-by-default case: logical datasets were emitted but

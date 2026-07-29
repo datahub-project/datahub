@@ -1643,10 +1643,8 @@ def odcs_to_data_contract_mcps(
 def odcs_to_data_product_urn(data_product: str) -> str:
     """The DataProduct urn a contract's `dataProduct` value names, read as an id.
 
-    Taken verbatim when already a `urn:li:dataProduct:` value. Raises
-    `InvalidUrnError` when the value cannot form a urn at all: ODCS documents the
-    field as the product's *name*, and commas and parens are structural in
-    DataHub urns, so `Sales, Orders (EU)` only ever resolves by name.
+    Raises `InvalidUrnError` when the value cannot form a urn — e.g. commas and
+    parens are structural in urns, so `Sales, Orders (EU)` only resolves by name.
     """
     urn = make_data_product_urn(data_product.strip())
     DataProductUrn.from_string(urn)
@@ -1658,16 +1656,10 @@ def odcs_to_data_product_output_port_mcps(
 ) -> List[MetadataChangeProposalClass]:
     """Add `asset_urns` to a DataProduct as output ports, as an additive patch.
 
-    ODPS lists a product's contracts under `outputPorts`, so a dataset an ODCS
-    contract governs is a port the product promises, not just a member asset.
-
-    A patch rather than a `DataProductProperties` write because ODCS contributes
-    assets to a product it does not own, and so must not clear assets added by
-    hand or by another source. `assets` is keyed on `destinationUrn`, so an asset
-    the product already carries is promoted to an output port in place.
-
-    `name` is set only for a product this run creates — on an existing product it
-    would overwrite a display name curated in DataHub.
+    A patch, not a `DataProductProperties` write, because ODCS contributes to a
+    product it does not own and must not clear assets added by hand or another
+    source. `name` is set only for a product this run creates, so it never
+    overwrites a display name curated in DataHub.
     """
     patcher = DataProductPatchBuilder(data_product_urn)
     if name is not None:

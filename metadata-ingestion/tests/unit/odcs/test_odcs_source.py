@@ -769,8 +769,6 @@ def test_data_product_association_off_by_default(tmp_path: pathlib.Path) -> None
 def test_data_product_output_port_is_the_bound_physical_dataset(
     tmp_path: pathlib.Path,
 ) -> None:
-    # The physical table is what consumers of the product query; the logical
-    # `odcs` dataset is only a fallback for an unbound contract.
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     src = _make_source(
@@ -804,8 +802,6 @@ def test_data_product_output_port_falls_back_to_logical_dataset(
 def test_data_product_output_ports_deduped_across_contracts(
     tmp_path: pathlib.Path,
 ) -> None:
-    # One patch carrying both ports, not one patch each — two would collide on
-    # workunit id.
     (tmp_path / "a.odcs.yaml").write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
     (tmp_path / "b.odcs.yaml").write_text(
         _DATA_PRODUCT_BODY.replace("id: test-contract-1", "id: test-contract-2")
@@ -824,8 +820,6 @@ def test_data_product_output_ports_deduped_across_contracts(
 
 
 def test_data_product_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
-    # ODCS documents `dataProduct` as the product's name, and a name with commas
-    # or parens can never be a urn id — it only resolves by name.
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(
         _DATA_PRODUCT_BODY.replace(
@@ -847,7 +841,7 @@ def test_data_product_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
         "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
     ]
     assert src.report.data_products_resolved_by_name == 1
-    # A product that already exists keeps its own name and status.
+    # An existing product keeps its own name and status.
     assert _product_name_set(workunits, "urn:li:dataProduct:abc-123") is None
     assert _data_products_marked_not_removed(workunits) == []
 
@@ -917,8 +911,7 @@ def test_data_product_created_when_verification_disabled(
         "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
     ]
     assert src.report.data_products_unresolved == 0
-    # A product ODCS brings into existence needs a name and a status of its own:
-    # without them it renders as its raw id and carries no `status` aspect.
+    # A newly created product carries its own name and status.
     assert _product_name_set(workunits, "urn:li:dataProduct:orders_product") == (
         "orders_product"
     )
