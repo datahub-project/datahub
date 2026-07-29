@@ -328,8 +328,6 @@ class AirbyteStreamApiMetadata(BaseModel):
     )
     namespaces_by_name: Dict[str, List[str]] = Field(default_factory=dict)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
 
 class AirbyteStreamInfo(BaseModel):
     config: AirbyteStreamConfig

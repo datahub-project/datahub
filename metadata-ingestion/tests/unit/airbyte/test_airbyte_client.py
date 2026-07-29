@@ -1067,9 +1067,9 @@ class TestClientErrorHandling:
         assert "Request timed out" in str(exc_info.value)
 
 
-class TestFetchStreamPropertyFields:
+class TestFetchStreamApiMetadata:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_success(self, mock_list_streams):
+    def test_fetch_stream_api_metadata_property_fields(self, mock_list_streams):
         mock_list_streams.return_value = [
             {
                 "streamName": "users",
@@ -1089,7 +1089,9 @@ class TestFetchStreamPropertyFields:
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields("source-id-123")
+        result = client._fetch_stream_api_metadata(
+            "source-id-123"
+        ).property_fields_by_stream
 
         users_stream = StreamIdentifier(stream_name="users", namespace="public")
         orders_stream = StreamIdentifier(stream_name="orders", namespace="sales")
@@ -1161,21 +1163,21 @@ class TestFetchStreamPropertyFields:
         assert metadata.namespaces_by_name == {"users": ["public", "analytics"]}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):
+    def test_fetch_stream_api_metadata_no_source_id(self, mock_list_streams):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields(None)
+        metadata = client._fetch_stream_api_metadata(None)
 
-        assert result == {}
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
         mock_list_streams.assert_not_called()
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_404_returns_empty(self, mock_list_streams):
-        """404 from /streams (older OSS versions) should fall back to empty dict."""
+    def test_fetch_stream_api_metadata_404_returns_empty(self, mock_list_streams):
         mock_list_streams.side_effect = AirbyteApiError(
             "404 Not Found: /streams endpoint missing"
         )
@@ -1186,13 +1188,13 @@ class TestFetchStreamPropertyFields:
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields("source-id-123")
+        metadata = client._fetch_stream_api_metadata("source-id-123")
 
-        assert result == {}
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_non_404_reraises(self, mock_list_streams):
-        """Non-404 API errors must propagate so the source layer can warn."""
+    def test_fetch_stream_api_metadata_non_404_reraises(self, mock_list_streams):
         mock_list_streams.side_effect = AirbyteApiError("500 Internal Server Error")
 
         config = AirbyteClientConfig(
@@ -1202,7 +1204,7 @@ class TestFetchStreamPropertyFields:
         client = AirbyteOSSClient(config)
 
         with pytest.raises(AirbyteApiError, match="500"):
-            client._fetch_stream_property_fields("source-id-123")
+            client._fetch_stream_api_metadata("source-id-123")
 
 
 class TestGetConnection:

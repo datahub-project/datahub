@@ -421,16 +421,13 @@ class AirbyteBaseClient(ABC):
             namespaces_by_name=namespaces_by_name,
         )
 
-    def _fetch_stream_property_fields(
-        self, source_id: Optional[str]
-    ) -> Dict[StreamIdentifier, List[PropertyFieldPath]]:
-        return self._fetch_stream_api_metadata(source_id).property_fields_by_stream
-
     @staticmethod
     def _namespace_queues_for_catalog(
         config_streams: List[Dict[str, Any]],
         namespaces_by_name: Dict[str, List[str]],
     ) -> Dict[str, List[str]]:
+        # Counts unnamed config streams only — ignores API namespaces already
+        # claimed by explicitly-namespaced siblings, so mixed cases stay skipped.
         unnamed_counts: Dict[str, int] = {}
         for stream in config_streams:
             name = stream.get("name")
