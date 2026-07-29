@@ -59,7 +59,7 @@ def get_adapter(
     elif platform_lower in ("mysql", "mariadb"):
         # MariaDB is wire- and information_schema-compatible with MySQL (it shares
         # information_schema.tables.table_rows and the InnoDB storage engine), and
-        # MariaDBSource extends MySQLSource so it inherits MySQLConfig and the PR 2
+        # MariaDBSource extends MySQLSource so it inherits MySQLConfig
         # guardrails. Routing it here makes the AUTOCOMMIT isolation-level fix apply
         # to MariaDB too; without this it would resolve to GenericAdapter and keep
         # holding the long profiling transaction.
