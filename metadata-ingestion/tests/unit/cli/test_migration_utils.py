@@ -39,6 +39,15 @@ from datahub.migration.transform import (
     replace_instance_prefix,
 )
 
+
+def _emitted_patch_values(graph: MagicMock) -> list:
+    """(aspectName, decoded-patch-JSON) for every patch MCP emitted via graph.emit."""
+    return [
+        (call.args[0].aspectName, call.args[0].aspect.value.decode())
+        for call in graph.emit.call_args_list
+    ]
+
+
 # --- instance2instance helper tests ---
 
 
@@ -139,7 +148,7 @@ class TestMergeAdditiveAspects:
     DST_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,shared.db.table,PROD)"
 
     def test_merges_ownership(self):
-        """An ownership aspect yields at least one additive patch."""
+        """The source owner lands in an emitted ownership patch."""
         owner = OwnerClass(
             owner="urn:li:corpuser:alice", type=OwnershipTypeClass.DATAOWNER
         )
@@ -148,24 +157,32 @@ class TestMergeAdditiveAspects:
         }
         graph = MagicMock()
 
-        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, True)
+        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
         assert result > 0
+        assert any(
+            name == "ownership" and "urn:li:corpuser:alice" in value
+            for name, value in _emitted_patch_values(graph)
+        )
 
     def test_merges_tags(self):
-        """A globalTags aspect yields at least one additive patch."""
+        """The source tag lands in an emitted globalTags patch."""
         tag = TagAssociationClass(tag="urn:li:tag:pii")
         src_aspects: Dict[str, DictWrapper] = {
             "globalTags": GlobalTagsClass(tags=[tag])
         }
         graph = MagicMock()
 
-        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, True)
+        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
         assert result > 0
+        assert any(
+            name == "globalTags" and "urn:li:tag:pii" in value
+            for name, value in _emitted_patch_values(graph)
+        )
 
     def test_merges_terms(self):
-        """A glossaryTerms aspect yields at least one additive patch."""
+        """The source glossary term lands in an emitted glossaryTerms patch."""
         term = GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:Revenue")
         src_aspects: Dict[str, DictWrapper] = {
             "glossaryTerms": GlossaryTermsClass(
@@ -175,12 +192,16 @@ class TestMergeAdditiveAspects:
         }
         graph = MagicMock()
 
-        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, True)
+        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
         assert result > 0
+        assert any(
+            name == "glossaryTerms" and "urn:li:glossaryTerm:Revenue" in value
+            for name, value in _emitted_patch_values(graph)
+        )
 
     def test_merges_lineage(self):
-        """An upstreamLineage aspect yields at least one additive patch."""
+        """The source upstream lands in an emitted upstreamLineage patch."""
         upstream = UpstreamClass(
             dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,src.table,PROD)",
             type="TRANSFORMED",
@@ -190,9 +211,13 @@ class TestMergeAdditiveAspects:
         }
         graph = MagicMock()
 
-        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, True)
+        result = merge_additive_aspects(src_aspects, self.DST_URN, graph, False)
 
         assert result > 0
+        assert any(
+            name == "upstreamLineage" and "src.table" in value
+            for name, value in _emitted_patch_values(graph)
+        )
 
     def test_empty_aspects_no_patches(self):
         """No patches should be emitted when there are no additive aspects."""

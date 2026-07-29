@@ -3,26 +3,45 @@ import logging
 from random import randint
 
 from datahub.emitter.mce_builder import (
+    make_dashboard_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
+    AuditStampClass,
+    ChangeAuditStampsClass,
+    DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     OtherSchemaClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns, run_datahub_cmd
@@ -51,15 +70,26 @@ pre_tgt = make_dataset_urn_with_platform_instance(
     PLATFORM, "my_db.my_schema.pre_tbl", PRE_NEW, ENV
 )
 
-# --- urns-mapping scenario ---
+# --- urns-mapping scenario (a full multi-entity, multi-aspect case) ---
+DASH_TOOL = "looker"
 UM_OLD = f"mig_umold_{_suffix}"
 UM_NEW = f"mig_umnew_{_suffix}"
-um_src = make_dataset_urn_with_platform_instance(
-    PLATFORM, "my_db.my_schema.um_tbl", UM_OLD, ENV
+# Upstream dataset that is NOT migrated; the migrated dataset keeps pointing at it.
+um_up = make_dataset_urn_with_platform_instance(
+    PLATFORM, "my_db.my_schema.um_up", f"mig_umkeep_{_suffix}", ENV
 )
-um_tgt = make_dataset_urn_with_platform_instance(
-    PLATFORM, "my_db.my_schema.um_tbl", UM_NEW, ENV
+um_ds_src = make_dataset_urn_with_platform_instance(
+    PLATFORM, "my_db.my_schema.um_events", UM_OLD, ENV
 )
+um_ds_tgt = make_dataset_urn_with_platform_instance(
+    PLATFORM, "my_db.my_schema.um_events", UM_NEW, ENV
+)
+um_dash_src = make_dashboard_urn(DASH_TOOL, f"{UM_OLD}.um_dash")
+um_dash_tgt = make_dashboard_urn(DASH_TOOL, f"{UM_NEW}.um_dash")
+um_assert1 = f"urn:li:assertion:um_a1_{_suffix}"
+um_assert2 = f"urn:li:assertion:um_a2_{_suffix}"
+# A structured-property definition must exist before values can be assigned.
+um_prop = f"urn:li:structuredProperty:um_tier_{_suffix}"
 
 # --- assertion incoming-reference scenario ---
 ASRT_OLD = f"mig_aold_{_suffix}"
@@ -204,23 +234,162 @@ def test_preserve_leaves_existing_target_untouched(
         wait_for_writes_to_sync()
 
 
-def test_urns_mapping_migrates_explicit_pairs(
-    graph_client: DataHubGraph, tmp_path
-) -> None:
-    all_urns = [um_src, um_tgt]
-    delete_urns(graph_client, all_urns)
-    wait_for_writes_to_sync()
-    for mcp in [
-        MetadataChangeProposalWrapper(entityUrn=um_src, aspect=_schema("id")),
+def _audit(actor: str) -> ChangeAuditStampsClass:
+    stamp = AuditStampClass(time=0, actor=actor)
+    return ChangeAuditStampsClass(created=stamp, lastModified=stamp)
+
+
+def _seed_urns_mapping_scenario(graph_client: DataHubGraph) -> None:
+    mcps = [
+        # Structured-property definition (GMS rejects value assignments otherwise).
         MetadataChangeProposalWrapper(
-            entityUrn=um_src, aspect=DatasetPropertiesClass(description="um source")
+            entityUrn=um_prop,
+            aspect=StructuredPropertyDefinitionClass(
+                qualifiedName=f"um_tier_{_suffix}",
+                valueType="urn:li:dataType:datahub.string",
+                entityTypes=["urn:li:entityType:datahub.dataset"],
+                displayName="UM Tier",
+            ),
         ),
-    ]:
+        # Upstream (not migrated).
+        MetadataChangeProposalWrapper(entityUrn=um_up, aspect=_schema("id")),
+        # Dataset with the full spread of user aspects + table/column lineage.
+        MetadataChangeProposalWrapper(entityUrn=um_ds_src, aspect=_schema("amt")),
+        MetadataChangeProposalWrapper(entityUrn=um_ds_src, aspect=_instance(UM_OLD)),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=DatasetPropertiesClass(description="events source"),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner="urn:li:corpuser:um_alice",
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:um_pii")]),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=GlossaryTermsClass(
+                terms=[
+                    GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:um_Revenue")
+                ],
+                auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:um_alice"),
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=StructuredPropertiesClass(
+                properties=[
+                    StructuredPropertyValueAssignmentClass(
+                        propertyUrn=um_prop,
+                        values=["gold"],
+                    )
+                ]
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_ds_src,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=um_up, type=DatasetLineageTypeClass.TRANSFORMED
+                    )
+                ],
+                fineGrainedLineages=[
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        upstreams=[make_schema_field_urn(um_up, "id")],
+                        downstreams=[make_schema_field_urn(um_ds_src, "amt")],
+                    )
+                ],
+            ),
+        ),
+        # Dashboard that consumes the dataset (relationship on datasets[]).
+        MetadataChangeProposalWrapper(
+            entityUrn=um_dash_src,
+            aspect=DashboardInfoClass(
+                title="Sales",
+                description="Sales dashboard",
+                lastModified=_audit("urn:li:corpuser:um_bob"),
+                datasets=[um_ds_src],
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_dash_src,
+            aspect=OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner="urn:li:corpuser:um_bob",
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
+                ]
+            ),
+        ),
+        # Two assertions targeting the dataset (Asserts relationship).
+        MetadataChangeProposalWrapper(
+            entityUrn=um_assert1,
+            aspect=AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=um_ds_src,
+                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
+                    operator="_NATIVE_",  # type: ignore[arg-type]
+                ),
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=um_assert2,
+            aspect=AssertionInfoClass(
+                type=AssertionTypeClass.DATASET,
+                datasetAssertion=DatasetAssertionInfoClass(
+                    dataset=um_ds_src,
+                    scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                    operator="_NATIVE_",  # type: ignore[arg-type]
+                ),
+            ),
+        ),
+    ]
+    for mcp in mcps:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
 
+
+def test_urns_mapping_full_scenario(graph_client: DataHubGraph, tmp_path) -> None:
+    """A multi-entity urns-mapping migration (dataset + dashboard) carries every
+    user aspect, rewrites the dataset's own column-level lineage, and repoints the
+    dashboard's dataset reference plus two assertions to the new dataset URN."""
+    all_urns = [
+        um_prop,
+        um_up,
+        um_ds_src,
+        um_ds_tgt,
+        um_dash_src,
+        um_dash_tgt,
+        um_assert1,
+        um_assert2,
+    ]
+    delete_urns(graph_client, all_urns)
+    wait_for_writes_to_sync()
+    _seed_urns_mapping_scenario(graph_client)
+
     mapping_file = tmp_path / "mapping.json"
-    mapping_file.write_text(json.dumps([{"source": um_src, "target": um_tgt}]))
+    mapping_file.write_text(
+        json.dumps(
+            [
+                {"source": um_dash_src, "target": um_dash_tgt},
+                {"source": um_ds_src, "target": um_ds_tgt},
+            ]
+        )
+    )
 
     try:
         result = run_datahub_cmd(
@@ -236,9 +405,41 @@ def test_urns_mapping_migrates_explicit_pairs(
         assert result.exit_code == 0, result.output
         wait_for_writes_to_sync()
 
-        assert graph_client.exists(um_tgt)
-        props = graph_client.get_aspect(um_tgt, DatasetPropertiesClass)
-        assert props is not None and props.description == "um source"
+        # Dataset: created with all user aspects carried over.
+        assert graph_client.exists(um_ds_tgt)
+        props = graph_client.get_aspect(um_ds_tgt, DatasetPropertiesClass)
+        assert props is not None and props.description == "events source"
+        assert graph_client.get_aspect(um_ds_tgt, OwnershipClass) is not None
+        assert graph_client.get_aspect(um_ds_tgt, GlobalTagsClass) is not None
+        assert graph_client.get_aspect(um_ds_tgt, GlossaryTermsClass) is not None
+        assert graph_client.get_aspect(um_ds_tgt, StructuredPropertiesClass) is not None
+
+        # Dataset lineage: cross-instance upstream preserved; column-level
+        # downstream rewritten to the new dataset field.
+        lineage = graph_client.get_aspect(um_ds_tgt, UpstreamLineageClass)
+        assert lineage is not None
+        assert [u.dataset for u in lineage.upstreams] == [um_up]
+        assert lineage.fineGrainedLineages is not None
+        assert lineage.fineGrainedLineages[0].downstreams == [
+            make_schema_field_urn(um_ds_tgt, "amt")
+        ]
+        assert lineage.fineGrainedLineages[0].upstreams == [
+            make_schema_field_urn(um_up, "id")
+        ]
+
+        # Dashboard: created with its own aspects, and its dataset reference points
+        # at the migrated dataset.
+        assert graph_client.exists(um_dash_tgt)
+        dash_info = graph_client.get_aspect(um_dash_tgt, DashboardInfoClass)
+        assert dash_info is not None
+        assert dash_info.datasets == [um_ds_tgt]
+        assert graph_client.get_aspect(um_dash_tgt, OwnershipClass) is not None
+
+        # Both assertions now target the migrated dataset.
+        for assertion_urn in (um_assert1, um_assert2):
+            info = graph_client.get_aspect(assertion_urn, AssertionInfoClass)
+            assert info is not None and info.datasetAssertion is not None
+            assert info.datasetAssertion.dataset == um_ds_tgt
     finally:
         delete_urns(graph_client, all_urns)
         wait_for_writes_to_sync()
