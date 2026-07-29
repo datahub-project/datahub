@@ -75,7 +75,8 @@ buildscript {
   ext.hadoopShadedGuavaVersion = '1.5.0'
   ext.kafkaVersion = '8.1.0'
   // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
-  ext.lz4JavaVersion = '1.11.0'
+  // CVE-2026-59949: fixed in 1.11.1+
+  ext.lz4JavaVersion = '1.11.1'
   // Hazelcast shades Jackson 2.x/3.x inside hazelcast-*.jar (v5.7.0: jackson-databind 2.21.2, 3.1.2).
   // CVE-2026-54512/54513 require jackson-databind 2.21.4+ / 3.1.4+; ext.jacksonVersion does not replace
   // shaded copies — bump when Hazelcast publishes a fix (https://github.com/hazelcast/hazelcast/issues/26597).
