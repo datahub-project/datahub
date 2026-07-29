@@ -43,6 +43,7 @@ def _options(**overrides: object) -> MigrationOptions:
 
 class TestGuessEntityType:
     def test_extracts_dataset(self) -> None:
+        """A dataset URN resolves to the 'dataset' entity type."""
         assert (
             guess_entity_type(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t,PROD)"
@@ -51,9 +52,11 @@ class TestGuessEntityType:
         )
 
     def test_extracts_chart(self) -> None:
+        """A chart URN resolves to the 'chart' entity type."""
         assert guess_entity_type("urn:li:chart:(powerbi,my_chart)") == "chart"
 
     def test_extracts_container(self) -> None:
+        """A container URN resolves to the 'container' entity type."""
         assert guess_entity_type("urn:li:container:abc123") == "container"
 
 
@@ -68,6 +71,7 @@ class TestMigratePair:
     def test_dry_run_does_not_emit(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock
     ) -> None:
+        """A dry-run migration emits nothing to the graph."""
         graph = MagicMock()
         graph.exists.return_value = False
         engine.migrate_pair(
@@ -83,6 +87,7 @@ class TestMigratePair:
     def test_emits_platform_instance_when_provided(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock
     ) -> None:
+        """A non-dry-run pair carrying a dataPlatformInstance stamps it on the target."""
         graph = MagicMock()
         graph.exists.return_value = False
         engine.migrate_pair(
@@ -91,7 +96,6 @@ class TestMigratePair:
             _options(dry_run=False),
             MigrationReport("test-run", dry_run=False, keep=True),
         )
-        # Should emit at least the dataPlatformInstance MCP.
         graph.emit_mcp.assert_called()
 
     @patch("datahub.cli.migration_utils.get_incoming_relationships", return_value=[])
@@ -99,8 +103,8 @@ class TestMigratePair:
     def test_no_instance_aspect_when_pair_has_none(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock
     ) -> None:
-        # urns-mapping style: no data_platform_instance supplied → nothing emitted
-        # even when not a dry run (no aspects to clone in this stub).
+        """A urns-mapping style pair with no dataPlatformInstance emits nothing when
+        there are no aspects to clone (no instance aspect is synthesized)."""
         graph = MagicMock()
         graph.exists.return_value = False
         engine.migrate_pair(
@@ -119,6 +123,8 @@ class TestMigratePair:
     def test_merge_path_when_target_exists(
         self, mock_merge: MagicMock, _mock_rels: MagicMock
     ) -> None:
+        """When the target already exists, the pair is routed through merge_entity
+        and its merged/skipped counts flow into the report."""
         graph = MagicMock()
         graph.exists.return_value = True
         report = MigrationReport("test-run", dry_run=True, keep=True)
@@ -137,6 +143,8 @@ class TestMigratePair:
     def test_preserve_skips_merge_but_repoints_and_deletes(
         self, mock_merge: MagicMock, _mock_rels: MagicMock
     ) -> None:
+        """preserve leaves an existing target untouched (no merge) but still deletes
+        the source."""
         graph = MagicMock()
         graph.exists.return_value = True
         report = MigrationReport("test-run", dry_run=False, keep=False)
@@ -149,7 +157,6 @@ class TestMigratePair:
                 ),
                 report,
             )
-        # Existing target is left untouched (no merge), but source is still deleted.
         mock_merge.assert_not_called()
         assert report.conflicts_skipped == 1
         mock_delete.assert_called_once()
@@ -160,6 +167,7 @@ class TestMigratePair:
     def test_deletes_source_when_not_keep(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock, mock_delete: MagicMock
     ) -> None:
+        """Without --keep, the source is soft-deleted after migration."""
         graph = MagicMock()
         graph.exists.return_value = False
         engine.migrate_pair(
@@ -178,6 +186,7 @@ class TestMigratePair:
     def test_skips_delete_on_dry_run(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock, mock_delete: MagicMock
     ) -> None:
+        """A dry run never deletes the source, even without --keep."""
         graph = MagicMock()
         graph.exists.return_value = False
         engine.migrate_pair(
@@ -193,6 +202,7 @@ class TestMigratePair:
     def test_cross_entity_type_pair_raises(
         self, _mock_clone: MagicMock, _mock_rels: MagicMock
     ) -> None:
+        """Migrating between different entity types is rejected up front."""
         graph = MagicMock()
         with pytest.raises(ValueError, match="same entity type"):
             engine.migrate_pair(
@@ -222,6 +232,7 @@ class TestMigratePairs:
 
     @patch("datahub.migration.engine.migrate_pair")
     def test_skip_on_error_continues(self, mock_single: MagicMock) -> None:
+        """With skip_on_error, a failing pair is recorded and the batch continues."""
         mock_single.side_effect = [RuntimeError("boom"), None]
         report = engine.migrate_pairs(
             MagicMock(), self.PAIRS, _options(skip_on_error=True)
@@ -232,6 +243,7 @@ class TestMigratePairs:
 
     @patch("datahub.migration.engine.migrate_pair")
     def test_raises_without_skip_on_error(self, mock_single: MagicMock) -> None:
+        """Without skip_on_error, a failing pair aborts the batch."""
         mock_single.side_effect = RuntimeError("boom")
         with pytest.raises(RuntimeError, match="boom"):
             engine.migrate_pairs(
@@ -240,6 +252,7 @@ class TestMigratePairs:
 
     @patch("datahub.migration.engine.migrate_pair")
     def test_returns_report(self, _mock_single: MagicMock) -> None:
+        """The batch orchestrator returns a MigrationReport."""
         report = engine.migrate_pairs(MagicMock(), self.PAIRS[:1], _options())
         assert isinstance(report, MigrationReport)
 
@@ -255,6 +268,8 @@ class TestCloneAspectDryRun:
     def test_clone_aspect_yields_mcps_for_dry_run_reporting(
         self, mock_get_aspects: MagicMock, _mock_graph: MagicMock
     ) -> None:
+        """clone_aspect yields one MCP per found aspect (retargeted to the new URN)
+        so the migration report can count them even on a dry run."""
         from datahub.cli.migration_utils import clone_aspect
         from datahub.metadata.schema_classes import DatasetPropertiesClass
 
@@ -291,6 +306,8 @@ class TestMergeEntity:
     def test_routes_additive_aspects_to_patch(
         self, mock_get_aspects: MagicMock
     ) -> None:
+        """Additive aspects (ownership, tags) are merged into the target with no
+        conflicts skipped."""
         from datahub.cli.migration_utils import merge_entity
         from datahub.metadata.schema_classes import (
             GlobalTagsClass,
@@ -329,6 +346,7 @@ class TestMergeEntity:
     def test_routes_non_additive_to_conflict_check(
         self, mock_get_aspects: MagicMock
     ) -> None:
+        """A conflicting non-additive aspect (viewProperties) is skipped under PATCH."""
         from datahub.cli.migration_utils import merge_entity
         from datahub.metadata.schema_classes import ViewPropertiesClass
 
@@ -352,10 +370,11 @@ class TestMergeEntity:
             dry_run=True,
         )
 
-        # PATCH mode: conflicting viewProperties should be skipped.
         assert result.skipped == 1
 
     def test_preserve_leaves_target_untouched(self) -> None:
+        """PRESERVE short-circuits merge_entity: nothing is emitted and the conflict
+        is counted as skipped."""
         from datahub.cli.migration_utils import merge_entity
 
         graph = MagicMock()
@@ -369,33 +388,3 @@ class TestMergeEntity:
         assert result.merged == 0
         assert result.skipped == 1
         graph.emit_mcp.assert_not_called()
-
-
-# --- make_urn_builder edge cases ---
-
-
-class TestMakeUrnBuilderEdgeCases:
-    def test_unsupported_entity_type_raises(self) -> None:
-        from datahub.migration.transform import make_urn_builder
-
-        with pytest.raises(ValueError, match="Unsupported entity type"):
-            make_urn_builder("mlModel", new_instance="inst")
-
-    def test_dataflow_via_make_urn_builder_directly(self) -> None:
-        from datahub.migration.transform import make_urn_builder
-
-        builder = make_urn_builder("dataFlow", new_instance="new", old_instance="old")
-        result = builder("urn:li:dataFlow:(airflow,old.my_dag,PROD)")
-        assert result == "urn:li:dataFlow:(airflow,new.my_dag,PROD)"
-
-    def test_replace_instance_prefix_with_dotted_instance(self) -> None:
-        from datahub.migration.transform import replace_instance_prefix
-
-        result = replace_instance_prefix("a.b.schema.table", "a.b", "x.y")
-        assert result == "x.y.schema.table"
-
-    def test_replace_instance_prefix_raises_on_missing_prefix(self) -> None:
-        from datahub.migration.transform import replace_instance_prefix
-
-        with pytest.raises(ValueError, match="does not start with expected"):
-            replace_instance_prefix("unrelated.table", "old_inst", "new_inst")

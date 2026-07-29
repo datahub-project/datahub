@@ -46,6 +46,7 @@ class TestReplaceInstancePrefix:
     """Tests for the instance prefix replacement logic used by instance2instance."""
 
     def test_replaces_old_prefix_with_new(self):
+        """Swaps the leading old-instance prefix for the new one, keeping the rest of the name."""
         result = replace_instance_prefix("old_inst.db.table", "old_inst", "new_inst")
         assert result == "new_inst.db.table"
 
@@ -62,10 +63,12 @@ class TestReplaceInstancePrefix:
         assert result == "new_inst.old_inst.schema.table"
 
     def test_handles_single_segment_name(self):
+        """Replaces the prefix on a two-segment instance.name."""
         result = replace_instance_prefix("old_inst.table", "old_inst", "new_inst")
         assert result == "new_inst.table"
 
     def test_preserves_complex_names(self):
+        """Swaps the prefix while preserving a multi-segment, mixed-case name."""
         result = replace_instance_prefix(
             "prod_sf.MY_DB.MY_SCHEMA.MY_TABLE", "prod_sf", "shared_sf"
         )
@@ -101,6 +104,7 @@ class TestShouldOverwriteNonAdditive:
         )
 
     def test_overwrite_strategy_returns_true(self):
+        """OVERWRITE strategy returns True even when source and target differ."""
         src = self._make_props("source desc")
         dst = self._make_props("target desc")
         assert should_overwrite_non_additive(
@@ -113,6 +117,7 @@ class TestShouldOverwriteNonAdditive:
         )
 
     def test_patch_strategy_returns_false_on_conflict(self):
+        """PATCH strategy returns False when source and target values conflict."""
         src = self._make_props("source desc")
         dst = self._make_props("target desc")
         assert not should_overwrite_non_additive(
@@ -134,6 +139,7 @@ class TestMergeAdditiveAspects:
     DST_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,shared.db.table,PROD)"
 
     def test_merges_ownership(self):
+        """An ownership aspect yields at least one additive patch."""
         owner = OwnerClass(
             owner="urn:li:corpuser:alice", type=OwnershipTypeClass.DATAOWNER
         )
@@ -147,6 +153,7 @@ class TestMergeAdditiveAspects:
         assert result > 0
 
     def test_merges_tags(self):
+        """A globalTags aspect yields at least one additive patch."""
         tag = TagAssociationClass(tag="urn:li:tag:pii")
         src_aspects: Dict[str, DictWrapper] = {
             "globalTags": GlobalTagsClass(tags=[tag])
@@ -158,6 +165,7 @@ class TestMergeAdditiveAspects:
         assert result > 0
 
     def test_merges_terms(self):
+        """A glossaryTerms aspect yields at least one additive patch."""
         term = GlossaryTermAssociationClass(urn="urn:li:glossaryTerm:Revenue")
         src_aspects: Dict[str, DictWrapper] = {
             "glossaryTerms": GlossaryTermsClass(
@@ -172,6 +180,7 @@ class TestMergeAdditiveAspects:
         assert result > 0
 
     def test_merges_lineage(self):
+        """An upstreamLineage aspect yields at least one additive patch."""
         upstream = UpstreamClass(
             dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,src.table,PROD)",
             type="TRANSFORMED",
@@ -194,6 +203,7 @@ class TestMergeAdditiveAspects:
         assert result == 0
 
     def test_dry_run_does_not_emit(self):
+        """Dry-run additive merge builds patches but never calls graph.emit."""
         owner = OwnerClass(
             owner="urn:li:corpuser:bob", type=OwnershipTypeClass.DATAOWNER
         )
@@ -217,6 +227,7 @@ class TestMergeMixedAspects:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
+        """Non-overlapping customProperties merge in with no skips."""
         src_props = DatasetPropertiesClass(
             description="", customProperties={"team": "alpha"}
         )
@@ -240,6 +251,7 @@ class TestMergeMixedAspects:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
+        """A customProperty whose key collides with a different value is skipped under PATCH."""
         src_props = DatasetPropertiesClass(
             description="", customProperties={"team": "alpha"}
         )
@@ -262,6 +274,7 @@ class TestMergeMixedAspects:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
+        """A conflicting customProperty is overwritten (not skipped) under OVERWRITE."""
         src_props = DatasetPropertiesClass(
             description="", customProperties={"team": "alpha"}
         )
@@ -285,6 +298,7 @@ class TestMergeMixedAspects:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
+        """A description that differs from the target's is skipped under PATCH."""
         src_props = DatasetPropertiesClass(description="source desc")
         dst_props = DatasetPropertiesClass(description="target desc")
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
@@ -303,6 +317,7 @@ class TestMergeMixedAspects:
         self,
         mock_get_aspects: MagicMock,
     ) -> None:
+        """The source description is applied when the target has no description."""
         src_props = DatasetPropertiesClass(description="source desc")
         dst_props = DatasetPropertiesClass(description="")
         mock_get_aspects.return_value = {"datasetProperties": dst_props}
@@ -325,6 +340,7 @@ class TestUrnBuilders:
     """Tests for URN construction across all entity types."""
 
     def test_dataset_urn_builder(self):
+        """i2i dataset builder swaps the instance prefix inside the dataset name."""
         make_urn = make_i2i_dataset_urn("old_inst", "new_inst")
         result = make_urn(
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,old_inst.db.table,PROD)"
@@ -335,21 +351,25 @@ class TestUrnBuilders:
         )
 
     def test_chart_urn_builder(self):
+        """i2i chart builder swaps the instance prefix in the chart id."""
         make_urn = make_i2i_chart_urn("old_inst", "new_inst")
         result = make_urn("urn:li:chart:(powerbi,old_inst.my_chart)")
         assert result == "urn:li:chart:(powerbi,new_inst.my_chart)"
 
     def test_dashboard_urn_builder(self):
+        """i2i dashboard builder swaps the instance prefix in the dashboard id."""
         make_urn = make_i2i_dashboard_urn("old_inst", "new_inst")
         result = make_urn("urn:li:dashboard:(powerbi,old_inst.my_dashboard)")
         assert result == "urn:li:dashboard:(powerbi,new_inst.my_dashboard)"
 
     def test_dataflow_urn_builder(self):
+        """i2i dataFlow builder swaps the instance prefix in the flow id."""
         make_urn = make_i2i_dataflow_urn("old_inst", "new_inst")
         result = make_urn("urn:li:dataFlow:(powerbi,old_inst.my_flow,PROD)")
         assert result == "urn:li:dataFlow:(powerbi,new_inst.my_flow,PROD)"
 
     def test_datajob_urn_builder(self):
+        """i2i dataJob builder rewrites the embedded flow id and drops the old instance, keeping the task."""
         make_urn = make_i2i_datajob_urn("old_inst", "new_inst")
         result = make_urn(
             "urn:li:dataJob:(urn:li:dataFlow:(airflow,old_inst.my_dag,PROD),my_task)"
@@ -368,6 +388,7 @@ class TestUrnBuilders:
         assert "load_step" in result
 
     def test_preserves_complex_chart_id(self):
+        """Chart builder swaps only the leading instance in a deeply dotted chart id."""
         make_urn = make_i2i_chart_urn("musement", "shared")
         result = make_urn("urn:li:chart:(powerbi,musement.reports.abc123.pages.page1)")
         assert result == "urn:li:chart:(powerbi,shared.reports.abc123.pages.page1)"
@@ -380,6 +401,7 @@ class TestP2iUrnBuilders:
     """Tests for dataplatform2instance URN builders (prepend instance)."""
 
     def test_p2i_dataset_urn(self):
+        """p2i dataset builder prepends the instance to the dataset name."""
         make_urn = make_p2i_dataset_urn("myinst")
         result = make_urn(
             "urn:li:dataset:(urn:li:dataPlatform:powerbi,some.table,PROD)"
@@ -390,21 +412,25 @@ class TestP2iUrnBuilders:
         )
 
     def test_p2i_chart_urn(self):
+        """p2i chart builder prepends the instance to the chart id."""
         make_urn = make_p2i_chart_urn("myinst")
         result = make_urn("urn:li:chart:(powerbi,my_chart)")
         assert result == "urn:li:chart:(powerbi,myinst.my_chart)"
 
     def test_p2i_dashboard_urn(self):
+        """p2i dashboard builder prepends the instance to the dashboard id."""
         make_urn = make_p2i_dashboard_urn("myinst")
         result = make_urn("urn:li:dashboard:(powerbi,my_dashboard)")
         assert result == "urn:li:dashboard:(powerbi,myinst.my_dashboard)"
 
     def test_p2i_dataflow_urn(self):
+        """p2i dataFlow builder prepends the instance to the flow id."""
         make_urn = make_p2i_dataflow_urn("myinst")
         result = make_urn("urn:li:dataFlow:(powerbi,my_flow,PROD)")
         assert result == "urn:li:dataFlow:(powerbi,myinst.my_flow,PROD)"
 
     def test_p2i_datajob_urn(self):
+        """p2i dataJob builder prepends the instance to the embedded flow id, keeping the task."""
         make_urn = make_p2i_datajob_urn("myinst")
         result = make_urn(
             "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_dag,PROD),my_task)"
@@ -420,10 +446,12 @@ class TestMigrationReportErrorTracking:
     """Tests for error tracking in MigrationReport."""
 
     def test_entities_errored_initially_empty(self):
+        """A fresh MigrationReport starts with an empty entities_errored list."""
         report = MigrationReport("test", dry_run=True, keep=True)
         assert report.entities_errored == []
 
     def test_entities_errored_in_repr(self):
+        """repr surfaces the errored count and each urn/error-message pair."""
         report = MigrationReport("test", dry_run=True, keep=True)
         report.entities_errored.append(("urn:li:dataset:foo", "some error"))
         text = repr(report)
@@ -432,6 +460,7 @@ class TestMigrationReportErrorTracking:
         assert "some error" in text
 
     def test_no_error_section_when_empty(self):
+        """repr omits the errored section entirely when nothing errored."""
         report = MigrationReport("test", dry_run=True, keep=True)
         text = repr(report)
         assert "errored" not in text
@@ -451,6 +480,7 @@ class TestMergeEntityNonDataset:
         self,
         mock_clone: MagicMock,
     ) -> None:
+        """Merging a chart takes the clone_aspect overwrite path (no PATCH skips)."""
         from datahub.cli.migration_utils import merge_entity
 
         # clone_aspect should be called (overwrite path), not DatasetPatchBuilder
@@ -473,6 +503,7 @@ class TestMergeEntityNonDataset:
         self,
         mock_clone: MagicMock,
     ) -> None:
+        """Merging a dataFlow takes the clone_aspect overwrite path (no PATCH skips)."""
         from datahub.cli.migration_utils import merge_entity
 
         mock_clone.return_value = iter([])

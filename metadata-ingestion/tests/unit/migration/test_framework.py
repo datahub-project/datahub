@@ -23,6 +23,8 @@ DS_B = DS.format(name="db.b")
 
 class TestFetch:
     def test_platform_fetch_skips_entities_that_already_have_instance(self) -> None:
+        """dataplatform2instance only migrates entities lacking an instance, so a
+        source that already has a dataPlatformInstance.instance is filtered out."""
         graph = MagicMock()
         graph.get_urns_by_filter.return_value = [DS_A, DS_B]
 
@@ -44,7 +46,26 @@ class TestFetch:
         # DS_A already has an instance → skipped; DS_B kept.
         assert result == [DS_B]
 
+    def test_platform_fetch_without_skip_returns_all(self) -> None:
+        """With skip_if_has_instance=False, every matched URN is returned and no
+        per-entity instance lookup is performed."""
+        graph = MagicMock()
+        graph.get_urns_by_filter.return_value = [DS_A, DS_B]
+
+        result = list(
+            fetch_platform_urns(
+                graph,
+                platform="snowflake",
+                env="PROD",
+                entity_type="dataset",
+                skip_if_has_instance=False,
+            )
+        )
+        assert result == [DS_A, DS_B]
+        graph.get_aspect.assert_not_called()
+
     def test_instance_fetch_filters_by_platform_instance(self) -> None:
+        """instance2instance scopes the search to the old platform instance."""
         graph = MagicMock()
         graph.get_urns_by_filter.return_value = [DS_A]
 
@@ -62,7 +83,8 @@ class TestFetch:
         assert kwargs["platform_instance"] == "old"
 
     def test_chart_fetch_does_not_pass_env(self) -> None:
-        # Charts have no env field; env must not be forwarded to the filter.
+        """Charts have no env/origin field, so env must not be forwarded to the
+        filter for non-dataset entity types."""
         graph = MagicMock()
         graph.get_urns_by_filter.return_value = []
         list(
@@ -81,8 +103,78 @@ class TestFetch:
 # --- Stage 2: transform ---
 
 
+class TestMakeUrnBuilder:
+    @pytest.mark.parametrize(
+        "entity_type,src,expected",
+        [
+            (
+                "dataset",
+                DS.format(name="db.t"),
+                DS.format(name="inst.db.t"),
+            ),
+            ("chart", "urn:li:chart:(looker,c1)", "urn:li:chart:(looker,inst.c1)"),
+            (
+                "dashboard",
+                "urn:li:dashboard:(looker,d1)",
+                "urn:li:dashboard:(looker,inst.d1)",
+            ),
+            (
+                "dataFlow",
+                "urn:li:dataFlow:(airflow,f1,PROD)",
+                "urn:li:dataFlow:(airflow,inst.f1,PROD)",
+            ),
+            (
+                "dataJob",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,f1,PROD),j1)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,inst.f1,PROD),j1)",
+            ),
+        ],
+    )
+    def test_platform2instance_prepends_instance(
+        self, entity_type: str, src: str, expected: str
+    ) -> None:
+        """Platform-to-instance transforms prepend the new instance to the entity
+        name for every supported entity type (dataJob prefixes its parent flow)."""
+        assert make_urn_builder(entity_type, new_instance="inst")(src) == expected
+
+    @pytest.mark.parametrize(
+        "entity_type,src,expected",
+        [
+            (
+                "dataset",
+                DS.format(name="old.db.t"),
+                DS.format(name="new.db.t"),
+            ),
+            (
+                "chart",
+                "urn:li:chart:(looker,old.c1)",
+                "urn:li:chart:(looker,new.c1)",
+            ),
+            (
+                "dataJob",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,old.f1,PROD),j1)",
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,new.f1,PROD),j1)",
+            ),
+        ],
+    )
+    def test_instance2instance_replaces_prefix(
+        self, entity_type: str, src: str, expected: str
+    ) -> None:
+        """Instance-to-instance transforms replace the old instance prefix with the
+        new one."""
+        builder = make_urn_builder(entity_type, new_instance="new", old_instance="old")
+        assert builder(src) == expected
+
+    def test_unsupported_entity_type_raises(self) -> None:
+        """An entity type with no URN-construction spec is rejected."""
+        with pytest.raises(ValueError, match="Unsupported entity type"):
+            make_urn_builder("mlModel", new_instance="inst")
+
+
 class TestPairsFromTransform:
     def test_builds_pairs_with_target_and_instance(self) -> None:
+        """pairs_from_transform applies the transform to each URN and attaches the
+        supplied target instance aspect to every pair."""
         transform = make_urn_builder("dataset", new_instance="inst")
         instance = DataPlatformInstanceClass(
             platform="urn:li:dataPlatform:snowflake",
@@ -97,6 +189,7 @@ class TestPairsFromTransform:
         assert pairs[0].data_platform_instance is instance
 
     def test_no_instance_by_default(self) -> None:
+        """Without an explicit instance aspect, pairs carry none."""
         transform = make_urn_builder("dataset", new_instance="inst")
         pairs = list(pairs_from_transform([DS_A], transform))
         assert pairs[0].data_platform_instance is None
@@ -107,6 +200,9 @@ class TestPairsFromTransform:
 
 class TestIncomingRelationshipDiscovery:
     def test_queries_all_types_and_reads_source_urn_with_pagination(self) -> None:
+        """Incoming references are discovered across ALL relationship types (so
+        assertions are included), read from each edge's source, paged via
+        scroll_id, and de-duplicated across pages."""
         graph = MagicMock()
         page1 = RelationshipScrollResult(
             scroll_id="cursor",
@@ -158,6 +254,8 @@ class TestIncomingRelationshipDiscovery:
 
 class TestUrnsMappingLoader:
     def test_loads_list_form(self, tmp_path: Path) -> None:
+        """A list of {source, target} objects loads into pairs with no instance
+        aspect (urns-mapping never stamps one)."""
         path = tmp_path / "m.json"
         path.write_text(
             json.dumps([{"source": DS_A, "target": DS_B}]),
@@ -166,28 +264,31 @@ class TestUrnsMappingLoader:
         assert len(pairs) == 1
         assert pairs[0].source_urn == DS_A
         assert pairs[0].target_urn == DS_B
-        # urns-mapping does not stamp an instance aspect.
         assert pairs[0].data_platform_instance is None
 
     def test_loads_object_form(self, tmp_path: Path) -> None:
+        """A flat {source: target} object loads into the same pairs."""
         path = tmp_path / "m.json"
         path.write_text(json.dumps({DS_A: DS_B}))
         pairs = _load_mapping_pairs(str(path))
         assert (pairs[0].source_urn, pairs[0].target_urn) == (DS_A, DS_B)
 
     def test_rejects_cross_entity_type_pair(self, tmp_path: Path) -> None:
+        """A pair whose source and target are different entity types is rejected."""
         path = tmp_path / "m.json"
         path.write_text(json.dumps({DS_A: "urn:li:chart:(looker,c)"}))
         with pytest.raises(Exception, match="same entity type"):
             _load_mapping_pairs(str(path))
 
     def test_rejects_malformed_urn(self, tmp_path: Path) -> None:
+        """A value that isn't a URN is rejected."""
         path = tmp_path / "m.json"
         path.write_text(json.dumps({DS_A: "not-a-urn"}))
         with pytest.raises(Exception, match="Invalid"):
             _load_mapping_pairs(str(path))
 
     def test_rejects_empty_mapping(self, tmp_path: Path) -> None:
+        """An empty mapping file is rejected rather than silently doing nothing."""
         path = tmp_path / "m.json"
         path.write_text(json.dumps([]))
         with pytest.raises(Exception, match="empty"):

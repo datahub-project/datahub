@@ -43,6 +43,7 @@ def _sf(dataset_urn: str, col: str) -> str:
 
 class TestGetMigratableAspectNames:
     def test_includes_user_authored_aspects_from_registry(self):
+        """Migratable set includes user-authored and relationship aspects (lineage, structuredProperties, forms, siblings)."""
         result = migration_utils.get_migratable_aspect_names("dataset")
         assert "upstreamLineage" in result
         assert "structuredProperties" in result
@@ -52,40 +53,48 @@ class TestGetMigratableAspectNames:
         assert "siblings" in result
 
     def test_excludes_timeseries_aspects(self):
+        """Timeseries aspects (datasetProfile, usage stats) are excluded from the migratable set."""
         result = migration_utils.get_migratable_aspect_names("dataset")
         assert "datasetProfile" not in result
         assert "datasetUsageStatistics" not in result
 
     def test_excludes_system_managed_aspects(self):
+        """System-managed aspects (dataPlatformInstance, browsePaths) are excluded from the migratable set."""
         result = migration_utils.get_migratable_aspect_names("dataset")
         assert "dataPlatformInstance" not in result
         assert "browsePaths" not in result
         assert "browsePathsV2" not in result
 
     def test_excludes_derived_summary_aspects(self):
+        """Derived summary rollups (incidentsSummary) are excluded from the migratable set."""
         # incidentsSummary is a platform-computed rollup, not user intent;
         # cloning it verbatim would carry a stale summary to the new URN.
         result = migration_utils.get_migratable_aspect_names("dataset")
         assert "incidentsSummary" not in result
 
     def test_unknown_entity_type_returns_empty(self):
+        """An unknown entity type yields an empty migratable-aspect list."""
         assert migration_utils.get_migratable_aspect_names("nonsense") == []
 
 
 class TestMakeSelfUrnRewriter:
     def test_rewrites_exact_entity_urn(self):
+        """The rewriter maps the exact old entity URN to the new one."""
         rewrite = migration_utils.make_self_urn_rewriter(OLD_DS, NEW_DS)
         assert rewrite(OLD_DS) == NEW_DS
 
     def test_rewrites_embedded_schema_field_urn(self):
+        """The rewriter updates the dataset URN embedded inside a schemaField URN."""
         rewrite = migration_utils.make_self_urn_rewriter(OLD_DS, NEW_DS)
         assert rewrite(_sf(OLD_DS, "col_a")) == _sf(NEW_DS, "col_a")
 
     def test_leaves_other_dataset_urn_untouched(self):
+        """The rewriter leaves an unrelated dataset URN unchanged."""
         rewrite = migration_utils.make_self_urn_rewriter(OLD_DS, NEW_DS)
         assert rewrite(OTHER_DS) == OTHER_DS
 
     def test_leaves_unrelated_schema_field_untouched(self):
+        """The rewriter leaves a schemaField of an unrelated dataset unchanged."""
         rewrite = migration_utils.make_self_urn_rewriter(OLD_DS, NEW_DS)
         assert rewrite(_sf(OTHER_DS, "col_a")) == _sf(OTHER_DS, "col_a")
 
@@ -94,6 +103,7 @@ class TestFineGrainedLineageRewrite:
     """The headline correctness fix: column-level lineage URNs must be rewritten."""
 
     def test_transform_urns_rewrites_fine_grained_lineage(self):
+        """transform_urns rewrites both table- and column-level upstream refs to the migrated URN, leaving other-dataset downstreams."""
         # A downstream's upstreamLineage pointing at OLD_DS both table- and
         # column-level (the column-level edge is what the old hand-written
         # modifier missed).
@@ -131,6 +141,7 @@ class TestClonePathRewritesSelfReferences:
     def test_clone_path_rewrites_own_fine_grained_lineage(
         self, _mock_rels: MagicMock
     ) -> None:
+        """migrate_pair rewrites the entity's own column-level downstream reference to the new URN."""
         # clone_aspect yields the entity's own upstreamLineage, whose CLL
         # downstreams reference the entity being migrated (OLD_DS).
         cloned = MetadataChangeProposalWrapper(
@@ -186,6 +197,8 @@ class TestMergeEntityDefaultBucket:
     def test_unclassified_aspect_is_migrated_not_dropped(
         self, mock_get: MagicMock
     ) -> None:
+        """An unclassified registry aspect (subTypes) is still emitted, not silently dropped."""
+
         # subTypes is a real dataset aspect that is in none of the additive /
         # mixed / non-additive / always-overwrite buckets.
         def side_effect(session, server, urn, aspects=None, typed=False):
@@ -222,6 +235,7 @@ class TestProcessContainerRelationships:
         mock_get_aspects: MagicMock,
         mock_graph: MagicMock,
     ) -> None:
+        """A child entity's container reference is rewritten to the new container URN."""
         from datahub.cli.migrate import _process_container_relationships
         from datahub.ingestion.graph.openapi import RelatedEntity
         from datahub.metadata.schema_classes import ContainerClass
@@ -261,6 +275,7 @@ class TestRewriteIncomingReferences:
     def test_rewrites_only_aspects_that_reference_migrated_urn(
         self, mock_get: MagicMock
     ) -> None:
+        """Only aspects that reference the migrated URN are rewritten and returned; unrelated aspects are skipped."""
         from datahub.metadata.schema_classes import StatusClass
 
         mock_get.return_value = {
@@ -296,6 +311,7 @@ class TestMergeCarriesFineGrainedLineage:
     def test_merge_additive_patches_fine_grained_lineage(
         self, mock_pb_cls: MagicMock
     ) -> None:
+        """Additive merge patches both table-level and column-level (fine-grained) lineage."""
         pb = mock_pb_cls.return_value
         pb.build.return_value = []
         src: Dict[str, DictWrapper] = {

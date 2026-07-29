@@ -6,7 +6,7 @@ backend, and the relationship "index" is computed by scanning stored aspects.
 """
 
 import copy
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, Iterator, List, Optional
 from unittest.mock import patch
 
 import pytest
@@ -136,65 +136,83 @@ class FakeGraph:
         return RelationshipScrollResult(scroll_id=None, relationships=rels)
 
 
-def _fake_get_aspects(
-    session: object,
-    gms_host: str,
-    entity_urn: str,
-    aspects: List[str],
-    typed: bool = False,
-    **_: object,
-) -> Dict[str, _Aspect]:
-    stored = FAKE.store.get(entity_urn, {})
-    if aspects:
-        selected = {k: v for k, v in stored.items() if k in aspects}
-    else:
-        selected = dict(stored)
-    return {k: copy.deepcopy(v) for k, v in selected.items()}
+@pytest.fixture
+def fake() -> Iterator[FakeGraph]:
+    """A FakeGraph with the engine's aspect reads and source deletes routed at its
+    in-memory store (via closures over this instance — no module-level state)."""
+    graph = FakeGraph()
 
+    def get_aspects(
+        session: object,
+        gms_host: str,
+        entity_urn: str,
+        aspects: List[str],
+        typed: bool = False,
+        **_: object,
+    ) -> Dict[str, _Aspect]:
+        stored = graph.store.get(entity_urn, {})
+        selected = (
+            {k: v for k, v in stored.items() if k in aspects}
+            if aspects
+            else dict(stored)
+        )
+        return {k: copy.deepcopy(v) for k, v in selected.items()}
 
-def _fake_delete(
-    graph: "FakeGraph", urn: str, soft: bool = True, run_id: Optional[str] = None
-) -> None:
-    graph.store.pop(urn, None)
+    def delete(
+        g: object, urn: str, soft: bool = True, run_id: Optional[str] = None
+    ) -> None:
+        graph.store.pop(urn, None)
 
-
-FAKE: FakeGraph
-
-
-@pytest.fixture(autouse=True)
-def _patched_backend():
-    """Route the engine's aspect reads/deletes at the FakeGraph store."""
-    global FAKE
-    FAKE = FakeGraph()
     with (
         patch(
             "datahub.cli.migration_utils.cli_utils.get_aspects_for_entity",
-            side_effect=_fake_get_aspects,
+            side_effect=get_aspects,
         ),
-        patch("datahub.cli.delete_cli._delete_one_urn", side_effect=_fake_delete),
+        patch("datahub.cli.delete_cli._delete_one_urn", side_effect=delete),
     ):
-        yield
+        yield graph
 
 
-def _migrate_one(pair: MigrationPair, **opts: object) -> None:
+def _migrate_one(fake: FakeGraph, pair: MigrationPair, **opts: object) -> None:
     options = MigrationOptions(run_id="test", **opts)  # type: ignore[arg-type]
     engine.migrate_pair(
-        FAKE,  # type: ignore[arg-type]
+        fake,  # type: ignore[arg-type]
         pair,
         options,
         MigrationReport("test", False, bool(opts.get("keep", False))),
     )
 
 
-def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
+def _lineage(upstream: str, downstream: str) -> UpstreamLineageClass:
+    return UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                upstreams=[make_schema_field_urn(upstream, "id")],
+                downstreams=[make_schema_field_urn(downstream, "amt")],
+            )
+        ],
+    )
+
+
+def test_dataset_full_migration_rewrites_self_incoming_and_assertion(
+    fake: FakeGraph,
+) -> None:
+    """A dataset migration carries every user aspect to the target, rewrites the
+    entity's own lineage references, repoints an incoming lineage reference and an
+    assertion, and deletes the source."""
     upstream = _ds("db.upstream", "keep_inst")
     src = _ds("db.events", "old_inst")
     tgt = _ds("db.events", "new_inst")
     downstream = _ds("db.rollup", "keep_inst")
     assertion = "urn:li:assertion:a1"
 
-    FAKE.add(upstream, DatasetPropertiesClass(description="up"))
-    FAKE.add(
+    fake.add(upstream, DatasetPropertiesClass(description="up"))
+    fake.add(
         src,
         DatasetPropertiesClass(description="events"),
         OwnershipClass(
@@ -219,8 +237,8 @@ def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
         ),
         _lineage(upstream, src),
     )
-    FAKE.add(downstream, _lineage(src, downstream))
-    FAKE.add(
+    fake.add(downstream, _lineage(src, downstream))
+    fake.add(
         assertion,
         AssertionInfoClass(
             type=AssertionTypeClass.DATASET,
@@ -233,14 +251,15 @@ def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
     )
 
     _migrate_one(
+        fake,
         MigrationPair(src, tgt, data_platform_instance=_instance_aspect("new_inst")),
         keep=False,
         on_conflict=None,
     )
 
     # Source removed, target created with the migration-carried aspects.
-    assert not FAKE.exists(src)
-    assert FAKE.exists(tgt)
+    assert not fake.exists(src)
+    assert fake.exists(tgt)
     for aspect_name in (
         "datasetProperties",
         "ownership",
@@ -250,11 +269,11 @@ def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
         "upstreamLineage",
         "dataPlatformInstance",
     ):
-        assert aspect_name in FAKE.store[tgt], f"{aspect_name} not migrated"
+        assert aspect_name in fake.store[tgt], f"{aspect_name} not migrated"
 
     # Self-reference: column-level downstream rewritten to target; the untouched
     # cross-instance upstream (table + column) is preserved.
-    tgt_lineage = FAKE.store[tgt]["upstreamLineage"]
+    tgt_lineage = fake.store[tgt]["upstreamLineage"]
     assert isinstance(tgt_lineage, UpstreamLineageClass)
     assert [u.dataset for u in tgt_lineage.upstreams] == [upstream]
     fgl = tgt_lineage.fineGrainedLineages
@@ -264,7 +283,7 @@ def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
 
     # Incoming lineage reference rewritten (table + column). The downstream's
     # fine-grained upstream referenced the migrated dataset's "id" field.
-    down_lineage = FAKE.store[downstream]["upstreamLineage"]
+    down_lineage = fake.store[downstream]["upstreamLineage"]
     assert isinstance(down_lineage, UpstreamLineageClass)
     assert [u.dataset for u in down_lineage.upstreams] == [tgt]
     assert down_lineage.fineGrainedLineages is not None
@@ -274,26 +293,10 @@ def test_dataset_full_migration_rewrites_self_incoming_and_assertion() -> None:
 
     # The assertion's reference is rewritten — the case the old hardcoded
     # relationship-type list ("Asserts" missing) would have left dangling.
-    assertion_info = FAKE.store[assertion]["assertionInfo"]
+    assertion_info = fake.store[assertion]["assertionInfo"]
     assert isinstance(assertion_info, AssertionInfoClass)
     assert assertion_info.datasetAssertion is not None
     assert assertion_info.datasetAssertion.dataset == tgt
-
-
-def _lineage(upstream: str, downstream: str) -> UpstreamLineageClass:
-    return UpstreamLineageClass(
-        upstreams=[
-            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
-        ],
-        fineGrainedLineages=[
-            FineGrainedLineageClass(
-                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                upstreams=[make_schema_field_urn(upstream, "id")],
-                downstreams=[make_schema_field_urn(downstream, "amt")],
-            )
-        ],
-    )
 
 
 @pytest.mark.parametrize(
@@ -324,10 +327,12 @@ def _lineage(upstream: str, downstream: str) -> UpstreamLineageClass:
     ],
 )
 def test_non_dataset_entity_types_carry_aspects(
-    src_urn: str, transform: Callable[[str], str]
+    fake: FakeGraph, src_urn: str, transform: Callable[[str], str]
 ) -> None:
+    """Non-dataset entity types (chart/dashboard/dataFlow/dataJob) migrate their
+    aspects to the transform-computed target and delete the source."""
     tgt = transform(src_urn)
-    FAKE.add(
+    fake.add(
         src_urn,
         GlobalTagsClass(tags=[TagAssociationClass(tag="urn:li:tag:pii")]),
         OwnershipClass(
@@ -339,52 +344,59 @@ def test_non_dataset_entity_types_carry_aspects(
         ),
     )
 
-    _migrate_one(MigrationPair(src_urn, tgt), keep=False, on_conflict=None)
+    _migrate_one(fake, MigrationPair(src_urn, tgt), keep=False, on_conflict=None)
 
-    assert not FAKE.exists(src_urn)
-    assert FAKE.exists(tgt)
-    assert "globalTags" in FAKE.store[tgt]
-    assert "ownership" in FAKE.store[tgt]
+    assert not fake.exists(src_urn)
+    assert fake.exists(tgt)
+    assert "globalTags" in fake.store[tgt]
+    assert "ownership" in fake.store[tgt]
 
 
-def test_preserve_leaves_target_untouched_but_repoints_and_deletes() -> None:
+def test_preserve_leaves_target_untouched_but_repoints_and_deletes(
+    fake: FakeGraph,
+) -> None:
+    """With on_conflict=preserve, an existing target keeps its own aspects, yet the
+    referring entity is still repointed to it and the source is still deleted."""
     src = _ds("db.t", "old_inst")
     tgt = _ds("db.t", "new_inst")
     downstream = _ds("db.down", "keep_inst")
 
-    FAKE.add(src, DatasetPropertiesClass(description="from source"))
+    fake.add(src, DatasetPropertiesClass(description="from source"))
     # Target already exists with its own value that must NOT be overwritten.
-    FAKE.add(tgt, DatasetPropertiesClass(description="pre-existing target"))
-    FAKE.add(downstream, _lineage(src, downstream))
+    fake.add(tgt, DatasetPropertiesClass(description="pre-existing target"))
+    fake.add(downstream, _lineage(src, downstream))
 
     _migrate_one(
+        fake,
         MigrationPair(src, tgt, data_platform_instance=_instance_aspect("new_inst")),
         keep=False,
         on_conflict=ConflictStrategy.PRESERVE,
     )
 
     # Target's own aspect is untouched...
-    tgt_props = FAKE.store[tgt]["datasetProperties"]
+    tgt_props = fake.store[tgt]["datasetProperties"]
     assert isinstance(tgt_props, DatasetPropertiesClass)
     assert tgt_props.description == "pre-existing target"
     # ...but the referrer is repointed and the source is deleted.
-    down_lineage = FAKE.store[downstream]["upstreamLineage"]
+    down_lineage = fake.store[downstream]["upstreamLineage"]
     assert isinstance(down_lineage, UpstreamLineageClass)
     assert [u.dataset for u in down_lineage.upstreams] == [tgt]
-    assert not FAKE.exists(src)
+    assert not fake.exists(src)
 
 
-def test_dry_run_makes_no_changes() -> None:
+def test_dry_run_makes_no_changes(fake: FakeGraph) -> None:
+    """A dry run neither creates the target nor deletes the source."""
     src = _ds("db.t", "old_inst")
     tgt = _ds("db.t", "new_inst")
-    FAKE.add(src, DatasetPropertiesClass(description="x"))
+    fake.add(src, DatasetPropertiesClass(description="x"))
 
     _migrate_one(
+        fake,
         MigrationPair(src, tgt, data_platform_instance=_instance_aspect("new_inst")),
         dry_run=True,
         keep=False,
         on_conflict=None,
     )
 
-    assert FAKE.exists(src)
-    assert not FAKE.exists(tgt)
+    assert fake.exists(src)
+    assert not fake.exists(tgt)
