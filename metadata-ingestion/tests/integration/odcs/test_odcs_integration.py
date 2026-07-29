@@ -264,7 +264,6 @@ def test_odcs_data_product_output_ports(
         if m.get("aspectName") == "dataProductProperties"
         and m.get("changeType") == "PATCH"
     ]
-    # One product, so one patch — several schema entries fold into it.
     assert len(product_patches) == 1
     patch = product_patches[0]
     assert patch["entityUrn"] == "urn:li:dataProduct:acme-storefront"

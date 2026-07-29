@@ -82,10 +82,8 @@ SCOPE_PROPERTY = "property"
 # Marker value written to PROP_ASSERTION for schema-compliance assertions.
 ASSERTION_SCHEMA_COMPLIANCE = "schema-compliance"
 
-# How many search hits to confirm when resolving a `dataProduct` value against
-# Data Product names. Search matches word grams, so hits are ranked by relevance
-# and an exact-name match lands well inside this window; the cap keeps a generic
-# value (`sales`) from walking the whole product catalog.
+# Cap on name-search candidates confirmed when resolving a `dataProduct` value,
+# so a generic value doesn't walk the whole product catalog.
 DATA_PRODUCT_NAME_SEARCH_LIMIT = 25
 
 # ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub

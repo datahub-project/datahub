@@ -1191,7 +1191,5 @@ def test_data_product_urn_takes_id_or_full_urn() -> None:
 
 
 def test_data_product_display_name_cannot_be_an_id() -> None:
-    # Commas and parens are structural in DataHub urns, so the source has to
-    # resolve such a value against product names instead.
     with pytest.raises(InvalidUrnError):
         odcs_to_data_product_urn("Orders, Retail (EU)")
