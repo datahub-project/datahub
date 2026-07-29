@@ -128,7 +128,7 @@ class AddOwnership(OwnershipTransformer):
             owners = {
                 (
                     owner.owner,
-                    owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),
+                    owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),  # type: ignore[arg-type]
                 ): owner
                 for owner in server_ownership.owners
             }
@@ -136,7 +136,7 @@ class AddOwnership(OwnershipTransformer):
                 {
                     (
                         owner.owner,
-                        owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),
+                        owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),  # type: ignore[arg-type]
                     ): owner
                     for owner in mce_ownership.owners
                 }
