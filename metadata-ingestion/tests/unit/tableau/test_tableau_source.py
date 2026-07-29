@@ -489,6 +489,87 @@ def test_database_id_to_platform_instance_map_wins_over_hostname():
     )
 
 
+def _run_database_server_routing(
+    database_servers: List[Dict[str, str]],
+    hostname_map: Optional[Dict[str, str]] = None,
+    id_map: Optional[Dict[str, str]] = None,
+) -> TableauSourceReport:
+    config_dict = default_config.copy()
+    del config_dict["stateful_ingestion"]
+    config_dict["database_hostname_to_platform_instance_map"] = hostname_map
+    config_dict["database_id_to_platform_instance_map"] = id_map
+    config = TableauConfig.model_validate(config_dict)
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=PipelineContext(run_id="test"),
+        platform="tableau",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(),
+    )
+    # Construction against a mock server logs an unrelated permissions warning;
+    # swap in a clean report so assertions only see the routing pass.
+    report = TableauSourceReport()
+    site_source.report = report
+
+    with mock.patch.object(
+        site_source, "get_connection_objects", return_value=iter(database_servers)
+    ):
+        site_source._populate_database_server_hostname_map()
+
+    return report
+
+
+def test_unrouted_database_servers_are_reported_not_warned():
+    # Routing a subset of connections is a legitimate setup: someone with 50
+    # connections who only needs to route 2 must not get 48 warnings on every
+    # run. The unrouted ones are recorded in the report for discoverability.
+    report = _run_database_server_routing(
+        database_servers=[
+            {"id": "id-routed", "hostName": "routed.example.com", "name": "Routed"},
+            {"id": "id-other-1", "hostName": "other-1.example.com", "name": "Other 1"},
+            {"id": "id-other-2", "hostName": "other-2.example.com", "name": "Other 2"},
+        ],
+        id_map={"id-routed": "routed_instance"},
+    )
+
+    assert len(report.warnings) == 0
+    assert len(report.database_servers_not_routed) == 2
+    assert all("id-other-" in entry for entry in report.database_servers_not_routed)
+
+
+def test_routing_entry_matching_no_connection_warns():
+    # A map key that matches nothing is a typo or a stale connection. It is
+    # silently doing nothing, so it is always worth surfacing.
+    report = _run_database_server_routing(
+        database_servers=[
+            {"id": "id-real", "hostName": "real.example.com", "name": "Real"},
+        ],
+        hostname_map={"typo.example.com": "some_instance"},
+        id_map={"id-typo": "another_instance"},
+    )
+
+    assert len(report.warnings) == 1
+    context = report.warnings[0].context[0]
+    assert "'typo.example.com'" in context
+    assert "'id-typo'" in context
+
+
+def test_fully_routed_config_is_silent():
+    report = _run_database_server_routing(
+        database_servers=[
+            {"id": "id-a", "hostName": "a.example.com", "name": "A"},
+            {"id": "id-b", "hostName": "b.example.com", "name": "B"},
+        ],
+        hostname_map={"b.example.com": "b_instance"},
+        id_map={"id-a": "a_instance"},
+    )
+
+    assert len(report.warnings) == 0
+    assert len(report.database_servers_not_routed) == 0
+
+
 def test_overridden_info_drives_target_platform_url_shape():
     # Guards both URN-building sites in the Tableau source: every caller of
     # get_overridden_info() must pass the returned `platform` (the overridden
