@@ -82,7 +82,7 @@ driver_list = [
     "Simba Spark ODBC Driver",
     "Simba Google BigQuery ODBC Driver",
     "Cloudera ODBC Driver for Apache Hive",
-    "Elasticsearch ODBC Driver",
+    "Elasticsearch Driver",
 ]
 
 
