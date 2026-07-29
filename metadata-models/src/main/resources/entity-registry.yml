@@ -57,6 +57,7 @@ entities:
       - logicalParent
       - assetSettings
       - documentation
+      - aliases
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -364,6 +365,7 @@ entities:
       - globalTags
       - glossaryTerms
       - semanticContent
+      - semanticText
       - institutionalMemory
       - documentation
       - documentUsageStatistics
@@ -394,6 +396,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - assertionRunSummary
       - assertionActions
       - status
       - globalTags

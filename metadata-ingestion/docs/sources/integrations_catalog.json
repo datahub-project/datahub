@@ -302,6 +302,13 @@
     "connection_type": "Pull",
     "description": "NiFi is a data integration tool that allows users to automate the flow of data between systems and applications."
   },
+  "odcs": {
+    "platform_type": "Metadata Systems",
+    "connection_type": "Pull",
+    "title": "Open Data Contract Standard",
+    "description": "Open Data Contract Standard (ODCS), governed by the Linux Foundation's Bitol project, is a YAML specification for data contracts. Ingest ODCS files as logical datasets with schema, ownership, tags, and quality rules modeled as assertions.",
+    "img_path": "img/logos/platforms/odcs.png"
+  },
   "okta": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
