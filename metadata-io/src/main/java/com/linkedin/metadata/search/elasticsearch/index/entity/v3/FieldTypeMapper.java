@@ -141,16 +141,16 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Keyword mapping for structured-property STRING/RICH_TEXT values with a byte-safe {@code
-   * ignore_above} so oversized values are skipped from the keyword index instead of failing the
-   * whole document write (Lucene 32,766-byte term limit). See {@code ESUtils.KEYWORD_IGNORE_ABOVE}.
-   *
-   * <p>Method body kept here (not only on master via #18533) so #18552 call sites compile on v1.6
-   * without bringing the full structured-property collision-detection stack.
+   * Creates a mapping configuration for a keyword field with ignore_above set to prevent indexing
+   * failures on long TEXT values. The Lucene keyword term limit is 32,766 bytes; ignore_above
+   * silently skips indexing values that exceed the threshold (they remain in _source).
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
-    return getMappingsForKeywordWithIgnoreAbove(KEYWORD_MAXLENGTH);
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", KEYWORD_FIELD_TYPE);
+    mapping.put("ignore_above", KEYWORD_MAXLENGTH);
+    return mapping;
   }
 
   /**
@@ -209,7 +209,7 @@ public class FieldTypeMapper {
         return getMappingsForKeyword();
       case TEXT:
       case TEXT_PARTIAL:
-        return getMappingsForKeyword(); // Treat text fields as keyword for simplicity
+        return getMappingsForKeywordWithIgnoreAbove();
       case BOOLEAN:
         return Map.of("type", BOOLEAN_FIELD_TYPE);
       case COUNT:
