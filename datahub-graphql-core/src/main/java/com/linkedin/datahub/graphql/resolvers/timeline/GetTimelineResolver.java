@@ -67,8 +67,7 @@ public class GetTimelineResolver implements DataFetcher<CompletableFuture<GetTim
     final boolean includeVersionSet = Boolean.TRUE.equals(input.getIncludeVersionSet());
 
     final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
-    // Use GraphQL canView so document URNs get bridge-aware authorization.
-    if (!AuthorizationUtils.canView(context.getOperationContext(), entityUrn)) {
+    if (!AuthorizationUtils.canGetDocument(entityUrn, context)) {
       throw new AuthorizationException(
           "Unauthorized to view change history for entity: " + entityUrn);
     }
