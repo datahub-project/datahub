@@ -7,14 +7,18 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.identity.CorpUserAIAssistantSettings;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
@@ -41,27 +45,38 @@ public class AiAssistantConfigService {
     this.platformService = platformService;
   }
 
-  public ProviderKeyResult upsertProviderKey(@Nonnull String provider, @Nonnull String apiKey) {
+  public ProviderKeyResult upsertProviderKey(
+      @Nonnull OperationContext opContext, @Nonnull String provider, @Nonnull String apiKey) {
     final String normalizedProvider = normalizeProvider(provider);
     final String trimmedApiKey = requireNonEmpty(apiKey, "apiKey");
     final String secretName = getSecretName(normalizedProvider);
     final Urn secretUrn = getSecretUrn(secretName);
 
     try {
-      if (platformService.exists(secretUrn)) {
+      if (platformService.exists(opContext, secretUrn)) {
         final EntityResponse existingSecret =
-            platformService.get(secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
+            platformService.get(opContext, secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
         platformService.ingestProposal(
+            opContext,
             buildSecretProposal(
                 secretUrn,
                 buildSecretValue(
-                    existingSecret, secretName, platformService.encrypt(trimmedApiKey))));
+                    opContext,
+                    existingSecret,
+                    secretName,
+                    platformService.encrypt(opContext, trimmedApiKey))));
       } else {
         final DataHubSecretKey key = new DataHubSecretKey();
         key.setId(secretName);
         platformService.ingestProposal(
+            opContext,
             buildSecretProposal(
-                key, buildSecretValue(null, secretName, platformService.encrypt(trimmedApiKey))));
+                key,
+                buildSecretValue(
+                    opContext,
+                    null,
+                    secretName,
+                    platformService.encrypt(opContext, trimmedApiKey))));
       }
 
       return ProviderKeyResult.builder()
@@ -76,12 +91,13 @@ public class AiAssistantConfigService {
     }
   }
 
-  public ProviderKeyResult getProviderKey(@Nonnull String provider) {
+  public ProviderKeyResult getProviderKey(
+      @Nonnull OperationContext opContext, @Nonnull String provider) {
     final String normalizedProvider = normalizeProvider(provider);
 
     return ProviderKeyResult.builder()
         .provider(normalizedProvider)
-        .hasKey(hasSecret(normalizedProvider))
+        .hasKey(hasSecret(opContext, normalizedProvider))
         .updated(false)
         .keyPreview(null)
         .build();
@@ -95,14 +111,63 @@ public class AiAssistantConfigService {
     return ModelsResult.builder().models(List.of(Model.values())).build();
   }
 
-  private boolean hasSecret(@Nonnull String provider) {
+  public PreferredModelResult getPreferredModel(@Nonnull OperationContext opContext) {
+    final Urn actorUrn = platformService.getActorUrn(opContext);
+    final CorpUserSettings userSettings = platformService.getCorpUserSettings(opContext, actorUrn);
+    final String preferredModel =
+        Optional.ofNullable(userSettings)
+            .filter(CorpUserSettings::hasAiAssistant)
+            .map(CorpUserSettings::getAiAssistant)
+            .filter(CorpUserAIAssistantSettings::hasPreferredModel)
+            .map(CorpUserAIAssistantSettings::getPreferredModel)
+            .orElse(null);
+
+    return PreferredModelResult.builder()
+        .model(preferredModel)
+        .hasKey(preferredModel != null && hasSecret(opContext, resolveProvider(preferredModel)))
+        .keyPreview(null)
+        .build();
+  }
+
+  public UpdatePreferredModelResult updatePreferredModel(
+      @Nonnull OperationContext opContext, @Nonnull String model) {
+    final String normalizedModel = normalizeModel(model);
+    resolveProvider(normalizedModel);
+
+    final Urn actorUrn = platformService.getActorUrn(opContext);
+    final CorpUserSettings userSettings =
+        Optional.ofNullable(platformService.getCorpUserSettings(opContext, actorUrn))
+            .orElseGet(CorpUserSettings::new);
+    final CorpUserAIAssistantSettings aiAssistantSettings =
+        userSettings.hasAiAssistant()
+            ? userSettings.getAiAssistant()
+            : new CorpUserAIAssistantSettings();
+    aiAssistantSettings.setPreferredModel(normalizedModel);
+    userSettings.setAiAssistant(aiAssistantSettings);
+    platformService.updateCorpUserSettings(opContext, actorUrn, userSettings);
+
+    return UpdatePreferredModelResult.builder().model(normalizedModel).updated(true).build();
+  }
+
+  private boolean hasSecret(@Nonnull OperationContext opContext, @Nonnull String provider) {
     try {
-      return platformService.exists(getSecretUrn(getSecretName(provider)));
+      return platformService.exists(opContext, getSecretUrn(getSecretName(provider)));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to determine whether provider %s has a configured key", provider),
           e);
     }
+  }
+
+  private String resolveProvider(@Nonnull String model) {
+    final String normalizedModel = normalizeModel(model);
+    if (normalizedModel.startsWith("claude-")) {
+      return "claude";
+    }
+    if (normalizedModel.startsWith("gpt-")) {
+      return "openai";
+    }
+    throw new IllegalArgumentException(String.format("Unsupported model '%s'.", model));
   }
 
   private String normalizeProvider(@Nonnull String provider) {
@@ -112,6 +177,10 @@ public class AiAssistantConfigService {
       throw new IllegalArgumentException(String.format("Unsupported provider '%s'.", provider));
     }
     return normalizedProvider;
+  }
+
+  private String normalizeModel(@Nonnull String model) {
+    return requireNonEmpty(model, "model").toLowerCase(Locale.ROOT);
   }
 
   private static String requireNonEmpty(@Nonnull String input, @Nonnull String fieldName) {
@@ -133,7 +202,10 @@ public class AiAssistantConfigService {
   }
 
   private DataHubSecretValue buildSecretValue(
-      EntityResponse existingSecret, String name, String encryptedValue) {
+      OperationContext opContext,
+      EntityResponse existingSecret,
+      String name,
+      String encryptedValue) {
     final DataHubSecretValue value =
         existingSecret != null
             ? new DataHubSecretValue(
@@ -145,7 +217,7 @@ public class AiAssistantConfigService {
     if (existingSecret == null) {
       value.setCreated(
           new AuditStamp()
-              .setActor(platformService.getActorUrn())
+              .setActor(platformService.getActorUrn(opContext))
               .setTime(System.currentTimeMillis()));
     }
     return value;
@@ -169,6 +241,21 @@ public class AiAssistantConfigService {
     private boolean hasKey;
     private boolean updated;
     private String keyPreview;
+  }
+
+  @Data
+  @Builder
+  public static class PreferredModelResult {
+    private String model;
+    private boolean hasKey;
+    private String keyPreview;
+  }
+
+  @Data
+  @Builder
+  public static class UpdatePreferredModelResult {
+    private String model;
+    private boolean updated;
   }
 
   @Data

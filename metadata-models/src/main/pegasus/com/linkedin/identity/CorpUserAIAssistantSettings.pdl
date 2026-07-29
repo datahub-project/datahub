@@ -1,0 +1,11 @@
+namespace com.linkedin.identity
+
+/**
+ * AI assistant preferences configured by an individual user.
+ */
+record CorpUserAIAssistantSettings {
+  /**
+   * Preferred model selected by the user for the AI assistant.
+   */
+  preferredModel: optional string
+}
