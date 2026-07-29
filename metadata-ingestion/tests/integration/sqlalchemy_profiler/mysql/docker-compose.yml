@@ -1,0 +1,10 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: testmysql_profiler
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+    ports:
+      - "53310:3306"
+    volumes:
+      - ./setup:/docker-entrypoint-initdb.d
