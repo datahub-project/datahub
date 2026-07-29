@@ -427,8 +427,10 @@ Precedence (highest first): explicit `-P` → `UV_DOCKER_PROFILE` / `UV_INSTALL_
 
 | Profile   | Behaviour                                                                                         |
 | --------- | ------------------------------------------------------------------------------------------------- |
-| `default` | Uses PyPI as the sole index (`profiles/default.toml`).                                            |
-| `custom`  | From-scratch profile for Docker only. Requires `pipExtraIndexUrl`. Uses `pipMirrorUrl` (or PyPI). |
+| `default`       | Uses PyPI as the sole index (`profiles/default.toml`).                                            |
+| `chainguard`    | Chainguard Libraries (`libraries.cgr.dev/python`) with PyPI fallback. Local opt-in; see below.    |
+| `chainguard-ci` | Like `chainguard` but prefers the remediated index first. Intended for Linux CI Docker builds.    |
+| `custom`        | From-scratch profile for Docker only. Requires `pipExtraIndexUrl`. Uses `pipMirrorUrl` (or PyPI). |
 
 `custom` is an **explicit** choice (`uvDockerProfile=custom`). Setting `pipExtraIndexUrl` alone
 **does not** switch the profile — extras are layered on top of the selected existing profile
@@ -437,6 +439,26 @@ profile is rejected (use `custom` for a from-scratch default index).
 
 Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/).
 Add a new `.toml` file there and pass its basename as `uvDockerProfile` / `uvInstallProfile`.
+
+##### Chainguard Libraries profile (opt-in)
+
+OSS defaults stay on PyPI. To resolve Python packages from
+[Chainguard Libraries](https://www.chainguard.dev/libraries) for local Docker builds or installs:
+
+1. Mint a pull token with a Python entitlement (`chainctl auth pull-token create --repository=python ...`).
+2. Add a `libraries.cgr.dev` entry to `docker/snippets/uv/.netrc` (see `.netrc.example`).
+3. Opt in:
+
+```bash
+export UV_DOCKER_PROFILE=chainguard
+# Optional — runner installs often stay on default/PyPI:
+# export UV_INSTALL_PROFILE=chainguard
+./gradlew :datahub-actions:docker
+```
+
+Use `chainguard-ci` only on Linux when you want the remediated index first. Prefer `chainguard`
+on macOS local builds — remediated `+cgr` versions can outrank PyPI and force failing source builds
+when no macOS wheel exists.
 
 ##### Configuring a private index
 
