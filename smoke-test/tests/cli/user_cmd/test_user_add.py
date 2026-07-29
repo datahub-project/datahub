@@ -6,7 +6,7 @@ import pytest
 
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import run_datahub_cmd
+from tests.utils import run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -294,8 +294,12 @@ def test_user_add_id_different_from_email(
     auth_session: Any, test_users_cleanup: Any
 ) -> None:
     """Test creating a user where ID is different from email."""
-    email = "john.doe@company.com"
-    user_id = "jdoe"
+    # Use a unique id/email so this test never collides with the shared
+    # `urn:li:corpuser:jdoe` seed used by other modules (containers, domains),
+    # which run on parallel xdist workers against the same GMS.
+    unique = unique_suffix()
+    email = f"john.doe-{unique}@company.com"
+    user_id = f"jdoe-{unique}"
     display_name = "John Doe"
     password = "securepass123"
 
