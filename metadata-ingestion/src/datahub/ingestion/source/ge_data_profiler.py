@@ -1277,6 +1277,11 @@ class DatahubGEProfiler:
                 catch_exceptions=self.config.catch_exceptions,
                 is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
+                # The flatten path is intentionally sqlalchemy-only. GE is
+                # deprecated, so query_combiner_flatten_enabled is not wired
+                # here even though it lives on the shared GEProfilingConfig.
+                # A user on method: ge who sets the flag gets the legacy CTE
+                # path — see the field description on GEProfilingConfig.
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.

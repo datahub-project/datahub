@@ -1045,6 +1045,7 @@ class SQLAlchemyProfiler:
                 is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
                 flatten_enabled=self.config.query_combiner_flatten_enabled,
+                max_distinct_per_statement=self.config.max_distinct_per_statement,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.
