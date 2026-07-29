@@ -478,6 +478,22 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881358,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
     "changeType": "UPSERT",
@@ -491,6 +507,136 @@
     },
     "systemMetadata": {
         "lastObserved": 1784810717603,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Group By"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881358,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.user_purchases,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD),purchase_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_sum_3d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD),purchase_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_sum_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD),purchase_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_average_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.user_purchases,PROD),item_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),item_id_approx_unique_count_30d)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881358,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_team",
+                    "urn": "urn:li:dataFlow:(zipline,my_team,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881359,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_team.user_features.v1",
+            "description": "Rolling purchase behaviour features keyed on user_id",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(zipline,my_team,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881358,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -729,11 +875,57 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_sum_3d)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD),purchase_amount_sum_3d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_sum_7d)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD),purchase_amount_sum_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),purchase_amount_average_7d)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD),purchase_amount_average_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_features_v1,PROD),item_id_approx_unique_count_30d)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_activity_training_set,PROD),item_id_approx_unique_count_30d)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784810851388,
+        "lastObserved": 1785331884921,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -883,11 +1075,68 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),user_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD),user_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),purchase_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD),purchase_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),item_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD),item_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),ts)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD),ts)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),ds)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,my_team_features.my_team_user_staging_v1,PROD),ds)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784810791090,
+        "lastObserved": 1785332245204,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -918,6 +1167,22 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:zipline"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881363,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "mlFeatureTable",
     "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:zipline,risk_team.account_risk.v1)",
     "changeType": "UPSERT",
@@ -929,6 +1194,125 @@
     },
     "systemMetadata": {
         "lastObserved": 1784815410151,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Group By"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881363,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,events.account_updates,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_account_risk_v1,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD),risk_score)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_account_risk_v1,PROD),risk_score_top5_7d)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD),status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_account_risk_v1,PROD),status_last)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD),balance)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_account_risk_v1,PROD),balance_sum_30d_by_country)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881363,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "risk_team",
+                    "urn": "urn:li:dataFlow:(zipline,risk_team,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881364,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "risk_team.account_risk.v1",
+            "description": "Account risk features keyed on account_id, backed by the warehouse snapshot",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(zipline,risk_team,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331881363,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1252,11 +1636,46 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD),account_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD),account_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.accounts,PROD),balance)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD),balance)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,data.raw_purchases,PROD),purchase_amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,risk_features.risk_team_risk_staging_v1,PROD),purchase_amount)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784901426256,
+        "lastObserved": 1785332245205,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1338,6 +1757,22 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,risk_team,PROD),risk_team.account_risk.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331884934,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "tag",
     "entityUrn": "urn:li:tag:tier:silver",
     "changeType": "UPSERT",
@@ -1349,6 +1784,22 @@
     },
     "systemMetadata": {
         "lastObserved": 1784815410592,
+        "runId": "zipline-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(zipline,my_team,PROD),my_team.user_features.v1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785331884933,
         "runId": "zipline-test",
         "lastRunId": "no-run-id-provided"
     }

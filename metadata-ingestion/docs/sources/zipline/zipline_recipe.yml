@@ -14,19 +14,36 @@ source:
     #   branch: main
     #   deploy_key_file: ~/.ssh/datahub_zipline_deploy_key
 
-    # Map the first segment of each source table (namespace/database) to a
-    # DataHub platform so backing datasets resolve to real URNs. Namespace
-    # matching is case-insensitive.
+    # Map the first segment of each source table (its namespace) to a DataHub
+    # platform so backing datasets resolve to URNs that stitch to the native
+    # connector. A bare platform string is the simplest form; the object form
+    # adds per-namespace platform_instance, env, two-/three-tier shaping and
+    # lowercasing. Namespace matching is case-insensitive.
     source_platform_map:
-      my_warehouse_db: snowflake
+      # Two-tier platform (e.g. Hive `schema.table`): a plain string is enough.
+      raw_events: hive
+      # Three-tier platform (e.g. Snowflake `db.schema.table`): set default_db so
+      # a Chronon `analytics.orders` becomes `prod.analytics.orders`.
+      analytics:
+        platform: snowflake
+        default_db: prod
+        platform_instance: prod_account
+        convert_urns_to_lowercase: true
     default_source_platform: hive
     stream_platform: kafka
 
-    # Lowercase source table names in URNs to stitch lineage to native
-    # connectors (e.g. Snowflake/Hive) that emit lowercased URNs.
+    # Lowercase source table/column names in URNs to stitch lineage to native
+    # connectors (e.g. Snowflake/Hive) that emit lowercased URNs. Can be
+    # overridden per-namespace in source_platform_map.
     convert_urns_to_lowercase: false
 
-    # Emit Joins and StagingQueries as DataJobs with lineage.
+    # SQL dialect used to parse StagingQuery SQL for table/column lineage.
+    # Chronon runs staging queries on Spark, so this defaults to `spark`.
+    staging_query_dialect: spark
+
+    # Emit each GroupBy as a DataJob with source-column -> feature-column
+    # lineage, and Joins / StagingQueries as DataJobs with lineage.
+    include_group_by_lineage: true
     include_joins: true
     include_staging_queries: true
 

@@ -1,4 +1,4 @@
-from typing import Any, List, Type, TypeVar
+from typing import Any, List, Tuple, Type, TypeVar
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.zipline.config import ZiplineConfig
@@ -24,7 +24,7 @@ from datahub.metadata.schema_classes import (
 _AspectT = TypeVar("_AspectT")
 
 
-def _mapper(**config_overrides: Any) -> ZiplineMapper:
+def _mapper(**config_overrides: Any) -> Tuple[ZiplineMapper, SourceResolver]:
     config = ZiplineConfig(
         path="/tmp/x",
         source_platform_map={"data": "hive"},
@@ -32,7 +32,8 @@ def _mapper(**config_overrides: Any) -> ZiplineMapper:
         **config_overrides,
     )
     report = ZiplineSourceReport()
-    return ZiplineMapper(config, report, SourceResolver(config, report))
+    # Mapper and resolver share one report so skip counters aggregate correctly.
+    return ZiplineMapper(config, report), SourceResolver(config, report)
 
 
 def _aspects(
@@ -49,7 +50,7 @@ def _aspects(
 def test_map_group_by_skips_join_source_but_keeps_real_sources():
     # A JoinSource can only be resolved via the parent Join's output, so the
     # mapper skips it (and counts the skip) while still resolving sibling sources.
-    mapper = _mapper()
+    mapper, resolver = _mapper()
     group_by = GroupBy(
         metaData=MetaData(name="t.gb.v1", team="t"),
         keyColumns=["id"],
@@ -60,7 +61,8 @@ def test_map_group_by_skips_join_source_but_keeps_real_sources():
         aggregations=[Aggregation(inputColumn="amt", operation=7)],
     )
 
-    workunits = list(mapper.map_group_by(group_by))
+    source_urns = resolver.resolve_group_by_sources(group_by)
+    workunits = list(mapper.map_group_by(group_by, source_urns))
 
     assert mapper.report.join_sources_skipped == 1
     features = _aspects(workunits, MLFeaturePropertiesClass)
@@ -75,7 +77,7 @@ def test_map_group_by_skips_join_source_but_keeps_real_sources():
 def test_map_group_by_derivations_type_features_unknown():
     # The compiled config never types derived columns, so a GroupBy with
     # derivations must fall back to UNKNOWN rather than an operation-inferred type.
-    mapper = _mapper()
+    mapper, resolver = _mapper()
     group_by = GroupBy(
         metaData=MetaData(name="t.gb.v1", team="t"),
         keyColumns=["id"],
@@ -90,7 +92,9 @@ def test_map_group_by_derivations_type_features_unknown():
         derivations=[Derivation(name="ratio", expression="amt / 2")],
     )
 
-    workunits = list(mapper.map_group_by(group_by))
+    workunits = list(
+        mapper.map_group_by(group_by, resolver.resolve_group_by_sources(group_by))
+    )
 
     features = _aspects(workunits, MLFeaturePropertiesClass)
     assert features
@@ -100,7 +104,7 @@ def test_map_group_by_derivations_type_features_unknown():
 
 
 def test_map_group_by_team_without_owner_mapping_emits_no_ownership():
-    mapper = _mapper(
+    mapper, resolver = _mapper(
         enable_owner_extraction=True,
         owner_mappings=[
             {
@@ -115,14 +119,16 @@ def test_map_group_by_team_without_owner_mapping_emits_no_ownership():
         aggregations=[Aggregation(inputColumn="amt", operation=7)],
     )
 
-    workunits = list(mapper.map_group_by(group_by))
+    workunits = list(
+        mapper.map_group_by(group_by, resolver.resolve_group_by_sources(group_by))
+    )
 
     assert _aspects(workunits, OwnershipClass) == []
 
 
 def test_map_group_by_valueless_tag_uses_bare_key():
     # A tag with an empty value becomes a bare `urn:li:tag:<key>`, not `<key>:`.
-    mapper = _mapper(enable_tag_extraction=True)
+    mapper, resolver = _mapper(enable_tag_extraction=True)
     group_by = GroupBy(
         metaData=MetaData(
             name="t.gb.v1", team="t", customJson='{"groupby_tags": {"pii": ""}}'
@@ -131,7 +137,9 @@ def test_map_group_by_valueless_tag_uses_bare_key():
         aggregations=[Aggregation(inputColumn="amt", operation=7)],
     )
 
-    workunits = list(mapper.map_group_by(group_by))
+    workunits = list(
+        mapper.map_group_by(group_by, resolver.resolve_group_by_sources(group_by))
+    )
 
     tag_urns = [
         association.tag

@@ -145,9 +145,7 @@ def test_zipline_ingest(pytestconfig, tmp_path):
 
 
 def test_zipline_git_info_clones_and_scans(pytestconfig, tmp_path):
-    """git_info shallow-clones a repo and scans it like a local dir; `path` is
-    resolved relative to the checkout. Cloned over file:// via repo_ssh_locator
-    so no network/SSH is needed."""
+    """git_info clones a repo (over file:// here) and scans it like a local dir."""
     git = pytest.importorskip("git")
     test_resources_dir = _resources_dir(pytestconfig)
 
@@ -166,8 +164,7 @@ def test_zipline_git_info_clones_and_scans(pytestconfig, tmp_path):
         _base_config(
             path="production",
             git_info={
-                # `repo` only labels the source; the clone reads the local repo
-                # through repo_ssh_locator.
+                # `repo` is only a label; the clone reads repo_ssh_locator.
                 "repo": "https://github.com/acme/zipline",
                 "repo_ssh_locator": f"file://{repo_dir}",
             },
@@ -228,13 +225,14 @@ def test_zipline_team_and_feature_filtering(pytestconfig, tmp_path):
 
 
 def test_zipline_include_toggles(pytestconfig, tmp_path):
-    """include_joins / include_staging_queries gate DataJob emission entirely."""
+    """include_* toggles gate DataJob emission entirely."""
     test_resources_dir = _resources_dir(pytestconfig)
     output_path = tmp_path / "zipline_no_jobs.json"
 
     pipeline = _run_pipeline(
         _base_config(
             str(test_resources_dir),
+            include_group_by_lineage=False,
             include_joins=False,
             include_staging_queries=False,
         ),

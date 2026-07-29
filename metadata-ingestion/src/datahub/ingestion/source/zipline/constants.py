@@ -5,17 +5,16 @@ from datahub.metadata.schema_classes import MLFeatureDataTypeClass
 
 PLATFORM_NAME: str = "zipline"
 
-# `compile.py` writes one thrift-JSON file per object, nested by team:
-# group_bys/<team>/<name>.
-DEFAULT_PRODUCTION_DIR: str = "production"
-# Compiled-output directory names to auto-detect when `path` is a repo root:
-# OSS Chronon's `compile.py` writes `production/`; the newer `zipline compile`
-# CLI writes `compiled/`. Canary output (`compiled_canary/`) is opt-in — point
-# `path` at it explicitly rather than auto-selecting it over prod.
+# Auto-detected when `path` is a repo root: compile.py writes `production/`, the
+# zipline CLI writes `compiled/`. Canary (`compiled_canary/`) must be set explicitly.
 COMPILED_ROOT_CANDIDATES: Tuple[str, ...] = ("production", "compiled")
 GROUP_BYS_DIR: str = "group_bys"
 JOINS_DIR: str = "joins"
 STAGING_QUERIES_DIR: str = "staging_queries"
+
+# Chronon StagingQuery SQL is executed by Spark, so parse it with the Spark
+# dialect regardless of where the referenced tables physically live.
+DEFAULT_STAGING_QUERY_DIALECT: str = "spark"
 
 # Keys embedded in the JSON string held by `MetaData.customJson`. The Chronon
 # Python DSL stashes user-supplied tags there rather than in a first-class field.

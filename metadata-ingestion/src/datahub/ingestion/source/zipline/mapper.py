@@ -16,7 +16,6 @@ from datahub.ingestion.source.zipline.constants import (
     PLATFORM_NAME,
     operation_to_feature_data_type,
 )
-from datahub.ingestion.source.zipline.lineage import SourceResolver
 from datahub.ingestion.source.zipline.models import GroupBy, MetaData
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
 from datahub.metadata.schema_classes import (
@@ -44,11 +43,9 @@ class ZiplineMapper:
         self,
         config: ZiplineConfig,
         report: ZiplineSourceReport,
-        source_resolver: SourceResolver,
     ) -> None:
         self.config = config
         self.report = report
-        self.source_resolver = source_resolver
 
     @staticmethod
     def _wu(entity_urn: str, aspect: _Aspect) -> MetadataWorkUnit:
@@ -56,7 +53,9 @@ class ZiplineMapper:
             entityUrn=entity_urn, aspect=aspect
         ).as_workunit()
 
-    def map_group_by(self, group_by: GroupBy) -> Iterable[MetadataWorkUnit]:
+    def map_group_by(
+        self, group_by: GroupBy, source_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         table_name = group_by.meta_data.name
         if table_name is None:
             # extra="ignore" tolerates schema drift, so a renamed/absent name key
@@ -80,7 +79,6 @@ class ZiplineMapper:
             )
 
         table_urn = make_ml_feature_table_urn(PLATFORM_NAME, table_name)
-        source_urns = self._resolve_sources(group_by)
         column_tags = group_by.meta_data.column_tags()
 
         feature_specs = self._feature_specs(group_by)
@@ -115,16 +113,6 @@ class ZiplineMapper:
             tags_key=CUSTOM_JSON_GROUPBY_TAGS_KEY,
         )
         self.report.report_feature_table_scanned()
-
-    def _resolve_sources(self, group_by: GroupBy) -> List[str]:
-        urns: List[str] = []
-        for source in group_by.sources:
-            if source.join_source is not None:
-                self.report.join_sources_skipped += 1
-                continue
-            urns.extend(self.source_resolver.resolve_source_urns(source))
-        # De-duplicate while preserving order for stable golden output.
-        return list(dict.fromkeys(urns))
 
     def _feature_specs(self, group_by: GroupBy) -> Dict[str, str]:
         """Feature name -> MLFeatureDataType.

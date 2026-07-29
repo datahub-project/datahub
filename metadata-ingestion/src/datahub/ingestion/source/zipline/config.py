@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -14,6 +14,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.zipline.constants import DEFAULT_STAGING_QUERY_DIALECT
 from datahub.metadata.schema_classes import OwnershipTypeClass
 
 # Standard ownership-type enum values; a custom ownership type may instead be a
@@ -50,6 +51,58 @@ class ZiplineOwnerMapping(ConfigModel):
                 f"'{_OWNERSHIP_TYPE_URN_PREFIX}' URN"
             )
         return value
+
+
+class ZiplinePlatformDetail(ConfigModel):
+    """Per-namespace mapping of a Chronon source namespace to a DataHub platform.
+
+    Modeled on the Airbyte connector's `PlatformDetail` so backing-source URNs
+    stitch to the native connector that also ingests those tables.
+    """
+
+    platform: Optional[str] = Field(
+        default=None,
+        description=(
+            "DataHub platform for tables in this namespace (e.g. `snowflake`). "
+            "Falls back to `default_source_platform` when unset."
+        ),
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "Platform instance for tables in this namespace. Falls back to "
+            "`source_platform_instance`."
+        ),
+    )
+    env: Optional[str] = Field(
+        default=None,
+        description="Environment (fabric) for tables in this namespace.",
+    )
+    default_db: Optional[str] = Field(
+        default=None,
+        description=(
+            "Database to prepend when a Chronon table name in this namespace is "
+            "under-qualified (i.e. `<namespace>.<table>`) and the platform is "
+            "three-tier (e.g. Snowflake `db.schema.table`). Left unset for "
+            "two-tier platforms (e.g. Hive `schema.table`)."
+        ),
+    )
+    include_schema_in_urn: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Whether the namespace segment is a schema that belongs in the URN. "
+            "`None` auto-detects (three-tier when `default_db` is set and differs "
+            "from the namespace); `True` forces `db.schema.table`; `False` forces "
+            "`db.table`."
+        ),
+    )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Lowercase table and column names for this namespace. Falls back to "
+            "the top-level `convert_urns_to_lowercase`."
+        ),
+    )
 
 
 class ZiplineConfig(
@@ -95,14 +148,23 @@ class ZiplineConfig(
         default="kafka",
         description="DataHub platform to use for streaming `topic` sources.",
     )
-    source_platform_map: Dict[str, str] = Field(
+    source_platform_map: Dict[str, ZiplinePlatformDetail] = Field(
         default_factory=dict,
         description=(
-            "Maps the first path segment (namespace/database) of a backing source "
-            'table to a DataHub platform. Example: `{"prod_db": "snowflake"}` '
-            "resolves `prod_db.events` to the Snowflake platform. Namespaces not "
-            "listed fall back to `default_source_platform`. Namespace matching is "
-            "case-insensitive."
+            "Maps the first path segment (namespace) of a backing source table to "
+            "a DataHub platform and URN-shaping options. A bare platform string is "
+            'accepted as shorthand (e.g. `{"prod_db": "snowflake"}`); the object '
+            "form additionally controls platform_instance, env, two-/three-tier "
+            "layout and lowercasing per namespace. Namespaces not listed fall back "
+            "to `default_source_platform`. Matching is case-insensitive."
+        ),
+    )
+    staging_query_dialect: str = Field(
+        default=DEFAULT_STAGING_QUERY_DIALECT,
+        description=(
+            "SQL dialect used to parse `StagingQuery.query` for lineage. Defaults "
+            "to `spark` because Chronon runs staging queries on Spark; override "
+            "only if your staging queries target a different engine."
         ),
     )
     convert_urns_to_lowercase: bool = Field(
@@ -122,6 +184,14 @@ class ZiplineConfig(
         ),
     )
 
+    include_group_by_lineage: bool = Field(
+        default=True,
+        description=(
+            "Emit each GroupBy as a DataJob producing its output table, with "
+            "source-column to feature-column lineage. Disable to emit only the "
+            "ML feature-table entities without the backing compute lineage."
+        ),
+    )
     include_joins: bool = Field(
         default=True,
         description="Emit Chronon Joins as DataJobs with input/output lineage.",
@@ -174,6 +244,17 @@ class ZiplineConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @field_validator("source_platform_map", mode="before")
+    def _coerce_platform_map(cls, value: Any) -> Any:
+        # Accept the shorthand `{"namespace": "snowflake"}` by promoting the bare
+        # platform string to a ZiplinePlatformDetail.
+        if isinstance(value, dict):
+            return {
+                key: ({"platform": detail} if isinstance(detail, str) else detail)
+                for key, detail in value.items()
+            }
+        return value
 
     @model_validator(mode="after")
     def _validate_owner_extraction(self) -> "ZiplineConfig":

@@ -41,10 +41,8 @@ class ZiplineRepositoryReader:
         return expanded
 
     def is_valid(self) -> bool:
-        # An existing directory isn't enough: pointing at the Python config repo
-        # (instead of the compiled `production/` output) is an easy mistake that
-        # would otherwise emit nothing silently. Require at least one compiled
-        # object sub-directory.
+        # Require a compiled sub-dir: pointing at the Python config repo instead of
+        # the compiled output is an easy mistake that would otherwise emit nothing.
         if not os.path.isdir(self.root):
             return False
         return any(

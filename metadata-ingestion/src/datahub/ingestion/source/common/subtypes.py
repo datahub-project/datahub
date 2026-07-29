@@ -226,6 +226,7 @@ class DataJobSubTypes(StrEnum):
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # Zipline/Chronon job types.
+    ZIPLINE_GROUP_BY = "Group By"
     ZIPLINE_JOIN = "Join"
     ZIPLINE_STAGING_QUERY = "Staging Query"
     # ADF Activity Types

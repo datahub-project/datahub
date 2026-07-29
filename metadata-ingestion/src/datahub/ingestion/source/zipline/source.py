@@ -34,13 +34,16 @@ from datahub.ingestion.source.zipline.constants import PLATFORM_NAME
 from datahub.ingestion.source.zipline.lineage import (
     SourceResolver,
     StagingQueryLineageExtractor,
+    build_group_by_column_lineage,
+    build_join_column_lineage,
 )
 from datahub.ingestion.source.zipline.mapper import ZiplineMapper
-from datahub.ingestion.source.zipline.models import Join, StagingQuery
+from datahub.ingestion.source.zipline.models import GroupBy, Join, StagingQuery
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
+from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 
@@ -90,7 +93,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
         self.platform = PLATFORM_NAME
         self.report = ZiplineSourceReport()
         self.source_resolver = SourceResolver(config, self.report)
-        self.mapper = ZiplineMapper(config, self.report, self.source_resolver)
+        self.mapper = ZiplineMapper(config, self.report)
         self.staging_lineage = StagingQueryLineageExtractor(
             config, self.report, ctx.graph, self.source_resolver
         )
@@ -126,8 +129,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
 
     def _build_reader(self, stack: contextlib.ExitStack) -> ZiplineRepositoryReader:
         if self.config.git_info is not None:
-            # Shallow-clone into a temp dir that lives for the whole scan; the
-            # reader then walks the checkout like any local directory.
+            # Temp dir must outlive the whole scan, hence the caller's ExitStack.
             tmp_dir = stack.enter_context(tempfile.TemporaryDirectory("zipline_git"))
             checkout_dir = self.config.git_info.clone(tmp_path=tmp_dir)
             self.report.git_checkout = str(checkout_dir)
@@ -177,7 +179,32 @@ class ZiplineSource(StatefulIngestionSourceBase):
                 ):
                     self.report.filtered_feature_tables += 1
                     continue
-                yield from self.mapper.map_group_by(group_by)
+                source_urns = self.source_resolver.resolve_group_by_sources(group_by)
+                yield from self.mapper.map_group_by(group_by, source_urns)
+                if self.config.include_group_by_lineage:
+                    yield from self._emit_group_by_job(group_by, source_urns)
+
+    def _emit_group_by_job(
+        self, group_by: GroupBy, source_urns: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        name = group_by.meta_data.name
+        output_table = group_by.meta_data.output_table_name()
+        # Without a name or output table there is no DataJob URN / outlet to emit.
+        if name is None or output_table is None:
+            return
+
+        outlet = self.source_resolver.resolve_table_urn(output_table)
+        yield from self._emit_datajob(
+            name=name,
+            team=group_by.meta_data.team or PLATFORM_NAME,
+            subtype=DataJobSubTypes.ZIPLINE_GROUP_BY,
+            description=group_by.meta_data.description,
+            inlets=source_urns,
+            outlets=[outlet],
+            fine_grained_lineages=build_group_by_column_lineage(
+                group_by, self.source_resolver
+            ),
+        )
 
     def _extract_joins(
         self, reader: ZiplineRepositoryReader
@@ -244,6 +271,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
         description: Optional[str],
         inlets: List[str],
         outlets: List[str],
+        fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         flow = self._get_or_create_flow(team)
         yield from self._emit_flow_once(flow)
@@ -255,6 +283,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
             subtype=subtype,
             inlets=list(dict.fromkeys(inlets)) or None,
             outlets=list(dict.fromkeys(outlets)) or None,
+            fine_grained_lineages=fine_grained_lineages or None,
         )
         yield from datajob.as_workunits()
 
@@ -294,6 +323,9 @@ class ZiplineSource(StatefulIngestionSourceBase):
             description=join.meta_data.description,
             inlets=inlets,
             outlets=outlets,
+            fine_grained_lineages=build_join_column_lineage(
+                join, self.source_resolver, self._group_by_output_tables
+            ),
         )
 
     def _emit_staging_query(
@@ -303,14 +335,21 @@ class ZiplineSource(StatefulIngestionSourceBase):
         if name is None:
             return
 
+        output_table = staging_query.meta_data.output_table_name()
+
         inlets: List[str] = []
+        fine_grained: List[FineGrainedLineageClass] = []
         if self.config.include_staging_query_lineage and staging_query.query:
-            inlets.extend(
-                self.staging_lineage.extract_input_urns(staging_query.query, name)
+            lineage = self.staging_lineage.extract(
+                query=staging_query.query,
+                output_table=output_table,
+                default_namespace=staging_query.meta_data.output_namespace,
+                name=name,
             )
+            inlets.extend(lineage.input_urns)
+            fine_grained = lineage.fine_grained_lineages
 
         outlets: List[str] = []
-        output_table = staging_query.meta_data.output_table_name()
         if output_table:
             outlets.append(self.source_resolver.resolve_table_urn(output_table))
 
@@ -321,6 +360,7 @@ class ZiplineSource(StatefulIngestionSourceBase):
             description=staging_query.meta_data.description,
             inlets=inlets,
             outlets=outlets,
+            fine_grained_lineages=fine_grained,
         )
 
     def get_report(self) -> ZiplineSourceReport:

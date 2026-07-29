@@ -30,10 +30,9 @@ def test_reader_skips_unreadable_and_schema_invalid_files(
 def test_reader_autodetects_compiled_dir_at_repo_root(
     tmp_path: pathlib.Path,
 ) -> None:
-    """A repo root containing either `production/` (compile.py) or `compiled/`
-    (the newer zipline CLI) resolves to that compiled output dir."""
+    """A repo root resolves to its `production/` or `compiled/` output dir."""
     for compiled_dir in ("production", "compiled"):
-        repo = tmp_path / compiled_dir  # a distinct repo root per layout
+        repo = tmp_path / compiled_dir
         (repo / compiled_dir / GROUP_BYS_DIR / "team").mkdir(parents=True)
 
         reader = ZiplineRepositoryReader(str(repo), ZiplineSourceReport())
