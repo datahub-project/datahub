@@ -283,6 +283,70 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_include_schema_in_urn_forces_three_tier_postgres(mock_create_client, mock_ctx):
+    mock_create_client.return_value = MagicMock()
+
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        sources_to_platform_instance={
+            "source-1": PlatformDetail(
+                platform="postgres",
+                platform_instance="my_instance",
+                include_schema_in_urn=True,
+                convert_urns_to_lowercase=True,
+            )
+        },
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
+    connection = AirbyteConnectionPartial(
+        connection_id="conn-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="dest-1",
+        status="active",
+    )
+    source_obj = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
+        source_definition_id="def-1",
+        workspace_id="ws-1",
+        configuration={"database": "my_db"},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="dest-1",
+        name="Test Dest",
+        destination_definition_id="def-2",
+        workspace_id="ws-1",
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=workspace,
+        connection=connection,
+        source=source_obj,
+        destination=destination,
+    )
+
+    stream_details = AirbyteStreamDetails(
+        stream_name="events",
+        namespace="my_schema",
+        property_fields=[],
+    )
+    stream_config = AirbyteStreamConfig(
+        stream=AirbyteStream(name="events", namespace="my_schema"),
+        config={},
+    )
+
+    urns = source._create_dataset_urns(pipeline_info, stream_config, stream_details)
+
+    assert "my_instance.my_db.my_schema.events" in urns.source_urn
+    assert "my_db.events," not in urns.source_urn
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     # Some connectors emit `<schema>.<table>` as the stream name; we only
     # want the leaf for URN composition so we don't end up with

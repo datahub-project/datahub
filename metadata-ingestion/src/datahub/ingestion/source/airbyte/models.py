@@ -322,6 +322,15 @@ class AirbyteDatasetUrns(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class AirbyteStreamApiMetadata(BaseModel):
+    property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = Field(
+        default_factory=dict
+    )
+    namespaces_by_name: Dict[str, List[str]] = Field(default_factory=dict)
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
 class AirbyteStreamInfo(BaseModel):
     config: AirbyteStreamConfig
     details: AirbyteStreamDetails

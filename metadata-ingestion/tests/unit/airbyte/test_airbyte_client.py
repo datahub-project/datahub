@@ -20,6 +20,7 @@ from datahub.ingestion.source.airbyte.config import (
     OAuth2GrantType,
 )
 from datahub.ingestion.source.airbyte.models import (
+    AirbyteStreamApiMetadata,
     PropertyFieldPath,
     StreamIdentifier,
 )
@@ -750,15 +751,17 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        stream_property_fields = {
-            StreamIdentifier(stream_name="users", namespace="public"): [
-                PropertyFieldPath(path=["id"]),
-                PropertyFieldPath(path=["name"]),
-                PropertyFieldPath(path=["email"]),
-            ]
-        }
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            property_fields_by_stream={
+                StreamIdentifier(stream_name="users", namespace="public"): [
+                    PropertyFieldPath(path=["id"]),
+                    PropertyFieldPath(path=["name"]),
+                    PropertyFieldPath(path=["email"]),
+                ]
+            }
+        )
 
-        result = client._build_sync_catalog(config_streams, stream_property_fields)
+        result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
         assert "streams" in result
         assert len(result["streams"]) == 1
@@ -782,10 +785,102 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        result = client._build_sync_catalog(config_streams, {})
+        result = client._build_sync_catalog(config_streams)
 
         assert "streams" in result
         assert len(result["streams"]) == 1
+
+    def test_build_sync_catalog_backfills_namespace_from_streams_api(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {
+                "name": "events",
+                "syncMode": "full_refresh_overwrite",
+            }
+        ]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            property_fields_by_stream={
+                StreamIdentifier(stream_name="events", namespace="my_schema"): [
+                    PropertyFieldPath(path=["id"]),
+                ]
+            },
+            namespaces_by_name={"events": ["my_schema"]},
+        )
+
+        result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        stream = result["streams"][0]
+        assert stream["stream"]["name"] == "events"
+        assert stream["stream"]["namespace"] == "my_schema"
+        assert "id" in stream["stream"]["jsonSchema"]["properties"]
+
+    def test_build_sync_catalog_assigns_multi_schema_namespaces_in_order(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {"name": "users", "syncMode": "full_refresh_overwrite"},
+            {"name": "users", "syncMode": "full_refresh_overwrite"},
+        ]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            property_fields_by_stream={
+                StreamIdentifier(stream_name="users", namespace="public"): [
+                    PropertyFieldPath(path=["id"]),
+                ],
+                StreamIdentifier(stream_name="users", namespace="analytics"): [
+                    PropertyFieldPath(path=["user_id"]),
+                ],
+            },
+            namespaces_by_name={"users": ["public", "analytics"]},
+        )
+
+        result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        assert result["streams"][0]["stream"]["namespace"] == "public"
+        assert "id" in result["streams"][0]["stream"]["jsonSchema"]["properties"]
+        assert result["streams"][1]["stream"]["namespace"] == "analytics"
+        assert "user_id" in result["streams"][1]["stream"]["jsonSchema"]["properties"]
+
+    def test_build_sync_catalog_skips_partial_multi_schema_backfill(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [{"name": "users", "syncMode": "full_refresh_overwrite"}]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            namespaces_by_name={"users": ["public", "analytics"]},
+        )
+
+        result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        assert result["streams"][0]["stream"]["namespace"] is None
+
+    def test_build_sync_catalog_prefers_config_namespace_over_backfill(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [{"name": "users", "namespace": "explicit_schema"}]
+        result = client._build_sync_catalog(
+            config_streams,
+            AirbyteStreamApiMetadata(
+                namespaces_by_name={"users": ["streams_api_schema"]}
+            ),
+        )
+
+        assert result["streams"][0]["stream"]["namespace"] == "explicit_schema"
 
     def test_build_stream_config(self):
         config = AirbyteClientConfig(
@@ -1012,6 +1107,60 @@ class TestFetchStreamPropertyFields:
         ]
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_unique_namespaces(self, mock_list_streams):
+        mock_list_streams.return_value = [
+            {
+                "streamName": "events",
+                "namespace": "my_schema",
+                "propertyFields": [["id"]],
+            },
+            {
+                "streamName": "orders",
+                "namespace": "my_schema",
+            },
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert metadata.namespaces_by_name == {
+            "events": ["my_schema"],
+            "orders": ["my_schema"],
+        }
+        assert (
+            StreamIdentifier(stream_name="events", namespace="my_schema")
+            in metadata.property_fields_by_stream
+        )
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_preserves_multi_schema_order(
+        self, mock_list_streams
+    ):
+        mock_list_streams.return_value = [
+            {"streamName": "users", "namespace": "public", "propertyFields": [["id"]]},
+            {
+                "streamName": "users",
+                "namespace": "analytics",
+                "propertyFields": [["id"]],
+            },
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert metadata.namespaces_by_name == {"users": ["public", "analytics"]}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1059,13 +1208,13 @@ class TestFetchStreamPropertyFields:
 class TestGetConnection:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_property_fields"
+        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_api_metadata"
     )
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._build_sync_catalog"
     )
     def test_get_connection_builds_sync_catalog_from_configurations(
-        self, mock_build_sync, mock_fetch_fields, mock_make_request
+        self, mock_build_sync, mock_fetch_metadata, mock_make_request
     ):
         mock_make_request.return_value = {
             "connectionId": "conn-123",
@@ -1073,7 +1222,7 @@ class TestGetConnection:
             "destinationId": "dest-123",
             "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
         }
-        mock_fetch_fields.return_value = {}
+        mock_fetch_metadata.return_value = AirbyteStreamApiMetadata()
         mock_build_sync_catalog: Dict[str, Any] = {"streams": []}
         mock_build_sync.return_value = mock_build_sync_catalog
 
@@ -1086,8 +1235,11 @@ class TestGetConnection:
         result = client.get_connection("conn-123")
 
         assert result.sync_catalog is not None
-        mock_fetch_fields.assert_called_once_with("source-123")
+        mock_fetch_metadata.assert_called_once_with("source-123")
         mock_build_sync.assert_called_once()
+        build_args = mock_build_sync.call_args[0]
+        assert build_args[0] == [{"name": "users", "namespace": "public"}]
+        assert isinstance(build_args[1], AirbyteStreamApiMetadata)
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_connection_with_existing_sync_catalog(self, mock_make_request):

@@ -19,6 +19,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
     AirbyteDestinationPartial,
     AirbyteSourcePartial,
+    AirbyteStreamApiMetadata,
     AirbyteWorkspacePartial,
     PropertyFieldPath,
     StreamIdentifier,
@@ -353,21 +354,31 @@ class AirbyteBaseClient(ABC):
         ):
             configurations = connection_data.get("configurations", {})
             if "streams" in configurations:
-                stream_property_fields = self._fetch_stream_property_fields(
+                stream_api_metadata = self._fetch_stream_api_metadata(
                     connection_data.get("sourceId")
                 )
-
                 connection_data["syncCatalog"] = self._build_sync_catalog(
-                    configurations["streams"], stream_property_fields
+                    configurations["streams"],
+                    stream_api_metadata,
                 )
 
         return AirbyteConnectionPartial.model_validate(connection_data)
 
-    def _fetch_stream_property_fields(
+    @staticmethod
+    def _stream_namespace_from_api(stream: Dict[str, Any]) -> str:
+        namespace = (
+            stream.get("namespace")
+            or stream.get("streamnamespace")
+            or stream.get("streamNamespace")
+            or ""
+        )
+        return namespace if isinstance(namespace, str) else ""
+
+    def _fetch_stream_api_metadata(
         self, source_id: Optional[str]
-    ) -> Dict[StreamIdentifier, List[PropertyFieldPath]]:
+    ) -> AirbyteStreamApiMetadata:
         if not source_id:
-            return {}
+            return AirbyteStreamApiMetadata()
 
         try:
             detailed_streams = self.list_streams(source_id=source_id)
@@ -377,42 +388,82 @@ class AirbyteBaseClient(ABC):
             # errors silently degrade column-level lineage, so we re-raise
             # to let the source layer surface them.
             if "404" in str(e):
-                return {}
+                return AirbyteStreamApiMetadata()
             raise
 
-        stream_property_fields: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
+        property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
+        namespaces_by_name: Dict[str, List[str]] = {}
         for stream in detailed_streams:
-            if not isinstance(stream, dict) or not stream.get("propertyFields"):
+            if not isinstance(stream, dict):
                 continue
 
             stream_name = stream.get("streamName") or stream.get("name")
             if not stream_name or not isinstance(stream_name, str):
                 continue
 
-            namespace = (
-                stream.get("namespace")
-                or stream.get("streamnamespace")
-                or stream.get("streamNamespace")
-                or ""
-            )
-            if not isinstance(namespace, str):
-                namespace = ""
+            namespace = self._stream_namespace_from_api(stream)
+            if namespace:
+                namespaces_by_name.setdefault(stream_name, []).append(namespace)
+
+            raw_fields = stream.get("propertyFields") or []
+            if not raw_fields:
+                continue
 
             stream_id = StreamIdentifier(stream_name=stream_name, namespace=namespace)
-            raw_fields = stream.get("propertyFields", [])
-            stream_property_fields[stream_id] = [
+            property_fields_by_stream[stream_id] = [
                 PropertyFieldPath(path=field if isinstance(field, list) else [field])
                 for field in raw_fields
                 if field
             ]
 
-        return stream_property_fields
+        return AirbyteStreamApiMetadata(
+            property_fields_by_stream=property_fields_by_stream,
+            namespaces_by_name=namespaces_by_name,
+        )
+
+    def _fetch_stream_property_fields(
+        self, source_id: Optional[str]
+    ) -> Dict[StreamIdentifier, List[PropertyFieldPath]]:
+        return self._fetch_stream_api_metadata(source_id).property_fields_by_stream
+
+    @staticmethod
+    def _namespace_queues_for_catalog(
+        config_streams: List[Dict[str, Any]],
+        namespaces_by_name: Dict[str, List[str]],
+    ) -> Dict[str, List[str]]:
+        unnamed_counts: Dict[str, int] = {}
+        for stream in config_streams:
+            name = stream.get("name")
+            namespace = stream.get("namespace")
+            if not isinstance(name, str):
+                name = str(name) if name is not None else ""
+            if not name:
+                continue
+            if not isinstance(namespace, str):
+                namespace = str(namespace) if namespace is not None else ""
+            if not namespace:
+                unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
+
+        queues: Dict[str, List[str]] = {}
+        for name, namespaces in namespaces_by_name.items():
+            needed = unnamed_counts.get(name, 0)
+            if not needed or not namespaces:
+                continue
+            if len(namespaces) == 1:
+                queues[name] = [namespaces[0]] * needed
+            elif needed == len(namespaces):
+                queues[name] = list(namespaces)
+        return queues
 
     def _build_sync_catalog(
         self,
         config_streams: List[Dict[str, Any]],
-        stream_property_fields: Dict[StreamIdentifier, List[PropertyFieldPath]],
+        stream_api_metadata: Optional[AirbyteStreamApiMetadata] = None,
     ) -> SyncCatalogDict:
+        metadata = stream_api_metadata or AirbyteStreamApiMetadata()
+        namespace_queues = self._namespace_queues_for_catalog(
+            config_streams, metadata.namespaces_by_name
+        )
         streams: List[StreamSyncDict] = []
         for stream in config_streams:
             name = stream.get("name")
@@ -423,8 +474,13 @@ class AirbyteBaseClient(ABC):
             if not isinstance(namespace, str):
                 namespace = str(namespace) if namespace is not None else ""
 
+            if not namespace:
+                queued = namespace_queues.get(name)
+                if queued:
+                    namespace = queued.pop(0)
+
             stream_id = StreamIdentifier(stream_name=name, namespace=namespace)
-            property_fields = stream_property_fields.get(stream_id)
+            property_fields = metadata.property_fields_by_stream.get(stream_id)
 
             stream_schema: StreamSchemaDict = {
                 "name": name,
