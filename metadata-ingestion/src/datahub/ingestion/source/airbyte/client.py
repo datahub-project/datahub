@@ -10,6 +10,13 @@ from requests.auth import HTTPBasicAuth
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.source.airbyte.airbyte_utils import (
+    apply_pattern,
+    clean_uri,
+    coerce_str,
+    namespace_queues_for_catalog,
+    stream_namespace_from_api,
+)
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
@@ -118,10 +125,6 @@ class AirbyteBaseClient(ABC):
 
         return session
 
-    @staticmethod
-    def _clean_uri(uri: str) -> str:
-        return uri.rstrip("/")
-
     def _do_get(
         self,
         url: str,
@@ -219,20 +222,6 @@ class AirbyteBaseClient(ABC):
 
             offset += page_size
 
-    @staticmethod
-    def _apply_pattern(
-        items: List[Dict[str, Any]], pattern: AllowDenyPattern, name_key: str = "name"
-    ) -> List[Dict[str, Any]]:
-        if not items:
-            return []
-        if pattern.allow_all():
-            return items
-        return [
-            item
-            for item in items
-            if (name := item.get(name_key, "")) and pattern.allowed(name)
-        ]
-
     @abstractmethod
     def _get_full_url(self, endpoint: str) -> str: ...
 
@@ -248,7 +237,7 @@ class AirbyteBaseClient(ABC):
         )
 
         if pattern:
-            workspaces_data = self._apply_pattern(workspaces_data, pattern)
+            workspaces_data = apply_pattern(workspaces_data, pattern)
 
         return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
 
@@ -268,7 +257,7 @@ class AirbyteBaseClient(ABC):
         ]
 
         if pattern:
-            active_connections = self._apply_pattern(active_connections, pattern)
+            active_connections = apply_pattern(active_connections, pattern)
 
         return [AirbyteConnectionPartial.model_validate(c) for c in active_connections]
 
@@ -320,7 +309,7 @@ class AirbyteBaseClient(ABC):
         )
 
         if pattern:
-            sources_data = self._apply_pattern(sources_data, pattern)
+            sources_data = apply_pattern(sources_data, pattern)
 
         return [AirbyteSourcePartial.model_validate(s) for s in sources_data]
 
@@ -342,7 +331,7 @@ class AirbyteBaseClient(ABC):
         )
 
         if pattern:
-            destinations_data = self._apply_pattern(destinations_data, pattern)
+            destinations_data = apply_pattern(destinations_data, pattern)
 
         return [AirbyteDestinationPartial.model_validate(d) for d in destinations_data]
 
@@ -369,22 +358,6 @@ class AirbyteBaseClient(ABC):
                 connection_data["ambiguous_stream_namespaces"] = ambiguous
 
         return AirbyteConnectionPartial.model_validate(connection_data)
-
-    @staticmethod
-    def _coerce_str(value: object) -> str:
-        if isinstance(value, str):
-            return value
-        return str(value) if value is not None else ""
-
-    @staticmethod
-    def _stream_namespace_from_api(stream: Dict[str, Any]) -> str:
-        namespace = (
-            stream.get("namespace")
-            or stream.get("streamnamespace")
-            or stream.get("streamNamespace")
-            or ""
-        )
-        return namespace if isinstance(namespace, str) else ""
 
     def _fetch_stream_api_metadata(
         self, source_id: Optional[str]
@@ -416,7 +389,7 @@ class AirbyteBaseClient(ABC):
             if not stream_name or not isinstance(stream_name, str):
                 continue
 
-            namespace = self._stream_namespace_from_api(stream)
+            namespace = stream_namespace_from_api(stream)
             if namespace:
                 namespaces_by_name.setdefault(stream_name, []).append(namespace)
 
@@ -436,59 +409,22 @@ class AirbyteBaseClient(ABC):
             namespaces_by_name=namespaces_by_name,
         )
 
-    @staticmethod
-    def _namespace_queues_for_catalog(
-        config_streams: List[Dict[str, Any]],
-        namespaces_by_name: Dict[str, List[str]],
-    ) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
-        # Unnamed count vs full /streams list; does not subtract explicit siblings.
-        unnamed_counts: Dict[str, int] = {}
-        for stream in config_streams:
-            name = AirbyteBaseClient._coerce_str(stream.get("name"))
-            if not name:
-                continue
-            namespace = AirbyteBaseClient._coerce_str(stream.get("namespace"))
-            if not namespace:
-                unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
-
-        queues: Dict[str, List[str]] = {}
-        ambiguous: Dict[str, List[str]] = {}
-        for name, namespaces in namespaces_by_name.items():
-            needed = unnamed_counts.get(name, 0)
-            if not needed or not namespaces:
-                continue
-            if len(namespaces) == 1:
-                queues[name] = [namespaces[0]] * needed
-            elif needed == len(namespaces):
-                queues[name] = list(namespaces)
-            else:
-                ambiguous[name] = list(namespaces)
-                logger.warning(
-                    "Skipping namespace backfill for stream %r: %s unnamed config "
-                    "stream(s) vs %s /streams namespace(s) %s",
-                    name,
-                    needed,
-                    len(namespaces),
-                    namespaces,
-                )
-        return queues, ambiguous
-
     def _build_sync_catalog(
         self,
         config_streams: List[Dict[str, Any]],
         stream_api_metadata: Optional[AirbyteStreamApiMetadata] = None,
     ) -> Tuple[SyncCatalogDict, Dict[str, List[str]]]:
         metadata = stream_api_metadata or AirbyteStreamApiMetadata()
-        namespace_queues, ambiguous = self._namespace_queues_for_catalog(
+        queues, ambiguous = namespace_queues_for_catalog(
             config_streams, metadata.namespaces_by_name
         )
         streams: List[StreamSyncDict] = []
         for stream in config_streams:
-            name = self._coerce_str(stream.get("name"))
-            namespace = self._coerce_str(stream.get("namespace"))
+            name = coerce_str(stream.get("name"))
+            namespace = coerce_str(stream.get("namespace"))
 
             if not namespace:
-                queued = namespace_queues.get(name)
+                queued = queues.get(name)
                 if queued:
                     namespace = queued.pop(0)
 
@@ -593,7 +529,7 @@ class AirbyteOSSClient(AirbyteBaseClient):
             raise ValueError("host_port is required for open_source deployment")
 
         # See https://docs.airbyte.com/developers/api-documentation
-        self.base_url = f"{self._clean_uri(config.host_port)}/api/public/v1"
+        self.base_url = f"{clean_uri(config.host_port)}/api/public/v1"
         self._setup_authentication()
 
     def _setup_authentication(self) -> None:
@@ -819,7 +755,7 @@ class AirbyteCloudClient(AirbyteBaseClient):
             workspaces_data = [workspace_data] if workspace_data else []
 
             if pattern:
-                workspaces_data = self._apply_pattern(workspaces_data, pattern)
+                workspaces_data = apply_pattern(workspaces_data, pattern)
 
             return [AirbyteWorkspacePartial.model_validate(w) for w in workspaces_data]
         except requests.HTTPError as e:

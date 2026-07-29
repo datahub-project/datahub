@@ -124,7 +124,7 @@ class TestAirbyteOSSClient:
         )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
-    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._apply_pattern")
+    @patch("datahub.ingestion.source.airbyte.client.apply_pattern")
     def test_list_workspaces_with_pattern(
         self, mock_apply_pattern, mock_paginate_results
     ):
