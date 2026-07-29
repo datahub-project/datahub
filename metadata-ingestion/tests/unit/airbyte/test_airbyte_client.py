@@ -13,7 +13,6 @@ from datahub.ingestion.source.airbyte.client import (
     AirbyteBaseClient,
     AirbyteCloudClient,
     AirbyteOSSClient,
-    SyncCatalogBuildResult,
     create_airbyte_client,
 )
 from datahub.ingestion.source.airbyte.config import (
@@ -23,8 +22,10 @@ from datahub.ingestion.source.airbyte.config import (
 )
 from datahub.ingestion.source.airbyte.models import (
     AirbyteStreamApiMetadata,
+    AirbyteSyncCatalog,
     PropertyFieldPath,
     StreamIdentifier,
+    SyncCatalogBuildResult,
 )
 
 
@@ -765,12 +766,11 @@ class TestClientBuildSyncCatalog:
 
         build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        assert "streams" in build_result.catalog
-        assert len(build_result.catalog["streams"]) == 1
-        stream = build_result.catalog["streams"][0]
-        assert stream["stream"]["name"] == "users"
-        assert stream["stream"]["namespace"] == "public"
-        assert "jsonSchema" in stream["stream"]
+        assert len(build_result.catalog.streams) == 1
+        stream = build_result.catalog.streams[0]
+        assert stream.stream.name == "users"
+        assert stream.stream.namespace == "public"
+        assert stream.stream.json_schema
 
     def test_build_sync_catalog_without_property_fields(self):
         config = AirbyteClientConfig(
@@ -791,8 +791,7 @@ class TestClientBuildSyncCatalog:
             config_streams, AirbyteStreamApiMetadata()
         )
 
-        assert "streams" in build_result.catalog
-        assert len(build_result.catalog["streams"]) == 1
+        assert len(build_result.catalog.streams) == 1
 
     def test_build_sync_catalog_backfills_namespace_from_streams_api(self):
         config = AirbyteClientConfig(
@@ -818,12 +817,10 @@ class TestClientBuildSyncCatalog:
 
         build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        stream = build_result.catalog["streams"][0]
-        assert stream["stream"]["name"] == "events"
-        assert stream["stream"]["namespace"] == "my_schema"
-        properties: Dict[str, Any] = stream["stream"]["jsonSchema"].get(  # type: ignore[assignment]
-            "properties", {}
-        )
+        stream = build_result.catalog.streams[0]
+        assert stream.stream.name == "events"
+        assert stream.stream.namespace == "my_schema"
+        properties: Dict[str, Any] = stream.stream.json_schema.get("properties", {})
         assert "id" in properties
 
     def test_build_sync_catalog_assigns_multi_schema_namespaces_in_order(self):
@@ -851,19 +848,15 @@ class TestClientBuildSyncCatalog:
 
         build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        first_properties: Dict[str, Any] = build_result.catalog["streams"][0]["stream"][
-            "jsonSchema"
-        ].get(  # type: ignore[assignment]
-            "properties", {}
-        )
-        second_properties: Dict[str, Any] = build_result.catalog["streams"][1][
-            "stream"
-        ]["jsonSchema"].get(  # type: ignore[assignment]
-            "properties", {}
-        )
-        assert build_result.catalog["streams"][0]["stream"]["namespace"] == "public"
+        first_properties: Dict[str, Any] = build_result.catalog.streams[
+            0
+        ].stream.json_schema.get("properties", {})
+        second_properties: Dict[str, Any] = build_result.catalog.streams[
+            1
+        ].stream.json_schema.get("properties", {})
+        assert build_result.catalog.streams[0].stream.namespace == "public"
         assert "id" in first_properties
-        assert build_result.catalog["streams"][1]["stream"]["namespace"] == "analytics"
+        assert build_result.catalog.streams[1].stream.namespace == "analytics"
         assert "user_id" in second_properties
         assert build_result.positional == {"users": ["public", "analytics"]}
         assert build_result.ambiguous == {}
@@ -882,7 +875,7 @@ class TestClientBuildSyncCatalog:
 
         build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        assert build_result.catalog["streams"][0]["stream"]["namespace"] is None
+        assert build_result.catalog.streams[0].stream.namespace is None
         assert build_result.ambiguous == {"users": ["public", "analytics"]}
 
     def test_build_sync_catalog_broadcasts_single_namespace_to_many_unnamed(self):
@@ -897,7 +890,7 @@ class TestClientBuildSyncCatalog:
             AirbyteStreamApiMetadata(namespaces_by_name={"events": ["my_schema"]}),
         )
 
-        assert [s["stream"]["namespace"] for s in build_result.catalog["streams"]] == [
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
             "my_schema",
             "my_schema",
         ]
@@ -915,7 +908,7 @@ class TestClientBuildSyncCatalog:
             AirbyteStreamApiMetadata(namespaces_by_name={"orders": ["sales"]}),
         )
 
-        assert build_result.catalog["streams"][0]["stream"]["namespace"] is None
+        assert build_result.catalog.streams[0].stream.namespace is None
         assert build_result.ambiguous == {}
 
     def test_build_sync_catalog_prefers_config_namespace_over_backfill(self):
@@ -933,10 +926,7 @@ class TestClientBuildSyncCatalog:
             ),
         )
 
-        assert (
-            build_result.catalog["streams"][0]["stream"]["namespace"]
-            == "explicit_schema"
-        )
+        assert build_result.catalog.streams[0].stream.namespace == "explicit_schema"
         assert build_result.ambiguous == {}
 
     def test_build_stream_config(self):
@@ -954,11 +944,11 @@ class TestClientBuildSyncCatalog:
 
         result = client._build_stream_config(stream)
 
-        assert result["selected"] is True
-        assert result["syncMode"] == "incremental"
-        assert result["destinationSyncMode"] == "append"
-        assert result["primaryKey"] == [["id"]]
-        assert result["cursorField"] == ["updated_at"]
+        assert result.selected is True
+        assert result.sync_mode == "incremental"
+        assert result.destination_sync_mode == "append"
+        assert result.primary_key == [["id"]]
+        assert result.cursor_field == ["updated_at"]
 
     def test_get_json_schema_for_stream_with_property_fields(self):
         config = AirbyteClientConfig(
@@ -1320,7 +1310,9 @@ class TestGetConnection:
             "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
         }
         mock_fetch_metadata.return_value = AirbyteStreamApiMetadata()
-        mock_build_sync.return_value = SyncCatalogBuildResult(catalog={"streams": []})
+        mock_build_sync.return_value = SyncCatalogBuildResult(
+            catalog=AirbyteSyncCatalog(streams=[])
+        )
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,

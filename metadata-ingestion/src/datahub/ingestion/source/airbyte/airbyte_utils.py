@@ -1,29 +1,11 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Sequence, TypedDict
+from typing import Any, Dict, List, Sequence
 
 from datahub.configuration.common import AllowDenyPattern
-
-StreamNamespacesByName = Dict[str, List[str]]
-
-
-class AirbyteNamedResource(TypedDict, total=False):
-    name: str
-
-
-class AirbyteStreamsApiRow(TypedDict, total=False):
-    name: str
-    streamName: str
-    namespace: str
-    streamnamespace: str
-    streamNamespace: str
-    propertyFields: List[object]
-
-
-@dataclass(frozen=True)
-class NamespaceQueueResult:
-    queues: StreamNamespacesByName = field(default_factory=dict)
-    ambiguous: StreamNamespacesByName = field(default_factory=dict)
-    positional: StreamNamespacesByName = field(default_factory=dict)
+from datahub.ingestion.source.airbyte.models import (
+    AirbyteConfigStreamRef,
+    NamespaceQueueResult,
+    StreamNamespacesByName,
+)
 
 
 def clean_uri(uri: str) -> str:
@@ -52,27 +34,17 @@ def coerce_str(value: object) -> str:
     return str(value) if value is not None else ""
 
 
-def stream_namespace_from_api(stream: Mapping[str, object]) -> str:
-    namespace = (
-        stream.get("namespace")
-        or stream.get("streamnamespace")
-        or stream.get("streamNamespace")
-        or ""
-    )
-    return namespace if isinstance(namespace, str) else ""
-
-
 def namespace_queues_for_catalog(
-    config_streams: Sequence[Mapping[str, object]],
+    config_streams: Sequence[AirbyteConfigStreamRef],
     namespaces_by_name: StreamNamespacesByName,
 ) -> NamespaceQueueResult:
     # Unnamed count vs full /streams list; does not subtract explicit siblings.
     unnamed_counts: Dict[str, int] = {}
     for stream in config_streams:
-        name = coerce_str(stream.get("name"))
+        name = coerce_str(stream.name)
         if not name:
             continue
-        namespace = coerce_str(stream.get("namespace"))
+        namespace = coerce_str(stream.namespace)
         if not namespace:
             unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
 

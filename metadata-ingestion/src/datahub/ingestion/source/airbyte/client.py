@@ -2,8 +2,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, TypedDict
+from typing import Any, Dict, Iterator, List, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -12,12 +11,10 @@ from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.airbyte_utils import (
-    StreamNamespacesByName,
     apply_pattern,
     clean_uri,
     coerce_str,
     namespace_queues_for_catalog,
-    stream_namespace_from_api,
 )
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
@@ -25,13 +22,20 @@ from datahub.ingestion.source.airbyte.config import (
     OAuth2GrantType,
 )
 from datahub.ingestion.source.airbyte.models import (
+    AirbyteConfigStreamRef,
     AirbyteConnectionPartial,
     AirbyteDestinationPartial,
     AirbyteSourcePartial,
+    AirbyteStream,
     AirbyteStreamApiMetadata,
+    AirbyteStreamConfig,
+    AirbyteStreamsApiRow,
+    AirbyteStreamSyncSettings,
+    AirbyteSyncCatalog,
     AirbyteWorkspacePartial,
     PropertyFieldPath,
     StreamIdentifier,
+    SyncCatalogBuildResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,45 +57,6 @@ class AirbyteApiError(Exception):
 
 class AirbyteAuthenticationError(AirbyteApiError):
     pass
-
-
-class StreamConfigDict(TypedDict, total=False):
-    selected: bool
-    syncMode: str
-    destinationSyncMode: str
-    primaryKey: List[List[str]]
-    cursorField: List[str]
-    destinationNamespace: str
-    aliasName: str
-    selectedFields: List[str]
-    fieldSelectionEnabled: bool
-
-
-class StreamSchemaDict(TypedDict):
-    name: str
-    namespace: Optional[str]
-    jsonSchema: Dict[str, object]
-
-
-class StreamSyncDict(TypedDict):
-    stream: StreamSchemaDict
-    config: StreamConfigDict
-
-
-class SyncCatalogDict(TypedDict):
-    streams: List[StreamSyncDict]
-
-
-@dataclass(frozen=True)
-class SyncCatalogBuildResult:
-    catalog: SyncCatalogDict
-    ambiguous: StreamNamespacesByName = field(default_factory=dict)
-    positional: StreamNamespacesByName = field(default_factory=dict)
-
-
-class JsonSchemaDict(TypedDict, total=False):
-    type: str
-    properties: Dict[str, Dict[str, object]]
 
 
 class AirbyteBaseClient(ABC):
@@ -397,22 +362,22 @@ class AirbyteBaseClient(ABC):
             if not isinstance(stream, dict):
                 continue
 
-            stream_name = stream.get("streamName") or stream.get("name")
-            if not stream_name or not isinstance(stream_name, str):
+            row = AirbyteStreamsApiRow.model_validate(stream)
+            if not row.stream_name:
                 continue
 
-            namespace = stream_namespace_from_api(stream)
-            if namespace:
-                namespaces_by_name.setdefault(stream_name, []).append(namespace)
+            if row.namespace:
+                namespaces_by_name.setdefault(row.stream_name, []).append(row.namespace)
 
-            raw_fields = stream.get("propertyFields") or []
-            if not raw_fields:
+            if not row.property_fields:
                 continue
 
-            stream_id = StreamIdentifier(stream_name=stream_name, namespace=namespace)
+            stream_id = StreamIdentifier(
+                stream_name=row.stream_name, namespace=row.namespace
+            )
             property_fields_by_stream[stream_id] = [
                 PropertyFieldPath(path=field if isinstance(field, list) else [field])
-                for field in raw_fields
+                for field in row.property_fields
                 if field
             ]
 
@@ -426,16 +391,21 @@ class AirbyteBaseClient(ABC):
         config_streams: List[Dict[str, Any]],
         stream_api_metadata: AirbyteStreamApiMetadata,
     ) -> SyncCatalogBuildResult:
+        stream_refs = [
+            AirbyteConfigStreamRef.model_validate(stream) for stream in config_streams
+        ]
         queue_result = namespace_queues_for_catalog(
-            config_streams, stream_api_metadata.namespaces_by_name
+            stream_refs, stream_api_metadata.namespaces_by_name
         )
-        streams: List[StreamSyncDict] = []
-        for stream in config_streams:
-            name = coerce_str(stream.get("name"))
-            namespace = coerce_str(stream.get("namespace"))
+        # Mutate a copy so frozen NamespaceQueueResult.queues stays intact for callers.
+        queues = {name: list(ns) for name, ns in queue_result.queues.items()}
+        streams: List[AirbyteStreamConfig] = []
+        for stream, stream_ref in zip(config_streams, stream_refs, strict=True):
+            name = coerce_str(stream_ref.name)
+            namespace = coerce_str(stream_ref.namespace)
 
             if not namespace:
-                queued = queue_result.queues.get(name)
+                queued = queues.get(name)
                 if queued:
                     namespace = queued.pop(0)
 
@@ -444,54 +414,58 @@ class AirbyteBaseClient(ABC):
                 stream_id
             )
 
-            stream_schema: StreamSchemaDict = {
-                "name": name,
-                "namespace": namespace if namespace else None,
-                "jsonSchema": self._get_json_schema_for_stream(stream, property_fields),
-            }
-
-            stream_sync: StreamSyncDict = {
-                "stream": stream_schema,
-                "config": self._build_stream_config(stream),
-            }
-
-            streams.append(stream_sync)
+            streams.append(
+                AirbyteStreamConfig(
+                    stream=AirbyteStream(
+                        name=name,
+                        namespace=namespace if namespace else None,
+                        json_schema=self._get_json_schema_for_stream(
+                            stream, property_fields
+                        ),
+                    ),
+                    config=self._build_stream_config(stream),
+                )
+            )
 
         return SyncCatalogBuildResult(
-            catalog={"streams": streams},
+            catalog=AirbyteSyncCatalog(streams=streams),
             ambiguous=queue_result.ambiguous,
             positional=queue_result.positional,
         )
 
-    def _build_stream_config(self, stream: Dict[str, Any]) -> StreamConfigDict:
+    def _build_stream_config(self, stream: Dict[str, Any]) -> AirbyteStreamSyncSettings:
         sync_mode = stream.get("syncMode", "")
 
-        config: StreamConfigDict = {
-            "selected": True,
-            "syncMode": sync_mode.split("_")[0] if sync_mode else "full_refresh",
-            "destinationSyncMode": (
+        settings = AirbyteStreamSyncSettings(
+            selected=True,
+            sync_mode=sync_mode.split("_")[0] if sync_mode else "full_refresh",
+            destination_sync_mode=(
                 sync_mode.split("_")[1] if "_" in sync_mode else "overwrite"
             ),
-            "primaryKey": stream.get("primaryKey", []),
-            "cursorField": stream.get("cursorField", []),
+            primary_key=stream.get("primaryKey") or [],
+            cursor_field=stream.get("cursorField") or [],
+        )
+
+        optional_aliases = {
+            "destinationNamespace": "destination_namespace",
+            "aliasName": "alias_name",
+            "selectedFields": "selected_fields",
+            "fieldSelectionEnabled": "field_selection_enabled",
         }
-
-        for key in (
-            "destinationNamespace",
-            "aliasName",
-            "selectedFields",
-            "fieldSelectionEnabled",
-        ):
-            if key in stream:
-                config[key] = stream[key]  # type: ignore[literal-required]
-
-        return config
+        updates = {
+            field_name: stream[key]
+            for key, field_name in optional_aliases.items()
+            if key in stream
+        }
+        if updates:
+            return settings.model_copy(update=updates)
+        return settings
 
     def _get_json_schema_for_stream(
         self,
         stream: Dict[str, Any],
         property_fields: Optional[List[PropertyFieldPath]] = None,
-    ) -> Dict[str, object]:
+    ) -> Dict[str, Any]:
         # Schema sources in order of preference:
         #   1. propertyFields from `/streams` (Airbyte 1.8+, most accurate)
         #   2. jsonSchema embedded in the legacy configurations payload

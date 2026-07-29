@@ -2,9 +2,10 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from datahub.ingestion.source.airbyte.airbyte_utils import StreamNamespacesByName
 from datahub.ingestion.source.airbyte.config import PlatformDetail
 from datahub.utilities.str_enum import StrEnum
+
+StreamNamespacesByName = Dict[str, List[str]]
 
 # Schema-name keys seen across Airbyte connector configurations. Order
 # matters — more-specific keys first so the generic `"schema"` doesn't
@@ -82,46 +83,101 @@ class PropertyFieldPath(BaseModel):
         return ".".join(self.path)
 
 
+class AirbyteConfigStreamRef(BaseModel):
+    """Minimal fields from Public API `configurations.streams` used for
+    namespace backfill queue accounting. Extra keys are preserved."""
+
+    name: Optional[str] = None
+    namespace: Optional[str] = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class AirbyteStreamsApiRow(BaseModel):
+    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
+
+    stream_name: Optional[str] = Field(
+        None, validation_alias=AliasChoices("streamName", "name")
+    )
+    namespace: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "namespace", "streamnamespace", "streamNamespace"
+        ),
+    )
+    property_fields: List[object] = Field(default_factory=list, alias="propertyFields")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
+class AirbyteStreamSyncSettings(BaseModel):
+    selected: bool = True
+    sync_mode: str = Field(default="full_refresh", alias="syncMode")
+    destination_sync_mode: str = Field(default="overwrite", alias="destinationSyncMode")
+    primary_key: List[List[str]] = Field(default_factory=list, alias="primaryKey")
+    cursor_field: List[str] = Field(default_factory=list, alias="cursorField")
+    destination_namespace: Optional[str] = Field(None, alias="destinationNamespace")
+    alias_name: Optional[str] = Field(None, alias="aliasName")
+    selected_fields: Optional[List[str]] = Field(None, alias="selectedFields")
+    field_selection_enabled: Optional[bool] = Field(None, alias="fieldSelectionEnabled")
+    field_selection: Dict[str, bool] = Field(
+        default_factory=dict, alias="fieldSelection"
+    )
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+
 class AirbyteStream(BaseModel):
     name: str
     namespace: Optional[str] = Field(None, alias="namespace")
-    json_schema: Dict[str, Any] = Field({}, alias="jsonSchema")
+    json_schema: Dict[str, Any] = Field(default_factory=dict, alias="jsonSchema")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteStreamConfig(BaseModel):
     stream: AirbyteStream
-    config: Dict[str, Any] = {}
+    config: AirbyteStreamSyncSettings = Field(default_factory=AirbyteStreamSyncSettings)
 
     def is_enabled(self) -> bool:
-        if not self.config:
-            return True
-        if self.config.get("syncMode") == "null":
+        if self.config.sync_mode == "null":
             return False
-        if self.config.get("selected") is False:
+        if self.config.selected is False:
             return False
         return True
 
     def is_field_selected(self, field_name: str) -> bool:
         # Default to selected when no fieldSelection mapping is supplied.
-        if not self.config:
+        if not self.config.field_selection:
             return True
-        field_selection = self.config.get("fieldSelection", {})
-        return field_selection.get(field_name) is not False
+        return self.config.field_selection.get(field_name) is not False
 
     def get_destination_namespace(self) -> Optional[str]:
-        if not self.config:
-            return None
-        return self.config.get("destinationNamespace")
+        return self.config.destination_namespace
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSyncCatalog(BaseModel):
-    streams: List[AirbyteStreamConfig] = []
+    streams: List[AirbyteStreamConfig] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class NamespaceQueueResult(BaseModel):
+    queues: StreamNamespacesByName = Field(default_factory=dict)
+    ambiguous: StreamNamespacesByName = Field(default_factory=dict)
+    positional: StreamNamespacesByName = Field(default_factory=dict)
+
+    model_config = ConfigDict(frozen=True)
+
+
+class SyncCatalogBuildResult(BaseModel):
+    catalog: AirbyteSyncCatalog
+    ambiguous: StreamNamespacesByName = Field(default_factory=dict)
+    positional: StreamNamespacesByName = Field(default_factory=dict)
+
+    model_config = ConfigDict(frozen=True)
 
 
 class AirbyteSourceConfiguration(BaseModel):
