@@ -1,6 +1,10 @@
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
 
 
 def test_clickhouse_uri_https():
@@ -172,3 +176,29 @@ def test_is_temp_table_custom_patterns():
     assert config.is_temp_table("test_table")
     # Default patterns no longer match with custom patterns
     assert not config.is_temp_table("_temp_table")
+
+
+@patch("datahub.ingestion.source.sql.clickhouse.create_engine")
+def test_parse_query_log_row_sets_default_schema_from_current_database(
+    _create_engine_mock: MagicMock,
+) -> None:
+    config = ClickHouseConfig.model_validate({"host_port": "localhost:8123"})
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    row = {
+        "query": "SELECT * FROM customers",
+        "query_id": "abc123",
+        "event_time": datetime(2024, 1, 1, tzinfo=timezone.utc),
+        "user": "datahub",
+        "normalized_query_hash": "hash123",
+        "current_database": "default",
+    }
+
+    observed = source._parse_query_log_row(row)
+
+    assert observed is not None
+    # default_schema (not default_db) correctly maps current_database to sqlglot's
+    # schema level, so unqualified refs qualify as db.table without breaking
+    # already-qualified refs like analytics_marts.events.
+    assert observed.default_schema == "default"
+    assert observed.default_db is None
