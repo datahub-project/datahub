@@ -1137,11 +1137,14 @@ def test_sqlglot_parser_2():
     data_platform_tables: List[DataPlatformTable] = lineage[0].upstreams
 
     assert len(data_platform_tables) == 4
+    # M_QUERIES[28]'s source is Snowflake.Databases(...){[Name="ORDERING"]}[Data] --
+    # the "ordering" database segment below now comes from that literal, previously
+    # dropped because get_db_name() had no Snowflake branch at all.
     assert [dpt.urn for dpt in data_platform_tables] == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.deals,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.price_modifications,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.products,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.raw.promotions,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.deals,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.price_modifications,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.products,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.ordering.raw.promotions,PROD)",
     ]
 
 
