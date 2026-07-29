@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Sequence, Tuple
+from typing import Dict, Sequence
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 
@@ -41,8 +41,6 @@ API_RESPONSE_KEY_ERROR_DESCRIPTION = "error_description"
 
 API_QUERY_WORKSPACE_ID = "workspaceId"
 API_QUERY_WORKSPACE_IDS = "workspaceIds"
-API_QUERY_SOURCE_ID = "sourceId"
-API_QUERY_DESTINATION_ID = "destinationId"
 API_QUERY_LIMIT = "limit"
 API_QUERY_OFFSET = "offset"
 API_QUERY_UPDATED_AT_START = "updatedAtStart"
@@ -90,7 +88,6 @@ API_JOB_CONFIG_TYPE_RESET = "reset_connection"
 SYNC_MODE_FULL_REFRESH = "full_refresh"
 SYNC_MODE_DESTINATION_OVERWRITE = "overwrite"
 SYNC_MODE_NULL = "null"
-SYNC_MODE_SEPARATOR = "_"
 
 JSON_SCHEMA_TYPE_OBJECT = "object"
 JSON_SCHEMA_TYPE_NULL = "null"
@@ -191,12 +188,4 @@ AIRBYTE_JOB_STATUS_MAP = {
 
 PLATFORM_NAME_SPACE_RE = re.compile(r" ")
 FQ_STREAM_NAME_DOT_RE = re.compile(r"\.")
-SOURCE_NAMESPACE_TEMPLATE_RE = re.compile(re.escape(SOURCE_NAMESPACE_PLACEHOLDER))
 SYNC_MODE_PARTS_RE = re.compile(r"_")
-
-STREAM_SYNC_OPTIONAL_FIELD_MAP: Tuple[Tuple[str, str], ...] = (
-    (API_FIELD_DESTINATION_NAMESPACE, "destination_namespace"),
-    (API_FIELD_ALIAS_NAME, "alias_name"),
-    (API_FIELD_SELECTED_FIELDS, "selected_fields"),
-    (API_FIELD_FIELD_SELECTION_ENABLED, "field_selection_enabled"),
-)

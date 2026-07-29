@@ -4,7 +4,9 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.airbyte.client import AirbyteOSSClient
 from datahub.ingestion.source.airbyte.config import (
+    AirbyteClientConfig,
     AirbyteDeploymentType,
     AirbyteSourceConfig,
     PlatformDetail,
@@ -352,9 +354,6 @@ def test_include_schema_in_urn_forces_three_tier_postgres(mock_create_client, mo
 def test_streams_namespace_backfill_to_dataset_urn(
     mock_create_client, mock_make_request, mock_list_streams, mock_ctx
 ):
-    from datahub.ingestion.source.airbyte.client import AirbyteOSSClient
-    from datahub.ingestion.source.airbyte.config import AirbyteClientConfig
-
     mock_make_request.return_value = {
         "connectionId": "conn-1",
         "sourceId": "source-1",

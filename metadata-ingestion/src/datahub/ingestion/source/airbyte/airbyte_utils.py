@@ -28,23 +28,16 @@ def apply_pattern(
     ]
 
 
-def coerce_str(value: object) -> str:
-    if isinstance(value, str):
-        return value
-    return str(value) if value is not None else ""
-
-
 def namespace_queues_for_catalog(
     config_streams: Sequence[AirbyteConfigStreamRef],
     namespaces_by_name: StreamNamespacesByName,
 ) -> NamespaceQueueResult:
     unnamed_counts: Dict[str, int] = {}
     for stream in config_streams:
-        name = coerce_str(stream.name)
+        name = stream.name or ""
         if not name:
             continue
-        namespace = coerce_str(stream.namespace)
-        if not namespace:
+        if not stream.namespace:
             unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
 
     queues: StreamNamespacesByName = {}

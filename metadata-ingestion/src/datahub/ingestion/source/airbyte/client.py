@@ -13,7 +13,6 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.airbyte_utils import (
     apply_pattern,
     clean_uri,
-    coerce_str,
     namespace_queues_for_catalog,
 )
 from datahub.ingestion.source.airbyte.config import (
@@ -35,17 +34,12 @@ from datahub.ingestion.source.airbyte.constants import (
     API_FIELD_CONFIG_ID,
     API_FIELD_CONFIG_TYPES,
     API_FIELD_CONFIGURATIONS,
-    API_FIELD_CURSOR_FIELD,
     API_FIELD_DESTINATION_ID,
     API_FIELD_GRANT_TYPE,
-    API_FIELD_JSON_SCHEMA,
-    API_FIELD_JSON_SCHEMA_SNAKE,
-    API_FIELD_PRIMARY_KEY,
     API_FIELD_REFRESH_TOKEN,
     API_FIELD_SOURCE_ID,
     API_FIELD_STATUS,
     API_FIELD_SYNC_CATALOG,
-    API_FIELD_SYNC_MODE,
     API_JOB_CONFIG_TYPE_RESET,
     API_JOB_CONFIG_TYPE_SYNC,
     API_QUERY_LIMIT,
@@ -53,6 +47,7 @@ from datahub.ingestion.source.airbyte.constants import (
     API_QUERY_UPDATED_AT_END,
     API_QUERY_UPDATED_AT_START,
     API_QUERY_WORKSPACE_ID,
+    API_QUERY_WORKSPACE_IDS,
     API_RESPONSE_KEY_ACCESS_TOKEN,
     API_RESPONSE_KEY_DATA,
     API_RESPONSE_KEY_ERROR_DESCRIPTION,
@@ -77,7 +72,6 @@ from datahub.ingestion.source.airbyte.constants import (
     JSON_SCHEMA_TYPE_NULL,
     JSON_SCHEMA_TYPE_OBJECT,
     JSON_SCHEMA_TYPE_STRING,
-    STREAM_SYNC_OPTIONAL_FIELD_MAP,
     SYNC_MODE_DESTINATION_OVERWRITE,
     SYNC_MODE_FULL_REFRESH,
     SYNC_MODE_PARTS_RE,
@@ -376,12 +370,12 @@ class AirbyteBaseClient(ABC):
             API_FIELD_CONFIGURATIONS
         ):
             configurations = connection_data.get(API_FIELD_CONFIGURATIONS, {})
-            if "streams" in configurations:
+            if API_RESPONSE_KEY_STREAMS in configurations:
                 stream_api_metadata = self._fetch_stream_api_metadata(
                     connection_data.get(API_FIELD_SOURCE_ID)
                 )
                 build_result = self._build_sync_catalog(
-                    configurations["streams"],
+                    configurations[API_RESPONSE_KEY_STREAMS],
                     stream_api_metadata,
                 )
                 connection_data[API_FIELD_SYNC_CATALOG] = build_result.catalog
@@ -455,9 +449,9 @@ class AirbyteBaseClient(ABC):
         )
         queues = {name: list(ns) for name, ns in queue_result.queues.items()}
         streams: List[AirbyteStreamConfig] = []
-        for stream, stream_ref in zip(config_streams, stream_refs, strict=True):
-            name = coerce_str(stream_ref.name)
-            namespace = coerce_str(stream_ref.namespace)
+        for stream_ref in stream_refs:
+            name = stream_ref.name or ""
+            namespace = stream_ref.namespace or ""
 
             if not namespace:
                 queued = queues.get(name)
@@ -475,10 +469,10 @@ class AirbyteBaseClient(ABC):
                         name=name,
                         namespace=namespace if namespace else None,
                         json_schema=self._get_json_schema_for_stream(
-                            stream, property_fields
+                            stream_ref, property_fields
                         ),
                     ),
-                    config=self._build_stream_config(stream),
+                    config=self._build_stream_config(stream_ref),
                 )
             )
 
@@ -488,11 +482,14 @@ class AirbyteBaseClient(ABC):
             positional=queue_result.positional,
         )
 
-    def _build_stream_config(self, stream: Dict[str, Any]) -> AirbyteStreamSyncSettings:
-        sync_mode = stream.get(API_FIELD_SYNC_MODE, "")
-        sync_mode_parts = SYNC_MODE_PARTS_RE.split(sync_mode) if sync_mode else []
+    def _build_stream_config(
+        self, stream: AirbyteConfigStreamRef
+    ) -> AirbyteStreamSyncSettings:
+        sync_mode_parts = (
+            SYNC_MODE_PARTS_RE.split(stream.sync_mode) if stream.sync_mode else []
+        )
 
-        settings = AirbyteStreamSyncSettings(
+        return AirbyteStreamSyncSettings(
             selected=True,
             sync_mode=sync_mode_parts[0] if sync_mode_parts else SYNC_MODE_FULL_REFRESH,
             destination_sync_mode=(
@@ -500,22 +497,17 @@ class AirbyteBaseClient(ABC):
                 if len(sync_mode_parts) > 1
                 else SYNC_MODE_DESTINATION_OVERWRITE
             ),
-            primary_key=stream.get(API_FIELD_PRIMARY_KEY) or [],
-            cursor_field=stream.get(API_FIELD_CURSOR_FIELD) or [],
+            primary_key=stream.primary_key,
+            cursor_field=stream.cursor_field,
+            destination_namespace=stream.destination_namespace,
+            alias_name=stream.alias_name,
+            selected_fields=stream.selected_fields,
+            field_selection_enabled=stream.field_selection_enabled,
         )
-
-        updates = {
-            field_name: stream[key]
-            for key, field_name in STREAM_SYNC_OPTIONAL_FIELD_MAP
-            if key in stream
-        }
-        if updates:
-            return settings.model_copy(update=updates)
-        return settings
 
     def _get_json_schema_for_stream(
         self,
-        stream: Dict[str, Any],
+        stream: AirbyteConfigStreamRef,
         property_fields: Optional[List[PropertyFieldPath]] = None,
     ) -> Dict[str, Any]:
         if property_fields:
@@ -535,11 +527,7 @@ class AirbyteBaseClient(ABC):
                     JSON_SCHEMA_KEY_PROPERTIES: properties,
                 }
 
-        return (
-            stream.get(API_FIELD_JSON_SCHEMA)
-            or stream.get(API_FIELD_JSON_SCHEMA_SNAKE)
-            or {}
-        )
+        return stream.json_schema
 
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
@@ -569,7 +557,7 @@ class AirbyteBaseClient(ABC):
     def list_tags(self, workspace_id: str) -> List[Dict[str, Any]]:
         self._check_auth_before_request()
         response = self._make_request(
-            f"{API_ENDPOINT_TAGS}?workspaceIds={workspace_id}"
+            f"{API_ENDPOINT_TAGS}?{API_QUERY_WORKSPACE_IDS}={workspace_id}"
         )
         return response.get(API_RESPONSE_KEY_DATA) or response.get(
             API_RESPONSE_KEY_TAGS, []
@@ -616,7 +604,7 @@ class AirbyteOSSClient(AirbyteBaseClient):
         token_data = {
             API_FIELD_CLIENT_ID: self.config.oauth2_client_id,
             API_FIELD_CLIENT_SECRET: self.config.oauth2_client_secret.get_secret_value(),
-            API_FIELD_GRANT_TYPE: "client_credentials",
+            API_FIELD_GRANT_TYPE: OAuth2GrantType.CLIENT_CREDENTIALS.value,
         }
 
         try:

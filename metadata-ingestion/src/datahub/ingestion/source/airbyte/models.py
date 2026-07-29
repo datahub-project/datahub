@@ -1,6 +1,13 @@
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from datahub.ingestion.source.airbyte.config import PlatformDetail
 from datahub.ingestion.source.airbyte.constants import (
@@ -12,6 +19,7 @@ from datahub.ingestion.source.airbyte.constants import (
     API_FIELD_FIELD_SELECTION,
     API_FIELD_FIELD_SELECTION_ENABLED,
     API_FIELD_JSON_SCHEMA,
+    API_FIELD_JSON_SCHEMA_SNAKE,
     API_FIELD_NAME,
     API_FIELD_NAMESPACE,
     API_FIELD_NAMESPACE_DEFINITION,
@@ -52,7 +60,27 @@ def _lookup_config_field(
     return None
 
 
+def _coerce_optional_str(value: object) -> Optional[str]:
+    if value is None or isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _first_truthy_str(data: Mapping[str, Any], keys: Sequence[str]) -> Optional[str]:
+    # Airbyte writes these keys inconsistently across versions, and a key that
+    # is present but empty must fall through to the next alias. Pydantic's
+    # AliasChoices resolves on key *presence*, so it cannot express this.
+    for key in keys:
+        value = data.get(key)
+        if value:
+            return _coerce_optional_str(value)
+    return None
+
+
 class StreamIdentifier(BaseModel):
+    """Hashable `(namespace, stream_name)` key used to look up streams in
+    dicts keyed by stream identity (e.g. propertyFields lookup)."""
+
     stream_name: str
     namespace: str
 
@@ -67,6 +95,11 @@ class StreamIdentifier(BaseModel):
 
 
 class PropertyFieldPath(BaseModel):
+    """A dotted path to a (possibly nested) Airbyte field, e.g.
+    `["address", "city"]` for `address.city`. We only consume the leaf name for
+    column-level lineage; the rest is preserved for callers that care about
+    nesting."""
+
     path: List[str]
 
     @property
@@ -78,29 +111,99 @@ class PropertyFieldPath(BaseModel):
 
 
 class AirbyteConfigStreamRef(BaseModel):
+    """One `configurations.streams` entry from the Public API, covering both the
+    namespace-backfill queue accounting and the sync settings the catalog
+    builder needs. Extra keys are preserved, and values are coerced rather than
+    rejected — a malformed entry should degrade to a best-effort stream instead
+    of aborting the whole connection fetch."""
+
     name: Optional[str] = None
     namespace: Optional[str] = None
-
-    model_config = ConfigDict(extra="allow")
-
-
-class AirbyteStreamsApiRow(BaseModel):
-    stream_name: Optional[str] = Field(
-        None, validation_alias=AliasChoices(API_FIELD_STREAM_NAME, API_FIELD_NAME)
+    # The Public API packs both sync modes into one string, e.g.
+    # "incremental_append"; it is split when building the stream config.
+    sync_mode: Optional[str] = Field(None, alias=API_FIELD_SYNC_MODE)
+    primary_key: List[List[str]] = Field(
+        default_factory=list, alias=API_FIELD_PRIMARY_KEY
     )
-    namespace: str = Field(
-        default="",
-        validation_alias=AliasChoices(
-            API_FIELD_NAMESPACE,
-            API_FIELD_STREAM_NAMESPACE_LOWER,
-            API_FIELD_STREAM_NAMESPACE_CAMEL,
-        ),
+    cursor_field: List[str] = Field(default_factory=list, alias=API_FIELD_CURSOR_FIELD)
+    destination_namespace: Optional[str] = Field(
+        None, alias=API_FIELD_DESTINATION_NAMESPACE
     )
-    property_fields: List[object] = Field(
-        default_factory=list, alias=API_FIELD_PROPERTY_FIELDS
+    alias_name: Optional[str] = Field(None, alias=API_FIELD_ALIAS_NAME)
+    selected_fields: Optional[List[object]] = Field(
+        None, alias=API_FIELD_SELECTED_FIELDS
+    )
+    field_selection_enabled: Optional[bool] = Field(
+        None, alias=API_FIELD_FIELD_SELECTION_ENABLED
+    )
+    json_schema: Dict[str, Any] = Field(
+        default_factory=dict, alias=API_FIELD_JSON_SCHEMA
     )
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_json_schema(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        resolved = dict(data)
+        resolved[API_FIELD_JSON_SCHEMA] = (
+            resolved.pop(API_FIELD_JSON_SCHEMA, None)
+            or resolved.pop(API_FIELD_JSON_SCHEMA_SNAKE, None)
+            or {}
+        )
+        return resolved
+
+    @field_validator(
+        "name",
+        "namespace",
+        "sync_mode",
+        "destination_namespace",
+        "alias_name",
+        mode="before",
+    )
+    @classmethod
+    def _stringify(cls, value: object) -> Optional[str]:
+        return _coerce_optional_str(value)
+
+    @field_validator("primary_key", "cursor_field", mode="before")
+    @classmethod
+    def _empty_list_when_missing(cls, value: object) -> object:
+        return value or []
+
+
+class AirbyteStreamsApiRow(BaseModel):
+    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
+
+    stream_name: Optional[str] = None
+    namespace: str = ""
+    property_fields: List[object] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_aliases(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        resolved = dict(data)
+        resolved["stream_name"] = _first_truthy_str(
+            data, (API_FIELD_STREAM_NAME, API_FIELD_NAME)
+        )
+        resolved["namespace"] = (
+            _first_truthy_str(
+                data,
+                (
+                    API_FIELD_NAMESPACE,
+                    API_FIELD_STREAM_NAMESPACE_LOWER,
+                    API_FIELD_STREAM_NAMESPACE_CAMEL,
+                ),
+            )
+            or ""
+        )
+        resolved["property_fields"] = data.get(API_FIELD_PROPERTY_FIELDS) or []
+        return resolved
 
 
 class AirbyteStreamSyncSettings(BaseModel):
@@ -115,7 +218,11 @@ class AirbyteStreamSyncSettings(BaseModel):
         None, alias=API_FIELD_DESTINATION_NAMESPACE
     )
     alias_name: Optional[str] = Field(None, alias=API_FIELD_ALIAS_NAME)
-    selected_fields: Optional[List[str]] = Field(None, alias=API_FIELD_SELECTED_FIELDS)
+    # Airbyte versions disagree on the element shape (bare names vs.
+    # `{"fieldPath": [...]}`); nothing downstream reads it, so pass it through.
+    selected_fields: Optional[List[object]] = Field(
+        None, alias=API_FIELD_SELECTED_FIELDS
+    )
     field_selection_enabled: Optional[bool] = Field(
         None, alias=API_FIELD_FIELD_SELECTION_ENABLED
     )
@@ -148,6 +255,7 @@ class AirbyteStreamConfig(BaseModel):
         return True
 
     def is_field_selected(self, field_name: str) -> bool:
+        # Default to selected when no fieldSelection mapping is supplied.
         if not self.config.field_selection:
             return True
         return self.config.field_selection.get(field_name) is not False
@@ -202,6 +310,10 @@ class AirbyteDestinationConfiguration(BaseModel):
 
 
 class AirbyteSourcePartial(BaseModel):
+    """Airbyte source representation tolerant of missing optional fields — used
+    for both list and get endpoints across OSS / Cloud / Public API versions,
+    which return slightly different field sets."""
+
     source_id: str = Field(alias=API_FIELD_SOURCE_ID)
     name: Optional[str] = None
     source_type: Optional[str] = Field(None, alias="sourceType")
@@ -408,6 +520,9 @@ class PlatformKind(StrEnum):
 
 
 class PlatformResolutionRequest(BaseModel):
+    """Inputs to `AirbyteSource._resolve_platform`. Lets sources and destinations
+    share a single resolution helper instead of two near-identical methods."""
+
     entity_id: str
     entity_type: Optional[str] = None
     name: Optional[str] = None

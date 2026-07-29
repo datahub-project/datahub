@@ -37,10 +37,11 @@ from datahub.ingestion.source.airbyte.constants import (
     AIRBYTE_JOB_STATUS_MAP,
     API_FIELD_STREAM_NAME,
     FQ_STREAM_NAME_DOT_RE,
+    JSON_SCHEMA_KEY_PROPERTIES,
     KNOWN_SOURCE_TYPE_MAPPING,
     NAMESPACE_DEFINITION_CUSTOM_FORMAT,
     PLATFORM_NAME_SPACE_RE,
-    SOURCE_NAMESPACE_TEMPLATE_RE,
+    SOURCE_NAMESPACE_PLACEHOLDER,
 )
 from datahub.ingestion.source.airbyte.models import (
     AirbyteConnectionPartial,
@@ -585,8 +586,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
             namespace = stream.namespace if stream.namespace else source_schema or ""
 
             properties = {}
-            if stream.json_schema and "properties" in stream.json_schema:
-                properties = stream.json_schema.get("properties", {})
+            if stream.json_schema:
+                properties = stream.json_schema.get(JSON_SCHEMA_KEY_PROPERTIES, {})
 
             property_fields = [
                 PropertyFieldPath(path=[field_name])
@@ -993,7 +994,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
         elif namespace_def in (NAMESPACE_DEFINITION_CUSTOM_FORMAT, "custom_format"):
             namespace_fmt = connection.get_namespace_format
             if namespace_fmt:
-                return SOURCE_NAMESPACE_TEMPLATE_RE.sub(source_schema, namespace_fmt)
+                # Literal substitution: a schema name may contain characters
+                # (backslashes, \1) that re.sub would treat as group references.
+                return namespace_fmt.replace(
+                    SOURCE_NAMESPACE_PLACEHOLDER, source_schema
+                )
 
         dest_config_schema = destination.get_schema
         if dest_config_schema:

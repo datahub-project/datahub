@@ -15,7 +15,6 @@ from datahub.ingestion.source.airbyte.constants import (
     DEFAULT_CLOUD_API_URL,
     DEFAULT_CLOUD_OAUTH_TOKEN_URL,
     DEFAULT_CLOUD_UI_URL,
-    KNOWN_SOURCE_TYPE_MAPPING,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -24,18 +23,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.str_enum import StrEnum
-
-# Re-export for callers that import mapping/defaults from config.
-__all__ = [
-    "AirbyteClientConfig",
-    "AirbyteDeploymentType",
-    "AirbyteSourceConfig",
-    "DEFAULT_CLOUD_API_URL",
-    "DEFAULT_CLOUD_OAUTH_TOKEN_URL",
-    "KNOWN_SOURCE_TYPE_MAPPING",
-    "OAuth2GrantType",
-    "PlatformDetail",
-]
 
 
 class AirbyteDeploymentType(StrEnum):
