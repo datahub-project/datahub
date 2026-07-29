@@ -19,8 +19,8 @@ yarn = "1.22.22"
 # .mise.local.toml when needed.
 [env]
 NETRC = "{{ config_root }}/docker/snippets/uv/.netrc"
-# UV_INSTALL_PROFILE = "chainguard"
-# UV_DOCKER_PROFILE = "chainguard"
+# UV_INSTALL_PROFILE = "default"
+# UV_DOCKER_PROFILE = "default"
 
 [tasks.regenerate-pre-commit]
 description = "Regenerate the pre-commit configuration to add new/removed projects"
