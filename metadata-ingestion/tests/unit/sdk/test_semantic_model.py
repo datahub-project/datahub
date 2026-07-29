@@ -8,7 +8,7 @@ the required-expression fallback, and aiContext-only-when-non-empty.
 """
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 
@@ -770,7 +770,7 @@ def _governance_aspect_names():
         ),
     ],
 )
-def test_governance_kwargs_land_in_aspects(builder) -> None:
+def test_governance_kwargs_land_in_aspects(builder: Callable[[], Entity]) -> None:
     entity = builder()
     aspects = _aspects_by_name(entity)
     for name in _governance_aspect_names():
