@@ -2,7 +2,8 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterator, List, Optional, TypedDict
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -11,6 +12,7 @@ from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.airbyte_utils import (
+    StreamNamespacesByName,
     apply_pattern,
     clean_uri,
     coerce_str,
@@ -78,6 +80,13 @@ class StreamSyncDict(TypedDict):
 
 class SyncCatalogDict(TypedDict):
     streams: List[StreamSyncDict]
+
+
+@dataclass(frozen=True)
+class SyncCatalogBuildResult:
+    catalog: SyncCatalogDict
+    ambiguous: StreamNamespacesByName = field(default_factory=dict)
+    positional: StreamNamespacesByName = field(default_factory=dict)
 
 
 class JsonSchemaDict(TypedDict, total=False):
@@ -350,12 +359,15 @@ class AirbyteBaseClient(ABC):
                 stream_api_metadata = self._fetch_stream_api_metadata(
                     connection_data.get("sourceId")
                 )
-                catalog, ambiguous = self._build_sync_catalog(
+                build_result = self._build_sync_catalog(
                     configurations["streams"],
                     stream_api_metadata,
                 )
-                connection_data["syncCatalog"] = catalog
-                connection_data["ambiguous_stream_namespaces"] = ambiguous
+                connection_data["syncCatalog"] = build_result.catalog
+                connection_data["ambiguous_stream_namespaces"] = build_result.ambiguous
+                connection_data["positional_stream_namespaces"] = (
+                    build_result.positional
+                )
 
         return AirbyteConnectionPartial.model_validate(connection_data)
 
@@ -412,11 +424,10 @@ class AirbyteBaseClient(ABC):
     def _build_sync_catalog(
         self,
         config_streams: List[Dict[str, Any]],
-        stream_api_metadata: Optional[AirbyteStreamApiMetadata] = None,
-    ) -> Tuple[SyncCatalogDict, Dict[str, List[str]]]:
-        metadata = stream_api_metadata or AirbyteStreamApiMetadata()
-        queues, ambiguous = namespace_queues_for_catalog(
-            config_streams, metadata.namespaces_by_name
+        stream_api_metadata: AirbyteStreamApiMetadata,
+    ) -> SyncCatalogBuildResult:
+        queue_result = namespace_queues_for_catalog(
+            config_streams, stream_api_metadata.namespaces_by_name
         )
         streams: List[StreamSyncDict] = []
         for stream in config_streams:
@@ -424,12 +435,14 @@ class AirbyteBaseClient(ABC):
             namespace = coerce_str(stream.get("namespace"))
 
             if not namespace:
-                queued = queues.get(name)
+                queued = queue_result.queues.get(name)
                 if queued:
                     namespace = queued.pop(0)
 
             stream_id = StreamIdentifier(stream_name=name, namespace=namespace)
-            property_fields = metadata.property_fields_by_stream.get(stream_id)
+            property_fields = stream_api_metadata.property_fields_by_stream.get(
+                stream_id
+            )
 
             stream_schema: StreamSchemaDict = {
                 "name": name,
@@ -444,7 +457,11 @@ class AirbyteBaseClient(ABC):
 
             streams.append(stream_sync)
 
-        return {"streams": streams}, ambiguous
+        return SyncCatalogBuildResult(
+            catalog={"streams": streams},
+            ambiguous=queue_result.ambiguous,
+            positional=queue_result.positional,
+        )
 
     def _build_stream_config(self, stream: Dict[str, Any]) -> StreamConfigDict:
         sync_mode = stream.get("syncMode", "")

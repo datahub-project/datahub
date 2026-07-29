@@ -1,9 +1,29 @@
-import logging
-from typing import Any, Dict, List, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping, Sequence, TypedDict
 
 from datahub.configuration.common import AllowDenyPattern
 
-logger = logging.getLogger(__name__)
+StreamNamespacesByName = Dict[str, List[str]]
+
+
+class AirbyteNamedResource(TypedDict, total=False):
+    name: str
+
+
+class AirbyteStreamsApiRow(TypedDict, total=False):
+    name: str
+    streamName: str
+    namespace: str
+    streamnamespace: str
+    streamNamespace: str
+    propertyFields: List[object]
+
+
+@dataclass(frozen=True)
+class NamespaceQueueResult:
+    queues: StreamNamespacesByName = field(default_factory=dict)
+    ambiguous: StreamNamespacesByName = field(default_factory=dict)
+    positional: StreamNamespacesByName = field(default_factory=dict)
 
 
 def clean_uri(uri: str) -> str:
@@ -11,7 +31,9 @@ def clean_uri(uri: str) -> str:
 
 
 def apply_pattern(
-    items: List[Dict[str, Any]], pattern: AllowDenyPattern, name_key: str = "name"
+    items: List[Dict[str, Any]],
+    pattern: AllowDenyPattern,
+    name_key: str = "name",
 ) -> List[Dict[str, Any]]:
     if not items:
         return []
@@ -20,7 +42,7 @@ def apply_pattern(
     return [
         item
         for item in items
-        if (name := item.get(name_key, "")) and pattern.allowed(name)
+        if (name := item.get(name_key, "")) and pattern.allowed(str(name))
     ]
 
 
@@ -30,7 +52,7 @@ def coerce_str(value: object) -> str:
     return str(value) if value is not None else ""
 
 
-def stream_namespace_from_api(stream: Dict[str, Any]) -> str:
+def stream_namespace_from_api(stream: Mapping[str, object]) -> str:
     namespace = (
         stream.get("namespace")
         or stream.get("streamnamespace")
@@ -41,9 +63,9 @@ def stream_namespace_from_api(stream: Dict[str, Any]) -> str:
 
 
 def namespace_queues_for_catalog(
-    config_streams: List[Dict[str, Any]],
-    namespaces_by_name: Dict[str, List[str]],
-) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
+    config_streams: Sequence[Mapping[str, object]],
+    namespaces_by_name: StreamNamespacesByName,
+) -> NamespaceQueueResult:
     # Unnamed count vs full /streams list; does not subtract explicit siblings.
     unnamed_counts: Dict[str, int] = {}
     for stream in config_streams:
@@ -54,8 +76,9 @@ def namespace_queues_for_catalog(
         if not namespace:
             unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
 
-    queues: Dict[str, List[str]] = {}
-    ambiguous: Dict[str, List[str]] = {}
+    queues: StreamNamespacesByName = {}
+    ambiguous: StreamNamespacesByName = {}
+    positional: StreamNamespacesByName = {}
     for name, namespaces in namespaces_by_name.items():
         needed = unnamed_counts.get(name, 0)
         if not needed or not namespaces:
@@ -64,14 +87,9 @@ def namespace_queues_for_catalog(
             queues[name] = [namespaces[0]] * needed
         elif needed == len(namespaces):
             queues[name] = list(namespaces)
+            positional[name] = list(namespaces)
         else:
             ambiguous[name] = list(namespaces)
-            logger.warning(
-                "Skipping namespace backfill for stream %r: %s unnamed config "
-                "stream(s) vs %s /streams namespace(s) %s",
-                name,
-                needed,
-                len(namespaces),
-                namespaces,
-            )
-    return queues, ambiguous
+    return NamespaceQueueResult(
+        queues=queues, ambiguous=ambiguous, positional=positional
+    )

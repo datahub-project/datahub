@@ -13,6 +13,7 @@ from datahub.ingestion.source.airbyte.client import (
     AirbyteBaseClient,
     AirbyteCloudClient,
     AirbyteOSSClient,
+    SyncCatalogBuildResult,
     create_airbyte_client,
 )
 from datahub.ingestion.source.airbyte.config import (
@@ -762,13 +763,11 @@ class TestClientBuildSyncCatalog:
             }
         )
 
-        result, _ambiguous = client._build_sync_catalog(
-            config_streams, stream_api_metadata
-        )
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        assert "streams" in result
-        assert len(result["streams"]) == 1
-        stream = result["streams"][0]
+        assert "streams" in build_result.catalog
+        assert len(build_result.catalog["streams"]) == 1
+        stream = build_result.catalog["streams"][0]
         assert stream["stream"]["name"] == "users"
         assert stream["stream"]["namespace"] == "public"
         assert "jsonSchema" in stream["stream"]
@@ -788,10 +787,12 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        result, _ambiguous = client._build_sync_catalog(config_streams)
+        build_result = client._build_sync_catalog(
+            config_streams, AirbyteStreamApiMetadata()
+        )
 
-        assert "streams" in result
-        assert len(result["streams"]) == 1
+        assert "streams" in build_result.catalog
+        assert len(build_result.catalog["streams"]) == 1
 
     def test_build_sync_catalog_backfills_namespace_from_streams_api(self):
         config = AirbyteClientConfig(
@@ -815,11 +816,9 @@ class TestClientBuildSyncCatalog:
             namespaces_by_name={"events": ["my_schema"]},
         )
 
-        result, _ambiguous = client._build_sync_catalog(
-            config_streams, stream_api_metadata
-        )
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        stream = result["streams"][0]
+        stream = build_result.catalog["streams"][0]
         assert stream["stream"]["name"] == "events"
         assert stream["stream"]["namespace"] == "my_schema"
         properties: Dict[str, Any] = stream["stream"]["jsonSchema"].get(  # type: ignore[assignment]
@@ -850,24 +849,24 @@ class TestClientBuildSyncCatalog:
             namespaces_by_name={"users": ["public", "analytics"]},
         )
 
-        result, _ambiguous = client._build_sync_catalog(
-            config_streams, stream_api_metadata
-        )
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        first_properties: Dict[str, Any] = result["streams"][0]["stream"][
+        first_properties: Dict[str, Any] = build_result.catalog["streams"][0]["stream"][
             "jsonSchema"
         ].get(  # type: ignore[assignment]
             "properties", {}
         )
-        second_properties: Dict[str, Any] = result["streams"][1]["stream"][
-            "jsonSchema"
-        ].get(  # type: ignore[assignment]
+        second_properties: Dict[str, Any] = build_result.catalog["streams"][1][
+            "stream"
+        ]["jsonSchema"].get(  # type: ignore[assignment]
             "properties", {}
         )
-        assert result["streams"][0]["stream"]["namespace"] == "public"
+        assert build_result.catalog["streams"][0]["stream"]["namespace"] == "public"
         assert "id" in first_properties
-        assert result["streams"][1]["stream"]["namespace"] == "analytics"
+        assert build_result.catalog["streams"][1]["stream"]["namespace"] == "analytics"
         assert "user_id" in second_properties
+        assert build_result.positional == {"users": ["public", "analytics"]}
+        assert build_result.ambiguous == {}
 
     def test_build_sync_catalog_skips_partial_multi_schema_backfill(self):
         config = AirbyteClientConfig(
@@ -881,12 +880,10 @@ class TestClientBuildSyncCatalog:
             namespaces_by_name={"users": ["public", "analytics"]},
         )
 
-        result, ambiguous = client._build_sync_catalog(
-            config_streams, stream_api_metadata
-        )
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        assert result["streams"][0]["stream"]["namespace"] is None
-        assert ambiguous == {"users": ["public", "analytics"]}
+        assert build_result.catalog["streams"][0]["stream"]["namespace"] is None
+        assert build_result.ambiguous == {"users": ["public", "analytics"]}
 
     def test_build_sync_catalog_broadcasts_single_namespace_to_many_unnamed(self):
         config = AirbyteClientConfig(
@@ -895,16 +892,16 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        result, ambiguous = client._build_sync_catalog(
+        build_result = client._build_sync_catalog(
             [{"name": "events"}, {"name": "events"}],
             AirbyteStreamApiMetadata(namespaces_by_name={"events": ["my_schema"]}),
         )
 
-        assert [s["stream"]["namespace"] for s in result["streams"]] == [
+        assert [s["stream"]["namespace"] for s in build_result.catalog["streams"]] == [
             "my_schema",
             "my_schema",
         ]
-        assert ambiguous == {}
+        assert build_result.ambiguous == {}
 
     def test_build_sync_catalog_leaves_unknown_stream_name_unnamespaced(self):
         config = AirbyteClientConfig(
@@ -913,13 +910,13 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        result, ambiguous = client._build_sync_catalog(
+        build_result = client._build_sync_catalog(
             [{"name": "events"}],
             AirbyteStreamApiMetadata(namespaces_by_name={"orders": ["sales"]}),
         )
 
-        assert result["streams"][0]["stream"]["namespace"] is None
-        assert ambiguous == {}
+        assert build_result.catalog["streams"][0]["stream"]["namespace"] is None
+        assert build_result.ambiguous == {}
 
     def test_build_sync_catalog_prefers_config_namespace_over_backfill(self):
         config = AirbyteClientConfig(
@@ -929,15 +926,18 @@ class TestClientBuildSyncCatalog:
         client = AirbyteOSSClient(config)
 
         config_streams = [{"name": "users", "namespace": "explicit_schema"}]
-        result, ambiguous = client._build_sync_catalog(
+        build_result = client._build_sync_catalog(
             config_streams,
             AirbyteStreamApiMetadata(
                 namespaces_by_name={"users": ["streams_api_schema"]}
             ),
         )
 
-        assert result["streams"][0]["stream"]["namespace"] == "explicit_schema"
-        assert ambiguous == {}
+        assert (
+            build_result.catalog["streams"][0]["stream"]["namespace"]
+            == "explicit_schema"
+        )
+        assert build_result.ambiguous == {}
 
     def test_build_stream_config(self):
         config = AirbyteClientConfig(
@@ -1320,7 +1320,7 @@ class TestGetConnection:
             "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
         }
         mock_fetch_metadata.return_value = AirbyteStreamApiMetadata()
-        mock_build_sync.return_value = ({"streams": []}, {})
+        mock_build_sync.return_value = SyncCatalogBuildResult(catalog={"streams": []})
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,

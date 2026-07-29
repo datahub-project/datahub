@@ -199,6 +199,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
             if request.entity_id not in warned:
                 context_parts = [
                     f"{id_label}={request.entity_id}",
+                    f"{type_label}=missing",
                     f"{name_label}={request.name}",
                 ]
                 if request.definition_id:
@@ -214,7 +215,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Platform Detection Fallback",
                     message="Entity missing type info, using name as fallback",
-                    context=f"{entity_label} {request.entity_id}, {type_label}, fallback_name={request.name}, {', '.join(context_parts)}",
+                    context=", ".join(context_parts),
                 )
                 warned.add(request.entity_id)
             platform = _map_source_type_to_platform(
@@ -225,7 +226,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Platform Detection Failed",
                     message="Entity missing both type info and name",
-                    context=f"{entity_label} {request.entity_id}, {id_label}={request.entity_id}",
+                    context=f"{entity_label} {request.entity_id}",
                 )
                 warned.add(request.entity_id)
             platform = ""
@@ -580,6 +581,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 ),
                 context=(
                     f"stream={stream_name}, candidates={candidates}, "
+                    f"connection_id={pipeline_info.connection.connection_id}, "
+                    f"connection_name={pipeline_info.connection.name}"
+                ),
+            )
+
+        for stream_name, namespaces in (
+            pipeline_info.connection.positional_stream_namespaces or {}
+        ).items():
+            self.report.warning(
+                title="Positional Stream Namespace Backfill",
+                message=(
+                    "Assigned namespaces by matching /streams discovery order to "
+                    "unnamed config streams; spot-check URNs if stream order may differ"
+                ),
+                context=(
+                    f"stream={stream_name}, namespaces={namespaces}, "
                     f"connection_id={pipeline_info.connection.connection_id}, "
                     f"connection_name={pipeline_info.connection.name}"
                 ),

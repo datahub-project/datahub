@@ -346,6 +346,98 @@ def test_include_schema_in_urn_forces_three_tier_postgres(mock_create_client, mo
     assert "my_db.events," not in urns.source_urn
 
 
+@patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+@patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_streams_namespace_backfill_to_dataset_urn(
+    mock_create_client, mock_make_request, mock_list_streams, mock_ctx
+):
+    from datahub.ingestion.source.airbyte.client import AirbyteOSSClient
+    from datahub.ingestion.source.airbyte.config import AirbyteClientConfig
+
+    mock_make_request.return_value = {
+        "connectionId": "conn-1",
+        "sourceId": "source-1",
+        "destinationId": "dest-1",
+        "name": "Test Connection",
+        "status": "active",
+        "configurations": {
+            "streams": [{"name": "events", "syncMode": "full_refresh_overwrite"}]
+        },
+    }
+    mock_list_streams.return_value = [
+        {
+            "streamName": "events",
+            "namespace": "my_schema",
+            "propertyFields": [["id"]],
+        }
+    ]
+
+    client = AirbyteOSSClient(
+        AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+    )
+    connection = client.get_connection("conn-1")
+    assert connection.sync_catalog is not None
+    assert connection.sync_catalog.streams[0].stream.namespace == "my_schema"
+
+    mock_create_client.return_value = client
+    source = AirbyteSource(
+        AirbyteSourceConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+            sources_to_platform_instance={
+                "source-1": PlatformDetail(
+                    platform="postgres",
+                    platform_instance="my_instance",
+                    include_schema_in_urn=True,
+                    convert_urns_to_lowercase=True,
+                )
+            },
+            destinations_to_platform_instance={
+                "dest-1": PlatformDetail(
+                    platform="snowflake",
+                    platform_instance="my_instance",
+                    convert_urns_to_lowercase=True,
+                )
+            },
+        ),
+        mock_ctx,
+    )
+
+    pipeline_info = AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace"),
+        connection=connection,
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_type="PostgreSQL",
+            source_definition_id="def-1",
+            workspace_id="ws-1",
+            configuration={"database": "my_db"},
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="dest-1",
+            name="Test Dest",
+            destination_type="Snowflake",
+            destination_definition_id="def-2",
+            workspace_id="ws-1",
+            configuration={"database": "raw"},
+        ),
+    )
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+    assert len(streams) == 1
+    assert streams[0].details.namespace == "my_schema"
+
+    urns = source._create_dataset_urns(
+        pipeline_info, streams[0].config, streams[0].details
+    )
+    assert "my_instance.my_db.my_schema.events" in urns.source_urn
+
+
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     # Some connectors emit `<schema>.<table>` as the stream name; we only

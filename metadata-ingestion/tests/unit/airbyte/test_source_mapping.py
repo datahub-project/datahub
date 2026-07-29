@@ -193,3 +193,49 @@ def test_fetch_streams_reports_ambiguous_stream_namespaces(source):
         "Ambiguous Stream Namespace" in str(warning)
         for warning in source.report.warnings
     )
+
+
+def test_fetch_streams_reports_positional_stream_namespaces(source):
+    connection = AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+        positional_stream_namespaces={"users": ["public", "analytics"]},
+        sync_catalog=AirbyteSyncCatalog(
+            streams=[
+                AirbyteStreamConfig(
+                    stream=AirbyteStream(name="users", namespace="public"),
+                    config={"selected": True},
+                )
+            ]
+        ),
+    )
+    pipeline_info = AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(
+            workspace_id="workspace-1", name="Test Workspace"
+        ),
+        connection=connection,
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_definition_id="source-def-1",
+            workspace_id="workspace-1",
+            configuration={},
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="destination-1",
+            name="Test Destination",
+            destination_definition_id="dest-def-1",
+            workspace_id="workspace-1",
+            configuration={},
+        ),
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+
+    assert any(
+        "Positional Stream Namespace Backfill" in str(warning)
+        for warning in source.report.warnings
+    )

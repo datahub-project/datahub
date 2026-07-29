@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from datahub.ingestion.source.airbyte.airbyte_utils import StreamNamespacesByName
 from datahub.ingestion.source.airbyte.config import PlatformDetail
 from datahub.utilities.str_enum import StrEnum
 
@@ -228,7 +229,8 @@ class AirbyteConnectionPartial(BaseModel):
     destination_id: str = Field(alias="destinationId")
     status: Optional[str] = None
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(None, alias="syncCatalog")
-    ambiguous_stream_namespaces: Dict[str, List[str]] = Field(default_factory=dict)
+    ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
+    positional_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
@@ -324,7 +326,7 @@ class AirbyteStreamApiMetadata(BaseModel):
     property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = Field(
         default_factory=dict
     )
-    namespaces_by_name: Dict[str, List[str]] = Field(default_factory=dict)
+    namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
 
 
 class AirbyteStreamInfo(BaseModel):
