@@ -3,35 +3,26 @@
 //
 //   apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 //
-// Mirrors the Docker-side wiring in gradle/docker/python-docker.gradle so that local
-// `uv pip install ...` invocations resolve packages from the same profile and use the
-// same credentials as image builds.
+// Runner-side installs resolve from the `uvInstallProfile` gradle property
+// (datahub.dependencies.python.uvInstallProfile, default `default`), NOT from the
+// Docker-build profile (uvDockerProfile). They are decoupled so codegen/install
+// tasks don't depend on private indexes being reachable or well-formed on the
+// runner. The Docker image build selects its own profile via the UV_PROFILE
+// build-arg (see gradle/docker/python-docker.gradle).
 //
 // Sets these env vars on every Exec task in the project (uv reads them natively):
-//   UV_CONFIG_FILE -> docker/snippets/uv/profiles/<uvProfile>.toml, falling back to
-//                     profiles/default.toml when uvProfile is unset or the resolved
-//                     file is missing. default.toml is checked in, so the env var is
-//                     always exported with a valid path in OSS checkouts.
-//   NETRC          -> $DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc (if either exists).
+//   UV_CONFIG_FILE    -> profiles/${uvInstallProfile}.toml (always set; the resolved
+//                        profile's file must exist, else the build fails fast).
+//   UV_INSTALL_PROFILE -> the resolved profile name (e.g. `default`, `chainguard`).
+//   NETRC              -> $DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc (if either exists).
 //
-// Existing UV_CONFIG_FILE / NETRC values in the parent environment are honored and
-// inherited as-is — we skip setting them rather than re-exporting the same value.
+// Profile precedence (resolved once in settings.gradle, shared with the Docker
+// build path): CLI -P > UV_INSTALL_PROFILE env var > gradle.properties default.
+// `custom` is rejected here (it can't be honored on the runner — no
+// generate-config step, and pipMirrorUrl/pipExtraIndexUrl are docker-only).
 
-def uvProfile = gradle.ext['datahub.dependencies.python.uvProfile']
-def profilesDir = "${rootProject.projectDir}/docker/snippets/uv/profiles"
-def uvConfigPath = {
-  if (System.getenv("UV_CONFIG_FILE") != null) {
-    return null
-  }
-  if (uvProfile) {
-    def candidate = new File("${profilesDir}/${uvProfile}.toml")
-    if (candidate.exists()) {
-      return candidate.absolutePath
-    }
-  }
-  def fallback = new File("${profilesDir}/default.toml")
-  return fallback.exists() ? fallback.absolutePath : null
-}()
+def uvInstallProfile = gradle.ext['datahub.dependencies.python.uvInstallProfile']
+def uvConfigPath = gradle.ext['resolveUvProfileFile'](uvInstallProfile) // throws on custom / missing file
 
 def netrcPath = {
   if (System.getenv("NETRC") != null) {
@@ -43,7 +34,7 @@ def netrcPath = {
 }()
 
 if (uvConfigPath) {
-  logger.lifecycle("[python-uv] ${project.path}: UV_CONFIG_FILE=${uvConfigPath}")
+  logger.lifecycle("[python-uv] ${project.path}: UV_CONFIG_FILE=${uvConfigPath} (uvInstallProfile=${uvInstallProfile})")
 }
 if (netrcPath) {
   logger.lifecycle("[python-uv] ${project.path}: NETRC=${netrcPath}")
@@ -54,6 +45,7 @@ if (uvConfigPath || netrcPath) {
     if (uvConfigPath) {
       environment 'UV_CONFIG_FILE', uvConfigPath
     }
+    environment 'UV_INSTALL_PROFILE', uvInstallProfile
     if (netrcPath) {
       environment 'NETRC', netrcPath
     }
