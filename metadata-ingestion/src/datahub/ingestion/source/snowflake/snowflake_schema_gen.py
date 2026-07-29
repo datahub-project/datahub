@@ -512,7 +512,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 snowflake_schema, db_name
             )
             yield from self._process_semantic_views(
-                semantic_views, snowflake_schema, db_name
+                semantic_views, snowflake_schema, db_name, schema_name
             )
 
         if self.config.include_streams:
@@ -677,6 +677,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         semantic_views: List[SnowflakeSemanticView],
         snowflake_schema: SnowflakeSchema,
         db_name: str,
+        schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(
             f"Processing {len(semantic_views)} semantic views: {[sv.name for sv in semantic_views]}"
@@ -715,8 +716,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     ),
                     context=f"{db_name}.{schema_name}.{semantic_view.name}",
                 )
-
-        schema_name = snowflake_schema.name
 
         # STEP 1: Yield work units first (this registers schemas with the aggregator
         # in legacy dataset mode). When emit_semantic_model_entities is enabled,
