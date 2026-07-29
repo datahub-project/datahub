@@ -298,7 +298,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 exc_info=e,
             )
             self.report.warning(
-                "Failed to parse usage statistics for dataset", dataset_identifier
+                message="Failed to parse usage statistics for dataset",
+                context=dataset_identifier,
             )
 
         return None
@@ -417,8 +418,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 else:
                     logger.debug(e, exc_info=e)
                     self.report.warning(
-                        "usage",
-                        f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
+                        message="Extracting the date range for usage data from Snowflake failed",
+                        context="usage",
+                        exc=e,
                     )
                 self.report_status("date-range-check", False)
             else:
@@ -429,8 +431,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         or db_row["MAX_TIME"] is None
                     ):
                         self.report.warning(
-                            "check-usage-data",
-                            f"Missing data for access_history {db_row}.",
+                            message="Missing data for access_history",
+                            context=f"check-usage-data: {db_row}",
                         )
                         break
                     self.report.min_access_history_time = db_row["MIN_TIME"].astimezone(
@@ -515,8 +517,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
         except Exception as e:
             self.report.rows_parsing_error += 1
             self.report.warning(
-                "operation",
-                f"Failed to parse operation history row {event_dict}, {e}",
+                message="Failed to parse operation history row",
+                context=f"{event_dict}",
+                exc=e,
             )
 
     def parse_event_objects(self, event_dict: Dict) -> None:
@@ -588,9 +591,10 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                message="Skip this run as there was already a run for current ingestion window.",
+                context="usage-extraction",
+                log=False,
             )
             return False
 

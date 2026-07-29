@@ -1,10 +1,12 @@
 package com.linkedin.metadata.models;
 
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -98,6 +100,50 @@ public class StructuredPropertyUtilsTest {
     assertEquals(result.getFirst().getProperties().size(), 1);
     assertEquals(result.getFirst().getProperties().get(0).getPropertyUrn(), propertyUrnA);
     assertEquals(result.getSecond(), Set.of(propertyUrnMissing));
+  }
+
+  @Test
+  public void testFilterMissingPropertyDefinitionsFromPrefetchedMap() throws URISyntaxException {
+    Urn propertyUrnA =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.retentionTime");
+    Urn propertyUrnMissing =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.deleted");
+    Urn propertyUrnOrphanKeyOnly =
+        Urn.createFromString("urn:li:structuredProperty:io.acryl.privacy.keyOnly");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setValueType(Urn.createFromString("urn:li:type:datahub.string"));
+
+    StructuredProperties properties =
+        new StructuredProperties()
+            .setProperties(
+                new StructuredPropertyValueAssignmentArray(
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnA)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(1.0))),
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnMissing)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(2.0))),
+                    new StructuredPropertyValueAssignment()
+                        .setPropertyUrn(propertyUrnOrphanKeyOnly)
+                        .setValues(
+                            new PrimitivePropertyValueArray(PrimitivePropertyValue.create(3.0)))));
+
+    Map<Urn, Map<String, Aspect>> prefetched =
+        Map.of(
+            propertyUrnA,
+            Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(definition.data())),
+            propertyUrnOrphanKeyOnly,
+            Map.of());
+
+    Pair<StructuredProperties, Set<Urn>> result =
+        StructuredPropertyUtils.filterMissingPropertyDefinitions(properties, prefetched);
+
+    assertEquals(result.getFirst().getProperties().size(), 1);
+    assertEquals(result.getFirst().getProperties().get(0).getPropertyUrn(), propertyUrnA);
+    assertEquals(result.getSecond(), Set.of(propertyUrnMissing, propertyUrnOrphanKeyOnly));
   }
 
   @Test

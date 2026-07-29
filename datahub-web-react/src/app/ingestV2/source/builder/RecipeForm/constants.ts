@@ -293,6 +293,26 @@ import {
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import { NOTION_API_KEY, NOTION_PAGE_IDS } from '@app/ingestV2/source/builder/RecipeForm/notion';
 import {
+    ODCS_AWS_ACCESS_KEY_ID,
+    ODCS_AWS_REGION,
+    ODCS_AWS_SECRET_ACCESS_KEY,
+    ODCS_EMIT_ASSERTIONS,
+    ODCS_EMIT_LOGICAL_PARENT,
+    ODCS_EMIT_SCHEMA_ASSERTION,
+    ODCS_GCS_HMAC_KEY_ID,
+    ODCS_GCS_HMAC_KEY_SECRET,
+    ODCS_GIT_INFO_BRANCH,
+    ODCS_GIT_INFO_DEPLOY_KEY,
+    ODCS_GIT_INFO_REPO,
+    ODCS_HTTP_PASSWORD,
+    ODCS_HTTP_TOKEN,
+    ODCS_HTTP_USERNAME,
+    ODCS_HTTP_VERIFY_SSL,
+    ODCS_PATH,
+    ODCS_SOURCE_LOCATION,
+    ODCS_STRICT_VALIDATION,
+} from '@app/ingestV2/source/builder/RecipeForm/odcs';
+import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
     INGEST_GROUPS,
@@ -457,6 +477,7 @@ import { HEX } from '@app/ingestV2/source/conf/hex/hex';
 import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
 import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
 import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { ODCS } from '@app/ingestV2/source/conf/odcs/odcs';
 import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
 import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
@@ -569,6 +590,32 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Projects, Entries, and Entry Groups from ingestion.',
+    },
+    [ODCS]: {
+        fields: [
+            ODCS_PATH,
+            ODCS_SOURCE_LOCATION,
+            ODCS_GIT_INFO_REPO,
+            ODCS_GIT_INFO_BRANCH,
+            ODCS_GIT_INFO_DEPLOY_KEY,
+            ODCS_AWS_ACCESS_KEY_ID,
+            ODCS_AWS_SECRET_ACCESS_KEY,
+            ODCS_AWS_REGION,
+            ODCS_GCS_HMAC_KEY_ID,
+            ODCS_GCS_HMAC_KEY_SECRET,
+            ODCS_HTTP_TOKEN,
+            ODCS_HTTP_USERNAME,
+            ODCS_HTTP_PASSWORD,
+            ODCS_HTTP_VERIFY_SSL,
+        ],
+        filterFields: [DATASET_ALLOW, DATASET_DENY],
+        advancedFields: [
+            ODCS_EMIT_ASSERTIONS,
+            ODCS_EMIT_SCHEMA_ASSERTION,
+            ODCS_EMIT_LOGICAL_PARENT,
+            ODCS_STRICT_VALIDATION,
+            STATEFUL_INGESTION_ENABLED,
+        ],
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],

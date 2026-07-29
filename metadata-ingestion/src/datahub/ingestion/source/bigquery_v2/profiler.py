@@ -316,10 +316,11 @@ WHERE
             and bq_table.partition_info.column
             is not None  # Only skip if it's a real partitioned column, not a pseudo-partition
         ):
-            self.report.report_warning(
+            self.report.warning(
                 title="Profile skipped for partitioned table",
                 message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
+                log=False,
             )
             return None
 

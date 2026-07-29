@@ -118,8 +118,9 @@ class SemanticViewUsageExtractor:
         except Exception as e:
             logger.warning(f"Failed to extract semantic view usage: {e}", exc_info=True)
             self.report.warning(
-                "semantic-view-usage",
-                f"Failed to extract semantic view usage statistics: {e}",
+                message="Failed to extract semantic view usage statistics",
+                context="semantic-view-usage",
+                exc=e,
             )
 
     def _parse_usage_results(
@@ -209,8 +210,9 @@ class SemanticViewUsageExtractor:
 
         except Exception as e:
             self.report.warning(
-                "semantic-view-usage-stats",
-                f"Failed to build usage statistics for {dataset_identifier}: {e}",
+                message="Failed to build usage statistics for semantic view",
+                context=dataset_identifier,
+                exc=e,
             )
             return None
 

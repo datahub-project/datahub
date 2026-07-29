@@ -1190,10 +1190,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 cur_end_time=self.config.end_time,
             )
         ):
-            self.structured_reporter.report_warning(
+            self.structured_reporter.warning(
                 "marketplace-usage-extraction",
                 "Skip this run as there was already a run for the current "
                 "ingestion window.",
+                log=False,
             )
             return False
         return True

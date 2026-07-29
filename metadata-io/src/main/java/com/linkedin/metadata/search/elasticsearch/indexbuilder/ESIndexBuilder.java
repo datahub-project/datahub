@@ -390,6 +390,11 @@ public class ESIndexBuilder {
                 structPropConfig.isEnabled()
                     && structPropConfig.isSystemUpdateEnabled()
                     && !copyStructuredPropertyMappings)
+            .enableStructuredPropertyTypeMismatchReindex(
+                structPropConfig.isEnabled()
+                    && structPropConfig.isSystemUpdateEnabled()
+                    && structPropConfig.isTypeMismatchReindexEnabled()
+                    && !copyStructuredPropertyMappings)
             .version(gitVersion.getVersion())
             .settingsComparisonShim(searchClient);
 

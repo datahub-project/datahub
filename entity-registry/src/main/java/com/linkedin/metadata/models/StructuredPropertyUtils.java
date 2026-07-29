@@ -445,6 +445,27 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Returns property URNs with no {@code propertyDefinition} in a pre-fetched aspect map (entity
+   * absent or definition aspect missing). Prefer this when definitions were already loaded in the
+   * same request — avoids a second {@code entityExists} / {@code getLatestAspectObjects}
+   * round-trip.
+   */
+  @Nonnull
+  public static Set<Urn> getMissingPropertyDefinitionUrns(
+      @Nonnull Set<Urn> propertyUrns, @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (propertyUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    return propertyUrns.stream()
+        .filter(
+            propertyUrn ->
+                !propertyAspects
+                    .getOrDefault(propertyUrn, Collections.emptyMap())
+                    .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+        .collect(Collectors.toSet());
+  }
+
+  /**
    * Returns property URNs whose structured property entity does not exist (hard-deleted) or has no
    * {@code propertyDefinition} aspect.
    */
@@ -463,28 +484,48 @@ public class StructuredPropertyUtils {
             .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
             .collect(Collectors.toSet());
 
-    final Set<Urn> missing = new HashSet<>(propertyUrns);
-    missing.removeAll(existing);
+    final Map<Urn, Map<String, Aspect>> definitionAspects =
+        existing.isEmpty()
+            ? Collections.emptyMap()
+            : aspectRetriever.getLatestAspectObjects(
+                opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
-    if (!existing.isEmpty()) {
-      final Map<Urn, Map<String, Aspect>> definitionAspects =
-          aspectRetriever.getLatestAspectObjects(
-              opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
-      existing.stream()
-          .filter(
-              propertyUrn ->
-                  !definitionAspects
-                      .getOrDefault(propertyUrn, Collections.emptyMap())
-                      .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
-          .forEach(missing::add);
+    return getMissingPropertyDefinitionUrns(propertyUrns, definitionAspects);
+  }
+
+  /**
+   * Removes assignments whose property definition is missing from a pre-fetched aspect map. Prefer
+   * this when definitions were already loaded in the same request.
+   */
+  @Nonnull
+  public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull StructuredProperties structuredProperties,
+      @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
     }
 
-    return missing;
+    final Set<Urn> missingPropertyUrns =
+        getMissingPropertyDefinitionUrns(
+            structuredProperties.getProperties().stream()
+                .map(StructuredPropertyValueAssignment::getPropertyUrn)
+                .collect(Collectors.toSet()),
+            propertyAspects);
+
+    if (missingPropertyUrns.isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Pair<StructuredPropertyValueAssignmentArray, Boolean> filtered =
+        filterValueAssignment(structuredProperties.getProperties(), missingPropertyUrns);
+    return Pair.of(structuredProperties.setProperties(filtered.getFirst()), missingPropertyUrns);
   }
 
   /**
    * Removes assignments whose property definition is missing. Returns the filtered aspect and the
-   * dropped property URNs.
+   * dropped property URNs. Fetches definitions via {@code aspectRetriever}; callers that already
+   * hold a definition map should use {@link #filterMissingPropertyDefinitions(StructuredProperties,
+   * Map)} instead.
    */
   @Nonnull
   public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
