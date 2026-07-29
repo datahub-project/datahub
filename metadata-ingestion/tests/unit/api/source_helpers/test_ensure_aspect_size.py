@@ -36,7 +36,6 @@ from datahub.metadata.schema_classes import (
     KafkaSchemaClass,
     KeyValueSchemaClass,
     MetadataChangeProposalClass,
-    ModelDatasetClass,
     MySqlDDLClass,
     NumberTypeClass,
     OracleDDLClass,
@@ -1554,10 +1553,7 @@ def proper_semantic_model_info() -> SemanticModelInfoClass:
         name="Sales_Analytics",
         nativeDefinition="CREATE SEMANTIC VIEW Sales_Analytics AS SELECT 1;",
         datasets=[
-            ModelDatasetClass(
-                name="ORDERS",
-                source="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
-            )
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
         ],
     )
 
@@ -1571,10 +1567,7 @@ def too_big_semantic_model_info() -> SemanticModelInfoClass:
         name="Sales_Analytics",
         nativeDefinition=large_definition,
         datasets=[
-            ModelDatasetClass(
-                name="ORDERS",
-                source="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
-            )
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.orders,PROD)",
         ],
     )
 
@@ -1634,10 +1627,7 @@ def test_ensure_size_semantic_model_info_datasets_oversized(processor_ctx):
     # Many datasets so the structure alone exceeds the small constraint, plus a
     # nativeDefinition large enough to enter the shrink path.
     datasets = [
-        ModelDatasetClass(
-            name=f"logical_table_{i:04d}",
-            source=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)",
-        )
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)"
         for i in range(200)
     ]
     semantic_model_info = SemanticModelInfoClass(
@@ -1661,7 +1651,9 @@ def test_ensure_size_semantic_model_info_datasets_oversized(processor_ctx):
     # datasets structure is NOT corrupted - all entries retained intact.
     assert semantic_model_info.datasets is not None
     assert len(semantic_model_info.datasets) == 200
-    assert semantic_model_info.datasets[0].name == "logical_table_0000"
+    assert semantic_model_info.datasets[0] == (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_0000,PROD)"
+    )
 
     # A distinct "remains oversized" warning is emitted in addition to the
     # truncation warning.
@@ -1680,10 +1672,7 @@ def test_ensure_size_semantic_model_info_oversized_no_native_definition(processo
     processor.payload_constraint = small_constraint
 
     datasets = [
-        ModelDatasetClass(
-            name=f"logical_table_{i:04d}",
-            source=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)",
-        )
+        f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.table_{i:04d},PROD)"
         for i in range(200)
     ]
     semantic_model_info = SemanticModelInfoClass(
