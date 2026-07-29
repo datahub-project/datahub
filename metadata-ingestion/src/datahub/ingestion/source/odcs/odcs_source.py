@@ -1,5 +1,6 @@
 import contextlib
 import glob
+import itertools
 import json
 import logging
 import os
@@ -12,7 +13,7 @@ from urllib.parse import urlparse
 
 import jsonschema
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -38,10 +39,15 @@ from datahub.ingestion.source.common.object_store_files import (
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
+from datahub.ingestion.source.odcs.odcs_constants import (
+    DATA_PRODUCT_NAME_SEARCH_LIMIT,
+)
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
+    odcs_to_data_product_output_port_mcps,
+    odcs_to_data_product_urn,
     odcs_to_freshness_assertion_mcps,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_name,
@@ -80,8 +86,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-from datahub.metadata.schema_classes import LogicalParentClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    DataProductPropertiesClass,
+    LogicalParentClass,
+    OwnershipClass,
+    StatusClass,
+)
+from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +161,21 @@ def _model_field_keys(model_cls: type[BaseModel]) -> Set[str]:
     return keys
 
 
+class _DataProductOutputPorts(BaseModel):
+    """The output ports one DataProduct gains, accumulated across the whole run.
+
+    Several contracts — and several `schema[]` entries within one contract — can
+    name the same `dataProduct`, so they are folded together here and patched
+    once at the end rather than per schema entry.
+    """
+
+    asset_urns: List[str] = Field(default_factory=list)
+
+    def add(self, asset_urn: str) -> None:
+        if asset_urn not in self.asset_urns:
+            self.asset_urns.append(asset_urn)
+
+
 @dataclass
 class ODCSSourceReport(StaleEntityRemovalSourceReport):
     contracts_scanned: int = 0
@@ -161,6 +189,9 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     freshness_assertions_emitted: int = 0
     data_contracts_emitted: int = 0
     data_contracts_skipped_no_assertions: int = 0
+    data_product_output_ports_emitted: int = 0
+    data_products_resolved_by_name: int = 0
+    data_products_unresolved: int = 0
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
@@ -199,8 +230,9 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.DELETION_DETECTION,
     "Via standard stateful ingestion (`stateful_ingestion.remove_stale_metadata`): only "
     "the logical `odcs` Datasets, Assertions, and native data contracts ODCS owns are "
-    "stale-removed; physical datasets, their `logicalParent` links, and the optional "
-    "physical-dataset contract are never marked removed.",
+    "stale-removed; physical datasets, their `logicalParent` links, the optional "
+    "physical-dataset contract, and any data product the contract names are never marked "
+    "removed.",
 )
 class ODCSSource(StatefulIngestionSourceBase):
     """Ingest Open Data Contract Standard (ODCS) v3.x YAML documents as logical models.
@@ -254,6 +286,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_verify_failed: Set[str] = set()
         # Owner URNs already warned about (report-only resolution check).
         self._owners_warned: Set[str] = set()
+        self._data_product_ports: Dict[str, _DataProductOutputPorts] = {}
+        # `dataProduct` value -> the product it resolved to, or None when it
+        # resolved to nothing. Cached so a value shared by many contracts costs
+        # one resolution and warns once.
+        self._data_product_urns: Dict[str, Optional[str]] = {}
+        # Products this run creates (urn -> the `dataProduct` value to name it
+        # with), which is only ever the case with verify_data_product_exists off.
+        self._data_products_created: Dict[str, str] = {}
 
         if self.config.http_connection and not self.config.http_connection.verify_ssl:
             self.report.warning(
@@ -943,6 +983,13 @@ class ODCSSource(StatefulIngestionSourceBase):
                     assertion_urns,
                     freshness_assertion_urn,
                 )
+            if self.config.emit_data_product_association:
+                # The physical dataset when the contract bound to one: that is
+                # the interface consumers of the product actually query, and it
+                # renders without the Logical Models beta flag.
+                self._record_data_product_asset(
+                    contract, physical_urn or binding.logical_urn, source_uri
+                )
 
     def _emit_logical_dataset(
         self,
@@ -1254,6 +1301,148 @@ class ODCSSource(StatefulIngestionSourceBase):
         for mcp in contract_mcps:
             yield mcp.as_workunit(is_primary_source=is_primary_source)
 
+    def _record_data_product_asset(
+        self, contract: ODCSContract, asset_urn: str, source_uri: str
+    ) -> None:
+        raw = (contract.dataProduct or "").strip()
+        if not raw:
+            return
+        if raw not in self._data_product_urns:
+            self._data_product_urns[raw] = self._resolve_data_product(
+                raw, contract, source_uri
+            )
+        product_urn = self._data_product_urns[raw]
+        if product_urn is None:
+            return
+        self._data_product_ports.setdefault(product_urn, _DataProductOutputPorts()).add(
+            asset_urn
+        )
+
+    def _resolve_data_product(
+        self, raw: str, contract: ODCSContract, source_uri: str
+    ) -> Optional[str]:
+        """The urn of the Data Product a `dataProduct` value names, if resolvable.
+
+        ODCS documents the field as the product's *name*, while DataHub products
+        are keyed by id, so a value is tried as an id first and then matched
+        against product names. Products are authored in DataHub (or from an ODPS
+        document); a value matching neither is a mismatch to report rather than a
+        product to invent, unless `verify_data_product_exists` is off.
+        """
+        context = f"file={source_uri} contract={contract.id} dataProduct={raw}"
+        try:
+            by_id: Optional[str] = odcs_to_data_product_urn(raw)
+        except InvalidUrnError:
+            # Only a name can have been meant: `Orders, Retail (EU)` cannot be an
+            # id, because commas and parens are structural in DataHub urns.
+            by_id = None
+        if by_id is not None and self._urn_exists_in_graph(by_id) is not False:
+            # Also the no-graph case (file sink): nothing to resolve against, so
+            # the id-derived urn is emitted unverified.
+            return by_id
+
+        by_name = self._data_products_named(raw)
+        if len(by_name) == 1:
+            self.report.data_products_resolved_by_name += 1
+            return by_name[0]
+        if len(by_name) > 1:
+            self.report.data_products_unresolved += 1
+            self.report.warning(
+                title="ODCS dataProduct matches several Data Products",
+                message=(
+                    "More than one Data Product carries this name, so the "
+                    "contract's datasets were left out of all of them. Set "
+                    "`dataProduct` to the id of the intended product, or to its "
+                    "full urn."
+                ),
+                context=f"{context} matches={', '.join(sorted(by_name))}",
+            )
+            return None
+
+        if not self.config.verify_data_product_exists and by_id is not None:
+            # Reaching here with an id means the graph was definitive that no
+            # product exists at it (a missing graph returns above), so seeding
+            # the product cannot overwrite anything curated in DataHub.
+            self._data_products_created[by_id] = raw
+            return by_id
+        self.report.data_products_unresolved += 1
+        self.report.warning(
+            title="ODCS dataProduct not found in DataHub",
+            message=(
+                "No Data Product matches this value by id or by name, so the "
+                "contract's datasets were not added to one. Create the product "
+                "first, or set `verify_data_product_exists: false` to have ODCS "
+                "create it."
+                if by_id is not None
+                else "No Data Product matches this value by name, and the value "
+                "cannot be an id. Rename the product to match, or set "
+                "`dataProduct` to the product's id or full urn."
+            ),
+            context=context,
+        )
+        return None
+
+    def _data_products_named(self, name: str) -> List[str]:
+        """Urns of every Data Product whose display name equals `name`.
+
+        Search is a prefilter only — it matches on word grams, so every candidate
+        is confirmed against the persisted `dataProductProperties.name`.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return []
+        wanted = name.casefold()
+        matches: List[str] = []
+        try:
+            candidates = itertools.islice(
+                graph.get_urns_by_filter(
+                    entity_types=[DataProductUrn.ENTITY_TYPE], query=name
+                ),
+                DATA_PRODUCT_NAME_SEARCH_LIMIT,
+            )
+            for urn in candidates:
+                props = graph.get_aspect(urn, DataProductPropertiesClass)
+                if (
+                    props is not None
+                    and (props.name or "").strip().casefold() == wanted
+                ):
+                    matches.append(urn)
+            return matches
+        except Exception as e:
+            self.report.warning(
+                title="Could not search Data Products by name",
+                message=(
+                    "Graph lookup failed, so a `dataProduct` value that names a "
+                    "product rather than identifying it could not be resolved."
+                ),
+                context=f"dataProduct={name}",
+                exc=e,
+            )
+            return []
+
+    def _emit_data_product_output_ports(self) -> Iterable[MetadataWorkUnit]:
+        for product_urn, entry in self._data_product_ports.items():
+            created_name = self._data_products_created.get(product_urn)
+            if created_name is not None:
+                # A product this run brings into existence needs its `status`
+                # spelled out: AutoStatusAspectProcessor only fills it in for
+                # primary-source workunits, and these are deliberately not.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=product_urn, aspect=StatusClass(removed=False)
+                ).as_workunit(is_primary_source=False)
+            # is_primary_source=False keeps the product out of the stateful
+            # checkpoint: it is curated in DataHub, so stale-entity removal must
+            # never soft-delete it when a contract stops naming it.
+            for mcp in odcs_to_data_product_output_port_mcps(
+                product_urn, entry.asset_urns, name=created_name
+            ):
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    is_primary_source=False,
+                )
+            self.report.data_product_output_ports_emitted += len(entry.asset_urns)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with contextlib.ExitStack() as stack:
             checkout_dir: Optional[pathlib.Path] = None
@@ -1291,6 +1480,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 )
                 self.report.files_skipped.append(uri)
                 self.report.contracts_skipped += 1
+
+        # After every contract has been read, so a product named by several of
+        # them gets one patch rather than one per contract.
+        yield from self._emit_data_product_output_ports()
 
         # Surface the silent-by-default case: logical datasets were emitted but
         # nothing bound to a physical dataset. Assertions are unaffected (they

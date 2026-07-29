@@ -1,5 +1,6 @@
 """Unit tests for the ODCS source — path resolution, validation, binding, stateful wiring."""
 
+import json
 import pathlib
 from functools import partial
 from typing import Any, Dict, List, Optional
@@ -28,11 +29,13 @@ from datahub.metadata.schema_classes import (
     DataContractPropertiesClass,
     DataContractStateClass,
     DataContractStatusClass,
+    DataProductPropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
     FreshnessAssertionScheduleTypeClass,
     LogicalParentClass,
     OwnershipClass,
+    StatusClass,
 )
 
 
@@ -673,6 +676,255 @@ def test_emit_data_contract_flag_disables(tmp_path: pathlib.Path) -> None:
     assert _aspects_of(workunits, LogicalParentClass)
     assert not _aspects_of(workunits, DataContractPropertiesClass)
     assert src.report.data_contracts_emitted == 0
+
+
+_DATA_PRODUCT_BODY = _VALID_CONTRACT_BODY.replace(
+    "status: active", "status: active\ndataProduct: orders_product"
+)
+
+
+def _logical_urn_of(workunits: List) -> str:
+    urns = {
+        _mcp(wu).entityUrn
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+    }
+    assert len(urns) == 1
+    urn = urns.pop()
+    assert urn is not None
+    return urn
+
+
+def _data_product_ops(workunits: List) -> Dict[str, List[Dict[str, Any]]]:
+    """DataProduct urn -> the JSON-Patch ops emitted against it."""
+    ops_by_urn: Dict[str, List[Dict[str, Any]]] = {}
+    for wu in workunits:
+        if getattr(wu.metadata, "aspectName", None) != "dataProductProperties":
+            continue
+        assert wu.is_primary_source is False
+        entity_urn = wu.metadata.entityUrn
+        assert entity_urn is not None
+        payload = json.loads(wu.metadata.aspect.value)
+        ops_by_urn.setdefault(entity_urn, []).extend(payload)
+    return ops_by_urn
+
+
+def _output_ports(workunits: List, data_product_urn: str) -> List[str]:
+    ports: List[str] = []
+    for op in _data_product_ops(workunits)[data_product_urn]:
+        assert op["op"] == "add"
+        if op["path"] == "/name":
+            continue
+        assert op["value"]["outputPort"] is True
+        ports.append(op["value"]["destinationUrn"])
+    return ports
+
+
+def _data_products_marked_not_removed(workunits: List) -> List[str]:
+    return [
+        urn
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), StatusClass)
+        for urn in [_mcp(wu).entityUrn]
+        if urn is not None and urn.startswith("urn:li:dataProduct:")
+    ]
+
+
+def _product_name_set(workunits: List, data_product_urn: str) -> Optional[str]:
+    for op in _data_product_ops(workunits)[data_product_urn]:
+        if op["path"] == "/name":
+            assert isinstance(op["value"], str)
+            return op["value"]
+    return None
+
+
+def _graph_with_products(products: Dict[str, str]) -> Any:
+    """A graph where `products` (urn -> display name) are the only Data Products.
+
+    Everything else — the contract's physical table, in particular — exists.
+    """
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: (
+        urn in products if urn.startswith("urn:li:dataProduct:") else True
+    )
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(list(products))
+    graph.get_aspect.side_effect = lambda urn, aspect_cls: (
+        DataProductPropertiesClass(name=products[urn])
+        if aspect_cls is DataProductPropertiesClass and urn in products
+        else None
+    )
+    return graph
+
+
+def test_data_product_association_off_by_default(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_product_output_ports_emitted == 0
+
+
+def test_data_product_output_port_is_the_bound_physical_dataset(
+    tmp_path: pathlib.Path,
+) -> None:
+    # The physical table is what consumers of the product query; the logical
+    # `odcs` dataset is only a fallback for an unbound contract.
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path, path=str(contract_file), emit_data_product_association=True
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, "urn:li:dataProduct:orders_product") == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+    assert src.report.data_product_output_ports_emitted == 1
+
+
+def test_data_product_output_port_falls_back_to_logical_dataset(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace("type: postgres", "type: oracle"), encoding="utf-8"
+    )
+    src = _make_source(
+        tmp_path, path=str(contract_file), emit_data_product_association=True
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, "urn:li:dataProduct:orders_product") == [
+        _logical_urn_of(workunits)
+    ]
+
+
+def test_data_product_output_ports_deduped_across_contracts(
+    tmp_path: pathlib.Path,
+) -> None:
+    # One patch carrying both ports, not one patch each — two would collide on
+    # workunit id.
+    (tmp_path / "a.odcs.yaml").write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        _DATA_PRODUCT_BODY.replace("id: test-contract-1", "id: test-contract-2")
+        .replace("name: t\n", "name: t2\n")
+        .replace("physicalName: t", "physicalName: t2"),
+        encoding="utf-8",
+    )
+    src = _make_source(tmp_path, path=str(tmp_path), emit_data_product_association=True)
+    workunits = list(src.get_workunits_internal())
+
+    assert sorted(_output_ports(workunits, "urn:li:dataProduct:orders_product")) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t2,PROD)",
+    ]
+    assert src.report.data_product_output_ports_emitted == 2
+
+
+def test_data_product_resolved_by_display_name(tmp_path: pathlib.Path) -> None:
+    # ODCS documents `dataProduct` as the product's name, and a name with commas
+    # or parens can never be a urn id — it only resolves by name.
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: 'Orders, Retail (EU)'"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products(
+            {"urn:li:dataProduct:abc-123": "Orders, Retail (EU)"}
+        ),
+        path=str(contract_file),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, "urn:li:dataProduct:abc-123") == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+    assert src.report.data_products_resolved_by_name == 1
+    # A product that already exists keeps its own name and status.
+    assert _product_name_set(workunits, "urn:li:dataProduct:abc-123") is None
+    assert _data_products_marked_not_removed(workunits) == []
+
+
+def test_data_product_name_matching_several_products_is_skipped(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: Orders"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products(
+            {"urn:li:dataProduct:a": "Orders", "urn:li:dataProduct:b": "orders"}
+        ),
+        path=str(contract_file),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
+    assert any(
+        "matches several Data Products" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_data_product_not_found_is_skipped(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({}),
+        path=str(contract_file),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
+    assert any(
+        "not found in DataHub" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_data_product_created_when_verification_disabled(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        graph=_graph_with_products({}),
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, "urn:li:dataProduct:orders_product") == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+    assert src.report.data_products_unresolved == 0
+    # A product ODCS brings into existence needs a name and a status of its own:
+    # without them it renders as its raw id and carries no `status` aspect.
+    assert _product_name_set(workunits, "urn:li:dataProduct:orders_product") == (
+        "orders_product"
+    )
+    assert _data_products_marked_not_removed(workunits) == [
+        "urn:li:dataProduct:orders_product"
+    ]
 
 
 def test_multiple_files_emit_all_logical_datasets(
