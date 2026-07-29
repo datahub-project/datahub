@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlglot.errors
+from datahub.metadata.schema_classes import StringTypeClass
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
@@ -34,15 +35,16 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
+    NativeQueryLineage,
     OdbcLineage,
     OracleLineage,
+    _get_data_source_tokens,
     _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Table,
 )
-from datahub.metadata.schema_classes import StringTypeClass
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -85,6 +87,145 @@ def _build_oracle_lineage(
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=MagicMock(spec=AbstractDataPlatformInstanceResolver),
     )
+
+
+def _build_native_query_lineage(
+    *, config: PowerBiDashboardSourceConfig
+) -> NativeQueryLineage:
+    table = Table(
+        columns=None,
+        measures=[],
+        expression="",
+        name="t",
+        full_name="ds.t",
+    )
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.graph = None
+    return NativeQueryLineage(
+        ctx=ctx,
+        table=table,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=MagicMock(spec=AbstractDataPlatformInstanceResolver),
+    )
+
+
+def _snowflake_native_query_source_node() -> dict:
+    """Structurally faithful (tokenRange/position noise stripped) AST fragment
+    for ``Snowflake.Databases(SnowflakeURL,SnowflakeWarehouse){[Name=SnowflakeDBLake]}[Data]``
+    -- captured from a real M-Query bridge parse (Angle Auto POC repro,
+    ING-2849 / GitHub #15327). ``SnowflakeDBLake`` is an unquoted identifier
+    (a Power Query dataset Parameter reference), not a literal string.
+    """
+    return {
+        "kind": "RecursivePrimaryExpression",
+        "head": {
+            "kind": "IdentifierExpression",
+            "identifier": {"kind": "Identifier", "literal": "Snowflake.Databases"},
+        },
+        "recursiveExpressions": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "InvokeExpression",
+                    "content": {
+                        "kind": "ArrayWrapper",
+                        "elements": [
+                            {
+                                "kind": "Csv",
+                                "node": {
+                                    "kind": "IdentifierExpression",
+                                    "identifier": {
+                                        "kind": "Identifier",
+                                        "literal": "SnowflakeURL",
+                                    },
+                                },
+                            },
+                            {
+                                "kind": "Csv",
+                                "node": {
+                                    "kind": "IdentifierExpression",
+                                    "identifier": {
+                                        "kind": "Identifier",
+                                        "literal": "SnowflakeWarehouse",
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+                {
+                    "kind": "ItemAccessExpression",
+                    "content": {
+                        "kind": "RecordExpression",
+                        "content": {
+                            "kind": "ArrayWrapper",
+                            "elements": [
+                                {
+                                    "kind": "Csv",
+                                    "node": {
+                                        "kind": "GeneralizedIdentifierPairedExpression",
+                                        "key": {
+                                            "kind": "GeneralizedIdentifier",
+                                            "literal": "Name",
+                                        },
+                                        "value": {
+                                            "kind": "IdentifierExpression",
+                                            "identifier": {
+                                                "kind": "Identifier",
+                                                "literal": "SnowflakeDBLake",
+                                            },
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+                {"kind": "FieldSelector"},
+            ],
+        },
+    }
+
+
+def _snowflake_native_query_source_node_literal_server() -> dict:
+    """Same shape as ``_snowflake_native_query_source_node`` but with a literal
+    server/warehouse (``Snowflake.Databases("myserver.snowflakecomputing.com","MYWH")``)
+    instead of identifier references.
+
+    Bare identifier positional arguments (not wrapped in a RecordExpression) are
+    never resolved via ``parameters`` by the current extraction loop -- only
+    ``{[Name=...]}``-style record fields are. That's harmless for the
+    ``create_lineage`` case (the resolved ``server`` value is only used for
+    optional platform-instance lookup, not URN construction -- confirmed against
+    Angle Auto's real M-Query end-to-end), but it means a fixture with identifier
+    server/warehouse args and an unresolved ``Name`` never reaches this file's
+    database-resolution warning at all -- it hits the earlier "server not
+    available" check first. This literal-server variant isolates the ``Name``
+    resolution behaviour specifically, matching the real-world case where the
+    warning is actually reachable (e.g. GitHub #15327 Query 3's literal-server /
+    parameterized-warehouse shape).
+    """
+    node = _snowflake_native_query_source_node()
+    node["recursiveExpressions"]["elements"][0]["content"]["elements"] = [
+        {
+            "kind": "Csv",
+            "node": {
+                "kind": "LiteralExpression",
+                "literalKind": "Text",
+                "literal": '"myserver.snowflakecomputing.com"',
+            },
+        },
+        {
+            "kind": "Csv",
+            "node": {
+                "kind": "LiteralExpression",
+                "literalKind": "Text",
+                "literal": '"MYWH"',
+            },
+        },
+    ]
+    return node
 
 
 # ---------------------------------------------------------------------------
@@ -908,3 +1049,155 @@ def test_is_sql_query_handles_other_platforms_without_raising():
     assert OdbcLineage.is_sql_query(query, "databricks") is True
     assert OdbcLineage.is_sql_query(query, "db2") is True
     assert OdbcLineage.is_sql_query("not a query at all", "db2") is False
+
+
+# ---------------------------------------------------------------------------
+# Snowflake Value.NativeQuery with a parameterized database identifier
+# (Angle Auto POC repro; ING-2849 / GitHub #15327)
+# ---------------------------------------------------------------------------
+
+
+def test_get_data_source_tokens_resolves_snowflake_item_access_with_parameter():
+    """``Snowflake.Databases(...){[Name=SnowflakeDBLake]}[Data]`` -- the ``{[...]}``
+    step is an ItemAccessExpression, not an InvokeExpression. Before the fix,
+    the token-extraction loop only handled InvokeExpression elements, so it
+    never even reached the RecordExpression holding ``Name=``, regardless of
+    whether the value was a literal or (as here) an unresolved parameter
+    reference. Both gaps -- the missing ItemAccessExpression branch and the
+    missing ``parameters`` thread-through -- must be fixed for this to pass.
+    """
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters={"SnowflakeDBLake": "DATA_LAKE_DEV"},
+    )
+
+    assert tokens[0] == "Snowflake.Databases"
+    assert "Name" in tokens
+    assert tokens[tokens.index("Name") + 1] == "DATA_LAKE_DEV"
+
+
+def test_get_data_source_tokens_omits_name_when_parameter_unresolved():
+    """Sanity check for the other side of the same fix: if the parameter isn't
+    supplied at all, the ItemAccessExpression is now visited (the structural
+    gap is fixed), but the identifier still can't be resolved to a literal --
+    so ``Name`` correctly does not appear, rather than resolving to garbage.
+    """
+    source_node = _snowflake_native_query_source_node()
+
+    tokens = _get_data_source_tokens(
+        node_map={},
+        arg_node=source_node,
+        parameters=None,
+    )
+
+    assert "Name" not in tokens
+
+
+def test_native_query_lineage_get_db_name_resolves_snowflake_from_name_token():
+    """``get_db_name()`` had Databricks and BigQuery branches but fell through
+    to ``None`` for every Snowflake token list, regardless of content -- this
+    is the third coordinated piece of the fix (ING-2849 Scope 1)."""
+    instance = _build_native_query_lineage(config=_build_config())
+
+    tokens = [
+        "Snowflake.Databases",
+        "SnowflakeURL",
+        "SnowflakeWarehouse",
+        "Name",
+        "DATA_LAKE_DEV",
+    ]
+
+    assert instance.get_db_name(tokens) == "DATA_LAKE_DEV"
+
+
+def test_native_query_lineage_get_db_name_returns_none_for_snowflake_without_name():
+    """No ``Name`` token (e.g. a bare ``Snowflake.Databases(server, warehouse)``
+    with no database navigation step at all) -- still correctly returns None
+    rather than crashing or guessing."""
+    instance = _build_native_query_lineage(config=_build_config())
+
+    tokens = ["Snowflake.Databases", "SnowflakeURL", "SnowflakeWarehouse"]
+
+    assert instance.get_db_name(tokens) is None
+
+
+def _native_query_arg_list(sql: str, source_node: Optional[dict] = None) -> dict:
+    """InvokeExpression node for ``Value.NativeQuery(<source>, "<sql>", null, [...])``
+    -- just the 2 args ``create_lineage`` actually reads (source, sql)."""
+    return {
+        "kind": "InvokeExpression",
+        "content": {
+            "kind": "ArrayWrapper",
+            "elements": [
+                {
+                    "kind": "Csv",
+                    "node": source_node or _snowflake_native_query_source_node(),
+                },
+                {
+                    "kind": "Csv",
+                    "node": {
+                        "kind": "LiteralExpression",
+                        "literalKind": "Text",
+                        "literal": f'"{sql}"',
+                    },
+                },
+            ],
+        },
+    }
+
+
+def test_create_lineage_warns_when_snowflake_database_name_unresolved():
+    """Cross-reference: PR #18030 (ING-2913) added a clear warning for the
+    equivalent unresolved-parameter case in the three-step navigation-chain
+    path (``ThreeStepDataAccessPattern``, no embedded SQL). This is the same
+    fix for the ``Value.NativeQuery`` + embedded-SQL path (``NativeQueryLineage``,
+    ING-2849 Scope 1) -- a different class, same underlying failure mode:
+    silently producing no/wrong lineage with no explanation when a parameter
+    reference can't be resolved.
+    """
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select * from unqualified_table",
+            source_node=_snowflake_native_query_source_node_literal_server(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        # Server/warehouse are literal in the fixture; SnowflakeDBLake is
+        # deliberately NOT supplied here -- unresolved.
+        parameters={},
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" in warning_titles
+
+
+def test_create_lineage_does_not_warn_when_snowflake_database_name_resolved():
+    """Sanity check for the other side: when the parameter *is* supplied and
+    resolves, no spurious warning is emitted."""
+    instance = _build_native_query_lineage(
+        config=_build_config(enable_advance_lineage_sql_construct=True)
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list=_native_query_arg_list(
+            "select contract_id from ambitpstage.termination_quote_current",
+            source_node=_snowflake_native_query_source_node_literal_server(),
+        ),
+        data_access_function_name="Value.NativeQuery",
+        identifier_accessor=None,
+        node_map={},
+        parameters={"SnowflakeDBLake": "DATA_LAKE_DEV"},
+    )
+
+    instance.create_lineage(detail)
+
+    warning_titles = [w.title for w in instance.reporter.warnings]
+    assert "Unresolved database name in Value.NativeQuery" not in warning_titles
