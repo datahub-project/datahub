@@ -24,6 +24,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from datahub.utilities.sqlalchemy_query_combiner import (
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
     SQLAlchemyQueryCombiner,
+    _QueryFuture,
     _ResultProxyFake,
     _RowProxyFake,
     get_query_columns,
@@ -354,6 +355,62 @@ class TestExceptionAndFallback:
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.uncombined_queries_issued == 2
         assert combiner.report.total_queries == 2
+
+    def test_serial_fallback_skips_already_done_futures(self, engine, test_table):
+        # The skip-done contract is load-bearing for two callers: flush()'s
+        # _execute_queue_fallback runs over the WHOLE queue, which legitimately
+        # holds done futures (del queue[query_id] only runs when the parked
+        # greenlet resumes, after _execute_queue). _execute_cte_combine sets
+        # every future done before its post-loop assert can fire, so a failed
+        # CTE pass hands the fallback an all-done queue. Without this guard
+        # those futures are re-executed serially — correct results, N wasted
+        # round trips, and an inflated uncombined_queries_issued.
+        #
+        # Call _execute_futures_serially directly with a mix of already-done
+        # and un-done futures. The done ones must be skipped (their sentinel
+        # result untouched); only the un-done ones count toward
+        # uncombined_queries_issued and get a real result.
+        combiner = _make_combiner()
+        with engine.connect() as conn:
+            done_query = sa.select(sa.func.count().label("done")).select_from(
+                test_table
+            )
+            undone_query = sa.select(sa.func.count().label("rowcount")).select_from(
+                test_table
+            )
+
+            # Two futures already done, carrying a sentinel result that
+            # re-execution would overwrite.
+            done_fut_a = _QueryFuture(conn, done_query, (), {})
+            done_fut_a.done = True
+            done_fut_a.res = _ResultProxyFake(
+                [_RowProxyFake({"sentinel": "a-untouched"})]
+            )
+            done_fut_b = _QueryFuture(conn, done_query, (), {})
+            done_fut_b.done = True
+            done_fut_b.res = _ResultProxyFake(
+                [_RowProxyFake({"sentinel": "b-untouched"})]
+            )
+
+            # Two futures not yet done — these should be executed.
+            undone_fut_a = _QueryFuture(conn, undone_query, (), {})
+            undone_fut_b = _QueryFuture(conn, undone_query, (), {})
+
+            combiner._execute_futures_serially(
+                [done_fut_a, undone_fut_a, done_fut_b, undone_fut_b]
+            )
+
+        # Only the two un-done futures counted.
+        assert combiner.report.uncombined_queries_issued == 2
+        # Done futures were skipped: sentinel results untouched, still done.
+        assert done_fut_a.res.fetchone()["sentinel"] == "a-untouched"
+        assert done_fut_b.res.fetchone()["sentinel"] == "b-untouched"
+        assert done_fut_a.done and done_fut_b.done
+        # Un-done futures were executed: real result, now done.
+        assert undone_fut_a.done and undone_fut_b.done
+        assert undone_fut_a.res is not None and undone_fut_b.res is not None
+        assert undone_fut_a.res.scalar() == 3
+        assert undone_fut_b.res.scalar() == 3
 
     def test_no_fallback_raises_when_disabled(self, engine, test_table):
         bad = sa.select(sa.func.count().label("bad")).select_from(

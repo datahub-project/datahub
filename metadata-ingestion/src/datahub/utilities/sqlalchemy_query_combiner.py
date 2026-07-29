@@ -484,24 +484,26 @@ class SQLAlchemyQueryCombiner:
             return False
 
     @staticmethod
-    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Any, ...]:
+    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any]:
         # Group key: the FROM clause objects (by identity) plus the connection
         # the future executes on. This function owns the whole key so the next
         # reader cannot fix one half and forget the other.
         #
-        # From-clause elements (Table, Subquery, Join) are hashable with
-        # identity semantics — hash(t) is stable, and two distinct Table
-        # objects that share a name compare unequal and hash differently
-        # (verified). So tuple(query.froms) groups by object identity directly,
-        # without id()'s only-unique-among-live-objects caveat (a latent hazard
-        # for a future reader who caches or defers). Same-name-different-object
-        # tables therefore land in separate groups instead of one self-cross-
-        # join (FROM t, t) the server would reject.
+        # Both halves are hashable with identity semantics. From-clause elements
+        # (Table, Subquery, Join) have stable hash and compare unequal across
+        # distinct objects that share a name (verified). sqlalchemy.engine.Connection
+        # is likewise hashable and dict-keyable, so fut.conn groups by identity
+        # directly — no id(). id() is only unique among live objects, a latent
+        # hazard for a future reader who caches or defers the key, so neither
+        # half uses it. Same-name-different-object tables therefore land in
+        # separate groups instead of one self-cross-join (FROM t, t) the server
+        # would reject.
         #
-        # The connection is folded in because _execute_flat_select runs the
-        # whole group on members[0].conn; mixing connections in one group
-        # would run some futures on the wrong connection.
-        return (*fut.query.froms, id(fut.conn))
+        # The froms are nested (not splatted) so the two element kinds do not
+        # mix in one flat tuple. The connection is folded in because
+        # _execute_flat_select runs the whole group on members[0].conn; mixing
+        # connections in one group would run some futures on the wrong one.
+        return (tuple(fut.query.froms), fut.conn)
 
     @staticmethod
     def _has_count_distinct(query: Any) -> bool:
@@ -686,7 +688,20 @@ class SQLAlchemyQueryCombiner:
         # operates on the whole queue (it is called by flush() when the entire
         # _execute_queue raises), but a failed unit in _execute_queue_flattened
         # must only resolve its own futures — the rest of the batch should
-        # still flatten on the next pass. Skip-done contract preserved.
+        # still flatten on the next pass.
+        #
+        # The skip-done guard below is load-bearing for _execute_queue_fallback's
+        # whole-queue call: `del queue[query_id]` (in _handle_execute) only
+        # runs when the parked greenlet resumes, which happens in flush()'s
+        # `for let in list(pool): let.switch()` loop AFTER _execute_queue. So
+        # the queue legitimately holds done futures during execution —
+        # _execute_cte_combine sets every future done before its post-loop
+        # assert can fire, then hands the fallback an all-done queue. Without
+        # this guard those futures are re-executed serially (correct results,
+        # N wasted round trips, inflated uncombined_queries_issued). The
+        # flatten path's callers pre-filter (`group_queue = {... if not
+        # fut.done}`), so for them the guard is a no-op — do not delete it as
+        # redundant; it exists for the whole-queue caller.
         for query_future in futures:
             if query_future.done:
                 continue
