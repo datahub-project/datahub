@@ -1,12 +1,14 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 import { AIChatButton } from './app/aiAssistant/AIChatButton';
+
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
 import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
+
 import { GlobalStyles } from '@components/components/GlobalStyles';
 import { ToastRenderer } from '@components/components/Toast';
 

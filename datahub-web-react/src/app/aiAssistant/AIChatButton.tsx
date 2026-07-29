@@ -76,6 +76,12 @@ const HeaderTitle = styled.div`
     font-size: 15px;
 `;
 
+const HeaderSubtitle = styled.div`
+    font-size: 11px;
+    opacity: 0.8;
+    margin-top: 2px;
+`;
+
 const CloseBtn = styled.button`
     background: none;
     border: none;
@@ -88,6 +94,7 @@ const CloseBtn = styled.button`
     &:hover { opacity: 1; background: rgba(255,255,255,0.15); }
 `;
 
+// Model picker lives in the chat panel (not settings) so it can be switched per-conversation.
 const ModelSelect = styled.select`
     background: rgba(255, 255, 255, 0.15);
     color: white;
@@ -101,10 +108,7 @@ const ModelSelect = styled.select`
     option { color: #333; }
 `;
 
-type ChatModelOption = {
-    value: string;
-    label: string;
-};
+type ChatModelOption = { value: string; label: string };
 
 const MODEL_OPTIONS_BY_ENUM: Record<string, ChatModelOption> = {
     SONNET: { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
@@ -139,7 +143,9 @@ const Message = styled.div<{ $isUser: boolean }>`
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 `;
 
+// Renders markdown from the assistant (bold, lists, tables, code, links) inside the chat bubble.
 const MarkdownContent = styled.div`
+    /* Tighten spacing so markdown fits the narrow chat panel */
     & > *:first-child { margin-top: 0; }
     & > *:last-child { margin-bottom: 0; }
     p { margin: 0 0 8px; }
@@ -248,8 +254,8 @@ const WELCOME: ChatMessage = {
 
 interface PageContext {
     pageUrl: string;
-    pageType: string;
-    entityUrn?: string;
+    pageType: string;        // e.g. "dataset", "dashboard", "domain", "policy", "home"
+    entityUrn?: string;      // e.g. "urn:li:dataset:(urn:li:dataPlatform:hive,users,PROD)"
 }
 
 const getPageContext = (): PageContext => {
@@ -280,41 +286,6 @@ const getMockResponse = () => {
     return response;
 };
 
-const applyTokenToMessage = (
-    aiMsgId: number,
-    tokenText: string,
-    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-) => {
-    setMessages((prev) =>
-        prev.map((message) => (message.id === aiMsgId ? { ...message, text: tokenText } : message)),
-    );
-};
-
-const processSseChunk = (chunk: string, onToken: (token: string) => void) => {
-    let receivedDone = false;
-
-    chunk.split('\n').forEach((line) => {
-        if (receivedDone || !line.startsWith('data: ')) {
-            return;
-        }
-
-        const payload = line.slice(6).trim();
-        if (payload === '[DONE]') {
-            receivedDone = true;
-            return;
-        }
-
-        try {
-            const { token } = JSON.parse(payload) as { token: string };
-            onToken(token);
-        } catch {
-            // skip malformed lines
-        }
-    });
-
-    return receivedDone;
-};
-
 export const AIChatButton: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
@@ -338,10 +309,9 @@ export const AIChatButton: React.FC = () => {
                 if (!response.ok) return;
 
                 const data = (await response.json()) as { models?: string[] };
-                const nextModels =
-                    data.models
-                        ?.map((modelName) => MODEL_OPTIONS_BY_ENUM[modelName])
-                        .filter((option): option is ChatModelOption => Boolean(option)) || [];
+                const nextModels = data.models
+                    ?.map((modelName) => MODEL_OPTIONS_BY_ENUM[modelName])
+                    .filter((option): option is ChatModelOption => Boolean(option)) || [];
 
                 if (!isMounted || nextModels.length === 0) return;
 
@@ -371,14 +341,15 @@ export const AIChatButton: React.FC = () => {
         setIsTyping(true);
 
         try {
+            // ── Real SSE streaming call to backend ───────────────────────────
             const response = await fetch(AI_CHAT_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: text,
-                    model,
-                    context: getPageContext(),
-                    session_id: sessionId,
+                    model,                        // model chosen in the chat header
+                    context: getPageContext(),   // current page URL + entity type
+                    session_id: sessionId,        // persistent session for conversation memory
                 }),
             });
 
@@ -394,23 +365,31 @@ export const AIChatButton: React.FC = () => {
             setMessages((prev) => [...prev, { id: aiMsgId, text: '', isUser: false }]);
             setIsTyping(false);
 
-            const readNextChunk = async (): Promise<void> => {
+            // Stream response token-by-token (SSE JSON events: data: {"token": "..."})
+            while (true) {
                 const { done, value } = await reader.read();
-                if (done) return;
+                if (done) break;
 
                 const chunk = decoder.decode(value, { stream: true });
-                const isDone = processSseChunk(chunk, (token) => {
-                    accumulated += token;
-                    applyTokenToMessage(aiMsgId, accumulated, setMessages);
-                });
-
-                if (!isDone) {
-                    await readNextChunk();
+                // Parse SSE lines: "data: {"token": "hello"}\n"
+                for (const line of chunk.split('\n')) {
+                    if (!line.startsWith('data: ')) continue;
+                    const payload = line.slice(6).trim();
+                    if (payload === '[DONE]') break;
+                    try {
+                        const { token } = JSON.parse(payload) as { token: string };
+                        accumulated += token;
+                        // Update the message bubble live as each token arrives
+                        setMessages((prev) =>
+                            prev.map((m) => (m.id === aiMsgId ? { ...m, text: accumulated } : m)),
+                        );
+                    } catch {
+                        // skip malformed lines
+                    }
                 }
-            };
-
-            await readNextChunk();
+            }
         } catch {
+            // ── Fallback to mock if backend is unavailable ───────────────────
             setTimeout(() => {
                 setMessages((prev) => [
                     ...prev,

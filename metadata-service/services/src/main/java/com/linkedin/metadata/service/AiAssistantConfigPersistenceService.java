@@ -10,22 +10,19 @@ import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
 import java.util.Set;
 
-public class AiAssistantConfigPlatformService {
+public class AiAssistantConfigPersistenceService {
 
   private final SystemEntityClient entityClient;
   private final SecretService secretService;
   private final SettingsService settingsService;
-  private final OperationContext systemOperationContext;
 
-  public AiAssistantConfigPlatformService(
+  public AiAssistantConfigPersistenceService(
       SystemEntityClient entityClient,
       SecretService secretService,
-      SettingsService settingsService,
-      OperationContext systemOperationContext) {
+      SettingsService settingsService) {
     this.entityClient = entityClient;
     this.secretService = secretService;
     this.settingsService = settingsService;
-    this.systemOperationContext = systemOperationContext;
   }
 
   boolean exists(OperationContext opContext, Urn urn) throws Exception {

@@ -1,12 +1,10 @@
 package io.datahubproject.aiassistant.servlet;
 
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.metadata.service.AiAssistantConfigPlatformService;
+import com.linkedin.metadata.service.AiAssistantConfigPersistenceService;
 import com.linkedin.metadata.service.AiAssistantConfigService;
 import com.linkedin.metadata.service.SettingsService;
-import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,18 +12,17 @@ import org.springframework.context.annotation.Configuration;
 public class AiAssistantConfigConfiguration {
 
   @Bean
-  public AiAssistantConfigPlatformService aiAssistantConfigPlatformService(
+  public AiAssistantConfigPersistenceService aiAssistantConfigPersistenceService(
       SystemEntityClient systemEntityClient,
       SecretService secretService,
-      SettingsService settingsService,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-    return new AiAssistantConfigPlatformService(
-        systemEntityClient, secretService, settingsService, systemOperationContext);
+      SettingsService settingsService) {
+    return new AiAssistantConfigPersistenceService(
+        systemEntityClient, secretService, settingsService);
   }
 
   @Bean
   public AiAssistantConfigService aiAssistantConfigService(
-      AiAssistantConfigPlatformService platformService) {
-    return new AiAssistantConfigService(platformService);
+      AiAssistantConfigPersistenceService persistenceService) {
+    return new AiAssistantConfigService(persistenceService);
   }
 }

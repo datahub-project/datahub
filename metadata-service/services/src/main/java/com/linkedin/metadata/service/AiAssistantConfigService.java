@@ -39,10 +39,10 @@ public class AiAssistantConfigService {
   }
 
   private static final Set<String> SUPPORTED_PROVIDERS = Set.of("claude", "openai");
-  private final AiAssistantConfigPlatformService platformService;
+  private final AiAssistantConfigPersistenceService persistenceService;
 
-  public AiAssistantConfigService(AiAssistantConfigPlatformService platformService) {
-    this.platformService = platformService;
+  public AiAssistantConfigService(AiAssistantConfigPersistenceService persistenceService) {
+    this.persistenceService = persistenceService;
   }
 
   public ProviderKeyResult upsertProviderKey(
@@ -53,10 +53,10 @@ public class AiAssistantConfigService {
     final Urn secretUrn = getSecretUrn(secretName);
 
     try {
-      if (platformService.exists(opContext, secretUrn)) {
+      if (persistenceService.exists(opContext, secretUrn)) {
         final EntityResponse existingSecret =
-            platformService.get(opContext, secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
-        platformService.ingestProposal(
+            persistenceService.get(opContext, secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
+        persistenceService.ingestProposal(
             opContext,
             buildSecretProposal(
                 secretUrn,
@@ -64,11 +64,11 @@ public class AiAssistantConfigService {
                     opContext,
                     existingSecret,
                     secretName,
-                    platformService.encrypt(opContext, trimmedApiKey))));
+                    persistenceService.encrypt(opContext, trimmedApiKey))));
       } else {
         final DataHubSecretKey key = new DataHubSecretKey();
         key.setId(secretName);
-        platformService.ingestProposal(
+        persistenceService.ingestProposal(
             opContext,
             buildSecretProposal(
                 key,
@@ -76,7 +76,7 @@ public class AiAssistantConfigService {
                     opContext,
                     null,
                     secretName,
-                    platformService.encrypt(opContext, trimmedApiKey))));
+                    persistenceService.encrypt(opContext, trimmedApiKey))));
       }
 
       return ProviderKeyResult.builder()
@@ -112,8 +112,9 @@ public class AiAssistantConfigService {
   }
 
   public PreferredModelResult getPreferredModel(@Nonnull OperationContext opContext) {
-    final Urn actorUrn = platformService.getActorUrn(opContext);
-    final CorpUserSettings userSettings = platformService.getCorpUserSettings(opContext, actorUrn);
+    final Urn actorUrn = persistenceService.getActorUrn(opContext);
+    final CorpUserSettings userSettings =
+        persistenceService.getCorpUserSettings(opContext, actorUrn);
     final String preferredModel =
         Optional.ofNullable(userSettings)
             .filter(CorpUserSettings::hasAiAssistant)
@@ -134,9 +135,9 @@ public class AiAssistantConfigService {
     final String normalizedModel = normalizeModel(model);
     resolveProvider(normalizedModel);
 
-    final Urn actorUrn = platformService.getActorUrn(opContext);
+    final Urn actorUrn = persistenceService.getActorUrn(opContext);
     final CorpUserSettings userSettings =
-        Optional.ofNullable(platformService.getCorpUserSettings(opContext, actorUrn))
+        Optional.ofNullable(persistenceService.getCorpUserSettings(opContext, actorUrn))
             .orElseGet(CorpUserSettings::new);
     final CorpUserAIAssistantSettings aiAssistantSettings =
         userSettings.hasAiAssistant()
@@ -144,14 +145,14 @@ public class AiAssistantConfigService {
             : new CorpUserAIAssistantSettings();
     aiAssistantSettings.setPreferredModel(normalizedModel);
     userSettings.setAiAssistant(aiAssistantSettings);
-    platformService.updateCorpUserSettings(opContext, actorUrn, userSettings);
+    persistenceService.updateCorpUserSettings(opContext, actorUrn, userSettings);
 
     return UpdatePreferredModelResult.builder().model(normalizedModel).updated(true).build();
   }
 
   private boolean hasSecret(@Nonnull OperationContext opContext, @Nonnull String provider) {
     try {
-      return platformService.exists(opContext, getSecretUrn(getSecretName(provider)));
+      return persistenceService.exists(opContext, getSecretUrn(getSecretName(provider)));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to determine whether provider %s has a configured key", provider),
@@ -217,7 +218,7 @@ public class AiAssistantConfigService {
     if (existingSecret == null) {
       value.setCreated(
           new AuditStamp()
-              .setActor(platformService.getActorUrn(opContext))
+              .setActor(persistenceService.getActorUrn(opContext))
               .setTime(System.currentTimeMillis()));
     }
     return value;
