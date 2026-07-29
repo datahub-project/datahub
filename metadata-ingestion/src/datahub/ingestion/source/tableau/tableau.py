@@ -948,8 +948,6 @@ class TableauSourceReport(
     num_initial_sql_definitions_missing: int = 0
     num_initial_sql_embedded_datasources_unmatched: int = 0
     num_hidden_assets_skipped: int = 0
-    # Connections matching neither platform_instance routing map. Informational:
-    # routing only some connections is a valid setup.
     database_servers_not_routed: LossyList[str] = dataclass_field(
         default_factory=LossyList
     )
@@ -1334,16 +1332,15 @@ class TableauSiteSource:
             routed_by_hostname = bool(host_name and host_name in hostname_map)
             routed_by_id = bool(database_server_id and database_server_id in id_map)
             if not (routed_by_hostname or routed_by_id):
-                # Routing only a subset of connections is a legitimate setup, so
-                # this is recorded in the report rather than warned about.
+                # Not a warning: routing only a subset of connections is a
+                # legitimate setup.
                 self.report.database_servers_not_routed.append(
                     f"id={database_server_id} name={name!r} "
                     f"hostName={host_name} connectionType={connection_type}"
                 )
 
-        # Unlike an unrouted connection, a map key that matched nothing is always
-        # a mistake — a typo or a connection that no longer exists — and it is
-        # silently doing nothing. The count is bounded by the size of the config.
+        # A key matching nothing is a typo or a stale connection, and silently
+        # has no effect. Bounded by config size, unlike the unrouted count.
         unmatched_entries = [
             f"database_hostname_to_platform_instance_map[{key!r}]"
             for key in sorted(unmatched_hostname_keys)

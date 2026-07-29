@@ -508,8 +508,8 @@ def _run_database_server_routing(
         report=TableauSourceReport(),
         server=mock.MagicMock(),
     )
-    # Construction against a mock server logs an unrelated permissions warning;
-    # swap in a clean report so assertions only see the routing pass.
+    # Construction against a mock server logs a permissions warning, so start
+    # from a clean report to keep it out of the assertions below.
     report = TableauSourceReport()
     site_source.report = report
 
@@ -522,9 +522,8 @@ def _run_database_server_routing(
 
 
 def test_unrouted_database_servers_are_reported_not_warned():
-    # Routing a subset of connections is a legitimate setup: someone with 50
-    # connections who only needs to route 2 must not get 48 warnings on every
-    # run. The unrouted ones are recorded in the report for discoverability.
+    # A recipe that routes 2 of 50 connections is working as intended and must
+    # not report 48 warnings on every run.
     report = _run_database_server_routing(
         database_servers=[
             {"id": "id-routed", "hostName": "routed.example.com", "name": "Routed"},
@@ -540,8 +539,7 @@ def test_unrouted_database_servers_are_reported_not_warned():
 
 
 def test_routing_entry_matching_no_connection_warns():
-    # A map key that matches nothing is a typo or a stale connection. It is
-    # silently doing nothing, so it is always worth surfacing.
+    # A typo'd or stale key silently has no effect, so it is worth surfacing.
     report = _run_database_server_routing(
         database_servers=[
             {"id": "id-real", "hostName": "real.example.com", "name": "Real"},
