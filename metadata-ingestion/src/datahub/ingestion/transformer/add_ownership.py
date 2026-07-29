@@ -112,12 +112,12 @@ class AddOwnership(OwnershipTransformer):
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
             owners = {
-                (owner.owner, owner.type, owner.typeUrn): owner
+                (owner.owner, owner.typeUrn): owner
                 for owner in server_ownership.owners
             }
             owners.update(
                 {
-                    (owner.owner, owner.type, owner.typeUrn): owner
+                    (owner.owner, owner.typeUrn): owner
                     for owner in mce_ownership.owners
                 }
             )
