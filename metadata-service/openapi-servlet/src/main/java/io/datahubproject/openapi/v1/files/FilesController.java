@@ -12,8 +12,8 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.aws.S3Util;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -221,7 +221,7 @@ public class FilesController {
   private void validateAssetReadPermissions(
       DataHubFileInfo fileInfo, OperationContext opContext, Authentication authentication) {
     Urn relatedUrn = fileInfo.getReferencedByAsset();
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, READ, Collections.singleton(relatedUrn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()

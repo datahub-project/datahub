@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import static com.datahub.authorization.AuthUtil.canViewEntity;
 import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
@@ -20,7 +19,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.PatchEntityInput;
 import com.linkedin.knowledge.DocumentInfo;
-import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -271,11 +270,7 @@ public class AuthorizationUtils {
         && isViewRestrictedEntityType(
             opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
             urn.getEntityType())) {
-
-      if (DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())) {
-        return EntityAspectAuthorizationUtils.canViewDocumentEntity(opContext, urn);
-      }
-      return canViewEntity(opContext, urn);
+      return EntityAuthorizationUtils.canViewEntity(opContext, urn);
     }
     return true;
   }
@@ -462,7 +457,7 @@ public class AuthorizationUtils {
    * inheritance).
    */
   public static boolean canGetDocument(@Nonnull Urn documentUrn, @Nonnull QueryContext context) {
-    return EntityAspectAuthorizationUtils.canViewDocumentEntity(
+    return DocumentAuthorizationUtils.canViewDocumentEntity(
         context.getOperationContext(), documentUrn);
   }
 

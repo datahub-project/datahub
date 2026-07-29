@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -21,16 +20,6 @@ import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.AutoCompleteEntity;
-import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
@@ -41,12 +30,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.HttpStatus;
 
 /**
- * Shared document authorization: privilege relationships for CRUD plus bridge-aware VIEW.
+ * Document-specific authorization: privilege relationships for CRUD plus bridge-aware VIEW.
  *
- * <p>View decision:
+ * <p>Generic API callers should use {@code EntityAuthorizationUtils}, which delegates here only for
+ * document URNs. View decision:
  *
  * <ol>
  *   <li>Platform {@code MANAGE_DOCUMENTS} → allow
@@ -67,23 +56,18 @@ public final class DocumentAuthorizationUtils {
   private DocumentAuthorizationUtils() {}
 
   /**
-   * Authorizes entity URNs for API surfaces (OpenAPI / RestLi). Non-document URNs use {@link
-   * AuthUtil#isAPIAuthorizedEntityUrns}. Document READ uses the bridge-aware view evaluator when
-   * REST API authorization is enabled. Document CREATE/UPDATE distinguish existing entities from
-   * upsert-created entities so CREATE privileges cannot overwrite existing documents and UPDATE
-   * privileges alone cannot create missing ones.
+   * Authorizes document URNs for API surfaces. READ uses bridge-aware VIEW when REST API
+   * authorization is enabled. CREATE/UPDATE distinguish existing entities from upsert-created
+   * entities so CREATE privileges cannot overwrite existing documents and UPDATE privileges alone
+   * cannot create missing ones.
+   *
+   * <p>Callers with mixed entity types should use {@code EntityAuthorizationUtils} instead.
    */
-  public static boolean isAPIAuthorizedEntityUrns(
+  public static boolean isAPIAuthorizedDocumentUrns(
       @Nonnull OperationContext opContext,
       @Nonnull ApiOperation apiOperation,
-      @Nonnull Collection<Urn> urns) {
-    List<Urn> documents =
-        urns.stream().filter(DocumentAuthorizationUtils::isDocumentEntity).toList();
-    List<Urn> others = urns.stream().filter(urn -> !isDocumentEntity(urn)).toList();
-    if (!others.isEmpty() && !AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, others)) {
-      return false;
-    }
-    if (documents.isEmpty()) {
+      @Nonnull Collection<Urn> documentUrns) {
+    if (documentUrns.isEmpty()) {
       return true;
     }
     if (!AuthUtil.isRestApiAuthorizationEnabled()) {
@@ -91,142 +75,42 @@ public final class DocumentAuthorizationUtils {
     }
     if (apiOperation == UPDATE || apiOperation == CREATE) {
       Map<Urn, Boolean> existence =
-          opContext.getAspectRetriever().entityExists(opContext, Set.copyOf(documents));
+          opContext.getAspectRetriever().entityExists(opContext, Set.copyOf(documentUrns));
       List<Urn> existingDocuments =
-          documents.stream().filter(urn -> existence.getOrDefault(urn, false)).toList();
+          documentUrns.stream().filter(urn -> existence.getOrDefault(urn, false)).toList();
       List<Urn> newDocuments =
-          documents.stream().filter(urn -> !existence.getOrDefault(urn, false)).toList();
+          documentUrns.stream().filter(urn -> !existence.getOrDefault(urn, false)).toList();
       return (existingDocuments.isEmpty()
               || AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, existingDocuments))
           && (newDocuments.isEmpty()
               || AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, newDocuments));
     }
     if (apiOperation != READ) {
-      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, documents);
+      return AuthUtil.isAPIAuthorizedEntityUrns(opContext, apiOperation, documentUrns);
     }
-    return canViewDocumentEntities(opContext, opContext.getAspectRetriever(), documents);
+    return canViewDocumentEntities(opContext, opContext.getAspectRetriever(), documentUrns);
   }
 
   /**
-   * Authorizes MCP ingest while treating an update-like proposal for a missing document as entity
-   * creation. Other entity types and change types retain the standard {@link AuthUtil} behavior.
+   * Returns the effective (ChangeType, Urn) used to authorize a document ingest proposal.
+   * Update-like writes on missing documents become {@link ChangeType#CREATE_ENTITY}; non-document
+   * URNs and other change types are returned unchanged.
    */
-  public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorizedIngest(
-      @Nonnull OperationContext opContext,
-      @Nonnull EntityRegistry entityRegistry,
-      @Nonnull Collection<MetadataChangeProposal> mcps) {
-    if (!AuthUtil.isRestApiAuthorizationEnabled()) {
-      return AuthUtil.isAPIAuthorized(opContext, ENTITY, entityRegistry, mcps);
+  @Nonnull
+  public static Pair<ChangeType, Urn> effectiveDocumentIngestAuthorizationKey(
+      @Nonnull ChangeType changeType, @Nonnull Urn urn, boolean exists) {
+    if (isDocumentEntity(urn) && isUpdateLike(changeType) && !exists) {
+      return Pair.of(ChangeType.CREATE_ENTITY, urn);
     }
-
-    List<Pair<MetadataChangeProposal, Pair<ChangeType, Urn>>> resolvedProposals =
-        mcps.stream()
-            .map(
-                mcp -> {
-                  Urn urn = mcp.getEntityUrn();
-                  if (urn == null) {
-                    urn =
-                        EntityKeyUtils.getUrnFromProposal(
-                            mcp,
-                            entityRegistry.getEntitySpec(mcp.getEntityType()).getKeyAspectSpec());
-                  }
-                  return Pair.of(mcp, Pair.of(mcp.getChangeType(), urn));
-                })
-            .toList();
-
-    Set<Urn> documentUpdateUrns =
-        resolvedProposals.stream()
-            .map(Pair::getSecond)
-            .filter(
-                changeUrn ->
-                    DOCUMENT_ENTITY_NAME.equals(changeUrn.getSecond().getEntityType())
-                        && isUpdateLike(changeUrn.getFirst()))
-            .map(Pair::getSecond)
-            .collect(Collectors.toSet());
-    Map<Urn, Boolean> documentExistence =
-        documentUpdateUrns.isEmpty()
-            ? Map.of()
-            : opContext.getAspectRetriever().entityExists(opContext, documentUpdateUrns);
-
-    Map<Pair<ChangeType, Urn>, Pair<ChangeType, Urn>> effectiveAuthorizationKeys =
-        resolvedProposals.stream()
-            .map(Pair::getSecond)
-            .distinct()
-            .collect(
-                Collectors.toMap(
-                    changeUrn -> changeUrn,
-                    changeUrn ->
-                        DOCUMENT_ENTITY_NAME.equals(changeUrn.getSecond().getEntityType())
-                                && isUpdateLike(changeUrn.getFirst())
-                                && !documentExistence.getOrDefault(changeUrn.getSecond(), false)
-                            ? Pair.of(ChangeType.CREATE_ENTITY, changeUrn.getSecond())
-                            : changeUrn));
-
-    Map<Pair<ChangeType, Urn>, Integer> authorizationResults =
-        AuthUtil.isAPIAuthorizedUrns(
-            opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()));
-    return resolvedProposals.stream()
-        .map(
-            proposal ->
-                Pair.of(
-                    proposal.getFirst(),
-                    authorizationResults.getOrDefault(
-                        effectiveAuthorizationKeys.get(proposal.getSecond()),
-                        HttpStatus.SC_INTERNAL_SERVER_ERROR)))
-        .toList();
+    return Pair.of(changeType, urn);
   }
 
-  private static boolean isUpdateLike(@Nonnull ChangeType changeType) {
+  public static boolean isUpdateLike(@Nonnull ChangeType changeType) {
     return changeType == ChangeType.CREATE
         || changeType == ChangeType.UPSERT
         || changeType == ChangeType.UPDATE
         || changeType == ChangeType.RESTATE
         || changeType == ChangeType.PATCH;
-  }
-
-  /**
-   * Performs the entity-type gate used before search operations. Documents are deferred to the
-   * result-level bridge-aware authorization because inherited access cannot be determined from the
-   * entity type alone.
-   */
-  public static boolean isAPIAuthorizedSearchEntityTypes(
-      @Nonnull OperationContext opContext, @Nonnull Collection<String> entityTypes) {
-    List<String> nonDocumentEntityTypes =
-        entityTypes.stream().filter(type -> !DOCUMENT_ENTITY_NAME.equals(type)).toList();
-    return nonDocumentEntityTypes.isEmpty()
-        || AuthUtil.isAPIAuthorizedEntityType(opContext, READ, nonDocumentEntityTypes);
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull SearchResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull ScrollResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull AutoCompleteResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(AutoCompleteEntity::getUrn).collect(Collectors.toList()));
-  }
-
-  public static boolean isAPIAuthorizedResult(
-      @Nonnull OperationContext opContext, @Nonnull BrowseResult result) {
-    return isAPIAuthorizedEntityUrns(
-        opContext,
-        READ,
-        result.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()));
   }
 
   public static boolean canViewDocumentEntity(

@@ -31,6 +31,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -49,7 +50,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -150,8 +150,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
-        opContext, READ, requestMap.keySet())) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -224,7 +223,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
         opContext, resolvedEntityNames)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
@@ -280,7 +279,7 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -336,7 +335,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -389,7 +388,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -443,7 +442,7 @@ public class EntityController
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
     // Existence-aware document CREATE/UPDATE for PATCH of missing document URNs.
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext,
         UPDATE,
         batch.getItems().stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {
@@ -526,7 +525,7 @@ public class EntityController
     }
 
     // Existence-aware document CREATE/UPDATE after URNs are known from the batch.
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext,
         CREATE,
         allBatchItems.stream().map(BatchItem::getUrn).collect(Collectors.toSet()))) {

@@ -9,8 +9,8 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.service.DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns;
-import static com.linkedin.metadata.service.DocumentAuthorizationUtils.isAPIAuthorizedIngest;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedIngest;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;

@@ -12,9 +12,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
@@ -133,7 +133,7 @@ public class EntitiesController {
             authentication,
             true);
 
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, entityUrns)) {
       throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
     }
 
@@ -227,7 +227,7 @@ public class EntitiesController {
      Ingest Authorization Checks
     */
     List<Pair<MetadataChangeProposal, Integer>> exceptions =
-        DocumentAuthorizationUtils.isAPIAuthorizedIngest(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
                 opContext, opContext.getEntityRegistry(), proposals)
             .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
@@ -320,7 +320,7 @@ public class EntitiesController {
       @Nullable Boolean async) {
     Throwable exceptionally = null;
     try {
-      if (!DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, entityUrns)) {
         throw new UnauthorizedException(actorUrnStr + " is unauthorized to delete entities.");
       }
 

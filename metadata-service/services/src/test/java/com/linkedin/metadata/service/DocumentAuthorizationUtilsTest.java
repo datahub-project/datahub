@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -28,19 +27,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.browse.BrowseResult;
-import com.linkedin.metadata.browse.BrowseResultEntity;
-import com.linkedin.metadata.browse.BrowseResultEntityArray;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.AutoCompleteEntity;
-import com.linkedin.metadata.query.AutoCompleteEntityArray;
-import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -83,51 +70,26 @@ public class DocumentAuthorizationUtilsTest {
   }
 
   @Test
-  public void testSearchEntityTypeAuthorizationDefersDocumentsToResultAuthorization() {
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityType(opContext, READ, List.of("dataset")))
-        .thenReturn(true);
-
-    assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
-            opContext, List.of("document")));
-    assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
-            opContext, List.of("document", "dataset")));
+  public void testEffectiveDocumentIngestAuthorizationKey_missingUpdateLikeBecomesCreate() {
+    assertEquals(
+        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+            ChangeType.UPSERT, STANDALONE_DOC, false),
+        Pair.of(ChangeType.CREATE_ENTITY, STANDALONE_DOC));
+    assertEquals(
+        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+            ChangeType.UPDATE, STANDALONE_DOC, true),
+        Pair.of(ChangeType.UPDATE, STANDALONE_DOC));
+    assertEquals(
+        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+            ChangeType.UPSERT, SOURCE_DATASET, false),
+        Pair.of(ChangeType.UPSERT, SOURCE_DATASET));
   }
 
   @Test
-  public void testSearchEntityTypeAuthorizationStillGatesNonDocuments() {
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityType(opContext, READ, List.of("dataset")))
-        .thenReturn(false);
-
-    assertFalse(
-        DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
-            opContext, List.of("document", "dataset")));
-  }
-
-  @Test
-  public void testIngestAuthorizationTreatsMissingDocumentUpsertAsCreate() {
-    MetadataChangeProposal proposal =
-        new MetadataChangeProposal()
-            .setEntityType("document")
-            .setEntityUrn(STANDALONE_DOC)
-            .setChangeType(ChangeType.UPSERT);
-    Pair<ChangeType, Urn> createAuthorizationKey =
-        Pair.of(ChangeType.CREATE_ENTITY, STANDALONE_DOC);
-    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
-    when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC)))
-        .thenReturn(Map.of(STANDALONE_DOC, false));
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedUrns(opContext, ENTITY, Set.of(createAuthorizationKey)))
-        .thenReturn(Map.of(createAuthorizationKey, 403));
-
-    List<Pair<MetadataChangeProposal, Integer>> result =
-        DocumentAuthorizationUtils.isAPIAuthorizedIngest(
-            opContext, mock(EntityRegistry.class), List.of(proposal));
-
-    assertEquals(result, List.of(Pair.of(proposal, 403)));
+  public void testIsUpdateLike() {
+    assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.UPSERT));
+    assertTrue(DocumentAuthorizationUtils.isUpdateLike(ChangeType.PATCH));
+    assertFalse(DocumentAuthorizationUtils.isUpdateLike(ChangeType.DELETE));
   }
 
   @Test
@@ -333,7 +295,7 @@ public class DocumentAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIsAPIAuthorizedEntityUrns_bridgeAllowedViaDocumentView() {
+  public void testIsAPIAuthorizedDocumentUrns_bridgeAllowedViaDocumentView() {
     authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
     authUtilMock
         .when(
@@ -345,34 +307,12 @@ public class DocumentAuthorizationUtilsTest {
         .thenReturn(Map.of(BRIDGE_DOC, bridgeAspects(SOURCE_DATASET)));
 
     assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
-            opContext, com.linkedin.metadata.authorization.ApiOperation.READ, List.of(BRIDGE_DOC)));
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, READ, List.of(BRIDGE_DOC)));
   }
 
   @Test
-  public void testIsAPIAuthorizedResult_searchUsesBridgeAuthorization() {
-    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
-    authUtilMock
-        .when(
-            () ->
-                AuthUtil.isAuthorized(eq(opContext), eq(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE)))
-        .thenReturn(false);
-    authUtilMock
-        .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(SOURCE_DATASET)))
-        .thenReturn(true);
-    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(BRIDGE_DOC)), any()))
-        .thenReturn(Map.of(BRIDGE_DOC, bridgeAspects(SOURCE_DATASET)));
-    com.linkedin.metadata.search.SearchEntity searchEntity =
-        new com.linkedin.metadata.search.SearchEntity().setEntity(BRIDGE_DOC);
-    com.linkedin.metadata.search.SearchResult result =
-        new com.linkedin.metadata.search.SearchResult()
-            .setEntities(new com.linkedin.metadata.search.SearchEntityArray(List.of(searchEntity)));
-
-    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, result));
-  }
-
-  @Test
-  public void testIsAPIAuthorizedResult_batchesBridgeAspectFetches() {
+  public void testIsAPIAuthorizedDocumentUrns_batchesBridgeAspectFetches() {
     enableRestApiAuthorization();
     authUtilMock
         .when(
@@ -394,15 +334,10 @@ public class DocumentAuthorizationUtilsTest {
                 bridgeAspects(SOURCE_DATASET),
                 SECOND_BRIDGE_DOC,
                 bridgeAspects(SECOND_SOURCE_DATASET)));
-    SearchResult result =
-        new SearchResult()
-            .setEntities(
-                new SearchEntityArray(
-                    List.of(
-                        new SearchEntity().setEntity(BRIDGE_DOC),
-                        new SearchEntity().setEntity(SECOND_BRIDGE_DOC))));
 
-    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, result));
+    assertTrue(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, READ, List.of(BRIDGE_DOC, SECOND_BRIDGE_DOC)));
     verify(aspectRetriever)
         .getLatestAspectObjects(
             opContext, bridgeDocuments, Set.of(DOCUMENT_INFO_ASPECT_NAME, SUB_TYPES_ASPECT_NAME));
@@ -429,67 +364,15 @@ public class DocumentAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIsAPIAuthorizedEntityUrns_routesByEntityAndOperation() {
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(SOURCE_DATASET)))
-        .thenReturn(false);
-    assertFalse(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
-            opContext, READ, List.of(SOURCE_DATASET)));
-
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(SOURCE_DATASET)))
-        .thenReturn(true);
-    assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
-            opContext, READ, List.of(SOURCE_DATASET)));
-
-    authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(STANDALONE_DOC)))
-        .thenReturn(true);
-    assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
-            opContext, UPDATE, List.of(STANDALONE_DOC)));
-
+  public void testIsAPIAuthorizedDocumentUrns_restApiDisabledAllows() {
     authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(false);
     assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, READ, List.of(STANDALONE_DOC)));
   }
 
   @Test
-  public void testIsAPIAuthorizedResult_allResultTypes() {
-    enableRestApiAuthorization();
-    authUtilMock
-        .when(
-            () ->
-                AuthUtil.isAuthorized(eq(opContext), eq(PoliciesConfig.MANAGE_DOCUMENTS_PRIVILEGE)))
-        .thenReturn(false);
-    authUtilMock
-        .when(() -> AuthUtil.canViewEntity(eq(opContext), eq(SOURCE_DATASET)))
-        .thenReturn(true);
-    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(BRIDGE_DOC)), any()))
-        .thenReturn(Map.of(BRIDGE_DOC, bridgeAspects(SOURCE_DATASET)));
-
-    SearchEntity searchEntity = new SearchEntity().setEntity(BRIDGE_DOC);
-    ScrollResult scrollResult =
-        new ScrollResult().setEntities(new SearchEntityArray(List.of(searchEntity)));
-    AutoCompleteResult autoCompleteResult =
-        new AutoCompleteResult()
-            .setEntities(
-                new AutoCompleteEntityArray(List.of(new AutoCompleteEntity().setUrn(BRIDGE_DOC))));
-    BrowseResult browseResult =
-        new BrowseResult()
-            .setEntities(
-                new BrowseResultEntityArray(List.of(new BrowseResultEntity().setUrn(BRIDGE_DOC))));
-
-    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, scrollResult));
-    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, autoCompleteResult));
-    assertTrue(DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, browseResult));
-  }
-
-  @Test
-  public void testIsAPIAuthorizedEntityUrns_updateUsesCreatePrivilegeForMissingDocument() {
+  public void testIsAPIAuthorizedDocumentUrns_updateUsesCreatePrivilegeForMissingDocument() {
     enableRestApiAuthorization();
     when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC)))
         .thenReturn(Map.of(STANDALONE_DOC, false));
@@ -498,14 +381,14 @@ public class DocumentAuthorizationUtilsTest {
         .thenReturn(true);
 
     assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, UPDATE, List.of(STANDALONE_DOC)));
     authUtilMock.verify(
         () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(STANDALONE_DOC)));
   }
 
   @Test
-  public void testIsAPIAuthorizedEntityUrns_createUsesUpdatePrivilegeForExistingDocument() {
+  public void testIsAPIAuthorizedDocumentUrns_createUsesUpdatePrivilegeForExistingDocument() {
     enableRestApiAuthorization();
     when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC)))
         .thenReturn(Map.of(STANDALONE_DOC, true));
@@ -514,7 +397,7 @@ public class DocumentAuthorizationUtilsTest {
         .thenReturn(true);
 
     assertTrue(
-        DocumentAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, CREATE, List.of(STANDALONE_DOC)));
     authUtilMock.verify(
         () -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(STANDALONE_DOC)));

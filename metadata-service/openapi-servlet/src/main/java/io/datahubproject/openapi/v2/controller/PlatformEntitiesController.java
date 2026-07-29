@@ -4,10 +4,10 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -95,7 +95,7 @@ public class PlatformEntitiesController {
       Ingest Authorization Checks
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
-        DocumentAuthorizationUtils.isAPIAuthorizedIngest(
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
                 opContext, opContext.getEntityRegistry(), proposals)
             .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())

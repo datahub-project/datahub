@@ -6,10 +6,10 @@ import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -17,7 +17,6 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
@@ -205,7 +204,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+          opContext, EXISTS, List.of(entityUrn))) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
@@ -270,7 +270,8 @@ public class EntityApiDelegateImpl<I, O, S> {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(entityUrn))) {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+          opContext, EXISTS, List.of(entityUrn))) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized to check existence of entities.");
       }
@@ -645,7 +646,7 @@ public class EntityApiDelegateImpl<I, O, S> {
 
     // Document access can be inherited from each bridge source, which cannot be evaluated at the
     // entity-type level. The result-level check below authorizes every returned document.
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
         opContext, List.of(entitySpec.getName()))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to search entities.");
@@ -675,7 +676,7 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!DocumentAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
