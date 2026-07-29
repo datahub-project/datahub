@@ -77,6 +77,7 @@ export abstract class SourcesBaseTab extends BaseTab {
   readonly typeFilterSelect: Locator;
   readonly cliPill: Locator;
   readonly sourceTypeSearchInput: Locator;
+  readonly connectorDetailPopover: Locator;
   readonly passwordInput: Locator;
   readonly cronHoursSelect: Locator;
   readonly cancelModalCloseButton: Locator;
@@ -123,6 +124,7 @@ export abstract class SourcesBaseTab extends BaseTab {
     this.typeFilterSelect = page.getByTestId('ingestions-type-filter');
     this.cliPill = page.getByTestId('ingestion-source-cli-pill');
     this.sourceTypeSearchInput = page.getByTestId('source-type-search-input');
+    this.connectorDetailPopover = page.getByTestId('connector-detail-popover');
     // eslint-disable-next-line playwright/no-raw-locators -- recipe form field addressed by generated id; no data-testid
     this.passwordInput = page.locator('#password');
     // eslint-disable-next-line playwright/no-raw-locators -- cron builder Ant Design select; no data-testid or ARIA role

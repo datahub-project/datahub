@@ -19,6 +19,7 @@ export interface SourceConfig {
     isExternal?: boolean;
     isNew?: boolean;
     priority?: number;
+    supportStatus?: string;
 }
 
 /**
