@@ -7,11 +7,11 @@ It is kept as an optional tool for manual AST inspection during development.
 
 Usage (from the repo root, output defaults to ./ast_fixtures_debug/):
     PYTHONPATH=metadata-ingestion/src python \
-        metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/generate_fixtures.py
+        metadata-ingestion/src/datahub/ingestion/source/common/m_query/mquery_bridge/generate_fixtures.py
 
 To override the output directory:
     PYTHONPATH=metadata-ingestion/src python \
-        metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/generate_fixtures.py \
+        metadata-ingestion/src/datahub/ingestion/source/common/m_query/mquery_bridge/generate_fixtures.py \
         --output /path/to/output/
 """
 
@@ -21,7 +21,7 @@ import sys
 from pathlib import Path
 
 # generate_fixtures.py is at:
-#   metadata-ingestion/src/datahub/ingestion/source/powerbi/m_query/mquery_bridge/
+#   metadata-ingestion/src/datahub/ingestion/source/common/m_query/mquery_bridge/
 # parents: [0]=mquery_bridge [1]=m_query [2]=powerbi [3]=source [4]=ingestion
 #          [5]=datahub [6]=src [7]=metadata-ingestion
 TESTS_DIR = Path(__file__).resolve().parents[7] / "tests" / "integration" / "powerbi"
@@ -47,7 +47,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Import bridge here so PYTHONPATH errors surface clearly.
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )

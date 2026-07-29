@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from enum import Enum
 from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
@@ -19,6 +18,16 @@ from datahub.configuration.validate_field_deprecation import pydantic_field_depr
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
+from datahub.ingestion.source.common.m_query.config import (
+    DataBricksPlatformDetail,
+    DataPlatformPair,
+    OraclePlatformDetail,
+    # Re-exported for backward compatibility; the M-Query platform types now
+    # live in the shared engine but historically were imported from here.
+    PowerBIPlatformDetail as PowerBIPlatformDetail,
+    SupportedDataPlatform,
+)
+from datahub.ingestion.source.common.m_query.report import MQueryLineageReport
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -29,7 +38,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -160,82 +168,7 @@ class Constant:
 
 
 @dataclass
-class DataPlatformPair:
-    datahub_data_platform_name: str
-    powerbi_data_platform_name: str
-
-
-@dataclass
-class PowerBIPlatformDetail:
-    data_platform_pair: DataPlatformPair
-    data_platform_server: str
-
-
-class SupportedDataPlatform(Enum):
-    POSTGRES_SQL = DataPlatformPair(
-        powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
-    )
-
-    ORACLE = DataPlatformPair(
-        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
-    )
-
-    SNOWFLAKE = DataPlatformPair(
-        powerbi_data_platform_name="Snowflake", datahub_data_platform_name="snowflake"
-    )
-
-    MS_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Sql", datahub_data_platform_name="mssql"
-    )
-
-    GOOGLE_BIGQUERY = DataPlatformPair(
-        powerbi_data_platform_name="GoogleBigQuery",
-        datahub_data_platform_name="bigquery",
-    )
-
-    AMAZON_ATHENA = DataPlatformPair(
-        powerbi_data_platform_name="Amazon Athena",
-        datahub_data_platform_name="athena",
-    )
-
-    AMAZON_REDSHIFT = DataPlatformPair(
-        powerbi_data_platform_name="AmazonRedshift",
-        datahub_data_platform_name="redshift",
-    )
-
-    DATABRICKS_SQL = DataPlatformPair(
-        powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
-    )
-
-    DatabricksMultiCloud_SQL = DataPlatformPair(
-        powerbi_data_platform_name="DatabricksMultiCloud",
-        datahub_data_platform_name="databricks",
-    )
-
-    MYSQL = DataPlatformPair(
-        powerbi_data_platform_name="MySQL",
-        datahub_data_platform_name="mysql",
-    )
-
-    HIVE = DataPlatformPair(
-        powerbi_data_platform_name="Hive",
-        datahub_data_platform_name="hive",
-    )
-
-    ODBC = DataPlatformPair(
-        powerbi_data_platform_name="Odbc",
-        datahub_data_platform_name="odbc",
-    )
-
-    # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
-    FABRIC_ONELAKE = DataPlatformPair(
-        powerbi_data_platform_name="FabricOneLake",
-        datahub_data_platform_name="fabric-onelake",
-    )
-
-
-@dataclass
-class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
+class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport, MQueryLineageReport):
     all_workspace_count: int = 0
     filtered_workspace_names: LossyList[str] = dataclass_field(
         default_factory=LossyList
@@ -248,23 +181,6 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     charts_scanned: int = 0
     filtered_dashboards: LossyList[str] = dataclass_field(default_factory=LossyList)
     filtered_charts: LossyList[str] = dataclass_field(default_factory=LossyList)
-
-    m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
-    m_query_parse_attempts: int = 0
-    m_query_parse_successes: int = 0
-    m_query_parse_timeouts: int = 0
-    m_query_native_query_skipped: int = 0
-    # Expressions that reached the parser but are not M-Query at all
-    # (e.g. DAX computed-table expressions, empty strings, label rows).
-    # These fail with MQueryParseError but are expected and logged at INFO.
-    m_query_non_mquery_expressions: int = 0
-    m_query_parse_validation_errors: int = 0
-    m_query_parse_unexpected_character_errors: int = 0
-    # Genuine M-Query expressions that the parser could not handle.
-    m_query_parse_unknown_errors: int = 0
-    m_query_resolver_errors: int = 0
-    m_query_resolver_no_lineage: int = 0
-    m_query_resolver_successes: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -290,64 +206,6 @@ def default_for_dataset_type_mapping() -> Dict[str, str]:
         powerbi_name: pair.datahub_data_platform_name
         for powerbi_name, pair in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.items()
     }
-
-
-class DataBricksPlatformDetail(PlatformDetail):
-    """
-    metastore is an additional field used in Databricks connector to generate the dataset urn
-    """
-
-    metastore: str = pydantic.Field(
-        description="Databricks Unity Catalog metastore name.",
-    )
-
-
-class OraclePlatformDetail(PlatformDetail):
-    default_schema: Optional[str] = pydantic.Field(
-        default=None,
-        description=(
-            "Owner/schema applied to unqualified table references inside "
-            '``Oracle.Database(…, Query="…")`` inline native SQL, so they resolve '
-            "to your ingested Oracle datasets. Not used by hierarchical navigation."
-        ),
-    )
-    default_database: Optional[str] = pydantic.Field(
-        default=None,
-        description=(
-            "Database segment prepended to the table name when the "
-            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
-            "(which carries no database). Set this to match the database segment "
-            "your Oracle ingestion uses, only when that ingestion emits 3-part "
-            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
-            "leave unset for the default 2-part URNs and for EZ-Connect "
-            "``host:port/service`` connections."
-        ),
-    )
-
-    @field_validator("default_schema", "default_database")
-    @classmethod
-    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("must not be empty or whitespace")
-        return stripped
-
-    # Requires at least one knob. This is also relied on to disambiguate
-    # OraclePlatformDetail from a plain PlatformDetail in the
-    # server_to_platform_instance Union: a plain {platform_instance} entry fails
-    # this check, so it is never a valid OraclePlatformDetail candidate —
-    # independent of pydantic's union-resolution order.
-    @model_validator(mode="after")
-    def _require_at_least_one_default(self) -> "OraclePlatformDetail":
-        if self.default_schema is None and self.default_database is None:
-            raise ValueError(
-                "OraclePlatformDetail requires 'default_schema' and/or "
-                "'default_database'; use a plain platform-instance mapping if "
-                "you need neither."
-            )
-        return self
 
 
 class OwnershipMapping(ConfigModel):

@@ -2,28 +2,28 @@ import logging
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.powerbi.config import (
-    PowerBiDashboardSourceConfig,
-    PowerBiDashboardSourceReport,
-)
-from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-    AbstractDataPlatformInstanceResolver,
-)
-from datahub.ingestion.source.powerbi.m_query import (
+from datahub.ingestion.source.common.m_query import (
     pattern_handler,
     resolver as mquery_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query._bridge import (
+from datahub.ingestion.source.common.m_query._bridge import (
     MQueryBridgeError,
     MQueryParseError,
     _clear_bridge,
     get_bridge,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
+from datahub.ingestion.source.common.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.ingestion.source.common.m_query.instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+)
+from datahub.ingestion.source.common.m_query.interfaces import (
+    MQueryLineageConfig,
+    MQueryReporter,
+    MQueryTable,
+)
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
@@ -48,11 +48,11 @@ def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
 
 
 def get_upstream_tables(
-    table: Table,
-    reporter: PowerBiDashboardSourceReport,
+    table: MQueryTable,
+    reporter: MQueryReporter,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ctx: PipelineContext,
-    config: PowerBiDashboardSourceConfig,
+    config: MQueryLineageConfig,
     parameters: Optional[Dict[str, str]] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.

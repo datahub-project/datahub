@@ -6,11 +6,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import datahub.ingestion.source.powerbi.m_query.data_classes
+import datahub.ingestion.source.common.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.source.common.m_query import parser
+from datahub.ingestion.source.common.m_query.data_classes import (
+    DataPlatformTable,
+    Lineage,
+)
+from datahub.ingestion.source.common.m_query.pattern_handler import NativeQueryLineage
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -19,12 +25,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    DataPlatformTable,
-    Lineage,
-)
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.metadata.schema_classes import NumberTypeClass
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -82,7 +82,7 @@ M_QUERIES = [
 
 def get_data_platform_tables_with_dummy_table(
     q: str,
-) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+) -> List[datahub.ingestion.source.common.m_query.data_classes.Lineage]:
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -574,7 +574,7 @@ def test_mssql_multi_database():
         TABLE_Source
     """
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -981,7 +981,7 @@ def test_sqlglot_parser():
         }
     )
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         parser.get_upstream_tables(
             table,
             reporter,
@@ -1030,7 +1030,7 @@ def test_sqlglot_parser():
 def test_databricks_multi_cloud():
     q = M_QUERIES[25]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1053,7 +1053,7 @@ def test_databricks_multi_cloud():
 def test_databricks_catalog_pattern_1():
     q = M_QUERIES[26]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1124,7 +1124,7 @@ def test_sqlglot_parser_2():
         }
     )
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         parser.get_upstream_tables(
             table,
             reporter,
@@ -1185,7 +1185,7 @@ def test_databricks_regular_case_with_view():
 def test_snowflake_double_double_quotes():
     q = M_QUERIES[30]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1204,7 +1204,7 @@ def test_snowflake_double_double_quotes():
 def test_databricks_native_query():
     q = M_QUERIES[31]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1223,7 +1223,7 @@ def test_databricks_native_query():
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1242,7 +1242,7 @@ def test_snowflake_multi_function_call():
 def test_mssql_drop_with_select():
     q = M_QUERIES[33]
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1292,7 +1292,7 @@ def test_empty_string_in_m_query():
     # TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') is in Query
     q = "let\n  Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') AS TRIM_AGENT_NAME,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source"
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1316,7 +1316,7 @@ def test_double_quotes_in_alias():
     # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
     q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
 
-    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+    lineage: List[datahub.ingestion.source.common.m_query.data_classes.Lineage] = (
         get_data_platform_tables_with_dummy_table(q=q)
     )
 
@@ -1332,7 +1332,7 @@ def test_double_quotes_in_alias():
     )
 
 
-@patch("datahub.ingestion.source.powerbi.m_query.parser.get_bridge")
+@patch("datahub.ingestion.source.common.m_query.parser.get_bridge")
 def test_m_query_timeout(mock_get_bridge):
     q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
 

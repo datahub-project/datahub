@@ -2,6 +2,16 @@ import pytest
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.m_query.data_classes import (
+    DataAccessFunctionDetail,
+    IdentifierAccessor,
+)
+from datahub.ingestion.source.common.m_query.pattern_handler import (
+    AmazonAthenaLineage,
+    MSSqlLineage,
+    OracleLineage,
+    _remap_column_lineage_to_pbi_fields,
+)
 from datahub.ingestion.source.powerbi.config import (
     AthenaPlatformOverride,
     OraclePlatformDetail,
@@ -11,16 +21,6 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
     ResolvePlatformInstanceFromServerToPlatformInstance,
-)
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    DataAccessFunctionDetail,
-    IdentifierAccessor,
-)
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
-    AmazonAthenaLineage,
-    MSSqlLineage,
-    OracleLineage,
-    _remap_column_lineage_to_pbi_fields,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
@@ -557,7 +557,7 @@ def test_athena_whitespace_only_names(athena_lineage):
 @pytest.fixture
 def odbc_lineage(athena_config, athena_table):
     """OdbcLineage instance for testing catalog stripping."""
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
 
     return OdbcLineage(
         ctx=PipelineContext(run_id="test-run-id"),
@@ -572,11 +572,11 @@ def odbc_lineage(athena_config, athena_table):
 
 def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
     """Test that ODBC strips catalog prefix from upstream table URNs."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    from datahub.ingestion.source.common.m_query.data_classes import (
         DataPlatformTable,
         Lineage,
     )
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
 
     platform_pair = DataPlatformPair(
         datahub_data_platform_name="athena",
@@ -608,11 +608,11 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
 
 def test_odbc_strip_athena_catalog_from_column_lineage(odbc_lineage):
     """Test that ODBC strips catalog prefix from column lineage URNs."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    from datahub.ingestion.source.common.m_query.data_classes import (
         DataPlatformTable,
         Lineage,
     )
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
     from datahub.sql_parsing.sqlglot_lineage import (
         ColumnLineageInfo,
         ColumnRef,
@@ -675,11 +675,11 @@ def test_odbc_strip_athena_catalog_from_column_lineage(odbc_lineage):
 
 def test_odbc_strip_athena_catalog_preserves_non_catalog_urns(odbc_lineage):
     """Test that URNs without catalog prefix are preserved unchanged."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    from datahub.ingestion.source.common.m_query.data_classes import (
         DataPlatformTable,
         Lineage,
     )
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
 
     platform_pair = DataPlatformPair(
         datahub_data_platform_name="athena",
@@ -708,11 +708,11 @@ def test_odbc_strip_athena_catalog_preserves_non_catalog_urns(odbc_lineage):
 
 def test_odbc_strip_athena_3part_catalog_from_upstreams(odbc_lineage):
     """Test that ODBC strips any 3-part table names to 2-part format (not just awsdatacatalog)."""
-    from datahub.ingestion.source.powerbi.config import DataPlatformPair
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    from datahub.ingestion.source.common.m_query.data_classes import (
         DataPlatformTable,
         Lineage,
     )
+    from datahub.ingestion.source.powerbi.config import DataPlatformPair
 
     platform_pair = DataPlatformPair(
         datahub_data_platform_name="athena",
@@ -742,6 +742,11 @@ def test_odbc_strip_athena_3part_catalog_from_upstreams(odbc_lineage):
 
 def test_athena_table_platform_override():
     """Test that Athena applies table-specific platform overrides for federated queries."""
+    from datahub.ingestion.source.common.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -749,11 +754,6 @@ def test_athena_table_platform_override():
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     # Config with platform override for specific table
@@ -810,6 +810,11 @@ def test_athena_table_platform_override():
 
 def test_athena_table_platform_override_no_match():
     """Test that tables not in override config are unchanged."""
+    from datahub.ingestion.source.common.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -817,11 +822,6 @@ def test_athena_table_platform_override_no_match():
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     # Config with platform override for a different table
@@ -878,6 +878,11 @@ def test_athena_table_platform_override_no_match():
 
 def test_athena_table_platform_override_dsn_scoped():
     """Test that DSN-scoped override keys take precedence over global keys."""
+    from datahub.ingestion.source.common.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -885,11 +890,6 @@ def test_athena_table_platform_override_dsn_scoped():
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     # Config with both DSN-scoped and global overrides for the same table
@@ -970,6 +970,11 @@ def test_athena_table_platform_override_dsn_scoped():
 
 def test_athena_table_platform_override_column_lineage():
     """Test that platform override is applied to column lineage URNs."""
+    from datahub.ingestion.source.common.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -977,11 +982,6 @@ def test_athena_table_platform_override_column_lineage():
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
     from datahub.sql_parsing.sqlglot_lineage import (
         ColumnLineageInfo,
@@ -1066,6 +1066,11 @@ def test_athena_table_platform_override_column_lineage():
 
 def test_athena_table_platform_override_dsn_with_special_chars():
     """Test that DSN-scoped keys work with special characters (e.g., spaces)."""
+    from datahub.ingestion.source.common.m_query.data_classes import (
+        DataPlatformTable,
+        Lineage,
+    )
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -1073,11 +1078,6 @@ def test_athena_table_platform_override_dsn_with_special_chars():
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.data_classes import (
-        DataPlatformTable,
-        Lineage,
-    )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     config = PowerBiDashboardSourceConfig(
@@ -1141,6 +1141,7 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
     2. Catalog prefix is stripped to 2-part (database.table)
     3. Platform is overridden from athena to mysql for federated tables
     """
+    from datahub.ingestion.source.common.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.config import (
         DataPlatformPair,
         PowerBiDashboardSourceConfig,
@@ -1148,7 +1149,6 @@ def test_odbc_query_lineage_integration_catalog_stripping_and_platform_override(
     from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
         ResolvePlatformInstanceFromDatasetTypeMapping,
     )
-    from datahub.ingestion.source.powerbi.m_query.pattern_handler import OdbcLineage
     from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
     # Config with platform override for the 2-part table name (after catalog stripping)
