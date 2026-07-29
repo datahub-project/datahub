@@ -212,6 +212,39 @@ class TestMigratePair:
                 MigrationReport("test-run", dry_run=True, keep=True),
             )
 
+    @patch("datahub.cli.delete_cli._delete_one_urn")
+    def test_identity_pair_raises_before_any_write(
+        self, mock_delete: MagicMock
+    ) -> None:
+        """An identical source/target is rejected — never cloned or deleted."""
+        graph = MagicMock()
+        with pytest.raises(ValueError, match="identical"):
+            engine.migrate_pair(
+                graph,
+                MigrationPair(SRC_URN, SRC_URN),
+                _options(dry_run=False, keep=False),
+                MigrationReport("test-run", dry_run=False, keep=False),
+            )
+        graph.emit_mcp.assert_not_called()
+        mock_delete.assert_not_called()
+
+    @patch("datahub.cli.delete_cli._delete_one_urn")
+    def test_exists_error_aborts_pair(self, mock_delete: MagicMock) -> None:
+        """A transient exists() failure aborts the pair rather than being read as
+        'target absent' (which would overwrite the target and delete the source)."""
+        graph = MagicMock()
+        graph.exists.side_effect = RuntimeError("gms unreachable")
+        with pytest.raises(RuntimeError, match="Could not determine whether target"):
+            engine.migrate_pair(
+                graph,
+                MigrationPair(SRC_URN, DST_URN),
+                _options(
+                    dry_run=False, keep=False, on_conflict=ConflictStrategy.OVERWRITE
+                ),
+                MigrationReport("test-run", dry_run=False, keep=False),
+            )
+        mock_delete.assert_not_called()
+
 
 # --- engine.migrate_pairs (skip-on-error behavior) ---
 

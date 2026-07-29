@@ -61,6 +61,14 @@ def migrate_pair(
     src = pair.source_urn
     tgt = pair.target_urn
 
+    # Reject an identity pair up front: it would clone onto itself and then hit
+    # the source delete below, silently removing the entity it was meant to keep.
+    if src == tgt:
+        raise ValueError(
+            f"Source and target URNs are identical ({src}); refusing to run a "
+            f"no-op migration that would delete the source."
+        )
+
     src_type = guess_entity_type(src)
     tgt_type = guess_entity_type(tgt)
     if src_type != tgt_type:
@@ -76,8 +84,14 @@ def migrate_pair(
     if options.on_conflict is not None:
         try:
             target_exists = graph.exists(tgt)
-        except Exception:
-            target_exists = False
+        except Exception as e:
+            # A transient failure must not be read as "target absent" — that would
+            # overwrite an existing target and delete the source on a blip. Abort
+            # the pair instead (skip_on_error decides whether the batch continues).
+            raise RuntimeError(
+                f"Could not determine whether target {tgt} exists; refusing to "
+                f"migrate {src} to avoid overwriting or deleting data."
+            ) from e
 
     if target_exists and options.on_conflict is not None:
         if options.on_conflict == ConflictStrategy.PRESERVE:

@@ -592,6 +592,12 @@ def _validate_mapping_pair(source: str, target: str) -> None:
             raise click.BadParameter(
                 f"Invalid {label} URN: {urn!r}", param_hint="--mapping-file"
             )
+    if source == target:
+        raise click.BadParameter(
+            f"source and target must differ (got identical URN {source}); an "
+            f"identity mapping would delete the source.",
+            param_hint="--mapping-file",
+        )
     src_type = guess_entity_type(source)
     tgt_type = guess_entity_type(target)
     if src_type != tgt_type:

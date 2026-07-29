@@ -287,6 +287,14 @@ class TestUrnsMappingLoader:
         with pytest.raises(Exception, match="Invalid"):
             _load_mapping_pairs(str(path))
 
+    def test_rejects_identity_pair(self, tmp_path: Path) -> None:
+        """An identity mapping (source == target) is rejected — it would delete the
+        source via a no-op self-migration."""
+        path = tmp_path / "m.json"
+        path.write_text(json.dumps({DS_A: DS_A}))
+        with pytest.raises(Exception, match="must differ"):
+            _load_mapping_pairs(str(path))
+
     def test_rejects_empty_mapping(self, tmp_path: Path) -> None:
         """An empty mapping file is rejected rather than silently doing nothing."""
         path = tmp_path / "m.json"
