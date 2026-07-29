@@ -10,11 +10,11 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { DataHubPageModuleType, Entity, ModelDataset } from '@types';
+import { DataHubPageModuleType, Dataset } from '@types';
 
 type EntityDataWithDatasets = {
     info?: {
-        datasets?: ModelDataset[] | null;
+        datasets?: Dataset[] | null;
     } | null;
 };
 
@@ -40,12 +40,11 @@ export default function SemanticModelDatasetsModule(props: ModuleProps) {
     return (
         <LargeModule {...props} dataTestId="semantic-model-datasets-module">
             {datasets.map((dataset) => {
-                const source = dataset.source as Entity;
-                const typeName = entityRegistry.getEntityName(source.type) ?? source.type;
+                const typeName = entityRegistry.getEntityName(dataset.type) ?? dataset.type;
                 return (
                     <EntityItem
-                        key={source.urn}
-                        entity={source}
+                        key={dataset.urn}
+                        entity={dataset}
                         moduleType={DataHubPageModuleType.SemanticModelDatasets}
                         customDetailsRenderer={() => (
                             <Text size="sm" color="gray">

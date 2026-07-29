@@ -81,6 +81,30 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
+##### Creating Assets with Domain-Scoped Access
+
+A new asset does not have persisted domain metadata when DataHub performs its initial authorization
+check. As a result, a domain-scoped policy cannot grant the **Create Entity** privilege for that
+asset. This commonly affects ingestion users that need to create datasets and then manage only the
+datasets assigned to their domain.
+
+Configure two metadata policies for this use case:
+
+1. **Creation policy**: Target all assets of the required type, such as all datasets, and grant
+   **Create Entity** to the ingestion user or group.
+2. **Domain policy**: Target the asset type and domain, then grant the privileges that the actor
+   needs after creation, such as **View Entity Page**, **Edit Domain**, or other aspect privileges.
+
+Create the asset and its domain aspect in the same creation batch using the `CREATE_ENTITY` change
+type. The creation policy authorizes the initial write. After the domain aspect is persisted, the
+domain policy applies to subsequent requests.
+
+:::caution
+The creation policy authorizes all aspects included in the initial entity creation, not only the
+domain aspect. Limit this policy to the necessary actors and entity types, and grant ongoing edit
+privileges through the domain-scoped policy.
+:::
+
 :::caution View-based access control performance
 When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
 :::
@@ -188,6 +212,16 @@ This section covers how to design access policies when **view-based access contr
 | --------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
+
+When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATION_ENABLED`), entity types are
+**restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
+`VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` covers the previous
+unrestricted set minus registry-flagged types; trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example
+`schemaField,document`) when you want those types under view policy. **Search Access Controls** (query-time search
+filtering) remain **DataHub Cloud–only**; on OSS the unrestricted list only affects entity-page / masking behavior.
+Cloud operators: see also
+[Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
 
 ### Performance considerations
 

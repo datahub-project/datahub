@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_IGNORE_ABOVE;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_MAXLENGTH;
+import static com.linkedin.metadata.search.utils.ESUtils.keywordIgnoreAboveForMaxBytes;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
@@ -13,14 +14,14 @@ public class FieldTypeMapperTest {
   public void testTextFieldUsesIgnoreAbove() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
   }
 
   @Test
   public void testTextPartialFieldUsesIgnoreAbove() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.TEXT_PARTIAL);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
   }
 
   @Test
@@ -34,7 +35,7 @@ public class FieldTypeMapperTest {
   public void testGetMappingsForKeywordWithIgnoreAbove() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove();
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+    assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH);
   }
 
   @Test
@@ -67,7 +68,7 @@ public class FieldTypeMapperTest {
         FieldTypeMapper.getMappingsForLogicalValueType(
             com.linkedin.metadata.models.LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+    assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
   }
 
   @Test
@@ -76,7 +77,7 @@ public class FieldTypeMapperTest {
         FieldTypeMapper.getMappingsForLogicalValueType(
             com.linkedin.metadata.models.LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), KEYWORD_IGNORE_ABOVE);
+    assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
   }
 
   @Test

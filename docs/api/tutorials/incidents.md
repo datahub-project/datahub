@@ -54,6 +54,24 @@ Where supported Incident Types include
 - `DATA_SCHEMA`
 - `CUSTOM`
 
+When using `CUSTOM`, you must also provide `customType`. It is a free-text label naming
+your incident category, and it is required: omitting it fails with
+`customType is required: Failed to create incident.`
+
+```graphql
+mutation raiseCustomIncident {
+  raiseIncident(
+    input: {
+      resourceUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.prod.purchases,PROD)"
+      type: CUSTOM
+      customType: "ML_LEAKAGE"
+      title: "Feature built from post-decision data"
+      description: "days_since_last_payment reads payment events recorded after loan origination."
+    }
+  )
+}
+```
+
 If you see the following response, a unique identifier for the new incident will be returned.
 
 ```json

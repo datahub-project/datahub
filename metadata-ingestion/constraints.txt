@@ -934,7 +934,6 @@ numpy==1.26.4
     #   db-dtypes
     #   feast
     #   pandas
-    #   pydeequ
     #   scipy
     #   unstructured
     #   unstructured-ingest
@@ -1016,7 +1015,6 @@ pandas==2.1.4
     #   databricks-sql-connector
     #   db-dtypes
     #   feast
-    #   pydeequ
     #   unstructured-ingest
 pandocfilters==1.5.1
     # via nbconvert
@@ -1121,8 +1119,6 @@ pure-sasl==0.6.2
     #   thrift-sasl
 py-partiql-parser==0.6.3
     # via moto
-py4j==0.10.9.9
-    # via pyspark
 pyarrow==18.0.0
     # via
     #   acryl-datahub
@@ -1169,8 +1165,6 @@ pydantic-core==2.33.2
     # via pydantic
 pydash==8.0.6
     # via okta
-pydeequ==1.5.0
-    # via acryl-datahub
 pydruid==0.6.9
     # via acryl-datahub
 pygments==2.19.2
@@ -1223,8 +1217,6 @@ pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
 pyroaring==1.0.3
     # via pyiceberg
-pyspark==3.5.8
-    # via acryl-datahub
 pyspnego==0.12.1
     # via requests-ntlm
 pytest==9.0.3

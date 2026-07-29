@@ -162,6 +162,27 @@ class ABSSource(StatefulIngestionSourceBase):
             config_report,
         )
 
+        if config.is_profiling_enabled():
+            try:
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
+
+                self.profiler = FileProfiler(
+                    aws_config=None,
+                    verify_ssl=None,
+                    report=self.report,
+                    profiling_times_taken=self.profiling_times_taken,
+                    profiling_config=config.profiling,
+                    azure_config=config.azure_config,
+                )
+            except (ImportError, ModuleNotFoundError) as e:
+                raise RuntimeError(
+                    "Profiling dependencies are not installed but are required for "
+                    "ABS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[abs]'"
+                ) from e
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = DataLakeSourceConfig.model_validate(config_dict)
@@ -354,6 +375,9 @@ class ABSSource(StatefulIngestionSourceBase):
         yield from self.container_WU_creator.create_container_hierarchy(
             table_data.table_path, dataset_urn
         )
+
+        if self.source_config.is_profiling_enabled():
+            yield from self.profiler.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)

@@ -47,6 +47,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
+    SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
