@@ -295,6 +295,17 @@ type HomePageConfig {
 }
 
 """
+Configurations related to the DataHub server
+"""
+type DataHubConfig {
+  """
+  How long (in milliseconds) the frontend waits for a Micro Frontend (MFE) remote module to
+  load before giving up and showing the "not available" error state.
+  """
+  mfeLoadTimeoutMs: Int
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -303,6 +314,11 @@ type AppConfig {
   App version
   """
   appVersion: String
+
+  """
+  Configurations related to the DataHub server itself
+  """
+  dataHubConfig: DataHubConfig!
 
   """
   Auth-related configurations

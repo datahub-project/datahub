@@ -76,6 +76,7 @@ public class GmsGraphQLEngineArgs {
   TelemetryConfiguration telemetryConfiguration;
   TestsConfiguration testsConfiguration;
   DataHubConfiguration datahubConfiguration;
+  int mfeLoadTimeoutMs;
   ViewsConfiguration viewsConfiguration;
   SearchBarConfiguration searchBarConfiguration;
   SearchCardConfiguration searchCardConfiguration;

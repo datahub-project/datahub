@@ -10,7 +10,11 @@ import {
 
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
+import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+// Fallback when the server doesn't provide dataHubConfig.mfeLoadTimeoutMs (MFE_LOAD_TIMEOUT_MS on GMS).
+const DEFAULT_LOAD_TIMEOUT_MS = 5000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
@@ -40,6 +44,7 @@ interface MountMFEParams {
     containerElement: HTMLDivElement | null;
     onError: () => void;
     aliveRef: { current: boolean };
+    loadTimeoutMs: number;
 }
 
 async function mountMFE({
@@ -47,6 +52,7 @@ async function mountMFE({
     containerElement,
     onError,
     aliveRef,
+    loadTimeoutMs,
 }: MountMFEParams): Promise<(() => void) | undefined> {
     const { module, remoteEntry } = config;
     const mountStart = performance.now();
@@ -77,11 +83,11 @@ async function mountMFE({
         };
         setRemote(remoteName, remoteConfig);
 
-        // Create a timeout promise that rejects in a few seconds
+        // Create a timeout promise that rejects once the configured load timeout elapses
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(
                 () => reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`)),
-                5000,
+                loadTimeoutMs,
             );
         });
 
@@ -166,8 +172,15 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
     const history = useHistory();
     const [hasError, setHasError] = useState(false);
     const aliveRef = useRef(true);
+    const appConfig = useAppConfig();
+    const appConfigLoaded = appConfig.loaded;
+    const loadTimeoutMs = appConfig.config.dataHubConfig?.mfeLoadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS;
 
     useEffect(() => {
+        // Wait for appConfig before mounting: mounting with the fallback timeout and remounting
+        // when the server value arrives would leave the first mount's stale timeout racing the
+        // second mount (shared aliveRef), flipping the page to the error state spuriously.
+        if (!appConfigLoaded) return undefined;
         aliveRef.current = true;
         let cleanup: (() => void) | undefined;
 
@@ -176,6 +189,7 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
             containerElement: box.current,
             onError: () => setHasError(true),
             aliveRef,
+            loadTimeoutMs,
         }).then((cleanupFn) => {
             cleanup = cleanupFn;
         });
@@ -194,7 +208,7 @@ export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
                 }
             }
         };
-    }, [config, history]);
+    }, [config, history, loadTimeoutMs, appConfigLoaded]);
 
     if (hasError) {
         return <ErrorComponent message={t('mfeframework.notAvailableError', { label: config.label })} />;

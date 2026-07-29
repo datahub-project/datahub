@@ -78,6 +78,9 @@ query appConfig {
         homePageConfig {
             firstInPersonalSidebar
         }
+        dataHubConfig {
+            mfeLoadTimeoutMs
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2

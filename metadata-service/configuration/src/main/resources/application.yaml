@@ -1219,6 +1219,13 @@ bootstrap:
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
 
+# Micro Frontend (MFE) framework config. GMS never acts on these values itself -- it only relays
+# them to the frontend via the appConfig GraphQL query.
+mfe:
+  # How long (in milliseconds) the frontend waits for an MFE remote module to load before giving
+  # up and showing the "not available" error state.
+  loadTimeoutMs: ${MFE_LOAD_TIMEOUT_MS:5000}
+
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 // Mock theme and navbar hooks
 vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
@@ -71,6 +72,24 @@ describe('MFEBaseConfigurablePage', () => {
         vi.clearAllMocks();
     });
 
+    // The page only mounts the MFE once appConfig has loaded, so tests must render inside a
+    // provider with loaded: true (the bare context default is loaded: false).
+    const renderWithAppConfig = (yaml: any, mfeLoadTimeoutMs?: number) => {
+        const config = {
+            ...DEFAULT_APP_CONFIG,
+            dataHubConfig: { ...DEFAULT_APP_CONFIG.dataHubConfig, mfeLoadTimeoutMs },
+        };
+        render(
+            <AppConfigContext.Provider value={{ config, loaded: true, refreshContext: () => null }}>
+                <MemoryRouter>
+                    <ThemeProvider theme={sampleTheme as any}>
+                        <MFEBaseConfigurablePage config={yaml} />
+                    </ThemeProvider>
+                </MemoryRouter>
+            </AppConfigContext.Provider>,
+        );
+    };
+
     it('renders the container div', () => {
         const yaml = validParsedYaml.microFrontends[0];
         render(
@@ -92,13 +111,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderWithAppConfig(yaml);
         });
         const container = screen.getByTestId('mfe-configurable-container');
         expect(container).toBeInTheDocument();
@@ -111,13 +124,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderWithAppConfig(yaml);
         });
 
         const container = screen.getByTestId('mfe-configurable-container');
@@ -133,13 +140,7 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useFakeTimers();
 
-        render(
-            <MemoryRouter>
-                <ThemeProvider theme={sampleTheme as any}>
-                    <MFEBaseConfigurablePage config={yaml} />
-                </ThemeProvider>
-            </MemoryRouter>,
-        );
+        renderWithAppConfig(yaml);
 
         // Advance timers to trigger timeout
         act(() => {
@@ -156,6 +157,64 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useRealTimers();
     }, 10000); // Increase test timeout
+
+    it('uses dataHubConfig.mfeLoadTimeoutMs from app config as the remote load timeout', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        // Mock getRemote to never resolve so only the timeout can settle the race
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderWithAppConfig(yaml, 1000);
+
+        // Just under the configured timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        // Crossing the configured timeout triggers the error state well before the 5000ms default
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
+
+    it('falls back to a 5000ms load timeout when the server does not provide mfeLoadTimeoutMs', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderWithAppConfig(yaml, undefined);
+
+        // Just under the default timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(4999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
 
     it('shows error UI when enabled flag is false', async () => {
         const yaml = {
