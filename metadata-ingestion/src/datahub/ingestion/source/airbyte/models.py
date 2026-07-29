@@ -64,9 +64,6 @@ class StreamIdentifier(BaseModel):
             else self.stream_name
         )
 
-    def __hash__(self) -> int:
-        return hash((self.stream_name, self.namespace))
-
 
 class PropertyFieldPath(BaseModel):
     """A dotted path to a (possibly nested) Airbyte field, e.g.
@@ -231,6 +228,7 @@ class AirbyteConnectionPartial(BaseModel):
     destination_id: str = Field(alias="destinationId")
     status: Optional[str] = None
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(None, alias="syncCatalog")
+    ambiguous_stream_namespaces: Dict[str, List[str]] = Field(default_factory=dict)
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")

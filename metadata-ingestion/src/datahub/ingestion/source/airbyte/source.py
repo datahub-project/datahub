@@ -568,6 +568,23 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
             return []
 
+        for stream_name, candidates in (
+            pipeline_info.connection.ambiguous_stream_namespaces or {}
+        ).items():
+            self.report.warning(
+                title="Ambiguous Stream Namespace",
+                message=(
+                    "Skipped namespace backfill because multiple /streams namespaces "
+                    "do not match unnamed config streams; URNs may fall back to the "
+                    "source default schema"
+                ),
+                context=(
+                    f"stream={stream_name}, candidates={candidates}, "
+                    f"connection_id={pipeline_info.connection.connection_id}, "
+                    f"connection_name={pipeline_info.connection.name}"
+                ),
+            )
+
         for stream_config in pipeline_info.connection.sync_catalog.streams:
             if not stream_config or not stream_config.stream:
                 continue

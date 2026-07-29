@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, TypedDict
+from typing import Any, Dict, Iterator, List, Optional, Tuple, TypedDict
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -37,7 +37,9 @@ TOKEN_REFRESH_BUFFER_SECONDS = 600
 
 
 class AirbyteApiError(Exception):
-    pass
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class AirbyteAuthenticationError(AirbyteApiError):
@@ -157,7 +159,9 @@ class AirbyteBaseClient(ABC):
                 error_message += f" - {e.response.text}"
 
             logger.error(error_message)
-            raise AirbyteApiError(error_message) from e
+            raise AirbyteApiError(
+                error_message, status_code=e.response.status_code
+            ) from e
         except requests.RequestException as e:
             error_message = f"Error connecting to Airbyte API: {str(e)}"
             logger.error(error_message)
@@ -357,12 +361,20 @@ class AirbyteBaseClient(ABC):
                 stream_api_metadata = self._fetch_stream_api_metadata(
                     connection_data.get("sourceId")
                 )
-                connection_data["syncCatalog"] = self._build_sync_catalog(
+                catalog, ambiguous = self._build_sync_catalog(
                     configurations["streams"],
                     stream_api_metadata,
                 )
+                connection_data["syncCatalog"] = catalog
+                connection_data["ambiguous_stream_namespaces"] = ambiguous
 
         return AirbyteConnectionPartial.model_validate(connection_data)
+
+    @staticmethod
+    def _coerce_str(value: object) -> str:
+        if isinstance(value, str):
+            return value
+        return str(value) if value is not None else ""
 
     @staticmethod
     def _stream_namespace_from_api(stream: Dict[str, Any]) -> str:
@@ -382,12 +394,15 @@ class AirbyteBaseClient(ABC):
 
         try:
             detailed_streams = self.list_streams(source_id=source_id)
+        except AirbyteAuthenticationError:
+            raise
         except AirbyteApiError as e:
-            # `/streams` was added in newer Airbyte versions; older OSS
-            # returns 404 which is expected — fall back silently. Other
-            # errors silently degrade column-level lineage, so we re-raise
-            # to let the source layer surface them.
-            if "404" in str(e):
+            if e.status_code == 404:
+                logger.debug(
+                    "Airbyte /streams unavailable (HTTP 404); skipping namespace "
+                    "and property-field backfill for source_id=%s",
+                    source_id,
+                )
                 return AirbyteStreamApiMetadata()
             raise
 
@@ -425,22 +440,19 @@ class AirbyteBaseClient(ABC):
     def _namespace_queues_for_catalog(
         config_streams: List[Dict[str, Any]],
         namespaces_by_name: Dict[str, List[str]],
-    ) -> Dict[str, List[str]]:
+    ) -> Tuple[Dict[str, List[str]], Dict[str, List[str]]]:
         # Unnamed count vs full /streams list; does not subtract explicit siblings.
         unnamed_counts: Dict[str, int] = {}
         for stream in config_streams:
-            name = stream.get("name")
-            namespace = stream.get("namespace")
-            if not isinstance(name, str):
-                name = str(name) if name is not None else ""
+            name = AirbyteBaseClient._coerce_str(stream.get("name"))
             if not name:
                 continue
-            if not isinstance(namespace, str):
-                namespace = str(namespace) if namespace is not None else ""
+            namespace = AirbyteBaseClient._coerce_str(stream.get("namespace"))
             if not namespace:
                 unnamed_counts[name] = unnamed_counts.get(name, 0) + 1
 
         queues: Dict[str, List[str]] = {}
+        ambiguous: Dict[str, List[str]] = {}
         for name, namespaces in namespaces_by_name.items():
             needed = unnamed_counts.get(name, 0)
             if not needed or not namespaces:
@@ -449,26 +461,31 @@ class AirbyteBaseClient(ABC):
                 queues[name] = [namespaces[0]] * needed
             elif needed == len(namespaces):
                 queues[name] = list(namespaces)
-        return queues
+            else:
+                ambiguous[name] = list(namespaces)
+                logger.warning(
+                    "Skipping namespace backfill for stream %r: %s unnamed config "
+                    "stream(s) vs %s /streams namespace(s) %s",
+                    name,
+                    needed,
+                    len(namespaces),
+                    namespaces,
+                )
+        return queues, ambiguous
 
     def _build_sync_catalog(
         self,
         config_streams: List[Dict[str, Any]],
         stream_api_metadata: Optional[AirbyteStreamApiMetadata] = None,
-    ) -> SyncCatalogDict:
+    ) -> Tuple[SyncCatalogDict, Dict[str, List[str]]]:
         metadata = stream_api_metadata or AirbyteStreamApiMetadata()
-        namespace_queues = self._namespace_queues_for_catalog(
+        namespace_queues, ambiguous = self._namespace_queues_for_catalog(
             config_streams, metadata.namespaces_by_name
         )
         streams: List[StreamSyncDict] = []
         for stream in config_streams:
-            name = stream.get("name")
-            namespace = stream.get("namespace")
-
-            if not isinstance(name, str):
-                name = str(name) if name is not None else ""
-            if not isinstance(namespace, str):
-                namespace = str(namespace) if namespace is not None else ""
+            name = self._coerce_str(stream.get("name"))
+            namespace = self._coerce_str(stream.get("namespace"))
 
             if not namespace:
                 queued = namespace_queues.get(name)
@@ -491,7 +508,7 @@ class AirbyteBaseClient(ABC):
 
             streams.append(stream_sync)
 
-        return {"streams": streams}
+        return {"streams": streams}, ambiguous
 
     def _build_stream_config(self, stream: Dict[str, Any]) -> StreamConfigDict:
         sync_mode = stream.get("syncMode", "")
@@ -640,7 +657,9 @@ class AirbyteOSSClient(AirbyteBaseClient):
             except (ValueError, KeyError):
                 error_message += f" - {e.response.text}"
             logger.error(error_message)
-            raise AirbyteAuthenticationError(error_message) from e
+            raise AirbyteAuthenticationError(
+                error_message, status_code=e.response.status_code
+            ) from e
         except Exception as e:
             error_message = f"Failed to get OAuth2 token: {str(e)}"
             logger.error(error_message)
@@ -729,7 +748,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
             except (ValueError, KeyError):
                 error_message += f" - {e.response.text}"
             logger.error(error_message)
-            raise AirbyteAuthenticationError(error_message) from e
+            raise AirbyteAuthenticationError(
+                error_message, status_code=e.response.status_code
+            ) from e
         except Exception as e:
             error_message = (
                 f"Failed to get OAuth2 token via {grant_type.value}: {str(e)}"
