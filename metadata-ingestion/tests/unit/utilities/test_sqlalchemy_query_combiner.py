@@ -902,8 +902,53 @@ class TestFlattenPath:
         assert caps[0].exc is not None  # the bad query fails
         assert all(c.done and c.exc is None for c in caps[1:])  # all 5 good resolve
         assert all(c.result.scalar() == 3 for c in caps[1:])
+        # flat_queries_issued counts ATTEMPTS, not successes (it increments
+        # before execution). The load-bearing assertion is scans_avoided: it
+        # increments only after extraction succeeds, so it is positive iff the
+        # flat path actually delivered the scan reduction. Do not prune the
+        # scans_avoided assertion as redundant with flat_queries_issued.
         assert combiner.report.flat_queries_issued > 0
         assert combiner.report.scans_avoided == 4  # 5 good - 1
+
+    def test_failing_unit_does_not_demote_out_of_window_futures(
+        self, engine, test_table
+    ):
+        # Item 4 (round 2): the scoped fallback must operate on the FAILED
+        # UNIT's futures only, not the whole queue. The pending queue is
+        # islice'd to MAX_QUERIES_TO_COMBINE_AT_ONCE in _execute_queue, so
+        # futures beyond the cap were never attempted and must flatten on
+        # the next pass — a global fallback (the old code) would demote them
+        # to serial, zeroing scans_avoided. Here one bad query (referencing a
+        # nonexistent column on the same table, so it shares the FROM group
+        # with the good ones) poisons its whole in-window group, but the
+        # out-of-window good futures still flatten.
+        bad = sa.select(
+            sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        good_count = MAX_QUERIES_TO_COMBINE_AT_ONCE + 10
+        good = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(good_count)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in [bad] + good]
+            qc.flush()
+
+        assert caps[0].exc is not None  # the bad query fails
+        assert all(c.done and c.exc is None for c in caps[1:])  # all good resolve
+        assert all(c.result.scalar() == 3 for c in caps[1:])
+        # The failed in-window group (bad + 39 good = MAX_QUERIES_TO_COMBINE_AT_ONCE)
+        # goes serial; the out-of-window good futures flatten on the next pass.
+        # uncombined is the FAILED GROUP's size, not the whole queue (which
+        # would be MAX_QUERIES_TO_COMBINE_AT_ONCE + good_count + 1).
+        assert (
+            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
+        # The out-of-window good futures collapsed into one scan.
+        assert (
+            combiner.report.scans_avoided == good_count - MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
 
     def test_failing_flat_group_does_not_cancel_other_groups(self, engine, test_table):
         # Item 4 (two flat groups): the first flat group fails (references a

@@ -158,9 +158,13 @@ class SQLAlchemyQueryCombinerReport(Report):
     combined_queries_issued: int = 0
     queries_combined: int = 0
 
-    # Flat statements issued under the flatten path. Distinct from
-    # combined_queries_issued, which counts both the legacy CTE path and the
-    # flat path so existing assertions stay green when the flag is off.
+    # Flat statements *attempted* under the flatten path. Counts attempts, not
+    # successes: the counter increments before execution (consistent with
+    # combined_queries_issued), so a flat statement that fails still counts.
+    # Read scans_avoided for the success signal — it increments only after
+    # extraction succeeds. Distinct from combined_queries_issued, which counts
+    # both the legacy CTE path and the flat path so existing assertions stay
+    # green when the flag is off.
     flat_queries_issued: int = 0
 
     # Estimated table scans avoided by flattening. Each flat statement
@@ -480,18 +484,24 @@ class SQLAlchemyQueryCombiner:
             return False
 
     @staticmethod
-    def _flatten_signature(query: Any) -> Any:
-        # Group key: the FROM clause objects (by identity, not by rendered
-        # name) plus the connection the futures execute on. Keying on objects
-        # rather than str(f) makes the grouping sound: two distinct Table
-        # objects that happen to share a name would otherwise group together
-        # and produce a self-cross-join (FROM t, t) that the server rejects
-        # — safe (serial fallback recovers) but wasteful, and reachable since
-        # several adapters build tables against a fresh MetaData per call.
+    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Any, ...]:
+        # Group key: the FROM clause objects (by identity) plus the connection
+        # the future executes on. This function owns the whole key so the next
+        # reader cannot fix one half and forget the other.
+        #
+        # From-clause elements (Table, Subquery, Join) are hashable with
+        # identity semantics — hash(t) is stable, and two distinct Table
+        # objects that share a name compare unequal and hash differently
+        # (verified). So tuple(query.froms) groups by object identity directly,
+        # without id()'s only-unique-among-live-objects caveat (a latent hazard
+        # for a future reader who caches or defers). Same-name-different-object
+        # tables therefore land in separate groups instead of one self-cross-
+        # join (FROM t, t) the server would reject.
+        #
         # The connection is folded in because _execute_flat_select runs the
         # whole group on members[0].conn; mixing connections in one group
         # would run some futures on the wrong connection.
-        return (tuple(id(f) for f in query.froms),)
+        return (*fut.query.froms, id(fut.conn))
 
     @staticmethod
     def _has_count_distinct(query: Any) -> bool:
@@ -527,29 +537,29 @@ class SQLAlchemyQueryCombiner:
         unmatched: Dict[str, _QueryFuture] = {}
         for k, fut in pending_queue.items():
             if self._is_flattenable(fut.query):
-                # Signature covers FROM objects (by identity) AND the
-                # connection the future runs on — see _flatten_signature.
-                sig = (self._flatten_signature(fut.query), id(fut.conn))
-                groups[sig].append((k, fut))
+                groups[self._flatten_signature(fut)].append((k, fut))
             else:
                 unmatched[k] = fut
 
         # Each sub-unit is independently recoverable. A failing unit does not
-        # cancel the others (item 4): a single bad unflattenable query must
-        # not zero out the scan-reduction benefit of the whole batch. Flat
-        # groups run first so the common case is not hostage to an exceptional
-        # unmatched query. On failure, increment query_exceptions and try a
-        # gentler landing (re-route the unit's untouched futures through the
-        # CTE path); if that also fails, leave them un-done for the serial
-        # fallback that flush() invokes after this raises.
-        first_exc: Optional[Exception] = None
+        # cancel the others (item 4): a single bad query must not zero out the
+        # scan-reduction benefit of the whole batch. Flat groups run first so
+        # the common case is not hostage to an exceptional unmatched query.
+        # On failure, increment query_exceptions and try a gentler landing
+        # (re-route the unit's untouched futures through the CTE path); if
+        # that also fails, run THAT UNIT's futures serially via the scoped
+        # _execute_futures_serially — NOT the global _execute_queue_fallback,
+        # which operates on the whole queue and would demote out-of-window
+        # futures that were never attempted and would flatten on the next
+        # pass (measured: one failing group demoted all 50 queued futures,
+        # scans_avoided 4 -> 0). Every failed unit's futures are resolved
+        # here, so no trailing guard is needed — flush()'s greenlet loop
+        # cannot spin on futures parked in _handle_execute's done-loop.
         for members in groups.values():
             try:
                 self._execute_flat_group(members)
             except Exception as e:
                 self.report.query_exceptions += 1
-                if first_exc is None:
-                    first_exc = e
                 logger.warning(
                     "Failed to execute flat group; will attempt CTE re-route."
                 )
@@ -561,8 +571,11 @@ class SQLAlchemyQueryCombiner:
                     except Exception as e2:
                         logger.debug(
                             "Flat-group CTE re-route also failed; "
-                            "leaving futures for serial fallback",
+                            "running this group's futures serially",
                             exc_info=e2,
+                        )
+                        self._execute_futures_serially(
+                            [fut for _, fut in members if not fut.done]
                         )
 
         if unmatched:
@@ -570,22 +583,14 @@ class SQLAlchemyQueryCombiner:
                 self._execute_cte_combine(unmatched)
             except Exception as e:
                 self.report.query_exceptions += 1
-                if first_exc is None:
-                    first_exc = e
                 logger.warning(
                     "Failed to execute unmatched CTE combine; "
                     "will fallback its futures."
                 )
                 logger.debug("Failed to execute unmatched CTE combine", exc_info=e)
-
-        # If any futures are still un-done (a unit failed and its gentler
-        # landing also failed), run them serially via the same fallback
-        # flush() uses. Calling it directly — rather than re-raising so
-        # flush() catches — avoids double-counting query_exceptions: each
-        # failed unit already incremented once above. Surviving units'
-        # futures are already done and skipped by the fallback.
-        if first_exc is not None and any(not f.done for f in pending_queue.values()):
-            self._execute_queue_fallback(self._get_main_greenlet())
+                self._execute_futures_serially(
+                    [fut for fut in unmatched.values() if not fut.done]
+                )
 
     def _execute_flat_group(self, members: List[Tuple[str, _QueryFuture]]) -> None:
         # Split a flatten group into cheap and distinct-heavy aggregates and
@@ -674,10 +679,15 @@ class SQLAlchemyQueryCombiner:
         # N queued aggregates collapsed into one scan over the same table.
         self.report.scans_avoided += len(members) - 1
 
-    def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
-        full_queue = self._get_queue(main_greenlet)
-
-        for _, query_future in full_queue.items():
+    def _execute_futures_serially(self, futures: List["_QueryFuture"]) -> None:
+        # Serial fallback scoped to a specific list of futures. Extracted from
+        # _execute_queue_fallback so the flatten path can recover a failed unit
+        # WITHOUT demoting out-of-window futures: _execute_queue_fallback
+        # operates on the whole queue (it is called by flush() when the entire
+        # _execute_queue raises), but a failed unit in _execute_queue_flattened
+        # must only resolve its own futures — the rest of the batch should
+        # still flatten on the next pass. Skip-done contract preserved.
+        for query_future in futures:
             if query_future.done:
                 continue
 
@@ -712,6 +722,13 @@ class SQLAlchemyQueryCombiner:
                     )
                 finally:
                     query_future.done = True
+
+    def _execute_queue_fallback(self, main_greenlet: greenlet.greenlet) -> None:
+        # flush() calls this when the entire _execute_queue raises; it falls
+        # back the whole queue. Per-unit recovery in the flatten path uses the
+        # scoped _execute_futures_serially directly.
+        full_queue = self._get_queue(main_greenlet)
+        self._execute_futures_serially(list(full_queue.values()))
 
     def flush(self) -> None:
         """Executes until the queue and pool are empty."""
