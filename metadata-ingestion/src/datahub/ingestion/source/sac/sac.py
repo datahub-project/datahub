@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 from authlib.integrations.requests_client import OAuth2Session
 from pydantic import Field, SecretStr, field_validator
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
@@ -41,11 +42,13 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes, DatasetSubTypes
+from datahub.ingestion.source.sac.data_export_metadata import parse_data_export_metadata
 from datahub.ingestion.source.sac.sac_common import (
     ImportDataModelColumn,
     Resource,
     ResourceModel,
 )
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -133,6 +136,15 @@ class SACSourceConfig(
         description="Controls whether schema metadata of Import Data Models should be ingested (ingesting schema metadata of Import Data Models significantly increases overall ingestion time)",
     )
 
+    ingest_acquired_data_model_schema_metadata: bool = Field(
+        default=True,
+        description=(
+            "Controls whether schema metadata of acquired (non-import) Data Models is ingested "
+            "via the Data Export Service. Live Data Models keep their schema in the source system "
+            "and are skipped. Ingesting this schema adds one metadata request per acquired model."
+        ),
+    )
+
     resource_id_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting resource ids that are to be included",
@@ -165,7 +177,9 @@ class SACSourceConfig(
 
 @dataclass
 class SACSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    acquired_model_schema_resolved: int = 0
+    acquired_model_schema_skipped_live: int = 0
+    acquired_model_schema_failed: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
@@ -182,7 +196,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Enabled by default (only for Import Data Models)",
+    "Enabled by default (for Import Data Models and acquired Data Models)",
 )
 class SACSource(StatefulIngestionSourceBase, TestableSource):
     config: SACSourceConfig
@@ -425,6 +439,13 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
 
             yield mcp.as_workunit()
+
+        if (
+            not model.is_import
+            and model.system_type is None
+            and self.config.ingest_acquired_data_model_schema_metadata
+        ):
+            yield from self._emit_acquired_model_schema(dataset_urn, model)
 
         if model.system_type in ("BW", "HANA") and model.external_id is not None:
             upstream_dataset_name: Optional[str] = None
@@ -767,6 +788,77 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         return columns
+
+    def _emit_acquired_model_schema(
+        self, dataset_urn: str, model: ResourceModel
+    ) -> Iterable[MetadataWorkUnit]:
+        parse_result = self._get_data_export_schema(model)
+        if (
+            parse_result is None
+            or parse_result.error is not None
+            or not parse_result.fields
+        ):
+            return
+
+        self.report.acquired_model_schema_resolved += 1
+        primary_fields = [f.fieldPath for f in parse_result.fields if f.isPartOfKey]
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=model.model_id,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=parse_result.fields,
+                primaryKeys=primary_fields,
+            ),
+        ).as_workunit()
+
+    def _get_data_export_schema(
+        self, model: ResourceModel
+    ) -> Optional[EdmxParseResult]:
+        # The Data Export Service returns EDMX for acquired models but 412
+        # ("Requested ProviderID is not supported") for Live Data Models, whose
+        # schema lives in the source system. Treat 412 as an expected skip.
+        try:
+            response = self.session.get(
+                url=f"{self.config.tenant_url}/api/v1/dataexport/providers/sac/{model.model_id}/$metadata",
+                headers={"Accept": "application/xml"},
+            )
+        except RequestException as e:
+            # A per-model transport failure (e.g. the retry adapter exhausting on
+            # repeated 5xx) must not abort the whole run: the model is still emitted,
+            # just without a DES-derived schema.
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {e}",
+            )
+            return None
+        if response.status_code == 412:
+            self.report.acquired_model_schema_skipped_live += 1
+            return None
+        if not response.ok:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id} (status={response.status_code})",
+            )
+            return None
+
+        parse_result = parse_data_export_metadata(response.text)
+        if parse_result.error is not None:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to parse acquired model schema",
+                message="The Data Export Service metadata could not be parsed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {parse_result.error}",
+            )
+        return parse_result
 
     def get_query_name(self, query: str) -> str:
         if not self.config.query_name_template:
