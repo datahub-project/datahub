@@ -402,12 +402,12 @@ written into the image at build time, and credentials are injected via a `netrc`
 
 ##### Gradle properties
 
-| Property                                         | Default                          | Purpose                                                                 |
-| ------------------------------------------------ | -------------------------------- | ----------------------------------------------------------------------- |
-| `datahub.dependencies.python.pipMirrorUrl`       | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)                       |
-| `datahub.dependencies.python.pipExtraIndexUrl`   | _(empty)_                        | Extra indexes layered on the selected profile (or required for `custom`) |
-| `datahub.dependencies.python.uvDockerProfile`    | `default`                        | Index profile for Python Docker image builds                            |
-| `datahub.dependencies.python.uvInstallProfile`   | `default`                        | Index profile for runner-side Gradle `uv` installs                      |
+| Property                                       | Default                          | Purpose                                                                  |
+| ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Default index URL (used when profile is `custom`)                        |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Extra indexes layered on the selected profile (or required for `custom`) |
+| `datahub.dependencies.python.uvDockerProfile`  | `default`                        | Index profile for Python Docker image builds                             |
+| `datahub.dependencies.python.uvInstallProfile` | `default`                        | Index profile for runner-side Gradle `uv` installs                       |
 
 The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
 
