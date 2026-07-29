@@ -1,7 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -22,7 +23,6 @@ import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.generated.SortCriterion;
 import com.linkedin.datahub.graphql.generated.SortOrder;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -40,11 +40,9 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -514,15 +512,12 @@ public class SearchAcrossEntitiesResolverTest {
   @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
-    // Note: Since DOCUMENT is now in SEARCHABLE_ENTITY_TYPES, document default filters
+    // Note: Since DOCUMENT is in the default search entity types, document default filters
     // (state=PUBLISHED, showInGlobalContext=true) are automatically applied.
 
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
 
-    List<String> searchEntityTypes =
-        SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList());
+    List<String> searchEntityTypes = parseCsv(DEFAULT_SEARCH_ENTITY_TYPES);
 
     // Create the expected document filter that gets applied when DOCUMENT is in entity types
     Filter expectedDocumentFilter = buildDocumentDefaultFilter();
@@ -565,36 +560,46 @@ public class SearchAcrossEntitiesResolverTest {
   }
 
   /**
-   * Builds the default document filter that is applied when DOCUMENT is in the search entity types.
-   * Uses negated EQUAL conditions which naturally pass through for non-document entities:
-   *
-   * <p>state != UNPUBLISHED (negated) AND showInGlobalContext != false (negated)
+   * Builds the default document filter applied when DOCUMENT is in entity types. Since
+   * getMockAllowContext allows all privileges (canManageDocuments=true), the legacy clause omits
+   * the state != UNPUBLISHED filter.
    */
   private static Filter buildDocumentDefaultFilter() {
-    List<Criterion> criteria = new ArrayList<>();
+    Criterion lifecycleCriterion = new Criterion();
+    lifecycleCriterion.setField("lifecycleStage");
+    lifecycleCriterion.setCondition(Condition.EQUAL);
+    lifecycleCriterion.setValues(
+        new com.linkedin.data.template.StringArray(
+            Collections.singletonList("urn:li:lifecycleStageType:PUBLISHED")));
 
-    // Exclude unpublished documents (non-documents pass through) - negated EQUAL
-    Criterion stateCriterion = new Criterion();
-    stateCriterion.setField("state");
-    stateCriterion.setCondition(Condition.EQUAL);
-    stateCriterion.setValues(
-        new com.linkedin.data.template.StringArray(Collections.singletonList("UNPUBLISHED")));
-    stateCriterion.setNegated(true);
-    criteria.add(stateCriterion);
+    ConjunctiveCriterion publishedClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(lifecycleCriterion, buildShowInGlobalContextCriterion())));
 
-    // Exclude documents not meant for global context (non-documents pass through) - negated EQUAL
-    Criterion showInGlobalContextCriterion = new Criterion();
-    showInGlobalContextCriterion.setField("showInGlobalContext");
-    showInGlobalContextCriterion.setCondition(Condition.EQUAL);
-    showInGlobalContextCriterion.setValues(
-        new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
-    showInGlobalContextCriterion.setNegated(true);
-    criteria.add(showInGlobalContextCriterion);
+    Criterion isNullCriterion = new Criterion();
+    isNullCriterion.setField("lifecycleStage");
+    isNullCriterion.setCondition(Condition.IS_NULL);
+
+    ConjunctiveCriterion legacyClause =
+        new ConjunctiveCriterion()
+            .setAnd(
+                new CriterionArray(
+                    ImmutableList.of(isNullCriterion, buildShowInGlobalContextCriterion())));
 
     return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+        .setOr(new ConjunctiveCriterionArray(ImmutableList.of(publishedClause, legacyClause)));
+  }
+
+  private static Criterion buildShowInGlobalContextCriterion() {
+    Criterion criterion = new Criterion();
+    criterion.setField("showInGlobalContext");
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList("false")));
+    criterion.setNegated(true);
+    return criterion;
   }
 
   @Test

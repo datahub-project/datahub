@@ -246,6 +246,10 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
   args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
 
   outputs.cacheIf { true }
+  // The -Psourcemap flag switches yarnBuild between build-only and buildWithSourceMap-only, which
+  // produce different outputs (with vs without *.js.map). It must be part of the cache key, or a
+  // -Psourcemap build silently restores a prior no-sourcemap cache entry and emits no maps.
+  inputs.property('sourcemap', project.hasProperty('sourcemap'))
   inputs.files(
     file('index.html'),
     project.fileTree(dir: "src"),

@@ -673,11 +673,6 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
-  Whether to show the new lineage visualization.
-  """
-  lineageGraphV2: Boolean!
-
-  """
   Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
@@ -824,11 +819,6 @@ type FeatureFlagsConfig {
   Whether product updates on the sidebar is enabled. Will go to oss.
   """
   showProductUpdates: Boolean!
-
-  """
-  Enables the redesign of the lineage v2 graph
-  """
-  lineageGraphV3: Boolean!
 
   """
   Enables logical models feature

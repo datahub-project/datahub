@@ -1023,9 +1023,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # catch any other cases where the script path is invalid
         if not script_path.startswith("s3://"):
-            self.report_warning(
-                flow_urn,
-                f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
+            self.report.warning(
+                message="Error parsing DAG for Glue job: invalid S3 script path",
+                context=f"{flow_urn}: {script_path}",
+                log=False,
             )
             self.report.num_job_script_location_invalid += 1
 
@@ -1049,16 +1050,20 @@ class GlueSource(StatefulIngestionSourceBase):
         try:
             obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
-            self.report_warning(
-                flow_urn,
-                f"Unable to download DAG for Glue job from {script_path}, so job subtasks and lineage will be missing: {e}",
+            self.report.warning(
+                message="Unable to download DAG for Glue job, so job subtasks and lineage will be missing",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_failed_download += 1
             return None
         except botocore.exceptions.ParamValidationError as e:
-            self.report_warning(
-                flow_urn,
-                f"Invalid S3 path for Glue job script {script_path}: {e}",
+            self.report.warning(
+                message="Invalid S3 path for Glue job script",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_location_invalid += 1
             return None
@@ -1084,9 +1089,11 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # sometimes the Python script can be user-modified and the script is not valid for graph extraction
         except self.glue_client.exceptions.InvalidInputException as e:
-            self.report_warning(
-                flow_urn,
-                f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
+            self.report.warning(
+                message="Error parsing DAG for Glue job: script cannot be processed by Glue (this usually occurs when it has been user-modified)",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_failed_parsing += 1
 
@@ -1144,15 +1151,17 @@ class GlueSource(StatefulIngestionSourceBase):
             generate_column_lineage=False,
         )
         if result.debug_info.error:
-            self.report_warning(
-                flow_urn,
-                f"Failed to parse SQL query for node {node_label}: {result.debug_info.error}. Skipping",
+            self.report.warning(
+                message="Failed to parse SQL query for node",
+                context=f"{flow_urn}: {node_label}: {result.debug_info.error}",
+                log=False,
             )
             return None
         if not result.in_tables:
-            self.report_warning(
-                flow_urn,
-                f"No tables found in SQL query for node {node_label}. Skipping",
+            self.report.warning(
+                message="No tables found in SQL query for node",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
             )
             return None
         return result.in_tables
@@ -1180,38 +1189,45 @@ class GlueSource(StatefulIngestionSourceBase):
                     "JDBC_CONNECTION_URL"
                 )
                 if not jdbc_url:
-                    self.report_warning(
-                        flow_urn,
-                        f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
+                    self.report.warning(
+                        message="Glue connection has no JDBC_CONNECTION_URL",
+                        context=f"{flow_urn}: {connection_name!r}",
+                        log=False,
                     )
                 else:
                     try:
                         result = self._parse_jdbc_url(jdbc_url)
                     except Exception as e:
-                        self.report_warning(
-                            flow_urn,
-                            f"Failed to parse JDBC URL for connection {connection_name!r}: {e}. Skipping",
+                        self.report.warning(
+                            message="Failed to parse JDBC URL for Glue connection",
+                            context=f"{flow_urn}: {connection_name!r}",
+                            exc=e,
+                            log=False,
                         )
                         result = None
             elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
                 platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
                 database = props.get("DATABASE")
                 if not database:
-                    self.report_warning(
-                        flow_urn,
-                        f"Glue connection {connection_name!r} has no DATABASE property. Skipping",
+                    self.report.warning(
+                        message="Glue connection has no DATABASE property",
+                        context=f"{flow_urn}: {connection_name!r}",
+                        log=False,
                     )
                 else:
                     result = (platform, database)
             else:
-                self.report_warning(
-                    flow_urn,
-                    f"Unsupported Glue connection type {conn_type!r} for connection {connection_name!r}. Skipping",
+                self.report.warning(
+                    message="Unsupported Glue connection type",
+                    context=f"{flow_urn}: type={conn_type!r}, connection={connection_name!r}",
+                    log=False,
                 )
         except Exception as e:
-            self.report_warning(
-                flow_urn,
-                f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
+            self.report.warning(
+                message="Failed to fetch Glue connection",
+                context=f"{flow_urn}: {connection_name!r}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -1299,8 +1315,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 query, platform, database, flow_urn, node_label
             )
 
-        self.report_warning(
-            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        self.report.warning(
+            message="Missing dbtable or query for node",
+            context=f"{flow_urn}: {node_label}",
+            log=False,
         )
         return None
 
@@ -1312,17 +1330,21 @@ class GlueSource(StatefulIngestionSourceBase):
         node_label = f"{node['NodeType']}-{node['Id']}"
 
         if not jdbc_url:
-            self.report_warning(
-                flow_urn, f"Missing JDBC URL for node {node_label}. Skipping"
+            self.report.warning(
+                message="Missing JDBC URL for node",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
             )
             return None
 
         try:
             platform, database = self._parse_jdbc_url(jdbc_url)
         except ValueError as e:
-            self.report_warning(
-                flow_urn,
-                f"Failed to parse JDBC URL for node {node_label}: {e}. Skipping",
+            self.report.warning(
+                message="Failed to parse JDBC URL for node",
+                context=f"{flow_urn}: {node_label}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -1341,8 +1363,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 query, platform, database, flow_urn, node_label
             )
 
-        self.report_warning(
-            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        self.report.warning(
+            message="Missing dbtable or query for node",
+            context=f"{flow_urn}: {node_label}",
+            log=False,
         )
         return None
 
@@ -1381,9 +1405,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 s3_uri = self.get_s3_uri(node_args)
 
                 if s3_uri is None:
-                    self.report_warning(
-                        flow_urn,
-                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                    self.report.warning(
+                        message="Could not find S3 path for job node",
+                        context=f"{flow_urn}: {node['NodeType']}-{node['Id']}",
+                        log=False,
                     )
                     return None
 
@@ -1409,9 +1434,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
             else:
                 if self.source_config.ignore_unsupported_connectors:
-                    self.report_warning(
-                        flow_urn,
-                        f"Unrecognized node {node['NodeType']}-{node['Id']} in flow {flow_urn}. Args: {node_args} Skipping",
+                    self.report.warning(
+                        message="Unrecognized node in Glue flow",
+                        context=f"{flow_urn}: {node['NodeType']}-{node['Id']}, args={node_args}",
+                        log=False,
                     )
                     return None
                 else:
@@ -1468,10 +1494,10 @@ class GlueSource(StatefulIngestionSourceBase):
             # Source and Target for some edges is not available
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
-                self.report_warning(
-                    flow_urn,
-                    f"Unrecognized source or target node in edge: {edge}. Skipping."
-                    "This may lead to missing lineage",
+                self.report.warning(
+                    message="Unrecognized source or target node in edge, this may lead to missing lineage",
+                    context=f"{flow_urn}: {edge}",
+                    log=False,
                 )
                 continue
 
@@ -2036,9 +2062,11 @@ class GlueSource(StatefulIngestionSourceBase):
                         f"Failed to create platform resource for tag {tag}: {e}",
                         exc_info=True,
                     )
-                    self.report.report_warning(
-                        context="Failed to create platform resource",
-                        message=f"Failed to create platform resource for Tag: {tag}",
+                    self.report.warning(
+                        message="Failed to create platform resource for tag",
+                        context=str(tag),
+                        exc=e,
+                        log=False,
                     )
 
     def gen_database_containers(
@@ -2058,9 +2086,10 @@ class GlueSource(StatefulIngestionSourceBase):
                     except InvalidUrnError:
                         continue
             except Exception:
-                self.report_warning(
-                    reason="Failed to extract Lake Formation tags for database",
-                    key=database["Name"],
+                self.report.warning(
+                    "Failed to extract Lake Formation tags for database",
+                    context=database["Name"],
+                    log=False,
                 )
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
@@ -2120,7 +2149,7 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 yield from self._gen_table_wu(table=table)
             except KeyError as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract workunit for table",
                     context=f"Table: {table_name}",
                     exc=e,
@@ -2137,7 +2166,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 for mcp in self.aggregator.gen_metadata():
                     yield mcp.as_workunit()
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to generate view lineage from SQL parsing",
                     context="SqlParsingAggregator.gen_metadata",
                     exc=e,
@@ -2223,9 +2252,10 @@ class GlueSource(StatefulIngestionSourceBase):
         """
         view_text = table.get("ViewOriginalText") or table.get("ViewExpandedText")
         if not isinstance(view_text, str) or not view_text:
-            self.report.report_warning(
+            self.report.warning(
                 message="View has no SQL definition",
                 context=f"table={full_table_name}",
+                log=False,
             )
             return None
 
@@ -2235,18 +2265,20 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 original_sql = decode_presto_view(view_text).get("originalSql")
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     message="Failed to decode Presto view definition",
                     context=f"table={full_table_name}: {e}",
+                    log=False,
                 )
                 return None
             if isinstance(original_sql, str) and original_sql:
                 return GlueViewDefinition(
                     sql=original_sql, dialect=self._PRESTO_VIEW_DIALECT
                 )
-            self.report.report_warning(
+            self.report.warning(
                 message="Presto view definition missing 'originalSql'",
                 context=f"table={full_table_name}",
+                log=False,
             )
             return None
 
@@ -2440,7 +2472,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 metadata_record, table["DatabaseName"], table["Name"]
             )
         except KeyError as e:
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to extract profile for table",
                 context=f"Table: {dataset_urn}",
                 exc=e,
@@ -2683,9 +2715,11 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         except Exception as e:
-            self.report_warning(
-                dataset_urn,
-                f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
+            self.report.warning(
+                message="Could not parse delta schema for table",
+                context=f"{dataset_urn}: {table_name}",
+                exc=e,
+                log=False,
             )
             self.report.num_dataset_invalid_delta_schema += 1
             return None
@@ -2785,9 +2819,10 @@ class GlueSource(StatefulIngestionSourceBase):
                         aspect=StructuredPropertiesClass(properties=assignments),
                     ).as_workunit()
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     message="Failed to emit column parameters for column",
                     context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
+                    log=False,
                 )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
@@ -2919,10 +2954,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def report_warning(self, key: str, reason: str) -> None:
-        logger.warning(f"{key}: {reason}")
-        self.report.report_warning(key, reason)
 
 
 def _redact_secret_fields_in_dataflow_script(script: str) -> str:

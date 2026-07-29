@@ -170,11 +170,12 @@ class KafkaProfiler:
                     if report is not None:
                         with report_lock or nullcontext():
                             report.profiling_samples_skipped += profiler.samples_skipped
-                            report.report_warning(
+                            report.warning(
                                 "profiling",
                                 f"Profiling of topic {topic_name} skipped "
                                 f"{profiler.samples_skipped} sample(s) due to processing "
                                 f"errors. First error: {profiler.profiling_errors[0]}",
+                                log=False,
                             )
 
             return profile

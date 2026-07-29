@@ -280,26 +280,24 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
 
             try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
 
-                self.profiler = SparkProfiler(
+                self.profiler = FileProfiler(
                     aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
+                    verify_ssl=config.verify_ssl,
                     report=self.report,
                     profiling_times_taken=self.profiling_times_taken,
                     profiling_config=config.profiling,
                 )
             except (ImportError, ModuleNotFoundError) as e:
                 raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "Profiling dependencies are not installed but are required for "
+                    "S3/GCS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
 
     @classmethod
@@ -342,14 +340,17 @@ class S3Source(StatefulIngestionSourceBase):
                 fields = inferrer.infer_schema(file)
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                self.report.warning(
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
+                    log=False,
                 )
         else:
-            self.report.report_warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+            self.report.warning(
+                message="File has unsupported extension",
+                context=table_data.full_path,
+                log=False,
             )
         file.close()
 
@@ -541,11 +542,12 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
                     context=f"dataset={table_data.display_name}, file={table_data.full_path}",
                     exc=e,
+                    log=False,
                 )
         else:
             logger.info(
@@ -1069,9 +1071,10 @@ class S3Source(StatefulIngestionSourceBase):
 
         except Exception as e:
             if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
-                self.get_report().report_warning(
+                self.get_report().warning(
                     "Missing bucket",
                     f"No bucket found {e.response['Error'].get('BucketName')}",
+                    log=False,
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")

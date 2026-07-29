@@ -13,7 +13,6 @@ public class FeatureFlags {
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private boolean platformBrowseV2 = false;
-  private boolean lineageGraphV2 = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
   private boolean erModelRelationshipFeatureEnabled = false;
@@ -46,7 +45,6 @@ public class FeatureFlags {
   private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
-  private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;
@@ -75,4 +73,5 @@ public class FeatureFlags {
   // Gates browser Core Web Vitals (LCP/CLS/FID/FCP/TTFB) emission as OTel spans. Independent of
   // browserTracingEnabled so vitals can stay off while browser request tracing is validated.
   private boolean browserWebVitalsEnabled = false;
+  private boolean datasetStatsSummaryBatchLoadEnabled = true;
 }

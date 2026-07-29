@@ -185,7 +185,9 @@ class DatahubKafkaHook(BaseHook):
             obj["connection"]["bootstrap"] = ":".join(
                 map(str, filter(None, [conn.host, conn.port]))
             )
-        config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.parse_obj(obj)
+        config = datahub.ingestion.sink.datahub_kafka.KafkaSinkConfig.model_validate(
+            obj
+        )
         return config
 
     def make_emitter(self) -> "DatahubKafkaEmitter":

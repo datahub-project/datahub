@@ -200,8 +200,16 @@ public class Application extends Controller {
         String.format(
             "%s://%s:%s%s%s",
             protocol, metadataServiceHost, metadataServicePort, resolvedBasePath, resolvedUri);
+    final URI targetUri;
+    try {
+      targetUri = URI.create(targetUrl);
+    } catch (IllegalArgumentException e) {
+      // Malformed path/query (e.g. unencoded spaces) — return 400 rather than an unhandled 500.
+      logger.warn("Rejecting proxy request with invalid URI: {}", request.uri());
+      return CompletableFuture.completedFuture(badRequest("Invalid request path or query string"));
+    }
     HttpRequest.Builder httpRequestBuilder =
-        HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
+        HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
     Map<String, List<String>> headers = request.getHeaders().toMap();
     if (headers.containsKey(Http.HeaderNames.HOST)
@@ -467,21 +475,29 @@ public class Application extends Controller {
    * GMS, streaming) use this stripped path. When using a base path, set datahub.basePath to the
    * same value as play.http.context so that stripping works (Play may already strip context from
    * request.uri(); stripBasePath returns the path unchanged if the prefix is not present).
+   *
+   * <p>Query strings are preserved after path rewriting so callers can attach non-routing metadata
+   * (e.g. {@code ?operationName=...} for Chrome DevTools Network filtering) without breaking the
+   * GraphQL / GMS path maps. Malformed query strings (characters that cannot form a legal URI) are
+   * dropped so path rewriting still succeeds and {@link URI#create(String)} does not throw later.
    */
   private String mapPath(@Nonnull final String path) {
+    final int queryIndex = path.indexOf('?');
+    final String pathOnly = queryIndex >= 0 ? path.substring(0, queryIndex) : path;
+    final String query = queryIndex >= 0 ? sanitizeQuerySuffix(path.substring(queryIndex)) : "";
 
     final String strippedPath;
 
     // Cannot strip base path from swagger urls
-    if (SWAGGER_PATHS.stream().noneMatch(path::contains)) {
-      strippedPath = BasePathUtils.stripBasePath(path, this.basePath);
+    if (SWAGGER_PATHS.stream().noneMatch(pathOnly::contains)) {
+      strippedPath = BasePathUtils.stripBasePath(pathOnly, this.basePath);
     } else {
-      strippedPath = path;
+      strippedPath = pathOnly;
     }
 
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
     if (strippedPath.equals("/api/v2/graphql")) {
-      return "/api/graphql";
+      return "/api/graphql" + query;
     }
 
     // Case 2: Map requests to /gms to / (Rest.li API)
@@ -491,11 +507,28 @@ public class Application extends Controller {
       if (!newPath.startsWith("/")) {
         newPath = "/" + newPath;
       }
-      return newPath;
+      return newPath + query;
     }
 
     // Otherwise, return the stripped path
-    return strippedPath;
+    return strippedPath + query;
+  }
+
+  /**
+   * Returns {@code queryWithPrefix} (including the leading {@code ?}) when it is a legal URI query
+   * suffix; otherwise returns empty so a bad query cannot break path mapping or URI construction.
+   */
+  @Nonnull
+  static String sanitizeQuerySuffix(@Nonnull final String queryWithPrefix) {
+    if (queryWithPrefix.isEmpty() || queryWithPrefix.equals("?")) {
+      return "";
+    }
+    try {
+      URI.create("http://localhost/" + queryWithPrefix);
+      return queryWithPrefix;
+    } catch (IllegalArgumentException e) {
+      return "";
+    }
   }
 
   /**

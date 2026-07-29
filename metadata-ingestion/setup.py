@@ -437,9 +437,10 @@ azure_data_factory = {
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
 }
 
-data_lake_profiling = {
-    "pydeequ>=1.1.0,<2.0.0",
-    "pyspark~=3.5.6,<4.0.0",
+file_profiling = {
+    # cpc_sketch (distinct count) and kll_floats_sketch (approx median) give us
+    # Deequ-equivalent approximate metrics without a JVM or pyspark/pydeequ.
+    "datasketches>=5.0.0,<6.0.0",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -477,7 +478,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -622,8 +622,8 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb<2.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common,
-    "delta-lake": {*data_lake_profiling, *delta_lake},
+    "dataplex": dataplex_common | cachetools_lib,
+    "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
         "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
@@ -646,7 +646,6 @@ plugins: Dict[str, Set[str]] = {
         *aws_common,
         *abs_base,
         *cachetools_lib,
-        *data_lake_profiling,
     },
     "cassandra": {
         "cassandra-driver>=3.28.0,<4.0.0",
@@ -668,7 +667,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
+    "omni": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     # usage_common (sqlparse) is required by SqlParsingAggregator, used for view lineage.
     "glue": aws_common | cachetools_lib | sqlglot_lib | usage_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
@@ -770,17 +769,19 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
-    "s3": {*s3_base, *data_lake_profiling},
-    "s3-slim": {*s3_base},
-    "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "abs": {*abs_base, *data_lake_profiling},
+    # Profiling is now a lightweight pure-Python profiler (pyarrow + datasketches,
+    # no JVM), so the `-slim` variants no longer differ from the full extras. They
+    # are kept as deprecated aliases and will be removed in a follow-up (along with
+    # their CI/CD and image-building references).
+    "s3": {*s3_base, *file_profiling},
+    "s3-slim": {*s3_base, *file_profiling},
+    "gcs": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "gcs-slim": {*s3_base, *file_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
+    "abs": {*abs_base, *file_profiling},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
+    "sap-datasphere": rest_common | {"defusedxml>=0.7.1,<0.8.0"},
     "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
@@ -960,6 +961,7 @@ base_dev_requirements = {
     "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
+    "pytest-httpserver>=1.0.0,<2.0.0",
     "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
@@ -1012,6 +1014,7 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "s3",
+            "sap-datasphere",
             "snowflake",
             "snowplow",
             "snaplogic",
@@ -1184,6 +1187,7 @@ entry_points = {
         "rdf = datahub.ingestion.source.rdf.ingestion.rdf_source:RDFSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
         "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "sap-datasphere = datahub.ingestion.source.sap_datasphere.source:SapDatasphereSource",
         "slack = datahub.ingestion.source.slack.slack:SlackSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
