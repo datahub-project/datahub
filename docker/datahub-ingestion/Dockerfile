@@ -175,7 +175,7 @@ FROM add-code-slim AS final-slim
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv
@@ -185,7 +185,7 @@ FROM add-code-full AS final-full
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
@@ -197,7 +197,7 @@ ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv
