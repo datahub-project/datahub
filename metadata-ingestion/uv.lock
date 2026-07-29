@@ -1614,6 +1614,7 @@ vertica = [
     { name = "vertica-sqlalchemy-dialect", extra = ["vertica-python"] },
 ]
 zipline = [
+    { name = "gitpython" },
     { name = "sqlglot", extra = ["c"] },
 ]
 
@@ -1980,6 +1981,7 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'looker'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'lookml'", specifier = ">2,<4.0.0" },
     { name = "gitpython", marker = "extra == 'odcs'", specifier = ">2,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'zipline'", specifier = ">2,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },
