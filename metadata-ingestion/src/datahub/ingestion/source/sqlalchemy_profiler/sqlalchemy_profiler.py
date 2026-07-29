@@ -1044,6 +1044,7 @@ class SQLAlchemyProfiler:
                 catch_exceptions=self.config.catch_exceptions,
                 is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
+                flatten_enabled=self.config.query_combiner_flatten_enabled,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.

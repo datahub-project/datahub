@@ -526,3 +526,187 @@ class TestGetQueryColumns:
 
         cols = get_query_columns(_FakeQuery())
         assert [c.name for c in cols] == ["a", "b"]
+
+
+class TestFlattenPath:
+    """PR 4: the flatten path partitions by FROM signature and emits one flat
+    SELECT per group (COUNT(DISTINCT) capped at MAX_DISTINCT_PER_STATEMENT),
+    instead of one CTE per query. Flag off by default; these tests opt in via
+    _make_combiner(flatten_enabled=True).
+    """
+
+    def test_flat_path_combines_same_from_queries_into_one_statement(
+        self, engine, test_table
+    ):
+        # Three cheap aggregates on the same table, no clauses. The flatten
+        # path emits ONE flat SELECT (not one CTE per query).
+        queries = [
+            sa.select(sa.func.count().label("rowcount")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
+                test_table
+            ),
+            sa.select(sa.func.max(test_table.c.value).label("maxv")).select_from(
+                test_table
+            ),
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 10.5
+        assert caps[2].result.scalar() == 30.5
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.queries_combined == 3
+        assert combiner.report.uncombined_queries_issued == 0
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 3
+
+    def test_flat_path_unique_labels_for_anonymous_columns(self, engine, test_table):
+        # Two unlabeled COUNT() queries. The flat SELECT must assign unique
+        # generated labels and map results back by POSITION, so both futures
+        # get the right value despite the colliding inner-column name. This
+        # kills the "key by col.name" mutant (which would overwrite on the
+        # collision and return one wrong value).
+        queries = [
+            sa.select(sa.func.count()).select_from(test_table),
+            sa.select(sa.func.count(sa.column("id"))).select_from(test_table),
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 3
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 2
+
+    def test_flat_path_index_invariant_mixed_width(self, engine, test_table):
+        # A 1-column and a 2-column query in one flat group: the position
+        # cursor must consume the whole row (index == len(row)).
+        q1 = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        q2 = sa.select(
+            sa.func.min(test_table.c.value).label("minv"),
+            sa.func.max(test_table.c.value).label("maxv"),
+        ).select_from(test_table)
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap1 = _schedule(qc, conn, q1)
+            cap2 = _schedule(qc, conn, q2)
+            qc.flush()
+
+        assert cap1.result.scalar() == 3
+        row2 = cap2.result.one()
+        assert row2["minv"] == 10.5
+        assert row2["maxv"] == 30.5
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 2
+
+    def test_count_distinct_cap_splits_into_multiple_statements(
+        self, engine, test_table
+    ):
+        # 7 COUNT(DISTINCT) aggregates with MAX_DISTINCT_PER_STATEMENT = 5 must
+        # split into ceil(7/5) = 2 flat statements, each carrying at most 5
+        # distinct trees. This is the spec §3.7 memory cap.
+        queries = [
+            sa.select(
+                sa.func.count(sa.func.distinct(test_table.c.id)).label(f"uc{i}")
+            ).select_from(test_table)
+            for i in range(7)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert all(c.result.scalar() == 3 for c in caps)
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 7
+
+    def test_cheap_and_distinct_heavy_split_into_separate_statements(
+        self, engine, test_table
+    ):
+        # 3 cheap + 7 distinct-heavy on the same table: 1 cheap flat SELECT +
+        # 2 distinct flat SELECTs (ceil(7/5)) = 3 flat statements total. The
+        # cheap and distinct aggregates never coexist in one statement.
+        cheap = [
+            sa.select(sa.func.count().label("rowcount")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
+                test_table
+            ),
+            sa.select(sa.func.max(test_table.c.value).label("maxv")).select_from(
+                test_table
+            ),
+        ]
+        distinct = [
+            sa.select(
+                sa.func.count(sa.func.distinct(test_table.c.id)).label(f"uc{i}")
+            ).select_from(test_table)
+            for i in range(7)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in cheap + distinct]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert combiner.report.flat_queries_issued == 3
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 10
+
+    def test_unmatched_shape_falls_through_to_cte_path(self, engine, test_table):
+        # A query with a WHERE clause is not flattenable (conservative
+        # signature) and falls through to the legacy CTE path. The flat
+        # counter does not increment; the CTE combine handles both futures.
+        flat_query = sa.select(sa.func.count().label("rowcount")).select_from(
+            test_table
+        )
+        where_query = (
+            sa.select(sa.func.count().label("filtered"))
+            .select_from(test_table)
+            .where(test_table.c.id > 1)
+        )
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_flat = _schedule(qc, conn, flat_query)
+            cap_where = _schedule(qc, conn, where_query)
+            qc.flush()
+
+        assert cap_flat.result.scalar() == 3
+        assert cap_where.result.scalar() == 2
+        # No flat statement issued (the WHERE query is unmatched; the cheap
+        # query groups alone but a 1-member group still emits a flat SELECT).
+        # The CTE path is used for the unmatched subset. Both counters reflect
+        # the mix: at least one flat + one CTE combine.
+        assert combiner.report.flat_queries_issued >= 1
+        assert combiner.report.combined_queries_issued >= 2
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 2
+
+    def test_flatten_disabled_uses_cte_path(self, engine, test_table):
+        # Flag off: today's CTE path. flat_queries_issued never increments.
+        queries = [
+            sa.select(sa.func.count().label("rowcount")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
+                test_table
+            ),
+        ]
+        combiner = _make_combiner(flatten_enabled=False)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 10.5
+        assert combiner.report.flat_queries_issued == 0
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.queries_combined == 2
+        assert combiner.report.total_queries == 2

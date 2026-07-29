@@ -15,6 +15,7 @@ _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
     "profile_table_level_only",
     "query_combiner_enabled",
+    "query_combiner_flatten_enabled",
     # all include_field_ flags are reported.
 }
 
@@ -185,6 +186,19 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     query_combiner_enabled: bool = Field(
         default=True,
         description="*This feature is still experimental and can be disabled if it causes issues.* Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.",
+    )
+
+    # When enabled, the combiner flattens same-shape aggregate queries (no
+    # WHERE/GROUP BY/ORDER BY/LIMIT/DISTINCT, same FROM) into a single flat
+    # SELECT per FROM group, instead of one CTE per query. Each CTE in the
+    # legacy path is an independent aggregate over the same table, so the DB
+    # scans the table once per CTE; flattening collapses those into one scan.
+    # COUNT(DISTINCT) aggregates are capped at MAX_DISTINCT_PER_STATEMENT per
+    # flat statement to avoid coexisting distinct-value trees (server memory).
+    # Off by default — flip in a separate follow-up PR after validation.
+    query_combiner_flatten_enabled: bool = Field(
+        default=False,
+        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Off by default. Cheap aggregates (COUNT/MIN/MAX/AVG/STDDEV) coexist freely; COUNT(DISTINCT) is capped per statement to bound server memory.",
     )
 
     # Hidden option - used for debugging purposes.
