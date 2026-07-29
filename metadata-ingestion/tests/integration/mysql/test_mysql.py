@@ -1,4 +1,3 @@
-import subprocess
 from datetime import datetime, timezone
 
 import pytest
@@ -8,7 +7,7 @@ from datahub.ingestion.source.sql.mysql import MySQLSource
 from datahub.testing import mce_helpers
 from tests.test_helpers import mysql_usage_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.docker_helpers import is_mysql_up, wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
@@ -19,17 +18,6 @@ MYSQL_USAGE_PORT = 53308
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/mysql"
-
-
-def is_mysql_up(container_name: str, port: int) -> bool:
-    """A cheap way to figure out if mysql is responsive on a container"""
-
-    cmd = f"docker logs {container_name} 2>&1 | grep '/usr/sbin/mysqld: ready for connections.' | grep {port}"
-    ret = subprocess.run(
-        cmd,
-        shell=True,
-    )
-    return ret.returncode == 0
 
 
 @pytest.fixture(scope="module")

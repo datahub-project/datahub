@@ -47,3 +47,20 @@ def cleanup_image(image_name: str) -> None:
         shell=True,
         check=True,
     )
+
+
+def is_mysql_up(container_name: str, port: int) -> bool:
+    """A cheap way to figure out if mysql is responsive on a container.
+
+    Shared by the MySQL ingest suite (tests/integration/mysql) and the MySQL
+    SQLAlchemy-profiler suite (tests/integration/sqlalchemy_profiler/mysql).
+    ``capture_output=True`` keeps the docker-logs dump out of the test
+    output; ``shell=True`` is retained because the command is a literal
+    pipeline with no interpolated user input (the port is an int).
+    """
+    cmd = (
+        f"docker logs {container_name} 2>&1 | "
+        "grep '/usr/sbin/mysqld: ready for connections.' | grep " + str(port)
+    )
+    ret = subprocess.run(cmd, shell=True, capture_output=True)
+    return ret.returncode == 0
