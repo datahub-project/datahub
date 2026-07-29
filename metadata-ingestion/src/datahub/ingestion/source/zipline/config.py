@@ -60,13 +60,16 @@ class ZiplineConfig(
     path: Optional[str] = Field(
         default=None,
         description=(
-            "Path to the compiled Chronon/Zipline output directory produced by "
-            "`compile.py` (the `production/` folder, containing "
-            "`group_bys/`, `joins/` and `staging_queries/` sub-directories). "
-            "This is the compiled thrift-as-JSON output, NOT the Python config repo. "
-            "Run ingestion after `compile.py` so metadata reflects the latest compile. "
-            "When `git_info` is set, this is interpreted relative to the repository "
-            "checkout (e.g. `path: production`) and defaults to the repository root."
+            "Path to the compiled Chronon/Zipline output directory (containing "
+            "`group_bys/`, `joins/` and `staging_queries/` sub-directories), or a "
+            "repository root containing it. Both compiled-output layouts are "
+            "auto-detected: `production/` (OSS Chronon `compile.py`) and "
+            "`compiled/` (the `zipline compile` CLI); for canary output point this "
+            "at `compiled_canary/` explicitly. This is the compiled thrift-as-JSON "
+            "output, NOT the Python config repo. Run ingestion after compiling so "
+            "metadata reflects the latest compile. When `git_info` is set, this is "
+            "interpreted relative to the repository checkout (e.g. `path: compiled`) "
+            "and defaults to the repository root."
         ),
     )
     git_info: Optional[GitInfo] = Field(

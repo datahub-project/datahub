@@ -1,7 +1,9 @@
 import json
+import os
 import pathlib
 
 from datahub.ingestion.source.zipline.client import ZiplineRepositoryReader
+from datahub.ingestion.source.zipline.constants import GROUP_BYS_DIR
 from datahub.ingestion.source.zipline.report import ZiplineSourceReport
 
 
@@ -23,3 +25,18 @@ def test_reader_skips_unreadable_and_schema_invalid_files(
     titles = {warning.title for warning in reader.report.warnings}
     assert "Unreadable compiled config" in titles
     assert "Unparseable compiled config" in titles
+
+
+def test_reader_autodetects_compiled_dir_at_repo_root(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A repo root containing either `production/` (compile.py) or `compiled/`
+    (the newer zipline CLI) resolves to that compiled output dir."""
+    for compiled_dir in ("production", "compiled"):
+        repo = tmp_path / compiled_dir  # a distinct repo root per layout
+        (repo / compiled_dir / GROUP_BYS_DIR / "team").mkdir(parents=True)
+
+        reader = ZiplineRepositoryReader(str(repo), ZiplineSourceReport())
+
+        assert os.path.basename(reader.root) == compiled_dir
+        assert reader.is_valid()

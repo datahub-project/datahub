@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Set
+from typing import Dict, Set, Tuple
 
 from datahub.metadata.schema_classes import MLFeatureDataTypeClass
 
@@ -8,6 +8,11 @@ PLATFORM_NAME: str = "zipline"
 # `compile.py` writes one thrift-JSON file per object, nested by team:
 # group_bys/<team>/<name>.
 DEFAULT_PRODUCTION_DIR: str = "production"
+# Compiled-output directory names to auto-detect when `path` is a repo root:
+# OSS Chronon's `compile.py` writes `production/`; the newer `zipline compile`
+# CLI writes `compiled/`. Canary output (`compiled_canary/`) is opt-in — point
+# `path` at it explicitly rather than auto-selecting it over prod.
+COMPILED_ROOT_CANDIDATES: Tuple[str, ...] = ("production", "compiled")
 GROUP_BYS_DIR: str = "group_bys"
 JOINS_DIR: str = "joins"
 STAGING_QUERIES_DIR: str = "staging_queries"

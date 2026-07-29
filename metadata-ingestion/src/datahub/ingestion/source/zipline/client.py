@@ -5,7 +5,7 @@ from typing import Iterable, List, Optional, Type, TypeVar
 from pydantic import ValidationError
 
 from datahub.ingestion.source.zipline.constants import (
-    DEFAULT_PRODUCTION_DIR,
+    COMPILED_ROOT_CANDIDATES,
     GROUP_BYS_DIR,
     JOINS_DIR,
     STAGING_QUERIES_DIR,
@@ -30,12 +30,14 @@ class ZiplineRepositoryReader:
     @staticmethod
     def _resolve_root(path: str) -> str:
         expanded = os.path.abspath(os.path.expanduser(path))
-        # Accept either the compiled output dir or a repo root containing
-        # `production/`.
-        if not os.path.isdir(os.path.join(expanded, GROUP_BYS_DIR)):
-            candidate = os.path.join(expanded, DEFAULT_PRODUCTION_DIR)
-            if os.path.isdir(os.path.join(candidate, GROUP_BYS_DIR)):
-                return candidate
+        # Accept either the compiled output dir itself or a repo root containing
+        # one (`production/` for compile.py, `compiled/` for the zipline CLI).
+        if os.path.isdir(os.path.join(expanded, GROUP_BYS_DIR)):
+            return expanded
+        for candidate in COMPILED_ROOT_CANDIDATES:
+            candidate_dir = os.path.join(expanded, candidate)
+            if os.path.isdir(os.path.join(candidate_dir, GROUP_BYS_DIR)):
+                return candidate_dir
         return expanded
 
     def is_valid(self) -> bool:

@@ -12,7 +12,9 @@ Tag extraction (`enable_tag_extraction`) reads tag bags stored in each object's 
 
 #### Reading from a local directory or Git
 
-Point `path` at a locally-available compiled output directory, or set `git_info` to shallow-clone the repository at ingestion time (authenticated with an SSH deploy key). When `git_info` is set, `path` is interpreted relative to the checkout (e.g. `path: production`) and may be omitted to scan from the repository root. This lets you ingest directly from a GitHub/GitLab repository of compiled Chronon output instead of pre-fetching it.
+Point `path` at a locally-available compiled output directory, or set `git_info` to shallow-clone the repository at ingestion time (authenticated with an SSH deploy key). When `git_info` is set, `path` is interpreted relative to the checkout (e.g. `path: compiled`) and may be omitted to scan from the repository root. This lets you ingest directly from a GitHub/GitLab repository of compiled Chronon output instead of pre-fetching it.
+
+Both compiled-output layouts are auto-detected when `path` points at a repository root: `production/` (produced by OSS Chronon's `compile.py`) and `compiled/` (produced by the newer `zipline compile` CLI). To ingest a canary environment, point `path` at `compiled_canary/` explicitly.
 
 ### Limitations
 
