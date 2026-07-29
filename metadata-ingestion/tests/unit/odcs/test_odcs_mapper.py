@@ -5,12 +5,14 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
-from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
+from datahub.ingestion.source.odcs.odcs_config import (
+    ODCSSourceConfig,
+    SchemaAssertionCompatibility,
+)
 from datahub.ingestion.source.odcs.odcs_mapper import (
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
-    odcs_platform_info_mcp,
     odcs_to_assertion_mcps,
     odcs_to_logical_dataset_mcps,
     odcs_to_logical_dataset_urn,
@@ -33,7 +35,6 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     BooleanTypeClass,
     CustomAssertionInfoClass,
-    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     FieldAssertionInfoClass,
@@ -551,6 +552,23 @@ def test_contract_description_is_fallback() -> None:
     assert props.description == "Contract-level description."
 
 
+def test_description_object_renders_non_spec_extra_prose_keys() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        description={"purpose": "P", "summary": "S", "authoritativeDefinitions": []},
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
+    assert props.description is not None
+    assert "**purpose**: P" in props.description
+    assert "**summary**: S" in props.description
+    assert "authoritativeDefinitions" not in props.description
+
+
 def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     contract = _make_contract(
         schema=[
@@ -687,13 +705,6 @@ def test_logical_parent_links_physical_to_logical() -> None:
     assert isinstance(mcp.aspect, LogicalParentClass)
     assert mcp.aspect.parent is not None
     assert mcp.aspect.parent.destinationUrn == LOGICAL_URN
-
-
-def test_platform_info_registers_odcs() -> None:
-    mcp = odcs_platform_info_mcp()
-    assert isinstance(mcp.aspect, DataPlatformInfoClass)
-    assert mcp.aspect.name == "odcs"
-    assert mcp.aspect.displayName == "Open Data Contract Standard"
 
 
 # ---------------------------------------------------------------------------
@@ -881,6 +892,21 @@ def test_missing_values_routes_to_custom_preserving_arguments() -> None:
     assert "missingValues" in _custom_logic(info)
     assert info.customProperties["odcs.rule.arguments"] == json.dumps(
         {"missingValues": [None, "", "N/A"]}, sort_keys=True
+    )
+
+
+def test_unknown_argument_keys_survive_into_provenance() -> None:
+    # `arguments` is typed but allows extras so engine-specific keys are not
+    # silently dropped -- they still round-trip into the assertion provenance.
+    _, mcps, _ = _route_single(
+        {
+            "metric": "missingValues",
+            "arguments": {"missingValues": ["N/A"], "engineOption": "strict"},
+        }
+    )
+    info = _single_info(mcps)
+    assert info.customProperties["odcs.rule.arguments"] == json.dumps(
+        {"engineOption": "strict", "missingValues": ["N/A"]}, sort_keys=True
     )
 
 
@@ -1087,7 +1113,7 @@ def test_schema_assertion_pins_contract_schema_on_logical_dataset() -> None:
         contract=contract,
         schema_entry=_first_schema(contract),
         logical_urn=LOGICAL_URN,
-        compatibility="SUPERSET",
+        compatibility=SchemaAssertionCompatibility.SUPERSET,
     )
     assert urn is not None
     info = _single_info(mcps)
@@ -1107,7 +1133,7 @@ def test_schema_assertion_skipped_without_properties() -> None:
         contract=contract,
         schema_entry=_first_schema(contract),
         logical_urn=LOGICAL_URN,
-        compatibility="EXACT_MATCH",
+        compatibility=SchemaAssertionCompatibility.EXACT_MATCH,
     )
     assert urn is None
     assert mcps == []

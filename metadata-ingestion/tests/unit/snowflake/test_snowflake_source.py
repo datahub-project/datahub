@@ -1235,6 +1235,18 @@ class TestSnowflakeIdentifierQuoting:
     def test_escape_identifier_multiple_quotes(self):
         assert SnowflakeIdentifierBuilder._escape_identifier('a"b"c') == 'a""b""c'
 
+    def test_get_quoted_identifier_for_table_no_db(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, "REPORTING", "MONTHLY_SALES"
+        )
+        assert result == '"REPORTING"."MONTHLY_SALES"'
+
+    def test_get_quoted_identifier_for_table_no_db_with_embedded_quotes(self):
+        result = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            None, 'TEST"SCHEMA', 'MY"TABLE'
+        )
+        assert result == '"TEST""SCHEMA"."MY""TABLE"'
+
 
 def _make_pushdown_gen(push_down: bool) -> SnowflakeSchemaGenerator:
     config = SnowflakeV2Config.model_validate(

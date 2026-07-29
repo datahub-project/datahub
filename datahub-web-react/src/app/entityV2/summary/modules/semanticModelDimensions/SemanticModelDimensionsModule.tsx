@@ -16,12 +16,12 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { PlatformIcon } from '@app/searchV2/autoCompleteV2/components/icon/PlatformIcon';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { DataPlatform, Dataset, EntityType, ModelDataset, SemanticField, SemanticFieldType } from '@types';
+import { DataPlatform, Dataset, EntityType, SchemaField, SemanticFieldType } from '@types';
 
 type EntityDataWithDatasets = {
     platform?: DataPlatform | null;
     info?: {
-        datasets?: ModelDataset[] | null;
+        datasets?: Dataset[] | null;
     } | null;
 };
 
@@ -29,7 +29,7 @@ type DimensionGroup = {
     datasetName: string;
     platform?: DataPlatform | null;
     source?: Dataset | null;
-    fields: SemanticField[];
+    fields: SchemaField[];
 };
 
 const DatasetGroup = styled.div`
@@ -85,9 +85,10 @@ const StyledLink = styled(Link)`
 
 const PLATFORM_ICON_SIZE = 16;
 
-function isCalculatedDimension(field: SemanticField): boolean {
-    const fieldPath = field.schemaField?.fieldPath ?? '';
-    return (field.expression?.dialects ?? []).some((dialect) => {
+function isCalculatedDimension(field: SchemaField): boolean {
+    const fieldPath = field.fieldPath ?? '';
+    const annotation = field.schemaFieldEntity?.semanticFieldAnnotation;
+    return (annotation?.expression?.dialects ?? []).some((dialect) => {
         const expression = (dialect.expression ?? '').trim();
         if (!expression) {
             return false;
@@ -96,11 +97,11 @@ function isCalculatedDimension(field: SemanticField): boolean {
     });
 }
 
-function getDimensionPillProps(field: SemanticField): {
+function getDimensionPillProps(field: SchemaField): {
     color: ColorOptions;
     leftIcon?: React.ComponentType<any>;
 } {
-    if (field.dimension?.isTime) {
+    if (field.schemaFieldEntity?.semanticFieldAnnotation?.dimension?.isTime) {
         return { color: 'blue', leftIcon: Clock };
     }
     if (isCalculatedDimension(field)) {
@@ -120,15 +121,16 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
     const groups: DimensionGroup[] = useMemo(() => {
         return (typedData?.info?.datasets ?? [])
             .map((dataset): DimensionGroup | null => {
-                const fields = (dataset.fields ?? []).filter((field) => field.type === SemanticFieldType.Dimension);
+                const fields = (dataset.schema?.fields ?? []).filter(
+                    (field) => field.schemaFieldEntity?.semanticFieldAnnotation?.type === SemanticFieldType.Dimension,
+                );
                 if (!fields.length) {
                     return null;
                 }
-                const source = dataset.source as Dataset | undefined;
                 return {
-                    datasetName: dataset.name,
-                    platform: source?.platform ?? fallbackPlatform,
-                    source: source ?? null,
+                    datasetName: dataset.semanticModelProperties?.alias || dataset.name,
+                    platform: dataset.platform ?? fallbackPlatform,
+                    source: dataset,
                     fields,
                 };
             })
@@ -172,7 +174,7 @@ export default function SemanticModelDimensionsModule(props: ModuleProps) {
                         )}
                         <PillsRow>
                             {group.fields.map((field) => {
-                                const fieldPath = field.schemaField?.fieldPath ?? '';
+                                const fieldPath = field.fieldPath ?? '';
                                 const { color, leftIcon } = getDimensionPillProps(field);
                                 return (
                                     <Pill

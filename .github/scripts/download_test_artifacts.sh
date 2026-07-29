@@ -5,7 +5,7 @@
 # This script uses the GitHub CLI (gh) to fetch workflow runs and download
 # test result artifacts, organizing them by run ID for later processing.
 
-set -euo pipefail
+set -euxo pipefail
 
 # Default values
 OUTPUT_DIR="./dev-artifacts/test-results"
@@ -17,6 +17,10 @@ REPOSITORY=""
 ARTIFACT_PREFIX="Test Results (smoke tests)"
 ALLOW_FAILED=false
 NO_FAIL_ON_EMPTY=false
+# When fewer than RUN_COUNT qualifying runs are found in the recent page, widen
+# the lookback window to at least this many days so a quiet stretch doesn't
+# starve the weight harvest.
+MIN_LOOKBACK_DAYS=3
 
 # Parse arguments
 usage() {
@@ -164,11 +168,81 @@ else
     RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
 fi
 
-# Fetch recent successful workflow runs from master branch
+# Fetch recent successful workflow runs from master branch.
+#
+# We want RUN_COUNT qualifying runs, but also look back at least
+# MIN_LOOKBACK_DAYS so a quiet few days don't under-harvest. Strategy: grab the
+# most recent page of runs first (cheap, ~30 items, already newest-first). If
+# it already yields RUN_COUNT qualifying runs, use them; otherwise widen to the
+# last MIN_LOOKBACK_DAYS (paginated) and merge with what we already have.
+#
+# Limiting is done inside jq (not via `head`) so `gh api` is never killed by
+# SIGPIPE under `set -o pipefail`. Phase 2 is best-effort: transient GitHub API
+# failures (5xx/timeout) are retried, and if phase 2 still fails we fall back to
+# the phase 1 runs instead of aborting.
 echo "Fetching recent workflow runs from master branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | $RUN_FILTER | .id" \
-    | head -n "$RUN_COUNT")
+
+# gh api with retry on transient failures (5xx, timeouts). Returns non-zero
+# only if every attempt fails.
+gh_api_retry() {
+    local max_attempts=3 attempt=1 delay=5 rc=0
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if gh api "$@"; then
+            return 0
+        fi
+        rc=$?
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "gh api call failed (exit $rc); retrying in ${delay}s..." >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    return "$rc"
+}
+
+# Phase 1: most recent page (cheap, ~30 items, already newest-first).
+PHASE1_FILE=$(mktemp)
+if ! gh_api_retry "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" > "$PHASE1_FILE"; then
+    rm -f "$PHASE1_FILE"
+    echo "Error: Failed to fetch workflow runs from GitHub API" >&2
+    exit 1
+fi
+RUNS_JSON=$(jq -c --argjson n "$RUN_COUNT" \
+    '[.workflow_runs[] | '"$RUN_FILTER"' | {id: .id, created: .created_at}][0:$n]' \
+    "$PHASE1_FILE")
+rm -f "$PHASE1_FILE"
+
+QUALIFYING_COUNT=$(printf '%s' "$RUNS_JSON" | jq 'length')
+
+if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
+    # date fallback: GNU (`-d`) on the runner, BSD (`-v`) for local macOS dev.
+    SINCE_DATE=$(date -u -d "$MIN_LOOKBACK_DAYS days ago" +%Y-%m-%d 2>/dev/null \
+        || date -u -v-${MIN_LOOKBACK_DAYS}d +%Y-%m-%d)
+    echo "Only $QUALIFYING_COUNT qualifying run(s) in the recent page; widening to runs since $SINCE_DATE..."
+    PHASE2_FILE=$(mktemp)
+    # `gh api --paginate` streams one JSON object per page; `jq -s` slurps them
+    # into a single array so we can sort and slice across the whole window.
+    # The `created>=` filter goes in the URL query string (not `-f`): gh's field
+    # flag URL-encodes `>` and GitHub 404s on the encoded form.
+    if gh_api_retry --paginate "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?created=>=$SINCE_DATE" > "$PHASE2_FILE"; then
+        PHASE2=$(jq -s --argjson n "$RUN_COUNT" \
+            '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
+             | sort_by(.created) | reverse | .[0:$n]' \
+            "$PHASE2_FILE")
+        # Merge phase 1 + phase 2, dedup by id, keep newest RUN_COUNT. Phase 1
+        # runs are preserved even if phase 2 found nothing (e.g. the only
+        # qualifying runs are older than MIN_LOOKBACK_DAYS).
+        RUNS_JSON=$(printf '%s\n%s\n' "$RUNS_JSON" "$PHASE2" \
+            | jq -sr --argjson n "$RUN_COUNT" \
+                'add | unique_by(.id) | sort_by(.created) | reverse | .[0:$n]')
+    else
+        echo "Warning: phase 2 widening fetch failed; falling back to phase 1 ($QUALIFYING_COUNT qualifying run(s))." >&2
+    fi
+    rm -f "$PHASE2_FILE"
+fi
+
+RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
 
 if [[ -z "$RUN_IDS" ]]; then
     if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then

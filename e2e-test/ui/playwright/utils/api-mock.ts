@@ -11,6 +11,18 @@
 
 import type { Page, Route } from '@playwright/test';
 
+import { DATAHUB_GRAPHQL_PATH } from './constants';
+
+/**
+ * Match DataHub GraphQL requests with or without ?operationName=...
+ * Playwright path globs that end at /graphql only match the bare path; after the
+ * UI started appending operation names for Chrome Network filtering, those
+ * patterns stopped intercepting browser GraphQL calls.
+ */
+export function isDataHubGraphqlUrl(url: URL): boolean {
+  return url.pathname.endsWith(DATAHUB_GRAPHQL_PATH);
+}
+
 // ── Public interface ──────────────────────────────────────────────────────────
 
 export interface ApiMocker {
@@ -62,7 +74,7 @@ export class PageApiMocker implements ApiMocker {
 
     // Register a SINGLE route handler that checks all mocked operations
     if (!this.mockRouteRegistered) {
-      await this.page.route('**/api/v2/graphql', async (route) => {
+      await this.page.route(isDataHubGraphqlUrl, async (route) => {
         const postData = route.request().postDataJSON() as { operationName?: string } | null;
         const op = postData?.operationName;
 
@@ -90,7 +102,7 @@ export class PageApiMocker implements ApiMocker {
 
     // Register a SINGLE route handler that checks all intercepted operations
     if (!this.interceptRouteRegistered) {
-      await this.page.route('**/api/v2/graphql', async (route) => {
+      await this.page.route(isDataHubGraphqlUrl, async (route) => {
         const postData = route.request().postDataJSON() as { operationName?: string } | null;
         const op = postData?.operationName;
 
@@ -161,7 +173,7 @@ export class PageApiMocker implements ApiMocker {
       }
     }
 
-    await this.page.route('**/api/v2/graphql', async (route) => {
+    await this.page.route(isDataHubGraphqlUrl, async (route) => {
       const postData = route.request().postDataJSON() as { operationName?: string } | null;
       const op = postData?.operationName;
 
@@ -243,7 +255,7 @@ export class PageApiMocker implements ApiMocker {
   }
 
   async suppressOnboardingModals(): Promise<void> {
-    await this.page.route('**/api/v2/graphql', async (route) => {
+    await this.page.route(isDataHubGraphqlUrl, async (route) => {
       const postData = route.request().postDataJSON() as {
         operationName?: string;
         variables?: { input?: { ids?: string[] } };

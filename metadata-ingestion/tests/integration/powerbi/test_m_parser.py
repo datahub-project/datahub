@@ -1901,3 +1901,57 @@ def test_direct_table_cll_preserves_upstream_column_casing():
     )
 
     assert lineage[0].column_lineage[0].upstreams[0].column == "CustomerId"
+
+
+def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
+    """NativeQuery CLL must remap the parsed downstream column to the PowerBI
+    field's original casing. sqlglot returns the downstream column in the SQL
+    alias' casing (here lowercase), but PowerBI stores fields in their API
+    casing; without the remap the downstream schemaField URN points at a
+    non-existent field and the column-level edge is dropped in the UI."""
+    # The SELECT aliases the output column in lowercase (`AS customerid`) while
+    # PowerBI's field keeps its mixed-case name (`CustomerId`) — the mismatch that
+    # drops the column edge without the remap.
+    q = (
+        "let\n"
+        '    Source = Value.NativeQuery(Sql.Database("my-server", "my_db"), '
+        '"SELECT t.CustomerId AS customerid FROM my_schema.my_table AS t", null, '
+        "[EnableFolding=true])\n"
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_table",
+        full_name="MyDataSet.virtual_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_column_level_lineage": True,
+            "extract_lineage": True,
+        }
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage
+    assert lineage[0].column_lineage[0].downstream.column == "CustomerId"

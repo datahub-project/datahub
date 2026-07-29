@@ -189,9 +189,9 @@ def debug_logger():
 def test_first_aspect_failure_aborts_dataflow_branch(debug_logger):
     def factory():
         return _make_failing_rest_emitter(
-            lambda idx, mcp: OperationalError("503", {"status": 503})
-            if idx == 0
-            else None
+            lambda idx, mcp: (
+                OperationalError("503", {"status": 503}) if idx == 0 else None
+            )
         )
 
     call_log = _run_flow(factory, debug_logger)

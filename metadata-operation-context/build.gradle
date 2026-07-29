@@ -19,6 +19,10 @@ dependencies {
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
+  // compileOnly: the Kafka producer-record SPI references ProducerRecord only at compile time.
+  // Avoids leaking kafka-clients onto every downstream module's runtime classpath (operation-context
+  // is a foundational dependency). Runtime callers already provide kafka-clients.
+  compileOnly externalDependency.kafkaClients
   api externalDependency.jacksonDataBind
   api externalDependency.jacksonJDK8
   compileOnly externalDependency.lombok
@@ -26,4 +30,9 @@ dependencies {
   annotationProcessor externalDependency.lombok
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.kafkaClients
+  // Spring's MockHttpServletRequest — used in EnrichmentPropagationTest to stamp the
+  // REQUEST_ENRICHMENTS_ATTR attribute and drive buildOpenapi through the full read-back chain.
+  // Test-only; production code has no Spring dependency.
+  testImplementation externalDependency.springBootTest
 }

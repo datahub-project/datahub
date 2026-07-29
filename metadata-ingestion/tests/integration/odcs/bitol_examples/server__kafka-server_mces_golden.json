@@ -1,25 +1,5 @@
 [
 {
-    "entityType": "dataPlatform",
-    "entityUrn": "urn:li:dataPlatform:odcs",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInfo",
-    "aspect": {
-        "json": {
-            "name": "odcs",
-            "displayName": "Open Data Contract Standard",
-            "type": "OTHERS",
-            "datasetNameDelimiter": ".",
-            "logoUrl": "assets/platforms/odcslogo.png"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "test-odcs-bitol-server__kafka-server",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,abc123.Orders,PROD)",
     "changeType": "UPSERT",
