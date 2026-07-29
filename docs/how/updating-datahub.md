@@ -157,6 +157,8 @@ Requirements:
 
 ### Potential Downtime
 
+- **(GMS / Structured Properties / search indices)** With both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` (the latter defaults to true), system-update `BuildIndices` reindexes entity search indices when an existing structured-property field's Elasticsearch type differs from the definition-driven target (for example `float` or `long` vs intended `double` for `urn:li:dataType:datahub.number`). Previously those mismatches were ignored because `structuredProperties` is `dynamic: true` and excluded from the normal mapping diff. Both flags are required. **Action:** Expect longer system-update runtime / search reindex on the first upgrade if any NUMBER (or other) structured-property fields were dynamically mapped to the wrong type. Set `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=false` to skip type-mismatch reindex while leaving other structured-property system-update behavior intact. Ensure mappings reindex flags remain enabled as for other BuildIndices reindexes.
+
 ### Deprecations
 
 - #17376: **(Ingestion / Hex)** Three recipe fields are removed and now emit a deprecation warning when set: `lineage_start_time`, `lineage_end_time`, and `datahub_page_size`. These belonged to the old lineage path that searched DataHub for Hex-tagged Query entities. Lineage now comes directly from the Hex REST API (the `queriedTables` API on Hex Enterprise workspaces, or SQL parsing of project/component cells on all workspaces), so these fields no longer have any effect. **Migration:** remove them from your recipe.
@@ -172,6 +174,8 @@ Requirements:
 ### Other Notable Changes
 
 - **(Great Expectations plugin)** `acryl-datahub-gx-plugin` now allows `great-expectations>=0.17.15` (upper bound `<1.0.0` removed). GX 0.17/0.18 continues to use `datahub_gx_plugin.action.DataHubValidationAction`. GX Core 1.x uses the additive `datahub_gx_plugin.action_v1.DataHubValidationAction`. **Action:** Existing 0.x checkpoint configs are unchanged. For GX 1.x, instantiate the V1 action in Fluent Checkpoint `actions=[...]` (see the Great Expectations integration docs).
+
+- **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Requires both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` / `structuredProperties.typeMismatchReindexEnabled` (default `true`).
 
 - **(GMS / search defaults)** Default entity-type lists for GraphQL search, autocomplete, browse V2, and quick-filter priority are now configurable via `elasticsearch.search.*EntityTypes` (`value` / `add` / `remove`) and the matching `SEARCH_*_ENTITY_TYPES{,_ADD,_REMOVE}` environment variables. Stock YAML defaults match the former hardcoded GraphQL lists. An explicitly empty resolved list means GraphQL searches **no** entity types (it does not expand to all indices). Unknown registry names in these lists are soft-dropped with a warn at startup. See [Environment Variables](../deploy/environment-vars.md) and [Customizing Search](search.md#default-search-entity-types).
 
