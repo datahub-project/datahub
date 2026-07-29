@@ -4,8 +4,7 @@ namespace com.linkedin.settings.global
  * DataHub Global platform settings. Careful - these should not be modified by the outside world!
  */
 @Aspect = {
-  "name": "globalSettingsInfo",
-  "schemaVersion": 2
+  "name": "globalSettingsInfo"
 }
 record GlobalSettingsInfo {
 
@@ -42,8 +41,4 @@ record GlobalSettingsInfo {
    */
    applications: optional ApplicationsSettings
 
-  /**
-   * Settings related to the AI assistant feature.
-   */
-   aiAssistant: optional FeatureSettings
 }

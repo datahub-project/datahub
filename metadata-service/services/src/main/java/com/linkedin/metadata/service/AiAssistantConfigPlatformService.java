@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.settings.global.GlobalSettingsInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
@@ -14,18 +13,14 @@ public class AiAssistantConfigPlatformService {
 
   private final SystemEntityClient entityClient;
   private final SecretService secretService;
-  private final SettingsService settingsService;
-
   private final OperationContext systemOperationContext;
 
   public AiAssistantConfigPlatformService(
       SystemEntityClient entityClient,
       SecretService secretService,
-      SettingsService settingsService,
       OperationContext systemOperationContext) {
     this.entityClient = entityClient;
     this.secretService = secretService;
-    this.settingsService = settingsService;
     this.systemOperationContext = systemOperationContext;
   }
 
@@ -51,13 +46,5 @@ public class AiAssistantConfigPlatformService {
     } catch (URISyntaxException e) {
       throw new IllegalStateException("System operation context actor is not a valid URN", e);
     }
-  }
-
-  GlobalSettingsInfo getGlobalSettings() {
-    return settingsService.getGlobalSettings(systemOperationContext);
-  }
-
-  void updateGlobalSettings(GlobalSettingsInfo globalSettings) {
-    settingsService.updateGlobalSettings(systemOperationContext, globalSettings);
   }
 }

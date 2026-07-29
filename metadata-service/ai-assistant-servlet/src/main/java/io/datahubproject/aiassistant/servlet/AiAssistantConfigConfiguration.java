@@ -1,10 +1,8 @@
 package io.datahubproject.aiassistant.servlet;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.AiAssistantConfigPlatformService;
 import com.linkedin.metadata.service.AiAssistantConfigService;
-import com.linkedin.metadata.service.SettingsService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,15 +16,14 @@ public class AiAssistantConfigConfiguration {
   public AiAssistantConfigPlatformService aiAssistantConfigPlatformService(
       SystemEntityClient systemEntityClient,
       SecretService secretService,
-      SettingsService settingsService,
       @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
     return new AiAssistantConfigPlatformService(
-        systemEntityClient, secretService, settingsService, systemOperationContext);
+        systemEntityClient, secretService, systemOperationContext);
   }
 
   @Bean
   public AiAssistantConfigService aiAssistantConfigService(
-      AiAssistantConfigPlatformService platformService, ObjectMapper objectMapper) {
-    return new AiAssistantConfigService(platformService, objectMapper);
+      AiAssistantConfigPlatformService platformService) {
+    return new AiAssistantConfigService(platformService);
   }
 }

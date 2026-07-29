@@ -4,12 +4,12 @@ import { ManageOwnership } from '@app/entityV2/ownership/ManageOwnership';
 import { ManageViews } from '@app/entityV2/view/ManageViews';
 import { ManagePermissions } from '@app/permissions/ManagePermissions';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
-import { AIAssistantSettings } from '@app/settingsV2/AIAssistantSettings';
 import { AccessTokens } from '@app/settingsV2/AccessTokens';
 import { IdentitiesContent } from '@app/settingsV2/IdentitiesContent';
 import { Preferences } from '@app/settingsV2/Preferences';
 import { Features } from '@app/settingsV2/features/Features';
 import ManagePosts from '@app/settingsV2/posts/ManagePosts';
+import { AIAssistantSettings } from '@app/settingsV2/AIAssistantSettings';
 
 /**
  * URL Paths for each settings page.

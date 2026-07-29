@@ -60,7 +60,6 @@ public class AiAssistantConfigControllerTest {
                 .provider("claude")
                 .hasKey(true)
                 .updated(false)
-                .keyPreview("sk-ant-...1234")
                 .build());
 
     mockMvc
@@ -68,8 +67,7 @@ public class AiAssistantConfigControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.provider").value("claude"))
         .andExpect(jsonPath("$.hasKey").value(true))
-        .andExpect(jsonPath("$.updated").value(false))
-        .andExpect(jsonPath("$.keyPreview").value("sk-ant-...1234"));
+        .andExpect(jsonPath("$.updated").value(false));
   }
 
   @Test
@@ -108,40 +106,5 @@ public class AiAssistantConfigControllerTest {
         .andExpect(jsonPath("$.models[0]").value("SONNET"))
         .andExpect(jsonPath("$.models[1]").value("OPUS"))
         .andExpect(jsonPath("$.models[2]").value("GPT_5_5"));
-  }
-
-  @Test
-  public void testGetPreferredModel() throws Exception {
-    when(service.getPreferredModel())
-        .thenReturn(
-            AiAssistantConfigService.PreferredModelResult.builder()
-                .model("claude-sonnet-5")
-                .hasKey(true)
-                .keyPreview("sk-ant-...1234")
-                .build());
-
-    mockMvc
-        .perform(get("/api/ai-config/preferred-model").accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.model").value("claude-sonnet-5"))
-        .andExpect(jsonPath("$.hasKey").value(true))
-        .andExpect(jsonPath("$.keyPreview").value("sk-ant-...1234"));
-  }
-
-  @Test
-  public void testPutPreferredModelBadRequest() throws Exception {
-    when(service.updatePreferredModel("nope"))
-        .thenThrow(new IllegalArgumentException("Unsupported model 'nope'."));
-
-    mockMvc
-        .perform(
-            put("/api/ai-config/preferred-model")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    new ObjectMapper()
-                        .writeValueAsString(
-                            new AiAssistantConfigController.PreferredModelRequest("nope"))))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").value("Unsupported model 'nope'."));
   }
 }
