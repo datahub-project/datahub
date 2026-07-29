@@ -39,16 +39,15 @@ from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
-    DialectClass,
-    DialectExpressionClass,
+    AuditStampClass,
     DocumentationAssociationClass,
     DocumentationClass,
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
-    MetricExpressionClass,
-    ModelDatasetClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -56,8 +55,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    SemanticFieldClass,
-    SemanticFieldTypeClass,
     SemanticModelInfoClass,
     StringTypeClass,
     SubTypesClass,
@@ -68,6 +65,7 @@ from datahub.metadata.schema_classes import (
 _DB = "TEST_DB"
 _SCHEMA = "PUBLIC"
 _VIEW = "Sales_Analytics"
+_AUDIT_STAMP = AuditStampClass(time=0, actor="urn:li:corpuser:datahub")
 
 
 def _identity(
@@ -307,6 +305,7 @@ def _schema_field(
     field_path: str,
     tags: Optional[list] = None,
     json_props: Optional[str] = None,
+    terms: Optional[list] = None,
 ) -> SchemaFieldClass:
     return SchemaFieldClass(
         fieldPath=field_path,
@@ -317,37 +316,32 @@ def _schema_field(
             if tags
             else None
         ),
+        glossaryTerms=(
+            GlossaryTermsClass(
+                terms=[GlossaryTermAssociationClass(urn=t) for t in terms],
+                auditStamp=_AUDIT_STAMP,
+            )
+            if terms
+            else None
+        ),
         jsonProps=json_props,
     )
 
 
-def _semantic_model_info(*field_paths: str) -> SemanticModelInfoClass:
-    fields = [
-        SemanticFieldClass(
-            schemaField=_schema_field(path),
-            type=SemanticFieldTypeClass.DIMENSION,
-            expression=MetricExpressionClass(
-                dialects=[
-                    DialectExpressionClass(
-                        dialect=DialectClass.SNOWFLAKE, expression=path.upper()
-                    )
-                ]
-            ),
-        )
-        for path in field_paths
-    ]
-    return SemanticModelInfoClass(
-        name="sales_analytics",
-        datasets=[
-            ModelDatasetClass(
-                name="sales_analytics",
-                source=(
-                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
-                    "test_db.public.sales_analytics,PROD)"
-                ),
-                fields=fields,
-            )
-        ],
+def _semantic_model_info(*dataset_urns: str) -> SemanticModelInfoClass:
+    # semanticModelInfo carries dataset URNs only; the column list lives on each
+    # of those datasets' schemaMetadata.
+    return SemanticModelInfoClass(name="sales_analytics", datasets=list(dataset_urns))
+
+
+def _schema_metadata(*fields: SchemaFieldClass) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="sales_analytics",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=list(fields),
     )
 
 
@@ -1206,6 +1200,12 @@ class TestSchemaFieldIsMetric:
 class TestMigrateSemanticModelFieldGovernance:
     SM = "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,test_db.public,sales_analytics)"
     DST = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.sales_analytics,PROD)"
+    # A dataset listed in semanticModelInfo.datasets, distinct from the legacy
+    # dataset the governance is migrated onto.
+    MODEL_DATASET = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "test_db.public.sales_analytics_model,PROD)"
+    )
     METRIC = (
         "urn:li:metric:(urn:li:dataPlatform:snowflake,"
         "test_db.public.sales_analytics,total_revenue)"
@@ -1227,17 +1227,7 @@ class TestMigrateSemanticModelFieldGovernance:
                 ),
             ]
         )
-        schema = SchemaMetadataClass(
-            schemaName="sales_analytics",
-            platform="urn:li:dataPlatform:snowflake",
-            version=0,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-            fields=[
-                _schema_field("OrderId"),
-                _schema_field("OtherCol"),
-            ],
-        )
+        schema = _schema_metadata(_schema_field("OrderId"), _schema_field("OtherCol"))
 
         def get_aspects(entity_urn, aspects, aspect_types):
             out: Dict[str, Optional[_Aspect]] = {}
@@ -1246,8 +1236,10 @@ class TestMigrateSemanticModelFieldGovernance:
                     out[name] = existing_editable
                 elif name == "schemaMetadata" and entity_urn == self.DST:
                     out[name] = schema
+                elif name == "schemaMetadata" and entity_urn == self.MODEL_DATASET:
+                    out[name] = _schema_metadata(_schema_field("OrderId"))
                 elif name == "semanticModelInfo" and entity_urn == self.SM:
-                    out[name] = _semantic_model_info("OrderId")
+                    out[name] = _semantic_model_info(self.MODEL_DATASET)
                 elif name == "globalTags" and entity_urn.startswith(
                     "urn:li:schemaField:"
                 ):
@@ -1319,6 +1311,46 @@ class TestMigrateSemanticModelFieldGovernance:
         metric_tags = fields[0].global_tags
         assert metric_tags is not None
         assert [t.tag for t in metric_tags.tags] == [make_tag_urn("finance")]
+
+    def test_collect_falls_back_to_model_dataset_schema_tags(self):
+        """No schemaField aspects: read the model dataset's schemaMetadata instead."""
+        model_schema = _schema_metadata(
+            _schema_field(
+                "TOTAL_AMOUNT",
+                tags=[make_tag_urn("pii"), make_tag_urn("dimension")],
+                terms=["urn:li:glossaryTerm:Revenue"],
+            )
+        )
+
+        def get_aspects(entity_urn, aspects, aspect_types):
+            out: Dict[str, Optional[_Aspect]] = {}
+            for name in aspects:
+                if name == "semanticModelInfo" and entity_urn == self.SM:
+                    out[name] = _semantic_model_info(self.MODEL_DATASET)
+                elif name == "schemaMetadata" and entity_urn == self.MODEL_DATASET:
+                    out[name] = model_schema
+                else:
+                    out[name] = None
+            return out
+
+        graph = MagicMock()
+        graph.get_aspects_for_entity.side_effect = get_aspects
+        graph.get_related_entities.return_value = []
+
+        fields = collect_semantic_model_field_governance(
+            graph, self.SM, convert_urns_to_lowercase=False
+        )
+
+        assert len(fields) == 1
+        assert fields[0].column_name == "TOTAL_AMOUNT"
+        assert fields[0].is_metric is False
+        tags = fields[0].global_tags
+        assert tags is not None
+        # Synthetic subtype tag dropped, customer tag kept.
+        assert [t.tag for t in tags.tags] == [make_tag_urn("pii")]
+        terms = fields[0].glossary_terms
+        assert terms is not None
+        assert [t.urn for t in terms.terms] == ["urn:li:glossaryTerm:Revenue"]
 
     def test_sm_to_dataset_folds_documentation_into_editable_description(self):
         doc = DocumentationClass(
