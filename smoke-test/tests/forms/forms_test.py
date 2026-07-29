@@ -1,3 +1,15 @@
+"""End-to-end coverage for the batchAssignForm / batchRemoveForm mutations.
+
+Most of these assert behaviour that is deliberately unchanged by batching, and so
+pass both before and after it: they exist to prove the batched implementation kept
+the original semantics, not to prove the batching happened. The number of calls the
+server makes is not observable over GraphQL, so the batching contract itself is
+asserted in FormServiceTest instead.
+
+test_batch_assign_form_reports_every_missing_entity is the exception — it pins
+behaviour that only holds after batching.
+"""
+
 import logging
 import uuid
 from typing import Any, Dict, List
