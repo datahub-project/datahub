@@ -5,19 +5,13 @@ from unittest import mock
 from datahub.ingestion.transformer.add_ownership import AddOwnership
 from datahub.metadata.schema_classes import OwnerClass, OwnershipClass
 
-DATASET_URN = (
-    "urn:li:dataset:(urn:li:dataPlatform:bigquery,example.dataset,PROD)"
-)
+DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example.dataset,PROD)"
 
 OWNER_URN = "urn:li:corpuser:alice"
 
-TECHNICAL_OWNER_TYPE_URN = (
-    "urn:li:ownershipType:__system__technical_owner"
-)
+TECHNICAL_OWNER_TYPE_URN = "urn:li:ownershipType:__system__technical_owner"
 
-BUSINESS_OWNER_TYPE_URN = (
-    "urn:li:ownershipType:__system__business_owner"
-)
+BUSINESS_OWNER_TYPE_URN = "urn:li:ownershipType:__system__business_owner"
 
 
 def test_merge_deduplicates_same_owner_and_type_urn() -> None:
@@ -107,10 +101,7 @@ def test_merge_keeps_same_owner_with_different_type_urns() -> None:
     assert result is not None
     assert len(result.owners) == 2
 
-    assert {
-        (owner.owner, owner.typeUrn)
-        for owner in result.owners
-    } == {
+    assert {(owner.owner, owner.typeUrn) for owner in result.owners} == {
         (OWNER_URN, BUSINESS_OWNER_TYPE_URN),
         (OWNER_URN, TECHNICAL_OWNER_TYPE_URN),
     }
@@ -155,10 +146,7 @@ def test_merge_preserves_different_owners_with_same_type_urn() -> None:
     assert result is not None
     assert len(result.owners) == 2
 
-    assert {
-        (owner.owner, owner.typeUrn)
-        for owner in result.owners
-    } == {
+    assert {(owner.owner, owner.typeUrn) for owner in result.owners} == {
         (OWNER_URN, TECHNICAL_OWNER_TYPE_URN),
         (second_owner_urn, TECHNICAL_OWNER_TYPE_URN),
     }
@@ -227,9 +215,7 @@ def test_merge_deduplicates_multiple_incoming_entries() -> None:
     """
     graph = mock.MagicMock()
 
-    graph.get_ownership.return_value = OwnershipClass(
-        owners=[]
-    )
+    graph.get_ownership.return_value = OwnershipClass(owners=[])
 
     incoming_ownership = OwnershipClass(
         owners=[

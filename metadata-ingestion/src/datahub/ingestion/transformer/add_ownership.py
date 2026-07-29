@@ -41,6 +41,20 @@ _ALL_OWNERSHIP_ENTITY_TYPES: List[str] = [
     "dashboard",
 ]
 
+OWNER_TYPES_MAPPING: Dict[str, str] = {
+    OwnershipTypeClass.BUSINESS_OWNER: "urn:li:ownershipType:__system__business_owner",
+    OwnershipTypeClass.DATA_STEWARD: "urn:li:ownershipType:__system__data_steward",
+    OwnershipTypeClass.TECHNICAL_OWNER: "urn:li:ownershipType:__system__technical_owner",
+    OwnershipTypeClass.CUSTOM: "urn:li:ownershipType:__system__custom",
+    OwnershipTypeClass.NONE: "urn:li:ownershipType:__system__none",
+    OwnershipTypeClass.DEVELOPER: "urn:li:ownershipType:__system__developer",
+    OwnershipTypeClass.DATAOWNER: "urn:li:ownershipType:__system__dataowner",
+    OwnershipTypeClass.DELEGATE: "urn:li:ownershipType:__system__delegate",
+    OwnershipTypeClass.PRODUCER: "urn:li:ownershipType:__system__producer",
+    OwnershipTypeClass.CONSUMER: "urn:li:ownershipType:__system__consumer",
+    OwnershipTypeClass.STAKEHOLDER: "urn:li:ownershipType:__system__stakeholder",
+}
+
 
 class AddOwnershipConfig(TransformerSemanticsConfigModel):
     get_owners_to_add: Callable[[str], List[OwnerClass]]
@@ -112,12 +126,18 @@ class AddOwnership(OwnershipTransformer):
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
             owners = {
-                (owner.owner, owner.typeUrn): owner
+                (
+                    owner.owner,
+                    owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),
+                ): owner
                 for owner in server_ownership.owners
             }
             owners.update(
                 {
-                    (owner.owner, owner.typeUrn): owner
+                    (
+                        owner.owner,
+                        owner.typeUrn or OWNER_TYPES_MAPPING.get(owner.type),
+                    ): owner
                     for owner in mce_ownership.owners
                 }
             )
