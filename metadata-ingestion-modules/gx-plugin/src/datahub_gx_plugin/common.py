@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from datetime import timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
@@ -189,7 +189,7 @@ def make_dataset_urn_from_sqlalchemy_uri(
 
 def map_gx_severity_to_datahub(
     severity: Optional[Any],
-) -> Optional[AssertionResultSeverity]:
+) -> Optional[str]:
     """Map GX FailureSeverity (critical/warning/info) to DataHub AssertionResultSeverity."""
     if severity is None:
         return None
@@ -472,7 +472,7 @@ def _suite_parameters(validation_result_suite: Any) -> Optional[Dict[str, Any]]:
     return params or None
 
 
-def _run_time_from_run_id(run_id: Any):
+def _run_time_from_run_id(run_id: Any) -> datetime:
     if run_id is None:
         raise ValueError("run_id is required to build assertion results")
     if hasattr(run_id, "run_time"):
