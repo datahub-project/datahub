@@ -1,123 +1,46 @@
-import { Avatar, Button } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
+import { Avatar, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { SimpleSelect } from '@components/components/Select/SimpleSelect';
 
+import CreateDomainModal from '@app/domainV2/CreateDomainModal';
 import DomainSearch from '@app/domainV2/DomainSearch';
-import DomainsSidebarHeader from '@app/domainV2/nestedDomains/DomainsSidebarHeader';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import {
     DomainSidebarFiltersProvider,
     useDomainSidebarFilters,
 } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
+import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
 
-const PLATFORM_BROWSE_TRANSITION_MS = 300;
-
-// TODO: Clean up how we do expand / collapse
-const StyledEntitySidebarContainer = styled.div<{
-    isCollapsed: boolean;
-    $width?: number;
-    backgroundColor?: string;
-    $isShowNavBarRedesign?: boolean;
-    $isEntityProfile?: boolean;
-}>`
-    flex-shrink: 0;
-    max-height: 100%;
-
-    width: ${(props) => (props.isCollapsed ? '63px' : `${props.$width}px`)};
-    margin-bottom: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
-    transition: width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
-
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    display: flex;
-    flex-direction: column;
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
- margin: ${props.$isEntityProfile ? '5px 12px 5px 5px' : '0 16px 0 0'};
- box-shadow: ${props.theme.colors.shadowNavbar};
- `}
-`;
-
-const Controls = styled.div<{ isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    padding: 12px;
-    overflow: hidden;
-    height: 50px;
-`;
-
-// Thin horizontal rule used between the sidebar header and the search/tree
-// region. Plain styled div (vs. antd's Divider) so this file is antd-free.
-const ThinDivider = styled.div`
-    height: 0;
-    border-bottom: 1px solid ${(props) => props.theme.colors.border};
-`;
-
-const StyledSidebar = styled.div`
-    overflow: auto;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-`;
-
-// Filter row mirrors the FiltersRow in ContextSidebar: a single-row wrap of
-// pill-shaped SimpleSelects packed to the start of the row. Padding matches
-// the search bar's InputWrapper above so the row aligns.
-const FiltersRow = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 0 12px 12px 12px;
-`;
-
-/**
- * Multi-row option layout for the Owner filter dropdown. SimpleSelect doesn't
- * render avatars in multi-select option rows natively, so the Owner filter
- * supplies its own `renderCustomOptionText` — this is the layout it returns.
- */
 const OwnerOptionRow = styled.span`
     display: flex;
     align-items: center;
     gap: 8px;
 `;
 
-type Props = {
-    isEntityProfile?: boolean;
-};
-
-/**
- * Inner sidebar — consumes the filters context so the Owner SimpleSelect can
- * source its options from owners discovered across the loaded domain tree.
- * Split from the default export so the provider can wrap it without the inner
- * component having to thread props down.
- */
-function ManageDomainsSidebarInner({ isEntityProfile }: Props) {
+function ManageDomainsSidebarInner() {
     const { t } = useTranslation('governance.domain');
-    const width = useSidebarWidth(0.2);
+    const location = useLocation();
     const [isClosed, setIsClosed] = useState(false);
-    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const { selectedOwnerUrns, setSelectedOwnerUrns, availableOwners } = useDomainSidebarFilters();
+
+    const isHomeSelected = matchPath(location.pathname, { path: PageRoutes.DOMAINS, exact: true }) !== null;
 
     const unhideSidebar = useCallback(() => {
         setIsClosed(false);
     }, []);
 
-    // SimpleSelect option list is built from the distinct owners that the
-    // tree has reported as it rendered. Each option carries the owner record
-    // so the custom renderer can pull avatar fields without re-deriving.
     const ownerOptions = useMemo(
         () =>
             availableOwners.map((owner) => ({
@@ -128,77 +51,98 @@ function ManageDomainsSidebarInner({ isEntityProfile }: Props) {
         [availableOwners],
     );
 
-    return (
-        <StyledEntitySidebarContainer
-            isCollapsed={isClosed}
-            $width={width}
-            id="browse-v2"
-            $isShowNavBarRedesign={isShowNavBarRedesign}
-            $isEntityProfile={isEntityProfile}
-        >
-            <Controls isCollapsed={isClosed}>
-                {!isClosed && <DomainsSidebarHeader />}
-                <Button
-                    variant="text"
-                    color="gray"
-                    size="lg"
-                    isCircle
-                    icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft, color: 'icon' }}
-                    isActive={!isClosed}
-                    onClick={() => setIsClosed(!isClosed)}
-                />
-            </Controls>
-            <ThinDivider />
-            <StyledSidebar>
-                <DomainSearch isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
-                {!isClosed && (
-                    <FiltersRow>
-                        <SimpleSelect
+    const headerActions = (
+        <Tooltip showArrow={false} title={t('sidebar.createTooltip')} placement="right">
+            <SidebarCreateButton
+                variant="filled"
+                color="primary"
+                isCircle
+                icon={{ icon: Plus }}
+                onClick={() => setIsCreatingDomain(true)}
+                data-testid="sidebar-create-domain-button"
+            />
+        </Tooltip>
+    );
+
+    const ownerFilter = (
+        <SimpleSelect
+            size="sm"
+            width="fit-content"
+            isMultiSelect
+            showSearch
+            filterResultsByQuery
+            isDisabled={ownerOptions.length === 0}
+            placeholder={t('navigator.ownerFilter.placeholder')}
+            selectLabelProps={{
+                variant: 'labeled',
+                label: t('navigator.ownerFilter.label'),
+            }}
+            options={ownerOptions}
+            values={selectedOwnerUrns}
+            onUpdate={setSelectedOwnerUrns}
+            renderCustomOptionText={(option) => {
+                const { owner } = option as (typeof ownerOptions)[number];
+                return (
+                    <OwnerOptionRow>
+                        <Avatar
+                            name={owner.displayName}
+                            imageUrl={owner.pictureLink ?? undefined}
+                            type={owner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
+                            showInPill
                             size="sm"
-                            width="fit-content"
-                            isMultiSelect
-                            showSearch
-                            filterResultsByQuery
-                            isDisabled={ownerOptions.length === 0}
-                            placeholder={t('navigator.ownerFilter.placeholder')}
-                            selectLabelProps={{ variant: 'labeled', label: t('navigator.ownerFilter.label') }}
-                            options={ownerOptions}
-                            values={selectedOwnerUrns}
-                            onUpdate={setSelectedOwnerUrns}
-                            renderCustomOptionText={(option) => {
-                                const { owner } = option as (typeof ownerOptions)[number];
-                                return (
-                                    <OwnerOptionRow>
-                                        <Avatar
-                                            name={owner.displayName}
-                                            imageUrl={owner.pictureLink ?? undefined}
-                                            type={
-                                                owner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user
-                                            }
-                                            showInPill
-                                            size="sm"
-                                        />
-                                    </OwnerOptionRow>
-                                );
-                            }}
-                            dataTestId="domain-sidebar-owner-filter"
                         />
-                    </FiltersRow>
-                )}
-                {/* Full-width divider sits between the filters and the navigator,
-                    matching the documents sidebar's separator placement (above
-                    the "home" / overview row, below the filter pills). */}
-                {!isClosed && <ThinDivider />}
-                <DomainNavigator isCollapsed={isClosed} variant="sidebar" />
-            </StyledSidebar>
-        </StyledEntitySidebarContainer>
+                    </OwnerOptionRow>
+                );
+            }}
+            dataTestId="domain-sidebar-owner-filter"
+        />
+    );
+
+    return (
+        <>
+            <HierarchicalBrowseSidebar
+                title={t('page.title')}
+                isCollapsed={isClosed}
+                onToggleCollapsed={() => setIsClosed((prev) => !prev)}
+                onExpandSidebar={unhideSidebar}
+                headerActions={headerActions}
+                id="browse-v2"
+                search={<DomainSearch />}
+                filters={ownerFilter}
+                homeNav={
+                    <SidebarHomeNavLink
+                        to={PageRoutes.DOMAINS}
+                        isSelected={isHomeSelected}
+                        label={t('navigator.overview')}
+                        data-testid="domain-sidebar-overview"
+                    />
+                }
+            >
+                {({ isCollapsed }) =>
+                    isCollapsed ? (
+                        <>
+                            <DomainSearch isCollapsed unhideSidebar={unhideSidebar} />
+                            <DomainNavigator isCollapsed variant="sidebar" includeHome />
+                        </>
+                    ) : (
+                        <DomainNavigator variant="sidebar" includeHome={false} />
+                    )
+                }
+            </HierarchicalBrowseSidebar>
+            {isCreatingDomain && (
+                <CreateDomainModal
+                    onClose={() => setIsCreatingDomain(false)}
+                    onCreate={() => setIsCreatingDomain(false)}
+                />
+            )}
+        </>
     );
 }
 
-export default function ManageDomainsSidebarV2(props: Props) {
+export default function ManageDomainsSidebarV2() {
     return (
         <DomainSidebarFiltersProvider>
-            <ManageDomainsSidebarInner {...props} />
+            <ManageDomainsSidebarInner />
         </DomainSidebarFiltersProvider>
     );
 }

@@ -1,23 +1,23 @@
+import { Tooltip } from '@components';
 import { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
 import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { Tooltip } from '@src/alchemy-components';
+import { TREE_ROW_CARET_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import { getTreeRowPaddingLeft } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/utils/treeRowChrome';
 
-// Section header for the DataHub / per-platform group rows. Indent mirrors
-// DocumentTreeItem (8 + level*16) so a level-1 platform header lines up with a
-// level-1 doc row. The controls (expand-all + chevron) sit on the right to
-// signal that this row is a structural group, not an interactive doc.
-// No hover background — it's a tree label, not a nav row.
+// Section header for the DataHub / per-platform group rows. Indent + right
+// padding match HierarchicalBrowseTreeRow so expand-all / caret share one
+// vertical line with node carets. No hover background — structural label only.
 const SectionHeaderRow = styled.div<{ $level: number }>`
     display: flex;
     align-items: center;
     gap: 4px;
     width: 100%;
-    padding: 6px 2px 6px ${(props) => 8 + props.$level * 16}px;
+    padding: 6px 2px 6px ${(props) => getTreeRowPaddingLeft(props.$level)}px;
     min-height: 32px;
     color: ${(props) => props.theme.colors.textTertiary};
     font-family: Mulish;
@@ -25,8 +25,6 @@ const SectionHeaderRow = styled.div<{ $level: number }>`
     font-weight: 700;
 `;
 
-// Fills the row up to the trailing controls so the whole label area toggles the
-// section. Transparent, borderless — it reads as a label, not a button.
 const SectionToggleButton = styled.button`
     display: flex;
     align-items: center;
@@ -55,8 +53,8 @@ const SectionIconButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: ${TREE_ROW_CARET_SIZE + 2}px;
+    height: ${TREE_ROW_CARET_SIZE + 2}px;
     padding: 0;
     border: none;
     background: transparent;
@@ -93,8 +91,7 @@ interface TreeSectionHeaderProps {
  * sub-section). Pure presentation — owns no expansion state of its own.
  *
  * When `onToggleExpandAll` is provided, a bulk expand/collapse control renders
- * next to the section chevron. `isAllExpanded` picks the glyph (arrows-in =
- * collapse everything in this section, arrows-out = expand everything).
+ * next to the section chevron. Icons match tree-row carets (Phosphor 14, regular).
  */
 export function TreeSectionHeader({
     level,
@@ -109,6 +106,7 @@ export function TreeSectionHeader({
     expandAllLabel,
     collapseAllLabel,
 }: TreeSectionHeaderProps) {
+    const theme = useTheme();
     const Caret = isExpanded ? CaretDown : CaretRight;
     const bulkLabel = isAllExpanded ? collapseAllLabel : expandAllLabel;
     return (
@@ -129,9 +127,17 @@ export function TreeSectionHeader({
                         data-testid={testId ? `${testId}-expand-all` : undefined}
                     >
                         {isAllExpanded ? (
-                            <ArrowsInLineVertical size={16} weight="regular" />
+                            <ArrowsInLineVertical
+                                color={theme.colors.icon}
+                                size={TREE_ROW_CARET_SIZE}
+                                weight="regular"
+                            />
                         ) : (
-                            <ArrowsOutLineVertical size={16} weight="regular" />
+                            <ArrowsOutLineVertical
+                                color={theme.colors.icon}
+                                size={TREE_ROW_CARET_SIZE}
+                                weight="regular"
+                            />
                         )}
                     </SectionIconButton>
                 </Tooltip>
@@ -143,7 +149,7 @@ export function TreeSectionHeader({
                 aria-label={label}
                 tabIndex={-1}
             >
-                <Caret size={16} weight="regular" />
+                <Caret color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
             </SectionIconButton>
         </SectionHeaderRow>
     );

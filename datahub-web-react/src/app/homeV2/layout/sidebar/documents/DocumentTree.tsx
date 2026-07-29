@@ -15,8 +15,8 @@ import {
 import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
-import { TreeSectionHeader } from '@app/homeV2/layout/sidebar/documents/TreeSectionHeader';
 import Loading from '@app/shared/Loading';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
 // Section id for the built-in "DataHub" (native docs) group. Platform groups use
 // their platform urn as the id; this sentinel keeps the native group distinct.
@@ -147,6 +147,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         title={node.title}
                         level={level}
                         hasChildren={node.hasChildren}
+                        childCount={node.children?.length ?? node.childCount}
                         isExpanded={isExpanded}
                         isSelected={isSelected}
                         isLoading={isLoading && isExpanded}
