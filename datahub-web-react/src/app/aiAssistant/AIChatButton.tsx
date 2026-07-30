@@ -42,23 +42,44 @@ const FloatingButton = styled.button<{ $isOpen: boolean }>`
 
 // ─── Chat Panel ─────────────────────────────────────────────────────────────────
 
-const ChatPanel = styled.div`
+const ChatPanel = styled.div<{
+    $maximized: boolean;
+    $x: number | null;
+    $y: number | null;
+}>`
     position: fixed;
-    bottom: 92px;
-    right: 28px;
     z-index: 9998;
-    width: 380px;
-    height: 520px;
     background: #ffffff;
-    border-radius: 16px;
+    border-radius: ${(p) => (p.$maximized ? '0' : '16px')};
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     animation: ${slideIn} 0.22s ease;
+
+    ${(p) =>
+        p.$maximized
+            ? `
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+    `
+            : p.$x !== null && p.$y !== null
+            ? `
+        left: ${p.$x}px;
+        top: ${p.$y}px;
+        width: 380px;
+        height: 520px;
+    `
+            : `
+        bottom: 92px;
+        right: 28px;
+        width: 380px;
+        height: 520px;
+    `}
 `;
 
-const PanelHeader = styled.div`
+const PanelHeader = styled.div<{ $dragging: boolean }>`
     background: linear-gradient(135deg, #7c6af7 0%, #5c4fcf 100%);
     padding: 16px 18px;
     color: white;
@@ -66,6 +87,8 @@ const PanelHeader = styled.div`
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
+    cursor: ${(p) => (p.$dragging ? 'grabbing' : 'grab')};
+    user-select: none;
 `;
 
 const HeaderTitle = styled.div`
@@ -300,6 +323,55 @@ export const AIChatButton: React.FC = () => {
     const [model, setModel] = useState(FALLBACK_CHAT_MODELS[0].value);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // ── Maximize + drag state ────────────────────────────────────────────────
+    const [maximized, setMaximized] = useState(false);
+    const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+    const [dragging, setDragging] = useState(false);
+    const dragOffset = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+
+    // Double-click the header to toggle full-page mode.
+    const toggleMaximize = () => {
+        setMaximized((prev) => !prev);
+        setPosition(null); // reset any dragged position when toggling
+    };
+
+    // Start dragging from the header (ignored while maximized).
+    const handleHeaderMouseDown = (e: React.MouseEvent) => {
+        if (maximized) return;
+        // Don't start a drag when interacting with buttons/selects in the header.
+        const target = e.target as HTMLElement;
+        if (target.closest('button, select')) return;
+
+        const panel = (e.currentTarget as HTMLElement).parentElement;
+        if (!panel) return;
+        const rect = panel.getBoundingClientRect();
+        dragOffset.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+        setPosition({ x: rect.left, y: rect.top }); // switch to absolute positioning
+        setDragging(true);
+    };
+
+    useEffect(() => {
+        if (!dragging) return undefined;
+
+        const handleMove = (e: MouseEvent) => {
+            const width = 380;
+            const height = 520;
+            const maxX = window.innerWidth - width;
+            const maxY = window.innerHeight - height;
+            const nextX = Math.min(Math.max(0, e.clientX - dragOffset.current.dx), Math.max(0, maxX));
+            const nextY = Math.min(Math.max(0, e.clientY - dragOffset.current.dy), Math.max(0, maxY));
+            setPosition({ x: nextX, y: nextY });
+        };
+        const handleUp = () => setDragging(false);
+
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+        };
+    }, [dragging]);
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, isTyping]);
@@ -436,8 +508,13 @@ export const AIChatButton: React.FC = () => {
     return (
         <>
             {isOpen && (
-                <ChatPanel>
-                    <PanelHeader>
+                <ChatPanel $maximized={maximized} $x={position?.x ?? null} $y={position?.y ?? null}>
+                    <PanelHeader
+                        $dragging={dragging}
+                        onMouseDown={handleHeaderMouseDown}
+                        onDoubleClick={toggleMaximize}
+                        title="Drag to move · double-click to expand"
+                    >
                         <div>
                             <HeaderTitle>🤖 DataHub AI Assistant</HeaderTitle>
                             <ModelSelect
