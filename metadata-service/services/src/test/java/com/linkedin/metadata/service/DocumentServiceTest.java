@@ -81,8 +81,7 @@ public class DocumentServiceTest {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
     final DocumentService service = new DocumentService(mockClient);
-    final Owner owner =
-        new Owner().setOwner(TEST_USER_URN).setType(OwnershipType.TECHNICAL_OWNER);
+    final Owner owner = new Owner().setOwner(TEST_USER_URN).setType(OwnershipType.TECHNICAL_OWNER);
 
     try (MockedStatic<AuthUtil> authUtilMock = Mockito.mockStatic(AuthUtil.class)) {
       authUtilMock
@@ -111,7 +110,8 @@ public class DocumentServiceTest {
           () ->
               AuthUtil.isAuthorizedEntityUrns(USER_OP_CONTEXT, CREATE, List.of(TEST_DOCUMENT_URN)));
       authUtilMock.verify(
-          () -> AuthUtil.isAuthorizedEntityUrns(USER_OP_CONTEXT, UPDATE, List.of(TEST_DOCUMENT_URN)),
+          () ->
+              AuthUtil.isAuthorizedEntityUrns(USER_OP_CONTEXT, UPDATE, List.of(TEST_DOCUMENT_URN)),
           Mockito.never());
     }
 

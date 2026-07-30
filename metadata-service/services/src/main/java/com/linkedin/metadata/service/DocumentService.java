@@ -271,9 +271,7 @@ public class DocumentService {
     }
     final MetadataChangeProposal ownershipMcp =
         AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn,
-            Constants.OWNERSHIP_ASPECT_NAME,
-            buildOwnership(initialOwners, actorUrn));
+            documentUrn, Constants.OWNERSHIP_ASPECT_NAME, buildOwnership(initialOwners, actorUrn));
     mcps.add(ownershipMcp);
 
     // Ingest the document with all aspects
@@ -836,8 +834,7 @@ public class DocumentService {
   }
 
   @Nonnull
-  private static Ownership buildOwnership(
-      @Nonnull List<Owner> owners, @Nonnull Urn actorUrn) {
+  private static Ownership buildOwnership(@Nonnull List<Owner> owners, @Nonnull Urn actorUrn) {
     final Ownership ownership = new Ownership();
     final OwnerArray ownerArray = new OwnerArray();
     ownerArray.addAll(owners);
