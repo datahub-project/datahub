@@ -34,7 +34,6 @@ test.describe('column-level lineage and impact analysis path V3', () => {
     lineagePage = new LineageV3Page(page, logger, logDir);
 
     await apiMock.setFeatureFlags({
-      lineageGraphV3: true,
       themeV2Enabled: true,
       themeV2Default: true,
       showNavBarRedesign: true,

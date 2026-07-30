@@ -1,5 +1,6 @@
 package com.linkedin.metadata.usage.store;
 
+import com.linkedin.metadata.usage.UsageDimensionResolver;
 import com.linkedin.metadata.usage.UsageDimensions;
 import com.linkedin.metadata.usage.flush.AdditiveUsageRow;
 import com.linkedin.metadata.usage.flush.DistinctIdentityEntry;
@@ -7,6 +8,7 @@ import com.linkedin.metadata.usage.flush.DistinctIdentitySet;
 import com.linkedin.metadata.usage.flush.DistinctUsageSnapshot;
 import com.linkedin.metadata.usage.flush.FlushTrigger;
 import com.linkedin.metadata.usage.flush.UsageFlushBatch;
+import com.linkedin.metadata.usage.flush.UsageFlushBoundaryUtils;
 import com.linkedin.metadata.usage.flush.UsageFlushSink;
 import com.linkedin.metadata.usage.identity.UsageActorClassResolver;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricIncrementResolver;
@@ -19,7 +21,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.AttributionType;
 import io.datahubproject.metadata.context.usage.UsageActorClass;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,15 +40,14 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * In-memory {@link UsageAggregationStore} for GMS API request/response usage metrics.
  *
- * <p>Renamed from {@code InMemoryUsageRollupStore} to avoid colliding with the legacy product-usage
- * rollup type in {@code com.linkedin.metadata.billing.rollup}.
- *
  * <p>Recorders hold a shared read lock while writing to the active window; drain swaps windows
  * under an exclusive write lock (brief) then builds and publishes Micrometer batches outside any
  * lock.
  */
 @Slf4j
 public class InMemoryUsageAggregationStore implements UsageAggregationStore {
+
+  private static final ZoneOffset ALIGNMENT_ZONE = ZoneOffset.UTC;
 
   private final UsageOperationsRegistry usageOperationsRegistry;
   private final UsageMetricRegistry metricRegistry;
@@ -53,11 +57,18 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
   private final long maxWindowMillis;
   private final int retryAttempts;
   private final long retryInitialBackoffMillis;
+  @Nullable private final Duration alignmentPeriod;
+  private final boolean includeAgentNameDimension;
+  @Nonnull private final Clock clock;
+
+  // Record-time dimension contributors. Empty in OSS (dimension-neutral); populated by downstream
+  // distributions to make usage rows context-aware without re-threading records.
+  @Nonnull private volatile List<UsageDimensionResolver> dimensionResolvers = List.of();
 
   /** Protects active-window swap; concurrent recorders share the read lock. */
   private final ReentrantReadWriteLock windowLock = new ReentrantReadWriteLock();
 
-  private volatile ActiveWindow activeWindow = new ActiveWindow(Instant.now());
+  private volatile ActiveWindow activeWindow;
 
   public InMemoryUsageAggregationStore(
       @Nonnull UsageOperationsRegistry usageOperationsRegistry,
@@ -77,6 +88,38 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
         100L);
   }
 
+  /**
+   * Full-configuration constructor including record-time {@link UsageDimensionResolver}s. Used by
+   * the factory so downstream distributions can contribute extra dimensions; a null/empty list
+   * leaves aggregation dimension-neutral (OSS default).
+   */
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      long alignmentPeriodSeconds,
+      boolean includeAgentNameDimension,
+      @Nullable List<UsageDimensionResolver> dimensionResolvers) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        includeAgentNameDimension);
+    this.dimensionResolvers =
+        dimensionResolvers == null ? List.of() : List.copyOf(dimensionResolvers);
+  }
+
   public InMemoryUsageAggregationStore(
       @Nonnull UsageOperationsRegistry usageOperationsRegistry,
       @Nonnull UsageMetricRegistry metricRegistry,
@@ -86,6 +129,105 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       long maxWindowSeconds,
       int retryAttempts,
       long retryInitialBackoffMillis) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        null,
+        false,
+        Clock.systemUTC());
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      long alignmentPeriodSeconds) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        false);
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      long alignmentPeriodSeconds,
+      boolean includeAgentNameDimension) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        includeAgentNameDimension,
+        Clock.systemUTC());
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      @Nullable Long alignmentPeriodSeconds,
+      @Nonnull Clock clock) {
+    this(
+        usageOperationsRegistry,
+        metricRegistry,
+        actorClassResolver,
+        flushSink,
+        maxCardinality,
+        maxWindowSeconds,
+        retryAttempts,
+        retryInitialBackoffMillis,
+        alignmentPeriodSeconds,
+        false,
+        clock);
+  }
+
+  public InMemoryUsageAggregationStore(
+      @Nonnull UsageOperationsRegistry usageOperationsRegistry,
+      @Nonnull UsageMetricRegistry metricRegistry,
+      @Nonnull UsageActorClassResolver actorClassResolver,
+      @Nonnull UsageFlushSink flushSink,
+      int maxCardinality,
+      long maxWindowSeconds,
+      int retryAttempts,
+      long retryInitialBackoffMillis,
+      @Nullable Long alignmentPeriodSeconds,
+      boolean includeAgentNameDimension,
+      @Nonnull Clock clock) {
     this.usageOperationsRegistry = usageOperationsRegistry;
     this.metricRegistry = metricRegistry;
     this.actorClassResolver = actorClassResolver;
@@ -94,6 +236,35 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     this.maxWindowMillis = maxWindowSeconds * 1000L;
     this.retryAttempts = Math.max(1, retryAttempts);
     this.retryInitialBackoffMillis = Math.max(0, retryInitialBackoffMillis);
+    this.alignmentPeriod =
+        alignmentPeriodSeconds != null && alignmentPeriodSeconds > 0
+            ? Duration.ofSeconds(alignmentPeriodSeconds)
+            : null;
+    this.includeAgentNameDimension = includeAgentNameDimension;
+    this.clock = clock;
+    this.activeWindow = newActiveWindow(null);
+  }
+
+  @Nonnull
+  private Map<String, String> withResolvedDimensions(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, String> base) {
+    if (dimensionResolvers.isEmpty()) {
+      return base;
+    }
+    Map<String, String> merged = new HashMap<>(base);
+    for (UsageDimensionResolver resolver : dimensionResolvers) {
+      // Isolate each resolver: a broken dimension plugin must not abort the record path
+      // (matches OutboundContextResolver / InboundContextResolver / EnrichingSpanProcessor).
+      try {
+        merged.putAll(resolver.resolve(opContext));
+      } catch (RuntimeException e) {
+        log.error(
+            "UsageDimensionResolver {} failed; continuing without its dimensions",
+            resolver.getClass().getSimpleName(),
+            e);
+      }
+    }
+    return merged;
   }
 
   @Override
@@ -115,7 +286,11 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
     Map<String, String> dimensions =
         UsageDimensions.fromRequestContext(
-            requestContext, requestContext.getUsageOperation(), actorClass.dimensionValue());
+            requestContext,
+            requestContext.getUsageOperation(),
+            actorClass.dimensionValue(),
+            includeAgentNameDimension);
+    dimensions = withResolvedDimensions(opContext, dimensions);
 
     ActivitySnapshot activitySnapshot = ActivitySnapshot.fromActivityClass(activityClass);
 
@@ -149,8 +324,80 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     } finally {
       windowLock.readLock().unlock();
     }
-    tryTriggerDrain();
+    tryTriggerDrain(opContext);
     return true;
+  }
+
+  @Override
+  public boolean recordReportedUsage(
+      @Nonnull OperationContext systemOperationContext,
+      @Nonnull RequestContext requestContext,
+      long quantity) {
+    if (quantity <= 0) {
+      return false;
+    }
+    UsageOperationsRegistry.UsageOperationEntry operationEntry =
+        resolveAllowedOperation(requestContext);
+    if (operationEntry == null) {
+      return false;
+    }
+    UsageActorClass actorClass =
+        actorClassResolver.resolve(
+            systemOperationContext,
+            requestContext,
+            systemOperationContext.getSessionAuthentication());
+    String usageIdentity =
+        requestContext.getUsageIdentity() != null
+            ? requestContext.getUsageIdentity()
+            : requestContext.getActorUrn();
+    AttributionType attribution = UsageDimensions.resolveAttribution(requestContext);
+    ActivitySnapshot activitySnapshot =
+        ActivitySnapshot.fromActivityClass(operationEntry.activityClass());
+
+    Map<String, String> resolvedDimensions =
+        new HashMap<>(
+            UsageDimensions.fromRequestContext(
+                requestContext,
+                requestContext.getUsageOperation(),
+                null,
+                includeAgentNameDimension));
+    resolvedDimensions.putIfAbsent(UsageDimensions.ACTOR_CLASS, actorClass.dimensionValue());
+    Map<String, String> dimKey =
+        Map.copyOf(withResolvedDimensions(systemOperationContext, resolvedDimensions));
+
+    boolean recorded = false;
+    windowLock.readLock().lock();
+    try {
+      ActiveWindow window = activeWindow;
+      String windowId = window.windowId();
+      for (UsageMetricRegistry.MetricDefinition metric :
+          metricRegistry.apiUsageMetrics().values()) {
+        if (metric.mergeKind() == UsageMetricRegistry.MergeKind.DISTINCT) {
+          if (!UsageMetricIncrementResolver.shouldEmitDistinct(
+              metric, activitySnapshot, operationEntry)) {
+            continue;
+          }
+          DistinctRollupKey key =
+              new DistinctRollupKey(windowId, metric.metricName(), actorClass.dimensionValue());
+          recordDistinctIdentity(window, key, usageIdentity, attribution);
+          recorded = true;
+          continue;
+        }
+        if (!UsageMetricIncrementResolver.isReportDrivenMetric(metric)) {
+          continue;
+        }
+        AdditiveRollupKey key =
+            new AdditiveRollupKey(windowId, metric.metricName(), actorClass, dimKey);
+        recordAdditive(window, key, quantity);
+        recorded = true;
+      }
+    } finally {
+      windowLock.readLock().unlock();
+    }
+    if (recorded) {
+      tryTriggerDrain(systemOperationContext);
+    }
+    return recorded;
   }
 
   @Override
@@ -171,7 +418,11 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       String windowId = window.windowId();
       Map<String, String> dimensions =
           UsageDimensions.fromRequestContext(
-              requestContext, requestContext.getUsageOperation(), actorClass.dimensionValue());
+              requestContext,
+              requestContext.getUsageOperation(),
+              actorClass.dimensionValue(),
+              includeAgentNameDimension);
+      dimensions = withResolvedDimensions(opContext, dimensions);
       for (UsageMetricRegistry.MetricDefinition metric :
           metricRegistry.apiUsageMetrics().values()) {
         long increment =
@@ -186,13 +437,41 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     } finally {
       windowLock.readLock().unlock();
     }
-    tryTriggerDrain();
+    tryTriggerDrain(opContext);
   }
 
   @Override
-  public void flush(@Nonnull FlushTrigger trigger) {
-    UsageFlushBatch batch = swapAndExtractBlocking(trigger);
-    publishBatch(batch, trigger);
+  public void flush(@Nonnull OperationContext opContext, @Nonnull FlushTrigger trigger) {
+    if (alignmentPeriod == null) {
+      publishBatch(opContext, swapAndExtractBlocking(trigger), trigger);
+      return;
+    }
+    while (true) {
+      Instant now = clock.instant();
+      Instant windowStart = windowStartSnapshot();
+      Instant boundary =
+          UsageFlushBoundaryUtils.nextBoundary(windowStart, alignmentPeriod, ALIGNMENT_ZONE);
+      boolean splitAtBoundary = !now.isBefore(boundary);
+      Instant batchEnd = splitAtBoundary ? boundary : now;
+
+      ActiveWindow retired;
+      windowLock.writeLock().lock();
+      try {
+        // Mid-period and boundary: next window opens at batchEnd (process-relative or grid
+        // Instant).
+        retired = swapActiveWindowLocked(batchEnd);
+      } finally {
+        windowLock.writeLock().unlock();
+      }
+      publishBatch(opContext, buildBatchFrom(retired, trigger, batchEnd), trigger);
+
+      if (!splitAtBoundary) {
+        return;
+      }
+      if (clock.instant().isBefore(nextAlignmentBoundary(activeWindow.windowStart))) {
+        return;
+      }
+    }
   }
 
   public int currentCardinality() {
@@ -201,11 +480,25 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
 
   public boolean isWindowExpired() {
     ActiveWindow window = activeWindow;
-    return Instant.now().toEpochMilli() - window.windowStart.toEpochMilli() >= maxWindowMillis;
+    return clock.instant().toEpochMilli() - window.windowStart.toEpochMilli() >= maxWindowMillis;
   }
 
-  /** Visible for tests in the same package. */
-  Instant windowStartSnapshot() {
+  public boolean isAlignmentEnabled() {
+    return alignmentPeriod != null;
+  }
+
+  @Nullable
+  public Duration alignmentPeriod() {
+    return alignmentPeriod;
+  }
+
+  @Nonnull
+  public Clock clock() {
+    return clock;
+  }
+
+  /** Visible for flush coordination and tests. */
+  public Instant windowStartSnapshot() {
     return activeWindow.windowStart;
   }
 
@@ -230,7 +523,7 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
   }
 
   /** Non-blocking cardinality drain; skips when another thread is swapping windows. */
-  private void tryTriggerDrain() {
+  private void tryTriggerDrain(@Nonnull OperationContext opContext) {
     if (maxCardinality <= 0 || activeWindow.approximateCardinality.get() < maxCardinality) {
       return;
     }
@@ -245,8 +538,30 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
       }
     }
     if (retired != null) {
-      publishBatch(buildBatchFrom(retired, FlushTrigger.CARDINALITY), FlushTrigger.CARDINALITY);
+      publishExtractedWindow(opContext, retired, FlushTrigger.CARDINALITY);
     }
+  }
+
+  private void publishExtractedWindow(
+      @Nonnull OperationContext opContext,
+      @Nonnull ActiveWindow retired,
+      @Nonnull FlushTrigger trigger) {
+    Instant now = clock.instant();
+    if (alignmentPeriod == null) {
+      publishBatch(opContext, buildBatchFrom(retired, trigger, now), trigger);
+      return;
+    }
+    Instant boundary = nextAlignmentBoundary(retired.windowStart);
+    if (now.isBefore(boundary)) {
+      publishBatch(opContext, buildBatchFrom(retired, trigger, now), trigger);
+      return;
+    }
+    publishBatch(opContext, buildBatchFrom(retired, trigger, boundary), trigger);
+  }
+
+  @Nonnull
+  private Instant nextAlignmentBoundary(@Nonnull Instant windowStart) {
+    return UsageFlushBoundaryUtils.nextBoundary(windowStart, alignmentPeriod, ALIGNMENT_ZONE);
   }
 
   @Nullable
@@ -258,21 +573,40 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     } finally {
       windowLock.writeLock().unlock();
     }
-    return buildBatchFrom(retired, trigger);
+    return buildBatchFrom(retired, trigger, clock.instant());
   }
 
   /** Caller must hold {@link ReentrantReadWriteLock#writeLock()}. */
   @Nonnull
   private ActiveWindow swapActiveWindowLocked() {
+    return swapActiveWindowLocked(null);
+  }
+
+  /** Caller must hold {@link ReentrantReadWriteLock#writeLock()}. */
+  @Nonnull
+  private ActiveWindow swapActiveWindowLocked(@Nullable Instant nextWindowStart) {
     ActiveWindow retired = activeWindow;
-    activeWindow = new ActiveWindow(Instant.now());
+    activeWindow = newActiveWindow(nextWindowStart);
     return retired;
+  }
+
+  @Nonnull
+  private ActiveWindow newActiveWindow(@Nullable Instant explicitStart) {
+    // Process-relative: never floor open time to the alignment grid. Alignment only splits
+    // closed windows at nextBoundary via flush / publishExtractedWindow.
+    Instant windowStart = explicitStart != null ? explicitStart : clock.instant();
+    return new ActiveWindow(windowStart);
   }
 
   @Nullable
   private UsageFlushBatch buildBatchFrom(
       @Nonnull ActiveWindow window, @Nonnull FlushTrigger trigger) {
-    Instant windowEnd = Instant.now();
+    return buildBatchFrom(window, trigger, clock.instant());
+  }
+
+  @Nullable
+  private UsageFlushBatch buildBatchFrom(
+      @Nonnull ActiveWindow window, @Nonnull FlushTrigger trigger, @Nonnull Instant windowEnd) {
     List<AdditiveUsageRow> additiveRows = drainAdditive(window.additiveBuckets);
     List<DistinctUsageSnapshot> distinctSnapshots = drainDistinct(window.distinctBuckets);
     if (additiveRows.isEmpty()
@@ -371,11 +705,14 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
         || trigger == FlushTrigger.SHUTDOWN;
   }
 
-  private void publishBatch(@Nullable UsageFlushBatch batch, @Nonnull FlushTrigger trigger) {
+  private void publishBatch(
+      @Nonnull OperationContext opContext,
+      @Nullable UsageFlushBatch batch,
+      @Nonnull FlushTrigger trigger) {
     if (batch == null) {
       return;
     }
-    if (publishWithRetry(batch, trigger)) {
+    if (publishWithRetry(opContext, batch, trigger)) {
       return;
     }
     log.error(
@@ -388,12 +725,15 @@ public class InMemoryUsageAggregationStore implements UsageAggregationStore {
     remergeBatch(batch, trigger);
   }
 
-  private boolean publishWithRetry(@Nonnull UsageFlushBatch batch, @Nonnull FlushTrigger trigger) {
+  private boolean publishWithRetry(
+      @Nonnull OperationContext opContext,
+      @Nonnull UsageFlushBatch batch,
+      @Nonnull FlushTrigger trigger) {
     boolean published =
         ExponentialBackoffRetry.run(
             retryAttempts,
             retryInitialBackoffMillis,
-            () -> flushSink.publish(batch),
+            () -> flushSink.publish(opContext, batch),
             (attempt, failure) ->
                 log.warn(
                     "Failed to publish usage flush batch attempt {}/{} trigger={} additiveRows={}"

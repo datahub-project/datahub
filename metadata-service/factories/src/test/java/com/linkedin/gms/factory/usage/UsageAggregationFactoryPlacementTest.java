@@ -30,6 +30,15 @@ public class UsageAggregationFactoryPlacementTest {
   }
 
   @Test
+  public void reportedUsageLivesUnderOssReportPackage() throws Exception {
+    Class<?> reportedUsage = Class.forName("com.linkedin.metadata.usage.report.ReportedUsage");
+    assertEquals(
+        reportedUsage.getPackageName(),
+        "com.linkedin.metadata.usage.report",
+        "Reported usage must live under OSS com.linkedin.metadata.usage.report");
+  }
+
+  @Test
   public void billingExtensionFactoryLivesUnderBillingPackage() throws Exception {
     if (!Files.exists(BILLING_FACTORY)) {
       return; // SaaS billing overlay not present in OSS.

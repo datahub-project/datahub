@@ -118,7 +118,7 @@ class TestGetViewDefinitions:
         assert isinstance(result, FileBackedDict)
         assert result == {"space.view_a": "SELECT 1", "space.view_b": "SELECT 2"}
         query_arg = api.execute_query_iter.call_args[1]["query"]
-        assert "LIMIT 1000 OFFSET 0" in query_arg
+        assert "LIMIT 10000 OFFSET 0" in query_arg
         result.close()
 
     def test_paginates_across_chunks(self, monkeypatch):

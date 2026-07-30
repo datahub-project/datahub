@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -39,12 +40,14 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -133,6 +136,18 @@ public class ParentNodesResolverTest {
     assertEquals(result.getCount(), 2);
     assertEquals(result.getNodes().get(0).getUrn(), PARENT_NODE_1.toString());
     assertEquals(result.getNodes().get(1).getUrn(), PARENT_NODE_2.toString());
+  }
+
+  @Test
+  public void testThrowsWhenParentNodeNotFound() throws Exception {
+    Urn termUrn = Urn.createFromString("urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451");
+
+    // The walk yields parent urns, but the batch hydration returns none of them.
+    EntityClient mockClient = mock(EntityClient.class);
+    when(mockClient.batchGetV2(any(), any(), any(), any())).thenReturn(Collections.emptyMap());
+
+    ParentNodesResolver resolver = new ParentNodesResolver(mockClient);
+    assertThrows(ExecutionException.class, () -> resolver.get(mockEnv(termUrn, true)).get());
   }
 
   private static DataFetchingEnvironment mockEnv(Urn sourceUrn, boolean term) {
@@ -234,21 +249,23 @@ public class ParentNodesResolverTest {
         GLOSSARY_NODE_INFO_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(parent2Info.data())));
 
-    when(mockClient.getV2(
-            any(), Mockito.eq(parentNode1.getEntityType()), Mockito.eq(parentNode1), any()))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode1)
-                .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    batchResponse.put(
+        parentNode1,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode1)
+            .setAspects(new EnvelopedAspectMap(parentNode1Aspects)));
+    batchResponse.put(
+        parentNode2,
+        new EntityResponse()
+            .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
+            .setUrn(parentNode2)
+            .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
 
-    when(mockClient.getV2(
-            any(), Mockito.eq(parentNode2.getEntityType()), Mockito.eq(parentNode2), any()))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(GLOSSARY_NODE_ENTITY_NAME)
-                .setUrn(parentNode2)
-                .setAspects(new EnvelopedAspectMap(parentNode2Aspects)));
+    when(mockClient.batchGetV2(
+            any(), Mockito.eq(parentNode1.getEntityType()), any(), Mockito.eq(null)))
+        .thenReturn(batchResponse);
 
     return mockClient;
   }

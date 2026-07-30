@@ -405,7 +405,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         return test_report
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason[:100])
+        self.report.failure(
+            message=reason[:100],
+            context=key,
+        )
         log.error(f"{key} => {reason}\n{traceback.format_exc()}")
 
     def get_inspectors(self) -> Iterable[Inspector]:
@@ -739,7 +742,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         continue
 
                     self.report.report_entity_scanned(dataset_name, ent_type="table")
+                    logger.debug(f"Scanning table: {dataset_name}")
                     if not sql_config.table_pattern.allowed(dataset_name):
+                        logger.debug(f"Dropped table by table_pattern: {dataset_name}")
                         self.report.report_dropped(dataset_name)
                         continue
 
@@ -928,9 +933,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 f"Failed to classify table columns for {dataset_name} due to error -> {e}",
                 exc_info=e,
             )
-            self.report.report_warning(
-                "Failed to classify table columns",
-                dataset_name,
+            self.report.warning(
+                message="Failed to classify table columns",
+                context=dataset_name,
+                log=False,
             )
 
     def get_database_properties(
@@ -1142,8 +1148,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     schema=schema, entity=view, inspector=inspector
                 )
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
+                logger.debug(f"Scanning view: {dataset_name}")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
+                    logger.debug(f"Dropped view by view_pattern: {dataset_name}")
                     self.report.report_dropped(dataset_name)
                     continue
 
@@ -1229,6 +1237,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{dataset_name}",
             )
             schema_metadata = None
+            # The view is still emitted as a real dataset below. Record it as
+            # discovered even without a schema so query-history consumers (e.g.
+            # usage temp-table detection) don't treat it as a phantom/temp table.
+            if self._save_schema_to_resolver():
+                self.discovered_datasets.add(dataset_name)
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
             schema_metadata = get_schema_metadata(

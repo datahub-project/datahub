@@ -1,33 +1,22 @@
 import React, { useCallback, useState } from 'react';
 import { Route, Switch, matchPath, useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
 
 import ContextDocumentsPage from '@app/context/ContextDocumentsPage';
 import { ContextLayoutProvider } from '@app/context/ContextLayoutContext';
-import ContextSidebar, { SIDEBAR_COLLAPSED_WIDTH } from '@app/context/ContextSidebar';
+import ContextSidebar from '@app/context/ContextSidebar';
 import { DocumentFiltersProvider } from '@app/document/DocumentFiltersContext';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
+import {
+    HierarchicalBrowseContentWrapper,
+    HierarchicalBrowseMainContent,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseLayout.components';
+import { SIDEBAR_COLLAPSED_WIDTH } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
-
-const ContentWrapper = styled.div<{ $isShowNavBarRedesign: boolean; $isEntityProfile: boolean }>`
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    gap: ${(props) => (props.$isShowNavBarRedesign ? '12px' : '0')};
-    ${(props) => !props.$isEntityProfile && props.$isShowNavBarRedesign && 'padding: 5px;'}
-`;
-
-const MainContent = styled.div`
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-`;
 
 /**
  * ContextRoutes - Routes for the Context Documents section
@@ -78,7 +67,7 @@ export default function ContextRoutes() {
             setSidebarHidden={setSidebarHidden}
         >
             <DocumentFiltersProvider>
-                <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
+                <HierarchicalBrowseContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {!isSidebarHidden && (
                         <ContextSidebar
                             isEntityProfile={isEntityProfile}
@@ -87,7 +76,7 @@ export default function ContextRoutes() {
                             onExpandSidebar={expandSidebar}
                         />
                     )}
-                    <MainContent>
+                    <HierarchicalBrowseMainContent>
                         <Switch>
                             <Route
                                 path={documentPath}
@@ -95,8 +84,8 @@ export default function ContextRoutes() {
                             />
                             <Route path={PageRoutes.CONTEXT_DOCUMENTS} render={() => <ContextDocumentsPage />} />
                         </Switch>
-                    </MainContent>
-                </ContentWrapper>
+                    </HierarchicalBrowseMainContent>
+                </HierarchicalBrowseContentWrapper>
             </DocumentFiltersProvider>
         </ContextLayoutProvider>
     );

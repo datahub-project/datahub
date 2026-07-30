@@ -72,6 +72,25 @@ public class BuildIndices implements BlockingSystemUpgrade {
                 .getBuildIndices()
                 .isIncrementalReindexEnabled();
 
+    // Mapping reconciliation is driven exclusively by BuildIndicesIncrementalStep, which is only
+    // constructed on the incremental path. Asking for it without incremental reindexing enabled
+    // is a no-op, and silently so — the operator would see a clean upgrade and conclude the
+    // historical documents had been rebuilt.
+    if (!_incrementalReindexEnabled
+        && configurationProvider.getElasticSearch().getBuildIndices() != null
+        && configurationProvider
+            .getElasticSearch()
+            .getBuildIndices()
+            .isReconcileInPlaceMappingUpdates()) {
+      log.warn(
+          "ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES=true has no effect"
+              + " because incremental reindexing is disabled"
+              + " (ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED / ZDU_STAGE_20 = false)."
+              + " In-place mapping parameter updates will still be applied to the live index, but"
+              + " existing documents will NOT be rebuilt under the new mapping. Enable incremental"
+              + " reindexing on the same run, or reconcile the affected indices separately.");
+    }
+
     _steps =
         buildSteps(
             _indexedServices,
@@ -131,7 +150,12 @@ public class BuildIndices implements BlockingSystemUpgrade {
       // aliases
       steps.add(
           new BuildIndicesIncrementalStep(
-              opContext, indexedServices, _structuredProperties, entityService, upgradeVersion));
+              opContext,
+              indexedServices,
+              _structuredProperties,
+              entityService,
+              upgradeVersion,
+              configurationProvider.getElasticSearch().getBuildIndices()));
     } else {
       // Legacy path: block writes, reindex in-place, swap aliases, unblock writes
       steps.add(

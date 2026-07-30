@@ -254,4 +254,34 @@ public class DatasetMapperTest {
 
     Assert.assertNull(actual.getLogicalParent());
   }
+
+  @Test
+  public void testDatasetMapperWithSemanticModelProperties() {
+    final Urn semanticModelUrn =
+        Urn.createFromTuple(Constants.SEMANTIC_MODEL_ENTITY_NAME, "dbt", "analytics.orders", "m");
+    final com.linkedin.dataset.SemanticModelProperties input =
+        new com.linkedin.dataset.SemanticModelProperties()
+            .setAlias("orders_ds")
+            .setSemanticModel(semanticModelUrn);
+
+    final Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(input.data())));
+
+    final EntityResponse response =
+        new EntityResponse()
+            .setEntityName(Constants.DATASET_ENTITY_NAME)
+            .setUrn(TEST_DATASET_URN)
+            .setAspects(new EnvelopedAspectMap(aspects));
+
+    final Dataset actual = DatasetMapper.map(null, response);
+
+    Assert.assertNotNull(actual.getSemanticModelProperties());
+    Assert.assertEquals(actual.getSemanticModelProperties().getAlias(), "orders_ds");
+    Assert.assertNotNull(actual.getSemanticModelProperties().getSemanticModel());
+    Assert.assertEquals(
+        actual.getSemanticModelProperties().getSemanticModel().getUrn(),
+        semanticModelUrn.toString());
+  }
 }

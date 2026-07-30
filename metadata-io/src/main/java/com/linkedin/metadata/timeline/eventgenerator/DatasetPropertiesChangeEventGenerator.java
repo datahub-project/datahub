@@ -71,7 +71,9 @@ public class DatasetPropertiesChangeEventGenerator
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
-              .parameters(ImmutableMap.of("description", targetDescription))
+              .parameters(
+                  ImmutableMap.of(
+                      "description", targetDescription, "previousDescription", baseDescription))
               .auditStamp(auditStamp)
               .build());
     }

@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.consistency.SystemMetadataFilter;
 import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
+import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.ConsistencyCheckMode;
@@ -479,6 +480,26 @@ public class FixEntityConsistencyStep implements UpgradeStep {
     int failed = 0;
     String scrollId = null;
 
+    // Narrow the effective check IDs to those applicable to this entity type (entity-specific plus
+    // wildcard checks). checkBatch requires all checkIds to resolve to the same entity type, so the
+    // cross-type default list must be filtered before dispatching per type. An empty list is left
+    // as-is so checkBatch falls back to running the default checks for the entity type.
+    List<String> typeCheckIds = effectiveCheckIds;
+    if (!effectiveCheckIds.isEmpty()) {
+      typeCheckIds =
+          consistencyService
+              .getCheckRegistry()
+              .getByEntityTypeAndIds(entityType, effectiveCheckIds)
+              .stream()
+              .map(ConsistencyCheck::getId)
+              .collect(Collectors.toList());
+
+      if (typeCheckIds.isEmpty()) {
+        log.info("No applicable checks for entity type {}, skipping", entityType);
+        return new int[] {scanned, issues, fixed, failed};
+      }
+    }
+
     // Check for previous IN_PROGRESS state for this entity type to resume
     // (limited runs don't support resume - always start fresh)
     if (!isLimitedRun()) {
@@ -521,7 +542,7 @@ public class FixEntityConsistencyStep implements UpgradeStep {
               opContext,
               CheckBatchRequest.builder()
                   .entityType(entityType)
-                  .checkIds(effectiveCheckIds)
+                  .checkIds(typeCheckIds)
                   .batchSize(config.getBatchSize())
                   .scrollId(scrollId)
                   .filter(serviceFilter)

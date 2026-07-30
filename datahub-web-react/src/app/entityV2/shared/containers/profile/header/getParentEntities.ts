@@ -9,6 +9,19 @@ type GetContextPathInput = Pick<
     parentDocuments?: ParentDocumentsResult;
 };
 
+const MAX_PARENT_DEPTH = 10;
+
+/** Walk a nested `parent` chain (direct parent first). */
+function collectNestedParents(parent: GenericEntityProperties | null | undefined): Entity[] {
+    const parents: Entity[] = [];
+    let current: GenericEntityProperties | null | undefined = parent;
+    while (current?.urn && parents.length < MAX_PARENT_DEPTH) {
+        parents.push(current as Entity);
+        current = current.parent ?? undefined;
+    }
+    return parents;
+}
+
 export function getParentEntities(entityData: GetContextPathInput | null, entityType?: EntityType): Entity[] {
     if (!entityData) return [];
 
@@ -37,7 +50,7 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
                 [];
             if (containerPath.length) return containerPath;
 
-            if (entityData.parent) return [entityData.parent as Entity];
+            if (entityData.parent) return collectNestedParents(entityData.parent);
 
             return [];
         }

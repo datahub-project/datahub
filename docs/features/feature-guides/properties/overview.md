@@ -51,6 +51,16 @@ Structured Properties are especially useful for organizations that require:
 
 By leveraging these configurations, teams can ensure their metadata adheres to organizational policies and improves the discoverability and usability of Data Assets.
 
+## Limitations
+
+### Value size for Text and Rich Text properties
+
+String-backed structured property values (**Text**, **Rich Text**, **Date**, and **DataHub Entity / URN**) are indexed as Elasticsearch / OpenSearch keywords. Each individual value may be at most **32,766 UTF-8 bytes** by default (Lucene's keyword term limit).
+
+Configure the limit with `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength` (default `32766`). DataHub rejects writes that exceed the configured limit with a validation error, so oversized values never reach the search index. Prefer shorter values for properties that need to be searchable or filterable; store large free-form content (long Markdown, HTML, or documents) elsewhere — for example as Asset documentation — rather than as a structured property value.
+
+Number properties are not subject to this keyword limit.
+
 ## Next Steps
 
 Now that you understand Structured Properties, you’re ready to [Create a Structured Property](create-a-property.md).

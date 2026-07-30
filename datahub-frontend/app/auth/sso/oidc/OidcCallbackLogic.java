@@ -151,6 +151,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) ssoManager.getSsoProvider().configs();
+    // JIT provision/status writes intentionally use systemOperationContext (system actor +
+    // Authorizer.SYSTEM parity). Session actor would mis-attribute audit before login completes.
     return handleOidcCallback(systemOperationContext, ctx, oidcConfigs, result);
   }
 

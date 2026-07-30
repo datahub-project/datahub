@@ -282,10 +282,7 @@ class MicroStrategyLineageExtractor:
                     continue
                 # Temp tables have already been collapsed, so every remaining
                 # upstream is a real warehouse column.
-                upstream_urns = [
-                    builder.make_schema_field_urn(upstream.table, upstream.column)
-                    for upstream in column_lineage.upstreams
-                ]
+                upstream_urns = column_lineage.upstream_schema_field_urns()
                 if upstream_urns:
                     field_upstreams.setdefault(field_path, []).extend(upstream_urns)
 

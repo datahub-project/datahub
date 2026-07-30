@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.aspect.utils.AssertionUtils.getEntityFromAssertionInfo;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -199,7 +200,7 @@ public class OwnerUtils {
     if (info == null) {
       return false;
     }
-    final Urn asserteeUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
+    final Urn asserteeUrn = getEntityFromAssertionInfo(info);
     return isAuthorizedToUpdateOwners(context, asserteeUrn)
         || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
   }

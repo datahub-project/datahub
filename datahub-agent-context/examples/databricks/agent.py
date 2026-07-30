@@ -23,16 +23,16 @@ Environment variables:
 import json
 import os
 
-import mlflow
-from databricks.sdk import WorkspaceClient
-from databricks_mcp import DatabricksMCPClient
-from mlflow.entities import SpanType
-from mlflow.pyfunc import ResponsesAgent
-from mlflow.types.responses import (
+import mlflow  # type: ignore[import-not-found]
+from databricks.sdk import WorkspaceClient  # type: ignore[import-not-found]
+from databricks_mcp import DatabricksMCPClient  # type: ignore[import-not-found]
+from mlflow.entities import SpanType  # type: ignore[import-not-found]
+from mlflow.pyfunc import ResponsesAgent  # type: ignore[import-not-found]
+from mlflow.types.responses import (  # type: ignore[import-not-found]
     ResponsesAgentRequest,
     ResponsesAgentResponse,
 )
-from openai import OpenAI
+from openai import OpenAI  # type: ignore[import-not-found]
 
 SYSTEM_PROMPT = """\
 You are a data analyst assistant with access to two tool sources:
@@ -66,9 +66,7 @@ def _collect_mcp_tools(workspace_client: WorkspaceClient):
     all_tools = []
     clients = {}
     for url in server_urls:
-        client = DatabricksMCPClient(
-            server_url=url, workspace_client=workspace_client
-        )
+        client = DatabricksMCPClient(server_url=url, workspace_client=workspace_client)
         for tool in client.list_tools():
             all_tools.append(tool)
             clients[tool.name] = client
@@ -116,9 +114,7 @@ class DataHubGeniAgent(ResponsesAgent):
                 for tc in choice.message.tool_calls:
                     mcp_client = self.clients[tc.function.name]
                     args = json.loads(tc.function.arguments)
-                    result = mcp_client.call_tool(
-                        tc.function.name, args
-                    )
+                    result = mcp_client.call_tool(tc.function.name, args)
                     messages.append(
                         {
                             "role": "tool",

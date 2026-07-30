@@ -81,6 +81,30 @@ When you target a policy by domain, the policy applies recursively to any asset 
 
 **Example**: A policy targeting the "Marketing" domain will apply to all datasets, dashboards, and other assets assigned to that domain, as well as assets in child domains like "Marketing Analytics" or "Marketing Campaigns".
 
+##### Creating Assets with Domain-Scoped Access
+
+A new asset does not have persisted domain metadata when DataHub performs its initial authorization
+check. As a result, a domain-scoped policy cannot grant the **Create Entity** privilege for that
+asset. This commonly affects ingestion users that need to create datasets and then manage only the
+datasets assigned to their domain.
+
+Configure two metadata policies for this use case:
+
+1. **Creation policy**: Target all assets of the required type, such as all datasets, and grant
+   **Create Entity** to the ingestion user or group.
+2. **Domain policy**: Target the asset type and domain, then grant the privileges that the actor
+   needs after creation, such as **View Entity Page**, **Edit Domain**, or other aspect privileges.
+
+Create the asset and its domain aspect in the same creation batch using the `CREATE_ENTITY` change
+type. The creation policy authorizes the initial write. After the domain aspect is persisted, the
+domain policy applies to subsequent requests.
+
+:::caution
+The creation policy authorizes all aspects included in the initial entity creation, not only the
+domain aspect. Limit this policy to the necessary actors and entity types, and grant ongoing edit
+privileges through the domain-scoped policy.
+:::
+
 :::caution View-based access control performance
 When [view-based access control](#designing-policies-for-view-based-access-control) is enabled, domain filters can be expensive: DataHub walks the domain hierarchy for each authorization check. Prefer [ownership-based policies](#ownership-based-access) for entity access, and use domain filters mainly for domain-entity visibility or Cloud discovery boundaries. Keep domain hierarchies shallow.
 :::
@@ -189,20 +213,30 @@ This section covers how to design access policies when **view-based access contr
 | **DataHub Cloud**     | [Search Access Controls](../features/feature-guides/search-access-controls.md) enabled | **`View Entity`** privilege; search results filtered at query time                                                                  |
 | **Self-hosted (OSS)** | `VIEW_AUTHORIZATION_ENABLED=true` on GMS                                               | **`View Entity Page`** privilege; entity page gating and optional post-search result masking — **not** Elasticsearch query pushdown |
 
+When VBAC is enabled (Cloud Search Access Controls **or** OSS `VIEW_AUTHORIZATION_ENABLED`), entity types are
+**restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
+`VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_ADD` covers the previous
+unrestricted set minus registry-flagged types; trim with `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` (for example
+`schemaField,document`) when you want those types under view policy. **Search Access Controls** (query-time search
+filtering) remain **DataHub Cloud–only**; on OSS the unrestricted list only affects entity-page / masking behavior.
+Cloud operators: see also
+[Entity types that bypass view checks](../features/feature-guides/search-access-controls.md#entity-types-that-bypass-view-checks).
+
 ### Performance considerations
 
 Policy evaluation is **grant-only** and **first-match-wins**: DataHub checks policies in order until one grants access. Under VBAC, view and discovery privileges trigger authorization on search results, entity pages, and browse — often **once per entity**.
 
 Keep these factors in mind when designing policies:
 
-| Factor                         | Impact                                                                                                                                 | Recommendation                                                                                                                |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access | Consolidate policies; avoid duplicating the same privilege across many policies                                               |
-| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only |
-| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                       | Avoid container-based view policies on deep hierarchies                                                                       |
-| **Group membership**           | Users in many groups increase matching and role-resolution cost                                                                        | One group per team policy boundary; avoid listing many groups on a single policy                                              |
-| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                              |
-| **Policy cache**               | Policy changes may take up to ~120 seconds to propagate (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`)                                      | Plan for brief delay after policy updates                                                                                     |
+| Factor                         | Impact                                                                                                                                 | Recommendation                                                                                                                                        |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access | Consolidate policies; avoid duplicating the same privilege across many policies                                                                       |
+| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only                         |
+| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                       | Avoid container-based view policies on deep hierarchies                                                                                               |
+| **Group membership**           | Users in many groups increase matching and role-resolution cost and can impact performance                                             | Limit each user to no more than **200 groups** for best performance; one group per team policy boundary; avoid listing many groups on a single policy |
+| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                                                      |
+| **Policy cache**               | Policy changes may take up to ~120 seconds to propagate (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`)                                      | Plan for brief delay after policy updates                                                                                                             |
 
 ### Groups
 
@@ -210,7 +244,7 @@ Groups are the preferred way to assign policies to teams. When VBAC is enabled:
 
 - **Sync from your IdP** when possible ([Okta](../generated/ingestion/sources/okta.md), [Azure AD](../generated/ingestion/sources/azure-ad.md)) so group membership stays current without manual updates.
 - **Assign one group per policy boundary** — e.g. a "Team A Developers" group on a single owner-based policy, rather than listing many groups on one policy.
-- **Limit overlapping group membership** — users in many groups increase authorization cost, especially when policies match on roles derived from group membership.
+- **Limit overlapping group membership** — users in many groups increase matching and role-resolution cost and can impact performance. DataHub recommends limiting each user to no more than **200 groups** for best performance.
 - **Prefer group-level policies over per-user policies** — easier to maintain and fewer actor entries to evaluate.
 
 For SCIM-based group provisioning, see [Okta identity provisioning](../managed-datahub/configuring-identity-provisioning-with-okta.md) and [Microsoft Entra identity provisioning](../managed-datahub/configuring-identity-provisioning-with-ms-entra.md).
@@ -282,7 +316,7 @@ If search or entity pages feel slow after enabling VBAC:
 1. **Count active policies** — reduce overlapping or redundant policies.
 2. **Review domain-scoped view policies** — replace dataset boundaries with ownership-based policies where possible.
 3. **Check domain depth** — flatten nested domains used in policy filters.
-4. **Review group membership** — reduce users in many overlapping groups.
+4. **Review group membership** — reduce users in many overlapping groups; aim for no more than **200 groups** per user.
 5. **Check role assignments** — Editor/Reader on restricted users won't cause slowness but indicates misconfiguration if isolation is expected.
 6. **Wait for cache refresh** — policy changes may take up to `POLICY_CACHE_REFRESH_INTERVAL_SECONDS` (default 120) to apply.
 
