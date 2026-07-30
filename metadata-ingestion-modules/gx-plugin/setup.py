@@ -59,12 +59,17 @@ mypy_stubs = {
     "types-pytz",
 }
 
+# Keep the 0.x action/test suite on GX <1 in local/CI installs.
+# Package install_requires still allows GX 1.x for action_v1 users.
+# Shared with the set subtraction in gx1_dev_requirements below, which is an
+# exact-string match — an inline duplicate that drifted by a character would
+# silently no-op and leave the two GX pins mutually unsatisfiable.
+_gx_0x_dev_pin = "great-expectations>=0.17.15, <1.0.0"
+
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    # Keep the 0.x action/test suite on GX <1 in local/CI installs.
-    # Package install_requires still allows GX 1.x for action_v1 users.
-    "great-expectations>=0.17.15, <1.0.0",
+    _gx_0x_dev_pin,
     "coverage>=5.1",
     "ruff==0.15.22",
     "mypy==1.17.1",
@@ -89,7 +94,7 @@ dev_requirements = {
 # GX Core 1.x test environment for action_v1. Installed into a separate venv
 # because the 0.x pin above and GX 1.x cannot coexist in one resolution.
 gx1_dev_requirements = {
-    *(base_dev_requirements - {"great-expectations>=0.17.15, <1.0.0"}),
+    *(base_dev_requirements - {_gx_0x_dev_pin}),
     "great-expectations>=1.0.0, <2.0.0",
     # tests/conftest.py imports datahub.testing.docker_utils unconditionally.
     "pytest-docker>=1.1.0",

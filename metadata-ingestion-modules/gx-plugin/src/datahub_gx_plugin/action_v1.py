@@ -1,6 +1,10 @@
 import logging
 import sys
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
+# Load-bearing for its import side effect: it raises the "use action" ImportError
+# under GX 0.x before the great_expectations imports below reach 1.x-only modules.
+# The assert below keeps the name referenced so ruff won't flag it as unused.
 from datahub_gx_plugin._compat_gx_1x import GX_1X_REQUIRED
 from typing import Any, Dict, List, Literal, Optional, Union
 

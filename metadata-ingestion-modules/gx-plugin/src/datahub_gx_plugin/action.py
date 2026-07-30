@@ -1,6 +1,11 @@
 import logging
 import sys
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+
+# Load-bearing for its import side effect, not just for has_name_positional_arg:
+# it raises the "use action_v1" ImportError under GX 1.x before the
+# great_expectations imports below reach the data_asset package that 1.x removed.
+# Keep this import even if has_name_positional_arg ever becomes unused.
 from datahub_gx_plugin._compat_gx_0x import has_name_positional_arg
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
