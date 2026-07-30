@@ -1966,14 +1966,16 @@ class OdbcLineage(AbstractLineage):
             qualified_table_name = f"{database_name}.{table_name}"
 
         if not qualified_table_name:
+            # Surface the resolved partial levels and the DSN so operators know
+            # exactly which tier is missing and which dsn_to_database_schema entry
+            # to configure. reporter.warning already logs, so no extra logger call.
             self.reporter.warning(
                 title="Can not determine qualified table name",
                 message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
-                context=f"table-name={self.table.full_name}, data-platform={data_platform}",
-            )
-            logger.warning(
-                f"Can not determine qualified table name for ODBC data source {data_platform} "
-                f"table {self.table.full_name}."
+                context=(
+                    f"table-name={self.table.full_name}, data-platform={data_platform}, "
+                    f"dsn={dsn}, database={database_name}, schema={schema_name}, table={table_name}"
+                ),
             )
             return Lineage.empty()
 
