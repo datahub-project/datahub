@@ -13740,6 +13740,16 @@ type Application implements Entity {
   ownership: Ownership
 
   """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean
+
+  """
+  Soft deletion status.
+  """
+  status: Status
+
+  """
   References to internal resources related to the Application
   """
   institutionalMemory: InstitutionalMemory

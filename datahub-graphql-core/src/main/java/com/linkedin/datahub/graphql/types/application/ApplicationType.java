@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +54,8 @@ public class ApplicationType
           DOMAINS_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          STATUS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
