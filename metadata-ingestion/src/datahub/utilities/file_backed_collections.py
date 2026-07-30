@@ -406,7 +406,16 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self._add_to_cache(key, deserialized_result, False)
         return deserialized_result
 
+    def _ensure_writable(self) -> None:
+        # A read-only connection never flushes, so a cached dirty write would be
+        # silently dropped at close. Fail loudly instead of losing data.
+        if self._conn.read_only:
+            raise RuntimeError(
+                f"Cannot mutate read-only FileBackedDict (table {self.tablename})"
+            )
+
     def __setitem__(self, key: str, value: _VT) -> None:
+        self._ensure_writable()
         self._add_to_cache(key, value, True)
 
     def for_mutation(
@@ -438,6 +447,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         return self.for_mutation(key, default=default)
 
     def __delitem__(self, key: str) -> None:
+        self._ensure_writable()
         in_cache = False
         if key in self._active_object_cache:
             del self._active_object_cache[key]
@@ -450,6 +460,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             raise KeyError(key)
 
     def mark_dirty(self, key: str) -> None:
+        self._ensure_writable()
         if key not in self._active_object_cache:
             raise ValueError(
                 f"key {key} not in active object cache, which means any dirty value "

@@ -8,6 +8,8 @@ normalizing ordering.
 """
 
 import concurrent.futures.process
+import dataclasses
+import itertools
 import json
 from datetime import datetime, timezone
 from typing import List, Optional, Union
@@ -785,6 +787,8 @@ def _query_meta(
     session: str = "s0",
     ts: Optional[datetime],
     actor: Optional[Union[CorpUserUrn, CorpGroupUrn]],
+    used_temp_tables: bool = False,
+    upstreams: Optional[List[str]] = None,
 ) -> QueryMetadata:
     return QueryMetadata(
         query_id=fingerprint,
@@ -794,11 +798,93 @@ def _query_meta(
         lineage_type=models.DatasetLineageTypeClass.TRANSFORMED,
         latest_timestamp=ts,
         actor=actor,
-        upstreams=[],
+        upstreams=upstreams if upstreams is not None else [],
         column_lineage=[],
         column_usage={},
         confidence_score=1.0,
+        used_temp_tables=used_temp_tables,
     )
+
+
+def _reduce_query_map(metas: List[QueryMetadata]) -> QueryMetadata:
+    """Feed ``metas`` (all sharing one fingerprint) through a fresh aggregator's
+    ``_add_to_query_map`` in the given order and return the stored record."""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.DISABLED,
+    )
+    for meta in metas:
+        aggregator._add_to_query_map(dataclasses.replace(meta))
+    return aggregator._query_map[metas[0].query_id]
+
+
+def test_add_to_query_map_actor_selection_is_order_and_grouping_independent() -> None:
+    """BLOCKER regression: actor selection must be associative.
+
+    Records share a fingerprint. The timestamp winner (A) has actor=None while
+    two earlier records carry distinct actors. Serial semantics attribute the
+    query to the actor of the latest-timestamp record that HAS an actor (B).
+    A previous coalescing rule (``winner.actor or loser.actor``) fed the
+    synthesized actor back into the winner ranking, so three-way grouping could
+    yield B's actor in one order and C's in another. Every permutation must now
+    resolve to the same actor.
+    """
+    fp = "assoc-actor"
+    actor_b = CorpUserUrn("user_b")
+    actor_c = CorpUserUrn("user_c")
+    ts_a = datetime(2024, 1, 3, tzinfo=timezone.utc)  # latest, no actor
+    ts_b = datetime(2024, 1, 2, tzinfo=timezone.utc)  # middle, actor_b
+    ts_c = datetime(2024, 1, 1, tzinfo=timezone.utc)  # earliest, actor_c
+    a = _query_meta(fingerprint=fp, ts=ts_a, actor=None)
+    b = _query_meta(fingerprint=fp, ts=ts_b, actor=actor_b)
+    c = _query_meta(fingerprint=fp, ts=ts_c, actor=actor_c)
+
+    def _order_key(perm: tuple) -> tuple:
+        return tuple(m.latest_timestamp.day if m.latest_timestamp else 0 for m in perm)
+
+    results = {
+        _order_key(perm): _reduce_query_map(list(perm)).actor
+        for perm in itertools.permutations([a, b, c])
+    }
+    assert set(results.values()) == {actor_b}, (
+        f"actor selection depends on merge order: {results}"
+    )
+
+
+def test_add_to_query_map_temp_lineage_authority_is_commutative() -> None:
+    """BLOCKER regression: temp-table lineage authority must be symmetric.
+
+    When one record used temp tables and the other did not, the temp-derived
+    lineage is authoritative regardless of arrival order (the old one-directional
+    early-return only preserved it when the EXISTING record was the temp one)."""
+    fp = "commute-temp"
+    temp_up = ["urn:li:dataset:(urn:li:dataPlatform:redshift,temp_up,PROD)"]
+    plain_up = ["urn:li:dataset:(urn:li:dataPlatform:redshift,plain_up,PROD)"]
+    older = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    newer = datetime(2024, 1, 2, tzinfo=timezone.utc)
+
+    # Older temp record vs newer non-temp record: temp lineage wins both orders.
+    temp_older = _query_meta(
+        fingerprint=fp, ts=older, actor=None, used_temp_tables=True, upstreams=temp_up
+    )
+    plain_newer = _query_meta(
+        fingerprint=fp, ts=newer, actor=None, used_temp_tables=False, upstreams=plain_up
+    )
+    assert _reduce_query_map([temp_older, plain_newer]).upstreams == temp_up
+    assert _reduce_query_map([plain_newer, temp_older]).upstreams == temp_up
+
+    # Newer temp record vs older non-temp record: temp lineage still wins.
+    temp_newer = _query_meta(
+        fingerprint=fp, ts=newer, actor=None, used_temp_tables=True, upstreams=temp_up
+    )
+    plain_older = _query_meta(
+        fingerprint=fp, ts=older, actor=None, used_temp_tables=False, upstreams=plain_up
+    )
+    assert _reduce_query_map([temp_newer, plain_older]).upstreams == temp_up
+    assert _reduce_query_map([plain_older, temp_newer]).upstreams == temp_up
 
 
 def test_add_to_query_map_does_not_drop_known_actor_for_none() -> None:
@@ -1015,7 +1101,6 @@ def test_worker_infra_failure_falls_back_to_serial_no_loss(
         # stay broken thereafter (sticky), exactly like a real pool death.
         self.pool_broke.set()
         return ParseOutcome(
-            key=getattr(task, "key", None),
             result=None,
             error=repr(
                 concurrent.futures.process.BrokenProcessPool("simulated worker death")
@@ -1056,7 +1141,6 @@ def test_pool_init_failure_falls_back_to_serial_no_loss(
         # returns an error outcome rather than propagating.
         self.pool_broke.set()
         return ParseOutcome(
-            key=getattr(task, "key", None),
             result=None,
             error=repr(
                 concurrent.futures.process.BrokenProcessPool("worker init failed")

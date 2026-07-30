@@ -111,6 +111,9 @@ class QueryLogSetting(enum.Enum):
 
 _DEFAULT_USER_URN = CorpUserUrn("_ingestion")
 _MISSING_SESSION_ID = "__MISSING_SESSION_ID"
+# Sort value for a record with no timestamp: below every real epoch-millis so a
+# timestamped record always outranks an undated one in the merge reduction.
+_MIN_MERGE_TS = -(2**63)
 _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
     get_sql_agg_query_log() or QueryLogSetting.DISABLED.name
 ]
@@ -628,6 +631,16 @@ class SqlParsingAggregator(Closeable):
         )
         self._exit_stack.push(self._query_map)
 
+        # Tracks the merge-rank of the record that supplied the stored actor for a
+        # fingerprint, but ONLY for the rare case where that actor came from a record
+        # OTHER than the representative (timestamp) winner (i.e. the winner had
+        # actor=None and an earlier duplicate carried a known actor). In the common
+        # case the actor is the representative's own, recomputable from the stored
+        # record, so nothing is kept here. This lets actor selection stay associative
+        # (see _add_to_query_map) without keeping per-fingerprint state for every
+        # query. In-memory only; keyed by the small set of divergent fingerprints.
+        self._actor_source_rank: Dict[QueryId, Tuple[int, str, str]] = {}
+
         # Map of downstream urn -> { query ids }
         self._lineage_map = FileBackedDict[OrderedSet[QueryId]](
             shared_connection=self._shared_connection, tablename="lineage_map"
@@ -802,16 +815,21 @@ class SqlParsingAggregator(Closeable):
     def _teardown_parallel(self) -> None:
         if self._partition_executor is not None:
             try:
-                self._partition_executor.flush()
+                # close() -> shutdown() -> flush(), so this drains all queued
+                # applies before returning; no separate flush() needed.
                 self._partition_executor.close()
             finally:
                 self._partition_executor = None
         if self._parallel_parser is not None:
             if self._parallel_parser.pool_broke.is_set():
                 self.report.sql_parsing_pool_broke = True
+                # The pool died mid-run, so every query after the break was
+                # reparsed inline on the main process — i.e. the run effectively
+                # fell back to serial. Record that alongside the pool_broke flag.
+                self.report.sql_parsing_fell_back_to_serial = True
                 logger.warning(
-                    "Parallel SQL parser worker pool died; some queries "
-                    "may have been skipped."
+                    "Parallel SQL parser worker pool died; remaining queries "
+                    "were reparsed serially on the main process."
                 )
             self._parallel_parser.close()
             self._parallel_parser = None
@@ -1149,17 +1167,8 @@ class SqlParsingAggregator(Closeable):
             user=observed.user,
             override_dialect=observed.override_dialect,
         )
-        if parsed.debug_info.error:
-            self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
-            )
-        if parsed.debug_info.table_error:
-            self.report.num_observed_queries_failed += 1
-            return  # we can't do anything with this query
-        elif parsed.debug_info.column_error:
-            self.report.num_observed_queries_column_failed += 1
-            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-                self.report.num_observed_queries_column_timeout += 1
+        if not self._record_observed_parse_quality(parsed, observed.query):
+            return  # table-level error: we can't do anything with this query
 
         self._apply_observed_parse_result(
             observed,
@@ -1169,6 +1178,30 @@ class SqlParsingAggregator(Closeable):
             is_known_temp_table,
             require_out_table_schema,
         )
+
+    def _record_observed_parse_quality(
+        self, parsed: SqlParsingResult, query: str
+    ) -> bool:
+        """Record the parse-quality counters for an observed query from a single
+        place, so the serial path, the inline-reparse recovery, and the
+        worker-success path classify failures identically. Returns True if the
+        query is applicable (the caller should proceed to apply) and False on a
+        table-level error (the caller must skip apply).
+
+        Mutates shared report state (counters + LossyList). On the parallel path
+        the caller holds ``_apply_lock``; on the serial path no lock is needed."""
+        if parsed.debug_info.error:
+            self.report.observed_query_parse_failures.append(
+                f"{parsed.debug_info.error} on query: {query[:100]}"
+            )
+        if parsed.debug_info.table_error:
+            self.report.num_observed_queries_failed += 1
+            return False
+        if parsed.debug_info.column_error:
+            self.report.num_observed_queries_column_failed += 1
+            if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
+                self.report.num_observed_queries_column_timeout += 1
+        return True
 
     def _apply_observed_parse_result(
         self,
@@ -1254,18 +1287,8 @@ class SqlParsingAggregator(Closeable):
             override_dialect=observed.override_dialect,
         )
         with self._apply_lock:
-            if parsed.debug_info.error:
-                self.report.observed_query_parse_failures.append(
-                    f"{parsed.debug_info.error} on query: {observed.query[:100]}"
-                )
-            if parsed.debug_info.table_error:
-                self.report.num_observed_queries_failed += 1
+            if not self._record_observed_parse_quality(parsed, observed.query):
                 return
-            elif parsed.debug_info.column_error:
-                self.report.num_observed_queries_column_failed += 1
-                if isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
-                    self.report.num_observed_queries_column_timeout += 1
-
             self._apply_observed_parse_result(
                 observed,
                 session_id,
@@ -1341,7 +1364,6 @@ class SqlParsingAggregator(Closeable):
             assert self._parallel_parser is not None
             outcome = self._parallel_parser.parse_one(
                 ParseTask(
-                    key=None,
                     query=observed.query,
                     default_db=observed.default_db,
                     default_schema=observed.default_schema,
@@ -1386,30 +1408,17 @@ class SqlParsingAggregator(Closeable):
                 user=observed.user,
                 parsed=parsed,
             )
+            # Parse-quality accounting + apply share one lock scope (they all
+            # mutate shared report/aggregator state from a worker thread) and go
+            # through the same helper the serial path uses, so classification and
+            # skip-on-table-error behavior are identical across paths.
             with self._apply_lock:
                 self.report.num_queries_parsed_in_parallel += 1
                 # Surface the off-main-thread parse cost that sql_parsing_timer
                 # cannot see (it only wraps inline parsing on this path).
                 self.report.parallel_sql_parsing_time_seconds += outcome.parse_seconds
-
-            # Recording parse-quality counters mutates shared report state
-            # (counters + LossyList) from a worker thread, so serialize it.
-            with self._apply_lock:
-                if parsed.debug_info.error:
-                    self.report.observed_query_parse_failures.append(
-                        f"{parsed.debug_info.error} on query: {observed.query[:100]}"
-                    )
-                if parsed.debug_info.table_error:
-                    self.report.num_observed_queries_failed += 1
+                if not self._record_observed_parse_quality(parsed, observed.query):
                     return
-                elif parsed.debug_info.column_error:
-                    self.report.num_observed_queries_column_failed += 1
-                    if isinstance(
-                        parsed.debug_info.column_error, CooperativeTimeoutError
-                    ):
-                        self.report.num_observed_queries_column_timeout += 1
-
-            with self._apply_lock:
                 self._apply_observed_parse_result(
                     observed,
                     session_id,
@@ -1420,14 +1429,17 @@ class SqlParsingAggregator(Closeable):
                     preformatted_query=preformatted_query,
                 )
         except Exception as e:
-            # Serialize the failure bookkeeping — this runs on a worker thread and
-            # mutates shared report state (counter + LossyList).
+            # Task-boundary safety net: the PartitionExecutor future is never
+            # observed, so an escaping exception would silently drop the query.
+            # This bucket therefore also catches APPLY/programming errors (not
+            # just parse failures) — log at WARNING so a systematic apply bug is
+            # visible rather than hidden behind an inflated parse-failure count.
             with self._apply_lock:
                 self.report.num_observed_queries_failed += 1
                 self.report.observed_query_parse_failures.append(
                     f"{e!r} on query: {observed.query[:100]}"
                 )
-            logger.debug("Parallel observed-query task failed", exc_info=e)
+            logger.warning("Parallel observed-query task failed", exc_info=e)
 
     def _account_parsed_query(
         self,
@@ -1899,22 +1911,28 @@ class SqlParsingAggregator(Closeable):
         return parsed
 
     @staticmethod
-    def _merge_sort_key(query: QueryMetadata) -> Tuple[str, str, str]:
-        """Stable, arrival-order-independent, TOTAL tie-break key for merging two
-        QueryMetadata records with equal (or both-None) timestamps.
+    def _rep_rank(query: QueryMetadata) -> Tuple[int, str, str]:
+        """Immutable, arrival-order-independent rank used to pick the
+        representative record when several share a fingerprint.
 
-        The key is a tuple compared lexicographically:
-        (formatted query string or query id, session id, actor). The extra
-        session/actor components make the ordering total: two cross-session
-        records with equal timestamp AND identical formatted text would produce
-        equal single-string keys, leaving actor/session selection to fall back to
-        arrival order. Extending the key guarantees a stable winner regardless of
-        which record arrived first.
+        The key is ``(normalized epoch-millis, formatted query string, session
+        id)``. Crucially it does NOT fold in the ACTOR: actor is coalesced onto the
+        stored record (a timestamp winner with actor=None keeps an earlier known
+        actor), so a rank containing actor would change after a merge and make
+        three-way grouping order-dependent — the associativity bug this rewrite
+        fixes. ``session_id`` is safe to include: in the common path the stored
+        session equals the representative's, so the stored record's rank is stable
+        across merges; it only diverges in the rare temp-authority case, where the
+        lineage is fingerprint-invariant anyway. NORMALIZED millis are used, never
+        the raw datetimes: latest_timestamp may be naive OR UTC-aware and Python
+        raises TypeError when ``>`` compares the two forms. A record with no
+        timestamp sorts below every timestamped one.
         """
+        ms = make_ts_millis(query.latest_timestamp)
         return (
-            query.formatted_query_string or query.query_id,
-            query.session_id or "",
-            str(query.actor) if query.actor is not None else "",
+            ms if ms is not None else _MIN_MERGE_TS,
+            query.formatted_query_string,
+            query.session_id,
         )
 
     def _add_to_query_map(
@@ -1922,97 +1940,115 @@ class SqlParsingAggregator(Closeable):
     ) -> None:
         query_fingerprint = new.query_id
 
-        if query_fingerprint in self._query_map:
-            current = self._query_map.for_mutation(query_fingerprint)
+        if query_fingerprint not in self._query_map:
+            self._query_map[query_fingerprint] = new
+            # Seed the divergence tracker only if this record actually has an actor
+            # sourced from itself (the common case needs no entry — see below).
+            self._actor_source_rank.pop(query_fingerprint, None)
+            return
 
-            # Compute a single deterministic winner so every representative field
-            # (formatted_query_string, query_type, actor, session_id, ...) comes
-            # from the same record regardless of merge order. This is required for
-            # serial-vs-parallel
-            # equivalence: in the parallel path sessions may be applied out of
-            # global-timestamp order, so a plain last-writer-wins overwrite would make
-            # the stored text/actor non-deterministic run-to-run.
-            #
-            # The winner is the record with the later timestamp. When timestamps are
-            # equal (or both None) we fall back to a stable, arrival-order-independent
-            # tie-break: the record whose sort key (formatted query string, then
-            # session id, then actor) compares lexicographically greater.
-            #
-            # Compare NORMALIZED epoch-millis, never the raw datetimes:
-            # latest_timestamp is documented to accept both naive and UTC-aware
-            # datetimes, and Python raises TypeError when > compares a naive with
-            # an aware datetime (this can happen even on the serial path for a
-            # duplicate fingerprint with mixed timestamp forms). make_ts_millis
-            # normalizes both to ints, exactly as the lineage sort already does.
-            new_ms = make_ts_millis(new.latest_timestamp)
-            cur_ms = make_ts_millis(current.latest_timestamp)
-            _new_ts_wins = new_ms is not None and (cur_ms is None or new_ms > cur_ms)
-            _timestamps_tied = new_ms == cur_ms  # includes the both-None case
-            new_wins = _new_ts_wins or (
-                _timestamps_tied
-                and self._merge_sort_key(new) > self._merge_sort_key(current)
-            )
-            winner, loser = (new, current) if new_wins else (current, new)
+        current = self._query_map.for_mutation(query_fingerprint)
 
-            # Representative fields all come from the winner. Actor and session_id
-            # additionally coalesce so a winner with a None value never drops a
-            # known value from the loser (this restores the original
-            # ``new.actor or current.actor`` behaviour and fixes the serial-path
-            # regression where a trailing actor-less duplicate wiped the actor).
-            current.formatted_query_string = winner.formatted_query_string
-            current.query_type = winner.query_type
-            current.actor = winner.actor or loser.actor
+        # The merge below is a deterministic reduction: the stored result must be a
+        # pure function of the SET of records sharing this fingerprint, independent
+        # of arrival order OR grouping. Serial ingestion feeds duplicates in
+        # ascending-timestamp order, but the parallel path applies sessions out of
+        # global-timestamp order, so a plain last-writer-wins overwrite would make
+        # the stored text/actor/lineage non-deterministic run-to-run. Each field
+        # below is therefore reduced by an order-independent rule.
+        new_rank = self._rep_rank(new)
+        cur_rank = self._rep_rank(current)
+        rep_is_new = new_rank > cur_rank
+        rep_rank = new_rank if rep_is_new else cur_rank
+        # Capture representative field VALUES before mutating `current` (the winner
+        # may BE `current`, aliased to the stored object we are about to write).
+        rep_formatted = (
+            new.formatted_query_string if rep_is_new else current.formatted_query_string
+        )
+        rep_query_type = new.query_type if rep_is_new else current.query_type
 
-            # Keep the timestamp of the later instant so merge order does not
-            # matter. Selection is driven by the NORMALIZED millis (mixed
-            # naive/aware datetimes are safe to order this way), but we STORE the
-            # actual winning datetime object, not the millis. In serial mode
-            # timestamps arrive in ascending order, so this is equivalent to the
-            # previous last-writer-wins behaviour; in the parallel path sessions
-            # may be applied out of global-timestamp order, making this necessary
-            # for serial-vs-parallel equivalence.
-            if new_ms is None:
-                pass  # keep current
-            elif cur_ms is None or new_ms > cur_ms:
-                current.latest_timestamp = new.latest_timestamp
-            # else: current already holds the later (or equal) instant — keep it.
+        # --- latest_timestamp: keep the maximum instant (order-independent). Store
+        # the actual winning datetime, not the normalized millis used for ranking.
+        new_ms = make_ts_millis(new.latest_timestamp)
+        cur_ms = make_ts_millis(current.latest_timestamp)
+        if new_ms is not None and (cur_ms is None or new_ms > cur_ms):
+            current.latest_timestamp = new.latest_timestamp
 
-            if current.used_temp_tables and not new.used_temp_tables:
-                # If we see the same query again, but in a different session,
-                # it's possible that we didn't capture the temp tables in the newer session,
-                # but did in the older one. If that happens, we treat the older session's
-                # lineage as more authoritative. This isn't technically correct, but it's
-                # better than using the newer session's lineage, which is likely incorrect.
-                # Preserve the older (current) session_id here: don't let the
-                # non-authoritative newer session override which lineage wins.
+        # --- actor: attribute the query to the actor of the highest-ranked record
+        # that HAS one (serial's ``new.actor or current.actor`` in ascending-ts
+        # order = "latest known actor"). Reducing actor by a rank independent of the
+        # representative selection — and remembering the source rank only when it
+        # diverges from the representative — keeps this associative. Feeding a
+        # coalesced actor back into the winner ranking is exactly the bug that made
+        # three-way grouping pick different actors run-to-run.
+        cur_actor_rank = (
+            self._actor_source_rank.get(query_fingerprint, cur_rank)
+            if current.actor is not None
+            else None
+        )
+        new_actor_rank = new_rank if new.actor is not None else None
+        actor_rank: Optional[Tuple[int, str, str]]
+        if new_actor_rank is not None and (
+            cur_actor_rank is None or new_actor_rank > cur_actor_rank
+        ):
+            current.actor = new.actor
+            actor_rank = new_actor_rank
+        else:
+            actor_rank = cur_actor_rank
+            # current.actor unchanged
+        if actor_rank is not None and actor_rank != rep_rank:
+            # Actor came from a non-representative record; remember where so the
+            # next merge ranks it correctly.
+            self._actor_source_rank[query_fingerprint] = actor_rank
+        else:
+            self._actor_source_rank.pop(query_fingerprint, None)
+
+        # --- representative text/type (identical across a fingerprint apart from
+        # literal formatting; take the timestamp winner's, matching serial).
+        current.formatted_query_string = rep_formatted
+        current.query_type = rep_query_type
+
+        # --- lineage authority: a record that used temp tables is authoritative
+        # over one that did not, regardless of arrival order (symmetric: the old
+        # one-directional early-return only preserved temp lineage when the EXISTING
+        # record was the temp one, so reversing the pair silently chose non-temp
+        # lineage). When both or neither used temp tables, the representative
+        # (timestamp) winner wins. Reasoning: for a shared fingerprint the temp
+        # session captured intermediate tables the plain one is missing.
+        if new.used_temp_tables != current.used_temp_tables:
+            lineage_is_new = new.used_temp_tables  # the temp record is authoritative
+            if lineage_is_new != rep_is_new:
+                # Temp authority overrode timestamp order — same signal the serial
+                # path reported for the older-temp-beats-newer case.
                 self.report.queries_with_non_authoritative_session.append(
                     query_fingerprint
                 )
-                return
-
-            current.session_id = winner.session_id or loser.session_id
-
-            if not merge_lineage:
-                # An invariant of the fingerprinting is that if two queries have the
-                # same fingerprint, they must also have the same lineage, so taking
-                # upstreams/column_lineage/column_usage from the winner is
-                # content-identical to the previous overwrite but keeps every
-                # representative field tied to the same deterministic winner.
-                current.upstreams = winner.upstreams
-                current.column_lineage = winner.column_lineage
-                current.column_usage = winner.column_usage
-                current.confidence_score = winner.confidence_score
-            else:
-                # In the case of known query lineage, we might get things one at a time.
-                # TODO: We don't yet support merging CLL for a single query.
-                current.upstreams = list(
-                    OrderedSet(current.upstreams) | OrderedSet(new.upstreams)
-                )
-                current.confidence_score = min(
-                    current.confidence_score, new.confidence_score
-                )
         else:
-            self._query_map[query_fingerprint] = new
+            lineage_is_new = rep_is_new
+
+        if merge_lineage:
+            # Known-query lineage may arrive piecemeal; union upstreams and take the
+            # more conservative confidence. (CLL merging is not yet supported.)
+            current.upstreams = list(
+                OrderedSet(current.upstreams) | OrderedSet(new.upstreams)
+            )
+            current.confidence_score = min(
+                current.confidence_score, new.confidence_score
+            )
+            current.session_id = (
+                new.session_id if lineage_is_new else current.session_id
+            )
+            current.used_temp_tables = (
+                new.used_temp_tables if lineage_is_new else current.used_temp_tables
+            )
+        elif lineage_is_new:
+            current.session_id = new.session_id
+            current.upstreams = new.upstreams
+            current.column_lineage = new.column_lineage
+            current.column_usage = new.column_usage
+            current.confidence_score = new.confidence_score
+            current.used_temp_tables = new.used_temp_tables
+        # else: lineage authority is `current` — leave its lineage fields in place.
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
         # A connector may have forgotten to exit the parallel scope. Defensively

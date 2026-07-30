@@ -4,7 +4,7 @@ import logging
 import pathlib
 import shutil
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Set, Tuple, Union
 
 from requests.models import HTTPError
 from typing_extensions import TypedDict
@@ -30,6 +30,14 @@ logger = logging.getLogger(__name__)
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+
+class _CacheAbsent:
+    """Sentinel returned by the two-tier cache lookup when a URN has NO entry in
+    either tier. Distinct from a cached ``None`` (a remembered miss)."""
+
+
+_CACHE_ABSENT = _CacheAbsent()
 
 
 @dataclass
@@ -221,15 +229,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             urns_to_try.append(urn_mixed)
 
         for candidate_urn in urns_to_try:
-            if self._cache_contains(candidate_urn):
-                schema_info = self._cache_get(candidate_urn)
-                if schema_info is not None:
-                    self._track_cache_hit()
-                    return candidate_urn, schema_info
+            cached = self._cache_peek(candidate_urn)
+            if not isinstance(cached, _CacheAbsent) and cached is not None:
+                self._track_cache_hit()
+                return candidate_urn, cached
 
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
-            urns_to_fetch = [u for u in urns_to_try if not self._cache_contains(u)]
+            urns_to_fetch = [
+                u for u in urns_to_try if isinstance(self._cache_peek(u), _CacheAbsent)
+            ]
 
             if urns_to_fetch:
                 try:
@@ -274,10 +283,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                         self._save_to_cache(fetch_urn, None)
 
             for candidate_urn in urns_to_try:
-                schema_info = self._cache_get(candidate_urn)
-                if schema_info is not None:
+                cached = self._cache_peek(candidate_urn)
+                if not isinstance(cached, _CacheAbsent) and cached is not None:
                     self._track_cache_hit()
-                    return candidate_urn, schema_info
+                    return candidate_urn, cached
 
         logger.debug(
             f"Schema resolution failed for table {table}. Tried URNs: "
@@ -320,32 +329,36 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if self.report is not None:
             self.report.num_schema_cache_misses += 1
 
-    def _cache_contains(self, urn: str) -> bool:
-        """Whether *urn* has an entry (including a cached None) in either tier.
-
-        Reads consult the writable primary cache first, then the optional
-        read-only fallback snapshot. Writes only ever touch the primary cache.
-        """
-        if urn in self._schema_cache:
-            return True
-        if self._readonly_fallback is not None and urn in self._readonly_fallback:
-            return True
-        return False
+    def _cache_peek(self, urn: str) -> "Union[Optional[SchemaInfo], _CacheAbsent]":
+        """Single two-tier lookup: consult the writable primary cache first, then
+        the optional read-only fallback snapshot. Returns the stored value (which
+        may be ``None`` for a remembered miss) or the :data:`_CACHE_ABSENT`
+        sentinel when the URN has no entry in either tier. Collapsing the old
+        ``_cache_contains`` + ``_cache_get`` pair into one call halves the SQLite
+        membership work on the resolver hot path. Writes only ever touch the
+        primary cache."""
+        try:
+            return self._schema_cache[urn]
+        except KeyError:
+            pass
+        if self._readonly_fallback is not None:
+            try:
+                return self._readonly_fallback[urn]
+            except KeyError:
+                pass
+        return _CACHE_ABSENT
 
     def _cache_get(self, urn: str) -> Optional[SchemaInfo]:
-        """Read *urn*'s schema from the primary cache, falling back to the
-        read-only snapshot. Returns None if absent or cached as a miss — callers
-        that must distinguish absence from a cached miss should use
-        :meth:`_cache_contains`."""
-        if urn in self._schema_cache:
-            return self._schema_cache[urn]
-        if self._readonly_fallback is not None and urn in self._readonly_fallback:
-            return self._readonly_fallback[urn]
-        return None
+        """Read *urn*'s schema, or None if absent OR cached as a miss. Callers
+        needing to distinguish absence from a cached miss use
+        :meth:`_cache_peek`."""
+        value = self._cache_peek(urn)
+        return None if isinstance(value, _CacheAbsent) else value
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
-        if self._cache_contains(urn):
-            return self._cache_get(urn)
+        cached = self._cache_peek(urn)
+        if not isinstance(cached, _CacheAbsent):
+            return cached
 
         # TODO: For bigquery partitioned tables, add the pseudo-column _PARTITIONTIME
         # or _PARTITIONDATE where appropriate.

@@ -1,11 +1,10 @@
-import concurrent.futures
 import multiprocessing
 import pathlib
 import threading
 import time
-from concurrent.futures import Future, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Iterator, Optional, Set, Tuple, Union
+from typing import Optional
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.closeable import Closeable
@@ -25,52 +24,15 @@ class ParallelParserUnavailable(Exception):
     """
 
 
-# Allowed types for ParseTask/ParseOutcome correlation keys.  The key crosses
-# the process boundary (pickle), so only simple, unconditionally-picklable
-# types are permitted.
-TaskKey = Optional[Union[str, int, Tuple[Union[str, int], ...]]]
-
-
-def _validate_task_key(key: Any) -> None:
-    """Raise TypeError if *key* is not a valid task key (None, str, int, or a
-    tuple whose elements are all str or int)."""
-    if key is None:
-        return
-    if isinstance(key, (str, int)):
-        return
-    if isinstance(key, tuple):
-        if not all(isinstance(el, (str, int)) for el in key):
-            raise TypeError(
-                f"ParseTask/ParseOutcome.key tuple elements must all be str or int "
-                f"(got {[type(el).__name__ for el in key if not isinstance(el, (str, int))]})"
-            )
-        return
-    raise TypeError(
-        f"ParseTask/ParseOutcome.key must be None, str, int, or tuple of str/int "
-        f"(got {type(key).__name__}); it must be picklable to cross the worker "
-        f"process boundary."
-    )
-
-
 @dataclass(frozen=True)
 class ParseTask:
-    """A single query to parse. ``key`` is an opaque correlation id the caller
-    uses to match the resulting :class:`ParseOutcome` back to its source, since
-    results are returned out of order."""
+    """A single query to parse in a worker process."""
 
-    key: TaskKey
     query: str
     default_db: Optional[str]
     default_schema: Optional[str]
     override_dialect: Optional[str] = None
     generate_column_lineage: bool = True
-
-    def __post_init__(self) -> None:
-        # ``key`` is shipped across the process boundary, so a non-picklable key
-        # would only surface later as an opaque broken pool. Restrict it to the
-        # simple picklable types the correlation-id use actually needs, and fail
-        # loudly at construction instead.
-        _validate_task_key(self.key)
 
 
 @dataclass(frozen=True)
@@ -102,7 +64,6 @@ class ParseOutcome:
     re-checking the individual fields by hand.
     """
 
-    key: TaskKey
     result: Optional[SqlParsingResult]
     error: Optional[str]
     # The query formatted in-worker (byte-identical to try_format_query on the
@@ -123,7 +84,6 @@ class ParseOutcome:
             raise ValueError("parse_seconds must be 0.0 when error is set.")
         if self.parse_seconds < 0:
             raise ValueError("parse_seconds must be non-negative.")
-        _validate_task_key(self.key)
 
     @property
     def failed(self) -> bool:
@@ -238,7 +198,6 @@ def _worker_parse(task: ParseTask) -> ParseOutcome:
         # Normal parse failures are already captured inside result.debug_info,
         # so they are returned as a result, not an error.
         return ParseOutcome(
-            key=task.key,
             result=result,
             error=None,
             formatted_query=formatted_query,
@@ -247,7 +206,7 @@ def _worker_parse(task: ParseTask) -> ParseOutcome:
     except Exception as e:
         # A worker-side exception becomes an error outcome rather than killing
         # the pool.
-        return ParseOutcome(key=task.key, result=None, error=repr(e))
+        return ParseOutcome(result=None, error=repr(e))
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +236,6 @@ class ParallelSqlParser(Closeable):
     # repr=False so DatahubClientConfig.token (a plain str) can never leak via a
     # repr() of this dataclass, matching _executor/_closed/pool_broke below.
     graph_config: Optional[DatahubClientConfig] = field(default=None, repr=False)
-    max_pending: Optional[int] = None
     # Constructor-only: threaded to workers via initargs at pool creation.
     # Mutating format_queries after construction has no effect on the pool.
     format_queries: bool = False
@@ -323,74 +281,13 @@ class ParallelSqlParser(Closeable):
             raise RuntimeError("ParallelSqlParser has been closed")
         return self._executor
 
-    def map_unordered(self, tasks: Iterable[ParseTask]) -> Iterator[ParseOutcome]:
-        """Parse each task in a worker process, yielding outcomes as they complete
-        (unordered). Pending futures are bounded (default ``2*num_workers``) so we
-        don't accumulate results in memory faster than the caller consumes them.
-
-        The bounded drain mirrors
-        :class:`datahub.utilities.backpressure_aware_executor.BackpressureAwareExecutor`.
-        It is inlined here (rather than reusing that helper) because we must map
-        each future back to its task ``key`` to synthesize a
-        ``ParseOutcome(error=...)`` if a worker process dies at the executor layer
-        — information the helper's future-only return type does not expose.
-        """
-        executor = self._ensure_executor()
-
-        max_pending = self.max_pending
-        if max_pending is None:
-            max_pending = 2 * self.num_workers
-        assert max_pending >= self.num_workers
-
-        future_to_key: Dict[Future, Any] = {}
-        pending: Set[Future] = set()
-
-        def drain(future: Future) -> ParseOutcome:
-            key = future_to_key.pop(future)
-            try:
-                return future.result()
-            except Exception as e:
-                # Any executor-layer failure at result time (BrokenProcessPool,
-                # or a worker process that died before returning a ParseOutcome)
-                # is an infra failure, NOT a parse failure: trip pool_broke so
-                # the caller falls the rest of the run back to serial, and
-                # surface it as an error outcome instead of propagating.
-                self.pool_broke.set()
-                return ParseOutcome(key=key, result=None, error=repr(e))
-
-        for task in tasks:
-            if len(pending) >= max_pending:
-                done, _ = concurrent.futures.wait(
-                    pending, return_when=concurrent.futures.FIRST_COMPLETED
-                )
-                for future in done:
-                    pending.remove(future)
-                    yield drain(future)
-
-            try:
-                submitted = executor.submit(_worker_parse, task)
-            except Exception as e:
-                # submit() can raise BrokenProcessPool immediately if the pool is
-                # already broken. That is an infra failure, not a parse failure:
-                # trip pool_broke and yield an error outcome so the query is not
-                # silently dropped (the exception must never escape here).
-                self.pool_broke.set()
-                yield ParseOutcome(key=task.key, result=None, error=repr(e))
-                continue
-            future_to_key[submitted] = task.key
-            pending.add(submitted)
-
-        for future in concurrent.futures.as_completed(pending):
-            yield drain(future)
-
     def parse_one(self, task: ParseTask) -> ParseOutcome:
         """Parse a single task in a worker process and block until its outcome.
 
-        Unlike :meth:`map_unordered`, this submits exactly one task and waits for
-        it, so the caller can drive its own per-task ordering (e.g. a
-        PartitionExecutor) rather than relying on the unordered stream. A dead
-        worker process is surfaced as a :class:`ParseOutcome` with ``error`` set,
-        mirroring the drain behavior of :meth:`map_unordered`.
+        Submits exactly one task and waits for it, so the caller drives its own
+        per-task ordering (e.g. a PartitionExecutor). A dead worker process is
+        surfaced as a :class:`ParseOutcome` with ``error`` set rather than
+        propagating an executor exception.
         """
         executor = self._ensure_executor()
         try:
@@ -406,7 +303,7 @@ class ParallelSqlParser(Closeable):
             return future.result()
         except Exception as e:
             self.pool_broke.set()
-            return ParseOutcome(key=task.key, result=None, error=repr(e))
+            return ParseOutcome(result=None, error=repr(e))
 
     def close(self) -> None:
         if self._closed:

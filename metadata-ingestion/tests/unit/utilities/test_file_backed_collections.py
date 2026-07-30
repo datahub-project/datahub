@@ -507,6 +507,40 @@ def test_readonly_file_backed_dict_reads(tmp_path: pathlib.Path) -> None:
         ro_conn.close()
 
 
+def test_readonly_file_backed_dict_rejects_writes(tmp_path: pathlib.Path) -> None:
+    """Mutating a read-only FileBackedDict must raise, not silently drop the write.
+
+    A read-only connection never flushes, so a cached dirty write would appear to
+    succeed and then vanish at close. Fail loudly instead of losing data."""
+    db_path = tmp_path / "snap.db"
+    with ConnectionWrapper(filename=db_path) as writable_conn:
+        d: FileBackedDict[int] = FileBackedDict(
+            shared_connection=writable_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        d["x"] = 10
+        d.flush()
+
+    ro_conn = ConnectionWrapper(filename=db_path, read_only=True)
+    try:
+        ro_dict: FileBackedDict[int] = FileBackedDict(
+            shared_connection=ro_conn,
+            tablename="data",
+            serializer=str,
+            deserializer=int,
+        )
+        with pytest.raises(RuntimeError):
+            ro_dict["y"] = 20
+        with pytest.raises(RuntimeError):
+            ro_dict.for_mutation("x")
+        with pytest.raises(RuntimeError):
+            del ro_dict["x"]
+    finally:
+        ro_conn.close()
+
+
 def test_readonly_file_backed_dict_does_not_create_table(
     tmp_path: pathlib.Path,
 ) -> None:
