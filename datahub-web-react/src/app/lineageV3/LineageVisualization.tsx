@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
-    LINEAGE_ANNOTATION_NODE,
+    LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -39,6 +39,12 @@ const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edg
         `.react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
         }`}
+
+    /* Hovered nodes render above their neighbors, so overlays like the expand/contract
+       controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */
+    .react-flow__node-lineage-entity:hover {
+        z-index: 1000 !important;
+    }
 `;
 
 // TODO: Bring back after figuring out how to no overlap expand / contract actions
@@ -54,7 +60,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
-    [LINEAGE_ANNOTATION_NODE]: LineageAnnotationNode,
+    [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 
 const edgeTypes: EdgeTypes = {

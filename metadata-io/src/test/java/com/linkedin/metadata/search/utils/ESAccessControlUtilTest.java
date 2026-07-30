@@ -92,7 +92,12 @@ public class ESAccessControlUtilTest {
               OperationContextConfig.builder()
                   .allowSystemAuthentication(true)
                   .viewAuthorizationConfiguration(
-                      ViewAuthorizationConfiguration.builder().enabled(true).build())
+                      ViewAuthorizationConfiguration.builder()
+                          .enabled(true)
+                          // Empty overlay: all entity types are view-restricted in this fixture.
+                          // Production baseline comes from entity-registry.yml viewUnrestricted.
+                          .effectiveUnrestrictedEntityTypes(Set.of())
+                          .build())
                   .build(),
           () -> SYSTEM_AUTH,
           () ->

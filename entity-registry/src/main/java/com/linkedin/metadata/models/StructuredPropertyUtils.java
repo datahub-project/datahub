@@ -27,9 +27,13 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import java.sql.Date;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,6 +42,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -239,6 +244,72 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * A structured-property field mapping entry used to resolve ES field-name collisions across
+   * mapping builders with identical, deterministic semantics.
+   */
+  @Value
+  public static class StructuredPropertyFieldMapping {
+    @Nonnull String fieldName;
+    @Nonnull Urn urn;
+    @Nonnull Object mapping;
+  }
+
+  /**
+   * Resolve duplicate Elasticsearch field names produced by structured properties whose qualified
+   * names collapse under {@link #toElasticsearchFieldName}.
+   *
+   * <ul>
+   *   <li>Same mapping value: keep the lexicographically smallest URN and warn.
+   *   <li>Different mapping values: omit the field and error-log (do not pick a wrong ES type).
+   * </ul>
+   *
+   * <p>V2 and V3 share the same key-selection and omit-on-conflict rules here. Note this only
+   * aligns which field <em>keys</em> survive a collision; V2 and V3 may still emit different
+   * mapping <em>payloads</em> for the same logical type (pre-existing), so this alone does not
+   * guarantee {@code DelegatingMappingsBuilder} consistency checks pass in dual-index mode.
+   */
+  @Nonnull
+  public static Map<String, Object> resolveStructuredPropertyMappingCollisions(
+      @Nonnull Collection<StructuredPropertyFieldMapping> entries) {
+    Map<String, List<StructuredPropertyFieldMapping>> byField =
+        entries.stream()
+            .collect(Collectors.groupingBy(StructuredPropertyFieldMapping::getFieldName));
+
+    Map<String, Object> result = new HashMap<>();
+    for (Map.Entry<String, List<StructuredPropertyFieldMapping>> entry : byField.entrySet()) {
+      String fieldName = entry.getKey();
+      List<StructuredPropertyFieldMapping> group = new ArrayList<>(entry.getValue());
+      if (group.size() == 1) {
+        result.put(fieldName, group.get(0).getMapping());
+        continue;
+      }
+
+      group.sort(Comparator.comparing(m -> m.getUrn().toString()));
+      Object firstMapping = group.get(0).getMapping();
+      boolean allSame = group.stream().allMatch(m -> Objects.equals(m.getMapping(), firstMapping));
+      List<Urn> urns =
+          group.stream().map(StructuredPropertyFieldMapping::getUrn).collect(Collectors.toList());
+
+      if (allSame) {
+        Urn winner = group.get(0).getUrn();
+        log.warn(
+            "Duplicate structured property Elasticsearch field '{}' from URNs {}. Keeping {}.",
+            fieldName,
+            urns,
+            winner);
+        result.put(fieldName, firstMapping);
+      } else {
+        log.error(
+            "Conflicting structured property Elasticsearch field '{}' from URNs {} with different"
+                + " mappings. Omitting field to avoid incorrect index mapping.",
+            fieldName,
+            urns);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Return an elasticsearch type from structured property type
    *
    * @param fieldName filter or facet field name - must match actual FQN of structured prop
@@ -374,6 +445,27 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Returns property URNs with no {@code propertyDefinition} in a pre-fetched aspect map (entity
+   * absent or definition aspect missing). Prefer this when definitions were already loaded in the
+   * same request — avoids a second {@code entityExists} / {@code getLatestAspectObjects}
+   * round-trip.
+   */
+  @Nonnull
+  public static Set<Urn> getMissingPropertyDefinitionUrns(
+      @Nonnull Set<Urn> propertyUrns, @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (propertyUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    return propertyUrns.stream()
+        .filter(
+            propertyUrn ->
+                !propertyAspects
+                    .getOrDefault(propertyUrn, Collections.emptyMap())
+                    .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+        .collect(Collectors.toSet());
+  }
+
+  /**
    * Returns property URNs whose structured property entity does not exist (hard-deleted) or has no
    * {@code propertyDefinition} aspect.
    */
@@ -392,28 +484,48 @@ public class StructuredPropertyUtils {
             .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
             .collect(Collectors.toSet());
 
-    final Set<Urn> missing = new HashSet<>(propertyUrns);
-    missing.removeAll(existing);
+    final Map<Urn, Map<String, Aspect>> definitionAspects =
+        existing.isEmpty()
+            ? Collections.emptyMap()
+            : aspectRetriever.getLatestAspectObjects(
+                opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
 
-    if (!existing.isEmpty()) {
-      final Map<Urn, Map<String, Aspect>> definitionAspects =
-          aspectRetriever.getLatestAspectObjects(
-              opContext, existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
-      existing.stream()
-          .filter(
-              propertyUrn ->
-                  !definitionAspects
-                      .getOrDefault(propertyUrn, Collections.emptyMap())
-                      .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
-          .forEach(missing::add);
+    return getMissingPropertyDefinitionUrns(propertyUrns, definitionAspects);
+  }
+
+  /**
+   * Removes assignments whose property definition is missing from a pre-fetched aspect map. Prefer
+   * this when definitions were already loaded in the same request.
+   */
+  @Nonnull
+  public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull StructuredProperties structuredProperties,
+      @Nonnull Map<Urn, Map<String, Aspect>> propertyAspects) {
+    if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
     }
 
-    return missing;
+    final Set<Urn> missingPropertyUrns =
+        getMissingPropertyDefinitionUrns(
+            structuredProperties.getProperties().stream()
+                .map(StructuredPropertyValueAssignment::getPropertyUrn)
+                .collect(Collectors.toSet()),
+            propertyAspects);
+
+    if (missingPropertyUrns.isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Pair<StructuredPropertyValueAssignmentArray, Boolean> filtered =
+        filterValueAssignment(structuredProperties.getProperties(), missingPropertyUrns);
+    return Pair.of(structuredProperties.setProperties(filtered.getFirst()), missingPropertyUrns);
   }
 
   /**
    * Removes assignments whose property definition is missing. Returns the filtered aspect and the
-   * dropped property URNs.
+   * dropped property URNs. Fetches definitions via {@code aspectRetriever}; callers that already
+   * hold a definition map should use {@link #filterMissingPropertyDefinitions(StructuredProperties,
+   * Map)} instead.
    */
   @Nonnull
   public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(

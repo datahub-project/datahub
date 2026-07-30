@@ -1,5 +1,6 @@
 import json
 import logging
+import uuid
 from typing import Any, Dict
 
 import pytest
@@ -17,6 +18,8 @@ from tests.utils import (
 logger = logging.getLogger(__name__)
 
 _SMOKE_SECRET_NAMES = ["SMOKE_TEST", "SMOKE_TEST_BIGQUERY_KEY", "SMOKE_TEST_EDGE_CASES"]
+_SMOKE_INGESTION_SOURCE_PREFIX = "SMOKE_INGESTION_"
+_SMOKE_INGESTION_SOURCE_LEGACY_NAMES = ["My Test Ingestion Source"]
 _SECRET_GUARD_TEST_EMAIL = "managed.ingestion.secret.guard@smoke.datahub.test"
 _SECRET_GUARD_TEST_PASSWORD = "user"
 
@@ -63,6 +66,47 @@ def cleanup_smoke_secrets(auth_session: object):
     _delete_secrets_by_name(auth_session, _SMOKE_SECRET_NAMES)
     yield
     _delete_secrets_by_name(auth_session, _SMOKE_SECRET_NAMES)
+
+
+def _delete_ingestion_sources_by_name(auth_session: object, names: list[str]) -> None:
+    res_data = _get_ingestionSources(auth_session)
+    deleted = False
+    for source in res_data["data"]["listIngestionSources"]["ingestionSources"]:
+        query = """query ingestionSource($urn: String!) {\n
+            ingestionSource(urn: $urn) {\n
+              urn\n
+              name\n
+            }\n
+        }"""
+        source_data = execute_graphql(auth_session, query, {"urn": source["urn"]})
+        ingestion_source = source_data["data"]["ingestionSource"]
+        if ingestion_source is None:
+            continue
+        if ingestion_source["name"] in names or ingestion_source["name"].startswith(
+            _SMOKE_INGESTION_SOURCE_PREFIX
+        ):
+            execute_graphql(
+                auth_session,
+                """mutation deleteIngestionSource($urn: String!) {\n
+                    deleteIngestionSource(urn: $urn)
+                }""",
+                {"urn": ingestion_source["urn"]},
+            )
+            deleted = True
+    if deleted:
+        wait_for_writes_to_sync()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_smoke_ingestion_sources(auth_session: object):
+    """Delete leftover smoke ingestion sources before and after the module."""
+    _delete_ingestion_sources_by_name(
+        auth_session, _SMOKE_INGESTION_SOURCE_LEGACY_NAMES
+    )
+    yield
+    _delete_ingestion_sources_by_name(
+        auth_session, _SMOKE_INGESTION_SOURCE_LEGACY_NAMES
+    )
 
 
 def _get_ingestionSources(auth_session):
@@ -131,11 +175,11 @@ def _ensure_secret_not_present(auth_session):
 
 @with_test_retry()
 def _ensure_ingestion_source_present(
-    auth_session, ingestion_source_urn, num_execs=None
+    auth_session, ingestion_source_urn, num_execs=None, *, execution_count: int = 20
 ):
     query = """query ingestionSource($urn: String!) {\n
             ingestionSource(urn: $urn) {\n
-              executions(start: 0, count: 1) {\n
+              executions(start: 0, count: %d) {\n
                   start\n
                   count\n
                   total\n
@@ -144,7 +188,7 @@ def _ensure_ingestion_source_present(
                   }\n
               }\n
             }\n
-        }"""
+        }""" % (execution_count)
     variables: Dict[str, Any] = {"urn": ingestion_source_urn}
     res_data = execute_graphql(auth_session, query, variables)
     logger.info(res_data)
@@ -434,7 +478,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
         }"""
     variables: Dict[str, Any] = {
         "input": {
-            "name": "My Test Ingestion Source",
+            "name": f"{_SMOKE_INGESTION_SOURCE_PREFIX}CRUD",
             "type": "mysql",
             "description": "My ingestion source description",
             "schedule": {"interval": "*/60 * * * *", "timezone": "UTC"},
@@ -477,7 +521,7 @@ def test_create_list_get_remove_ingestion_source(auth_session):
     ingestion_source = res_data["data"]["ingestionSource"]
     assert ingestion_source["urn"] == ingestion_source_urn
     assert ingestion_source["type"] == "mysql"
-    assert ingestion_source["name"] == "My Test Ingestion Source"
+    assert ingestion_source["name"] == f"{_SMOKE_INGESTION_SOURCE_PREFIX}CRUD"
     assert ingestion_source["schedule"]["interval"] == "*/60 * * * *"
     assert ingestion_source["schedule"]["timezone"] == "UTC"
     assert (
@@ -506,16 +550,18 @@ def test_create_list_get_remove_ingestion_source(auth_session):
     ]
 )
 def test_create_list_get_ingestion_execution_request(auth_session):
+    execution_source_name = (
+        f"{_SMOKE_INGESTION_SOURCE_PREFIX}EXEC_{uuid.uuid4().hex[:8]}"
+    )
     # Create new ingestion source
     query = """mutation createIngestionSource($input: UpdateIngestionSourceInput!) {\n
             createIngestionSource(input: $input)
         }"""
     variables: Dict[str, Any] = {
         "input": {
-            "name": "My Test Ingestion Source",
+            "name": execution_source_name,
             "type": "mysql",
-            "description": "My ingestion source description",
-            "schedule": {"interval": "*/5 * * * *", "timezone": "UTC"},
+            "description": "Smoke execution-request ingestion source",
             "config": {
                 "recipe": '{"source":{"type":"mysql","config":{"include_tables":true,"database":null,"password":"${MYSQL_PASSWORD}","profiling":{"enabled":false},"host_port":null,"include_views":true,"username":"${MYSQL_USERNAME}"}},"pipeline_name":"urn:li:dataHubIngestionSource:f38bd060-4ea8-459c-8f24-a773286a2927"}',
                 "version": "0.8.18",
@@ -544,10 +590,11 @@ def test_create_list_get_ingestion_execution_request(auth_session):
 
     ingestion_source = res_data["data"]["ingestionSource"]
 
-    assert (
-        ingestion_source["executions"]["executionRequests"][0]["urn"]
-        == execution_request_urn
-    )
+    listed_execution_urns = {
+        execution["urn"]
+        for execution in ingestion_source["executions"]["executionRequests"]
+    }
+    assert execution_request_urn in listed_execution_urns
 
     # Get the ingestion request back via direct lookup
     res_data = _ensure_execution_request_present(auth_session, execution_request_urn)

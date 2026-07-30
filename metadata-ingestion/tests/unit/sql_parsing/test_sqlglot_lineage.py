@@ -397,6 +397,101 @@ WHERE post_id LIKE '%12345%'
     )
 
 
+def test_select_struct_subfields_from_cte() -> None:
+    # The struct subfield access happens inside the CTE, so the leaf's immediate
+    # parent is the CTE's select expression -- the outer select doesn't mention
+    # `widget` at all. This guards subfield reconstruction across nesting levels.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT
+        post_id,
+        widget.asset.id AS asset_id,
+        min(widget.metric.metricA, widget.metric.metric_b) AS min_metric
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, asset_id, min_metric
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+                "widget.metric.metricA": "int",
+                "widget.metric.metric_b": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_struct_subfields_from_cte.json",
+    )
+
+
+def test_select_struct_subfield_through_cte_passthrough() -> None:
+    # Here the CTE selects the bare `widget` struct and the subfield access
+    # (`widget.asset.id`) happens in the *outer* query. The leaf's immediate
+    # parent is the CTE projection `widget AS widget`, which no longer carries
+    # the subfield, so reconstruction can only recover the base column. Lineage
+    # correctly coarsens to `widget` rather than inventing a subfield. This is a
+    # known limitation: subfield access does not propagate across scope boundaries.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT post_id, widget
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, widget.asset.id AS asset_id
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_select_struct_subfield_through_cte_passthrough.json",
+    )
+
+
+def test_join_struct_subfields_shared_base_name() -> None:
+    # Two joined tables both expose a struct column named `widget`, each accessed
+    # with a different subfield. sqlglot inserts an intermediate projection per
+    # joined table (`widget AS widget`), so the subfield access in the root select
+    # is one scope above each leaf and lineage coarsens to the base column. The
+    # important guarantee: each base column still resolves to the *correct* table
+    # (a_color -> table_a.widget, b_size -> table_b.widget) -- the shared base name
+    # never causes a subfield to attach to the wrong table.
+    assert_sql_result(
+        """
+SELECT
+    a.widget.color AS a_color,
+    b.widget.size AS b_size
+FROM my_schema.table_a a
+JOIN my_schema.table_b b ON a.id = b.a_id
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)": {
+                "id": "int",
+                "widget": "struct",
+                "widget.color": "string",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)": {
+                "a_id": "int",
+                "widget": "struct",
+                "widget.size": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_join_struct_subfields_shared_base_name.json",
+    )
+
+
 def test_select_from_union() -> None:
     assert_sql_result(
         """

@@ -9,8 +9,7 @@ import com.linkedin.common.Urn
  * Linkedin corp user information
  */
 @Aspect = {
-  "name": "corpUserInfo",
-  "schemaVersion": 2
+  "name": "corpUserInfo"
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpuserUrn" ]
 record CorpUserInfo includes CustomProperties {

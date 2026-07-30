@@ -37,13 +37,13 @@ export const properties = [
                 {
                     id: 'dataJob',
                     get displayName() {
-                        return i18next.t('shared.query-builder:entityType.dataJob');
+                        return i18next.t('entity.types:dataJob.alternativeName');
                     },
                 },
                 {
                     id: 'dataFlow',
                     get displayName() {
-                        return i18next.t('shared.query-builder:entityType.dataFlow');
+                        return i18next.t('entity.types:dataFlow.alternativeName');
                     },
                 },
                 {

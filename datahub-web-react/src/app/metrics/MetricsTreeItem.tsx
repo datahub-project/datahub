@@ -5,6 +5,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { DocumentSourceLogo } from '@app/document/DocumentSourceLogo';
+
+import { DataPlatform } from '@types';
+
 // Mirrors `TreeItemContainer` in
 // `app/homeV2/layout/sidebar/documents/DocumentTreeItem.tsx` (jjoyce0510):
 //   - 38px min-height + height, 4px vertical padding
@@ -122,8 +126,10 @@ const Title = styled.span<{ $isSelected: boolean }>`
 interface MetricsTreeItemProps {
     /** Indentation level — 0 = root, increments per nesting depth. */
     level: number;
-    /** Phosphor icon component for the row's resting state. */
+    /** Phosphor icon component for the row's resting state — used as a fallback when `platform` has no resolvable logo. */
     icon: PhosphorIcon;
+    /** When provided, renders the platform's logo instead of `icon` (used for semantic model rows). */
+    platform?: DataPlatform | null;
     title: string;
     isSelected: boolean;
     /** When true, the icon swaps to a caret on hover (and stays as a caret while expanded). */
@@ -147,20 +153,14 @@ interface MetricsTreeItemProps {
  *     the brand-gradient-clipped title; selected icons render in `iconBrand`
  *     and switch from `regular` to `fill` weight
  *
- * Implemented as a separate component (not a fork of DocumentTreeItem)
- * because Documents' row is coupled to document-specific affordances
- * (dashed icons for unpublished, platform-logo for external, hover-row
- * actions menu) that don't apply to metrics. If the row chrome
- * stabilises across both we can lift a shared primitive.
- *
- * Currently used by `MetricsSidebar` only for the Overview row (no
- * children). When `EntityType.SemanticModel` / `EntityType.Metric` land
- * the same component will render semantic-model rows (`hasChildren`)
- * and metric leaf rows with no further refactoring.
+ * Used for the Overview row, semantic-model rows (`hasChildren`, with
+ * `platform` swapping in the platform logo — same `DocumentSourceLogo`
+ * treatment as Documents' external-source rows), and metric leaf rows.
  */
 export const MetricsTreeItem: React.FC<MetricsTreeItemProps> = ({
     level,
     icon: Icon,
+    platform,
     title,
     isSelected,
     hasChildren = false,
@@ -204,7 +204,15 @@ export const MetricsTreeItem: React.FC<MetricsTreeItemProps> = ({
                         </ExpandButton>
                     ) : (
                         <IconWrapper $isSelected={isSelected}>
-                            <Icon size={20} weight={isSelected ? 'fill' : 'regular'} />
+                            {platform ? (
+                                <DocumentSourceLogo
+                                    platform={platform}
+                                    size={16}
+                                    fallback={<Icon size={20} weight={isSelected ? 'fill' : 'regular'} />}
+                                />
+                            ) : (
+                                <Icon size={20} weight={isSelected ? 'fill' : 'regular'} />
+                            )}
                         </IconWrapper>
                     )}
                 </IconSlot>

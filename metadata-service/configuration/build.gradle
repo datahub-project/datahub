@@ -50,6 +50,9 @@ def graphqlUsageInputs = files(
 tasks.register('graphqlUsageRegistryCheck', Test) {
     description = 'Validate GraphQL surface is usage-classified or exempt. Force: -PgraphqlUsageCheckForce=true'
     group = 'verification'
+    // graphqlUsageInputs scans datahub-web-react/src for *.graphql; those frontend tasks write into
+    // that dir, so declare the dependency to avoid a parallel-execution race (see #18375 CI failure).
+    dependsOn ':datahub-web-react:yarnGenerate', ':datahub-web-react:generateLazyIconStubs'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     include '**/cigate/GraphqlUsageRegistryCiGateTest.class'

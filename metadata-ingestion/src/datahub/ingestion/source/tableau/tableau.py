@@ -1701,8 +1701,8 @@ class TableauSiteSource:
 
                 if other_errors:
                     self.report.warning(
-                        message=f"Received error fetching Query Connection {connection_type}",
-                        context=f"Errors: {other_errors}",
+                        message="Received error fetching Query Connection",
+                        context=f"connection_type={connection_type}, errors={other_errors}",
                     )
 
                 if permission_mode_errors:

@@ -51,6 +51,15 @@ public interface EntitySpec {
    */
   String getSearchGroup();
 
+  /**
+   * Whether this entity type bypasses view authorization checks when view authorization is enabled.
+   * Authored via {@code viewUnrestricted} in entity-registry.yml (wired onto {@link
+   * EntityAnnotation}).
+   */
+  default boolean isViewUnrestricted() {
+    return getEntityAnnotation().isViewUnrestricted();
+  }
+
   default List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return getAspectSpecs().stream()
         .map(AspectSpec::getSearchableFieldSpecs)

@@ -1,0 +1,23 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/fundamentals/table-column-description.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_quantum
+apiVersion: v3.0.2
+schema:
+  - name: tbl
+    description: Provides core payment metrics
+    dataGranularityDescription: Aggregation on columns txn_ref_dt, pmt_txn_id
+    physicalType: table
+    properties:
+      - name: txn_ref_dt
+        businessName: Transaction reference date
+        logicalType: date
+        physicalType: date
+        description: Reference date for the transaction. Use this date in reports and aggregation rather than txn_mystical_dt, as it is slightly too mystical.
+        examples:
+          - 2022-10-03
+          - 2025-01-28

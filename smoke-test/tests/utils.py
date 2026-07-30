@@ -1,10 +1,13 @@
+import importlib.metadata
 import json
 import logging
+import os
 import socket
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlparse, urlunparse
+from typing import Any, Dict, List, Optional, Tuple, Union
+from urllib.parse import quote, urlparse, urlunparse
 
 import click
 import click.testing
@@ -15,6 +18,7 @@ from packaging import version
 from requests.structures import CaseInsensitiveDict
 
 from datahub.cli import cli_utils, env_utils
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
@@ -39,7 +43,11 @@ def _is_transient_login_error(exception: BaseException) -> bool:
     if isinstance(exception, _TRANSIENT_LOGIN_EXCEPTIONS):
         return True
     if isinstance(exception, requests.HTTPError) and exception.response is not None:
-        return exception.response.status_code >= 500
+        # 400/429: parallel /logIn under xdist can briefly fail with Bad Request
+        # or rate limiting; treat as retryable like 5xx.
+        return exception.response.status_code in (400, 429) or (
+            exception.response.status_code >= 500
+        )
     return False
 
 
@@ -286,6 +294,90 @@ def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
 
 
+class AdminCorpUserBootstrapError(Exception):
+    """Admin corpUserInfo not yet visible or missing root-user bootstrap flags."""
+
+
+class AdminCorpUserInfoMutatedError(AssertionError):
+    """A smoke test overwrote privileged admin corpUserInfo fields."""
+
+
+_ADMIN_CORPUSER_PRIVILEGED_FLAGS = ("system", "isSupportUser")
+
+
+def get_admin_corpuser_urn() -> str:
+    return f"urn:li:corpuser:{get_admin_username()}"
+
+
+def fetch_admin_corpuser_info(auth_session) -> Dict[str, Any]:
+    """Return corpUserInfo.value for the configured smoke admin."""
+    expected_urn = get_admin_corpuser_urn()
+    encoded = quote(expected_urn, safe="")
+    response = auth_session.get(
+        f"{auth_session.gms_url()}/openapi/v3/entity/corpuser/{encoded}"
+    )
+    if response.status_code != 200:
+        raise AdminCorpUserBootstrapError(
+            f"Admin corpuser not readable: HTTP {response.status_code} for {expected_urn}"
+        )
+    corp_user_info = response.json().get("corpUserInfo")
+    if not corp_user_info or corp_user_info.get("value") is None:
+        raise AdminCorpUserBootstrapError(
+            f"corpUserInfo aspect missing for {expected_urn}"
+        )
+    return dict(corp_user_info.get("value", {}))
+
+
+def assert_admin_corpuser_info_preserved(
+    auth_session,
+    baseline: Dict[str, Any],
+    *,
+    context: str = "",
+) -> None:
+    """Fail if a test cleared privileged corpUserInfo flags on the smoke admin."""
+    current = fetch_admin_corpuser_info(auth_session)
+    cleared = {
+        flag: baseline.get(flag)
+        for flag in _ADMIN_CORPUSER_PRIVILEGED_FLAGS
+        if baseline.get(flag) and not current.get(flag)
+    }
+    if cleared:
+        suffix = f" after {context}" if context else ""
+        raise AdminCorpUserInfoMutatedError(
+            f"Privileged admin corpUserInfo flags were cleared{suffix}: "
+            f"cleared={cleared!r} baseline={baseline!r} current={current!r}"
+        )
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(AdminCorpUserBootstrapError),
+    stop=tenacity.stop_after_attempt(40),
+    wait=tenacity.wait_fixed(3),
+    reraise=True,
+)
+def wait_for_admin_corpuser_system_bootstrap(auth_session) -> None:
+    """Wait until the configured smoke admin has corpUserInfo with system=true.
+
+    Quickstart relies on the root-user bootstrap MCP; GMS health can be ready before
+    that aspect is readable on the entity API (or before the session actor matches).
+    """
+    expected_urn = get_admin_corpuser_urn()
+    me = execute_graphql(auth_session, "query { me { corpUser { urn } } }")
+    actual_urn = me["data"]["me"]["corpUser"]["urn"]
+    if actual_urn != expected_urn:
+        raise AdminCorpUserBootstrapError(
+            f"Session corp user {actual_urn} != configured admin {expected_urn}"
+        )
+
+    info = fetch_admin_corpuser_info(auth_session)
+    if not info.get("system"):
+        raise AdminCorpUserBootstrapError(
+            f"corpUserInfo.system is not true for {expected_urn}: {info!r}"
+        )
+
+    logger.info("Verified admin corpUserInfo bootstrap: %s system=true", expected_urn)
+
+
 def check_endpoint(auth_session, url):
     try:
         get = auth_session.get(url)
@@ -355,7 +447,7 @@ def run_datahub_cmd(
     env: Optional[Dict[str, str]] = None,
 ) -> click.testing.Result:
     # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
-    click_version: str = click.__version__  # type: ignore
+    click_version: str = importlib.metadata.version("click")
     if version.parse(click_version) >= version.parse("8.2.0"):
         runner = click.testing.CliRunner()
     else:
@@ -387,6 +479,74 @@ def ingest_file_via_rest(
     pipeline.raise_from_status()
     wait_for_writes_to_sync()
     return pipeline
+
+
+def unique_suffix() -> str:
+    """Return a short, collision-resistant suffix for test-scoped entity names.
+
+    Under pytest-xdist ``--dist=loadscope`` (see smoke-test/smoke.sh) different
+    test modules run concurrently against the SAME GMS, so any entity URN
+    hardcoded in two modules races and flakes. Append this suffix to
+    the name of an entity a test creates/mutates/deletes so no other test —
+    now or later — can collide with it. Mirrors the uuid4-hex slice already used
+    in tests/metrics/test_queue_ingest_usage.py.
+    """
+    return uuid.uuid4().hex[:8]
+
+
+def unique_dataset_urn(name: str, platform: str = "kafka", env: str = "PROD") -> str:
+    """Build a dataset URN whose name is unique per test run.
+
+    Prefer this over a hardcoded dataset URN whenever a test creates and then
+    mutates or deletes the dataset. ``name`` is a human-readable prefix; a unique
+    suffix (see :func:`unique_suffix`) is appended so parallel modules never
+    share the URN.
+    """
+    return make_dataset_urn(
+        platform=platform, name=f"{name}-{unique_suffix()}", env=env
+    )
+
+
+def materialize_with_unique_name(
+    src_file: str, name: str, dest_dir: Union[str, os.PathLike]
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with every occurrence of ``name`` rewritten to a
+    run-unique ``name-<suffix>``. Returns ``(dest_file, unique_name)``.
+
+    Building the entity URN (dataset, tag, …) from ``unique_name`` is the
+    caller's job. Substitution is a plain string replace over the whole file,
+    so ``name`` must be a token that appears ONLY where a rename is intended —
+    e.g. an entity key embedded in URNs. Do not pass a value that could also
+    occur in a description or other free-text field, or it will be corrupted.
+    """
+    unique_name = f"{name}-{unique_suffix()}"
+    with open(src_file) as f:
+        content = f.read().replace(name, unique_name)
+    dest_file = os.path.join(str(dest_dir), os.path.basename(src_file))
+    with open(dest_file, "w") as f:
+        f.write(content)
+    return dest_file, unique_name
+
+
+def materialize_unique_dataset(
+    src_file: str,
+    dataset_name: str,
+    dest_dir: Union[str, os.PathLike],
+    platform: str = "kafka",
+    env: str = "PROD",
+) -> Tuple[str, str]:
+    """Copy ``src_file`` with ``dataset_name`` rewritten to a run-unique name.
+
+    Returns ``(dest_file, dataset_urn)``. Use from a module-scoped fixture so a
+    file-driven test owns a dataset no other test module can collide with under
+    xdist ``--dist=loadscope``. Every occurrence of ``dataset_name`` in the file
+    is replaced, so field-level and reference URNs stay consistent with the
+    returned dataset URN.
+    """
+    dest_file, unique_name = materialize_with_unique_name(
+        src_file, dataset_name, dest_dir
+    )
+    return dest_file, make_dataset_urn(platform=platform, name=unique_name, env=env)
 
 
 def delete_urn(graph_client, urn: str) -> None:
@@ -502,6 +662,8 @@ class TestSessionWrapper:
        is a no-op — the externally-provided token is never revoked.
     """
 
+    __test__ = False
+
     def __init__(self, requests_session, *, prebuilt_token: str | None = None):
         self._upstream = requests_session
         self._gms_url = get_gms_url()
@@ -614,7 +776,9 @@ class TestSessionWrapper:
             }
 
             response = self._upstream.post(
-                f"{self._frontend_url}/api/v2/graphql", json=json
+                f"{self._frontend_url}/api/v2/graphql",
+                json=json,
+                headers={"Authorization": f"Bearer {self._gms_token}"},
             )
             response.raise_for_status()
             # Clear the token ID after successful revocation to prevent double-call issues

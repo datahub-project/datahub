@@ -138,6 +138,32 @@ public class Constants {
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
+  public static final String SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME = "semanticFieldAnnotation";
+  public static final String SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME = "semanticModelProperties";
+  // Service (MCP servers, etc.)
+  public static final String SERVICE_ENTITY_NAME = "service";
+  public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
+  public static final String SERVICE_PROPERTIES_ASPECT_NAME = "serviceProperties";
+  public static final String MCP_SERVER_PROPERTIES_ASPECT_NAME = "mcpServerProperties";
+  public static final String AI_AGENT_ENTITY_NAME = "aiAgent";
+  public static final String AI_AGENT_KEY_ASPECT_NAME = "aiAgentKey";
+  public static final String AI_AGENT_INFO_ASPECT_NAME = "aiAgentInfo";
+  public static final String AI_AGENT_DEPENDENCIES_ASPECT_NAME = "aiAgentDependencies";
+  public static final String API_ENTITY_NAME = "api";
+  public static final String API_KEY_ASPECT_NAME = "apiKey";
+  public static final String API_PROPERTIES_ASPECT_NAME = "apiProperties";
+  public static final String API_SIGNATURE_ASPECT_NAME = "apiSignature";
+  public static final String REST_API_PROPERTIES_ASPECT_NAME = "restApiProperties";
+  public static final String REPOSITORY_ENTITY_NAME = "repository";
+  public static final String REPOSITORY_KEY_ASPECT_NAME = "repositoryKey";
+  public static final String REPOSITORY_PROPERTIES_ASPECT_NAME = "repositoryProperties";
+  public static final String REPOSITORY_SOURCE_ASPECT_NAME = "repositorySource";
+  public static final String REPOSITORY_LINEAGE_ASPECT_NAME = "repositoryLineage";
+  public static final String AGENT_SKILL_ENTITY_NAME = "agentSkill";
+  public static final String AGENT_SKILL_KEY_ASPECT_NAME = "agentSkillKey";
+  public static final String AGENT_SKILL_INFO_ASPECT_NAME = "agentSkillInfo";
+  public static final String APPLICATION_LINEAGE_ASPECT_NAME = "applicationLineage";
+  public static final String SERVICE_DEFINITION_ASPECT_NAME = "serviceDefinition";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -173,8 +199,10 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String AI_CONTEXT_ASPECT_NAME = "aiContext";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
+  public static final String ALIASES_ASPECT_NAME = "aliases";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -355,6 +383,7 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_RUN_SUMMARY_ASPECT_NAME = "assertionRunSummary";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
@@ -465,6 +494,9 @@ public class Constants {
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
 
+  /** Relationship from a physical asset to its logical model parent (via LogicalParent.parent) */
+  public static final String PHYSICAL_INSTANCE_OF_RELATIONSHIP_NAME = "PhysicalInstanceOf";
+
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   public static final String RELATIONSHIP_PLATFORM_EVENT_NAME = "relationshipChangeEvent";
@@ -504,6 +536,8 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  // Curated embedding-source text. A common aspect so any entity type can register it.
+  public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");

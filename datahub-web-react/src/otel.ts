@@ -15,6 +15,7 @@ import {
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { getCLS, getFCP, getFID, getLCP, getTTFB } from 'web-vitals';
 
+import { OtelTraceIdGenerator } from '@src/otelTraceIdGenerator';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /**
@@ -206,6 +207,10 @@ export function initOtel(otelConfig: BrowserOtelConfig): void {
             ...browserResourceAttributes(),
         }),
         sampler: new AlwaysOnSampler(),
+        // Timestamp-encoded trace IDs matching the backend TraceIdGenerator, so browser-initiated
+        // traces feed GMS's queue-time metrics and write-status classification. Falls back to the
+        // SDK's random generator for span IDs.
+        idGenerator: new OtelTraceIdGenerator(),
         // Circuit breakers so a single span can't bloat memory/payload (e.g. a very long page.url):
         // cap attribute value length and count per span.
         spanLimits: {
