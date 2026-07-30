@@ -310,6 +310,21 @@ class TestUrnsMappingLoader:
         with pytest.raises(Exception, match="Duplicate source"):
             _load_mapping_pairs(str(path))
 
+    def test_rejects_duplicate_target(self, tmp_path: Path) -> None:
+        """Two sources mapping to the same target is rejected — collapsing entities
+        would drop all but one source's metadata."""
+        path = tmp_path / "m.json"
+        path.write_text(
+            json.dumps(
+                [
+                    {"source": DS_A, "target": DS.format(name="db.c")},
+                    {"source": DS_B, "target": DS.format(name="db.c")},
+                ]
+            )
+        )
+        with pytest.raises(Exception, match="Duplicate target"):
+            _load_mapping_pairs(str(path))
+
     def test_rejects_empty_mapping(self, tmp_path: Path) -> None:
         """An empty mapping file is rejected rather than silently doing nothing."""
         path = tmp_path / "m.json"
