@@ -7,6 +7,7 @@ import time
 from typing import Callable, Dict
 
 import pytest
+import requests_mock
 import time_machine
 import yaml
 from confluent_kafka import Consumer
@@ -26,6 +27,39 @@ from tests.test_helpers.docker_helpers import wait_for_port
 pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
+# Stand-in for a Confluent Cloud Schema Registry endpoint; must match
+# kafka_catalog_to_file.yml.
+CATALOG_STUB_URL = "https://psrc-stub.us-east-1.aws.confluent.cloud"
+
+# One tagged topic, one topic with business metadata only, and one topic the local
+# broker does not have - the last should be ignored rather than create an entity.
+CATALOG_TOPICS = [
+    {
+        "name": "key_value_topic",
+        "qualifiedName": "lkc-stub:key_value_topic",
+        "clusterId": "lkc-stub",
+        "tags": ["PII", "Tier1"],
+        "business_metadata": [
+            {"name": "owning_team", "value": "payments"},
+            {"name": "retention_days", "value": 30},
+        ],
+    },
+    {
+        "name": "value_topic",
+        "qualifiedName": "lkc-stub:value_topic",
+        "clusterId": "lkc-stub",
+        "tags": None,
+        "business_metadata": [{"name": "owning_team", "value": "analytics"}],
+    },
+    {
+        "name": "topic_not_on_this_broker",
+        "qualifiedName": "lkc-stub:topic_not_on_this_broker",
+        "clusterId": "lkc-stub",
+        "tags": ["Deprecated"],
+        "business_metadata": None,
+    },
+]
 
 
 @pytest.fixture(scope="module")
@@ -99,6 +133,34 @@ def test_kafka_ingest(
         pytestconfig,
         output_path=tmp_path / f"{approach}_mces.json",
         golden_path=test_resources_dir / f"{approach}_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_kafka_confluent_catalog_ingest(
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+):
+    """Topic tags and business metadata from the Stream Catalog land on the topics.
+
+    The catalog is Confluent Cloud only, so its GraphQL endpoint is stubbed while
+    everything else runs against the local broker and Schema Registry.
+    """
+    config_file = (test_resources_dir / "kafka_catalog_to_file.yml").resolve()
+
+    # real_http so only the catalog is stubbed; the broker and Schema Registry calls
+    # still go to the containers.
+    with requests_mock.Mocker(real_http=True) as catalog_api:
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            json={"data": {"kafka_topic": CATALOG_TOPICS}},
+        )
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_catalog_mces.json",
+        golden_path=test_resources_dir / "kafka_catalog_mces_golden.json",
         ignore_paths=[],
     )
 

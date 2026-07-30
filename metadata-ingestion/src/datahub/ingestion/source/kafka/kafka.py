@@ -85,6 +85,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.kafka.confluent_catalog import KafkaTopicCatalog
 from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
     KafkaProfiler,
@@ -344,6 +345,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         # read-modify-write, so serialize every mutation from a worker thread.
         self._report_lock = threading.Lock()
         self._schema_resolver: Optional[KafkaSchemaResolver] = None
+        self.topic_catalog: Optional[KafkaTopicCatalog] = None
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
         )
@@ -376,6 +378,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 self.source_config.strip_user_ids_from_email,
                 match_nested_props=True,
             )
+
+            if self.source_config.confluent_catalog.enabled:
+                self.topic_catalog = KafkaTopicCatalog(
+                    self.source_config.confluent_catalog, self.report
+                )
         except Exception:
             try:
                 self.consumer.close()
@@ -1249,6 +1256,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
+        if not is_subject:
+            self._apply_catalog_metadata(topic, all_tags, custom_props)
+
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
             external_url = f"{base_url}/{dataset_name}"
@@ -1276,6 +1286,29 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             domain=domain_urn,
             extra_aspects=extra_aspects,
         )
+
+    def _apply_catalog_metadata(
+        self, topic: str, all_tags: List[str], custom_props: Dict[str, str]
+    ) -> None:
+        if self.topic_catalog is None:
+            return
+
+        catalog_topic = self.topic_catalog.get_topic(topic)
+        if catalog_topic is None:
+            return
+
+        config = self.source_config.confluent_catalog
+        if config.include_tags and catalog_topic.tags:
+            all_tags.extend(
+                self.source_config.tag_prefix + tag for tag in catalog_topic.tags
+            )
+            self.report.catalog_tagged_topics += 1
+
+        if config.include_business_metadata:
+            properties = catalog_topic.properties_from_business_metadata()
+            if properties:
+                custom_props.update(properties)
+                self.report.catalog_topics_with_business_metadata += 1
 
     def build_custom_properties(
         self,
@@ -1338,6 +1371,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def close(self) -> None:
         if self.consumer:
             self.consumer.close()
+        if self.topic_catalog:
+            self.topic_catalog.close()
         # Cleanup any resources when source is closed
         super().close()
 
