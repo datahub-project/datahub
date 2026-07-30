@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -15,8 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Resolver responsible for soft deleting a particular Document by setting the Status aspect removed
- * field to true. Requires the GET_ENTITY metadata privilege on the document or the MANAGE_DOCUMENTS
- * platform privilege.
+ * field to true. Requires the DELETE_ENTITY metadata privilege on the document or the
+ * MANAGE_DOCUMENTS platform privilege.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -43,6 +44,8 @@ public class DeleteDocumentResolver implements DataFetcher<CompletableFuture<Boo
             _documentService.deleteDocument(context.getOperationContext(), documentUrn);
 
             return true;
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
           } catch (Exception e) {
             log.error(
                 "Failed to delete Document with URN {}: {}", documentUrnString, e.getMessage());

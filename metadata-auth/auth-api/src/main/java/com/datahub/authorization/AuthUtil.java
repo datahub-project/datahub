@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
@@ -94,6 +95,10 @@ public class AuthUtil {
     AuthUtil.isRestApiAuthorizationEnabled = this.restApiAuthorizationEnabled;
   }
 
+  public static boolean isRestApiAuthorizationEnabled() {
+    return isRestApiAuthorizationEnabled;
+  }
+
   /**
    * This should generally follow the policy creation UI with a few exceptions for users, groups,
    * containers, etc so that the platform still functions as expected.
@@ -116,7 +121,20 @@ public class AuthUtil {
           DATA_PRODUCT_ENTITY_NAME,
           NOTEBOOK_ENTITY_NAME,
           DATAHUB_VIEW_ENTITY_NAME,
-          QUERY_ENTITY_NAME);
+          QUERY_ENTITY_NAME,
+          DOCUMENT_ENTITY_NAME);
+
+  /**
+   * Whether the given entity type is subject to view authorization. On this release line the
+   * restricted set is the static {@link #VIEW_RESTRICTED_ENTITY_TYPES} allowlist; the configuration
+   * parameter is accepted for API compatibility with callers written against the config-driven
+   * model.
+   */
+  public static boolean isViewRestrictedEntityType(
+      @Nonnull final com.datahub.authorization.config.ViewAuthorizationConfiguration config,
+      @Nonnull final String entityType) {
+    return VIEW_RESTRICTED_ENTITY_TYPES.contains(entityType);
+  }
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(

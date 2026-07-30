@@ -2,7 +2,7 @@ package io.datahubproject.openapi.v1.files;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -118,7 +118,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
     // Setup AuthUtil mock - by default, allow access
     authUtilMock = Mockito.mockStatic(AuthUtil.class);
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(true);
 
     // Setup default EntityService behavior - return a valid file entity with ASSET_DOCUMENTATION
@@ -364,7 +364,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
   public void testGetFileWithoutAssetDocumentationPermissions() throws Exception {
     // Override AuthUtil to deny access
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(false);
 
     mockMvc
@@ -524,7 +524,7 @@ public class FilesControllerTest extends AbstractTestNGSpringContextTests {
 
     // Override AuthUtil to deny access
     authUtilMock
-        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anySet()))
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), anyCollection()))
         .thenReturn(false);
 
     // Setup EntityService to return file entity with ASSET_DOCUMENTATION_LINKS scenario

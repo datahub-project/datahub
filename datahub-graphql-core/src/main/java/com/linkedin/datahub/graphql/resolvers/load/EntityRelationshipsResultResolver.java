@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.resolvers.load;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -56,6 +58,12 @@ public class EntityRelationshipsResultResolver
         bindArgument(environment.getArgument("input"), RelationshipsInput.class);
 
     if (context == null) {
+      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
+    }
+    // Restricted documents keep urn/type after mapper redaction; do not disclose relationships.
+    final Urn sourceUrn = UrnUtils.getUrn(urn);
+    if (DOCUMENT_ENTITY_NAME.equals(sourceUrn.getEntityType())
+        && !canView(context.getOperationContext(), sourceUrn)) {
       return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
     }
     if (context
