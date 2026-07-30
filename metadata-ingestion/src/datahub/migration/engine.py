@@ -93,8 +93,14 @@ def migrate_pair(
         )
 
     log.debug(f"Will migrate {src} to {tgt}")
+    # The batch rewriter (from migrate_pairs) rewrites cross-pair references
+    # inside the cloned entity's own aspects. For incoming-ref repointing we
+    # use a single-pair rewriter: rewriting a third entity's reference to
+    # *another* pair's source is premature — if that pair later fails
+    # (skip_on_error), the referrer would be left with a dangling target URN.
+    self_rewrite_urn = migration_utils.make_self_urn_rewriter(src, tgt)
     if rewrite_urn is None:
-        rewrite_urn = migration_utils.make_self_urn_rewriter(src, tgt)
+        rewrite_urn = self_rewrite_urn
 
     target_exists = False
     if options.on_conflict is not None:
@@ -168,7 +174,7 @@ def migrate_pair(
             continue
         seen_referrers.add(referrer)
         for mcp in migration_utils.rewrite_incoming_references(
-            graph, referrer, rewrite_urn
+            graph, referrer, self_rewrite_urn
         ):
             if not options.dry_run:
                 graph.emit_mcp(mcp)
