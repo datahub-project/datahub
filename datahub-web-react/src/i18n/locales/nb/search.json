@@ -129,7 +129,7 @@
     "operator.isLessThan": "er mindre enn",
     "operator.isLessThanOrEqualTo": "er mindre enn eller lik",
     "operator.isNotAnyOf": "er ingen av",
-    "operator.within": "within",
+    "operator.within": "innenfor",
     "recommendation.viewResultsIn": "Vis resultater i <bold>{{label}}</bold>",
     "results.showingCount": "Viser <bold>{{start}}</bold>–<bold>{{end}}</bold> av <bold>{{total}}</bold> resultater",
     "saveAsView.cannotSaveError": "Denne kombinasjonen av filtre kan ikke lagres som en visning nå.",

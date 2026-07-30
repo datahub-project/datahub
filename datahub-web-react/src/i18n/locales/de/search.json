@@ -129,7 +129,7 @@
     "operator.isLessThan": "ist kleiner als",
     "operator.isLessThanOrEqualTo": "ist kleiner als oder gleich",
     "operator.isNotAnyOf": "ist keines von",
-    "operator.within": "within",
+    "operator.within": "innerhalb",
     "recommendation.viewResultsIn": "Ergebnisse in <bold>{{label}}</bold> anzeigen",
     "results.showingCount": "Es werden <bold>{{start}}</bold>–<bold>{{end}}</bold> von <bold>{{total}}</bold> Ergebnissen angezeigt",
     "saveAsView.cannotSaveError": "Diese Kombination von Filtern kann derzeit nicht als Ansicht gespeichert werden.",

@@ -322,9 +322,7 @@
           },
           {
             "com.linkedin.common.BrowsePaths": {
-              "paths": [
-                "/prod/hdfs/SamplePlaywrightHdfsDataset"
-              ]
+              "paths": ["/prod/hdfs/SamplePlaywrightHdfsDataset"]
             }
           },
           {
