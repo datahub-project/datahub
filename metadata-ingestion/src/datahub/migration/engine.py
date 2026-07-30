@@ -9,7 +9,7 @@ source.
 """
 
 import logging
-from typing import Iterable
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.cli import delete_cli, migration_utils
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -34,14 +34,23 @@ def migrate_pairs(
 ) -> MigrationReport:
     """Migrate a collection of source → target pairs.
 
+    Materializes the iterable into a list so a batch-wide URN rewriter can be
+    built — cross-pair references (e.g. entity A's lineage pointing to entity B,
+    where both are being migrated) are rewritten at clone time regardless of
+    processing order.
+
     Errors on an individual pair abort the batch unless
     ``options.skip_on_error`` is set, in which case the pair is recorded in the
     report and the batch continues.
     """
+    pairs_list: List[MigrationPair] = list(pairs)
+    urn_map: Dict[str, str] = {p.source_urn: p.target_urn for p in pairs_list}
+    batch_rewrite_urn = migration_utils.make_batch_urn_rewriter(urn_map)
+
     report = MigrationReport(options.run_id, options.dry_run, options.keep)
-    for pair in pairs:
+    for pair in pairs_list:
         try:
-            migrate_pair(graph, pair, options, report)
+            migrate_pair(graph, pair, options, report, batch_rewrite_urn)
         except Exception as e:
             if options.skip_on_error:
                 log.warning(f"Error migrating {pair.source_urn}, skipping: {e}")
@@ -56,8 +65,14 @@ def migrate_pair(
     pair: MigrationPair,
     options: MigrationOptions,
     report: MigrationReport,
+    rewrite_urn: Optional[Callable[[str], str]] = None,
 ) -> None:
-    """Migrate a single source → target pair."""
+    """Migrate a single source → target pair.
+
+    When ``rewrite_urn`` is provided (batch migration via ``migrate_pairs``), it
+    rewrites cross-pair references at clone time. When omitted, falls back to a
+    single-pair rewriter that only rewrites the pair's own URN.
+    """
     src = pair.source_urn
     tgt = pair.target_urn
 
@@ -78,7 +93,8 @@ def migrate_pair(
         )
 
     log.debug(f"Will migrate {src} to {tgt}")
-    rewrite_urn = migration_utils.make_self_urn_rewriter(src, tgt)
+    if rewrite_urn is None:
+        rewrite_urn = migration_utils.make_self_urn_rewriter(src, tgt)
 
     target_exists = False
     if options.on_conflict is not None:
@@ -102,7 +118,12 @@ def migrate_pair(
         else:
             log.info(f"Target {tgt} exists — merging aspects")
             result = migration_utils.merge_entity(
-                src, tgt, options.on_conflict, graph, options.dry_run
+                src,
+                tgt,
+                options.on_conflict,
+                graph,
+                options.dry_run,
+                rewrite_urn=rewrite_urn,
             )
             report.aspects_merged += result.merged
             report.conflicts_skipped += result.skipped

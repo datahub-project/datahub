@@ -166,6 +166,27 @@ def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
     return rewrite
 
 
+def make_batch_urn_rewriter(urn_map: Dict[str, str]) -> Callable[[str], str]:
+    """Rewrite references to ANY migrated entity URN in the batch.
+
+    Like ``make_self_urn_rewriter`` but aware of all source→target mappings in
+    the current migration run, so cross-pair references (e.g. entity A's lineage
+    pointing to entity B, where both are being migrated) are rewritten at clone
+    time regardless of processing order.
+    """
+
+    def rewrite(urn: str) -> str:
+        if urn in urn_map:
+            return urn_map[urn]
+        if urn.startswith(_SCHEMA_FIELD_PREFIX):
+            for old, new in urn_map.items():
+                if urn.startswith(f"{_SCHEMA_FIELD_PREFIX}({old},"):
+                    return urn.replace(old, new, 1)
+        return urn
+
+    return rewrite
+
+
 def rewrite_incoming_references(
     graph: DataHubGraph,
     target_urn: str,
@@ -570,11 +591,15 @@ def merge_entity(
     on_conflict: ConflictStrategy,
     graph: DataHubGraph,
     dry_run: bool,
+    rewrite_urn: Optional[Callable[[str], str]] = None,
 ) -> MergeResult:
     """Merge all aspects from source entity into existing target.
 
     Only dataset entities support full merge via the Patch API. For other entity
     types (chart, dashboard, dataFlow, dataJob), this falls back to overwrite.
+
+    When ``rewrite_urn`` is provided (batch migration), it is used instead of a
+    single-pair rewriter so that cross-pair references are rewritten correctly.
     """
     # PRESERVE leaves the existing target entirely untouched — no additive merge,
     # no scalar overwrite. Short-circuit here, before any merge work: the additive
@@ -602,8 +627,10 @@ def merge_entity(
 
     # Rewrite the source's self-references (e.g. fineGrainedLineages schemaField
     # URNs) to the target URN before merging, so merged aspects don't carry the
-    # old URN — mirroring the clone path.
-    rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
+    # old URN — mirroring the clone path. When a batch rewriter is provided, use
+    # it so that cross-pair references are also rewritten.
+    if rewrite_urn is None:
+        rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
     for aspect in src_aspect_map.values():
         if isinstance(aspect, DictWrapper):
             transform_urns(aspect, rewrite_urn)
