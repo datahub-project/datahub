@@ -70,8 +70,18 @@ class InformixClient:
             detail = ""
             try:
                 detail = f" (SQLSTATE={e.getSQLState()}, code={e.getErrorCode()})"  # type: ignore[attr-defined]
-            except Exception:
-                pass
+            except Exception as introspect_error:
+                # Not a java.sql.SQLException (e.g. a JVM/JPype-level failure), so
+                # there is no SQLSTATE to report. Record what it was instead of
+                # discarding the failure silently.
+                logger.debug(
+                    "Could not read SQLSTATE from a %s raised while connecting: %s",
+                    type(e).__name__,
+                    type(introspect_error).__name__,
+                )
+            # Never log str(e) or the URL itself -- both can carry the cleartext
+            # password. The exception type plus SQLSTATE is the most that is safe.
+            logger.debug("Informix connection failed: %s%s", type(e).__name__, detail)
             raise ConfigurationError(
                 f"Failed to connect to Informix server '{config.server}' at "
                 f"{config.host_port}, database '{config.database}'.{detail}"
@@ -97,30 +107,19 @@ class InformixClient:
 
     def get_tables(self) -> List[InformixTable]:
         tables: List[InformixTable] = []
-        stmt = self._conn.createStatement()
-        try:
-            rs = stmt.executeQuery(SQL_TABLES)
-            try:
-                while rs.next():
-                    # nrows is -1 or 0 when Informix hasn't computed a row estimate yet.
-                    # systables.nrows is catalogued as FLOAT, so the JDBC driver can
-                    # return values like "2.0"; go through float() before int().
-                    raw_nrows = rs.getObject(4)
-                    parsed_nrows = (
-                        int(float(str(raw_nrows))) if raw_nrows is not None else 0
-                    )
-                    tables.append(
-                        InformixTable(
-                            name=str(rs.getString(1)).strip(),
-                            owner=str(rs.getString(2)).strip(),
-                            is_view=str(rs.getString(3)).strip() == TABTYPE_VIEW,
-                            nrows=parsed_nrows if parsed_nrows > 0 else None,
-                        )
-                    )
-            finally:
-                _safe_close(rs)
-        finally:
-            _safe_close(stmt)
+        for r in self._query(SQL_TABLES, []):
+            # nrows is -1 or 0 when Informix hasn't computed a row estimate yet.
+            # systables.nrows is catalogued as FLOAT, so the JDBC driver can
+            # return values like "2.0"; go through float() before int().
+            nrows = int(float(str(r[3]))) if r[3] is not None else 0
+            tables.append(
+                InformixTable(
+                    name=str(r[0]).strip(),
+                    owner=str(r[1]).strip(),
+                    is_view=str(r[2]).strip() == TABTYPE_VIEW,
+                    nrows=nrows if nrows > 0 else None,
+                )
+            )
         return tables
 
     def get_columns(self, table: InformixTable) -> List[InformixColumn]:

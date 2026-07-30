@@ -41,7 +41,10 @@ from datahub.ingestion.source.informix.mapping import (
     columns_to_schema_fields,
     make_table_identifier,
 )
-from datahub.ingestion.source.informix.models import InformixTable
+from datahub.ingestion.source.informix.models import (
+    InformixForeignKey,
+    InformixTable,
+)
 from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.ingestion.source.sql.sql_utils import gen_domain_urn
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -181,6 +184,69 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
             schema=owner,
         )
 
+    def _build_table_schema(
+        self,
+        client: InformixClientProtocol,
+        table: InformixTable,
+        name: str,
+        fields: List[SchemaFieldClass],
+    ) -> Union[List[SchemaFieldClass], SchemaMetadataClass]:
+        if table.is_view or not self.config.include_foreign_keys:
+            return fields
+
+        usable_fks: List[InformixForeignKey] = []
+        for fk in client.get_foreign_keys(table):
+            if len(fk.child_columns) != len(fk.parent_columns):
+                # sourceFields/foreignFields pair positionally, so unequal lists
+                # would emit a constraint joining the wrong columns. Informix can
+                # back a constraint with a wider pre-existing index, so the catalog
+                # really can return lopsided child/parent column sets.
+                self.report.foreign_keys_dropped_mismatched += 1
+                self.report.warning(
+                    title="Skipped foreign key with mismatched column counts",
+                    message="Informix's catalog returned a different number of "
+                    "child and parent index columns, so the constraint cannot be "
+                    "paired reliably.",
+                    context=f"{table.owner}.{table.name} fk={fk.name} "
+                    f"child={len(fk.child_columns)} parent={len(fk.parent_columns)}",
+                )
+                continue
+            if len(fk.child_columns) > 1:
+                self.report.warning(
+                    title="Composite foreign key columns may be misaligned",
+                    message="Informix's catalog does not guarantee child/parent "
+                    "column pairing order for composite keys; columns are paired "
+                    "best-effort.",
+                    context=f"{table.owner}.{table.name} fk={fk.name}",
+                )
+            usable_fks.append(fk)
+
+        if not usable_fks:
+            return fields
+
+        child_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        return SchemaMetadataClass(
+            schemaName="",
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=SchemalessClass(),
+            fields=fields,
+            foreignKeys=build_foreign_key_constraints(
+                fks=usable_fks,
+                child_dataset_urn=child_urn,
+                database=self.config.database,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+                convert_to_lowercase=self.config.convert_urns_to_lowercase,
+            ),
+        )
+
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Container, Dataset]]:
@@ -251,42 +317,9 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         subtype = DatasetSubTypes.TABLE
 
-                    schema: Union[List[SchemaFieldClass], SchemaMetadataClass] = fields
-                    if self.config.include_foreign_keys and not table.is_view:
-                        fks = client.get_foreign_keys(table)
-                        for fk in fks:
-                            if len(fk.child_columns) > 1:
-                                self.report.warning(
-                                    title="Composite foreign key columns may be misaligned",
-                                    message="Informix's catalog does not guarantee "
-                                    "child/parent column pairing order for composite "
-                                    "keys; columns are paired best-effort.",
-                                    context=f"{table.owner}.{table.name} fk={fk.name}",
-                                )
-                        if fks:
-                            child_urn = make_dataset_urn_with_platform_instance(
-                                platform=self.platform,
-                                name=name,
-                                platform_instance=self.config.platform_instance,
-                                env=self.config.env,
-                            )
-                            fk_constraints = build_foreign_key_constraints(
-                                fks,
-                                child_urn,
-                                self.config.database,
-                                self.config.env,
-                                self.config.platform_instance,
-                                self.config.convert_urns_to_lowercase,
-                            )
-                            schema = SchemaMetadataClass(
-                                schemaName="",
-                                platform=make_data_platform_urn(self.platform),
-                                version=0,
-                                hash="",
-                                platformSchema=SchemalessClass(),
-                                fields=fields,
-                                foreignKeys=fk_constraints,
-                            )
+                    schema: Union[List[SchemaFieldClass], SchemaMetadataClass] = (
+                        self._build_table_schema(client, table, name, fields)
+                    )
 
                     dataset = Dataset(
                         platform=self.platform,
@@ -344,13 +377,13 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                             self.report.views_without_definition += 1
                             continue
                         upstream_lineage = build_view_upstream_lineage(
-                            pending.urn,
-                            sql,
-                            resolver,
-                            self.config.database,
-                            pending.table.owner,
-                            self.report,
-                            pending.columns,
+                            view_urn=pending.urn,
+                            view_sql=sql,
+                            schema_resolver=resolver,
+                            database=self.config.database,
+                            owner=pending.table.owner,
+                            report=self.report,
+                            view_columns=pending.columns,
                         )
                         if upstream_lineage is not None:
                             yield MetadataChangeProposalWrapper(

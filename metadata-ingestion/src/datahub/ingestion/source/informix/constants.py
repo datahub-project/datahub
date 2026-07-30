@@ -70,6 +70,13 @@ def map_coltype(coltype: int) -> MappedColumn:
     )
 
 
+# sysindexes stores an index's key columns as 16 fixed part1..part16 colno slots.
+# Descending index columns store partN as a negative colno, so ABS() is required to
+# match ascending and descending key columns alike.
+def _index_part_cols(alias: str) -> str:
+    return ", ".join(f"ABS({alias}.part{n})" for n in range(1, 17))
+
+
 # tabid < 100 are reserved system-catalog objects; tabtype 'T' table, 'V' view.
 # nrows is an approximate, catalog-maintained row count (-1/0 means unknown).
 SQL_TABLES = (
@@ -87,12 +94,7 @@ SQL_PK = (
     "JOIN systables t ON cn.tabid = t.tabid "
     "JOIN sysindexes ix ON cn.idxname = ix.idxname "
     "JOIN syscolumns c ON c.tabid = t.tabid AND c.colno IN "
-    # Descending index columns store partN as a negative colno, so ABS() is
-    # required to match ascending and descending PK columns alike.
-    "(ABS(ix.part1), ABS(ix.part2), ABS(ix.part3), ABS(ix.part4), ABS(ix.part5), "
-    "ABS(ix.part6), ABS(ix.part7), ABS(ix.part8), ABS(ix.part9), ABS(ix.part10), "
-    "ABS(ix.part11), ABS(ix.part12), ABS(ix.part13), ABS(ix.part14), ABS(ix.part15), "
-    "ABS(ix.part16)) "
+    f"({_index_part_cols('ix')}) "
     "WHERE cn.constrtype = 'P' AND TRIM(t.tabname) = ? AND TRIM(t.owner) = ?"
 )
 # constrtype = 'R' is a referential (foreign key) constraint. The child and
@@ -108,19 +110,13 @@ SQL_FK = (
     "JOIN systables ct ON cn.tabid = ct.tabid "
     "JOIN sysindexes cix ON cn.idxname = cix.idxname "
     "JOIN syscolumns cc ON cc.tabid = ct.tabid AND cc.colno IN "
-    "(ABS(cix.part1),ABS(cix.part2),ABS(cix.part3),ABS(cix.part4),ABS(cix.part5),"
-    "ABS(cix.part6),ABS(cix.part7),ABS(cix.part8),ABS(cix.part9),ABS(cix.part10),"
-    "ABS(cix.part11),ABS(cix.part12),ABS(cix.part13),ABS(cix.part14),ABS(cix.part15),"
-    "ABS(cix.part16)) "
+    f"({_index_part_cols('cix')}) "
     "JOIN sysreferences r ON cn.constrid = r.constrid "
     "JOIN sysconstraints pcn ON r.primary = pcn.constrid "
     "JOIN systables pt ON pcn.tabid = pt.tabid "
     "JOIN sysindexes pix ON pcn.idxname = pix.idxname "
     "JOIN syscolumns pc ON pc.tabid = pt.tabid AND pc.colno IN "
-    "(ABS(pix.part1),ABS(pix.part2),ABS(pix.part3),ABS(pix.part4),ABS(pix.part5),"
-    "ABS(pix.part6),ABS(pix.part7),ABS(pix.part8),ABS(pix.part9),ABS(pix.part10),"
-    "ABS(pix.part11),ABS(pix.part12),ABS(pix.part13),ABS(pix.part14),ABS(pix.part15),"
-    "ABS(pix.part16)) "
+    f"({_index_part_cols('pix')}) "
     "WHERE cn.constrtype = 'R' AND TRIM(ct.tabname) = ? AND TRIM(ct.owner) = ?"
 )
 # View text is stored across multiple rows (Informix caps each viewtext row at

@@ -5,6 +5,7 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.source.informix.lineage import build_view_upstream_lineage
 from datahub.ingestion.source.informix.report import InformixSourceReport
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
 
 def _resolver() -> SchemaResolver:
@@ -90,3 +91,41 @@ def test_view_lineage_counts_declared_column_count_mismatch() -> None:
     )
     assert up is not None
     assert report.view_column_remap_mismatches == 1
+
+
+def test_view_lineage_warns_when_only_column_parsing_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Table-level lineage resolved, column-level did not. The coarse lineage must
+    # still be emitted, but the column failure has to surface rather than looking
+    # like a view that simply has no column lineage.
+    sql = (
+        'create view "informix".customer_names (name) as '
+        'select x0.name from "informix".customers x0'
+    )
+    view_urn = make_dataset_urn("informix", "testdb.informix.customer_names", "PROD")
+    report = InformixSourceReport()
+
+    def _with_column_error(*args, **kwargs):
+        result = sqlglot_lineage(*args, **kwargs)
+        result.debug_info.column_error = SqlglotError("column resolution failed")
+        return result
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.informix.lineage.sqlglot_lineage",
+        _with_column_error,
+    )
+
+    up = build_view_upstream_lineage(
+        view_urn=view_urn,
+        view_sql=sql,
+        schema_resolver=_resolver(),
+        database="testdb",
+        owner="informix",
+        report=report,
+    )
+
+    assert up is not None
+    assert up.upstreams
+    assert report.view_column_lineage_failures == 1
+    assert any("column lineage" in str(w.title).lower() for w in report.warnings)
