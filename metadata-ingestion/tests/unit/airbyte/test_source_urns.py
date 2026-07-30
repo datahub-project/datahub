@@ -364,10 +364,12 @@ def test_streams_namespace_backfill_to_dataset_urn(
             "streams": [{"name": "events", "syncMode": "full_refresh_overwrite"}]
         },
     }
+    # Field names match the Public API's StreamProperties schema exactly, so this
+    # seam breaks if real-Airbyte support regresses.
     mock_list_streams.return_value = [
         {
             "streamName": "events",
-            "namespace": "my_schema",
+            "streamnamespace": "my_schema",
             "propertyFields": [["id"]],
         }
     ]

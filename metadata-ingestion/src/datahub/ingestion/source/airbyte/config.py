@@ -155,7 +155,9 @@ class AirbyteClientConfig(ConfigModel):
 
     @property
     def external_url_base(self) -> str:
-        # Cloud API host is not web-browsable; UI lives on cloud.airbyte.com.
+        # Base URL used to build `externalUrl` aspects. OSS uses the configured
+        # `host_port`; Cloud always points at cloud.airbyte.com (the Cloud API
+        # host is a different domain and isn't web-browsable).
         if self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
             return self.host_port or ""
         return DEFAULT_CLOUD_UI_URL

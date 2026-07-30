@@ -41,3 +41,22 @@ You'll need to have an Airbyte instance running with configured sources and dest
      - List and read sources, destinations, and connections
      - Access connection schemas and sync catalogs
      - View job execution history (if extracting job statuses)
+
+### Stream Namespaces and Column-Level Lineage
+
+Airbyte's Public API returns a connection's stream list without the schema (namespace) each
+stream is read from. DataHub recovers it from the `/streams` endpoint, which requires
+**Airbyte 1.8 or newer**. Two things depend on it:
+
+- **Dataset URNs.** Without a namespace, every stream falls back to the source connector's
+  configured default schema, so streams living in other schemas resolve to the wrong table.
+- **Column-level lineage**, which is built from the field list `/streams` returns.
+
+On older Airbyte the endpoint is absent and the run reports a `Stream Metadata Unavailable`
+warning. On 1.8+ the same 404 means the source is not accessible to the credentials in the
+recipe, so it is worth checking permissions when that warning appears.
+
+When several schemas expose a stream with the same name and Airbyte does not indicate which
+configured stream belongs to which schema, DataHub leaves the namespace unset rather than
+guessing, and reports an `Ambiguous Stream Namespace` warning listing the candidates. Set
+the schema explicitly on the affected connection in Airbyte to resolve it.

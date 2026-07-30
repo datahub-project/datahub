@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from urllib3.util.retry import Retry
@@ -36,6 +37,7 @@ from datahub.ingestion.source.airbyte.constants import (
     API_FIELD_CONFIGURATIONS,
     API_FIELD_DESTINATION_ID,
     API_FIELD_GRANT_TYPE,
+    API_FIELD_NAME,
     API_FIELD_REFRESH_TOKEN,
     API_FIELD_SOURCE_ID,
     API_FIELD_STATUS,
@@ -72,9 +74,6 @@ from datahub.ingestion.source.airbyte.constants import (
     JSON_SCHEMA_TYPE_NULL,
     JSON_SCHEMA_TYPE_OBJECT,
     JSON_SCHEMA_TYPE_STRING,
-    SYNC_MODE_DESTINATION_OVERWRITE,
-    SYNC_MODE_FULL_REFRESH,
-    SYNC_MODE_PARTS_RE,
     TOKEN_REFRESH_BUFFER_SECONDS,
 )
 from datahub.ingestion.source.airbyte.models import (
@@ -92,6 +91,7 @@ from datahub.ingestion.source.airbyte.models import (
     PropertyFieldPath,
     StreamIdentifier,
     SyncCatalogBuildResult,
+    SyncModeSplit,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,6 +111,7 @@ class AirbyteBaseClient(ABC):
     def __init__(self, config: AirbyteClientConfig):
         self.config = config
         self.session = self._create_session()
+        self._stream_api_metadata_cache: Dict[str, AirbyteStreamApiMetadata] = {}
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -152,7 +153,14 @@ class AirbyteBaseClient(ABC):
         url: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        # Do not log response bodies — payloads often contain connector credentials.
+        # Inner wire hook. Subclasses override this (not `_make_request`) to add
+        # behaviour around the request itself — e.g. the Cloud client's 401/403
+        # token-refresh retry — while keeping the error-translation shell in
+        # `_make_request` shared.
+        #
+        # Deliberately *don't* log response bodies, even at DEBUG: Airbyte API
+        # payloads embed source/destination configs that often contain connector
+        # credentials (JDBC URLs with passwords, S3 secrets, etc.).
         response = self.session.get(
             url, params=params, timeout=self.config.request_timeout
         )
@@ -213,6 +221,8 @@ class AirbyteBaseClient(ABC):
 
             items = response.get(result_key, [])
             if not isinstance(items, list):
+                # A malformed page silently truncating the rest of the
+                # enumeration would yield incomplete metadata; surface it.
                 raise AirbyteApiError(
                     f"Paginated response for {endpoint} returned non-list at "
                     f"key '{result_key}': got {type(items).__name__}"
@@ -227,6 +237,8 @@ class AirbyteBaseClient(ABC):
 
             if not items:
                 break
+            # Airbyte's Public API paginates by offset only; the next-token
+            # check is kept for forward-compat with hypothetical cursors.
             next_token = response.get(next_page_token_key)
             if next_token == "":
                 break
@@ -307,6 +319,8 @@ class AirbyteBaseClient(ABC):
             params[API_QUERY_UPDATED_AT_END] = end_date
 
         response = self._make_request(API_ENDPOINT_JOBS, params=params)
+        # Older Airbyte versions return the list under "jobs"; newer ones
+        # consolidated on "data".
         return response.get(API_RESPONSE_KEY_DATA) or response.get(
             API_RESPONSE_KEY_JOBS, []
         )
@@ -365,26 +379,30 @@ class AirbyteBaseClient(ABC):
             f"{API_ENDPOINT_CONNECTIONS}/{connection_id}"
         )
 
-        # Public API 1.x uses configurations.streams instead of syncCatalog.streams.
-        if not connection_data.get(API_FIELD_SYNC_CATALOG) and connection_data.get(
-            API_FIELD_CONFIGURATIONS
-        ):
-            configurations = connection_data.get(API_FIELD_CONFIGURATIONS, {})
-            if API_RESPONSE_KEY_STREAMS in configurations:
-                stream_api_metadata = self._fetch_stream_api_metadata(
-                    connection_data.get(API_FIELD_SOURCE_ID)
-                )
-                build_result = self._build_sync_catalog(
-                    configurations[API_RESPONSE_KEY_STREAMS],
-                    stream_api_metadata,
-                )
-                connection_data[API_FIELD_SYNC_CATALOG] = build_result.catalog
-                connection_data["ambiguous_stream_namespaces"] = build_result.ambiguous
-                connection_data["positional_stream_namespaces"] = (
-                    build_result.positional
-                )
+        # Airbyte 1.x Public API exposes `configurations.streams` instead of the
+        # legacy `syncCatalog.streams` shape. Synthesize the legacy structure so
+        # downstream code can stay version-agnostic.
+        config_streams: List[Dict[str, Any]] = []
+        if not connection_data.get(API_FIELD_SYNC_CATALOG):
+            configurations = connection_data.get(API_FIELD_CONFIGURATIONS) or {}
+            if isinstance(configurations, dict):
+                config_streams = configurations.get(API_RESPONSE_KEY_STREAMS) or []
 
-        return AirbyteConnectionPartial.model_validate(connection_data)
+        connection = AirbyteConnectionPartial.model_validate(connection_data)
+        if not config_streams:
+            return connection
+
+        build_result = self._build_sync_catalog(
+            config_streams,
+            self._fetch_stream_api_metadata(connection_data.get(API_FIELD_SOURCE_ID)),
+        )
+        # Set on the validated model rather than injected into the raw payload —
+        # these are our own findings, not fields the API returned.
+        connection.sync_catalog = build_result.catalog
+        connection.ambiguous_stream_namespaces = build_result.ambiguous
+        connection.skipped_stream_payloads = build_result.skipped_stream_payloads
+        connection.streams_api_unavailable = build_result.streams_api_unavailable
+        return connection
 
     def _fetch_stream_api_metadata(
         self, source_id: Optional[str]
@@ -392,27 +410,42 @@ class AirbyteBaseClient(ABC):
         if not source_id:
             return AirbyteStreamApiMetadata()
 
+        # Namespaces are a property of the source, but connections are walked one
+        # at a time — cache so N connections over one source cost one call.
+        cached = self._stream_api_metadata_cache.get(source_id)
+        if cached is not None:
+            return cached
+
+        metadata = self._collect_stream_api_metadata(source_id)
+        self._stream_api_metadata_cache[source_id] = metadata
+        return metadata
+
+    def _collect_stream_api_metadata(self, source_id: str) -> AirbyteStreamApiMetadata:
         try:
             detailed_streams = self.list_streams(source_id=source_id)
-        except AirbyteAuthenticationError:
-            raise
         except AirbyteApiError as e:
             if e.status_code == 404:
-                logger.debug(
-                    "Airbyte /streams unavailable (HTTP 404); skipping namespace "
-                    "and property-field backfill for source_id=%s",
-                    source_id,
-                )
-                return AirbyteStreamApiMetadata()
+                # Airbyte < 1.8 has no /streams, and an inaccessible source
+                # answers the same way. Either way namespaces are unavailable.
+                return AirbyteStreamApiMetadata(unavailable=True)
             raise
 
         property_fields_by_stream: Dict[StreamIdentifier, List[PropertyFieldPath]] = {}
         namespaces_by_name: Dict[str, List[str]] = {}
-        for stream in detailed_streams:
+        skipped_rows: List[str] = []
+        for index, stream in enumerate(detailed_streams):
             if not isinstance(stream, dict):
+                skipped_rows.append(f"/streams[{index}]: expected an object")
                 continue
 
-            row = AirbyteStreamsApiRow.model_validate(stream)
+            try:
+                row = AirbyteStreamsApiRow.model_validate(stream)
+            except ValidationError as e:
+                skipped_rows.append(
+                    f"/streams[{index}]: {e.error_count()} invalid field(s)"
+                )
+                continue
+
             if not row.stream_name:
                 continue
 
@@ -426,14 +459,13 @@ class AirbyteBaseClient(ABC):
                 stream_name=row.stream_name, namespace=row.namespace
             )
             property_fields_by_stream[stream_id] = [
-                PropertyFieldPath(path=field if isinstance(field, list) else [field])
-                for field in row.property_fields
-                if field
+                PropertyFieldPath(path=path) for path in row.property_fields
             ]
 
         return AirbyteStreamApiMetadata(
             property_fields_by_stream=property_fields_by_stream,
             namespaces_by_name=namespaces_by_name,
+            skipped_rows=skipped_rows,
         )
 
     def _build_sync_catalog(
@@ -441,9 +473,20 @@ class AirbyteBaseClient(ABC):
         config_streams: List[Dict[str, Any]],
         stream_api_metadata: AirbyteStreamApiMetadata,
     ) -> SyncCatalogBuildResult:
-        stream_refs = [
-            AirbyteConfigStreamRef.model_validate(stream) for stream in config_streams
-        ]
+        stream_refs: List[AirbyteConfigStreamRef] = []
+        skipped: List[str] = list(stream_api_metadata.skipped_rows)
+        for index, stream in enumerate(config_streams):
+            try:
+                stream_refs.append(AirbyteConfigStreamRef.model_validate(stream))
+            except ValidationError as e:
+                # One unreadable stream must not cost the whole connection: the
+                # caller would drop its datasets, lineage and DataFlow/DataJob.
+                name = stream.get(API_FIELD_NAME) if isinstance(stream, dict) else None
+                skipped.append(
+                    f"configurations.streams[{index}]"
+                    f"{f' ({name})' if name else ''}: "
+                    f"{e.error_count()} invalid field(s)"
+                )
         queue_result = namespace_queues_for_catalog(
             stream_refs, stream_api_metadata.namespaces_by_name
         )
@@ -479,24 +522,19 @@ class AirbyteBaseClient(ABC):
         return SyncCatalogBuildResult(
             catalog=AirbyteSyncCatalog(streams=streams),
             ambiguous=queue_result.ambiguous,
-            positional=queue_result.positional,
+            skipped_stream_payloads=skipped,
+            streams_api_unavailable=stream_api_metadata.unavailable,
         )
 
     def _build_stream_config(
         self, stream: AirbyteConfigStreamRef
     ) -> AirbyteStreamSyncSettings:
-        sync_mode_parts = (
-            SYNC_MODE_PARTS_RE.split(stream.sync_mode) if stream.sync_mode else []
-        )
+        sync_modes = SyncModeSplit.from_api_value(stream.sync_mode)
 
         return AirbyteStreamSyncSettings(
             selected=True,
-            sync_mode=sync_mode_parts[0] if sync_mode_parts else SYNC_MODE_FULL_REFRESH,
-            destination_sync_mode=(
-                sync_mode_parts[1]
-                if len(sync_mode_parts) > 1
-                else SYNC_MODE_DESTINATION_OVERWRITE
-            ),
+            sync_mode=sync_modes.source_mode,
+            destination_sync_mode=sync_modes.destination_mode,
             primary_key=stream.primary_key,
             cursor_field=stream.cursor_field,
             destination_namespace=stream.destination_namespace,
@@ -510,6 +548,10 @@ class AirbyteBaseClient(ABC):
         stream: AirbyteConfigStreamRef,
         property_fields: Optional[List[PropertyFieldPath]] = None,
     ) -> Dict[str, Any]:
+        # Schema sources in order of preference:
+        #   1. propertyFields from `/streams` (Airbyte 1.8+, most accurate)
+        #   2. jsonSchema embedded in the legacy configurations payload
+        #   3. empty schema — column-level lineage will be dropped
         if property_fields:
             properties = {
                 field_path.field_name: {
@@ -532,6 +574,9 @@ class AirbyteBaseClient(ABC):
     def list_streams(
         self, source_id: Optional[str] = None, destination_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
+        # `/streams` is Airbyte 1.8+. Older versions 404 — callers should treat
+        # that as "fall back to configurations.streams" instead of propagating
+        # the error.
         self._check_auth_before_request()
         query_params = []
         if source_id:
@@ -559,6 +604,7 @@ class AirbyteBaseClient(ABC):
         response = self._make_request(
             f"{API_ENDPOINT_TAGS}?{API_QUERY_WORKSPACE_IDS}={workspace_id}"
         )
+        # Older Airbyte versions return tags under "tags".
         return response.get(API_RESPONSE_KEY_DATA) or response.get(
             API_RESPONSE_KEY_TAGS, []
         )
@@ -575,6 +621,8 @@ class AirbyteOSSClient(AirbyteBaseClient):
         self._setup_authentication()
 
     def _setup_authentication(self) -> None:
+        # OAuth2 -> API key/Bearer -> basic auth -> no-auth, in that order.
+        # See https://docs.airbyte.com/using-airbyte/configuring-api-access
         if self.config.oauth2_client_id and self.config.oauth2_client_secret:
             self._setup_oauth_authentication()
         elif self.config.api_key:
@@ -604,6 +652,7 @@ class AirbyteOSSClient(AirbyteBaseClient):
         token_data = {
             API_FIELD_CLIENT_ID: self.config.oauth2_client_id,
             API_FIELD_CLIENT_SECRET: self.config.oauth2_client_secret.get_secret_value(),
+            # OSS only exposes client_credentials.
             API_FIELD_GRANT_TYPE: OAuth2GrantType.CLIENT_CREDENTIALS.value,
         }
 
@@ -761,6 +810,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
         url: str,
         params: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        # Override the wire hook (not `_make_request`) so the HTTP-to-error
+        # translation stays shared and only the token-refresh-on-401/403
+        # behaviour differs between OSS and Cloud.
         try:
             return super()._do_get(url, params=params)
         except requests.HTTPError as e:
@@ -785,7 +837,9 @@ class AirbyteCloudClient(AirbyteBaseClient):
             self._acquire_token()
 
     def _get_full_url(self, endpoint: str) -> str:
-        # urljoin drops path segments when base URL lacks a trailing slash.
+        # Concatenate explicitly: `urljoin` drops trailing path segments when the
+        # base URL lacks a trailing slash, so customer-supplied `cloud_api_url`
+        # values like "https://eu.example.com/api/v1" lose their path prefix.
         return f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
     def _check_auth_before_request(self) -> None:
@@ -794,6 +848,8 @@ class AirbyteCloudClient(AirbyteBaseClient):
     def list_workspaces(
         self, pattern: Optional[AllowDenyPattern] = None
     ) -> List[AirbyteWorkspacePartial]:
+        # Cloud restricts each set of credentials to a single workspace, so this
+        # is a single GET rather than a paginated list.
         self._check_auth_before_request()
         try:
             workspace_data = self._make_request(

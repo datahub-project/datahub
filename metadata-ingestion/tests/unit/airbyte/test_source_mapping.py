@@ -195,24 +195,10 @@ def test_fetch_streams_reports_ambiguous_stream_namespaces(source):
     )
 
 
-def test_fetch_streams_reports_positional_stream_namespaces(source):
-    connection = AirbyteConnectionPartial(
-        connection_id="connection-1",
-        name="Test Connection",
-        source_id="source-1",
-        destination_id="destination-1",
-        status="active",
-        positional_stream_namespaces={"users": ["public", "analytics"]},
-        sync_catalog=AirbyteSyncCatalog(
-            streams=[
-                AirbyteStreamConfig(
-                    stream=AirbyteStream(name="users", namespace="public"),
-                    config={"selected": True},
-                )
-            ]
-        ),
-    )
-    pipeline_info = AirbytePipelineInfo(
+def _pipeline_with_connection(
+    connection: AirbyteConnectionPartial,
+) -> AirbytePipelineInfo:
+    return AirbytePipelineInfo(
         workspace=AirbyteWorkspacePartial(
             workspace_id="workspace-1", name="Test Workspace"
         ),
@@ -233,9 +219,56 @@ def test_fetch_streams_reports_positional_stream_namespaces(source):
         ),
     )
 
+
+def _connection_with_one_stream(**overrides: object) -> AirbyteConnectionPartial:
+    return AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+        sync_catalog=AirbyteSyncCatalog(
+            streams=[
+                AirbyteStreamConfig(
+                    stream=AirbyteStream(name="users", namespace="public"),
+                    config={"selected": True},
+                )
+            ]
+        ),
+        **overrides,
+    )
+
+
+def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
+    """A 404 from /streams costs namespaces and column-level lineage, so it has
+    to reach the report — but only once per source, not once per connection."""
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(streams_api_unavailable=True)
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    matching = [
+        warning
+        for warning in source.report.warnings
+        if "Stream Metadata Unavailable" in str(warning)
+    ]
+    assert len(matching) == 1
+
+
+def test_fetch_streams_reports_skipped_stream_payloads(source):
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(
+            skipped_stream_payloads=[
+                "configurations.streams[1] (orders): 1 invalid field(s)"
+            ]
+        )
+    )
+
     source._fetch_streams_for_source(pipeline_info)
 
     assert any(
-        "Positional Stream Namespace Backfill" in str(warning)
+        "Unreadable Stream Payload" in str(warning)
         for warning in source.report.warnings
     )

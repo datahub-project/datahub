@@ -1,8 +1,8 @@
-import re
 from typing import Dict, Sequence
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 
+# Default Airbyte Cloud URLs
 DEFAULT_CLOUD_API_URL = "https://api.airbyte.com/v1"
 DEFAULT_CLOUD_OAUTH_TOKEN_URL = "https://auth.airbyte.com/oauth/token"
 DEFAULT_CLOUD_UI_URL = "https://cloud.airbyte.com"
@@ -18,9 +18,11 @@ HTTP_PROTOCOL_HTTP = "http://"
 HTTP_PROTOCOL_HTTPS = "https://"
 
 DEFAULT_TOKEN_EXPIRY_SECONDS = 3600
-# Refresh early to avoid races between the "still valid" check and the API call.
+# Refresh 10 minutes before expiry to avoid races between the "still valid"
+# check and the actual API call landing on the server.
 TOKEN_REFRESH_BUFFER_SECONDS = 600
 
+# See https://docs.airbyte.com/developers/api-documentation
 API_ENDPOINT_WORKSPACES = "/workspaces"
 API_ENDPOINT_CONNECTIONS = "/connections"
 API_ENDPOINT_SOURCES = "/sources"
@@ -59,6 +61,7 @@ API_FIELD_SOURCE_ID = "sourceId"
 API_FIELD_DESTINATION_ID = "destinationId"
 API_FIELD_CONNECTION_ID = "connectionId"
 API_FIELD_SYNC_MODE = "syncMode"
+API_FIELD_DESTINATION_SYNC_MODE = "destinationSyncMode"
 API_FIELD_PRIMARY_KEY = "primaryKey"
 API_FIELD_CURSOR_FIELD = "cursorField"
 API_FIELD_DESTINATION_NAMESPACE = "destinationNamespace"
@@ -86,6 +89,7 @@ API_JOB_CONFIG_TYPE_SYNC = "sync"
 API_JOB_CONFIG_TYPE_RESET = "reset_connection"
 
 SYNC_MODE_FULL_REFRESH = "full_refresh"
+SYNC_MODE_INCREMENTAL = "incremental"
 SYNC_MODE_DESTINATION_OVERWRITE = "overwrite"
 SYNC_MODE_NULL = "null"
 
@@ -98,14 +102,17 @@ JSON_SCHEMA_KEY_PROPERTIES = "properties"
 NAMESPACE_DEFINITION_CUSTOM_FORMAT = "customformat"
 SOURCE_NAMESPACE_PLACEHOLDER = "${SOURCE_NAMESPACE}"
 
-# Order matters: more-specific keys first so "schema" does not shadow
-# MSSQL/Oracle's "default_schema".
+# Schema-name keys seen across Airbyte connector configurations. Order matters —
+# more-specific keys first so the generic "schema" doesn't shadow MSSQL/Oracle's
+# "default_schema".
 SCHEMA_CONFIG_FIELDS: Sequence[str] = (
     "schema",
     "default_schema",
     "schema_name",
 )
 
+# Database-name keys. Destinations additionally treat BigQuery's "dataset" as
+# the database tier — see DESTINATION_DATABASE_CONFIG_FIELDS.
 SOURCE_DATABASE_CONFIG_FIELDS: Sequence[str] = (
     "database",
     "db",
@@ -125,7 +132,9 @@ DESTINATION_DATABASE_CONFIG_FIELDS: Sequence[str] = (
     "dataset",
 )
 
+# Known source type to DataHub platform mapping
 KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
+    # Relational databases
     "postgres": "postgres",
     "postgresql": "postgres",
     "mysql": "mysql",
@@ -135,11 +144,13 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "sqlserver": "mssql",
     "oracle": "oracle",
     "db2": "db2",
+    # Cloud data warehouses
     "snowflake": "snowflake",
     "bigquery": "bigquery",
     "redshift": "redshift",
     "databricks": "databricks",
     "synapse": "mssql",
+    # NoSQL databases
     "mongodb": "mongodb",
     "mongo": "mongodb",
     "cassandra": "cassandra",
@@ -147,6 +158,7 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "elasticsearch": "elasticsearch",
     "opensearch": "opensearch",
     "clickhouse": "clickhouse",
+    # Big data and analytics
     "hive": "hive",
     "presto": "presto",
     "trino": "trino",
@@ -154,17 +166,21 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "vertica": "vertica",
     "teradata": "teradata",
     "druid": "druid",
+    # Cloud storage
     "s3": "s3",
     "gcs": "gcs",
     "google-cloud-storage": "gcs",
     "azure-blob-storage": "abs",
     "abs": "abs",
+    # Streaming and messaging
     "kafka": "kafka",
     "pulsar": "pulsar",
     "kinesis": "kinesis",
+    # File formats and data lakes
     "delta-lake": "delta-lake",
     "iceberg": "iceberg",
     "hudi": "hudi",
+    # Other
     "glue": "glue",
     "salesforce": "salesforce",
     "netsuite": "netsuite",
@@ -185,7 +201,3 @@ AIRBYTE_JOB_STATUS_MAP = {
     "incomplete": InstanceRunResult.UP_FOR_RETRY,
     "pending": InstanceRunResult.UP_FOR_RETRY,
 }
-
-PLATFORM_NAME_SPACE_RE = re.compile(r" ")
-FQ_STREAM_NAME_DOT_RE = re.compile(r"\.")
-SYNC_MODE_PARTS_RE = re.compile(r"_")

@@ -16,6 +16,7 @@ from datahub.ingestion.source.airbyte.constants import (
     API_FIELD_CURSOR_FIELD,
     API_FIELD_DESTINATION_ID,
     API_FIELD_DESTINATION_NAMESPACE,
+    API_FIELD_DESTINATION_SYNC_MODE,
     API_FIELD_FIELD_SELECTION,
     API_FIELD_FIELD_SELECTION_ENABLED,
     API_FIELD_JSON_SCHEMA,
@@ -41,6 +42,9 @@ from datahub.ingestion.source.airbyte.constants import (
     DESTINATION_DATABASE_CONFIG_FIELDS,
     SCHEMA_CONFIG_FIELDS,
     SOURCE_DATABASE_CONFIG_FIELDS,
+    SYNC_MODE_DESTINATION_OVERWRITE,
+    SYNC_MODE_FULL_REFRESH,
+    SYNC_MODE_INCREMENTAL,
     SYNC_MODE_NULL,
 )
 from datahub.utilities.str_enum import StrEnum
@@ -75,6 +79,43 @@ def _first_truthy_str(data: Mapping[str, Any], keys: Sequence[str]) -> Optional[
         if value:
             return _coerce_optional_str(value)
     return None
+
+
+def _as_str_list(value: object) -> List[str]:
+    """Normalize to a list of strings, tolerating a bare scalar.
+
+    Pydantic v2 will not widen a scalar into a list, so off-spec payloads such
+    as `"cursorField": "updated_at"` would otherwise fail validation.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value if item is not None]
+    return [str(value)]
+
+
+def _as_field_paths(value: object) -> List[List[str]]:
+    """Normalize Airbyte's `string[][]` field-path shape.
+
+    A flat `["id", "tenant"]` is read as two single-segment paths, matching how
+    Airbyte expresses a composite key, and a bare `"id"` becomes `[["id"]]`.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [[value]]
+    if not isinstance(value, (list, tuple)):
+        return [[str(value)]]
+    paths: List[List[str]] = []
+    for item in value:
+        if item is None:
+            continue
+        path = _as_str_list(item)
+        if path:
+            paths.append(path)
+    return paths
 
 
 class StreamIdentifier(BaseModel):
@@ -148,11 +189,14 @@ class AirbyteConfigStreamRef(BaseModel):
         if not isinstance(data, dict):
             return data
         resolved = dict(data)
-        resolved[API_FIELD_JSON_SCHEMA] = (
+        schema = (
             resolved.pop(API_FIELD_JSON_SCHEMA, None)
             or resolved.pop(API_FIELD_JSON_SCHEMA_SNAKE, None)
             or {}
         )
+        # A non-dict schema carries nothing we can read; an empty one just means
+        # columns come from /streams propertyFields instead.
+        resolved[API_FIELD_JSON_SCHEMA] = schema if isinstance(schema, dict) else {}
         return resolved
 
     @field_validator(
@@ -167,18 +211,32 @@ class AirbyteConfigStreamRef(BaseModel):
     def _stringify(cls, value: object) -> Optional[str]:
         return _coerce_optional_str(value)
 
-    @field_validator("primary_key", "cursor_field", mode="before")
+    @field_validator("primary_key", mode="before")
     @classmethod
-    def _empty_list_when_missing(cls, value: object) -> object:
-        return value or []
+    def _normalize_primary_key(cls, value: object) -> List[List[str]]:
+        return _as_field_paths(value)
+
+    @field_validator("cursor_field", mode="before")
+    @classmethod
+    def _normalize_cursor_field(cls, value: object) -> List[str]:
+        return _as_str_list(value)
+
+    @field_validator("selected_fields", mode="before")
+    @classmethod
+    def _normalize_selected_fields(cls, value: object) -> Optional[List[object]]:
+        if value is None:
+            return None
+        return list(value) if isinstance(value, (list, tuple)) else [value]
 
 
 class AirbyteStreamsApiRow(BaseModel):
-    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
+    """One row from Airbyte `/streams` (1.8+). Field names vary by version, and
+    values are normalized rather than rejected so a single off-spec row cannot
+    cost us the whole source's namespace metadata."""
 
     stream_name: Optional[str] = None
     namespace: str = ""
-    property_fields: List[object] = Field(default_factory=list)
+    property_fields: List[List[str]] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="allow")
 
@@ -202,14 +260,46 @@ class AirbyteStreamsApiRow(BaseModel):
             )
             or ""
         )
-        resolved["property_fields"] = data.get(API_FIELD_PROPERTY_FIELDS) or []
+        resolved["property_fields"] = _as_field_paths(
+            data.get(API_FIELD_PROPERTY_FIELDS)
+        )
         return resolved
+
+
+class SyncModeSplit(BaseModel):
+    """The Public API's single `syncMode` string split back into the two modes
+    the sync catalog carries separately, e.g. `full_refresh_overwrite` ->
+    (`full_refresh`, `overwrite`). Splitting on the first `_` would mis-read
+    `full_refresh_*` as source mode `full`, so the known source modes are
+    matched as prefixes instead."""
+
+    source_mode: str = SYNC_MODE_FULL_REFRESH
+    destination_mode: str = SYNC_MODE_DESTINATION_OVERWRITE
+
+    model_config = ConfigDict(frozen=True)
+
+    @classmethod
+    def from_api_value(cls, value: Optional[str]) -> "SyncModeSplit":
+        if not value:
+            return cls()
+        for source_mode in (SYNC_MODE_FULL_REFRESH, SYNC_MODE_INCREMENTAL):
+            prefix = f"{source_mode}_"
+            if value.startswith(prefix):
+                return cls(
+                    source_mode=source_mode,
+                    destination_mode=value[len(prefix) :],
+                )
+        # Unrecognized values (including the "null" marker Airbyte uses for a
+        # disabled stream) pass through so `is_enabled` can still see them.
+        return cls(source_mode=value)
 
 
 class AirbyteStreamSyncSettings(BaseModel):
     selected: bool = True
-    sync_mode: str = Field(default="full_refresh", alias=API_FIELD_SYNC_MODE)
-    destination_sync_mode: str = Field(default="overwrite", alias="destinationSyncMode")
+    sync_mode: str = Field(default=SYNC_MODE_FULL_REFRESH, alias=API_FIELD_SYNC_MODE)
+    destination_sync_mode: str = Field(
+        default=SYNC_MODE_DESTINATION_OVERWRITE, alias=API_FIELD_DESTINATION_SYNC_MODE
+    )
     primary_key: List[List[str]] = Field(
         default_factory=list, alias=API_FIELD_PRIMARY_KEY
     )
@@ -273,9 +363,12 @@ class AirbyteSyncCatalog(BaseModel):
 
 
 class NamespaceQueueResult(BaseModel):
+    """Namespaces to hand out to config streams that carry none, plus the names
+    we refuse to guess at. `ambiguous` names keep their unclaimed candidates so
+    the report can tell an operator what we saw."""
+
     queues: StreamNamespacesByName = Field(default_factory=dict)
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
-    positional: StreamNamespacesByName = Field(default_factory=dict)
 
     model_config = ConfigDict(frozen=True)
 
@@ -283,7 +376,8 @@ class NamespaceQueueResult(BaseModel):
 class SyncCatalogBuildResult(BaseModel):
     catalog: AirbyteSyncCatalog
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
-    positional: StreamNamespacesByName = Field(default_factory=dict)
+    skipped_stream_payloads: List[str] = Field(default_factory=list)
+    streams_api_unavailable: bool = False
 
     model_config = ConfigDict(frozen=True)
 
@@ -396,8 +490,11 @@ class AirbyteConnectionPartial(BaseModel):
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(
         None, alias=API_FIELD_SYNC_CATALOG
     )
+    # Set by the client after validation when the sync catalog had to be rebuilt
+    # from the Public API's `configurations.streams`; see `get_connection`.
     ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
-    positional_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
+    skipped_stream_payloads: List[str] = Field(default_factory=list)
+    streams_api_unavailable: bool = False
     configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
@@ -497,6 +594,10 @@ class AirbyteStreamApiMetadata(BaseModel):
         default_factory=dict
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
+    # True when /streams answered 404 — either the endpoint predates Airbyte 1.8
+    # or the source is inaccessible. Both cost us namespaces, so it is reported.
+    unavailable: bool = False
+    skipped_rows: List[str] = Field(default_factory=list)
 
 
 class AirbyteStreamInfo(BaseModel):
