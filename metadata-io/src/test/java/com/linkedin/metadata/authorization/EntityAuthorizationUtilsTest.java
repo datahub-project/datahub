@@ -169,7 +169,7 @@ public class EntityAuthorizationUtilsTest {
   }
 
   @Test
-  public void testIngestAuthorizationTreatsMissingDocumentUpsertAsCreate() {
+  public void testIngestAuthorizationUsesEffectiveDocumentAuthorizationKey() {
     MetadataChangeProposal proposal =
         new MetadataChangeProposal()
             .setEntityType("document")

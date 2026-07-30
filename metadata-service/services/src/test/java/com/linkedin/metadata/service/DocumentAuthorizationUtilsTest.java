@@ -74,15 +74,23 @@ public class DocumentAuthorizationUtilsTest {
   }
 
   @Test
-  public void testEffectiveDocumentIngestAuthorizationKey_missingUpdateLikeBecomesCreate() {
+  public void testEffectiveDocumentIngestAuthorizationKey_usesExistenceToSelectPrivilege() {
     assertEquals(
         DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
             ChangeType.UPSERT, STANDALONE_DOC, false),
         Pair.of(ChangeType.CREATE_ENTITY, STANDALONE_DOC));
     assertEquals(
         DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
-            ChangeType.UPDATE, STANDALONE_DOC, true),
-        Pair.of(ChangeType.UPDATE, STANDALONE_DOC));
+            ChangeType.UPDATE, STANDALONE_DOC, false),
+        Pair.of(ChangeType.CREATE_ENTITY, STANDALONE_DOC));
+    assertEquals(
+        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+            ChangeType.CREATE, STANDALONE_DOC, true),
+        Pair.of(ChangeType.CREATE, STANDALONE_DOC));
+    assertEquals(
+        DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
+            ChangeType.UPSERT, STANDALONE_DOC, true),
+        Pair.of(ChangeType.UPSERT, STANDALONE_DOC));
     assertEquals(
         DocumentAuthorizationUtils.effectiveDocumentIngestAuthorizationKey(
             ChangeType.UPSERT, SOURCE_DATASET, false),
@@ -133,6 +141,34 @@ public class DocumentAuthorizationUtilsTest {
     assertTrue(
         DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
             opContext, UPDATE, List.of(STANDALONE_DOC, BRIDGE_DOC)));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedDocumentUrns_deniesUpdateOnMissingWithoutCreate() {
+    enableRestApiAuthorization();
+    when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC)))
+        .thenReturn(Map.of(STANDALONE_DOC, false));
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(STANDALONE_DOC)))
+        .thenReturn(false);
+
+    assertFalse(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, UPDATE, List.of(STANDALONE_DOC)));
+  }
+
+  @Test
+  public void testIsAPIAuthorizedDocumentUrns_deniesCreateOnExistingWithoutUpdate() {
+    enableRestApiAuthorization();
+    when(aspectRetriever.entityExists(opContext, Set.of(STANDALONE_DOC)))
+        .thenReturn(Map.of(STANDALONE_DOC, true));
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(STANDALONE_DOC)))
+        .thenReturn(false);
+
+    assertFalse(
+        DocumentAuthorizationUtils.isAPIAuthorizedDocumentUrns(
+            opContext, CREATE, List.of(STANDALONE_DOC)));
   }
 
   @Test

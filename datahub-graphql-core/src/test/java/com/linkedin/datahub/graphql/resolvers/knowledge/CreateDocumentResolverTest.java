@@ -63,6 +63,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
+            any(), // owners
             any(Urn.class))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
 
@@ -99,15 +100,10 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
+            any(), // owners
             any(Urn.class)); // actor URN
 
-    // Verify ownership was set (default to creator)
-    verify(mockService, times(1))
-        .setDocumentOwnership(
-            any(OperationContext.class),
-            eq(TEST_DOCUMENT_URN),
-            any(), // owners list
-            any(Urn.class)); // actor URN
+    verify(mockService, never()).setDocumentOwnership(any(), any(), any(), any());
   }
 
   @Test
@@ -132,6 +128,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
+            any(), // owners
             any()); // actor
   }
 
@@ -162,6 +159,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
+            any(), // owners
             any()); // actor
   }
 
@@ -203,13 +201,23 @@ public class CreateDocumentResolverTest {
 
     assertEquals(result, TEST_DOCUMENT_URN.toString());
 
-    // Verify ownership was set with the custom owners
+    // Verify custom owners are part of the create operation
     verify(mockService, times(1))
-        .setDocumentOwnership(
+        .createDocument(
             any(OperationContext.class),
-            eq(TEST_DOCUMENT_URN),
-            any(), // owners list (should contain 2 owners)
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            argThat(owners -> owners != null && owners.size() == 2),
             any(Urn.class));
+    verify(mockService, never()).setDocumentOwnership(any(), any(), any(), any());
   }
 
   @Test
@@ -231,6 +239,7 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
+            any(), // owners
             any())) // actor
         .thenThrow(new RuntimeException("Service error"));
 
@@ -245,6 +254,7 @@ public class CreateDocumentResolverTest {
     when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN.toString());
     when(mockService.createDocument(
             any(OperationContext.class),
+            any(),
             any(),
             any(),
             any(),

@@ -100,6 +100,12 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
               }
             }
 
+            final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
+            final List<Owner> owners =
+                input.getOwners() != null
+                    ? mapOwnerInputsToOwners(input.getOwners())
+                    : java.util.Collections.emptyList();
+
             // Create document using service
             final Urn documentUrn =
                 _documentService.createDocument(
@@ -114,26 +120,8 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedAssetUrns,
                     relatedDocumentUrns,
                     settings,
-                    UrnUtils.getUrn(context.getActorUrn()));
-
-            // Set ownership
-            final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
-            if (input.getOwners() != null && !input.getOwners().isEmpty()) {
-              // Use provided owners
-              final List<Owner> owners = mapOwnerInputsToOwners(input.getOwners());
-              _documentService.setDocumentOwnership(
-                  context.getOperationContext(), documentUrn, owners, actorUrn);
-            } else {
-              // Default to adding the creator as owner
-              final Owner creatorOwner = new Owner();
-              creatorOwner.setOwner(actorUrn);
-              creatorOwner.setType(OwnershipType.TECHNICAL_OWNER);
-              _documentService.setDocumentOwnership(
-                  context.getOperationContext(),
-                  documentUrn,
-                  java.util.Collections.singletonList(creatorOwner),
-                  actorUrn);
-            }
+                    owners,
+                    actorUrn);
 
             return documentUrn.toString();
           } catch (ServiceAuthorizationException e) {

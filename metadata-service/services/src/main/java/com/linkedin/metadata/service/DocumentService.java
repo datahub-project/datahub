@@ -3,8 +3,10 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.SemanticText;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -96,6 +98,43 @@ public class DocumentService {
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
+      @Nonnull Urn actorUrn)
+      throws Exception {
+    return createDocument(
+        opContext,
+        id,
+        subTypes,
+        title,
+        source,
+        state,
+        text,
+        parentDocumentUrn,
+        relatedAssetUrns,
+        relatedDocumentUrns,
+        settings,
+        null,
+        actorUrn);
+  }
+
+  /**
+   * Creates a new document with its initial ownership in the same ingest batch.
+   *
+   * @param owners optional initial owners; defaults to the creator
+   */
+  @Nonnull
+  public Urn createDocument(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable List<String> subTypes,
+      @Nullable String title,
+      @Nullable com.linkedin.knowledge.DocumentSource source,
+      @Nullable com.linkedin.knowledge.DocumentState state,
+      @Nonnull String text,
+      @Nullable Urn parentDocumentUrn,
+      @Nullable List<Urn> relatedAssetUrns,
+      @Nullable List<Urn> relatedDocumentUrns,
+      @Nullable com.linkedin.knowledge.DocumentSettings settings,
+      @Nullable List<Owner> owners,
       @Nonnull Urn actorUrn)
       throws Exception {
 
@@ -220,6 +259,22 @@ public class DocumentService {
         AspectUtils.buildSynchronousMetadataChangeProposal(
             documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
     mcps.add(settingsMcp);
+
+    final List<Owner> initialOwners;
+    if (owners != null && !owners.isEmpty()) {
+      initialOwners = owners;
+    } else {
+      final Owner creatorOwner = new Owner();
+      creatorOwner.setOwner(actorUrn);
+      creatorOwner.setType(OwnershipType.TECHNICAL_OWNER);
+      initialOwners = Collections.singletonList(creatorOwner);
+    }
+    final MetadataChangeProposal ownershipMcp =
+        AspectUtils.buildSynchronousMetadataChangeProposal(
+            documentUrn,
+            Constants.OWNERSHIP_ASPECT_NAME,
+            buildOwnership(initialOwners, actorUrn));
+    mcps.add(ownershipMcp);
 
     // Ingest the document with all aspects
     entityClient.batchIngestProposals(opContext, mcps, false);
@@ -761,23 +816,11 @@ public class DocumentService {
   public void setDocumentOwnership(
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
-      @Nonnull java.util.List<com.linkedin.common.Owner> owners,
+      @Nonnull List<Owner> owners,
       @Nonnull Urn actorUrn)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
-
-    // Create Ownership aspect
-    final Ownership ownership = new Ownership();
-    final OwnerArray ownerArray = new OwnerArray();
-    ownerArray.addAll(owners);
-    ownership.setOwners(ownerArray);
-
-    // Set last modified
-    final AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
-    auditStamp.setActor(actorUrn);
-    ownership.setLastModified(auditStamp);
 
     // Create MCP for ownership
     final MetadataChangeProposal mcp = new MetadataChangeProposal();
@@ -785,11 +828,26 @@ public class DocumentService {
     mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
     mcp.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(ownership));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(buildOwnership(owners, actorUrn)));
 
     entityClient.ingestProposal(opContext, mcp, false);
 
     log.debug("Set ownership for document {} with {} owners", documentUrn, owners.size());
+  }
+
+  @Nonnull
+  private static Ownership buildOwnership(
+      @Nonnull List<Owner> owners, @Nonnull Urn actorUrn) {
+    final Ownership ownership = new Ownership();
+    final OwnerArray ownerArray = new OwnerArray();
+    ownerArray.addAll(owners);
+    ownership.setOwners(ownerArray);
+
+    final AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setActor(actorUrn);
+    ownership.setLastModified(auditStamp);
+    return ownership;
   }
 
   /**
