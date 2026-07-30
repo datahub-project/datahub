@@ -52,7 +52,7 @@ export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: St
 }
 
 // map the properties map into a list of PropertyRow objects to render in a table
-function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
+export function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
 
     const dedupedProperties = dedupeByUrn(
