@@ -238,8 +238,9 @@ def test_build_assertions_with_results_gx1_objects_and_suite_parameters():
 def test_build_assertions_with_results_preserves_decimal_observed_values():
     """SQL backends return Decimal observed values.
 
-    GX's to_json_dict() coerces those to float and drops result_url, so we read
-    the result attributes directly instead.
+    GX's to_json_dict() coerces those to float, so we read the result
+    attributes directly instead. Suite-level result_url (not per-expectation)
+    feeds externalUrl.
     """
     run_id = SimpleNamespace(
         run_time=datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -258,8 +259,7 @@ def test_build_assertions_with_results_preserves_decimal_observed_values():
             "unexpected_count": 2,
             "partial_unexpected_list": [Decimal("10"), Decimal("9")],
         },
-        result_url="https://app.example.com/validations/abc",
-        # Mirrors GX: floats, and no result_url. Must not be used.
+        # Mirrors GX: floats. Must not be used.
         to_json_dict=lambda: {
             "success": False,
             "expectation_config": {
@@ -275,6 +275,7 @@ def test_build_assertions_with_results_preserves_decimal_observed_values():
     )
     validation_result = SimpleNamespace(
         evaluation_parameters=None,
+        result_url="https://app.example.com/validations/abc",
         results=[raw_result],
     )
     datasets = [

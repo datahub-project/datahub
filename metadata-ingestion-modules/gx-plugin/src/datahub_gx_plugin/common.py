@@ -457,13 +457,11 @@ def _normalize_expectation_result(result: Any) -> Dict[str, Any]:
     if isinstance(result, dict):
         return result
     # Read attributes rather than to_json_dict(): the latter coerces Decimal
-    # observed values to float (changing emitted nativeResults) and drops
-    # result_url entirely.
+    # observed values to float (changing emitted nativeResults).
     return {
         "success": getattr(result, "success", None),
         "expectation_config": getattr(result, "expectation_config", {}),
         "result": getattr(result, "result", {}) or {},
-        "result_url": getattr(result, "result_url", None),
     }
 
 
@@ -517,12 +515,12 @@ def _normalize_expectation_config(expectation_config: Any) -> Dict[str, Any]:
 
 
 def _external_url_for_result(
-    result: Dict[str, Any],
     validation_result_suite: Any,
     docs_link: Optional[str],
 ) -> Optional[str]:
+    # result_url is a field on ExpectationSuiteValidationResult (suite-level),
+    # not on individual ExpectationValidationResult objects.
     for candidate in (
-        result.get("result_url"),
         getattr(validation_result_suite, "result_url", None),
         docs_link,
     ):
@@ -670,7 +668,7 @@ def build_assertions_with_results(
                 ),
                 actualAggValue=actualAggValue,
                 externalUrl=_external_url_for_result(
-                    result, validation_result_suite, docs_link
+                    validation_result_suite, docs_link
                 ),
                 nativeResults=nativeResults,
             ),

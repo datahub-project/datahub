@@ -1,9 +1,19 @@
 import logging
 import sys
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+from datahub_gx_plugin._compat_gx_1x import GX_1X_REQUIRED
 from typing import Any, Dict, List, Literal, Optional, Union
 
-import packaging.version
+from great_expectations.checkpoint.actions import (  # type: ignore[attr-defined]
+    ActionContext,
+    ValidationAction,
+)
+from great_expectations.checkpoint.checkpoint import (  # type: ignore[attr-defined]
+    CheckpointResult,
+)
+from great_expectations.datasource.fluent.config_str import (  # type: ignore[attr-defined]
+    ConfigStr,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -20,30 +30,7 @@ from datahub_gx_plugin.common import (
     warn,
 )
 
-try:
-    from great_expectations import __version__ as GX_VERSION  # type: ignore
-
-    if packaging.version.parse(GX_VERSION).major < 1:
-        raise ImportError(
-            "datahub_gx_plugin.action_v1 requires great-expectations>=1.0.0. "
-            "For GX 0.17/0.18, use datahub_gx_plugin.action.DataHubValidationAction."
-        )
-except ImportError:
-    raise
-except Exception as e:
-    raise ImportError(
-        "datahub_gx_plugin.action_v1 requires great-expectations>=1.0.0."
-    ) from e
-
-from great_expectations.checkpoint.actions import (  # type: ignore[attr-defined]
-    ActionContext,
-    ValidationAction,
-)
-from great_expectations.checkpoint.checkpoint import (  # type: ignore[attr-defined]
-    CheckpointResult,
-)
-
-assert MARKUPSAFE_PATCHED
+assert MARKUPSAFE_PATCHED and GX_1X_REQUIRED
 logger = logging.getLogger(__name__)
 if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
@@ -64,7 +51,9 @@ class DataHubValidationAction(ValidationAction):
     platform_alias: Optional[str] = None
     platform_instance_map: Optional[Dict[str, str]] = None
     graceful_exceptions: bool = True
-    token: Optional[str] = None
+    # Prefer ``token="${DATAHUB_TOKEN}"`` so GX persists the placeholder, not a
+    # cleartext secret, when writing checkpoints to disk.
+    token: Optional[Union[ConfigStr, str]] = None
     timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
@@ -77,6 +66,19 @@ class DataHubValidationAction(ValidationAction):
     dataset_name: Optional[str] = None
     platform_instance: Optional[str] = None
 
+    def _resolve_token(self) -> Optional[str]:
+        """Resolve GX ConfigStr placeholders; pass plain strings through.
+
+        ``_substitute_config_str_if_needed`` always asks the active data context
+        for a config provider, even for plain strings / None. Unit tests and
+        callers that pass a literal token have no context, so only invoke it
+        when the value is a ConfigStr (the form GX persists for ``${VAR}``).
+        """
+        token = self.token
+        if isinstance(token, ConfigStr):
+            return self._substitute_config_str_if_needed(token)
+        return token
+
     def run(
         self,
         checkpoint_result: CheckpointResult,
@@ -86,7 +88,7 @@ class DataHubValidationAction(ValidationAction):
             emit_mode = coerce_emit_mode(self.emit_mode)
             emitter = DatahubRestEmitter(
                 gms_server=self.server_url,
-                token=self.token,
+                token=self._resolve_token(),
                 read_timeout_sec=self.timeout_sec,
                 connect_timeout_sec=self.timeout_sec,
                 retry_status_codes=self.retry_status_codes,

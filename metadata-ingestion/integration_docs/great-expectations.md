@@ -87,6 +87,7 @@ checkpoint = context.checkpoints.add(
             DataHubValidationAction(
                 name="datahub_action",
                 server_url="http://localhost:8080",
+                token="${DATAHUB_TOKEN}",  # prefer ConfigStr over a literal secret
                 # Optional explicit identity when validation meta lacks batch_spec:
                 # platform="postgres",
                 # dataset_name="public.my_table",
@@ -100,6 +101,8 @@ checkpoint.run()
 ```
 
 V1 supports the same core options as the 0.x action (`server_url`, `env`, `token`, `platform_alias`, `platform_instance_map`, `graceful_exceptions`, `emit_mode`, etc.), plus optional `platform` / `dataset_name` / `platform_instance` when dataset identity cannot be inferred from validation `meta.batch_spec`.
+
+For `token`, prefer a GX config variable (e.g. `token="${DATAHUB_TOKEN}"`) rather than a literal secret. GX persists checkpoints to disk; a plain string is written cleartext into `gx/checkpoints/<name>.json`, while a `ConfigStr` placeholder is stored as-is and resolved only at run time.
 
 ## What gets emitted
 

@@ -112,6 +112,65 @@ def test_action_v1_emits_assertions(mock_validation_result):
     )
 
 
+def test_action_v1_resolves_config_str_token(mock_validation_result):
+    from great_expectations.datasource.fluent.config_str import ConfigStr
+
+    from datahub_gx_plugin.action_v1 import DataHubValidationAction
+
+    # Plain "${VAR}" strings are coerced to ConfigStr by the pydantic field.
+    action = DataHubValidationAction(
+        name="datahub",
+        server_url="http://localhost:8080",
+        token="${DATAHUB_TOKEN}",
+        graceful_exceptions=False,
+        platform="pandas",
+        dataset_name="orders",
+    )
+    assert isinstance(action.token, ConfigStr)
+
+    checkpoint_result = SimpleNamespace(
+        run_id=mock_validation_result.meta["run_id"],
+        run_results={"validation-1": mock_validation_result},
+        name="cp",
+        checkpoint_config=None,
+    )
+    with (
+        mock.patch(
+            "datahub_gx_plugin.action_v1.DatahubRestEmitter"
+        ) as mock_emitter_cls,
+        mock.patch.object(
+            DataHubValidationAction,
+            "_substitute_config_str_if_needed",
+            return_value="resolved-secret",
+        ) as mock_sub,
+        mock.patch(
+            "datahub_gx_plugin.common.build_assertion_info_mcp",
+            side_effect=lambda graph, urn, info: mock.Mock(entityUrn=urn, aspect=info),
+        ),
+    ):
+        emitter = mock.Mock()
+        mock_emitter_cls.return_value = emitter
+        graph = mock.Mock()
+        graph.get_aspect.return_value = None
+        emitter.to_graph.return_value = graph
+
+        action.run(checkpoint_result, action_context=None)
+
+    mock_sub.assert_called_once()
+    assert isinstance(mock_sub.call_args.args[0], ConfigStr)
+    assert mock_emitter_cls.call_args.kwargs["token"] == "resolved-secret"
+
+
+def test_action_0x_import_redirects_under_gx1():
+    """The 0.x module must raise our redirect before crashing on removed GX APIs."""
+    import importlib
+    import sys
+
+    sys.modules.pop("datahub_gx_plugin.action", None)
+    with pytest.raises(ImportError, match="action_v1"):
+        importlib.import_module("datahub_gx_plugin.action")
+
+
 def test_action_v1_prefers_asset_name_over_weak_batch_spec():
     from datahub_gx_plugin.action_v1 import DataHubValidationAction
 

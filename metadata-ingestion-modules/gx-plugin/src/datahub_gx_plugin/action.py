@@ -1,9 +1,9 @@
 import logging
 import sys
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
+from datahub_gx_plugin._compat_gx_0x import has_name_positional_arg
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import packaging.version
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -67,24 +67,6 @@ from datahub_gx_plugin.common import (  # noqa: F401
     parse_int_or_default,
     warn,
 )
-
-try:
-    from great_expectations import __version__ as GX_VERSION  # type: ignore
-
-    _gx_version = packaging.version.parse(GX_VERSION)
-    has_name_positional_arg = _gx_version >= packaging.version.Version("0.18.14")
-    if _gx_version.major >= 1:
-        raise ImportError(
-            "datahub_gx_plugin.action.DataHubValidationAction requires "
-            "great-expectations<1.0.0. For GX Core 1.x, use "
-            "datahub_gx_plugin.action_v1.DataHubValidationAction instead."
-        )
-except ImportError as e:
-    if "great-expectations<1.0.0" in str(e):
-        raise
-    has_name_positional_arg = False
-except Exception:
-    has_name_positional_arg = False
 
 if TYPE_CHECKING:
     from great_expectations.data_context.types.resource_identifiers import (
