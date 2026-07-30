@@ -52,105 +52,113 @@ export type HierarchicalBrowseTreeRowProps = {
     onMouseLeave?: () => void;
 };
 
-export default function HierarchicalBrowseTreeRow({
-    level,
-    isSelected,
-    isCollapsed = false,
-    hasChildren = false,
-    isExpanded = false,
-    count,
-    icon,
-    label,
-    labelTitle,
-    afterLabel,
-    trailing,
-    onSelect,
-    onToggleExpand,
-    isLoadingChildren = false,
-    'data-testid': dataTestId,
-    className,
-    onMouseEnter,
-    onMouseLeave,
-}: HierarchicalBrowseTreeRowProps) {
-    const { t: tc } = useTranslation('common.actions');
-    const theme = useTheme();
+const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalBrowseTreeRowProps>(
+    function HierarchicalBrowseTreeRow(
+        {
+            level,
+            isSelected,
+            isCollapsed = false,
+            hasChildren = false,
+            isExpanded = false,
+            count,
+            icon,
+            label,
+            labelTitle,
+            afterLabel,
+            trailing,
+            onSelect,
+            onToggleExpand,
+            isLoadingChildren = false,
+            'data-testid': dataTestId,
+            className,
+            onMouseEnter,
+            onMouseLeave,
+        },
+        ref,
+    ) {
+        const { t: tc } = useTranslation('common.actions');
+        const theme = useTheme();
 
-    const { canExpand, showCount, showRightChrome, reserveCaretSlot } = getTreeRowChromeFlags({
-        isCollapsed,
-        hasChildren,
-        isExpanded,
-        count,
-        hasToggle: onToggleExpand != null,
-    });
+        const { canExpand, showCount, showRightChrome, reserveCaretSlot } = getTreeRowChromeFlags({
+            isCollapsed,
+            hasChildren,
+            isExpanded,
+            count,
+            hasToggle: onToggleExpand != null,
+        });
 
-    const handleExpandClick = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        onToggleExpand?.();
-    };
+        const handleExpandClick = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            onToggleExpand?.();
+        };
 
-    const caretSlot = reserveCaretSlot ? (
-        <TreeRowCaretSlot>
-            {canExpand ? (
-                <TreeRowExpandButton
-                    type="button"
-                    onClick={handleExpandClick}
-                    aria-expanded={isExpanded}
-                    aria-label={isExpanded ? tc('collapse') : tc('expand')}
-                >
-                    {isExpanded ? (
-                        <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                    ) : (
-                        <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
-                    )}
-                </TreeRowExpandButton>
-            ) : null}
-        </TreeRowCaretSlot>
-    ) : null;
+        const caretSlot = reserveCaretSlot ? (
+            <TreeRowCaretSlot>
+                {canExpand ? (
+                    <TreeRowExpandButton
+                        type="button"
+                        onClick={handleExpandClick}
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? tc('collapse') : tc('expand')}
+                    >
+                        {isExpanded ? (
+                            <CaretDown color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
+                        ) : (
+                            <CaretRight color={theme.colors.icon} size={TREE_ROW_CARET_SIZE} weight="regular" />
+                        )}
+                    </TreeRowExpandButton>
+                ) : null}
+            </TreeRowCaretSlot>
+        ) : null;
 
-    const entityIcon = isLoadingChildren ? (
-        <TreeRowExpandButton type="button" onClick={handleExpandClick} aria-label={tc('expand')}>
-            {icon}
-        </TreeRowExpandButton>
-    ) : (
-        icon
-    );
+        const entityIcon = isLoadingChildren ? (
+            <TreeRowExpandButton type="button" onClick={handleExpandClick} aria-label={tc('expand')}>
+                {icon}
+            </TreeRowExpandButton>
+        ) : (
+            icon
+        );
 
-    const titleBlock =
-        afterLabel != null ? (
-            <TitleContent>
+        const titleBlock =
+            afterLabel != null ? (
+                <TitleContent>
+                    <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
+                        {label}
+                    </TreeRowTitle>
+                    {afterLabel}
+                </TitleContent>
+            ) : (
                 <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
                     {label}
                 </TreeRowTitle>
-                {afterLabel}
-            </TitleContent>
-        ) : (
-            <TreeRowTitle $isSelected={isSelected} title={labelTitle}>
-                {label}
-            </TreeRowTitle>
-        );
+            );
 
-    return (
-        <TreeRowContainer
-            className={className}
-            data-testid={dataTestId}
-            $level={level}
-            $isSelected={isSelected}
-            $isCollapsed={isCollapsed}
-            onClick={onSelect}
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
-        >
-            <TreeRowLeftContent $isCollapsed={isCollapsed}>
-                <TreeRowIconSlot $isCollapsed={isCollapsed}>{entityIcon}</TreeRowIconSlot>
-                {!isCollapsed && titleBlock}
-            </TreeRowLeftContent>
-            {showRightChrome && (
-                <TreeRowRightContent>
-                    {showCount && <Pill label={`${count}`} size="sm" />}
-                    {trailing}
-                    {caretSlot}
-                </TreeRowRightContent>
-            )}
-        </TreeRowContainer>
-    );
-}
+        return (
+            <TreeRowContainer
+                ref={ref}
+                className={className}
+                data-testid={dataTestId}
+                $level={level}
+                $isSelected={isSelected}
+                $isCollapsed={isCollapsed}
+                onClick={onSelect}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+            >
+                <TreeRowLeftContent $isCollapsed={isCollapsed}>
+                    <TreeRowIconSlot $isCollapsed={isCollapsed}>{entityIcon}</TreeRowIconSlot>
+                    {!isCollapsed && titleBlock}
+                </TreeRowLeftContent>
+                {showRightChrome && (
+                    <TreeRowRightContent>
+                        {showCount && <Pill label={`${count}`} size="sm" />}
+                        {trailing}
+                        {caretSlot}
+                    </TreeRowRightContent>
+                )}
+            </TreeRowContainer>
+        );
+    },
+);
+
+export default HierarchicalBrowseTreeRow;

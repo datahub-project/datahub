@@ -57,7 +57,7 @@ SNOWFLAKE_PLATFORM = "snowflake"
 SEMANTIC_VIEW_SUBTYPE = DatasetSubTypes.SEMANTIC_VIEW
 
 # Connector-synthesized column classification tags on legacy schemaMetadata.
-# Not customer tags — remodeled as SemanticField.type / metric entities.
+# Not customer tags — remodeled as semanticFieldAnnotation.type / metric entities.
 # Lowercase variants have no connector-enum equivalent (SemanticViewColumnSubtype
 # is uppercase-only), so those stay as literals.
 _SYNTHETIC_SUBTYPE_TAG_URNS: Set[str] = {
@@ -446,27 +446,30 @@ def collect_dataset_field_governance(
 def _semantic_model_field_path(
     column_name: str, convert_urns_to_lowercase: bool
 ) -> str:
-    # Matches SnowflakeSemanticModelMapper SemanticField fieldPath construction
+    # Matches SnowflakeSemanticModelMapper semantic field fieldPath construction
     # (identifier of the uppercased column name).
     return snowflake_identifier(column_name.upper(), convert_urns_to_lowercase)
+
+
+def _schema_metadata_fields(
+    graph: DataHubGraph, dataset_urn: str
+) -> List[SchemaFieldClass]:
+    schema_metadata = graph.get_aspects_for_entity(
+        entity_urn=dataset_urn,
+        aspects=["schemaMetadata"],
+        aspect_types=[SchemaMetadataClass],
+    ).get("schemaMetadata")
+    if not isinstance(schema_metadata, SchemaMetadataClass):
+        return []
+    return list(schema_metadata.fields or [])
 
 
 def _dataset_schema_field_paths(
     graph: DataHubGraph, dataset_urn: str
 ) -> Dict[str, str]:
     """Map casefolded simple column name -> schemaMetadata fieldPath."""
-    schema_metadata = graph.get_aspects_for_entity(
-        entity_urn=dataset_urn,
-        aspects=["schemaMetadata"],
-        aspect_types=[SchemaMetadataClass],
-    ).get("schemaMetadata")
     paths: Dict[str, str] = {}
-    if (
-        not isinstance(schema_metadata, SchemaMetadataClass)
-        or not schema_metadata.fields
-    ):
-        return paths
-    for schema_field in schema_metadata.fields:
+    for schema_field in _schema_metadata_fields(graph, dataset_urn):
         simple = _simple_column_name(schema_field.fieldPath)
         paths[simple.casefold()] = schema_field.fieldPath
     return paths
@@ -580,7 +583,12 @@ def collect_semantic_model_field_governance(
     semantic_model_urn: str,
     convert_urns_to_lowercase: bool,
 ) -> List[FieldGovernance]:
-    """Gather column tags/terms from metric entities and schemaField URNs under the model."""
+    """Gather column tags/terms from metric entities and schemaField URNs under the model.
+
+    Columns are enumerated from the ``schemaMetadata`` of each dataset listed in
+    ``semanticModelInfo.datasets`` — the model aspect holds dataset URNs, and the
+    structural field list lives on those datasets.
+    """
     by_column: Dict[str, FieldGovernance] = {}
 
     for related in graph.get_related_entities(
@@ -616,12 +624,9 @@ def collect_semantic_model_field_governance(
         aspects=["semanticModelInfo"],
         aspect_types=[SemanticModelInfoClass],
     ).get("semanticModelInfo")
-    if isinstance(model_info, SemanticModelInfoClass) and model_info.datasets:
-        for model_dataset in model_info.datasets:
-            for semantic_field in model_dataset.fields or []:
-                schema_field = semantic_field.schemaField
-                if schema_field is None:
-                    continue
+    if isinstance(model_info, SemanticModelInfoClass):
+        for model_dataset_urn in model_info.datasets:
+            for schema_field in _schema_metadata_fields(graph, model_dataset_urn):
                 column_name = _simple_column_name(schema_field.fieldPath)
                 field_urn = make_schema_field_urn(
                     semantic_model_urn,
@@ -635,7 +640,7 @@ def collect_semantic_model_field_governance(
                 tags = aspects.get("globalTags")
                 terms = aspects.get("glossaryTerms")
                 # Prefer schemaField entity aspects (migration/UI); fall back to
-                # tags embedded on the SemanticField from Snowflake ingest.
+                # what Snowflake ingest wrote onto the model dataset's schema.
                 if tags is None and schema_field.globalTags is not None:
                     tags = _strip_synthetic_subtype_tags(schema_field.globalTags)
                 if terms is None:

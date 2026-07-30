@@ -1,7 +1,7 @@
 import { Alert, EmptyState } from '@components';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { House } from '@phosphor-icons/react/dist/csr/House';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -103,6 +103,9 @@ function DomainNavigatorInner({
     // the "All Domains" header hides the tree (matches the docs sidebar's
     // "DataHub" / "GitHub" headers, which collapse their groups in place).
     const [isAllDomainsExpanded, setIsAllDomainsExpanded] = useState(true);
+    // When expand-all runs while the section is collapsed, nodes aren't mounted
+    // yet — defer expandAll until after they register (child effects run first).
+    const pendingExpandAllRef = useRef(false);
 
     // Mirror the aggregation result into the shared context so the
     // SimpleSelect in `ManageDomainsSidebar` picks it up. The aggregation
@@ -122,13 +125,24 @@ function DomainNavigatorInner({
     // — a header above it would be redundant and slightly misleading).
     const showSectionHeader = isSidebar && !isCollapsed && !isFiltering;
 
+    useEffect(() => {
+        if (!pendingExpandAllRef.current || !isAllDomainsExpanded || !expansion) return;
+        pendingExpandAllRef.current = false;
+        expansion.expandAll();
+    }, [isAllDomainsExpanded, expansion, domains]);
+
     const handleToggleExpandAll = () => {
         if (!expansion) return;
         if (expansion.hasAnyExpanded) {
+            pendingExpandAllRef.current = false;
             expansion.collapseAll();
             return;
         }
-        setIsAllDomainsExpanded(true);
+        if (!isAllDomainsExpanded) {
+            pendingExpandAllRef.current = true;
+            setIsAllDomainsExpanded(true);
+            return;
+        }
         expansion.expandAll();
     };
 

@@ -103,6 +103,11 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
     customAssertionInfo.setLogic(input.getLogic(), SetMode.IGNORE_NULL);
 
     if (input.getFieldPath() != null) {
+      if (input.getFieldPath().isBlank()) {
+        throw new IllegalArgumentException(
+            "Failed to upsert Custom Assertion. fieldPath must not be blank when provided;"
+                + " omit fieldPath for dataset-level assertions.");
+      }
       customAssertionInfo.setField(
           SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()));
     }

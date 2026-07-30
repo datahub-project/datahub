@@ -1,5 +1,5 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -98,6 +98,14 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     const { t } = useTranslation('home.v2');
     const [isHovered, setIsHovered] = useState(false);
     const [forceShowActions, setForceShowActions] = useState(false);
+    const rowRef = useRef<HTMLDivElement>(null);
+
+    // Deep links / URL navigation mount the selected row after ancestors expand —
+    // bring it into the sidebar scrollport once it becomes selected.
+    useEffect(() => {
+        if (!isSelected || multiSelect) return;
+        rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [isSelected, multiSelect, urn]);
 
     const handleAddChildClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -176,6 +184,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
 
     return (
         <HierarchicalBrowseTreeRow
+            ref={rowRef}
             className="tree-item-container"
             data-testid={`document-tree-item-${urn}`}
             level={level}

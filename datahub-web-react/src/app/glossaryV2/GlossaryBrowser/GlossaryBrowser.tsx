@@ -1,5 +1,5 @@
 import { Loader } from '@components';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
@@ -88,6 +88,9 @@ function GlossaryBrowserInner(props: Props) {
     const expansion = useTreeExpansionRegistry();
 
     const [isAllTermsExpanded, setIsAllTermsExpanded] = useState(true);
+    // Expand-all while the section is collapsed is a no-op (nodes unmounted);
+    // defer until after they register on the next paint.
+    const pendingExpandAllRef = useRef(false);
 
     const isSidebarUse = !isSelecting;
     const showTreeContents = !isSidebarUse || isAllTermsExpanded;
@@ -179,12 +182,23 @@ function GlossaryBrowserInner(props: Props) {
     const handleToggleExpandAll = () => {
         if (!expansion) return;
         if (expansion.hasAnyExpanded) {
+            pendingExpandAllRef.current = false;
             expansion.collapseAll();
             return;
         }
-        setIsAllTermsExpanded(true);
+        if (!isAllTermsExpanded) {
+            pendingExpandAllRef.current = true;
+            setIsAllTermsExpanded(true);
+            return;
+        }
         expansion.expandAll();
     };
+
+    useEffect(() => {
+        if (!pendingExpandAllRef.current || !isAllTermsExpanded || !expansion) return;
+        pendingExpandAllRef.current = false;
+        expansion.expandAll();
+    }, [isAllTermsExpanded, expansion, sortedNodes, sortedTerms]);
 
     const tree = (
         <>
