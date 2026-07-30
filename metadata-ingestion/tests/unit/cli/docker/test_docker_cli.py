@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import click
@@ -387,11 +388,11 @@ def test_resolve_secrets_uses_utf8_on_non_utf8_locale(tmp_path: Path) -> None:
     original_read_text = Path.read_text
     original_write_text = Path.write_text
 
-    def read_text_with_cp949_default(path: Path, *args, **kwargs):
+    def read_text_with_cp949_default(path: Path, *args: Any, **kwargs: Any) -> str:
         kwargs.setdefault("encoding", "cp949")
         return original_read_text(path, *args, **kwargs)
 
-    def write_text_with_cp949_default(path: Path, data: str, *args, **kwargs):
+    def write_text_with_cp949_default(path: Path, data: str, *args: Any, **kwargs: Any) -> int:
         kwargs.setdefault("encoding", "cp949")
         return original_write_text(path, data, *args, **kwargs)
 
