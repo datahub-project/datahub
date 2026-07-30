@@ -13,4 +13,5 @@ export interface SearchBarProps {
     forceUncontrolled?: boolean;
     onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
     onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
+    debounceDelay?: number; // Set to 0 to avoid debouncing
 }
