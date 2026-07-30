@@ -1681,7 +1681,10 @@ class OdbcLineage(AbstractLineage):
         value = self.config.dsn_to_database_schema.get(dsn)
         if not value:
             return None, None
-        parts = value.split(".")
+        # Config validation rejects blank segments, but treat empty parts as
+        # unset defensively so an empty string never backfills a level and
+        # produces a malformed qualified name like "project..table".
+        parts = [part.strip() or None for part in value.split(".")]
         if len(parts) == 1:
             return parts[0], None
         return parts[0], parts[1]

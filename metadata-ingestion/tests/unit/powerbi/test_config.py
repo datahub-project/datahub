@@ -103,6 +103,21 @@ class TestPowerBiConfig:
                 ValidationError,
                 id="dsn_non_dict_type_invalid",
             ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": "database."}},
+                ValueError,
+                id="dsn_trailing_dot_blank_schema_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": ".schema"}},
+                ValueError,
+                id="dsn_leading_dot_blank_database_invalid",
+            ),
+            pytest.param(
+                {**base_config, "dsn_to_database_schema": {"dsn1": "."}},
+                ValueError,
+                id="dsn_only_dot_invalid",
+            ),
         ],
     )
     def test_dsn_to_database_schema_config(

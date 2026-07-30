@@ -858,6 +858,13 @@ class PowerBiDashboardSourceConfig(
                     raise ValueError(
                         f"dsn_to_database_schema invalid mapping value: {value}"
                     )
+                # Reject blank segments (e.g. "project.", ".dataset", "."); an empty
+                # segment would otherwise backfill an empty database/schema level and
+                # produce malformed qualified names like "project..table".
+                if any(not part.strip() for part in parts):
+                    raise ValueError(
+                        f"dsn_to_database_schema invalid mapping value: {value}"
+                    )
 
         return self
 
