@@ -18,6 +18,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -167,6 +168,37 @@ public class AiAssistantConfigService {
     return UpdatePreferredModelResult.builder().model(normalizedModel).updated(true).build();
   }
 
+  public InternalProviderKeyResult getProviderKeyForModel(
+      @Nonnull OperationContext opContext, @Nonnull String model) {
+    final String normalizedModel = normalizeModel(model);
+    final String provider = resolveProvider(normalizedModel);
+    final Urn secretUrn = getSecretUrn(getSecretName(provider));
+
+    try {
+      if (!persistenceService.exists(opContext, secretUrn)) {
+        throw new NoSuchElementException(
+            String.format("No API key configured for provider '%s'.", provider));
+      }
+
+      final EntityResponse secret =
+          persistenceService.get(opContext, secretUrn, Set.of(SECRET_VALUE_ASPECT_NAME));
+      final DataHubSecretValue secretValue =
+          new DataHubSecretValue(
+              secret.getAspects().get(SECRET_VALUE_ASPECT_NAME).getValue().data());
+
+      return InternalProviderKeyResult.builder()
+          .model(normalizedModel)
+          .provider(provider)
+          .apiKey(persistenceService.decrypt(opContext, secretValue.getValue()))
+          .build();
+    } catch (NoSuchElementException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to fetch provider API key for model %s", normalizedModel), e);
+    }
+  }
+
   private boolean hasSecret(@Nonnull OperationContext opContext, @Nonnull String provider) {
     try {
       return persistenceService.exists(opContext, getSecretUrn(getSecretName(provider)));
@@ -286,5 +318,13 @@ public class AiAssistantConfigService {
   @Builder
   public static class ModelsResult {
     private List<Model> models;
+  }
+
+  @Data
+  @Builder
+  public static class InternalProviderKeyResult {
+    private String model;
+    private String provider;
+    private String apiKey;
   }
 }

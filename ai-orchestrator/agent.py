@@ -17,7 +17,7 @@ import anthropic
 
 from mcp_tools import get_mcp
 
-MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
 MAX_TOKENS = int(os.environ.get("ANTHROPIC_MAX_TOKENS", "1024"))
 MAX_TOOL_ITERATIONS = 6
 
@@ -34,13 +34,12 @@ SYSTEM_PROMPT = (
 class LLMClient:
     """Thin abstraction over the LLM provider. Swap this to change models."""
 
-    def __init__(self) -> None:
-        # Reads ANTHROPIC_API_KEY from env automatically.
-        self._client = anthropic.AsyncAnthropic()
+    def __init__(self, api_key: str) -> None:
+        self._client = anthropic.AsyncAnthropic(api_key=api_key)
 
-    def stream(self, messages: list[dict], tools: list[dict]):
+    def stream(self, messages: list[dict], tools: list[dict], model: str):
         return self._client.messages.stream(
-            model=MODEL,
+            model=model,
             max_tokens=MAX_TOKENS,
             system=SYSTEM_PROMPT,
             tools=tools,
@@ -48,7 +47,13 @@ class LLMClient:
         )
 
 
-async def run_agent(user_message: str, context: dict | None, history: list[dict] | None = None) -> AsyncIterator[str]:
+async def run_agent(
+    user_message: str,
+    context: dict | None,
+    api_key: str,
+    model: str = DEFAULT_MODEL,
+    history: list[dict] | None = None,
+) -> AsyncIterator[str]:
     """
     Run the agentic loop. Yields text tokens as they arrive.
 
@@ -57,7 +62,7 @@ async def run_agent(user_message: str, context: dict | None, history: list[dict]
 
     history: prior conversation turns as [{role, content}, ...] — gives Claude memory of prior turns.
     """
-    client = LLMClient()
+    client = LLMClient(api_key=api_key)
 
     ctx_note = ""
     if context:
@@ -73,7 +78,7 @@ async def run_agent(user_message: str, context: dict | None, history: list[dict]
         assistant_blocks: list[dict] = []
         tool_uses: list[dict] = []
 
-        async with client.stream(messages, tools.definitions) as stream:
+        async with client.stream(messages, tools.definitions, model) as stream:
             async for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
                     yield event.delta.text  # stream text tokens to the UI

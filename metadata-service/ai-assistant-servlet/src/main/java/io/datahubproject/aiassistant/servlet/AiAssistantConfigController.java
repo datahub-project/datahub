@@ -10,6 +10,7 @@ import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -94,6 +95,22 @@ public class AiAssistantConfigController {
               input.getModel()));
     } catch (IllegalArgumentException e) {
       return badRequest(e);
+    }
+  }
+
+  @GetMapping(path = "/internal/provider-key", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<?> getInternalProviderKey(
+      HttpServletRequest request, @RequestParam("model") String model) {
+    try {
+      return ResponseEntity.ok(
+          aiAssistantConfigService.getProviderKeyForModel(
+              buildSessionContext(request, "getInternalProviderKey", UsageOperation.METADATA_READ),
+              model));
+    } catch (IllegalArgumentException e) {
+      return badRequest(e);
+    } catch (NoSuchElementException e) {
+      return ResponseEntity.status(404)
+          .body(Map.of("error", Objects.requireNonNullElse(e.getMessage(), "API key not found.")));
     }
   }
 
