@@ -91,7 +91,7 @@ Work with DataHub team to receive deployment templates specific to your environm
 
 Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
 
-### Deploy on Amazon ECS
+### Deploy on Amazon ECS using CloudFormation
 
 1. **AWS Account Configuration**
 
@@ -151,7 +151,7 @@ When you wire **local** secrets into the executor (ECS `SECRET_NAME=SECRET_ARN`,
      --secret-string '{"username":"user","password":"pass"}'
    ```
 
-### Update Amazon ECS Deployment
+### Update Amazon ECS Deployment (CloudFormation)
 
 To update your Remote Executor deployment (e.g., to deploy a new container version or modify configuration), you'll need to update your existing CloudFormation Stack. This process involves re-deploying the CloudFormation template with your updated parameters while preserving your existing resources.
 
@@ -187,6 +187,106 @@ To update your Remote Executor deployment (e.g., to deploy a new container versi
 :::note
 The update process will maintain your existing resources (e.g., secrets, IAM roles) while deploying the new configuration. Monitor the stack events to track the update progress.
 :::
+
+### Deploy on Amazon ECS using Terraform
+
+If you manage infrastructure with Terraform, use the public [`remote-ingestion-executor`](https://github.com/acryldata/datahub-terraform-modules/tree/main/remote-ingestion-executor) module. It produces the **same ECS/Fargate deployment** as the CloudFormation template — an ECS cluster, a Fargate service running the Remote Executor, IAM roles, a security group, and CloudWatch logging — configured through Terraform inputs instead of stack parameters.
+
+1. **AWS Account Configuration**
+
+   Same as CloudFormation approach, provide your AWS account ID to DataHub Cloud so your account can pull the Remote Executor image from the private ECR registry (see [Deploy on Amazon ECS using CloudFormation](#deploy-on-amazon-ecs-using-cloudformation)).
+
+2. **Prerequisites**
+
+   - Terraform `~> 1.0` and the AWS provider `~> 5.0`.
+   - An existing **VPC and subnet(s)** with outbound HTTPS egress (private subnets require a NAT gateway) — the module does not create networking.
+   - Your **DataHub Remote Executor Access Token** stored in **AWS Secrets Manager** (or SSM Parameter Store as a `SecureString`). The module does not create this secret — you create it and reference its ARN.
+   - Your **DataHub Cloud URL**, including the trailing `/gms` (e.g. `https://<your-company>.acryl.io/gms`).
+
+3. **Reference and configure the module**
+
+   Pin the module to a released tag with `?ref=`. At minimum, set your GMS URL, Pool ID, and subnets, and wire the access token through **both** `secrets` (injected into the container as `DATAHUB_GMS_TOKEN`) and `task_exec_secret_arns` (grants the task-execution role permission to read it):
+
+   ```hcl
+   resource "aws_secretsmanager_secret" "datahub_pat" {
+     name = "datahub-remote-executor-pat"
+   }
+
+   resource "aws_secretsmanager_secret_version" "datahub_pat" {
+     secret_id     = aws_secretsmanager_secret.datahub_pat.id
+     secret_string = var.datahub_access_token # your Remote Executor access token
+   }
+
+   module "remote_executor" {
+     source = "git::https://github.com/acryldata/datahub-terraform-modules.git//remote-ingestion-executor?ref=v2.1.0"
+
+     cluster_name = "datahub-remote-executor"
+
+     datahub = {
+       url              = "https://<your-company>.acryl.io/gms"
+       executor_pool_id = "remote" # the Pool ID you created in the DataHub UI
+     }
+
+     # Access token: inject it into the container AND let the task-execution
+     # role read it from Secrets Manager.
+     create_task_exec_iam_role = true
+     task_exec_secret_arns     = [aws_secretsmanager_secret.datahub_pat.arn]
+     secrets = [
+       { name = "DATAHUB_GMS_TOKEN", valueFrom = aws_secretsmanager_secret.datahub_pat.arn },
+     ]
+
+     # Network placement (private subnets + NAT recommended)
+     subnet_ids       = ["subnet-XXXXXXXX"]
+     assign_public_ip = false
+     security_group_rules = {
+       egress_all = {
+         type        = "egress"
+         from_port   = 0
+         to_port     = 0
+         protocol    = "-1"
+         cidr_blocks = ["0.0.0.0/0"]
+       }
+     }
+   }
+   ```
+
+   :::note
+   `create_task_exec_iam_role` defaults to `false`, but the task-execution role is what lets Fargate pull the image, write logs, and read the access token — set it to `true`, or the task will not launch. Always pass the token via `secrets`, never `environment`. If your token lives in SSM Parameter Store instead of Secrets Manager, use `task_exec_ssm_param_arns` in place of `task_exec_secret_arns`.
+   :::
+
+   Other commonly used inputs:
+
+   | Input                                                                       | Purpose                                                                                                                             | Default                  |
+   | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+   | `datahub.url`                                                               | DataHub Cloud GMS URL (include the trailing `/gms`)                                                                                 | — (**required**)         |
+   | `datahub.executor_pool_id`                                                  | Executor Pool ID from the DataHub UI                                                                                                | `"remote"`               |
+   | `subnet_ids`                                                                | Subnets for the task. Required in practice — the security group's VPC is derived from the first subnet                              | `[]`                     |
+   | `assign_public_ip`                                                          | Set to `false` for private subnets with a NAT gateway                                                                               | `true`                   |
+   | `desired_count`                                                             | Number of running executor tasks                                                                                                    | `1`                      |
+   | `cpu` / `memory`                                                            | Fargate task size (CPU units / MiB)                                                                                                 | `1024` / `2048`          |
+   | `ephemeral_storage`                                                         | Task disk, e.g. `{ size_in_gib = 20 }`.| Fargate default (20 GiB) |
+   | `datahub.executor_ingestions_workers` / `datahub.executor_monitors_workers` | Concurrent ingestion / monitor tasks                                                                                                | `4` / `10`               |
+   | `datahub.image_tag`                                                         | Remote Executor image version                                                                                                       | pinned by the module tag |
+   | `environment`                                                               | Extra non-secret env vars (`[{ name, value }]`)                                                                                     | `[]`                     |
+   | `tags`                                                                      | Tags applied to all created resources                                                                                               | `{}`                     |
+
+
+4. **Apply**
+
+   ```bash
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+### Update Amazon ECS Deployment (Terraform)
+
+To upgrade the Remote Executor version or change configuration, update your module inputs and re-apply:
+
+- **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently: each module tag pins a specific image version, which `datahub.image_tag` overrides.
+- **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
+
+Then run `terraform apply`. Terraform shows a plan of exactly what will change before you confirm; the ECS service then performs a rolling replacement of the task.
 
 ### Deploy on Kubernetes
 
@@ -446,7 +546,7 @@ extraEnvs:
 You can configure the Remote Executor to resolve secrets directly from AWS Secrets Manager or GCP Secret Manager at runtime. This lets you manage credentials in your cloud provider instead of storing them inside DataHub. Secrets resolved this way are available to all executor workflows, including ingestion and assertions.
 
 :::note
-This is different from the AWS Secrets Manager integration used by the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), where secrets are wired into the executor container at deploy time via the `SECRET_NAME=SECRET_ARN` template parameter. That mechanism still works as before and requires the ECS task to be restarted whenever a secret value changes. The integration described in this section runs inside the executor itself, looks up secrets on demand, and applies to both ECS and Kubernetes deployments.
+This is different from the AWS Secrets Manager integration used by the [ECS CloudFormation deployment](#deploy-on-amazon-ecs-using-cloudformation), where secrets are wired into the executor container at deploy time via the `SECRET_NAME=SECRET_ARN` template parameter. That mechanism still works as before and requires the ECS task to be restarted whenever a secret value changes. The integration described in this section runs inside the executor itself, looks up secrets on demand, and applies to both ECS and Kubernetes deployments.
 :::
 
 Secrets are referenced using the standard `${SECRET_NAME}` syntax — no changes needed to existing configurations. The executor automatically prepends a configurable prefix (default: `datahub-`) when looking up secrets. For example, `${SNOWFLAKE_PASSWORD}` resolves to a secret named `datahub-SNOWFLAKE_PASSWORD` in your cloud provider. You can override this prefix using `DATAHUB_EXECUTOR_AWS_SM_PREFIX` (for AWS) or `DATAHUB_EXECUTOR_GCP_SM_PREFIX` (for GCP) — for example, setting it to `myapp-` would resolve `${SNOWFLAKE_PASSWORD}` to `myapp-SNOWFLAKE_PASSWORD` instead.
@@ -686,7 +786,7 @@ The following environment variables can be configured to manage memory-intensive
 
 **Do AWS Secrets Manager secrets wired in via CloudFormation automatically update in the executor?**
 
-No. When using the [ECS CloudFormation deployment](#deploy-on-amazon-ecs), secrets passed via the `SECRET_NAME=SECRET_ARN` template parameter are wired into the executor container at deployment time. The ECS Task needs to be restarted when those secrets change.
+No. When using the [ECS CloudFormation deployment](#deploy-on-amazon-ecs-using-cloudformation), secrets passed via the `SECRET_NAME=SECRET_ARN` template parameter are wired into the executor container at deployment time. The ECS Task needs to be restarted when those secrets change.
 
 **Do values resolved by the runtime Cloud Secret Manager integration automatically update in the executor?**
 
