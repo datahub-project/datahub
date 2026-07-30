@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aliases.sideeffects.AliasesSideEffect;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.hooks.AssertionInfoMutator;
@@ -175,6 +176,28 @@ public class SpringStandardPluginConfiguration {
     return new SchemaFieldSideEffect()
         .setConfig(config)
         .setEntityChangeEventGeneratorRegistry(entityChangeEventGeneratorRegistry);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.aliases.enabled",
+      havingValue = "true")
+  public MCPSideEffect aliasesSideEffect() {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(AliasesSideEffect.class.getName())
+            .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, RESTATE))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATASET_ENTITY_NAME)
+                        .aspectName(Constants.DATASET_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info("Initialized {}", AliasesSideEffect.class.getName());
+    return new AliasesSideEffect().setConfig(config);
   }
 
   @Bean

@@ -68,7 +68,9 @@ public class EntityApiDelegateImplDeleteAspectUsageTest {
               @Nonnull OperationContext opContext, @Nullable Long outputBytes) {}
 
           @Override
-          public void flush(@Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
+          public void flush(
+              @Nonnull OperationContext opContext,
+              @Nonnull com.linkedin.metadata.usage.flush.FlushTrigger trigger) {}
         };
     UsageMetricsSessionEnricher sessionEnricher = new UsageMetricsSessionEnricher(usageStore, true);
 
