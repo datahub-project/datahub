@@ -117,13 +117,19 @@ def _run_migration(
     """Drive the migration engine over a fixed list of pairs, with a progress bar.
 
     Adds the CLI-only error hint that the engine (which is UI-agnostic) omits.
+    The progress bar advances after each pair is fully processed (cloned,
+    repointed, deleted), so it reflects real work rather than just iteration.
     """
+    bar = progressbar.ProgressBar(max_value=len(pairs), redirect_stdout=True)
+    bar.start()
+    done = [0]
+
+    def _advance(_pair: MigrationPair) -> None:
+        done[0] += 1
+        bar.update(done[0])
+
     try:
-        return engine.migrate_pairs(
-            graph,
-            progressbar.progressbar(pairs, redirect_stdout=True),
-            options,
-        )
+        return engine.migrate_pairs(graph, pairs, options, on_pair_done=_advance)
     except Exception as e:
         click.echo(
             f"\nError during migration: {e}\n"
@@ -131,6 +137,8 @@ def _run_migration(
             "and continue with the rest."
         )
         raise
+    finally:
+        bar.finish()
 
 
 def _run_entity_migration(

@@ -292,6 +292,31 @@ class TestMigratePairs:
         report = engine.migrate_pairs(MagicMock(), self.PAIRS[:1], _options())
         assert isinstance(report, MigrationReport)
 
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_on_pair_done_called_for_each_pair(self, _mock_single: MagicMock) -> None:
+        """on_pair_done is invoked once per pair, after the pair is processed."""
+        completed: list = []
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS,
+            _options(),
+            on_pair_done=lambda p: completed.append(p),
+        )
+        assert completed == self.PAIRS
+
+    @patch("datahub.migration.engine.migrate_pair")
+    def test_on_pair_done_called_even_on_skip(self, mock_single: MagicMock) -> None:
+        """on_pair_done fires for skipped (errored) pairs too."""
+        mock_single.side_effect = [RuntimeError("boom"), None]
+        completed: list = []
+        engine.migrate_pairs(
+            MagicMock(),
+            self.PAIRS,
+            _options(skip_on_error=True),
+            on_pair_done=lambda p: completed.append(p),
+        )
+        assert completed == self.PAIRS
+
 
 # --- clone_aspect dry-run behavior ---
 

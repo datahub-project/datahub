@@ -31,6 +31,7 @@ def migrate_pairs(
     graph: DataHubGraph,
     pairs: Iterable[MigrationPair],
     options: MigrationOptions,
+    on_pair_done: Optional[Callable[[MigrationPair], None]] = None,
 ) -> MigrationReport:
     """Migrate a collection of source → target pairs.
 
@@ -38,6 +39,10 @@ def migrate_pairs(
     built — cross-pair references (e.g. entity A's lineage pointing to entity B,
     where both are being migrated) are rewritten at clone time regardless of
     processing order.
+
+    ``on_pair_done`` is called after each pair is processed (whether it succeeded
+    or was skipped via ``skip_on_error``), allowing callers to drive a progress
+    bar or similar UI without coupling the engine to any specific UI library.
 
     Errors on an individual pair abort the batch unless
     ``options.skip_on_error`` is set, in which case the pair is recorded in the
@@ -57,6 +62,8 @@ def migrate_pairs(
                 report.entities_errored.append((pair.source_urn, str(e)))
             else:
                 raise
+        if on_pair_done is not None:
+            on_pair_done(pair)
     return report
 
 
