@@ -295,6 +295,21 @@ class TestUrnsMappingLoader:
         with pytest.raises(Exception, match="must differ"):
             _load_mapping_pairs(str(path))
 
+    def test_rejects_duplicate_source(self, tmp_path: Path) -> None:
+        """A source URN listed twice is rejected — migrating (and deleting) the same
+        source more than once would leave later targets empty."""
+        path = tmp_path / "m.json"
+        path.write_text(
+            json.dumps(
+                [
+                    {"source": DS_A, "target": DS_B},
+                    {"source": DS_A, "target": DS.format(name="db.c")},
+                ]
+            )
+        )
+        with pytest.raises(Exception, match="Duplicate source"):
+            _load_mapping_pairs(str(path))
+
     def test_rejects_empty_mapping(self, tmp_path: Path) -> None:
         """An empty mapping file is rejected rather than silently doing nothing."""
         path = tmp_path / "m.json"

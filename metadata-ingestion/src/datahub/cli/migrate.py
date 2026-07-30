@@ -649,6 +649,18 @@ def _load_mapping_pairs(mapping_file: str) -> List[MigrationPair]:
     if not raw_pairs:
         raise click.BadParameter("Mapping file is empty.", param_hint="--mapping-file")
 
+    # A source URN must appear at most once. A repeated source would migrate (and,
+    # without --keep, delete) the same entity more than once — the second pass would
+    # read an already-deleted source and produce an empty/incomplete target.
+    sources = [source for source, _ in raw_pairs]
+    duplicate_sources = sorted({s for s in sources if sources.count(s) > 1})
+    if duplicate_sources:
+        raise click.BadParameter(
+            f"Duplicate source URN(s) in mapping: {duplicate_sources}. Each source "
+            f"may appear at most once.",
+            param_hint="--mapping-file",
+        )
+
     pairs: List[MigrationPair] = []
     for source, target in raw_pairs:
         _validate_mapping_pair(source, target)
