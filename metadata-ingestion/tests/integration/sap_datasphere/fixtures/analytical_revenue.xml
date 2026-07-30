@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="S2">
+      <EntityType Name="AM_REVENUE">
+        <Property Name="YEAR_MONTH" Type="Edm.String" Nullable="false"/>
+        <Property Name="PRODUCT_CATEGORY" Type="Edm.String" Nullable="true"/>
+        <Property Name="REGION" Type="Edm.String" Nullable="true"/>
+        <Property Name="TOTAL_REVENUE" Type="Edm.Decimal" Precision="18" Scale="2" Nullable="true"/>
+        <Property Name="UNIT_COUNT" Type="Edm.Int64" Nullable="true"/>
+        <Property Name="AVG_PRICE" Type="Edm.Decimal" Precision="18" Scale="4" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="S2.AM_REVENUE">
+        <Annotation Term="Common.Label" String="Monthly Revenue Analytical Model"/>
+        <Annotation Term="Analytics.Measure"/>
+      </Annotations>
+      <Annotations Target="S2.AM_REVENUE/YEAR_MONTH">
+        <Annotation Term="Common.IsCalendarYearMonth"/>
+      </Annotations>
+      <Annotations Target="S2.AM_REVENUE/TOTAL_REVENUE">
+        <Annotation Term="Common.IsCurrency"/>
+        <Annotation Term="Common.Label" String="Total Revenue"/>
+      </Annotations>
+      <Annotations Target="S2.AM_REVENUE/AVG_PRICE">
+        <Annotation Term="Common.IsCurrency"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
