@@ -1885,6 +1885,41 @@ def test_hive_odbc_navigation_schema_from_dsn_mapping():
 
 
 @pytest.mark.integration
+def test_mysql_odbc_navigation_two_part_dsn_mapping_does_not_add_schema_tier():
+    """Two-part path guard: MySQL navigation exposes Database + Table (no Schema),
+    which is genuinely a two-part database.table name. A two-part
+    dsn_to_database_schema value (intended for the ODBC SQL-parsing path) must not
+    splice a spurious schema tier into the middle — the URN stays database.table."""
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=M_QUERIES[35],
+        name="employees",
+        full_name="employees.employees",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"testdb01": "warehouse.sales"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    )
+
+
+@pytest.mark.integration
 def test_athena_regular_case():
     """Test Amazon Athena lineage extraction with catalog.database.table hierarchy."""
     q: str = M_QUERIES[37]

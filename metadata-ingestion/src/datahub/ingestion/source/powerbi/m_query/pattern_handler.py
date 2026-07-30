@@ -1920,11 +1920,20 @@ class OdbcLineage(AbstractLineage):
         # the project). Backfill the missing high-order levels from
         # dsn_to_database_schema so a fully-qualified URN can still be built.
         # Navigation values always take precedence over the configured defaults.
+        #
+        # dsn_to_database_schema encodes a contiguous prefix of high-order levels
+        # (database, or database.schema). Only fill the schema tier from config
+        # when the database tier was also missing from navigation. If navigation
+        # already anchored the database but exposed no schema (e.g. MySQL's
+        # Database + Table path, which is genuinely two-part), splicing the
+        # config schema into the middle would fabricate a spurious tier and yield
+        # database.schema.table instead of database.table. There the mapping is
+        # only meant for the ODBC SQL-parsing path, not navigation.
         config_database, config_schema = self._resolve_dsn_database_schema(dsn)
         if database_name is None:
             database_name = config_database
-        if schema_name is None:
-            schema_name = config_schema
+            if schema_name is None:
+                schema_name = config_schema
 
         if data_platform in ODBC_TWO_TIER_PLATFORMS and table_name is not None:
             if schema_name is not None:
