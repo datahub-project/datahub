@@ -93,6 +93,59 @@ def test_view_lineage_counts_declared_column_count_mismatch() -> None:
     assert report.view_column_remap_mismatches == 1
 
 
+def test_view_lineage_comma_join_from_sysviews_style() -> None:
+    # Informix often normalizes joins to comma form in sysviews.viewtext.
+    sql = (
+        'create view "informix".customer_orders (customer_id,customer_name,order_id,amount) as '
+        "select x0.id ,x0.name ,x1.order_id ,x1.amount from "
+        '"informix".customers x0 ,"informix".orders x1 where (x0.id = x1.customer_id )'
+    )
+    view_urn = make_dataset_urn("informix", "testdb.informix.customer_orders", "PROD")
+    report = InformixSourceReport()
+    up = build_view_upstream_lineage(
+        view_urn,
+        sql,
+        _resolver(),
+        "testdb",
+        "informix",
+        report,
+        ["customer_id", "customer_name", "order_id", "amount"],
+    )
+    assert up is not None
+    assert report.view_column_remap_mismatches == 0
+    upstream_names = sorted(u.dataset.split(",")[-2] for u in up.upstreams)
+    assert upstream_names == ["testdb.informix.customers", "testdb.informix.orders"]
+
+    def _down(fgl: object) -> str:
+        return fgl.downstreams[0].split(",")[-1].rstrip(")")  # type: ignore[attr-defined]
+
+    def _up(fgl: object) -> str:
+        return fgl.upstreams[0].split(",")[-1].rstrip(")")  # type: ignore[attr-defined]
+
+    lineage_map = {_down(fgl): _up(fgl) for fgl in up.fineGrainedLineages}
+    assert lineage_map["customer_id"] == "id"
+    assert lineage_map["customer_name"] == "name"
+    assert lineage_map["order_id"] == "order_id"
+    assert lineage_map["amount"] == "amount"
+
+
+def test_central_dialect_map_parses_informix_without_override() -> None:
+    # Cross-source path: SchemaResolver(platform="informix") must resolve via
+    # get_dialect_str → postgres without the connector's override_dialect.
+    sql = (
+        'create view "informix".customer_names (name) as '
+        'select x0.name from "informix".customers x0'
+    )
+    result = sqlglot_lineage(
+        sql,
+        schema_resolver=_resolver(),
+        default_db="testdb",
+        default_schema="informix",
+    )
+    assert result.debug_info.table_error is None
+    assert any("customers" in urn for urn in result.in_tables)
+
+
 def test_view_lineage_warns_when_only_column_parsing_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

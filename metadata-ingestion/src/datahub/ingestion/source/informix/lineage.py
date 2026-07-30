@@ -13,9 +13,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
-# sqlglot has no 'informix' dialect (get_dialect("informix") raises). Informix
-# normalizes sysviews.viewtext to a qualified, aliased, comma-join form, which the
-# postgres dialect parses correctly for the common case. Views that retain
+# get_dialect_str("informix") maps to postgres centrally; keep an explicit
+# override so connector view lineage does not depend on SchemaResolver.platform
+# alone. Informix normalizes sysviews.viewtext to a qualified, aliased,
+# comma-join form that postgres parses for the common case. Views that retain
 # Informix-specific syntax (MATCHES / NOT MATCHES, FIRST / SKIP, native OUTER
 # joins, DATETIME ... YEAR TO DAY) still fail to parse and fall through to the
 # per-view failure path; see the connector docs.
