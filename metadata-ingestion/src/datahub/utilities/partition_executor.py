@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import atexit
 import collections
 import functools
@@ -61,6 +59,21 @@ class PartitionExecutor(Closeable):
         # Each pending or executing request will acquire a permit from this semaphore.
         self._semaphore = BoundedSemaphore(max_pending + max_workers)
 
+        # Guards all state transitions on self._pending_by_key so that the
+        # inspect+append+create sequence in submit() and the inspect+pop+delete
+        # sequence in the completion callback are each atomic. Without this,
+        # submit() (caller thread) and the completion callback (worker thread)
+        # race on the same key: the callback can observe an empty deque, then
+        # have submit() append to it before the callback deletes the key --
+        # silently dropping the queued task and leaking its semaphore permit.
+        #
+        # This is an RLock (not a plain Lock) because future.add_done_callback
+        # fires the callback synchronously on the submitting thread when the
+        # future is already complete. In that case the callback re-enters this
+        # lock on the same thread that already holds it, so a plain Lock would
+        # self-deadlock.
+        self._pending_lock = threading.RLock()
+
         # A key existing in this dict means that there is a submitted request for that key.
         # Any entries in the key's value e.g. the deque are requests that are waiting
         # to be submitted once the current request for that key completes.
@@ -85,14 +98,17 @@ class PartitionExecutor(Closeable):
     ) -> None:
         """See concurrent.futures.Executor#submit"""
 
+        # Acquire the permit outside the lock: we must never block on the
+        # semaphore while holding self._pending_lock.
         self._semaphore.acquire()
 
-        if key in self._pending_by_key:
-            self._pending_by_key[key].append((fn, args, kwargs, done_callback))
+        with self._pending_lock:
+            if key in self._pending_by_key:
+                self._pending_by_key[key].append((fn, args, kwargs, done_callback))
 
-        else:
-            self._pending_by_key[key] = collections.deque()
-            self._submit_nowait(key, fn, args, kwargs, done_callback=done_callback)
+            else:
+                self._pending_by_key[key] = collections.deque()
+                self._submit_nowait(key, fn, args, kwargs, done_callback=done_callback)
 
     def _submit_nowait(
         self,
@@ -105,32 +121,37 @@ class PartitionExecutor(Closeable):
         future = self._executor.submit(fn, *args, **kwargs)
 
         def _system_done_callback(future: Future) -> None:
+            # Releasing the semaphore doesn't touch _pending_by_key, so it does
+            # not need the lock. Keep it outside to avoid holding the lock any
+            # longer than necessary.
             self._semaphore.release()
 
-            # If there is another pending request for this key, submit it now.
-            # The key must exist in the map.
-            if self._pending_by_key[key]:
-                fn, args, kwargs, user_done_callback = self._pending_by_key[
-                    key
-                ].popleft()
+            # Guard the inspect+pop+delete transition so it's atomic with
+            # respect to submit()'s inspect+append+create. The key must exist
+            # in the map.
+            with self._pending_lock:
+                if self._pending_by_key[key]:
+                    fn, args, kwargs, user_done_callback = self._pending_by_key[
+                        key
+                    ].popleft()
 
-                try:
-                    self._submit_nowait(key, fn, args, kwargs, user_done_callback)
-                except RuntimeError as e:
-                    if self._executor._shutdown:
-                        # If we're in shutdown mode, then we can't submit any more requests.
-                        # That means we'll need to drop requests on the floor, which is to
-                        # be expected in shutdown mode.
-                        # The only reason we'd normally be in shutdown here is during
-                        # Python exit (e.g. KeyboardInterrupt), so this is reasonable.
-                        logger.debug("Dropping request due to shutdown")
-                    else:
-                        raise e
+                    try:
+                        self._submit_nowait(key, fn, args, kwargs, user_done_callback)
+                    except RuntimeError as e:
+                        if self._executor._shutdown:
+                            # If we're in shutdown mode, then we can't submit any more requests.
+                            # That means we'll need to drop requests on the floor, which is to
+                            # be expected in shutdown mode.
+                            # The only reason we'd normally be in shutdown here is during
+                            # Python exit (e.g. KeyboardInterrupt), so this is reasonable.
+                            logger.debug("Dropping request due to shutdown")
+                        else:
+                            raise e
 
-            else:
-                # If there are no pending requests for this key, mark the key
-                # as no longer in progress.
-                del self._pending_by_key[key]
+                else:
+                    # If there are no pending requests for this key, mark the key
+                    # as no longer in progress.
+                    del self._pending_by_key[key]
 
         if done_callback:
             future.add_done_callback(done_callback)
@@ -145,6 +166,11 @@ class PartitionExecutor(Closeable):
             self._semaphore.acquire()
 
         # Now, wait for all the pending requests to complete.
+        # We don't take self._pending_lock here: having acquired all max_pending
+        # permits above, no new key can be created past submit()'s semaphore
+        # acquire, so _pending_by_key only shrinks from here. len() on a dict is
+        # atomic in CPython, and we re-read it every iteration, so a momentarily
+        # stale read at worst costs one extra sleep interval.
         while len(self._pending_by_key) > 0:
             # TODO: There should be a better way to wait for all executor threads to be idle.
             # One option would be to just shutdown the existing executor and create a new one.
@@ -177,7 +203,7 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-_live_executors: weakref.WeakSet[BatchPartitionExecutor] = weakref.WeakSet()
+_live_executors: 'weakref.WeakSet["BatchPartitionExecutor"]' = weakref.WeakSet()
 
 
 def _shutdown_executors() -> None:
