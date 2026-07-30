@@ -1071,6 +1071,26 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    * @return Details about the new and old version of the aspect
    */
   @Nonnull
+  /**
+   * The urn/aspect rows a batch's ingest transaction locks up front: each item's aspect row plus
+   * each entity's key aspect row (the latter is read by the exists() check in {@link
+   * DefaultAspectsUtil#withAdditionalChanges} and serializes concurrent writers of the same
+   * entity).
+   */
+  private static Map<String, Set<String>> batchLockTargets(@Nonnull final AspectsBatch batch) {
+    final Map<String, Set<String>> targets = new HashMap<>();
+    batch
+        .getUrnAspectsMap()
+        .forEach(
+            (urn, aspects) -> targets.computeIfAbsent(urn, k -> new HashSet<>()).addAll(aspects));
+    for (BatchItem item : batch.getItems()) {
+      targets
+          .computeIfAbsent(item.getUrn().toString(), k -> new HashSet<>())
+          .add(item.getEntitySpec().getKeyAspectName());
+    }
+    return targets;
+  }
+
   private IngestAspectsResult ingestAspectsToLocalDB(
       @Nonnull OperationContext opContext,
       @Nonnull final AspectsBatch inputBatch,
@@ -1098,6 +1118,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .runInTransactionWithRetry(
                         opContext,
                         (txContext) -> {
+                          // Acquire all row locks for this batch in a SINGLE statement before any
+                          // other locking read. Acquiring locks in multiple statements (previously:
+                          // exists() inside withAdditionalChanges, then getLatestAspects below)
+                          // deadlocks when two concurrent batches overlap crosswise — each holds
+                          // rows from its first statement that the other's second statement needs.
+                          // The lock set is the union of every row this transaction reads with
+                          // forUpdate or modifies: each item's aspect row plus each entity's key
+                          // aspect row. Locking the key aspect row also preserves the per-entity
+                          // write mutex previously provided by the locking exists() check.
+                          aspectDao.lockLatestRows(opContext, batchLockTargets(inputBatch));
+
                           // Generate default aspects within the transaction (they are re-calculated
                           // on
                           // retry)

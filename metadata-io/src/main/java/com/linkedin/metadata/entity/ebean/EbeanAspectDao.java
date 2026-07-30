@@ -220,6 +220,39 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
+  public void lockLatestRows(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {
+    validateConnection();
+    if (!canWrite || urnAspects.isEmpty()) {
+      return;
+    }
+
+    List<EbeanAspectV2.PrimaryKey> keys =
+        urnAspects.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .map(
+                            aspect ->
+                                new EbeanAspectV2.PrimaryKey(
+                                    entry.getKey(), aspect, ASPECT_LATEST_VERSION)))
+            .sorted()
+            .collect(Collectors.toList());
+
+    // Deliberately unchunked (unlike getLatestAspects): splitting the FOR UPDATE across multiple
+    // statements reintroduces the multi-wave lock acquisition this method exists to prevent.
+    // Same unchunked idIn().forUpdate() pattern as getNextVersions. Selecting only the urn column
+    // keeps this a lock-only read without transferring aspect payloads.
+    server
+        .find(EbeanAspectV2.class)
+        .select(EbeanAspectV2.URN_COLUMN)
+        .where()
+        .idIn(keys)
+        .forUpdate()
+        .findList();
+  }
+
+  @Override
   public long countEntities(@Nonnull OperationContext opContext) {
     validateConnection();
     return server
@@ -977,6 +1010,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           metricUtils.increment(MetricRegistry.name(this.getClass(), "txFailed"), 1);
         log.warn("Retryable PersistenceException: {}", exception.getMessage());
         transactionContext.addException(exception);
+        if (transactionContext.shouldAttemptRetry()) {
+          transactionContext.backoffBeforeRetry();
+        }
       }
     } while (transactionContext.shouldAttemptRetry());
 

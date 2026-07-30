@@ -7,5 +7,9 @@
             <package name="com.linkedin.metadata.sqlsetup.postgres.pgqueue"/>
             <package name="com.linkedin.metadata.entity.storage"/>
         </packages>
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConcurrentLockPostgresIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EntityServiceConcurrentIngestPostgresIT"/>
+        </classes>
     </test>
 </suite>

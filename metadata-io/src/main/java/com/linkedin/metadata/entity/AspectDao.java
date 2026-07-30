@@ -100,6 +100,24 @@ public interface AspectDao {
       @Nonnull OperationContext opContext, Map<String, Set<String>> urnAspects, boolean forUpdate);
 
   /**
+   * Acquires write locks (e.g. {@code SELECT ... FOR UPDATE}) on the latest-version rows of the
+   * given urn/aspect pairs in a single statement, without reading the aspect payloads. Rows that do
+   * not exist are not locked (there is nothing to lock).
+   *
+   * <p>Intended to be the FIRST locking statement of a write transaction, covering the union of
+   * every row the transaction will later read with {@code forUpdate=true} or modify. Acquiring all
+   * locks in one statement prevents lock-ordering deadlocks between concurrent transactions:
+   * multi-statement (wave) acquisition deadlocks when two transactions' waves overlap crosswise,
+   * whereas a single statement acquires row locks in consistent scan order.
+   *
+   * <p>Implementations without row-level locking transactions may no-op.
+   *
+   * @param urnAspects urn/aspects whose latest-version rows should be locked
+   */
+  default void lockLatestRows(
+      @Nonnull OperationContext opContext, @Nonnull Map<String, Set<String>> urnAspects) {}
+
+  /**
    * Updates the system aspect
    *
    * @param operationContext

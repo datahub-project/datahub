@@ -40,6 +40,9 @@ public class EbeanEntityServiceOptimizationTest {
   /*
    Counts for ORM optimization calculations
   */
+  // Up-front single-statement FOR UPDATE lock acquisition (AspectDao.lockLatestRows), the first
+  // statement of every ingest transaction (prevents multi-wave lock-ordering deadlocks)
+  private static final int upfrontLockAcquisition = 1;
   // Default Aspect Generation Step
   // 1. *Key,
   // 2. browsePathsV2 & dataPlatformInstance
@@ -51,7 +54,7 @@ public class EbeanEntityServiceOptimizationTest {
   private static final int defaultAspectsNextVersion = 2;
   // Final default select
   private static final int nonExistingBaseCount =
-      defaultAspectsGeneration + defaultAspectsNextVersion;
+      upfrontLockAcquisition + defaultAspectsGeneration + defaultAspectsNextVersion;
 
   // Existing
   // 1. *Key
@@ -60,7 +63,8 @@ public class EbeanEntityServiceOptimizationTest {
   // 1. dataHubRetentionConfig (if enabled add 1 for read)
   private static final int existingRetention = 0;
   // Final default select existing (no retention)
-  private static final int existingBaseCount = existingDefaultAspectsGeneration + existingRetention;
+  private static final int existingBaseCount =
+      upfrontLockAcquisition + existingDefaultAspectsGeneration + existingRetention;
 
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();

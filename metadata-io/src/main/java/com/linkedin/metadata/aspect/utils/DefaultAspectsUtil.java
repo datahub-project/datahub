@@ -100,8 +100,12 @@ public class DefaultAspectsUtil {
             .filter(item -> SUPPORTED_TYPES.contains(item.getChangeType()))
             .collect(Collectors.groupingBy(BatchItem::getUrn));
 
+    // Non-locking read: the ingest transaction (EntityServiceImpl.ingestAspectsToLocalDB) already
+    // holds FOR UPDATE locks on every key aspect row via its up-front lockLatestRows call. Taking
+    // locks here — a second locking statement — would reintroduce the multi-wave lock acquisition
+    // that deadlocks against concurrent overlapping batches.
     Set<Urn> urnsWithExistingKeyAspects =
-        entityService.exists(opContext, itemsByUrn.keySet(), true, true);
+        entityService.exists(opContext, itemsByUrn.keySet(), true, false);
 
     // create default aspects when key aspect is missing
     return itemsByUrn.entrySet().stream()
