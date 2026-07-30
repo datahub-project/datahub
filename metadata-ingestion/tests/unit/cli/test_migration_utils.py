@@ -524,6 +524,43 @@ class TestMergeEntityNonDataset:
         assert result.skipped == 0
 
     @patch("datahub.cli.migration_utils.clone_aspect")
+    def test_overwrite_rewrites_urns_in_cloned_aspects(
+        self,
+        mock_clone: MagicMock,
+    ) -> None:
+        """The overwrite fallback applies transform_urns so self-references
+        (and batch cross-references) in cloned aspects are rewritten."""
+        from datahub.cli.migration_utils import merge_entity
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
+        # Simulate a cloned aspect whose owner URN embeds the old chart URN.
+        # transform_urns walks @Relationship/Urn fields and should rewrite it.
+        aspect = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=self.CHART_SRC,
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            ]
+        )
+        mock_clone.return_value = iter(
+            [MetadataChangeProposalWrapper(entityUrn=self.CHART_DST, aspect=aspect)]
+        )
+        graph = MagicMock()
+
+        result = merge_entity(
+            self.CHART_SRC,
+            self.CHART_DST,
+            ConflictStrategy.OVERWRITE,
+            graph,
+            dry_run=True,
+        )
+
+        assert result.merged == 1
+        # The owner URN should have been rewritten from src to dst
+        assert aspect.owners[0].owner == self.CHART_DST
+
+    @patch("datahub.cli.migration_utils.clone_aspect")
     def test_dataflow_merge_falls_back_to_overwrite(
         self,
         mock_clone: MagicMock,

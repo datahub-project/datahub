@@ -528,12 +528,15 @@ def _overwrite_entity(
     dst_urn: str,
     graph: DataHubGraph,
     dry_run: bool,
+    rewrite_urn: Optional[Callable[[str], str]] = None,
 ) -> MergeResult:
     """Overwrite target entity with all aspects from source (no merge logic).
 
     Used as fallback for entity types that don't support Patch-based merge.
     No conflicts are reported since we always overwrite.
     """
+    if rewrite_urn is None:
+        rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
     aspects_written = 0
     for mcp in clone_aspect(
         src_urn,
@@ -541,6 +544,8 @@ def _overwrite_entity(
         dst_urn=dst_urn,
         graph=graph,
     ):
+        if mcp.aspect is not None:
+            transform_urns(mcp.aspect, rewrite_urn)
         if not dry_run:
             graph.emit_mcp(mcp)
         aspects_written += 1
@@ -615,7 +620,7 @@ def merge_entity(
             f"Entity type '{entity_type}' does not support merge — "
             f"falling back to overwrite for {dst_urn}"
         )
-        return _overwrite_entity(src_urn, dst_urn, graph, dry_run)
+        return _overwrite_entity(src_urn, dst_urn, graph, dry_run, rewrite_urn)
 
     src_aspect_map = cli_utils.get_aspects_for_entity(
         graph._session,
