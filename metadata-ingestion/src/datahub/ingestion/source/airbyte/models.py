@@ -82,11 +82,8 @@ def _first_truthy_str(data: Mapping[str, Any], keys: Sequence[str]) -> Optional[
 
 
 def _as_str_list(value: object) -> List[str]:
-    """Normalize to a list of strings, tolerating a bare scalar.
-
-    Pydantic v2 will not widen a scalar into a list, so off-spec payloads such
-    as `"cursorField": "updated_at"` would otherwise fail validation.
-    """
+    """Pydantic v2 will not widen a scalar into a list, so off-spec payloads
+    such as `"cursorField": "updated_at"` would otherwise fail validation."""
     if value is None:
         return []
     if isinstance(value, str):
@@ -97,11 +94,9 @@ def _as_str_list(value: object) -> List[str]:
 
 
 def _as_field_paths(value: object) -> List[List[str]]:
-    """Normalize Airbyte's `string[][]` field-path shape.
-
-    A flat `["id", "tenant"]` is read as two single-segment paths, matching how
-    Airbyte expresses a composite key, and a bare `"id"` becomes `[["id"]]`.
-    """
+    """Coerce to Airbyte's `string[][]` field-path shape. A flat
+    `["id", "tenant"]` is read as two single-segment paths, matching how
+    Airbyte expresses a composite key."""
     if value is None:
         return []
     if isinstance(value, str):
@@ -230,9 +225,7 @@ class AirbyteConfigStreamRef(BaseModel):
 
 
 class AirbyteStreamsApiRow(BaseModel):
-    """One row from Airbyte `/streams` (1.8+). Field names vary by version, and
-    values are normalized rather than rejected so a single off-spec row cannot
-    cost us the whole source's namespace metadata."""
+    """One row from Airbyte `/streams` (1.8+). Field names vary by version."""
 
     stream_name: Optional[str] = None
     namespace: str = ""
@@ -269,9 +262,8 @@ class AirbyteStreamsApiRow(BaseModel):
 class SyncModeSplit(BaseModel):
     """The Public API's single `syncMode` string split back into the two modes
     the sync catalog carries separately, e.g. `full_refresh_overwrite` ->
-    (`full_refresh`, `overwrite`). Splitting on the first `_` would mis-read
-    `full_refresh_*` as source mode `full`, so the known source modes are
-    matched as prefixes instead."""
+    (`full_refresh`, `overwrite`). Source modes are matched as prefixes because
+    splitting on the first `_` mis-reads `full_refresh_*` as `full`."""
 
     source_mode: str = SYNC_MODE_FULL_REFRESH
     destination_mode: str = SYNC_MODE_DESTINATION_OVERWRITE
@@ -363,9 +355,8 @@ class AirbyteSyncCatalog(BaseModel):
 
 
 class NamespaceQueueResult(BaseModel):
-    """Namespaces to hand out to config streams that carry none, plus the names
-    we refuse to guess at. `ambiguous` names keep their unclaimed candidates so
-    the report can tell an operator what we saw."""
+    """Namespaces to hand out to config streams that carry none. `ambiguous`
+    keeps the unclaimed candidates so the report can list them."""
 
     queues: StreamNamespacesByName = Field(default_factory=dict)
     ambiguous: StreamNamespacesByName = Field(default_factory=dict)
@@ -490,8 +481,8 @@ class AirbyteConnectionPartial(BaseModel):
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(
         None, alias=API_FIELD_SYNC_CATALOG
     )
-    # Set by the client after validation when the sync catalog had to be rebuilt
-    # from the Public API's `configurations.streams`; see `get_connection`.
+    # Not API fields: set by the client when it rebuilds the sync catalog from
+    # `configurations.streams`, so the source can report what the rebuild lost.
     ambiguous_stream_namespaces: StreamNamespacesByName = Field(default_factory=dict)
     skipped_stream_payloads: List[str] = Field(default_factory=list)
     streams_api_unavailable: bool = False
@@ -594,8 +585,6 @@ class AirbyteStreamApiMetadata(BaseModel):
         default_factory=dict
     )
     namespaces_by_name: StreamNamespacesByName = Field(default_factory=dict)
-    # True when /streams answered 404 — either the endpoint predates Airbyte 1.8
-    # or the source is inaccessible. Both cost us namespaces, so it is reported.
     unavailable: bool = False
     skipped_rows: List[str] = Field(default_factory=list)
 

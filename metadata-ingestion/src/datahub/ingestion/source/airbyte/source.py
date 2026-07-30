@@ -531,12 +531,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _report_namespace_backfill_gaps(
         self, pipeline_info: AirbytePipelineInfo
     ) -> None:
-        """Surface anything that cost us a stream namespace.
-
-        Without a namespace a dataset URN falls back to the source's default
-        schema, which silently points lineage at the wrong table rather than
-        failing, so each cause gets a warning an operator can act on.
-        """
+        """Without a namespace a dataset URN falls back to the source's default
+        schema, which points lineage at the wrong table rather than failing, so
+        every cause of a missing one gets a warning an operator can act on."""
         connection = pipeline_info.connection
         connection_context = (
             f"connection_id={connection.connection_id}, "

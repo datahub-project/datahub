@@ -396,8 +396,6 @@ class AirbyteBaseClient(ABC):
             config_streams,
             self._fetch_stream_api_metadata(connection_data.get(API_FIELD_SOURCE_ID)),
         )
-        # Set on the validated model rather than injected into the raw payload —
-        # these are our own findings, not fields the API returned.
         connection.sync_catalog = build_result.catalog
         connection.ambiguous_stream_namespaces = build_result.ambiguous
         connection.skipped_stream_payloads = build_result.skipped_stream_payloads

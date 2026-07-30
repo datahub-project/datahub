@@ -32,16 +32,11 @@ def namespace_queues_for_catalog(
     config_streams: Sequence[AirbyteConfigStreamRef],
     namespaces_by_name: StreamNamespacesByName,
 ) -> NamespaceQueueResult:
-    """Decide which discovered namespace each unnamed config stream should take.
-
-    Only unambiguous cases are filled in. A name resolves when exactly one
-    discovered namespace is still unclaimed — either because the source exposes
-    the stream in a single schema, or because explicitly-namespaced siblings
-    account for the rest. Anything else is reported as ambiguous and left alone:
+    """A name resolves only when exactly one discovered namespace is still
+    unclaimed; anything else is reported as ambiguous and left alone.
     `configurations.streams` order is connection-config order while `/streams`
     order is source-discovery order, so pairing them positionally would emit
-    confidently-wrong URNs that look correct downstream.
-    """
+    confidently-wrong URNs that look correct downstream."""
     unnamed_counts: Dict[str, int] = {}
     claimed: Dict[str, Set[str]] = {}
     for stream in config_streams:

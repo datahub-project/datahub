@@ -134,7 +134,7 @@ DESTINATION_DATABASE_CONFIG_FIELDS: Sequence[str] = (
 
 # Known source type to DataHub platform mapping
 KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
-    # Relational databases
+    # Relational Databases
     "postgres": "postgres",
     "postgresql": "postgres",
     "mysql": "mysql",
@@ -144,13 +144,13 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "sqlserver": "mssql",
     "oracle": "oracle",
     "db2": "db2",
-    # Cloud data warehouses
+    # Cloud Data Warehouses
     "snowflake": "snowflake",
     "bigquery": "bigquery",
     "redshift": "redshift",
     "databricks": "databricks",
     "synapse": "mssql",
-    # NoSQL databases
+    # NoSQL Databases
     "mongodb": "mongodb",
     "mongo": "mongodb",
     "cassandra": "cassandra",
@@ -158,7 +158,7 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "elasticsearch": "elasticsearch",
     "opensearch": "opensearch",
     "clickhouse": "clickhouse",
-    # Big data and analytics
+    # Big Data & Analytics
     "hive": "hive",
     "presto": "presto",
     "trino": "trino",
@@ -172,11 +172,11 @@ KNOWN_SOURCE_TYPE_MAPPING: Dict[str, str] = {
     "google-cloud-storage": "gcs",
     "azure-blob-storage": "abs",
     "abs": "abs",
-    # Streaming and messaging
+    # Streaming & Messaging
     "kafka": "kafka",
     "pulsar": "pulsar",
     "kinesis": "kinesis",
-    # File formats and data lakes
+    # File Formats & Data Lakes
     "delta-lake": "delta-lake",
     "iceberg": "iceberg",
     "hudi": "hudi",
