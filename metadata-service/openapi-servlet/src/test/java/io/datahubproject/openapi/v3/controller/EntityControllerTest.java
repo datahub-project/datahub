@@ -2,8 +2,10 @@ package io.datahubproject.openapi.v3.controller;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
@@ -21,6 +23,9 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +36,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.TagUrn;
@@ -47,6 +53,8 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
+import com.linkedin.knowledge.DocumentInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -71,6 +79,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -93,6 +102,7 @@ import java.util.Map;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -110,6 +120,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
@@ -130,6 +141,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private AuthorizerChain authorizerChain;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private OperationContext opContext;
+
+  @Autowired
+  @Qualifier("testAspectRetriever")
+  private AspectRetriever testAspectRetriever;
+
   @MockitoBean private ConfigurationProvider configurationProvider;
   @MockitoBean private EntityServiceImpl mockEntityService;
   @MockitoBean private SearchService mockSearchService;
@@ -141,6 +157,14 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
+    reset(
+        mockEntityService,
+        mockSearchService,
+        mockTimeseriesAspectService,
+        testAspectRetriever,
+        authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
+    when(testAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
   }
 
   @Test
@@ -467,9 +491,18 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
       return new ObjectMapper();
     }
 
+    @Bean("testAspectRetriever")
+    public AspectRetriever testAspectRetriever() {
+      AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+      when(aspectRetriever.getEntityRegistry())
+          .thenReturn(TestOperationContexts.defaultEntityRegistry());
+      return aspectRetriever;
+    }
+
     @Bean(name = "systemOperationContext")
-    public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+    public OperationContext systemOperationContext(
+        @Qualifier("testAspectRetriever") AspectRetriever aspectRetriever) {
+      return TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever);
     }
 
     @Bean("entityRegistry")
@@ -535,6 +568,53 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(status().is2xxSuccessful())
         .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(TEST_URNS.get(0).toString()))
         .andExpect(MockMvcResultMatchers.jsonPath("$[1].urn").value(TEST_URNS.get(1).toString()));
+  }
+
+  @DataProvider
+  public Object[][] bridgeDocumentAuthorizationCases() {
+    return new Object[][] {{true, false, true}, {false, true, true}, {false, false, false}};
+  }
+
+  @Test(dataProvider = "bridgeDocumentAuthorizationCases")
+  public void testGetBridgeDocumentAuthorization(
+      boolean canViewDocument, boolean canViewSource, boolean expectedAllowed) throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-dataset-api-test");
+    Urn sourceUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,bridge-source,PROD)");
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(),
+            eq(Set.of(documentUrn)),
+            eq(Set.of(DOCUMENT_INFO_ASPECT_NAME, SUB_TYPES_ASPECT_NAME))))
+        .thenReturn(Map.of(documentUrn, bridgeDocumentAspects(sourceUrn)));
+    stubViewAuthorization(documentUrn, sourceUrn, canViewDocument, canViewSource);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                documentUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    try (MockedStatic<AuthUtil> authUtil =
+        org.mockito.Mockito.mockStatic(AuthUtil.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      org.springframework.test.web.servlet.ResultActions result =
+          mockMvc.perform(
+              MockMvcRequestBuilders.post("/openapi/v3/entity/document/batchGet")
+                  .content(String.format("[{\"urn\": \"%s\"}]", documentUrn))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .accept(MediaType.APPLICATION_JSON));
+
+      if (expectedAllowed) {
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(documentUrn.toString()));
+      } else {
+        result.andExpect(status().isForbidden());
+      }
+    }
   }
 
   @Test
@@ -1783,5 +1863,65 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     aggregationMetadata.setName("platform");
     return new SearchResultMetadata()
         .setAggregations(new AggregationMetadataArray(aggregationMetadata));
+  }
+
+  private void stubViewAuthorization(
+      Urn documentUrn, Urn sourceUrn, boolean canViewDocument, boolean canViewSource) {
+    reset(authorizerChain);
+    when(authorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation ->
+                authorizationResult(
+                    invocation.getArgument(0),
+                    documentUrn,
+                    sourceUrn,
+                    canViewDocument,
+                    canViewSource));
+    when(authorizerChain.authorize(
+            any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+        .thenAnswer(
+            invocation ->
+                authorizationResult(
+                    invocation.getArgument(0),
+                    documentUrn,
+                    sourceUrn,
+                    canViewDocument,
+                    canViewSource));
+  }
+
+  private static AuthorizationResult authorizationResult(
+      AuthorizationRequest request,
+      Urn documentUrn,
+      Urn sourceUrn,
+      boolean canViewDocument,
+      boolean canViewSource) {
+    boolean allowed =
+        request
+            .getResourceSpec()
+            .map(
+                resource ->
+                    (canViewDocument && documentUrn.toString().equals(resource.getEntity()))
+                        || (canViewSource && sourceUrn.toString().equals(resource.getEntity())))
+            .orElse(false);
+    return new AuthorizationResult(
+        request,
+        allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+        "bridge document test");
+  }
+
+  private static Map<String, Aspect> bridgeDocumentAspects(Urn sourceUrn) {
+    DocumentInfo documentInfo = new DocumentInfo();
+    StringMap properties = new StringMap();
+    properties.put(DocumentAuthorizationUtils.BRIDGE_TYPE_PROPERTY, sourceUrn.getEntityType());
+    properties.put(DocumentAuthorizationUtils.BRIDGE_SOURCE_ENTITY_PROPERTY, sourceUrn.toString());
+    documentInfo.setCustomProperties(properties);
+    SubTypes subTypes =
+        new SubTypes()
+            .setTypeNames(new StringArray(DocumentAuthorizationUtils.BRIDGE_DOCUMENT_SUBTYPE));
+    return Map.of(
+        DOCUMENT_INFO_ASPECT_NAME,
+        new Aspect(documentInfo.data()),
+        SUB_TYPES_ASPECT_NAME,
+        new Aspect(subTypes.data()));
   }
 }

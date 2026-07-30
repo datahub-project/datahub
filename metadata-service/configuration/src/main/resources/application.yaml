@@ -102,7 +102,8 @@ authorization:
     # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
     # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
     # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Trim further
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField,document.
+    # with VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE, e.g. schemaField. Re-add document via
+    # VIEW_UNRESTRICTED_ENTITY_TYPES_ADD=document if needed.
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -113,7 +114,7 @@ authorization:
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,document,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,schemaField,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
