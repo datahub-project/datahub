@@ -120,6 +120,7 @@ export default defineConfig(async ({ mode }) => {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
+        '/api/ai-config': frontendProxy,
         '/openapi/v1/tracking/track': frontendProxy,
         '/openapi/v1/files': frontendProxy,
         '/mfe/config': frontendProxy,
