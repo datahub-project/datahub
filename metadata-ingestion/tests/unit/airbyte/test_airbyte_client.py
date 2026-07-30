@@ -871,6 +871,26 @@ class TestClientBuildSyncCatalog:
         ]
         assert build_result.ambiguous == {}
 
+    def test_build_sync_catalog_leaves_unnamed_stream_when_siblings_claim_all(self):
+        """Reusing the only discovered namespace would collide with the sibling
+        that already declares it, so the unnamed stream keeps none."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": "users", "namespace": "public"}, {"name": "users"}],
+            AirbyteStreamApiMetadata(namespaces_by_name={"users": ["public"]}),
+        )
+
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
+            "public",
+            None,
+        ]
+        assert build_result.ambiguous == {}
+
     def test_build_sync_catalog_skips_partial_multi_schema_backfill(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -975,17 +995,27 @@ class TestClientBuildSyncCatalog:
                     "cursorField": "updated_at",
                     "jsonSchema": "not-a-schema",
                     "selectedFields": {"fieldPath": ["id"]},
-                }
+                },
+                {
+                    "name": "orders",
+                    "primaryKey": [None, ["id"]],
+                    "cursorField": None,
+                },
+                {"name": "refunds", "primaryKey": 7, "cursorField": 7},
             ],
             AirbyteStreamApiMetadata(),
         )
 
         assert build_result.skipped_stream_payloads == []
-        stream = build_result.catalog.streams[0]
-        assert stream.stream.name == "events"
-        assert stream.stream.json_schema == {}
-        assert stream.config.primary_key == [["id"]]
-        assert stream.config.cursor_field == ["updated_at"]
+        events, orders, refunds = build_result.catalog.streams
+        assert events.stream.name == "events"
+        assert events.stream.json_schema == {}
+        assert events.config.primary_key == [["id"]]
+        assert events.config.cursor_field == ["updated_at"]
+        assert orders.config.primary_key == [["id"]]
+        assert orders.config.cursor_field == []
+        assert refunds.config.primary_key == [["7"]]
+        assert refunds.config.cursor_field == ["7"]
 
     def test_build_sync_catalog_skips_unreadable_stream_without_losing_others(self):
         config = AirbyteClientConfig(
@@ -1434,6 +1464,25 @@ class TestFetchStreamApiMetadata:
         assert metadata.property_fields_by_stream[
             StreamIdentifier(stream_name="users", namespace="public")
         ] == [PropertyFieldPath(path=["id"])]
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_skips_unreadable_row(self, mock_list_streams):
+        mock_list_streams.return_value = [
+            "not-an-object",
+            {"streamName": "users", "streamnamespace": "public"},
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 1
+        assert metadata.skipped_rows[0].startswith("/streams[0]")
+        assert metadata.namespaces_by_name == {"users": ["public"]}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_ignores_404_substring_without_status(

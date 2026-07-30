@@ -432,15 +432,12 @@ class AirbyteBaseClient(ABC):
         namespaces_by_name: Dict[str, List[str]] = {}
         skipped_rows: List[str] = []
         for index, stream in enumerate(detailed_streams):
-            if not isinstance(stream, dict):
-                skipped_rows.append(f"/streams[{index}]: expected an object")
-                continue
-
             try:
                 row = AirbyteStreamsApiRow.model_validate(stream)
             except ValidationError as e:
+                # One unreadable row costs only its own namespace and columns.
                 skipped_rows.append(
-                    f"/streams[{index}]: {e.error_count()} invalid field(s)"
+                    f"/streams[{index}]: {e.error_count()} validation error(s)"
                 )
                 continue
 
