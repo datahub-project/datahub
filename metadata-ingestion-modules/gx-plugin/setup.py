@@ -86,6 +86,15 @@ dev_requirements = {
     *base_dev_requirements,
 }
 
+# GX Core 1.x test environment for action_v1. Installed into a separate venv
+# because the 0.x pin above and GX 1.x cannot coexist in one resolution.
+gx1_dev_requirements = {
+    *(base_dev_requirements - {"great-expectations>=0.17.15, <1.0.0"}),
+    "great-expectations>=1.0.0, <2.0.0",
+    # tests/conftest.py imports datahub.testing.docker_utils unconditionally.
+    "pytest-docker>=1.1.0",
+}
+
 integration_test_requirements = {
     *dev_requirements,
     "psycopg2-binary",
@@ -143,6 +152,7 @@ setuptools.setup(
     extras_require={
         "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
         "dev": list(dev_requirements),
+        "dev-gx1": list(gx1_dev_requirements),
         "integration-tests": list(integration_test_requirements),
     },
 )
