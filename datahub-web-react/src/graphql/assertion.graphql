@@ -166,6 +166,32 @@ fragment assertionInfo on AssertionInfo {
             urn
             path
         }
+        fields {
+            urn
+            path
+        }
+        scope
+        aggregation
+        operator
+        parameters {
+            value {
+                value
+                type
+            }
+            minValue {
+                value
+                type
+            }
+            maxValue {
+                value
+                type
+            }
+        }
+        nativeType
+        nativeParameters {
+            key
+            value
+        }
         logic
     }
     source {

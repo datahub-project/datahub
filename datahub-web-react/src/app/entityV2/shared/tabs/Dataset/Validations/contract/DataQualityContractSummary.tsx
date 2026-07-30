@@ -7,6 +7,7 @@ import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/V
 import { FieldAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/FieldAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import { customAssertionToDatasetAssertionView } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import { DataContractAssertionStatus } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractAssertionStatus';
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
@@ -53,7 +54,7 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
             title: () => <ColumnHeader>{t('contractColumn.assertion')}</ColumnHeader>,
             render: (assertion: Assertion) => (
                 <>
-                    {assertion.info?.datasetAssertion && (
+                    {assertion.info?.type === AssertionType.Dataset && assertion.info?.datasetAssertion && (
                         <DatasetAssertionDescription
                             assertionInfo={assertion.info?.datasetAssertion as DatasetAssertionInfo}
                         />
@@ -65,11 +66,20 @@ export const DataQualityContractSummary = ({ contracts, showAction = false }: Pr
                         <FieldAssertionDescription assertionInfo={assertion.info?.fieldAssertion} />
                     )}
                     {assertion.info?.sqlAssertion && <SqlAssertionDescription assertionInfo={assertion.info} />}
-                    {assertion.info?.type === AssertionType.Custom && (
-                        <Typography.Text>
-                            {assertion.info?.description || assertion.info?.customAssertion?.type}
-                        </Typography.Text>
-                    )}
+                    {assertion.info?.type === AssertionType.Custom &&
+                        (() => {
+                            const structuredView = customAssertionToDatasetAssertionView(
+                                assertion.info?.customAssertion,
+                            );
+                            if (structuredView) {
+                                return <DatasetAssertionDescription assertionInfo={structuredView} />;
+                            }
+                            return (
+                                <Typography.Text>
+                                    {assertion.info?.description || assertion.info?.customAssertion?.type}
+                                </Typography.Text>
+                            );
+                        })()}
                 </>
             ),
         },

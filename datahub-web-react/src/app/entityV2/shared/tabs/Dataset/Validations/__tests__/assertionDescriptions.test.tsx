@@ -679,6 +679,33 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
         } as any;
         expect(getPlainTextDescriptionFromAssertion(info)).toBe('Table was updated in the past 5 hours');
     });
+    it('structured custom matches dataset description quality', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'great_expectations',
+                entityUrn: 'urn:li:dataset:1',
+                scope: AssertionScope.DatasetColumn,
+                aggregation: AssertionStdAggregation.UniqueCount,
+                fields: [{ path: 'profileId' }],
+                operator: AssertionStdOperator.GreaterThan,
+                parameters: { value: numberParam(5) },
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe(
+            'Unique value count for column profileId is greater than 5',
+        );
+    });
+    it('unstructured custom falls back to customType', () => {
+        const info = {
+            type: AssertionType.Custom,
+            customAssertion: {
+                type: 'dbt Freshness',
+                entityUrn: 'urn:li:dataset:1',
+            },
+        } as any;
+        expect(getPlainTextDescriptionFromAssertion(info)).toBe('dbt Freshness');
+    });
 });
 
 /**

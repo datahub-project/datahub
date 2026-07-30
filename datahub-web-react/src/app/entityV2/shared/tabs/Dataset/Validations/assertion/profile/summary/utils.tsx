@@ -16,6 +16,10 @@ import { FreshnessAssertionDescription } from '@app/entityV2/shared/tabs/Dataset
 import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import {
+    customAssertionToDatasetAssertionView,
+    getStructuredAssertionViewForDisplay,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import {
     getFieldDescription,
@@ -219,6 +223,15 @@ export const useBuildAssertionPrimaryLabel = (
                     <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
                 );
                 break;
+            case AssertionType.Custom: {
+                const structuredView = customAssertionToDatasetAssertionView(assertionInfo.customAssertion);
+                if (structuredView) {
+                    primaryLabel = <DatasetAssertionDescription assertionInfo={structuredView} />;
+                } else if (assertionInfo.customAssertion?.type) {
+                    primaryLabel = <Typography.Text>{assertionInfo.customAssertion.type}</Typography.Text>;
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -367,6 +380,15 @@ export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionIn
         case AssertionType.DataSchema:
             primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
             break;
+        case AssertionType.Custom: {
+            const structuredView = getStructuredAssertionViewForDisplay(assertionInfo);
+            if (structuredView) {
+                primaryLabel = getDatasetAssertionPlainTextDescription(structuredView);
+            } else {
+                primaryLabel = assertionInfo.customAssertion?.type || '';
+            }
+            break;
+        }
         default:
             break;
     }
