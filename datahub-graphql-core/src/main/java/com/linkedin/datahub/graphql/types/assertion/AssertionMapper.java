@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaFieldMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.SchemaMetadataMapper;
+import com.linkedin.datahub.graphql.types.mappers.PdlEnumMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -49,7 +50,9 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.schema.SchemaField;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -359,8 +362,53 @@ public class AssertionMapper {
     CustomAssertionInfo result = new CustomAssertionInfo();
     result.setType(gmsCustomAssertionInfo.getType());
     result.setEntityUrn(gmsCustomAssertionInfo.getEntity().toString());
+
+    // Merge field (deprecated) and fields into a single array for backward compatibility
+    List<SchemaFieldRef> allFields = new ArrayList<>();
+    if (gmsCustomAssertionInfo.hasFields()) {
+      allFields.addAll(
+          gmsCustomAssertionInfo.getFields().stream()
+              .map(AssertionMapper::mapDatasetSchemaField)
+              .collect(Collectors.toList()));
+    }
     if (gmsCustomAssertionInfo.hasField()) {
-      result.setField(AssertionMapper.mapDatasetSchemaField(gmsCustomAssertionInfo.getField()));
+      SchemaFieldRef legacyField = mapDatasetSchemaField(gmsCustomAssertionInfo.getField());
+      if (allFields.stream().noneMatch(f -> f.getUrn().equals(legacyField.getUrn()))) {
+        allFields.add(legacyField);
+      }
+      result.setField(legacyField);
+    } else if (!allFields.isEmpty()) {
+      // Populate singular field from first of fields for older clients
+      result.setField(allFields.get(0));
+    }
+    result.setFields(allFields);
+
+    if (gmsCustomAssertionInfo.hasScope()) {
+      result.setScope(
+          PdlEnumMapper.mapDefaultNull(
+              DatasetAssertionScope.class, gmsCustomAssertionInfo.getScope()));
+    }
+    if (gmsCustomAssertionInfo.hasAggregation()) {
+      result.setAggregation(
+          PdlEnumMapper.mapDefaultNull(
+              AssertionStdAggregation.class, gmsCustomAssertionInfo.getAggregation()));
+    }
+    if (gmsCustomAssertionInfo.hasOperator()) {
+      result.setOperator(
+          PdlEnumMapper.mapDefaultNull(
+              AssertionStdOperator.class, gmsCustomAssertionInfo.getOperator()));
+    }
+    if (gmsCustomAssertionInfo.hasParameters()) {
+      result.setParameters(mapParameters(gmsCustomAssertionInfo.getParameters()));
+    }
+    if (gmsCustomAssertionInfo.hasNativeType()) {
+      result.setNativeType(gmsCustomAssertionInfo.getNativeType());
+    }
+    if (gmsCustomAssertionInfo.hasNativeParameters()) {
+      result.setNativeParameters(
+          StringMapMapper.map(context, gmsCustomAssertionInfo.getNativeParameters()));
+    } else {
+      result.setNativeParameters(Collections.emptyList());
     }
     if (gmsCustomAssertionInfo.hasLogic()) {
       result.setLogic(gmsCustomAssertionInfo.getLogic());
