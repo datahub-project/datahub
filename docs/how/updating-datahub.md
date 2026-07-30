@@ -173,6 +173,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Great Expectations plugin)** `acryl-datahub-gx-plugin` now allows `great-expectations>=0.17.15` (upper bound `<1.0.0` removed). GX 0.17/0.18 continues to use `datahub_gx_plugin.action.DataHubValidationAction`. GX Core 1.x uses the additive `datahub_gx_plugin.action_v1.DataHubValidationAction`. **Action:** Existing 0.x checkpoint configs are unchanged. For GX 1.x, instantiate the V1 action in Fluent Checkpoint `actions=[...]` (see the Great Expectations integration docs).
+
 - **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Requires both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` / `structuredProperties.typeMismatchReindexEnabled` (default `true`).
 
 - **(GMS / search defaults)** Default entity-type lists for GraphQL search, autocomplete, browse V2, and quick-filter priority are now configurable via `elasticsearch.search.*EntityTypes` (`value` / `add` / `remove`) and the matching `SEARCH_*_ENTITY_TYPES{,_ADD,_REMOVE}` environment variables. Stock YAML defaults match the former hardcoded GraphQL lists. An explicitly empty resolved list means GraphQL searches **no** entity types (it does not expand to all indices). Unknown registry names in these lists are soft-dropped with a warn at startup. See [Environment Variables](../deploy/environment-vars.md) and [Customizing Search](search.md#default-search-entity-types).

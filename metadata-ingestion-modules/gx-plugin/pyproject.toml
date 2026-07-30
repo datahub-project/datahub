@@ -23,7 +23,7 @@ line-ending = "auto"
 [tool.ruff.lint.isort]
 combine-as-imports = true
 known-first-party = ["datahub"]
-extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"]
+extra-standard-library = ["__future__", "datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch", "datahub_gx_plugin._gx_version", "datahub_gx_plugin._compat_gx_0x", "datahub_gx_plugin._compat_gx_1x"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 force-sort-within-sections = false
 force-wrap-aliases = false
