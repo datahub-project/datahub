@@ -11,10 +11,10 @@ import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 
 import {
     AssertionRunEvent,
-    DatasetAssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     DatasetAssertionInfo,
+    DatasetAssertionScope,
     SchemaFieldRef,
 } from '@types';
 

@@ -6,10 +6,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;

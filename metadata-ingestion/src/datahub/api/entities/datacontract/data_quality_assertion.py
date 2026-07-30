@@ -9,7 +9,6 @@ from datahub.api.entities.datacontract.assertion_operator import Operators
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
-    DatasetAssertionScopeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -18,6 +17,7 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     AssertionValueChangeTypeClass,
     DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
 )

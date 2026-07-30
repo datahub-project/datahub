@@ -42,7 +42,6 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    DatasetAssertionScopeClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionTypeClass,
@@ -51,6 +50,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
     MetadataChangeProposalClass,
     PartitionSpecClass,
 )

@@ -13,7 +13,6 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    DatasetAssertionScopeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -22,6 +21,7 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     CustomAssertionInfoClass,
     DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
 )
 
 if TYPE_CHECKING:
@@ -272,7 +272,8 @@ def make_assertion_from_test(
                 fields=(
                     [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
                     if (
-                        assertion_params.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+                        assertion_params.scope
+                        == DatasetAssertionScopeClass.DATASET_COLUMN
                         and column_name
                     )
                     else []

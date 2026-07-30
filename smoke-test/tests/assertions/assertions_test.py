@@ -20,12 +20,12 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    DatasetAssertionScopeClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
     AuditStampClass,
     ChangeTypeClass,
     DatasetAssertionInfoClass,
+    DatasetAssertionScopeClass,
     GenericAspectClass,
     MetadataChangeProposalClass,
     PartitionSpecClass,
@@ -437,7 +437,10 @@ def test_assertion_info_patch_preserves_note(graph_client):
         assert patched_info.note is not None
         assert patched_info.note.content == "keep me"
         assert patched_info.customProperties["expectation_suite_name"] == "updated"
-        assert patched_info.datasetAssertion.scope == DatasetAssertionScopeClass.DATASET_SCHEMA
+        assert (
+            patched_info.datasetAssertion.scope
+            == DatasetAssertionScopeClass.DATASET_SCHEMA
+        )
         assert (
             patched_info.datasetAssertion.operator == AssertionStdOperatorClass.EQUAL_TO
         )

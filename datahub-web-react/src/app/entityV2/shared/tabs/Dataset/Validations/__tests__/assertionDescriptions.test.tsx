@@ -16,12 +16,12 @@ import enValidations from '@src/i18n/locales/en/entity.profile.validations.json'
 
 import {
     AssertionInfo,
-    DatasetAssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameterType,
     AssertionType,
     AssertionValueChangeType,
+    DatasetAssertionScope,
     FieldAssertionType,
     FieldMetricType,
     FieldTransformType,
@@ -158,7 +158,12 @@ describe('DatasetAssertionDescription', () => {
             AssertionStdAggregation.RowCount,
             'Dataset row count is greater than 5',
         ],
-        ['rowsNative', DatasetAssertionScope.DatasetRows, AssertionStdAggregation.Native, 'Dataset rows are greater than 5'],
+        [
+            'rowsNative',
+            DatasetAssertionScope.DatasetRows,
+            AssertionStdAggregation.Native,
+            'Dataset rows are greater than 5',
+        ],
         [
             'colUniqueCount',
             DatasetAssertionScope.DatasetColumn,

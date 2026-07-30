@@ -10,7 +10,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
-    DatasetAssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameter,
@@ -18,6 +17,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionStdParameterType,
     AssertionType,
     DatasetAssertionInfo,
+    DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties

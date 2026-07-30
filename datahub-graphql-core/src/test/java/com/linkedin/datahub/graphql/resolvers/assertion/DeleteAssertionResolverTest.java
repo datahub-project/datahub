@@ -7,11 +7,11 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
