@@ -38,6 +38,13 @@ def test_glue_and_athena_use_trino_dialect():
     assert is_dialect_instance(get_dialect("glue"), "trino")
 
 
+def test_fabricspark_uses_spark2_dialect():
+    # dbt-fabricspark reports adapter_type "fabricspark", which sqlglot does
+    # not know. Map to spark2 (Spark SQL), not sqlglot's "fabric" (T-SQL).
+    assert get_dialect_str("fabricspark") == "spark2"
+    assert is_dialect_instance(get_dialect("fabricspark"), "spark2")
+
+
 def test_is_dialect_instance():
     snowflake = get_dialect("snowflake")
 
