@@ -94,9 +94,13 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     description: optional string
 
     /**
+    * @deprecated Use the assertionNote aspect instead. This field is retained for backward
+    * compatibility during migration and will be removed in a future release.
+    *
     * An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
     * The UI will render this in markdown format.
     */
+    @deprecated = "Use the assertionNote aspect instead."
     note: optional AssertionNote
 
     /**
