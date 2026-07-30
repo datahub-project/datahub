@@ -2,7 +2,7 @@ import hashlib
 import logging
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from urllib.request import urlopen
 
 from datahub.configuration.common import ConfigurationError
@@ -44,22 +44,26 @@ def _digest(data: bytes) -> str:
     return hashlib.sha1(data).hexdigest()
 
 
+def _first_token(text: str) -> Optional[str]:
+    # Maven .sha1 files are either a bare hex digest or `hexdigest  filename`.
+    tokens = text.strip().split()
+    return tokens[0] if tokens else None
+
+
 def _fetch_verified(base_url: str, filename: str, cache: Path) -> str:
     jar_path = cache / filename
     sha_path = cache / (filename + _CHECKSUM_EXT)
     if jar_path.exists() and sha_path.exists():
-        sha_text = sha_path.read_text().strip().split()
-        if not sha_text:
+        expected = _first_token(sha_path.read_text())
+        if expected is None:
             raise ConfigurationError(f"Malformed {_CHECKSUM_EXT} file for {filename}")
-        expected = sha_text[0]
         if _digest(jar_path.read_bytes()) == expected:
             return str(jar_path)
         logger.warning("Cached %s failed checksum; re-downloading.", filename)
 
-    sha_text = _download(base_url + _CHECKSUM_EXT).decode().strip().split()
-    if not sha_text:
+    expected = _first_token(_download(base_url + _CHECKSUM_EXT).decode())
+    if expected is None:
         raise ConfigurationError(f"Malformed {_CHECKSUM_EXT} payload for {filename}")
-    expected = sha_text[0]
     data = _download(base_url)
     actual = _digest(data)
     if actual != expected:

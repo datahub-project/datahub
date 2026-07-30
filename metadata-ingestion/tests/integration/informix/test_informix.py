@@ -52,6 +52,9 @@ pytestmark = [
     # never starts. It works locally (~27s end to end), so the test is kept and run
     # there rather than deleted; _informix_ready() prints the full evidence if
     # anyone re-enables this. Same reasoning as the hana suite's CI guard.
+    #
+    # Golden-file regression coverage for CI lives in the unit suite instead
+    # (e.g. ViewProperties emission, FK pairing, catalog row tolerance).
     pytest.mark.skipif(
         is_ci(),
         reason="informix-developer-database cannot start on CI runners: its "

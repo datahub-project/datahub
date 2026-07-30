@@ -136,10 +136,10 @@ def test_get_foreign_keys_groups_multiple_constraints():
     assert sorted(fk.name for fk in fks) == ["fk_a", "fk_b"]
 
 
-def test_get_foreign_keys_can_return_mismatched_column_counts():
+def test_get_foreign_keys_skips_mismatched_column_counts():
     # A constraint backed by a wider pre-existing index yields more child columns
-    # than the reference has parent columns. source._build_table_schema drops these
-    # rather than emitting a positionally-misaligned constraint.
+    # than the reference has parent columns. The client drops these rather than
+    # constructing an InformixForeignKey that would fail the length invariant.
     client = _client_with_rows(
         {
             SQL_FK: [
@@ -148,8 +148,24 @@ def test_get_foreign_keys_can_return_mismatched_column_counts():
             ]
         }
     )
-    fk = client.get_foreign_keys(_table("sales"))[0]
-    assert len(fk.child_columns) != len(fk.parent_columns)
+    assert client.get_foreign_keys(_table("sales")) == []
+
+
+def test_get_tables_skips_malformed_rows():
+    client = _client_with_rows(
+        {
+            SQL_TABLES: [
+                ["customers", "informix", "T", 42],
+                ["broken", "informix", "T", object()],  # nrows cannot be parsed
+                ["active_customers", "informix", "V", 0],
+            ]
+        }
+    )
+    tables = client.get_tables()
+    assert [(t.name, t.is_view) for t in tables] == [
+        ("customers", False),
+        ("active_customers", True),
+    ]
 
 
 def test_get_view_definition_reassembles_chunks_in_seqno_order():

@@ -984,6 +984,24 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.active_customers,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "create view \"informix\".active_customers (id,name) as select x0.id ,x0.name from \"informix\".customers x0 ;                                                                                                                                                       ",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785443004489,
+        "runId": "informix-2026_07_30-21_23_22-rfpzgm",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.active_customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
@@ -1026,6 +1044,24 @@
     "systemMetadata": {
         "lastObserved": 1784892553260,
         "runId": "informix-2026_07_24-13_29_10-by4mtf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:informix,testdb.informix.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "create view \"informix\".customer_orders (customer_id,customer_name,order_id,amount) as select x0.id ,x0.name ,x1.order_id ,x1.amount from \"informix\".customers x0 ,\"informix\".orders x1 where (x0.id = x1.customer_id ) ;                                        ",
+            "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1785443004495,
+        "runId": "informix-2026_07_30-21_23_22-rfpzgm",
         "lastRunId": "no-run-id-provided"
     }
 },

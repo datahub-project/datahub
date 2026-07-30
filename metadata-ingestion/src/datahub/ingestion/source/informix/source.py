@@ -2,6 +2,7 @@ import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -31,6 +32,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.informix.client import (
     InformixClient,
     InformixClientProtocol,
+    sanitize_informix_error,
 )
 from datahub.ingestion.source.informix.config import InformixSourceConfig
 from datahub.ingestion.source.informix.constants import PLATFORM
@@ -56,6 +58,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemalessClass,
     SchemaMetadataClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
@@ -65,7 +68,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 
 @dataclass
 class _PendingView:
-    # A view emitted in pass 1, carried to pass 2 for lineage parsing.
+    # A view emitted in pass 1, carried to pass 2 for viewProperties + lineage.
     table: InformixTable
     urn: str
     columns: List[str]
@@ -100,6 +103,8 @@ class _PendingView:
     subtype_modifier=[SourceCapabilityModifier.VIEW],
 )
 class InformixSource(StatefulIngestionSourceBase, TestableSource):
+    """Ingests Informix databases via the proprietary JDBC driver and system catalogs."""
+
     config: InformixSourceConfig
     report: InformixSourceReport
 
@@ -129,17 +134,41 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
     def test_connection(config_dict: Dict[str, object]) -> TestConnectionReport:
         test_report = TestConnectionReport()
         client: Optional[InformixClient] = None
+        config: Optional[InformixSourceConfig] = None
         try:
             config = InformixSourceConfig.parse_obj_allow_extras(config_dict)
             # Constructing the client resolves the JDBC driver, starts the JVM and
             # opens the connection, so a successful get_tables() exercises every
             # step the real run depends on.
             client = InformixClient(config)
-            client.get_tables()
+            tables = client.get_tables()
             test_report.basic_connectivity = CapabilityReport(capable=True)
+            test_report.capability_report = {
+                SourceCapability.SCHEMA_METADATA: CapabilityReport(
+                    capable=True,
+                    mitigation_message=(
+                        f"Listed {len(tables)} tables/views from the system catalog"
+                    ),
+                ),
+                SourceCapability.LINEAGE_COARSE: CapabilityReport(
+                    capable=True,
+                    mitigation_message=(
+                        "View lineage is available when include_view_lineage is enabled"
+                    ),
+                ),
+            }
         except Exception as error:
+            if isinstance(error, ConfigurationError):
+                # Already sanitized by InformixClient (never includes the JDBC URL).
+                failure_reason = str(error)
+            elif config is not None:
+                failure_reason = sanitize_informix_error(
+                    error, config, "test connection"
+                )
+            else:
+                failure_reason = str(error)
             test_report.basic_connectivity = CapabilityReport(
-                capable=False, failure_reason=str(error)
+                capable=False, failure_reason=failure_reason
             )
         finally:
             if client is not None:
@@ -174,8 +203,8 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
         return build_owners(owner)
 
     def _schema_key(self, owner: str) -> ContainerKey:
-        # SchemaKey's db_schema attribute is aliased to "schema" (to avoid
-        # shadowing pydantic's BaseModel.schema()), so construct by alias.
+        # SchemaKey accepts the schema name via the `schema` constructor kwarg
+        # (the underlying field is `db_schema`, exposed by alias).
         return SchemaKey(
             platform=self.platform,
             instance=self.config.platform_instance,
@@ -197,10 +226,10 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
         usable_fks: List[InformixForeignKey] = []
         for fk in client.get_foreign_keys(table):
             if len(fk.child_columns) != len(fk.parent_columns):
+                # Defense in depth: InformixClient already drops these, but fake
+                # clients / model_construct can still hand mismatched lists through.
                 # sourceFields/foreignFields pair positionally, so unequal lists
-                # would emit a constraint joining the wrong columns. Informix can
-                # back a constraint with a wider pre-existing index, so the catalog
-                # really can return lopsided child/parent column sets.
+                # would emit a constraint joining the wrong columns.
                 self.report.foreign_keys_dropped_mismatched += 1
                 self.report.warning(
                     title="Skipped foreign key with mismatched column counts",
@@ -296,15 +325,18 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.report_dropped(name)
                     continue
 
+                schema_key = self._schema_key(table.owner)
+                owners = self._owners(table.owner)
+
                 if table.owner not in seen_owners:
                     seen_owners.add(table.owner)
                     yield Container(
-                        self._schema_key(table.owner),
+                        schema_key,
                         display_name=table.owner,
                         subtype=DatasetContainerSubTypes.SCHEMA,
                         parent_container=db_key,
                         domain=self._domain_urn(table.owner),
-                        owners=self._owners(table.owner),
+                        owners=owners,
                     )
 
                 # Isolate per-table failures: one broken/inaccessible object
@@ -327,11 +359,11 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         env=self.config.env,
                         platform_instance=self.config.platform_instance,
                         subtype=subtype,
-                        parent_container=self._schema_key(table.owner),
+                        parent_container=schema_key,
                         schema=schema,
                         display_name=table.name,
                         domain=self._domain_urn(name),
-                        owners=self._owners(table.owner),
+                        owners=owners,
                     )
                     yield dataset
                     dataset_urn = dataset.urn.urn()
@@ -366,39 +398,60 @@ class InformixSource(StatefulIngestionSourceBase, TestableSource):
                         exc=e,
                     )
 
-            if self.config.include_view_lineage:
-                for pending in views:
-                    try:
-                        sql = client.get_view_definition(pending.table)
-                        if not sql:
-                            # sysviews.viewtext is empty when the view text is
-                            # unreadable (permissions) or was never stored. Count it
-                            # so it is distinguishable from "parsed, no upstreams".
-                            self.report.views_without_definition += 1
-                            continue
-                        upstream_lineage = build_view_upstream_lineage(
-                            view_urn=pending.urn,
-                            view_sql=sql,
-                            schema_resolver=resolver,
-                            database=self.config.database,
-                            owner=pending.table.owner,
-                            report=self.report,
-                            view_columns=pending.columns,
-                        )
-                        if upstream_lineage is not None:
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=pending.urn, aspect=upstream_lineage
-                            ).as_workunit()
-                            self.report.views_with_lineage += 1
-                    except Exception as e:
-                        self.report.view_lineage_failures += 1
-                        self.report.warning(
-                            title="Failed to parse view lineage",
-                            message="Skipping view lineage due to an error during "
-                            "SQL parsing.",
-                            context=f"{pending.table.owner}.{pending.table.name}",
-                            exc=e,
-                        )
+            # Pass 2: emit viewProperties for every view with stored SQL, and
+            # optionally parse that SQL for upstream lineage.
+            for pending in views:
+                try:
+                    sql = client.get_view_definition(pending.table)
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to fetch view definition",
+                        message="Skipping viewProperties/lineage due to an error "
+                        "reading sysviews.viewtext.",
+                        context=f"{pending.table.owner}.{pending.table.name}",
+                        exc=e,
+                    )
+                    continue
+                if not sql:
+                    # sysviews.viewtext is empty when the view text is
+                    # unreadable (permissions) or was never stored. Count it
+                    # so it is distinguishable from "parsed, no upstreams".
+                    self.report.views_without_definition += 1
+                    continue
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=pending.urn,
+                    aspect=ViewPropertiesClass(
+                        materialized=False,
+                        viewLogic=sql,
+                        viewLanguage="SQL",
+                    ),
+                ).as_workunit()
+                if not self.config.include_view_lineage:
+                    continue
+                try:
+                    upstream_lineage = build_view_upstream_lineage(
+                        view_urn=pending.urn,
+                        view_sql=sql,
+                        schema_resolver=resolver,
+                        database=self.config.database,
+                        owner=pending.table.owner,
+                        report=self.report,
+                        view_columns=pending.columns,
+                    )
+                    if upstream_lineage is not None:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=pending.urn, aspect=upstream_lineage
+                        ).as_workunit()
+                        self.report.views_with_lineage += 1
+                except Exception as e:
+                    self.report.view_lineage_failures += 1
+                    self.report.warning(
+                        title="Failed to parse view lineage",
+                        message="Skipping view lineage due to an error during "
+                        "SQL parsing.",
+                        context=f"{pending.table.owner}.{pending.table.name}",
+                        exc=e,
+                    )
         finally:
             client.close()
 

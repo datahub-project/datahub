@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -20,6 +21,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SchemaMetadataClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
@@ -556,6 +558,91 @@ def test_source_respects_include_view_lineage_false():
     assert not lineage_mcps
     assert source.report.views_with_lineage == 0
 
+    view_props = [
+        e.metadata.aspect
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, ViewPropertiesClass)
+    ]
+    assert len(view_props) == 1
+    assert view_props[0].viewLogic == _VIEW_SQL
+    assert view_props[0].viewLanguage == "SQL"
+    assert view_props[0].materialized is False
+
+
+def test_source_emits_view_properties_with_lineage():
+    config = InformixSourceConfig.parse_obj(
+        {"server": "informix", "database": "testdb"}
+    )
+    source = InformixSource(
+        PipelineContext(run_id="test"), config, client=_ViewLineageClient()
+    )
+    entities = list(source.get_workunits_internal())
+
+    view_props = [
+        e.metadata.aspect
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, ViewPropertiesClass)
+    ]
+    assert len(view_props) == 1
+    assert view_props[0].viewLogic == _VIEW_SQL
+
+    lineage_mcps = [
+        e
+        for e in entities
+        if isinstance(e, MetadataWorkUnit)
+        and isinstance(e.metadata, MetadataChangeProposalWrapper)
+        and isinstance(e.metadata.aspect, UpstreamLineageClass)
+    ]
+    assert lineage_mcps
+    assert source.report.views_with_lineage == 1
+
+
+def test_test_connection_sanitizes_query_failure_reason():
+    client = MagicMock()
+    client.get_tables.side_effect = RuntimeError(
+        "Failed using jdbc:informix-sqli://host/db:INFORMIXSERVER=s;user=u;password=secret"
+    )
+    with patch(
+        "datahub.ingestion.source.informix.source.InformixClient", return_value=client
+    ):
+        report = InformixSource.test_connection(
+            {
+                "server": "informix",
+                "database": "testdb",
+                "host_port": "host:9088",
+                "password": "secret",
+            }
+        )
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    reason = str(report.basic_connectivity.failure_reason)
+    assert "secret" not in reason
+    assert "password=" not in reason
+    assert "informix" in reason
+
+
+def test_test_connection_reports_schema_capability_on_success():
+    client = MagicMock()
+    client.get_tables.return_value = [
+        InformixTable(name="customers", owner="informix", is_view=False)
+    ]
+    with patch(
+        "datahub.ingestion.source.informix.source.InformixClient", return_value=client
+    ):
+        report = InformixSource.test_connection(
+            {"server": "informix", "database": "testdb"}
+        )
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    assert SourceCapability.SCHEMA_METADATA in report.capability_report
+    assert report.capability_report[SourceCapability.SCHEMA_METADATA].capable
+    client.close.assert_called_once()
+
 
 class _UnparseableViewClient(_ViewLineageClient):
     def get_view_definition(self, table):
@@ -603,8 +690,9 @@ class _MismatchedFkClient(_FkClient):
     def get_foreign_keys(self, table):
         if table.name == "orders":
             return [
-                # A constraint backed by a wider index: 2 child columns, 1 parent.
-                InformixForeignKey(
+                # Bypass the model invariant so we can exercise the source's
+                # defensive length check (production client already filters).
+                InformixForeignKey.model_construct(
                     name="fk_mismatched",
                     child_columns=["region", "customer_id"],
                     parent_table="customers",

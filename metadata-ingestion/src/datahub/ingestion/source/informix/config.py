@@ -25,6 +25,8 @@ class InformixSourceConfig(
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    """Configuration for the Informix metadata ingestion source."""
+
     host_port: str = Field(
         default="localhost:9088", description="Informix host and port."
     )

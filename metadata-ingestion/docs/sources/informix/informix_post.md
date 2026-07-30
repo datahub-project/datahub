@@ -6,6 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 - Emits schema fields with native types (including length, e.g. `VARCHAR(100)`), nullability, and primary-key flags.
 - Extracts foreign-key relationships from `sysconstraints` / `sysreferences`, for tables (`include_foreign_keys`).
 - Extracts table- and column-level lineage for views by parsing `sysviews.viewtext` (`include_view_lineage`).
+- Emits `viewProperties` (the stored view SQL) for every view whose definition is readable.
 - Emits approximate row counts from `systables.nrows`, for tables (`include_row_counts`).
 - Assigns ownership from `systables.owner` (`include_ownership`).
 - Supports stateful ingestion with stale-entity (deletion) detection.
