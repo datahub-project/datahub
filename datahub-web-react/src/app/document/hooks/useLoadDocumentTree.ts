@@ -197,9 +197,9 @@ export function useLoadDocumentTree() {
 
     // Load more children for a parent (subsequent pages)
     const loadMoreChildren = useCallback(
-        async (parentUrn: string) => {
+        async (parentUrn: string): Promise<DocumentTreeNode[]> => {
             const state = childPaginationRef.current.get(parentUrn);
-            if (!state || state.offset >= state.total) return;
+            if (!state || state.offset >= state.total) return [];
 
             try {
                 const result = await searchDocumentsQuery({
@@ -228,8 +228,10 @@ export function useLoadDocumentTree() {
                     total: state.total,
                 });
                 setChildPaginationVersion((v) => v + 1);
+                return nodes;
             } catch (error) {
                 console.error('Failed to load more children:', error);
+                return [];
             }
         },
         [searchDocumentsQuery, checkForChildren, appendNodeChildren, viewUrn],
