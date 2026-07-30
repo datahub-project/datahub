@@ -7,13 +7,14 @@ import {
     getDefaultFieldOperatorType,
     getEntityTypeFilterValueDisplayName,
     mapFilterCountsToZero,
+    mergeFilterOptionsInAllowedValuesOrder,
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 
 import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { AllowedValue, EntityType } from '@types';
 
 // Mock the GraphQL queries
 vi.mock('@graphql/search.generated', () => ({
@@ -99,6 +100,54 @@ describe('deduplicateOptions', () => {
 
         const baseOptions: FilterValueOption[] = [{ value: 'option1', displayName: 'Option 1' }];
         expect(deduplicateOptions(baseOptions, [])).toEqual([]);
+    });
+});
+
+const stringAllowedValue = (value: string): AllowedValue => ({
+    value: { __typename: 'StringValue', stringValue: value },
+    description: null,
+});
+
+describe('mergeFilterOptionsInAllowedValuesOrder', () => {
+    it('preserves definition order instead of aggregation order', () => {
+        const allowedValues = [
+            stringAllowedValue('Zebra'),
+            stringAllowedValue('Delta'),
+            stringAllowedValue('Charlie'),
+            stringAllowedValue('Bravo'),
+            stringAllowedValue('Alpha'),
+        ];
+
+        const aggregationOptions: FilterValueOption[] = [
+            { value: 'Alpha', count: 1, displayName: 'Alpha' },
+            { value: 'Bravo', count: 2, displayName: 'Bravo' },
+            { value: 'Charlie', count: 3, displayName: 'Charlie' },
+            { value: 'Delta', count: 4, displayName: 'Delta' },
+            { value: 'Zebra', count: 5, displayName: 'Zebra' },
+        ];
+
+        const merged = mergeFilterOptionsInAllowedValuesOrder(aggregationOptions, allowedValues, (rawValue) => ({
+            value: rawValue,
+            count: 0,
+            displayName: rawValue,
+        }));
+
+        expect(merged.map((option) => option.value)).toEqual(['Zebra', 'Delta', 'Charlie', 'Bravo', 'Alpha']);
+        expect(merged[0].count).toBe(5);
+        expect(merged[4].count).toBe(1);
+    });
+
+    it('includes definition values missing from aggregations', () => {
+        const allowedValues = [stringAllowedValue('Zebra'), stringAllowedValue('Alpha')];
+
+        const merged = mergeFilterOptionsInAllowedValuesOrder(
+            [{ value: 'Alpha', count: 1, displayName: 'Alpha' }],
+            allowedValues,
+            (rawValue) => ({ value: rawValue, count: 0, displayName: rawValue }),
+        );
+
+        expect(merged.map((option) => option.value)).toEqual(['Zebra', 'Alpha']);
+        expect(merged[0].count).toBe(0);
     });
 });
 

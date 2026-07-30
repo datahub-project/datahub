@@ -15,7 +15,7 @@ import { DragIcon } from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
-const ModuleHeader = styled.div`
+export const ModuleHeader = styled.div`
     position: relative;
     display: flex;
     flex-direction: column;

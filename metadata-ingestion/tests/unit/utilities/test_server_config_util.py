@@ -69,6 +69,7 @@ def test_server_type(sample_config):
         ("v1.0.0.1rc3", (1, 0, 0, 1)),
         (None, (0, 0, 0, 0)),  # No version
         ("", (0, 0, 0, 0)),  # Empty version
+        ("null", (0, 0, 0, 0)),  # Placeholder from misconfigured git.properties
     ],
 )
 def test_parse_version(sample_config, version_str, expected):

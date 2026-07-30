@@ -7,6 +7,13 @@ from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
+
+from datahub.configuration.common import GraphError, OperationalError
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.unstructured.event_consumer import (
+    DocumentEventConsumer,
+)
 
 # Skip entire module if unstructured is not installed (requires Python 3.10+)
 pytest.importorskip("unstructured")
@@ -16,6 +23,7 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_config import 
     DataHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.datahub_documents.datahub_documents_source import (
+    EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
@@ -31,6 +39,16 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     ServerEmbeddingConfig,
     ServerSemanticSearchConfig,
 )
+
+
+def _mock_fetch(source, entities, urns=None):
+    """Wire a source so _fetch_documents_graphql enumerates `urns` and hydrates
+    them to `entities` (order preserved; a None entry is an orphan). URNs default
+    to the entities' own urns."""
+    if urns is None:
+        urns = [e["urn"] for e in entities if e]
+    source._scroll_document_urns = Mock(return_value=iter(urns))
+    source.graph.execute_graphql = Mock(return_value={"entities": entities})
 
 
 class TestTextPartitioner:
@@ -195,6 +213,35 @@ class TestDataHubDocumentsSource:
             assert len(hash1) == 64  # SHA256 produces 64 hex characters
             assert all(c in "0123456789abcdef" for c in hash1)
 
+    def test_resolve_embed_text_prefers_semantic_text(self):
+        """semanticText overrides text as the embedding source when present."""
+        resolve = DataHubDocumentsSource._resolve_embed_text
+
+        assert resolve({"text": "body", "semanticText": "summary"}) == "summary"
+        assert resolve({"text": "body"}) == "body"
+        assert resolve({}) == ""
+        # Empty-string semanticText is treated as absent (falls back to text).
+        assert resolve({"text": "body", "semanticText": ""}) == "body"
+
+    def test_semantic_text_governs_reembed_hash(self, ctx, config):
+        """The content hash tracks the embedded value: a change to `text` while
+        `semanticText` is set must not change the hash (no needless re-embed)."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+
+            before = source._resolve_embed_text(
+                {"text": "body-v1", "semanticText": "summary"}
+            )
+            after_body_edit = source._resolve_embed_text(
+                {"text": "body-v2", "semanticText": "summary"}
+            )
+            assert before == after_body_edit
+            assert source._calculate_text_hash(before) == source._calculate_text_hash(
+                after_body_edit
+            )
+
     def test_should_process_incremental_mode(self, ctx, config):
         """Test should_process logic in incremental mode."""
         with patch(
@@ -345,6 +392,108 @@ class TestDataHubDocumentsSource:
             assert source.document_state[document_urn]["content_hash"] == expected_hash
 
 
+class _InMemoryStateHandler:
+    """Minimal stand-in for DocumentChunkingStateHandler backing `_should_process`
+    with an in-memory hash store, so the re-embed invariant can be exercised
+    against the stateful-ingestion backend as well as the local one."""
+
+    def __init__(self) -> None:
+        self._hashes: dict[str, str] = {}
+
+    def is_checkpointing_enabled(self) -> bool:
+        return True
+
+    def get_document_hash(self, document_urn: str) -> Optional[str]:
+        return self._hashes.get(document_urn)
+
+    def update_document_state(
+        self, document_urn: str, content_hash: str, last_processed: str
+    ) -> None:
+        self._hashes[document_urn] = content_hash
+
+
+class TestSemanticTextReembedInvariant:
+    """The embedding must track the resolved embed source (`semanticText or text`)
+    through the real decision path (`_resolve_embed_text` -> `_should_process` ->
+    `_update_document_state`), on both the local `document_state` backend and the
+    stateful-ingestion state handler.
+
+    Downstream work (the #10832 write path and the serving path) assumes editing
+    `semanticText` re-embeds and editing `text` under a stable override does not,
+    so both directions are pinned here."""
+
+    URN = "urn:li:document:1"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture(params=["local", "state_handler"])
+    def source(self, request, ctx):
+        config = DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.incremental.enabled = True
+            if request.param == "state_handler":
+                source.state_handler = _InMemoryStateHandler()  # type: ignore[assignment]
+            return source
+
+    def _run_pass(self, source: DataHubDocumentsSource, contents: dict) -> bool:
+        """Mirror one ingestion pass: resolve the embed source from contents (as the
+        fetch call sites do), decide via `_should_process`, then commit state if
+        processed. Returns whether the document was (re-)embedded this pass."""
+        resolved = source._resolve_embed_text(contents)
+        processed = source._should_process(self.URN, resolved)
+        if processed:
+            source._update_document_state(self.URN, resolved)
+        return processed
+
+    def test_semantic_text_change_reembeds_but_text_edit_does_not(self, source):
+        contents = {"text": "body-v1", "semanticText": "summary-v1"}
+        assert self._run_pass(source, contents) is True
+        # Idempotent: an unchanged re-run does not re-embed.
+        assert self._run_pass(source, contents) is False
+        # Editing only `text` under a stable override is a no-op.
+        assert (
+            self._run_pass(source, {"text": "body-v2", "semanticText": "summary-v1"})
+            is False
+        )
+        # Editing `semanticText` re-embeds.
+        assert (
+            self._run_pass(source, {"text": "body-v2", "semanticText": "summary-v2"})
+            is True
+        )
+
+    def test_setting_override_reembeds_doc_previously_embedded_from_text(self, source):
+        """Rollout case: a document embedded from `text` re-embeds once an override
+        is set on it."""
+        assert self._run_pass(source, {"text": "body"}) is True
+        assert self._run_pass(source, {"text": "body"}) is False
+        assert (
+            self._run_pass(source, {"text": "body", "semanticText": "summary"}) is True
+        )
+
+    def test_clearing_override_reembeds_from_text(self, source):
+        assert (
+            self._run_pass(source, {"text": "body", "semanticText": "summary"}) is True
+        )
+        # Clearing the override falls back to `text`, which differs -> re-embed.
+        assert self._run_pass(source, {"text": "body"}) is True
+        assert self._run_pass(source, {"text": "body"}) is False
+
+
 class TestEventModeFallback:
     """Test event mode fallback to batch mode functionality."""
 
@@ -422,7 +571,7 @@ class TestEventModeFallback:
         """Test fallback when Events API returns HTTP error."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -430,7 +579,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise HTTP error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 # Simulate HTTP 500 error
                 mock_response = Mock()
                 mock_response.raise_for_status.side_effect = requests.HTTPError(
@@ -452,7 +601,7 @@ class TestEventModeFallback:
         """Test fallback when Events API connection fails."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -460,7 +609,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise connection error
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.ConnectionError("Connection refused")
 
                 # Mock batch mode
@@ -477,7 +626,7 @@ class TestEventModeFallback:
         """Test fallback when Events API times out."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -485,7 +634,7 @@ class TestEventModeFallback:
             mock_state_handler.get_event_offset.return_value = "test-offset-123"
 
             # Mock requests.get to raise timeout
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_get.side_effect = requests.Timeout("Request timed out")
 
                 # Mock batch mode
@@ -500,8 +649,10 @@ class TestEventModeFallback:
 
     def test_no_fallback_when_offsets_exist(self, ctx, config, mock_graph):
         """Test that fallback does NOT occur when offsets exist and events are processed."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            # The document carries no standalone semanticText aspect.
+            mock_graph_cls.return_value.get_aspect.return_value = None
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
             mock_state_handler.is_checkpointing_enabled.return_value = True
@@ -509,7 +660,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling with events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -559,7 +710,7 @@ class TestEventModeFallback:
 
     def test_fallback_when_no_events_and_no_lookback(self, ctx, config, mock_graph):
         """Test fallback when no events processed and no lookback window."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
@@ -568,7 +719,7 @@ class TestEventModeFallback:
 
             # Mock successful event polling but no events
 
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -779,8 +930,10 @@ class TestStateStorage:
     def test_event_mode_stores_offsets(self, ctx, config, mock_graph):
         """Test that event mode stores offsets in state."""
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            # The document carries no standalone semanticText aspect.
+            mock_graph_cls.return_value.get_aspect.return_value = None
             source.config.event_mode.enabled = True
 
             # Mock state handler
@@ -790,7 +943,7 @@ class TestStateStorage:
             mock_state_handler.update_event_offset = Mock()
 
             # Mock successful event polling
-            with patch("requests.get") as mock_get:
+            with patch.object(mock_graph_cls.return_value.session, "get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {
@@ -1014,7 +1167,7 @@ class TestStateStorage:
         """Test that fallback to batch mode preserves existing event offsets."""
         import requests
 
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             source.config.event_mode.enabled = True
 
@@ -1023,52 +1176,50 @@ class TestStateStorage:
             mock_state_handler.is_checkpointing_enabled.return_value = True
             mock_state_handler.get_event_offset.return_value = "existing-offset-123"
 
-            # Mock event API to fail (triggers fallback)
-            with patch("requests.get") as mock_get:
-                mock_get.side_effect = requests.ConnectionError("Connection refused")
+            # Event polling goes through the graph's session; make it fail to
+            # trigger the fallback to batch mode.
+            mock_graph_cls.return_value.session.get.side_effect = (
+                requests.ConnectionError("Connection refused")
+            )
 
-                # Mock batch mode
-                mock_docs = [{"urn": "urn:li:document:1", "text": "Document 1"}]
-                with (
-                    patch.object(
-                        source, "_fetch_documents_graphql", return_value=mock_docs
-                    ),
-                    patch.object(
-                        source, "_process_single_document", return_value=iter([])
-                    ),
-                ):
-                    mock_state_handler.update_document_state = Mock()
-                    mock_state_handler.update_event_offset = Mock()
+            # Mock batch mode
+            mock_docs = [{"urn": "urn:li:document:1", "text": "Document 1"}]
+            with (
+                patch.object(
+                    source, "_fetch_documents_graphql", return_value=mock_docs
+                ),
+                patch.object(source, "_process_single_document", return_value=iter([])),
+            ):
+                mock_state_handler.update_document_state = Mock()
+                mock_state_handler.update_event_offset = Mock()
 
-                    # Process in event mode - should fallback
-                    list(source._process_event_mode())
+                # Process in event mode - should fallback
+                list(source._process_event_mode())
 
-                    # Verify document state was updated (fallback processed documents)
-                    mock_state_handler.update_document_state.assert_called_once()
+                # Verify document state was updated (fallback processed documents)
+                mock_state_handler.update_document_state.assert_called_once()
 
-                    # Note: update_event_offset may be called when event consumer closes
-                    # This is fine - it preserves the existing offset value
-                    # The important thing is that offsets are not cleared
+                # Note: update_event_offset may be called when event consumer closes
+                # This is fine - it preserves the existing offset value
+                # The important thing is that offsets are not cleared
 
-                    # Verify existing offset is still accessible (not cleared)
-                    assert (
-                        mock_state_handler.get_event_offset(
-                            "MetadataChangeLog_Versioned_v1"
-                        )
-                        == "existing-offset-123"
+                # Verify existing offset is still accessible (not cleared)
+                assert (
+                    mock_state_handler.get_event_offset(
+                        "MetadataChangeLog_Versioned_v1"
                     )
+                    == "existing-offset-123"
+                )
 
-                    # Verify offset was preserved (not changed to a different value)
-                    # If update_event_offset was called, it should be with the same offset
-                    if mock_state_handler.update_event_offset.called:
-                        offset_calls = (
-                            mock_state_handler.update_event_offset.call_args_list
-                        )
-                        # All calls should preserve the existing offset
-                        for call in offset_calls:
-                            assert (
-                                call[0][1] == "existing-offset-123"
-                            )  # Same offset preserved
+                # Verify offset was preserved (not changed to a different value)
+                # If update_event_offset was called, it should be with the same offset
+                if mock_state_handler.update_event_offset.called:
+                    offset_calls = mock_state_handler.update_event_offset.call_args_list
+                    # All calls should preserve the existing offset
+                    for call in offset_calls:
+                        assert (
+                            call[0][1] == "existing-offset-123"
+                        )  # Same offset preserved
 
     def test_incremental_mode_skips_unchanged_documents(self, ctx, config, mock_graph):
         """Test that incremental mode skips documents with unchanged hashes."""
@@ -1764,49 +1915,40 @@ class TestConfigFingerprintInHash:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            # Mock GraphQL to return both NATIVE and EXTERNAL documents
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:native1",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This is a native document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                            }
+            # Hydration returns both a NATIVE and an EXTERNAL document.
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:native1",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This is a native document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:external1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is an external document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                            }
+                    },
+                    {
+                        "urn": "urn:li:document:external1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is an external document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                    ],
-                }
+                    },
+                ],
+            )
+
+            documents = source._fetch_documents_graphql()
+
+            # Both NATIVE and EXTERNAL documents are returned by default
+            assert len(documents) == 2
+            urns = {doc["urn"] for doc in documents}
+            assert urns == {
+                "urn:li:document:native1",
+                "urn:li:document:external1",
             }
-
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
-
-                # Both NATIVE and EXTERNAL documents are returned by default
-                assert len(documents) == 2
-                urns = {doc["urn"] for doc in documents}
-                assert urns == {
-                    "urn:li:document:native1",
-                    "urn:li:document:external1",
-                }
 
     def test_batch_mode_with_platform_filter(self, ctx, mock_graph):
         """Test batch mode with platform filter includes EXTERNAL from specified platforms."""
@@ -1826,53 +1968,42 @@ class TestConfigFingerprintInHash:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            # Mock GraphQL to return documents from different platforms
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:notion1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is a Notion document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                                "dataPlatformInstance": {
-                                    "platform": {"urn": "urn:li:dataPlatform:notion"}
-                                },
-                            }
+            # Hydration returns documents from different platforms.
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:notion1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is a Notion document with enough text content to pass the minimum length requirement."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:confluence1",
-                                "info": {
-                                    "source": {"sourceType": "EXTERNAL"},
-                                    "contents": {
-                                        "text": "This is a Confluence document with enough text content to pass the minimum length requirement."
-                                    },
-                                },
-                                "dataPlatformInstance": {
-                                    "platform": {
-                                        "urn": "urn:li:dataPlatform:confluence"
-                                    }
-                                },
-                            }
+                        "dataPlatformInstance": {
+                            "platform": {"urn": "urn:li:dataPlatform:notion"}
                         },
-                    ],
-                }
-            }
+                    },
+                    {
+                        "urn": "urn:li:document:confluence1",
+                        "info": {
+                            "source": {"sourceType": "EXTERNAL"},
+                            "contents": {
+                                "text": "This is a Confluence document with enough text content to pass the minimum length requirement."
+                            },
+                        },
+                        "dataPlatformInstance": {
+                            "platform": {"urn": "urn:li:dataPlatform:confluence"}
+                        },
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                # Should only return notion document (confluence filtered out)
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:notion1"
+            # Should only return notion document (confluence filtered out)
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:notion1"
 
 
 class TestPartialEntityHandling:
@@ -1916,38 +2047,26 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:partial1",
-                                "info": None,
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {"urn": "urn:li:document:partial1", "info": None},
+                    {
+                        "urn": "urn:li:document:complete1",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This is a complete document with enough content."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:complete1",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This is a complete document with enough content."
-                                    },
-                                },
-                            }
-                        },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:complete1"
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:complete1"
 
     def test_fetch_documents_skips_entity_with_null_contents(
         self, ctx, config, mock_graph
@@ -1956,45 +2075,34 @@ class TestPartialEntityHandling:
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:no_contents",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": None,
-                                },
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:no_contents",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": None,
                         },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 0
+            assert len(documents) == 0
 
-    def test_fetch_documents_skips_entity_with_null_search(
-        self, ctx, config, mock_graph
-    ):
-        """Test that a null search response is handled gracefully."""
+    def test_fetch_documents_skips_orphaned_hydration(self, ctx, config, mock_graph):
+        """A URN that hydrates to null (orphaned index entry) is skipped."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response: dict[str, Any] = {"scrollAcrossEntities": None}
+            _mock_fetch(source, [None], urns=["urn:li:document:orphan"])
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 0
+            assert len(documents) == 0
+            assert source.report.num_documents_skipped_orphaned == 1
 
     def test_should_process_by_source_type_with_null_source(
         self, ctx, config, mock_graph
@@ -2045,8 +2153,9 @@ class TestPartialEntityHandling:
 
     def test_process_single_event_with_null_contents(self, ctx, config, mock_graph):
         """Test _process_single_event when MCL aspect has contents: null."""
-        with mock_graph:
+        with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = None
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:partial1",
@@ -2057,61 +2166,124 @@ class TestPartialEntityHandling:
             workunits = list(source._process_single_event(event))
             assert len(workunits) == 0
 
+    def test_process_single_event_embeds_semantic_text_override(
+        self, ctx, config, mock_graph
+    ):
+        """A documentInfo event embeds the standalone semanticText aspect's text
+        (not the document body) when the override is present."""
+        from datahub.metadata.schema_classes import SemanticTextClass
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = SemanticTextClass(
+                text="curated summary"
+            )
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:doc1",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": {"text": "full body"}}),
+            }
+
+            with patch.object(
+                source, "_process_document_with_throttle", return_value=iter([])
+            ) as mock_process:
+                list(source._process_single_event(event))
+
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "curated summary"
+
+    def test_process_single_event_semantic_text_aspect_event(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText aspect event re-embeds using the event's text, pulling
+        body and source type from the fetched documentInfo."""
+        from datahub.metadata.schema_classes import DocumentInfoClass
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+
+            mock_info = Mock()
+            mock_info.to_obj.return_value = {
+                "contents": {"text": "full body"},
+                "source": {"sourceType": "NATIVE"},
+            }
+
+            def get_aspect(entity_urn: str, aspect_type: type) -> Optional[Mock]:
+                return mock_info if aspect_type is DocumentInfoClass else None
+
+            mock_graph_cls.return_value.get_aspect.side_effect = get_aspect
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:doc1",
+                "aspectName": "semanticText",
+                "aspect": json.dumps({"text": "curated summary v2"}),
+            }
+
+            with patch.object(
+                source, "_process_document_with_throttle", return_value=iter([])
+            ) as mock_process:
+                list(source._process_single_event(event))
+
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "curated summary v2"
+            assert doc["source_type"] == "NATIVE"
+
+    def test_process_single_event_semantic_text_without_document_info(
+        self, ctx, config, mock_graph
+    ):
+        """A semanticText event for a document without readable documentInfo is skipped."""
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, config)
+            mock_graph_cls.return_value.get_aspect.return_value = None
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:orphan",
+                "aspectName": "semanticText",
+                "aspect": json.dumps({"text": "curated"}),
+            }
+
+            workunits = list(source._process_single_event(event))
+            assert len(workunits) == 0
+
     def test_fetch_documents_mixed_null_and_valid(self, ctx, config, mock_graph):
         """Test batch mode with a mix of null-info, null-contents, and valid entities."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_response = {
-                "scrollAcrossEntities": {
-                    "nextScrollId": None,
-                    "searchResults": [
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:null_info",
-                                "info": None,
-                            }
+            _mock_fetch(
+                source,
+                [
+                    {"urn": "urn:li:document:null_info", "info": None},
+                    {
+                        "urn": "urn:li:document:null_contents",
+                        "info": {"source": {"sourceType": "NATIVE"}, "contents": None},
+                    },
+                    {
+                        "urn": "urn:li:document:empty_text",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {"text": ""},
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:null_contents",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": None,
-                                },
-                            }
+                    },
+                    {
+                        "urn": "urn:li:document:valid",
+                        "info": {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {
+                                "text": "This document has valid content that is long enough."
+                            },
                         },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:empty_text",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {"text": ""},
-                                },
-                            }
-                        },
-                        {
-                            "entity": {
-                                "urn": "urn:li:document:valid",
-                                "info": {
-                                    "source": {"sourceType": "NATIVE"},
-                                    "contents": {
-                                        "text": "This document has valid content that is long enough."
-                                    },
-                                },
-                            }
-                        },
-                    ],
-                }
-            }
+                    },
+                ],
+            )
 
-            with patch.object(
-                source.graph, "execute_graphql", return_value=mock_response
-            ):
-                documents = source._fetch_documents_graphql()
+            documents = source._fetch_documents_graphql()
 
-                assert len(documents) == 1
-                assert documents[0]["urn"] == "urn:li:document:valid"
+            assert len(documents) == 1
+            assert documents[0]["urn"] == "urn:li:document:valid"
 
 
 class TestMaxDocumentsLimit:
@@ -2274,8 +2446,8 @@ class TestGetCurrentOffset:
         """Create a mock DataHubGraph."""
         graph = Mock()
         graph.config.server = "http://localhost:8080"
-        graph._session = Mock()
-        graph._session.headers = {"Authorization": "Bearer test-token"}
+        graph.session = Mock()
+        graph.session.headers = {"Authorization": "Bearer test-token"}
         return graph
 
     def test_get_current_offset_success(self, mock_graph):
@@ -2284,21 +2456,22 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get response
+        # The consumer polls through the graph's session (session.auth carries
+        # OAuth credentials), so mock the session, not module-level requests.
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-123"}
         mock_response.raise_for_status = Mock()
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            assert offset == "test-offset-123"
+        assert offset == "test-offset-123"
 
     def test_get_current_offset_no_offset_in_response(self, mock_graph):
         """Test when Events API returns no offsetId."""
@@ -2306,21 +2479,20 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get response with no offsetId
         mock_response = Mock()
         mock_response.json.return_value = {"events": []}  # No offsetId field
         mock_response.raise_for_status = Mock()
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            assert offset is None
+        assert offset is None
 
     def test_get_current_offset_http_error(self, mock_graph):
         """Test when Events API returns HTTP error."""
@@ -2330,23 +2502,22 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get to raise HTTPError
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
             "401 Unauthorized"
         )
+        mock_graph.session.get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            # Should return None on error, not raise
-            assert offset is None
+        # Should return None on error, not raise
+        assert offset is None
 
     def test_get_current_offset_connection_error(self, mock_graph):
         """Test when Events API connection fails."""
@@ -2356,21 +2527,20 @@ class TestGetCurrentOffset:
             DocumentEventConsumer,
         )
 
-        # Mock the requests.get to raise ConnectionError
-        with patch(
-            "requests.get",
-            side_effect=requests.exceptions.ConnectionError("Connection failed"),
-        ):
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        mock_graph.session.get.side_effect = requests.exceptions.ConnectionError(
+            "Connection failed"
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            # Should return None on error, not raise
-            assert offset is None
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+
+        # Should return None on error, not raise
+        assert offset is None
 
     def test_get_current_offset_polls_with_no_offset_and_no_lookback(self, mock_graph):
         """Test that get_current_offset polls with no offsetId and no lookbackWindowDays."""
@@ -2381,25 +2551,26 @@ class TestGetCurrentOffset:
         mock_response = Mock()
         mock_response.json.return_value = {"offsetId": "test-offset-456"}
         mock_response.raise_for_status = Mock()
+        mock_get = mock_graph.session.get
+        mock_get.return_value = mock_response
 
-        with patch("requests.get", return_value=mock_response) as mock_get:
-            consumer = DocumentEventConsumer(
-                graph=mock_graph,
-                consumer_id="test-consumer",
-                topics=["MetadataChangeLog_Versioned_v1"],
-            )
+        consumer = DocumentEventConsumer(
+            graph=mock_graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+        )
 
-            offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
+        offset = consumer.get_current_offset("MetadataChangeLog_Versioned_v1")
 
-            # Verify the request was made with correct parameters
-            assert mock_get.called
-            call_args = mock_get.call_args
-            assert call_args[1]["params"]["topic"] == "MetadataChangeLog_Versioned_v1"
-            assert call_args[1]["params"]["limit"] == 1
-            # Should NOT include offsetId or lookbackWindowDays
-            assert "offsetId" not in call_args[1]["params"]
-            assert "lookbackWindowDays" not in call_args[1]["params"]
-            assert offset == "test-offset-456"
+        # Verify the request was made with correct parameters
+        assert mock_get.called
+        call_args = mock_get.call_args
+        assert call_args[1]["params"]["topic"] == "MetadataChangeLog_Versioned_v1"
+        assert call_args[1]["params"]["limit"] == 1
+        # Should NOT include offsetId or lookbackWindowDays
+        assert "offsetId" not in call_args[1]["params"]
+        assert "lookbackWindowDays" not in call_args[1]["params"]
+        assert offset == "test-offset-456"
 
 
 class TestDataHubGraphInitialization:
@@ -2535,7 +2706,7 @@ class TestDataHubGraphInitialization:
 
 
 class TestFetchDocumentsPagination:
-    """Test that _fetch_documents_graphql paginates through all pages via scrollAcrossEntities."""
+    """Test that _scroll_document_urns paginates through all pages via scrollAcrossEntities."""
 
     @pytest.fixture
     def config(self):
@@ -2562,17 +2733,6 @@ class TestFetchDocumentsPagination:
             "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
         )
 
-    def _make_entity(self, i: int) -> dict:
-        return {
-            "entity": {
-                "urn": f"urn:li:document:doc-{i}",
-                "info": {
-                    "source": {"sourceType": "NATIVE"},
-                    "contents": {"text": f"Document {i} with sufficient text content."},
-                },
-            }
-        }
-
     def _make_scroll_page(
         self, start: int, count: int, next_scroll_id: Any = None
     ) -> dict:
@@ -2580,13 +2740,14 @@ class TestFetchDocumentsPagination:
             "scrollAcrossEntities": {
                 "nextScrollId": next_scroll_id,
                 "searchResults": [
-                    self._make_entity(i) for i in range(start, start + count)
+                    {"entity": {"urn": f"urn:li:document:doc-{i}"}}
+                    for i in range(start, start + count)
                 ],
             }
         }
 
     def test_paginates_across_multiple_pages(self, ctx, config, mock_graph):
-        """Fetching >1000 documents issues multiple GraphQL calls and returns all results."""
+        """Enumerating >1000 documents issues multiple scroll calls and yields all URNs."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2598,9 +2759,9 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", side_effect=responses
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 1200
+            assert len(urns) == 1200
             assert mock_execute.call_count == 2
 
             first_scroll_id = mock_execute.call_args_list[0][0][1]["scrollId"]
@@ -2618,13 +2779,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 1000
+            assert len(urns) == 1000
             assert mock_execute.call_count == 1
 
     def test_requests_hidden_lifecycle_stages(self, ctx, config, mock_graph):
-        """Document backfills request hidden-lifecycle stages so hidden documents are included."""
+        """Enumeration requests hidden-lifecycle stages so hidden documents are included."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2633,13 +2794,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                source._fetch_documents_graphql()
+                list(source._scroll_document_urns())
 
             query = mock_execute.call_args[0][0]
             assert "includeHiddenLifecycleStages: true" in query
 
     def test_empty_result_set(self, ctx, config, mock_graph):
-        """Zero documents returns empty list after one call."""
+        """Zero documents yields no URNs after one call."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2653,13 +2814,13 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", return_value=response
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert documents == []
+            assert urns == []
             assert mock_execute.call_count == 1
 
     def test_three_pages(self, ctx, config, mock_graph):
-        """Three-page fetch collects all documents and threads scroll cursors correctly."""
+        """Three-page enumeration collects all URNs and threads scroll cursors correctly."""
         with mock_graph:
             source = DataHubDocumentsSource(ctx, config)
 
@@ -2672,60 +2833,12 @@ class TestFetchDocumentsPagination:
             with patch.object(
                 source.graph, "execute_graphql", side_effect=responses
             ) as mock_execute:
-                documents = source._fetch_documents_graphql()
+                urns = list(source._scroll_document_urns())
 
-            assert len(documents) == 2500
+            assert len(urns) == 2500
             assert mock_execute.call_count == 3
             scroll_ids = [c[0][1]["scrollId"] for c in mock_execute.call_args_list]
             assert scroll_ids == [None, "cursor-1", "cursor-2"]
-
-    def test_raw_page_size_used_as_start_advance(self, ctx, config, mock_graph):
-        """Pagination advances by raw page size even when some results are filtered client-side.
-
-        This test locks in that start is advanced by the number of results returned from the
-        server, not the number that pass client-side filters. Using filtered count would cause
-        pages to be requested at wrong offsets or loop incorrectly.
-        """
-        with mock_graph:
-            source = DataHubDocumentsSource(ctx, config)
-
-            # Page 1: 1000 results, 800 pass client filters (200 have empty text).
-            # Page 2: remaining results with no next scroll id.
-            page1_results = [self._make_entity(i) for i in range(800)]
-            # Add 200 entities with empty text that will be filtered out
-            for i in range(800, 1000):
-                page1_results.append(
-                    {
-                        "entity": {
-                            "urn": f"urn:li:document:doc-{i}",
-                            "info": {
-                                "source": {"sourceType": "NATIVE"},
-                                "contents": {"text": ""},
-                            },
-                        }
-                    }
-                )
-
-            responses = [
-                {
-                    "scrollAcrossEntities": {
-                        "nextScrollId": "cursor-1",
-                        "searchResults": page1_results,
-                    }
-                },
-                self._make_scroll_page(1000, 300, next_scroll_id=None),
-            ]
-
-            with patch.object(
-                source.graph, "execute_graphql", side_effect=responses
-            ) as mock_execute:
-                documents = source._fetch_documents_graphql()
-
-            # 800 from page 1 (200 filtered) + 300 from page 2
-            assert len(documents) == 1100
-            assert mock_execute.call_count == 2
-            # Second call must use the cursor from page 1, not a derived offset
-            assert mock_execute.call_args_list[1][0][1]["scrollId"] == "cursor-1"
 
 
 def _make_config(**overrides: Any) -> DataHubDocumentsSourceConfig:
@@ -3556,3 +3669,326 @@ class TestLockIntegrationWithSource:
             source = DataHubDocumentsSource(ctx, config)
             assert source.lock is not None
             assert str(source.lock.urn) == "urn:li:dataHubStepState:my-custom-lock"
+
+
+class TestPollEventsSessionAuth:
+    """The poll must go through the graph's session so session.auth applies."""
+
+    class _RecordingAdapter(requests.adapters.HTTPAdapter):
+        """Captures fully prepared requests and returns a canned poll response."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.sent: list[requests.PreparedRequest] = []
+
+        def send(
+            self, request: requests.PreparedRequest, *args: object, **kwargs: object
+        ) -> requests.Response:
+            self.sent.append(request)
+            response = requests.Response()
+            response.status_code = 200
+            response._content = json.dumps(
+                {"offsetId": "offset-after", "events": []}
+            ).encode()
+            response.request = request
+            return response
+
+    @staticmethod
+    def _oauth_style_auth(
+        request: requests.PreparedRequest,
+    ) -> requests.PreparedRequest:
+        # Mimics an OAuth token provider installed as session.auth: it attaches
+        # a fresh Authorization header to each request at send time, so auth
+        # that is not baked into session.headers is only present if the request
+        # actually goes through the session.
+        request.headers["Authorization"] = "Bearer fresh-oauth-token"
+        return request
+
+    def test_poll_events_carries_session_auth_to_the_wire(self) -> None:
+        session = requests.Session()
+        session.auth = self._oauth_style_auth
+        adapter = self._RecordingAdapter()
+        session.mount("http://", adapter)
+
+        graph = Mock(spec=DataHubGraph)
+        graph.config = Mock()
+        graph.config.server = "http://gms.example"
+        graph.session = session
+
+        consumer = DocumentEventConsumer(
+            graph=graph,
+            consumer_id="test-consumer",
+            topics=["MetadataChangeLog_Versioned_v1"],
+            reset_offsets=True,
+        )
+        events = consumer.poll_events("MetadataChangeLog_Versioned_v1")
+
+        assert len(adapter.sent) == 1
+        request = adapter.sent[0]
+        assert request.url is not None
+        assert request.url.startswith("http://gms.example/openapi/v1/events/poll?")
+        # The per-request credential from session.auth must reach the wire. A
+        # bare requests.get built from copied session.headers would drop it and
+        # poll unauthenticated.
+        assert request.headers["Authorization"] == "Bearer fresh-oauth-token"
+        assert events == []
+
+
+class TestDocumentEventConsumerAspectFilter:
+    """consume_events() must yield exactly the configured aspects — the
+    downstream _process_single_event filter is unreachable for anything the
+    consumer drops here."""
+
+    @staticmethod
+    def _make_consumer(**kwargs: Any) -> DocumentEventConsumer:
+        with patch.object(DocumentEventConsumer, "_load_offset", return_value=None):
+            return DocumentEventConsumer(
+                graph=Mock(),
+                consumer_id="test-consumer",
+                topics=["MetadataChangeLog_Versioned_v1"],
+                idle_timeout_seconds=0,
+                **kwargs,
+            )
+
+    @staticmethod
+    def _event(entity_type: str, aspect_name: Any, urn: str) -> dict[str, Any]:
+        return {
+            "contentType": "application/json",
+            "value": json.dumps(
+                {
+                    "entityType": entity_type,
+                    "entityUrn": urn,
+                    "aspectName": aspect_name,
+                    "aspect": {"value": "{}"},
+                }
+            ),
+        }
+
+    def test_yields_semantic_text_when_configured(self):
+        consumer = self._make_consumer(aspect_names=EMBED_SOURCE_ASPECT_NAMES)
+        events = [
+            # aspectName arrives both bare and Avro-union-wrapped.
+            self._event("document", {"string": "semanticText"}, "urn:li:document:d1"),
+            self._event("document", "documentInfo", "urn:li:document:d2"),
+            self._event("document", "status", "urn:li:document:d3"),
+            self._event("dataset", "documentInfo", "urn:li:dataset:d4"),
+        ]
+        with patch.object(consumer, "poll_events", side_effect=[events, []]):
+            yielded = list(consumer.consume_events())
+
+        assert [e.get("entityUrn") for e in yielded] == [
+            "urn:li:document:d1",
+            "urn:li:document:d2",
+        ]
+
+    def test_default_filter_stays_document_info_only(self):
+        # chunking_source constructs the consumer without aspect_names and
+        # parses every yielded aspect as documentInfo — the default must not
+        # widen underneath it.
+        consumer = self._make_consumer()
+        events = [
+            self._event("document", {"string": "semanticText"}, "urn:li:document:d1"),
+            self._event("document", "documentInfo", "urn:li:document:d2"),
+        ]
+        with patch.object(consumer, "poll_events", side_effect=[events, []]):
+            yielded = list(consumer.consume_events())
+
+        assert [e.get("entityUrn") for e in yielded] == ["urn:li:document:d2"]
+
+
+class TestOrphanedDocumentResilience:
+    """A single orphaned index entry (a URN present in the index but with no
+    resolvable backing entity) must not abort the embedding run."""
+
+    @pytest.fixture
+    def config(self):
+        return DataHubDocumentsSourceConfig(
+            platform_filter=["notion"],
+            datahub={"server": "http://test-server:8080"},
+            embedding={
+                "provider": "bedrock",
+                "model": "cohere.embed-english-v3",
+                "aws_region": "us-west-2",
+                "allow_local_embedding_config": True,
+            },
+            stateful_ingestion={"enabled": False},
+        )
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @staticmethod
+    def _native_notion_doc(urn: str) -> dict:
+        return {
+            "urn": urn,
+            "type": "DOCUMENT",
+            "info": {
+                "contents": {
+                    "text": "This is a sufficiently long document body for embedding."
+                },
+                "source": {"sourceType": "NATIVE"},
+            },
+            "dataPlatformInstance": {"platform": {"urn": "urn:li:dataPlatform:notion"}},
+        }
+
+    def _make_source(self, ctx, config):
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+        source.graph = Mock()
+        source.graph.config.server = "http://test-server:8080"
+        return source
+
+    def test_orphaned_urn_is_skipped_not_fatal(self, ctx, config):
+        source = self._make_source(ctx, config)
+        urns = [
+            "urn:li:document:real-1",
+            "urn:li:document:__orphan_probe",
+            "urn:li:document:real-2",
+        ]
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [{"entity": {"urn": u}} for u in urns],
+                    }
+                }
+            # Hydration resolves the orphan to null (as GMS does for an index
+            # entry with no backing entity), the two real docs to full payloads.
+            return {
+                "entities": [
+                    self._native_notion_doc("urn:li:document:real-1"),
+                    None,
+                    self._native_notion_doc("urn:li:document:real-2"),
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        documents = source._fetch_documents_graphql()
+
+        assert [d["urn"] for d in documents] == [
+            "urn:li:document:real-1",
+            "urn:li:document:real-2",
+        ]
+        assert source.report.num_documents_skipped_orphaned == 1
+        assert source.report.num_documents_fetched == 2
+
+    def test_enumeration_scroll_selects_only_urn(self, ctx, config):
+        # Regression guard: the scroll query must select ONLY the URN from the
+        # non-null SearchResult.entity. Selecting any aspect-backed field (info,
+        # contents, ...) is what a single orphan nulls, taking down the run.
+        source = self._make_source(ctx, config)
+        captured: dict[str, str] = {}
+
+        def _graphql(query, variables=None):
+            if "scrollAcrossEntities" in query:
+                captured["scroll"] = query
+                return {
+                    "scrollAcrossEntities": {"nextScrollId": None, "searchResults": []}
+                }
+            return {"entities": []}
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        source._fetch_documents_graphql()
+
+        scroll_query = captured["scroll"]
+        assert "info" not in scroll_query
+        assert "contents" not in scroll_query
+
+    def test_hydration_spans_batches_with_orphan_in_second(self, ctx, config):
+        # >100 URNs so _hydrate_documents runs two batches; the orphan lives in
+        # the second batch, exercising per-batch handling beyond the first page.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+
+        batch1 = {"entities": [self._native_notion_doc(u) for u in urns[:100]]}
+        batch2_entities: list = [self._native_notion_doc(u) for u in urns[100:]]
+        batch2_entities[25] = None  # one orphan in the second batch
+        batch2 = {"entities": batch2_entities}
+        source.graph.execute_graphql.side_effect = [batch1, batch2]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert source.graph.execute_graphql.call_count == 2
+        assert len(hydrated) == 149
+        assert source.report.num_documents_skipped_orphaned == 1
+
+    def test_batch_graph_error_falls_back_to_per_urn(self, ctx, config):
+        # A GraphError on the batch call (e.g. one document with a null in a
+        # non-null field) must not drop the whole batch: retry per-URN, yield the
+        # good ones, and skip only the offender.
+        source = self._make_source(ctx, config)
+        good = self._native_notion_doc("urn:li:document:good")
+
+        def _graphql(query, variables=None):
+            urns = variables["urns"]
+            if len(urns) > 1:
+                raise GraphError("NullValueInNonNullableField")
+            if urns == ["urn:li:document:good"]:
+                return {"entities": [good]}
+            raise GraphError("NullValueInNonNullableField")
+
+        source.graph.execute_graphql.side_effect = _graphql
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:good", "urn:li:document:bad"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:good"]
+        assert any(
+            "failed to hydrate" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+
+    def test_transport_error_aborts_not_swallowed(self, ctx, config):
+        # A transport/outage error (OperationalError) must abort the run, not be
+        # caught as a per-document skip — otherwise the run reports success with
+        # zero embeddings, the source's documented catastrophic mode.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = OperationalError(
+            "connection refused"
+        )
+
+        with pytest.raises(OperationalError):
+            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
+
+    def test_batch_all_urns_fail_reports_failure(self, ctx, config):
+        # If every URN in a batch fails identically (e.g. a GraphQL schema
+        # mismatch — GMS missing a queried field), the run must fail loudly, not
+        # report success with zero embeddings.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.side_effect = GraphError(
+            "Cannot query field 'semanticText'"
+        )
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert hydrated == []
+        assert any(
+            "entire batch" in (f.title or "").lower() for f in source.report.failures
+        )
+
+    def test_hydration_entity_count_mismatch_warns(self, ctx, config):
+        # GMS returning fewer entities than requested URNs must be surfaced, not
+        # silently dropped by the zip.
+        source = self._make_source(ctx, config)
+        source.graph.execute_graphql.return_value = {
+            "entities": [self._native_notion_doc("urn:li:document:a")]
+        }
+
+        hydrated = list(
+            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        )
+
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
+        assert any(
+            "entity count" in (w.title or "").lower() for w in source.report.warnings
+        )

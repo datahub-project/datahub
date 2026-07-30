@@ -15,6 +15,7 @@ dependencies {
     implementation project(':metadata-service:factories')
     implementation project(':metadata-service:auth-filter')
     implementation project(':metadata-jobs:mce-consumer')
+    implementation project(':metadata-io')
     implementation project(':entity-registry')
     implementation project(':metadata-jobs:common')
 
@@ -34,6 +35,8 @@ dependencies {
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
+    implementation externalDependency.janino
+    implementation externalDependency.lokiLogbackAppender
     runtimeOnly externalDependency.opentelemetryExporter
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon

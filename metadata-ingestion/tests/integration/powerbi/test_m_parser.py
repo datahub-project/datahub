@@ -8,6 +8,7 @@ import pytest
 
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
@@ -24,6 +25,13 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
+from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.metadata.schema_classes import NumberTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -66,6 +74,8 @@ M_QUERIES = [
     'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
     'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
     'let\n    Source = AmazonAthena.Databases("us-east-1"),\n    awsdatacatalog = Source{[Name="awsdatacatalog"]}[Data],\n    analytics_db = awsdatacatalog{[Name="analytics"]}[Data],\n    sales_table = analytics_db{[Name="sales_data"]}[Data]\nin\n    sales_table',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [HierarchicalNavigation=true]),\n    SALES = Source{[Schema="SALES"]}[Data],\n    ORDERS = SALES{[Name="ORDERS"]}[Data]\nin\n    ORDERS',
+    'let\n    Source = Oracle.Database("oracle-tns.example.com", [Query="SELECT * FROM SALES.ORDERS"])\nin\n    Source',
     'let\n    Source = Odbc.DataSource("driver={Cloudera ODBC Driver for Apache Hive};server=hive.example.com;dsn=hive_prod", [HierarchicalNavigation=true]),\n    HIVE_Database = Source{[Name="HIVE",Kind="Database"]}[Data],\n    product_analytics_Schema = HIVE_Database{[Name="product_analytics",Kind="Schema"]}[Data],\n    user_profile_Table = product_analytics_Schema{[Name="vg_a1_user_profile",Kind="Table"]}[Data]\nin\n    user_profile_Table',
 ]
 
@@ -1443,7 +1453,7 @@ def test_hive_odbc_regular_case():
     # driver->platform resolution -> expression_lineage path. Hive is a two-tier platform,
     # so the pseudo-catalog "HIVE" Database node must be dropped and the upstream emitted
     # under the `hive` platform (not `hadoop`) as `schema.table`, matching the Hive connector.
-    q: str = M_QUERIES[38]
+    q: str = M_QUERIES[40]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
@@ -1703,6 +1713,84 @@ def test_athena_with_platform_instance():
     )
 
 
+_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE = {
+    "server_to_platform_instance": {
+        "oracle-tns.example.com": {
+            "platform_instance": "oracle_prod",
+            "env": "PROD",
+        }
+    }
+}
+
+
+@pytest.mark.integration
+def test_oracle_tns_hierarchical_with_platform_instance():
+    q: str = M_QUERIES[38]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config=_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_oracle_native_query_with_platform_instance():
+    q: str = M_QUERIES[39]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # get_default_instances defaults this flag off, gating the native-query path.
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            **_ORACLE_TNS_SERVER_TO_PLATFORM_INSTANCE,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,oracle_prod.sales.orders,PROD)"
+    )
+
+
 @pytest.mark.integration
 def test_if_expression_walks_both_branches():
     """IfExpression should produce lineage from both true and false branches."""
@@ -1728,3 +1816,142 @@ def test_native_query_mssql_and_postgres_supported():
     assert NativeQueryLineage.is_native_parsing_supported("Sql.Database")
     assert NativeQueryLineage.is_native_parsing_supported("PostgreSQL.Database")
     assert not NativeQueryLineage.is_native_parsing_supported("Excel.Workbook")
+
+
+def test_cll_upstream_column_casing_preserved_when_lowercasing_lineage():
+    """convert_lineage_urns_to_lowercase must lowercase the dataset portion of an
+    upstream schemaField URN but preserve the column/field path.
+
+    Sources lowercase dataset URNs via lowercase_dataset_urns, which deliberately
+    leaves schemaField field paths untouched. PowerBI additionally lowercasing the
+    column name produces a schemaField URN that no longer matches the warehouse's
+    field, dropping the column-level edge for any warehouse that stores columns in
+    non-lowercase casing.
+    """
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "convert_lineage_urns_to_lowercase": True,
+            "extract_column_level_lineage": True,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": True,
+            "extract_dataset_schema": True,
+        }
+    )
+
+    mapper = Mapper(
+        ctx=ctx,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=platform_instance_resolver,
+    )
+
+    upstream_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,My_Catalog.My_Schema.Rep_Table,PROD)"
+    lineage = Lineage(
+        upstreams=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="pbi_col"),
+                upstreams=[ColumnRef(table=upstream_dataset_urn, column="CustomerId")],
+            )
+        ],
+    )
+
+    downstream_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,pbi.dataset,PROD)"
+    fine_grained = mapper.make_fine_grained_lineage_class(lineage, downstream_urn)
+
+    assert len(fine_grained) == 1
+    # Dataset portion lowercased, column/field path preserved.
+    assert fine_grained[0].upstreams == [
+        make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.rep_table,PROD)",
+            "CustomerId",
+        )
+    ]
+
+
+def test_direct_table_cll_preserves_upstream_column_casing():
+    """The direct-table 1:1 column lineage path must preserve the source column
+    casing so it can match the warehouse's schemaField URN."""
+    q: str = M_QUERIES[23]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage[0].upstreams[0].column == "CustomerId"
+
+
+def test_native_query_cll_downstream_column_remapped_to_pbi_field_casing():
+    """NativeQuery CLL must remap the parsed downstream column to the PowerBI
+    field's original casing. sqlglot returns the downstream column in the SQL
+    alias' casing (here lowercase), but PowerBI stores fields in their API
+    casing; without the remap the downstream schemaField URN points at a
+    non-existent field and the column-level edge is dropped in the UI."""
+    # The SELECT aliases the output column in lowercase (`AS customerid`) while
+    # PowerBI's field keeps its mixed-case name (`CustomerId`) — the mismatch that
+    # drops the column edge without the remap.
+    q = (
+        "let\n"
+        '    Source = Value.NativeQuery(Sql.Database("my-server", "my_db"), '
+        '"SELECT t.CustomerId AS customerid FROM my_schema.my_table AS t", null, '
+        "[EnableFolding=true])\n"
+        "in\n"
+        "    Source"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_table",
+        full_name="MyDataSet.virtual_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_column_level_lineage": True,
+            "extract_lineage": True,
+        }
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage
+    assert lineage[0].column_lineage[0].downstream.column == "CustomerId"

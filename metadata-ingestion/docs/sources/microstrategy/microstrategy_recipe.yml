@@ -1,0 +1,72 @@
+source:
+  type: microstrategy
+  config:
+    base_url: "https://your-company.example.com/MicroStrategyLibrary"
+
+    auth:
+      type: password
+      username: "${MSTR_USERNAME}"
+      password: "${MSTR_PASSWORD}"
+
+    platform_instance: production
+    env: PROD
+
+    # Optional regex filters. All projects, dashboards, and reports are
+    # ingested by default; scope them like this when needed:
+    # project_pattern:
+    #   allow:
+    #     - "^Finance$"
+    # dashboard_pattern:
+    #   allow:
+    #     - "^Quarterly Business Review$"
+    # report_pattern:
+    #   deny:
+    #     - "^Scratch.*"
+
+    extract_dashboards: true
+    extract_charts: true
+    extract_reports: false
+    extract_report_definitions: true
+    extract_cubes: true
+    extract_lineage: true
+    extract_visualization_details: true
+    extract_source_warehouses: true
+    extract_dashboard_dependencies: true
+    extract_metric_expressions: true
+    extract_model_lineage: true
+
+    # Optional coarse table-level lineage from MicroStrategy SQL-view APIs.
+    # Keep disabled unless you want dataset -> warehouse table edges without
+    # field-level metric / attribute / fact lineage.
+    extract_warehouse_lineage: false
+    extract_report_sql_lineage: false
+
+    # Map each MicroStrategy datasource / connection name to the platform,
+    # platform instance, env, and URN casing it was ingested under, so warehouse
+    # lineage URNs match those tables. Keying by connection name lets several
+    # connections to the same platform (e.g. prod vs dev Snowflake) resolve
+    # independently. Matched against the connection name first, then the
+    # datasource name. Datasources with no entry auto-detect their platform and
+    # use this connector's env, no platform instance, and lowercase URNs.
+    # datasource_platform_mapping:
+    #   "Snowflake Prod":
+    #     platform: snowflake
+    #     platform_instance: my_snowflake_instance
+    #     env: PROD
+    #     convert_urns_to_lowercase: true
+
+    # Disabled by default to keep DataHub lineage graphs focused on
+    # dataset -> visualization edges.
+    emit_dashboard_dataset_edges: false
+
+    tag_measures_and_dimensions: true
+    ingest_owner: true
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

@@ -291,6 +291,15 @@ type DocumentContent {
   The text contents of the Document
   """
   text: String!
+
+  """
+  Optional content that supersedes text as the source for semantic-search
+  embeddings. When present, the embedding pipeline embeds this instead of text;
+  when absent, embeddings fall back to text. Keyword-indexed alongside text.
+  Backed by the standalone semanticText aspect rather than documentInfo, so
+  other entity types can adopt it.
+  """
+  semanticText: String
 }
 
 """
@@ -637,6 +646,13 @@ input SearchDocumentsInput {
   If not provided, searches all documents regardless of source.
   """
   sourceType: DocumentSourceType
+
+  """
+  Optional - the URN of a View to apply to the search. When provided, the View's
+  filter is combined with the document search filter so that document results are
+  scoped to the active View (mirrors searchAcrossEntities view scoping).
+  """
+  viewUrn: String
 }
 
 """

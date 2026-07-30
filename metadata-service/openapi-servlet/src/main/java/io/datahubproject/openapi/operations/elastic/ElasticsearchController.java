@@ -39,6 +39,7 @@ import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -145,7 +146,9 @@ public class ElasticsearchController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, "getTaskStatus", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getTaskStatus", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
@@ -190,7 +193,9 @@ public class ElasticsearchController {
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, "getIndexSizes", List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, "getIndexSizes", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
@@ -289,7 +294,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName),
+                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -401,7 +407,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName),
+                    .buildOpenapi(actorUrnStr, request, "explainSearchQuery", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -528,7 +535,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "getQueryScrollRequest", entityName),
+                    .buildOpenapi(actorUrnStr, request, "getQueryScrollRequest", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -637,7 +645,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "getQuerySearchRequest", entityName),
+                    .buildOpenapi(actorUrnStr, request, "getQuerySearchRequest", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -740,7 +749,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "getQueryAutocompleteRequest", entityName),
+                    .buildOpenapi(actorUrnStr, request, "getQueryAutocompleteRequest", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -833,7 +843,8 @@ public class ElasticsearchController {
         systemOperationContext
             .asSession(
                 RequestContext.builder()
-                    .buildOpenapi(actorUrnStr, request, "getQueryAggregateRequest", entityName),
+                    .buildOpenapi(actorUrnStr, request, "getQueryAggregateRequest", entityName)
+                    .withUsageOperation(UsageOperation.OTHER_READ),
                 authorizerChain,
                 authentication)
             .withSearchFlags(
@@ -917,7 +928,8 @@ public class ElasticsearchController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of()),
+                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -963,7 +975,8 @@ public class ElasticsearchController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of()),
+                    authentication.getActor().toUrnStr(), request, "restoreIndices", List.of())
+                .withUsageOperation(UsageOperation.OTHER_OPERATIONS),
             authorizerChain,
             authentication,
             true);
@@ -1004,7 +1017,8 @@ public class ElasticsearchController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "disableDualWriteForEntity", List.of()),
+                .buildOpenapi(actorUrnStr, request, "disableDualWriteForEntity", List.of())
+                .withUsageOperation(UsageOperation.OTHER_WRITE),
             authorizerChain,
             authentication,
             true);

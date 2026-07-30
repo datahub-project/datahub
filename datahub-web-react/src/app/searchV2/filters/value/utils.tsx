@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import {
     EntityFilterField,
     FieldType,
@@ -21,7 +22,7 @@ import {
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
 } from '@graphql/search.generated';
-import { AndFilterInput, EntityType, NumberValue, StringValue, StructuredPropertyEntity } from '@types';
+import { AllowedValue, AndFilterInput, EntityType, StructuredPropertyEntity } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -32,6 +33,34 @@ const MAX_AGGREGATION_COUNT = 40;
 export const deduplicateOptions = (baseOptions: FilterValueOption[], moreOptions: FilterValueOption[]) => {
     const baseValues = baseOptions.map((op) => op.value);
     return moreOptions.filter((op) => !baseValues.includes(op.value));
+};
+
+const getAllowedValueFilterKey = (allowedValue: AllowedValue): string | null => {
+    const raw = getStructuredPropertyValue(allowedValue.value);
+    if (raw === null || raw === undefined) {
+        return null;
+    }
+    return String(raw);
+};
+
+export const mergeFilterOptionsInAllowedValuesOrder = (
+    aggregationOptions: FilterValueOption[],
+    allowedValuesFromDefinition: AllowedValue[],
+    buildMissingOption: (rawValue: string) => FilterValueOption,
+): FilterValueOption[] => {
+    const aggByValue = new Map(aggregationOptions.map((option) => [option.value, option]));
+
+    const definitionValues = allowedValuesFromDefinition
+        .map(getAllowedValueFilterKey)
+        .filter((rawValue): rawValue is string => rawValue !== null);
+
+    const orderedFromDefinition = definitionValues.map(
+        (rawValue) => aggByValue.get(rawValue) ?? buildMissingOption(rawValue),
+    );
+
+    const remainingOptions = aggregationOptions.filter((option) => !definitionValues.includes(option.value));
+
+    return [...orderedFromDefinition, ...remainingOptions];
 };
 
 export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
@@ -110,25 +139,15 @@ export const useLoadAggregationOptions = ({
             : undefined;
     const allowedValuesFromDefinition = structuredPropEntity?.definition?.allowedValues;
     if (allowedValuesFromDefinition?.length) {
-        const existingValues = new Set((options || []).map((o) => o.value));
-        const extraOptions: FilterValueOption[] = allowedValuesFromDefinition
-            .map((av): FilterValueOption | null => {
-                let rawValue: string | null = null;
-                if (av.value?.__typename === 'StringValue') {
-                    rawValue = (av.value as StringValue).stringValue;
-                } else if (av.value?.__typename === 'NumberValue') {
-                    rawValue = String((av.value as NumberValue).numberValue);
-                }
-                if (rawValue === null || existingValues.has(rawValue)) return null;
-                return {
-                    value: rawValue,
-                    icon: field.icon,
-                    count: includeCounts ? 0 : undefined,
-                    displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
-                };
-            })
-            .filter((opt): opt is FilterValueOption => opt !== null);
-        return { options: [...(options || []), ...extraOptions], loading };
+        return {
+            options: mergeFilterOptionsInAllowedValuesOrder(options || [], allowedValuesFromDefinition, (rawValue) => ({
+                value: rawValue,
+                icon: field.icon,
+                count: includeCounts ? 0 : undefined,
+                displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
+            })),
+            loading,
+        };
     }
 
     return { options: options || [], loading };

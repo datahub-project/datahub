@@ -60,6 +60,16 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   @Builder.Default @NonNull private final MeterRegistry registry = new CompositeMeterRegistry();
+
+  /**
+   * When true, skip the per-request {@link #DATAHUB_REQUEST_COUNT} Micrometer counter. Set when
+   * usage aggregation Micrometer export owns that meter name (flush tags differ from the legacy
+   * {@code user_category} set; Micrometer allows only one tag-key set per name).
+   *
+   * <p>Default false so Mockito mocks keep the legacy path unless explicitly stubbed.
+   */
+  @Builder.Default private final boolean suppressLegacyRequestCountMicrometer = false;
+
   private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
   private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
   private static final Map<String, DistributionSummary> legacyHistogramCache =
@@ -74,6 +84,10 @@ public class MetricUtils {
 
   public MeterRegistry getRegistry() {
     return registry;
+  }
+
+  public boolean isSuppressLegacyRequestCountMicrometer() {
+    return suppressLegacyRequestCountMicrometer;
   }
 
   /**

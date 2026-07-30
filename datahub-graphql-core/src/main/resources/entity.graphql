@@ -1404,6 +1404,16 @@ enum EntityType {
   An DataHub File
   """
   DATAHUB_FILE
+
+  """
+  A Metric entity from a semantic layer or metric store.
+  """
+  METRIC
+
+  """
+  A Semantic Model entity that groups datasets and defines metrics context.
+  """
+  SEMANTIC_MODEL
 }
 
 """
@@ -3025,6 +3035,11 @@ type DataPlatformProperties {
   A logo URL associated with the platform
   """
   logoUrl: String
+
+  """
+  Whether datasets on this platform are logical models (hand-authored, no ingestion source)
+  """
+  logical: Boolean
 }
 
 """
@@ -3162,6 +3177,11 @@ enum FabricType {
   Alternative spelling for sandbox
   """
   SBX
+
+  """
+  Designates certification fabrics
+  """
+  CERT
 }
 
 """
@@ -3972,6 +3992,22 @@ enum SchemaFieldDataType {
   An complex struct type
   """
   STRUCT
+}
+
+"""
+A single editable schema field definition (name + type), for APIs that let a caller
+author or replace a dataset's schema fields directly (e.g. logical models).
+"""
+input EditableSchemaFieldInput {
+  """
+  The column name / field path.
+  """
+  fieldPath: String!
+
+  """
+  The DataHub data type of the column.
+  """
+  type: SchemaFieldDataType!
 }
 
 """
@@ -5135,6 +5171,11 @@ type Tag implements Entity {
   Ownership metadata of the dataset
   """
   ownership: Ownership
+
+  """
+  The deprecation status of the Tag
+  """
+  deprecation: Deprecation
 
   """
   Granular API for querying edges extending from this entity
@@ -11897,6 +11938,11 @@ type Domain implements Entity {
   displayProperties: DisplayProperties
 
   """
+  Deprecation status of the domain
+  """
+  deprecation: Deprecation
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
@@ -11935,6 +11981,11 @@ type DomainProperties {
   A Resolved Audit Stamp corresponding to the creation of this resource
   """
   createdOn: ResolvedAuditStamp
+
+  """
+  Custom properties of the Domain
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -13506,9 +13557,19 @@ type DataProduct implements Entity {
   forms: Forms
 
   """
+  Deprecation status of the data product
+  """
+  deprecation: Deprecation
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Whether the Data Product exists in DataHub
+  """
+  exists: Boolean
 }
 
 """

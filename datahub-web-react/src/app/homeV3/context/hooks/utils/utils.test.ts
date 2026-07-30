@@ -64,8 +64,7 @@ describe('getDefaultSummaryPageTemplate', () => {
             },
         });
 
-        // Verify modules array has content (but don't test specific content since it will change)
-        expect(result.properties.rows[0].modules).toHaveLength(1);
+        expect(result.properties.rows[0].modules).toHaveLength(2);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {

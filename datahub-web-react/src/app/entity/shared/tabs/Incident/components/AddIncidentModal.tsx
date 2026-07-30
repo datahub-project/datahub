@@ -7,13 +7,13 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import {
     PAGE_SIZE,
     addActiveIncidentToCache,
     getIncidentDisplayTypes,
 } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';

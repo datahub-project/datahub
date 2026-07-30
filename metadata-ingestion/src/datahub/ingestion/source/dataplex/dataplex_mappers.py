@@ -33,6 +33,7 @@ from typing import Optional, Pattern, Union
 from google.cloud import dataplex_v1
 from typing_extensions import TypeAlias, assert_never
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import (
@@ -48,6 +49,11 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGTABLE_INSTANCE_FQN_REGEX,
     BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
     BIGTABLE_TABLE_FQN_REGEX,
+    DATAPROC_METASTORE_DATABASE_FQN_REGEX,
+    DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX,
+    DATAPROC_METASTORE_SERVICE_FQN_REGEX,
+    DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX,
+    DATAPROC_METASTORE_TABLE_FQN_REGEX,
     MYSQL_DATABASE_FQN_REGEX,
     MYSQL_DATABASE_PARENT_ENTRY_REGEX,
     MYSQL_INSTANCE_FQN_REGEX,
@@ -68,12 +74,15 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DataplexCloudSpannerInstance,
     DataplexCloudSqlMySqlDatabase,
     DataplexCloudSqlMySqlInstance,
+    DataplexDataprocMetastoreDatabase,
+    DataplexDataprocMetastoreService,
     DataplexProjectId,
     extract_entry_type_short_name,
     instantiate_key,
     parse_with_regex,
 )
 from datahub.ingestion.source.dataplex.dataplex_properties import (
+    AspectFilterReporter,
     extract_entry_custom_properties,
 )
 from datahub.ingestion.source.dataplex.dataplex_schema import (
@@ -104,6 +113,9 @@ class EntryMappingContext:
     config: DataplexConfig
     location: str
     report: SourceReport
+    # Optional counter for aspects dropped by aspect_type_pattern (see
+    # extract_entry_custom_properties). None in unit tests that build a bare context.
+    entries_report: Optional[AspectFilterReporter] = None
 
 
 @dataclass(frozen=True)
@@ -399,7 +411,11 @@ class _CommonFields:
     custom_properties: dict[str, str]
 
 
-def _extract_common_fields(entry: dataplex_v1.Entry) -> _CommonFields:
+def _extract_common_fields(
+    entry: dataplex_v1.Entry,
+    aspect_type_pattern: AllowDenyPattern,
+    report: Optional[AspectFilterReporter] = None,
+) -> _CommonFields:
     entry_group_id = _extract_entry_group_id(entry.name)
     return _CommonFields(
         display_name=_extract_display_name(entry),
@@ -407,7 +423,7 @@ def _extract_common_fields(entry: dataplex_v1.Entry) -> _CommonFields:
         created=_extract_datetime(entry, "create_time"),
         last_modified=_extract_datetime(entry, "update_time"),
         custom_properties=extract_entry_custom_properties(
-            entry, entry.name, entry_group_id
+            entry, entry.name, entry_group_id, aspect_type_pattern, report
         ),
     )
 
@@ -583,7 +599,9 @@ def build_dataset(
             fqn_regex, platform, entry.fully_qualified_name
         )
 
-    common = _extract_common_fields(entry)
+    common = _extract_common_fields(
+        entry, ctx.config.aspect_type_pattern, ctx.entries_report
+    )
     # Only pass parent_container when resolved: the SDK emits an (empty)
     # browsePathsV2 aspect when the kwarg is provided even as None, so omitting
     # it preserves the exact emitted metadata. Two explicit calls (rather than a
@@ -703,7 +721,9 @@ def build_container(
             fqn_regex, platform, entry.fully_qualified_name
         )
 
-    common = _extract_common_fields(entry)
+    common = _extract_common_fields(
+        entry, ctx.config.aspect_type_pattern, ctx.entries_report
+    )
     # container_parent_key is effectively always set here — the project key is
     # the fallback and only fails to build when the FQN is unparseable, in which
     # case the container key above already failed and we returned. Passed
@@ -1056,6 +1076,78 @@ class VertexAiDatasetMapper(EntryMapper):
         )
 
 
+class DataprocMetastoreServiceMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-service"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_SERVICE_FQN_REGEX
+    datahub_identity = ContainerIdentity(DataplexDataprocMetastoreService)
+    # No parent_entry - services are top-level under project
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_container(
+            entry,
+            ctx,
+            platform=self.datahub_platform,
+            subtype=DatasetContainerSubTypes.SERVICE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class DataprocMetastoreDatabaseMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-database"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_DATABASE_FQN_REGEX
+    datahub_identity = ContainerIdentity(DataplexDataprocMetastoreDatabase)
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexDataprocMetastoreService,
+    )
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_container(
+            entry,
+            ctx,
+            platform=self.datahub_platform,
+            subtype=DatasetContainerSubTypes.DATABASE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class DataprocMetastoreTableMapper(EntryMapper):
+    dataplex_entry_type_short_name = "dataproc-metastore-table"
+    datahub_platform = "dataproc-metastore"
+    dataplex_fqn_regex = DATAPROC_METASTORE_TABLE_FQN_REGEX
+    datahub_identity = DatasetIdentity(
+        "{project_id}.{location}.{service_id}.{database_id}.{table_id}"
+    )
+    dataplex_parent_entry = ParentEntryLink(
+        dataplex_parent_entry_regex=DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX,
+        datahub_schemakey_class=DataplexDataprocMetastoreDatabase,
+    )
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_dataset(
+            entry,
+            ctx,
+            short_name=self.dataplex_entry_type_short_name,
+            platform=self.datahub_platform,
+            subtype=DatasetSubTypes.TABLE,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
 # ----------------------------------------------------------------------------
 # Registry (the factory)
 # ----------------------------------------------------------------------------
@@ -1075,6 +1167,9 @@ _ALL_MAPPERS: list[EntryMapper] = [
     CloudBigtableTableMapper(),
     PubSubTopicMapper(),
     VertexAiDatasetMapper(),
+    DataprocMetastoreServiceMapper(),
+    DataprocMetastoreDatabaseMapper(),
+    DataprocMetastoreTableMapper(),
 ]
 
 ENTRY_MAPPERS: dict[str, EntryMapper] = {

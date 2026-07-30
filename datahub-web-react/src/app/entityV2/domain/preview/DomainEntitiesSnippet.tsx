@@ -1,5 +1,4 @@
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
-import { VerticalDivider } from '@remirror/react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -21,10 +20,14 @@ const Wrapper = styled.div`
     }
 `;
 
-const StyledDivider = styled(VerticalDivider)`
-    &&& {
-        margin: 0 8px;
-    }
+const StyledDivider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 12px;
+    background-color: currentColor;
+    opacity: 0.3;
+    margin: 0 8px;
+    vertical-align: middle;
 `;
 
 interface Props {

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -74,6 +75,10 @@ public class ConfigEntityRegistrySearchIndexGroupTest {
     EntitySpec testEntitySpec = configEntityRegistry.getEntitySpec("testEntity");
     assertEquals(testEntitySpec.getName(), "testEntity");
     assertEquals(testEntitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertTrue(testEntitySpec.isViewUnrestricted());
+
+    // Entities without viewUnrestricted default to false
+    assertFalse(datasetSpec.isViewUnrestricted());
   }
 
   @Test

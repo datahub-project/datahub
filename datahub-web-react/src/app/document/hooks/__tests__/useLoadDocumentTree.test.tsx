@@ -4,6 +4,7 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_STATE, UserContext } from '@app/context/userContext';
 import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
 import { DOCUMENT_PAGE_SIZE, useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 
@@ -267,5 +268,40 @@ describe('useLoadDocumentTree', () => {
         const { result } = renderHook(() => useLoadDocumentTree(), { wrapper });
 
         expect(result.current.loading).toBe(true);
+    });
+
+    it('should scope tree queries to the active View', async () => {
+        const viewUrn = 'urn:li:dataHubView:test';
+        const viewWrapper = ({ children }: any) => (
+            <ApolloProvider client={mockClient}>
+                <UserContext.Provider
+                    value={{
+                        loaded: true,
+                        urn: 'urn:li:corpuser:test',
+                        localState: { selectedViewUrn: viewUrn },
+                        state: DEFAULT_STATE,
+                        updateLocalState: () => null,
+                        updateState: () => null,
+                        refetchUser: () => null,
+                    }}
+                >
+                    <DocumentTreeContext.Provider value={mockContextValue}>{children}</DocumentTreeContext.Provider>
+                </UserContext.Provider>
+            </ApolloProvider>
+        );
+
+        renderHook(() => useLoadDocumentTree(), { wrapper: viewWrapper });
+
+        await waitFor(() => {
+            expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled();
+        });
+
+        expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({ viewUrn }),
+                }),
+            }),
+        );
     });
 });

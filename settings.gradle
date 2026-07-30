@@ -215,6 +215,23 @@ def installPreCommitHooks() {
             println "Error installing hooks: ${e.message}"
             return
         }
+        // Also install the pre-push stage so hooks declared with
+        // stages: [pre-push] (self-correcting formatters + the push file-count
+        // guard) actually run on `git push`. See PFP-5002.
+        try {
+            def installPushProcess = ["pre-commit", "install", "--hook-type", "pre-push"].execute()
+            def stdout = new StringBuilder()
+            def stderr = new StringBuilder()
+            installPushProcess.waitForProcessOutput(stdout, stderr)
+            if (installPushProcess.exitValue() != 0) {
+                println "Failed to install pre-push hooks: ${stdout}"
+                return
+            }
+            println "Pre-push hooks output: ${stdout}"
+        } catch (Exception e) {
+            println "Error installing pre-push hooks: ${e.message}"
+            return
+        }
     }
 }
 

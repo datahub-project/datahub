@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Alternatív szöveg",
+    "addImage.imageUrl": "Kép URL-je",
+    "addImage.title": "Kép hozzáadása",
+    "heading.heading1": "Címsor 1",
+    "heading.heading2": "Címsor 2",
+    "heading.heading3": "Címsor 3",
+    "heading.heading4": "Címsor 4",
+    "heading.heading5": "Címsor 5",
+    "heading.normal": "Normál",
+    "link.linkUrl": "Hivatkozás URL-je",
+    "link.text": "Szöveg",
+    "link.title": "Hivatkozás hozzáadása",
+    "mentions.failedToFindEntity": "Az entitás nem található",
+    "table.deleteColumn": "Oszlop törlése",
+    "table.deleteRow": "Sor törlése",
+    "table.deleteTable": "Táblázat törlése",
+    "table.insertColumnLeft": "Oszlop beszúrása balra",
+    "table.insertColumnRight": "Oszlop beszúrása jobbra",
+    "table.insertRowAbove": "Sor beszúrása fölé",
+    "table.insertRowBelow": "Sor beszúrása alá"
+}

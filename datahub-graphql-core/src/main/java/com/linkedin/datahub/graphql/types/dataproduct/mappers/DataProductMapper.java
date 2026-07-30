@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME
 import static com.linkedin.metadata.Constants.ASSET_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -14,6 +15,7 @@ import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.application.Applications;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -30,6 +32,7 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -117,6 +120,10 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     mappingHelper.mapToResult(
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (dataProduct, dataMap) -> mapApplicationAssociation(context, dataProduct, dataMap));
+    mappingHelper.mapToResult(
+        DEPRECATION_ASPECT_NAME,
+        (dataProduct, dataMap) ->
+            dataProduct.setDeprecation(DeprecationMapper.map(context, new Deprecation(dataMap))));
     mappingHelper.mapToResult(
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->

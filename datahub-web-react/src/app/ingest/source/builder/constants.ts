@@ -13,6 +13,7 @@ import csvLogo from '@images/csv-logo.png';
 import cubeLogo from '@images/cubelogo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
+import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
@@ -34,6 +35,7 @@ import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
+import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
@@ -123,6 +125,8 @@ export const MATILLION_DPC = 'matillion-dpc';
 export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+export const MICROSTRATEGY = 'microstrategy';
+const MICROSTRATEGY_URN = `urn:li:dataPlatform:${MICROSTRATEGY}`;
 const MLFLOW = 'mlflow';
 const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 export const MODE = 'mode';
@@ -172,6 +176,8 @@ const UNITY_CATALOG = 'unity-catalog';
 const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+export const DATAPROC_METASTORE = 'dataproc-metastore';
+const DATAPROC_METASTORE_URN = `urn:li:dataPlatform:${DATAPROC_METASTORE}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const DLT = 'dlt';
@@ -243,6 +249,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
+    [MICROSTRATEGY_URN]: microstrategyLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
@@ -266,6 +273,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
+    [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,

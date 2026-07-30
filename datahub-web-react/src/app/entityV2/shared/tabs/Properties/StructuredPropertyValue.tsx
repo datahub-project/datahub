@@ -13,7 +13,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
+import ActorPill from '@src/app/sharedV2/owners/ActorPill';
+import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
@@ -141,7 +142,13 @@ export default function StructuredPropertyValue({
 
     let valueEntityRender = <></>;
     if (value.entity) {
-        if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
+        const entityToRender = hydratedEntityMap?.[value.entity.urn] || value.entity;
+        const isUserOrGroup =
+            entityToRender.type === EntityType.CorpUser || entityToRender.type === EntityType.CorpGroup;
+
+        if (isUserOrGroup) {
+            valueEntityRender = <ActorPill actor={entityToRender as OwnerType} />;
+        } else if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
             valueEntityRender = (
                 <CompactEntityNameComponent entity={hydratedEntityMap[value.entity.urn]} showFullTooltip />
             );

@@ -39,7 +39,6 @@ class Constant:
     keys used in powerbi plugin
     """
 
-    PBIAccessToken = "PBIAccessToken"
     DASHBOARD_LIST = "DASHBOARD_LIST"
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
@@ -304,32 +303,51 @@ class DataBricksPlatformDetail(PlatformDetail):
 
 
 class OraclePlatformDetail(PlatformDetail):
-    """Oracle-specific platform detail. Adds ``default_schema`` for inline native SQL."""
-
-    # Required (not Optional) so a recipe entry containing ``default_schema=``
-    # unambiguously resolves to OraclePlatformDetail in the
-    # ``server_to_platform_instance`` Union below. ConfigModel sets
-    # ``extra='forbid'`` so a plain ``{platform_instance: ...}`` already cannot
-    # absorb into Oracle; the requirement defends against a recipe author
-    # leaving ``default_schema:`` blank and silently producing
-    # ``default_schema=None``.
-    default_schema: str = pydantic.Field(
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
         description=(
-            "Default Oracle schema applied to unqualified table references found "
-            'inside ``Oracle.Database(…, Query="…")`` inline native SQL. Set to '
-            "whatever schema your Oracle ingestion uses as the URN prefix. Only "
-            "configure this on Oracle servers that need it; other platforms "
-            "should use plain PlatformDetail. Empty/whitespace values are rejected."
+            "Owner/schema applied to unqualified table references inside "
+            '``Oracle.Database(…, Query="…")`` inline native SQL, so they resolve '
+            "to your ingested Oracle datasets. Not used by hierarchical navigation."
+        ),
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Database segment prepended to the table name when the "
+            "``Oracle.Database`` connection is a bare TNS alias or descriptor "
+            "(which carries no database). Set this to match the database segment "
+            "your Oracle ingestion uses, only when that ingestion emits 3-part "
+            "``database.schema.table`` URNs (``add_database_name_to_urn: true``); "
+            "leave unset for the default 2-part URNs and for EZ-Connect "
+            "``host:port/service`` connections."
         ),
     )
 
-    @field_validator("default_schema")
+    @field_validator("default_schema", "default_database")
     @classmethod
-    def _strip_and_validate_default_schema(cls, value: str) -> str:
+    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
         stripped = value.strip()
         if not stripped:
-            raise ValueError("default_schema must not be empty or whitespace")
+            raise ValueError("must not be empty or whitespace")
         return stripped
+
+    # Requires at least one knob. This is also relied on to disambiguate
+    # OraclePlatformDetail from a plain PlatformDetail in the
+    # server_to_platform_instance Union: a plain {platform_instance} entry fails
+    # this check, so it is never a valid OraclePlatformDetail candidate —
+    # independent of pydantic's union-resolution order.
+    @model_validator(mode="after")
+    def _require_at_least_one_default(self) -> "OraclePlatformDetail":
+        if self.default_schema is None and self.default_database is None:
+            raise ValueError(
+                "OraclePlatformDetail requires 'default_schema' and/or "
+                "'default_database'; use a plain platform-instance mapping if "
+                "you need neither."
+            )
+        return self
 
 
 class OwnershipMapping(ConfigModel):
@@ -489,10 +507,13 @@ class PowerBiDashboardSourceConfig(
         str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
-        description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port. "
-        "For Google BigQuery the datasource's server is google bigquery project name. "
-        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
+        description="Mapping from a PowerBI datasource server to the DataHub platform instance "
+        "(and env) of its upstream tables, so lineage URNs match your other DataHub sources. "
+        "The key is the server as it appears in the M-query, i.e. `host[:port]` (`:port` only for "
+        "non-standard ports); for Google BigQuery it is the project name, for Databricks Unity "
+        "Catalog the workspace FQDN, and for Oracle the EZ-Connect host, bare TNS alias, or "
+        "descriptor SERVICE_NAME (case-insensitive). The value is a platform-detail object; Oracle "
+        "servers may add `default_schema`/`default_database` and Databricks servers `metastore`.",
     )
     # ODBC DSN to platform mapping
     dsn_to_platform_name: Dict[str, str] = pydantic.Field(

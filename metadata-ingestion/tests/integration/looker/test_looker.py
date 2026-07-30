@@ -690,6 +690,10 @@ def side_effect_query_inline(
                 },
             ]
         ),
+        # Explore-level usage is unit-tested in tests/unit/looker/test_looker_usage.py;
+        # here we just return empty so the dashboard/look goldens are unaffected.
+        looker_usage.QueryId.EXPLORE_PER_DAY_USAGE_STAT: json.dumps([]),
+        looker_usage.QueryId.EXPLORE_PER_USER_PER_DAY_USAGE_STAT: json.dumps([]),
     }
 
     if query_id_vs_response.get(query_type) is None:

@@ -593,11 +593,12 @@ class DocumentChunkingSource(Source):
                 except Exception as e:
                     short_error = str(e).split("\n")[0][:200]
                     self.report.report_embedding_failure(doc["urn"], short_error)
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Embedding generation failed",
                         message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
                         context=f"{doc['urn']}: {short_error}",
                         exc=e,
+                        log=False,
                     )
             else:
                 logger.debug(
@@ -863,7 +864,12 @@ class DocumentChunkingSource(Source):
             aspect=semantic_content,
         )
 
-        workunit = MetadataWorkUnit(id=f"{document_urn}-semanticContent", mcp=mcp)
+        # Mark as non-primary so AutoStatusAspectProcessor does not emit a
+        # StatusClass UPSERT for these document URNs — that would overwrite
+        # lifecycleStage / lifecycleState set by other sources or users.
+        workunit = MetadataWorkUnit(
+            id=f"{document_urn}-semanticContent", mcp=mcp, is_primary_source=False
+        )
 
         logger.info(
             f"Emitting SemanticContent for {document_urn} with {len(chunks)} chunks"

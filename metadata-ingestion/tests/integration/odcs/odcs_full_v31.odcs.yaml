@@ -1,0 +1,165 @@
+# Fully v3.1.0-conformant contract — also run with strict_validation=true.
+apiVersion: v3.1.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000002
+name: customers_full
+version: 2.1.0
+status: active
+domain: customers
+dataProduct: customer-360
+tenant: acme
+description:
+  purpose: Customer master records used by the CDP.
+  usage: Joinable to orders and events on customer_id.
+  limitations: Non-PII columns only available outside the data perimeter.
+tags:
+  - finance
+  - pii
+authoritativeDefinitions:
+  - url: https://example.internal/contracts/customer-360
+    type: businessDefinition
+slaProperties:
+  - property: generalAvailability
+    value: "2024-01-01T00:00:00Z"
+  - property: latency
+    value: 4
+team:
+  - username: alice
+    role: owner
+  - username: bob
+    role: dataSteward
+  - username: bob
+    role: dataSteward          # exact duplicate – should dedup
+  - username: carol
+    role: businessOwner
+  - username: dave
+    role: owner
+    dateOut: "2024-01-01"      # excluded
+  - username: erin
+    role: someUnmappedRole     # falls back to TECHNICAL_OWNER
+servers:
+  - server: prod-postgres
+    type: postgres
+    host: postgres.example.internal
+    port: 5432
+    database: customers_db
+    schema: public
+  - server: prod-snowflake
+    type: snowflake
+    account: acme-prod
+    database: ANALYTICS
+    schema: PUBLIC
+schema:
+  - name: customers
+    physicalName: customers
+    description: Master table of customers.
+    tags:
+      - core
+    properties:
+      - name: id
+        physicalName: id
+        logicalType: number
+        primaryKey: true
+        required: true
+        description: Surrogate key.
+        quality:
+          - id: customers_id_no_nulls
+            metric: nullValues
+            mustBe: 0
+            description: There must be no null ids.
+      - name: email
+        physicalName: email
+        logicalType: string
+        required: true
+        tags:
+          - pii
+        classification: confidential
+        description: Primary contact email for the customer.
+        quality:
+          - id: customers_email_unique
+            metric: duplicateValues
+            mustBe: 0
+            description: Emails must be unique.
+          - id: customers_email_missing
+            metric: missingValues
+            arguments:
+              missingValues: [null, "", "N/A"]
+            mustBeLessOrEqualTo: 100
+            unit: rows
+      - name: status
+        physicalName: status
+        logicalType: string
+        quality:
+          - id: customers_status_valid
+            metric: invalidValues
+            mustBe: 0
+            arguments:
+              validValues: ["active", "dormant", "closed"]
+          - id: customers_status_null_pct
+            metric: nullValues
+            mustBeLessThan: 1
+            unit: percent
+      - name: iban
+        physicalName: iban
+        logicalType: string
+        quality:
+          - id: customers_iban_pattern
+            metric: invalidValues
+            mustBe: 0
+            arguments:
+              pattern: '^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$'
+      - name: profile
+        physicalName: profile
+        logicalType: object
+        description: Nested profile struct.
+        properties:
+          - name: country
+            logicalType: string
+            quality:
+              - id: customers_country_valid
+                metric: invalidValues
+                arguments:
+                  validValues: ["US", "CA", "GB", "DE"]
+                mustBeLessOrEqualTo: 5
+                unit: rows
+          - name: score
+            logicalType: number
+            quality:
+              - id: customers_score_documented
+                type: text
+                description: Score is recomputed nightly and must stay within 0-100.
+    quality:
+      - id: customers_row_count
+        metric: rowCount
+        mustBeGreaterOrEqualTo: 100
+      - id: customers_row_count_not_in_range
+        metric: rowCount
+        mustNotBeBetween: [1, 10]      # unmappable operator — routes to custom
+      - id: customers_row_count_pct
+        metric: rowCount
+        mustBeLessThan: 5
+        unit: percent                  # relative row count — routes to custom
+      - id: customers_tenant_order_unique
+        metric: duplicateValues
+        mustBe: 0
+        arguments:
+          properties:                  # multi-column — routes to custom
+            - id
+            - email
+      - id: customers_have_emails
+        type: sql
+        query: SELECT COUNT(*) FROM customers WHERE email IS NULL
+        mustBe: 0
+  - name: orders
+    physicalName: orders
+    description: Order events.
+    properties:
+      - name: order_id
+        logicalType: number
+        primaryKey: true
+      - name: customer_id
+        logicalType: number
+    quality:
+      - id: orders_row_count
+        metric: rowCount
+        mustBeGreaterThan: 0
