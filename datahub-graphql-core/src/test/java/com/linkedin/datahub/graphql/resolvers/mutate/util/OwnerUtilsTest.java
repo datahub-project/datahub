@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionScope;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
@@ -34,7 +34,7 @@ public class OwnerUtilsTest {
         .setDatasetAssertion(
             new DatasetAssertionInfo()
                 .setDataset(Urn.createFromString(datasetUrn))
-                .setScope(AssertionScope.DATASET_COLUMN)
+                .setScope(DatasetAssertionScope.DATASET_COLUMN)
                 .setOperator(AssertionStdOperator.BETWEEN));
   }
 

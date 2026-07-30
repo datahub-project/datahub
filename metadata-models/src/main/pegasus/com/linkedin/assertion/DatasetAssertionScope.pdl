@@ -2,9 +2,9 @@ namespace com.linkedin.assertion
 
 /**
 * Scope of an assertion — which part of an asset the check applies to.
-* Used by CustomAssertionInfo and the legacy DatasetAssertionInfo model.
+* Used by DatasetAssertionInfo and CustomAssertionInfo.
 **/
-enum AssertionScope {
+enum DatasetAssertionScope {
   /**
   * This assertion applies to dataset column(s)
   */

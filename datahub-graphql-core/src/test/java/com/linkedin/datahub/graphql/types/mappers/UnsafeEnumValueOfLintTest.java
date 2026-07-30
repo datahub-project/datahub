@@ -98,8 +98,8 @@ public class UnsafeEnumValueOfLintTest {
           Map.entry(
               violation(
                   "java/com/linkedin/datahub/graphql/types/assertion/AssertionMapper.java",
-                  "AssertionScope",
-                  "AssertionScope.valueOf(gmsDatasetAssertion.getScope().name())"),
+                  "DatasetAssertionScope",
+                  "DatasetAssertionScope.valueOf(gmsDatasetAssertion.getScope().name())"),
               1),
           Map.entry(
               violation(

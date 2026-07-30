@@ -27,7 +27,7 @@ record DatasetAssertionInfo {
     * Scope of the Assertion. What part of the dataset does this assertion apply to?
     **/
     @Searchable = {}
-    scope: AssertionScope
+    scope: DatasetAssertionScope
 
     /**
     * One or more dataset schema fields that are targeted by this assertion.

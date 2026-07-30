@@ -8284,7 +8284,7 @@ type DatasetAssertionInfo {
   """
   The scope of the Dataset assertion.
   """
-  scope: AssertionScope!
+  scope: DatasetAssertionScope!
 
   """
   The fields serving as input to the assertion. Empty if there are none.
@@ -8827,9 +8827,8 @@ enum AssertionStdParameterType {
 
 """
 The scope that an assertion applies to (column, rows, schema, storage, etc.).
-Formerly named DatasetAssertionScope.
 """
-enum AssertionScope {
+enum DatasetAssertionScope {
   """
   Assertion applies to columns of a dataset.
   """

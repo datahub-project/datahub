@@ -13,7 +13,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
-import com.linkedin.datahub.graphql.generated.AssertionScope;
+import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.AssertionSource;
 import com.linkedin.datahub.graphql.generated.AssertionSourceType;
 import com.linkedin.datahub.graphql.generated.AssertionStdAggregation;
@@ -234,7 +234,7 @@ public class AssertionMapper {
       final com.linkedin.assertion.DatasetAssertionInfo gmsDatasetAssertion) {
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDatasetUrn(gmsDatasetAssertion.getDataset().toString());
-    datasetAssertion.setScope(AssertionScope.valueOf(gmsDatasetAssertion.getScope().name()));
+    datasetAssertion.setScope(DatasetAssertionScope.valueOf(gmsDatasetAssertion.getScope().name()));
     if (gmsDatasetAssertion.hasFields()) {
       datasetAssertion.setFields(
           gmsDatasetAssertion.getFields().stream()

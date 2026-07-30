@@ -16,7 +16,7 @@ import enValidations from '@src/i18n/locales/en/entity.profile.validations.json'
 
 import {
     AssertionInfo,
-    AssertionScope,
+    DatasetAssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameterType,
@@ -122,7 +122,7 @@ describe('DatasetAssertionDescription', () => {
 
     it.each(operators)('operator %s', (_name, operator, parameters, expected) => {
         const info = {
-            scope: AssertionScope.DatasetColumn,
+            scope: DatasetAssertionScope.DatasetColumn,
             aggregation: AssertionStdAggregation.UniqueCount,
             fields: [{ path: 'profileId' }],
             operator,
@@ -133,95 +133,95 @@ describe('DatasetAssertionDescription', () => {
     });
 
     // Each aggregation rendered against a fixed (greater than 5) operator suffix.
-    const aggregations: Array<[string, AssertionScope, AssertionStdAggregation, string]> = [
+    const aggregations: Array<[string, DatasetAssertionScope, AssertionStdAggregation, string]> = [
         [
             'schemaColumnCount',
-            AssertionScope.DatasetSchema,
+            DatasetAssertionScope.DatasetSchema,
             AssertionStdAggregation.ColumnCount,
             'Dataset column count is greater than 5',
         ],
         [
             'schemaColumns',
-            AssertionScope.DatasetSchema,
+            DatasetAssertionScope.DatasetSchema,
             AssertionStdAggregation.Columns,
             'Dataset columns are greater than 5',
         ],
         [
             'schemaNative',
-            AssertionScope.DatasetSchema,
+            DatasetAssertionScope.DatasetSchema,
             AssertionStdAggregation.Native,
             'Dataset columns ["profileId"] are greater than 5',
         ],
         [
             'rowsRowCount',
-            AssertionScope.DatasetRows,
+            DatasetAssertionScope.DatasetRows,
             AssertionStdAggregation.RowCount,
             'Dataset row count is greater than 5',
         ],
-        ['rowsNative', AssertionScope.DatasetRows, AssertionStdAggregation.Native, 'Dataset rows are greater than 5'],
+        ['rowsNative', DatasetAssertionScope.DatasetRows, AssertionStdAggregation.Native, 'Dataset rows are greater than 5'],
         [
             'colUniqueCount',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.UniqueCount,
             'Unique value count for column profileId is greater than 5',
         ],
         [
             'colUniqueProportion',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.UniquePropotion,
             'Unique value proportion for column profileId is greater than 5',
         ],
         [
             'colNullCount',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.NullCount,
             'Null count for column profileId is greater than 5',
         ],
         [
             'colNullProportion',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.NullProportion,
             'Null proportion for column profileId is greater than 5',
         ],
         [
             'colMin',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Min,
             'Minimum value for column profileId is greater than 5',
         ],
         [
             'colMax',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Max,
             'Maximum value for column profileId is greater than 5',
         ],
         [
             'colMean',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Mean,
             'Mean value for column profileId is greater than 5',
         ],
         [
             'colMedian',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Median,
             'Median value for column profileId is greater than 5',
         ],
         [
             'colStddev',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Stddev,
             'Standard deviation for column profileId is greater than 5',
         ],
         [
             'colNative',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.Native,
             'Column profileId values are greater than 5',
         ],
         [
             'colDefault',
-            AssertionScope.DatasetColumn,
+            DatasetAssertionScope.DatasetColumn,
             AssertionStdAggregation.ColumnCount,
             'Column profileId values are greater than 5',
         ],
@@ -597,7 +597,7 @@ describe('getPlainTextDescriptionFromAssertion (search path)', () => {
         const info = {
             type: AssertionType.Dataset,
             datasetAssertion: {
-                scope: AssertionScope.DatasetColumn,
+                scope: DatasetAssertionScope.DatasetColumn,
                 aggregation: AssertionStdAggregation.UniqueCount,
                 fields: [{ path: 'profileId' }],
                 operator: AssertionStdOperator.GreaterThan,

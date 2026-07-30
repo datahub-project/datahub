@@ -10,7 +10,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
-    AssertionScope,
+    DatasetAssertionScope,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameter,
@@ -65,7 +65,7 @@ emitter.emit_mcp(dataset_mcp)
 assertion_maxVal = AssertionInfo(
     type=AssertionType.DATASET,
     datasetAssertion=DatasetAssertionInfo(
-        scope=AssertionScope.DATASET_COLUMN,
+        scope=DatasetAssertionScope.DATASET_COLUMN,
         operator=AssertionStdOperator.BETWEEN,
         nativeType="expect_column_max_to_be_between",
         aggregation=AssertionStdAggregation.MAX,

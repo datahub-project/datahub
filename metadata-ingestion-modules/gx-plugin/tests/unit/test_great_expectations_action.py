@@ -42,7 +42,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    AssertionScopeClass,
+    DatasetAssertionScopeClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionTypeClass,
@@ -388,7 +388,7 @@ def test_DataHubValidationAction_sqlalchemy(
                         type=AssertionTypeClass.DATASET,
                         customProperties={"expectation_suite_name": "asset.default"},
                         datasetAssertion=DatasetAssertionInfoClass(
-                            scope=AssertionScopeClass.DATASET_ROWS,
+                            scope=DatasetAssertionScopeClass.DATASET_ROWS,
                             dataset="urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.foo2,PROD)",
                             operator="BETWEEN",
                             nativeType="expect_table_row_count_to_be_between",
@@ -500,7 +500,7 @@ def test_DataHubValidationAction_pandas(
                         type="DATASET",
                         datasetAssertion=DatasetAssertionInfoClass(
                             dataset="urn:li:dataset:(urn:li:dataPlatform:custom_platefrom,my_df_datasource,PROD)",
-                            scope=AssertionScopeClass.DATASET_COLUMN,
+                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
                             operator="NOT_NULL",
                             fields=[
                                 "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:custom_platefrom,my_df_datasource,PROD),column)"
@@ -572,7 +572,7 @@ def test_DataHubValidationAction_spark(
                                 "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"
                                 "foobar_spark_df,PROD)"
                             ),
-                            scope=AssertionScopeClass.DATASET_COLUMN,
+                            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
                             fields=[
                                 "urn:li:schemaField:("
                                 "urn:li:dataset:(urn:li:dataPlatform:custom_platefrom_spark,"

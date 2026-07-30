@@ -13,7 +13,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    AssertionScopeClass,
+    DatasetAssertionScopeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -106,7 +106,7 @@ def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
 
 @dataclass
 class AssertionParams:
-    scope: Union[AssertionScopeClass, str]
+    scope: Union[DatasetAssertionScopeClass, str]
     operator: Union[AssertionStdOperatorClass, str]
     aggregation: Union[AssertionStdAggregationClass, str]
     parameters: Optional[Callable[[Dict[str, str]], AssertionStdParametersClass]] = None
@@ -115,12 +115,12 @@ class AssertionParams:
 
 _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
     "not_null": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.NOT_NULL,
         aggregation=AssertionStdAggregationClass.IDENTITY,
     ),
     "unique": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.EQUAL_TO,
         aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
         parameters=lambda _: AssertionStdParametersClass(
@@ -131,7 +131,7 @@ _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
         ),
     ),
     "accepted_values": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.IN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
         parameters=lambda kw_args: AssertionStdParametersClass(
@@ -142,7 +142,7 @@ _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
         ),
     ),
     "relationships": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass._NATIVE_,
         aggregation=AssertionStdAggregationClass.IDENTITY,
         parameters=lambda kw_args: AssertionStdParametersClass(
@@ -154,12 +154,12 @@ _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
         logic_fn=_get_name_for_relationship_test,
     ),
     "dbt_expectations.expect_column_values_to_not_be_null": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.NOT_NULL,
         aggregation=AssertionStdAggregationClass.IDENTITY,
     ),
     "dbt_expectations.expect_column_values_to_be_between": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.BETWEEN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
         parameters=lambda x: AssertionStdParametersClass(
@@ -174,7 +174,7 @@ _DBT_TEST_NAME_TO_ASSERTION_MAP: Dict[str, AssertionParams] = {
         ),
     ),
     "dbt_expectations.expect_column_values_to_be_in_set": AssertionParams(
-        scope=AssertionScopeClass.DATASET_COLUMN,
+        scope=DatasetAssertionScopeClass.DATASET_COLUMN,
         operator=AssertionStdOperatorClass.IN,
         aggregation=AssertionStdAggregationClass.IDENTITY,
         parameters=lambda kw_args: AssertionStdParametersClass(
@@ -272,7 +272,7 @@ def make_assertion_from_test(
                 fields=(
                     [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
                     if (
-                        assertion_params.scope == AssertionScopeClass.DATASET_COLUMN
+                        assertion_params.scope == DatasetAssertionScopeClass.DATASET_COLUMN
                         and column_name
                     )
                     else []
@@ -300,7 +300,7 @@ def make_assertion_from_test(
             source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
-                scope=AssertionScopeClass.DATASET_COLUMN,
+                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
                 operator=AssertionStdOperatorClass._NATIVE_,
                 fields=[mce_builder.make_schema_field_urn(upstream_urn, column_name)],
                 nativeType=node.name,
@@ -317,7 +317,7 @@ def make_assertion_from_test(
             source=mce_builder.make_assertion_source(),
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=upstream_urn,
-                scope=AssertionScopeClass.DATASET_ROWS,
+                scope=DatasetAssertionScopeClass.DATASET_ROWS,
                 operator=AssertionStdOperatorClass._NATIVE_,
                 logic=node.compiled_code or node.raw_code,
                 nativeType=node.name,

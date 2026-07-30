@@ -3,7 +3,7 @@ package com.linkedin.metadata.aspect.utils;
 import static org.testng.Assert.*;
 
 import com.linkedin.assertion.AssertionInfo;
-import com.linkedin.assertion.AssertionScope;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
@@ -118,7 +118,7 @@ public class AssertionUtilsTest {
 
     DatasetAssertionInfo datasetInfo = new DatasetAssertionInfo();
     datasetInfo.setDataset(TEST_DATASET_URN);
-    datasetInfo.setScope(AssertionScope.DATASET_ROWS);
+    datasetInfo.setScope(DatasetAssertionScope.DATASET_ROWS);
     assertionInfo.setDatasetAssertion(datasetInfo);
 
     assertEquals(

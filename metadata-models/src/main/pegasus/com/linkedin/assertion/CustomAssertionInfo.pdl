@@ -82,7 +82,7 @@ record CustomAssertionInfo {
     * Optional structured metadata for display/reporting (migrated from DatasetAssertionInfo).
     **/
     @Searchable = {}
-    scope: optional AssertionScope
+    scope: optional DatasetAssertionScope
 
     /**
     * Standardized assertion aggregation / metric.

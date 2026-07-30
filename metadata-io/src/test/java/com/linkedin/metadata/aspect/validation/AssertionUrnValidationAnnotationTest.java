@@ -8,7 +8,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
-import com.linkedin.assertion.AssertionScope;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.CustomAssertionInfo;
@@ -98,7 +98,7 @@ public class AssertionUrnValidationAnnotationTest {
     assertionInfo.setType(AssertionType.DATASET);
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDataset(TEST_DATASET_URN);
-    datasetAssertion.setScope(AssertionScope.DATASET_ROWS);
+    datasetAssertion.setScope(DatasetAssertionScope.DATASET_ROWS);
     datasetAssertion.setOperator(AssertionStdOperator.EQUAL_TO);
     assertionInfo.setDatasetAssertion(datasetAssertion);
 
@@ -114,7 +114,7 @@ public class AssertionUrnValidationAnnotationTest {
     assertionInfo.setType(AssertionType.DATASET);
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDataset(INVALID_ENTITY_TYPE_URN); // corpuser instead of dataset
-    datasetAssertion.setScope(AssertionScope.DATASET_ROWS);
+    datasetAssertion.setScope(DatasetAssertionScope.DATASET_ROWS);
     datasetAssertion.setOperator(AssertionStdOperator.EQUAL_TO);
     assertionInfo.setDatasetAssertion(datasetAssertion);
 
@@ -133,7 +133,7 @@ public class AssertionUrnValidationAnnotationTest {
     assertionInfo.setType(AssertionType.DATASET);
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDataset(TEST_DATASET_URN);
-    datasetAssertion.setScope(AssertionScope.DATASET_COLUMN);
+    datasetAssertion.setScope(DatasetAssertionScope.DATASET_COLUMN);
     datasetAssertion.setOperator(AssertionStdOperator.EQUAL_TO);
     datasetAssertion.setFields(new UrnArray(TEST_SCHEMA_FIELD_URN));
     assertionInfo.setDatasetAssertion(datasetAssertion);
@@ -150,7 +150,7 @@ public class AssertionUrnValidationAnnotationTest {
     assertionInfo.setType(AssertionType.DATASET);
     DatasetAssertionInfo datasetAssertion = new DatasetAssertionInfo();
     datasetAssertion.setDataset(TEST_DATASET_URN);
-    datasetAssertion.setScope(AssertionScope.DATASET_COLUMN);
+    datasetAssertion.setScope(DatasetAssertionScope.DATASET_COLUMN);
     datasetAssertion.setOperator(AssertionStdOperator.EQUAL_TO);
     datasetAssertion.setFields(new UrnArray(TEST_DATASET_URN)); // dataset instead of schemaField
     assertionInfo.setDatasetAssertion(datasetAssertion);

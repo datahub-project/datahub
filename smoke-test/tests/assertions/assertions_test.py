@@ -20,7 +20,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
-    AssertionScopeClass,
+    DatasetAssertionScopeClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
     AuditStampClass,
@@ -56,7 +56,7 @@ def create_test_data(test_file):
         datasetAssertion=DatasetAssertionInfoClass(
             fields=[make_schema_field_urn(dataset_urn, "col1")],
             dataset=dataset_urn,
-            scope=AssertionScopeClass.DATASET_COLUMN,
+            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass.LESS_THAN,
             nativeType="column_value_is_less_than",
             aggregation=AssertionStdAggregation.IDENTITY,
@@ -378,7 +378,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
             customProperties={"expectation_suite_name": "initial"},
             datasetAssertion=DatasetAssertionInfoClass(
                 dataset=dataset_urn,
-                scope=AssertionScopeClass.DATASET_ROWS,
+                scope=DatasetAssertionScopeClass.DATASET_ROWS,
                 operator=AssertionStdOperatorClass.BETWEEN,
             ),
         )
@@ -404,7 +404,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
                 "path": "/datasetAssertion",
                 "value": DatasetAssertionInfoClass(
                     dataset=dataset_urn,
-                    scope=AssertionScopeClass.DATASET_SCHEMA,
+                    scope=DatasetAssertionScopeClass.DATASET_SCHEMA,
                     operator=AssertionStdOperatorClass.EQUAL_TO,
                 ).to_obj(),
             },
@@ -437,7 +437,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
         assert patched_info.note is not None
         assert patched_info.note.content == "keep me"
         assert patched_info.customProperties["expectation_suite_name"] == "updated"
-        assert patched_info.datasetAssertion.scope == AssertionScopeClass.DATASET_SCHEMA
+        assert patched_info.datasetAssertion.scope == DatasetAssertionScopeClass.DATASET_SCHEMA
         assert (
             patched_info.datasetAssertion.operator == AssertionStdOperatorClass.EQUAL_TO
         )
